@@ -265,7 +265,7 @@ namespace MWInput
 
         int mFakeDeviceID; //As we only support one controller at a time, use a fake deviceID so we don't lose bindings when switching controllers
 
-    private:
+    public:
         enum Actions
         {
             // please add new actions at the bottom, in order to preserve the channel IDs in the key configuration files

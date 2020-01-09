@@ -13,6 +13,11 @@
 
 #include "mwworld/ptr.hpp"
 
+#ifdef USE_OPENXR
+#include "mwvr/openxrmanager.hpp"
+#include "mwvr/openxrviewer.hpp"
+#endif
+
 namespace Resource
 {
     class ResourceSystem;
@@ -62,6 +67,7 @@ namespace osgViewer
 {
     class ScreenCaptureHandler;
 }
+
 
 struct SDL_Window;
 
@@ -205,6 +211,13 @@ namespace OMW
 
         private:
             Files::ConfigurationManager& mCfgMgr;
+
+#ifdef USE_OPENXR
+            osg::ref_ptr<MWVR::OpenXRManager> mXR;
+            osg::ref_ptr<MWVR::OpenXRViewer> mXRViewer;
+
+            void initVr();
+#endif
     };
 }
 

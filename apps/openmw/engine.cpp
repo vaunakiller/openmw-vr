@@ -432,6 +432,10 @@ void OMW::Engine::createWindow(Settings::Manager& settings)
     camera->setGraphicsContext(graphicsWindow);
     camera->setViewport(0, 0, traits->width, traits->height);
 
+#ifdef USE_OPENXR
+    initVr();
+#endif
+
     mViewer->realize();
 
     mViewer->getEventQueue()->getCurrentEventState()->setWindowRectangle(0, 0, traits->width, traits->height);
@@ -469,6 +473,7 @@ void OMW::Engine::prepareEngine (Settings::Manager & settings)
     createWindow(settings);
 
     osg::ref_ptr<osg::Group> rootNode (new osg::Group);
+
     mViewer->setSceneData(rootNode);
 
     mVFS.reset(new VFS::Manager(mFSStrict));
@@ -687,6 +692,7 @@ void OMW::Engine::go()
     // Setup viewer
     mViewer = new osgViewer::Viewer;
     mViewer->setReleaseContextAtEndOfFrameHint(false);
+    mViewer->setThreadingModel(osgViewer::Viewer::SingleThreaded);
 
 #if OSG_VERSION_GREATER_OR_EQUAL(3,5,5)
     // Do not try to outsmart the OS thread scheduler (see bug #4785).
@@ -744,6 +750,13 @@ void OMW::Engine::go()
     {
         mEnvironment.getWindowManager()->executeInConsole(mStartupScript);
     }
+
+
+#ifdef USE_OPENXR
+    auto* root = mViewer->getSceneData();
+    mXRViewer->addChild(root);
+    mViewer->setSceneData(mXRViewer);
+#endif
 
     // Start the main rendering loop
     osg::Timer frameTimer;

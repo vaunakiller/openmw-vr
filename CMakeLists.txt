@@ -9,7 +9,8 @@ option(BUILD_BSATOOL            "Build BSA extractor" ON)
 option(BUILD_ESMTOOL            "Build ESM inspector" ON)
 option(BUILD_NIFTEST            "Build nif file tester" ON)
 option(BUILD_MYGUI_PLUGIN       "Build MyGUI plugin for OpenMW resources, to use with MyGUI tools" ON)
-option(BUILD_DOCS               "Build documentation." OFF )
+option(BUILD_DOCS               "Build documentation." OFF)
+option(BUILD_VR_OPENXR          "Build VR support using OpenXR" on)
 option(BUILD_WITH_CODE_COVERAGE "Enable code coverage with gconv" OFF)
 option(BUILD_UNITTESTS          "Enable Unittests with Google C++ Unittest" OFF)
 
@@ -330,6 +331,12 @@ include_directories("."
     ${OPENAL_INCLUDE_DIR}
     ${Bullet_INCLUDE_DIRS}
 )
+
+if(BUILD_VR_OPENXR)
+  find_package(OpenXR REQUIRED)
+  message(STATUS "OpenXR_FOUND: ${OpenXR_FOUND}")
+  include_directories(${OpenXR_INCLUDE_DIR})
+endif(BUILD_VR_OPENXR)
 
 link_directories(${SDL2_LIBRARY_DIRS} ${Boost_LIBRARY_DIRS})
 
@@ -688,6 +695,23 @@ if (WIN32)
         set_target_properties(openmw PROPERTIES LINK_FLAGS_MINSIZEREL "/SUBSYSTEM:WINDOWS")
     endif()
 
+    # TODO: properties and link targets should be copied from openmw to openmw_vr instead of duplicating every line
+    if (USE_DEBUG_CONSOLE AND BUILD_VR_OPENXR)
+      set_target_properties(openmw_vr PROPERTIES LINK_FLAGS_DEBUG "/SUBSYSTEM:CONSOLE")
+      set_target_properties(openmw_vr PROPERTIES LINK_FLAGS_RELWITHDEBINFO "/SUBSYSTEM:CONSOLE")
+      set_target_properties(openmw_vr PROPERTIES COMPILE_DEFINITIONS $<$<CONFIG:Debug>:_CONSOLE>)
+    elseif (BUILD_VR_OPENXR)
+      # Turn off debug console, debug output will be written to visual studio output instead
+      set_target_properties(openmw_vr PROPERTIES LINK_FLAGS_DEBUG "/SUBSYSTEM:WINDOWS")
+      set_target_properties(openmw_vr PROPERTIES LINK_FLAGS_RELWITHDEBINFO "/SUBSYSTEM:WINDOWS")
+    endif()
+
+    if (BUILD_VR_OPENXR)
+        # Release builds don't use the debug console
+        set_target_properties(openmw_vr PROPERTIES LINK_FLAGS_RELEASE "/SUBSYSTEM:WINDOWS")
+        set_target_properties(openmw_vr PROPERTIES LINK_FLAGS_MINSIZEREL "/SUBSYSTEM:WINDOWS")
+    endif()
+
     # Play a bit with the warning levels
 
     set(WARNINGS "/Wall") # Since windows can only disable specific warnings, not enable them
@@ -784,6 +808,14 @@ if (WIN32)
             set_target_properties(openmw PROPERTIES COMPILE_FLAGS "${WARNINGS} ${MT_BUILD} /bigobj")
         else()
             set_target_properties(openmw PROPERTIES COMPILE_FLAGS "${WARNINGS} ${MT_BUILD}")
+        endif()
+    endif()
+
+    if (BUILD_VR_OPENXR)
+        if (OPENMW_UNITY_BUILD)
+            set_target_properties(openmw_vr PROPERTIES COMPILE_FLAGS "${WARNINGS} ${MT_BUILD} /bigobj")
+        else()
+            set_target_properties(openmw_vr PROPERTIES COMPILE_FLAGS "${WARNINGS} ${MT_BUILD}")
         endif()
     endif()
 

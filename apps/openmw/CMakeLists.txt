@@ -111,13 +111,48 @@ else ()
     )
 endif ()
 
+if(BUILD_VR_OPENXR)
+    set(OPENMW_VR_FILES
+        engine_vr.cpp
+        mwvr/openxrmanager.hpp
+        mwvr/openxrmanager.cpp
+        mwvr/openxrviewer.hpp
+        mwvr/openxrviewer.cpp
+        mwvr/openxrmanagerimpl.hpp 
+        mwvr/openxrmanagerimpl.cpp
+        mwvr/openxrview.hpp
+        mwvr/openxrview.cpp 
+        mwvr/openxrinputmanager.hpp
+        mwvr/openxrinputmanager.cpp
+        mwvr/openxrtexture.hpp
+        mwvr/openxrtexture.cpp
+   )
+
+    openmw_add_executable(openmw_vr
+        ${OPENMW_FILES}
+        ${OPENMW_VR_FILES}
+        ${GAME} ${GAME_HEADER}
+        ${APPLE_BUNDLE_RESOURCES}
+    )
+
+    # Preprocessor variable used to control code paths in engine.hpp/engine.cpp
+    # to enable VR output and controls.
+
+    # Bizarrely, this doesn't do anything.
+    # target_compile_definitions(openmw_vr PUBLIC USE_OPENXR XR_USE_GRAPHICS_API_OPENGL XR_USE_PLATFORM_WIN32)
+
+    target_compile_options(openmw_vr PUBLIC -DUSE_OPENXR -DXR_USE_GRAPHICS_API_OPENGL -DXR_USE_PLATFORM_WIN32)
+endif()
+
+
+
 # Sound stuff - here so CMake doesn't stupidly recompile EVERYTHING
 # when we change the backend.
 include_directories(
     ${FFmpeg_INCLUDE_DIRS}
 )
 
-target_link_libraries(openmw
+set(OPENMW_LINK_TARGETS 
     ${OSG_LIBRARIES}
     ${OPENTHREADS_LIBRARIES}
     ${OSGPARTICLE_LIBRARIES}
@@ -140,6 +175,9 @@ target_link_libraries(openmw
     components
 )
 
+target_link_libraries(openmw ${OPENMW_LINK_TARGETS})
+target_link_libraries(openmw_vr ${OPENMW_LINK_TARGETS} ${OpenXR_LIBRARIES})
+
 if (ANDROID)
     set (OSG_PLUGINS
         -Wl,--whole-archive
@@ -152,7 +190,7 @@ if (ANDROID)
         ${OSG_PLUGINS} -Wl,--no-whole-archive
     )
 
-    target_link_libraries(openmw
+    target_link_libraries(openmw 
         EGL
         android
         log
@@ -166,16 +204,19 @@ if (ANDROID)
 endif (ANDROID)
 
 if (USE_SYSTEM_TINYXML)
-    target_link_libraries(openmw ${TinyXML_LIBRARIES})
+    target_link_libraries(openmw  ${TinyXML_LIBRARIES})
+    target_link_libraries(openmw_vr  ${TinyXML_LIBRARIES})
 endif()
 
 if (NOT UNIX)
-target_link_libraries(openmw ${SDL2MAIN_LIBRARY})
+target_link_libraries(openmw    ${SDL2MAIN_LIBRARY})
+target_link_libraries(openmw_vr ${SDL2MAIN_LIBRARY})
 endif()
 
 # Fix for not visible pthreads functions for linker with glibc 2.15
 if (UNIX AND NOT APPLE)
-target_link_libraries(openmw ${CMAKE_THREAD_LIBS_INIT})
+target_link_libraries(openmw    ${CMAKE_THREAD_LIBS_INIT})
+target_link_libraries(openmw_vr ${CMAKE_THREAD_LIBS_INIT})
 endif()
 
 if(APPLE)
@@ -196,20 +237,27 @@ if(APPLE)
         POST_BUILD
         COMMAND cp "${OpenMW_BINARY_DIR}/resources/version" "${BUNDLE_RESOURCES_DIR}/resources")
 
+    add_custom_command(TARGET openmw_vr
+        POST_BUILD
+        COMMAND cp "${OpenMW_BINARY_DIR}/resources/version" "${BUNDLE_RESOURCES_DIR}/resources")
+
     find_library(COCOA_FRAMEWORK Cocoa)
     find_library(IOKIT_FRAMEWORK IOKit)
-    target_link_libraries(openmw ${COCOA_FRAMEWORK} ${IOKIT_FRAMEWORK})
+    target_link_libraries(openmw    ${COCOA_FRAMEWORK} ${IOKIT_FRAMEWORK})
+    target_link_libraries(openmw_vr ${COCOA_FRAMEWORK} ${IOKIT_FRAMEWORK})
 
     if (FFmpeg_FOUND)
         find_library(COREVIDEO_FRAMEWORK CoreVideo)
         find_library(VDA_FRAMEWORK VideoDecodeAcceleration)
-        target_link_libraries(openmw z ${COREVIDEO_FRAMEWORK} ${VDA_FRAMEWORK})
+        target_link_libraries(openmw    z ${COREVIDEO_FRAMEWORK} ${VDA_FRAMEWORK})
+        target_link_libraries(openmw_vr z ${COREVIDEO_FRAMEWORK} ${VDA_FRAMEWORK})
     endif()
 endif(APPLE)
 
 if (BUILD_WITH_CODE_COVERAGE)
   add_definitions (--coverage)
-  target_link_libraries(openmw gcov)
+  target_link_libraries(openmw    gcov)
+  target_link_libraries(openmw_vr gcov)
 endif()
 
 if (MSVC)
@@ -220,5 +268,6 @@ if (MSVC)
 endif (MSVC)
 
 if (WIN32)
-    INSTALL(TARGETS openmw RUNTIME DESTINATION ".")
+    INSTALL(TARGETS openmw    RUNTIME DESTINATION ".")
+    INSTALL(TARGETS openmw_vr RUNTIME DESTINATION ".")
 endif (WIN32)
