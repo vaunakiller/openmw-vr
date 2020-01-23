@@ -14,14 +14,12 @@
 namespace MWVR
 {
     OpenXRTextureBuffer::OpenXRTextureBuffer(
-        osg::ref_ptr<OpenXRManager> XR,
         osg::ref_ptr<osg::State> state,
         uint32_t XRColorBuffer, 
         std::size_t width, 
         std::size_t height,
         uint32_t msaaSamples)
-        : mXR(XR)
-        , mState(state)
+        : mState(state)
         , mWidth(width)
         , mHeight(height)
         , mXRColorBuffer(XRColorBuffer)
@@ -136,9 +134,9 @@ namespace MWVR
         mFBO = mMSAAFBO = mDepthBuffer = mMSAAColorBuffer = mMSAADepthBuffer = 0;
     }
 
-    void OpenXRTextureBuffer::beginFrame(osg::RenderInfo& renderInfo)
+    void OpenXRTextureBuffer::beginFrame(osg::GraphicsContext* gc)
     {
-        auto state = renderInfo.getState();
+        auto state = gc->getState();
         auto* gl = osg::GLExtensions::Get(state->getContextID(), false);
 
 
@@ -152,9 +150,9 @@ namespace MWVR
         }
     }
 
-    void OpenXRTextureBuffer::endFrame(osg::RenderInfo& renderInfo)
+    void OpenXRTextureBuffer::endFrame(osg::GraphicsContext* gc)
     {
-        auto* state = renderInfo.getState();
+        auto* state = gc->getState();
         auto* gl = osg::GLExtensions::Get(state->getContextID(), false);
         if (mMSAASamples == 0)
         {
@@ -165,8 +163,17 @@ namespace MWVR
             gl->glBindFramebuffer(GL_READ_FRAMEBUFFER_EXT, mMSAAFBO);
             gl->glBindFramebuffer(GL_DRAW_FRAMEBUFFER_EXT, mFBO);
             gl->glBlitFramebuffer(0, 0, mWidth, mHeight, 0, 0, mWidth, mHeight, GL_COLOR_BUFFER_BIT, GL_NEAREST);
-            gl->glBindFramebuffer(GL_FRAMEBUFFER_EXT, 0);
+            gl->glBindFramebuffer(GL_DRAW_FRAMEBUFFER_EXT, 0);
             gl->glBindFramebuffer(GL_READ_FRAMEBUFFER_EXT, 0);
         }
+    }
+
+    void OpenXRTextureBuffer::blit(osg::GraphicsContext* gc, int x, int y, int w, int h)
+    {
+        auto* state = gc->getState();
+        auto* gl = osg::GLExtensions::Get(state->getContextID(), false);
+        gl->glBindFramebuffer(GL_READ_FRAMEBUFFER_EXT, mFBO);
+        gl->glBlitFramebuffer(0, 0, mWidth, mHeight, x, y, w, h, GL_COLOR_BUFFER_BIT, GL_NEAREST);
+        gl->glBindFramebuffer(GL_READ_FRAMEBUFFER_EXT, 0);
     }
 }

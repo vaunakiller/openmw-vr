@@ -1,4 +1,4 @@
-#include "engine.hpp"
+#include "openxrengine.hpp"
 
 #include <iomanip>
 
@@ -34,30 +34,30 @@
 
 #include <components/detournavigator/navigator.hpp>
 
-#include "mwinput/inputmanagerimp.hpp"
+#include "../mwinput/inputmanagerimp.hpp"
 
-#include "mwgui/windowmanagerimp.hpp"
+#include "../mwgui/windowmanagerimp.hpp"
 
-#include "mwscript/scriptmanagerimp.hpp"
-#include "mwscript/interpretercontext.hpp"
+#include "../mwscript/scriptmanagerimp.hpp"
+#include "../mwscript/interpretercontext.hpp"
 
-#include "mwsound/soundmanagerimp.hpp"
+#include "../mwsound/soundmanagerimp.hpp"
 
-#include "mwworld/class.hpp"
-#include "mwworld/player.hpp"
-#include "mwworld/worldimp.hpp"
+#include "../mwworld/class.hpp"
+#include "../mwworld/player.hpp"
+#include "../mwworld/worldimp.hpp"
 
-#include "mwrender/vismask.hpp"
+#include "../mwrender/vismask.hpp"
 
-#include "mwclass/classes.hpp"
+#include "../mwclass/classes.hpp"
 
-#include "mwdialogue/dialoguemanagerimp.hpp"
-#include "mwdialogue/journalimp.hpp"
-#include "mwdialogue/scripttest.hpp"
+#include "../mwdialogue/dialoguemanagerimp.hpp"
+#include "../mwdialogue/journalimp.hpp"
+#include "../mwdialogue/scripttest.hpp"
 
-#include "mwmechanics/mechanicsmanagerimp.hpp"
+#include "../mwmechanics/mechanicsmanagerimp.hpp"
 
-#include "mwstate/statemanagerimp.hpp"
+#include "../mwstate/statemanagerimp.hpp"
 
 namespace
 {
@@ -68,7 +68,7 @@ namespace
     }
 }
 
-void OMW::Engine::executeLocalScripts()
+void MWVR::OpenXREngine::executeLocalScripts()
 {
     MWWorld::LocalScripts& localScripts = mEnvironment.getWorld()->getLocalScripts();
 
@@ -82,7 +82,7 @@ void OMW::Engine::executeLocalScripts()
     }
 }
 
-bool OMW::Engine::frame(float frametime)
+bool MWVR::OpenXREngine::frame(float frametime)
 {
     try
     {
@@ -213,7 +213,7 @@ bool OMW::Engine::frame(float frametime)
     return true;
 }
 
-OMW::Engine::Engine(Files::ConfigurationManager& configurationManager)
+MWVR::OpenXREngine::OpenXREngine(Files::ConfigurationManager& configurationManager)
   : mWindow(nullptr)
   , mEncoding(ToUTF8::WINDOWS_1252)
   , mEncoder(nullptr)
@@ -249,7 +249,7 @@ OMW::Engine::Engine(Files::ConfigurationManager& configurationManager)
     mStartTick = osg::Timer::instance()->tick();
 }
 
-OMW::Engine::~Engine()
+MWVR::OpenXREngine::~OpenXREngine()
 {
     mEnvironment.cleanup();
 
@@ -265,6 +265,8 @@ OMW::Engine::~Engine()
     delete mEncoder;
     mEncoder = nullptr;
 
+    mOpenXRManager = nullptr;
+
     if (mWindow)
     {
         SDL_DestroyWindow(mWindow);
@@ -274,14 +276,14 @@ OMW::Engine::~Engine()
     SDL_Quit();
 }
 
-void OMW::Engine::enableFSStrict(bool fsStrict)
+void MWVR::OpenXREngine::enableFSStrict(bool fsStrict)
 {
     mFSStrict = fsStrict;
 }
 
 // Set data dir
 
-void OMW::Engine::setDataDirs (const Files::PathContainer& dataDirs)
+void MWVR::OpenXREngine::setDataDirs (const Files::PathContainer& dataDirs)
 {
     mDataDirs = dataDirs;
     mDataDirs.insert(mDataDirs.begin(), (mResDir / "vfs"));
@@ -289,34 +291,34 @@ void OMW::Engine::setDataDirs (const Files::PathContainer& dataDirs)
 }
 
 // Add BSA archive
-void OMW::Engine::addArchive (const std::string& archive) {
+void MWVR::OpenXREngine::addArchive (const std::string& archive) {
     mArchives.push_back(archive);
 }
 
 // Set resource dir
-void OMW::Engine::setResourceDir (const boost::filesystem::path& parResDir)
+void MWVR::OpenXREngine::setResourceDir (const boost::filesystem::path& parResDir)
 {
     mResDir = parResDir;
 }
 
 // Set start cell name
-void OMW::Engine::setCell (const std::string& cellName)
+void MWVR::OpenXREngine::setCell (const std::string& cellName)
 {
     mCellName = cellName;
 }
 
-void OMW::Engine::addContentFile(const std::string& file)
+void MWVR::OpenXREngine::addContentFile(const std::string& file)
 {
     mContentFiles.push_back(file);
 }
 
-void OMW::Engine::setSkipMenu (bool skipMenu, bool newGame)
+void MWVR::OpenXREngine::setSkipMenu (bool skipMenu, bool newGame)
 {
     mSkipMenu = skipMenu;
     mNewGame = newGame;
 }
 
-std::string OMW::Engine::loadSettings (Settings::Manager & settings)
+std::string MWVR::OpenXREngine::loadSettings (Settings::Manager & settings)
 {
     // Create the settings manager and load default settings file
     const std::string localdefault = (mCfgMgr.getLocalPath() / "settings-default.cfg").string();
@@ -338,7 +340,7 @@ std::string OMW::Engine::loadSettings (Settings::Manager & settings)
     return settingspath;
 }
 
-void OMW::Engine::createWindow(Settings::Manager& settings)
+void MWVR::OpenXREngine::createWindow(Settings::Manager& settings)
 {
     int screen = settings.getInt("screen", "Video");
     int width = settings.getInt("resolution x", "Video");
@@ -428,20 +430,18 @@ void OMW::Engine::createWindow(Settings::Manager& settings)
     osg::ref_ptr<SDLUtil::GraphicsWindowSDL2> graphicsWindow = new SDLUtil::GraphicsWindowSDL2(traits);
     if(!graphicsWindow->valid()) throw std::runtime_error("Failed to create GraphicsContext");
 
+    mOpenXRManager = std::make_unique<OpenXRManager>(graphicsWindow);
+
     osg::ref_ptr<osg::Camera> camera = mViewer->getCamera();
     camera->setGraphicsContext(graphicsWindow);
     camera->setViewport(0, 0, traits->width, traits->height);
-
-#ifdef USE_OPENXR
-    initVr();
-#endif
 
     mViewer->realize();
 
     mViewer->getEventQueue()->getCurrentEventState()->setWindowRectangle(0, 0, traits->width, traits->height);
 }
 
-void OMW::Engine::setWindowIcon()
+void MWVR::OpenXREngine::setWindowIcon()
 {
     boost::filesystem::ifstream windowIconStream;
     std::string windowIcon = (mResDir / "mygui" / "openmw.png").string();
@@ -465,7 +465,7 @@ void OMW::Engine::setWindowIcon()
     }
 }
 
-void OMW::Engine::prepareEngine (Settings::Manager & settings)
+void MWVR::OpenXREngine::prepareEngine (Settings::Manager & settings)
 {
     mEnvironment.setStateManager (
         new MWState::StateManager (mCfgMgr.getUserDataPath() / "saves", mContentFiles.at (0)));
@@ -473,7 +473,6 @@ void OMW::Engine::prepareEngine (Settings::Manager & settings)
     createWindow(settings);
 
     osg::ref_ptr<osg::Group> rootNode (new osg::Group);
-
     mViewer->setSceneData(rootNode);
 
     mVFS.reset(new VFS::Manager(mFSStrict));
@@ -670,7 +669,7 @@ private:
 
 // Initialise and enter main loop.
 
-void OMW::Engine::go()
+void MWVR::OpenXREngine::go()
 {
     assert (!mContentFiles.empty());
 
@@ -726,20 +725,6 @@ void OMW::Engine::go()
     osg::ref_ptr<Resource::StatsHandler> resourceshandler = new Resource::StatsHandler;
     mViewer->addEventHandler(resourceshandler);
 
-#ifdef USE_OPENXR
-    auto* root = mViewer->getSceneData();
-    mXRViewer->addChild(root);
-    mViewer->setSceneData(mXRViewer);
-#ifndef _NDEBUG
-    mXR->addPoseUpdateCallback(new MWVR::PoseLogger(MWVR::TrackedLimb::HEAD, MWVR::TrackedSpace::STAGE));
-    mXR->addPoseUpdateCallback(new MWVR::PoseLogger(MWVR::TrackedLimb::HEAD, MWVR::TrackedSpace::VIEW));
-    mXR->addPoseUpdateCallback(new MWVR::PoseLogger(MWVR::TrackedLimb::LEFT_HAND, MWVR::TrackedSpace::STAGE));
-    mXR->addPoseUpdateCallback(new MWVR::PoseLogger(MWVR::TrackedLimb::LEFT_HAND, MWVR::TrackedSpace::VIEW));
-    mXR->addPoseUpdateCallback(new MWVR::PoseLogger(MWVR::TrackedLimb::RIGHT_HAND, MWVR::TrackedSpace::STAGE));
-    mXR->addPoseUpdateCallback(new MWVR::PoseLogger(MWVR::TrackedLimb::RIGHT_HAND, MWVR::TrackedSpace::VIEW));
-#endif
-#endif
-
     // Start the game
     if (!mSaveGameFile.empty())
     {
@@ -764,8 +749,6 @@ void OMW::Engine::go()
         mEnvironment.getWindowManager()->executeInConsole(mStartupScript);
     }
 
-
-
     // Start the main rendering loop
     osg::Timer frameTimer;
     double simulationTime = 0.0;
@@ -784,18 +767,12 @@ void OMW::Engine::go()
         }
         else
         {
-
             mViewer->eventTraversal();
+            mViewer->updateTraversal();
 
             mEnvironment.getWorld()->updateWindowManager();
 
-#ifdef USE_OPENXR
-            mXRViewer->traversals();
-#else
-            mViewer->updateTraversal();
-
             mViewer->renderingTraversals();
-#endif
 
             bool guiActive = mEnvironment.getWindowManager()->isGuiMode();
             if (!guiActive)
@@ -811,67 +788,67 @@ void OMW::Engine::go()
     Log(Debug::Info) << "Quitting peacefully.";
 }
 
-void OMW::Engine::setCompileAll (bool all)
+void MWVR::OpenXREngine::setCompileAll (bool all)
 {
     mCompileAll = all;
 }
 
-void OMW::Engine::setCompileAllDialogue (bool all)
+void MWVR::OpenXREngine::setCompileAllDialogue (bool all)
 {
     mCompileAllDialogue = all;
 }
 
-void OMW::Engine::setSoundUsage(bool soundUsage)
+void MWVR::OpenXREngine::setSoundUsage(bool soundUsage)
 {
     mUseSound = soundUsage;
 }
 
-void OMW::Engine::setEncoding(const ToUTF8::FromType& encoding)
+void MWVR::OpenXREngine::setEncoding(const ToUTF8::FromType& encoding)
 {
     mEncoding = encoding;
 }
 
-void OMW::Engine::setScriptConsoleMode (bool enabled)
+void MWVR::OpenXREngine::setScriptConsoleMode (bool enabled)
 {
     mScriptConsoleMode = enabled;
 }
 
-void OMW::Engine::setStartupScript (const std::string& path)
+void MWVR::OpenXREngine::setStartupScript (const std::string& path)
 {
     mStartupScript = path;
 }
 
-void OMW::Engine::setActivationDistanceOverride (int distance)
+void MWVR::OpenXREngine::setActivationDistanceOverride (int distance)
 {
     mActivationDistanceOverride = distance;
 }
 
-void OMW::Engine::setWarningsMode (int mode)
+void MWVR::OpenXREngine::setWarningsMode (int mode)
 {
     mWarningsMode = mode;
 }
 
-void OMW::Engine::setScriptBlacklist (const std::vector<std::string>& list)
+void MWVR::OpenXREngine::setScriptBlacklist (const std::vector<std::string>& list)
 {
     mScriptBlacklist = list;
 }
 
-void OMW::Engine::setScriptBlacklistUse (bool use)
+void MWVR::OpenXREngine::setScriptBlacklistUse (bool use)
 {
     mScriptBlacklistUse = use;
 }
 
-void OMW::Engine::enableFontExport(bool exportFonts)
+void MWVR::OpenXREngine::enableFontExport(bool exportFonts)
 {
     mExportFonts = exportFonts;
 }
 
-void OMW::Engine::setSaveGameFile(const std::string &savegame)
+void MWVR::OpenXREngine::setSaveGameFile(const std::string &savegame)
 {
     mSaveGameFile = savegame;
 }
 
-void OMW::Engine::setRandomSeed(unsigned int seed)
+void MWVR::OpenXREngine::setRandomSeed(unsigned int seed)
 {
     mRandomSeed = seed;
 }

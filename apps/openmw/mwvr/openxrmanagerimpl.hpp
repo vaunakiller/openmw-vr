@@ -2,7 +2,9 @@
 #define OPENXR_MANAGER_IMPL_HPP
 
 #include "openxrmanager.hpp"
+#include "openxrlayer.hpp"
 #include "../mwinput/inputmanagerimp.hpp"
+#include "../mwrender/vismask.hpp"
 
 #include <components/debug/debuglog.hpp>
 #include <components/sdlutil/sdlgraphicswindow.hpp>
@@ -19,6 +21,14 @@
 #include <array>
 #include <map>
 #include <iostream>
+#include <thread>
+
+namespace osg {
+    Vec3 fromXR(XrVector3f);
+    Quat fromXR(XrQuaternionf quat);
+    XrVector3f      toXR(Vec3 v);
+    XrQuaternionf   toXR(Quat quat);
+}
 
 namespace MWVR
 {
@@ -30,9 +40,12 @@ namespace MWVR
 #define CHECK_XRRESULT(res, cmdStr) CheckXrResult(res, cmdStr, FILE_AND_LINE);
 
     XrResult CheckXrResult(XrResult res, const char* originator = nullptr, const char* sourceLocation = nullptr);
+    MWVR::Pose fromXR(XrPosef pose);
+    XrPosef toXR(MWVR::Pose pose);
 
     struct OpenXRManagerImpl
     {
+        using PoseUpdateCallback = OpenXRManager::PoseUpdateCallback;
 
         OpenXRManagerImpl(void);
         ~OpenXRManagerImpl(void);
@@ -47,14 +60,13 @@ namespace MWVR
         void endFrame();
         std::array<XrView, 2> getStageViews();
         std::array<XrView, 2> getHmdViews();
-        XrSpaceLocation getHeadLocation();
+        MWVR::Pose getLimbPose(TrackedLimb limb, TrackedSpace space);
         int eyes();
         void handleEvents();
         void updateControls();
         void updatePoses();
-        void setPoseUpdateCallback(OpenXRManager::PoseUpdateCallback::TrackedLimb limb, OpenXRManager::PoseUpdateCallback::TrackingMode mode, osg::ref_ptr<OpenXRManager::PoseUpdateCallback> cb);
+        void addPoseUpdateCallback(osg::ref_ptr<PoseUpdateCallback> cb);
         void HandleSessionStateChanged(const XrEventDataSessionStateChanged& stateChangedEvent);
-        void setViewSubImage(int eye, const ::XrSwapchainSubImage& subImage);
 
         bool initialized = false;
         long long frameIndex = 0;
@@ -71,23 +83,38 @@ namespace MWVR
         XrSpace mReferenceSpaceView = XR_NULL_HANDLE;
         XrSpace mReferenceSpaceStage = XR_NULL_HANDLE;
         XrEventDataBuffer mEventDataBuffer{ XR_TYPE_EVENT_DATA_BUFFER };
-        XrCompositionLayerProjection mLayer{ XR_TYPE_COMPOSITION_LAYER_PROJECTION };
-        XrCompositionLayerBaseHeader const* mLayer_p = reinterpret_cast<XrCompositionLayerBaseHeader*>(&mLayer);
-        std::array<XrCompositionLayerProjectionView, 2> mProjectionLayerViews{ { {XR_TYPE_COMPOSITION_LAYER_PROJECTION_VIEW}, {XR_TYPE_COMPOSITION_LAYER_PROJECTION_VIEW} } };
+        //XrCompositionLayerProjection mLayer{ XR_TYPE_COMPOSITION_LAYER_PROJECTION };
+        //XrCompositionLayerBaseHeader const* mLayer_p = reinterpret_cast<XrCompositionLayerBaseHeader*>(&mLayer);
+        //std::array<XrCompositionLayerProjectionView, 2> mProjectionLayerViews{ { {XR_TYPE_COMPOSITION_LAYER_PROJECTION_VIEW}, {XR_TYPE_COMPOSITION_LAYER_PROJECTION_VIEW} } };
+        OpenXRLayerStack mLayerStack{};
         XrFrameState mFrameState{ XR_TYPE_FRAME_STATE };
         XrSessionState mSessionState = XR_SESSION_STATE_UNKNOWN;
         bool mSessionRunning = false;
         
-        XrPosef mHeadTrackedPose{};
-        XrPosef mLeftHandTrackedPose{};
-        XrPosef mRightHandTrackedPose{};
+        //osg::Pose mHeadTrackedPose{};
+        //osg::Pose mLeftHandTrackedPose{};
+        //osg::Pose mRightHandTrackedPose{};
 
-        osg::ref_ptr<OpenXRManager::PoseUpdateCallback> mHeadAbsoluteCB = nullptr;
-        osg::ref_ptr<OpenXRManager::PoseUpdateCallback> mHeadRelativeCB = nullptr;
-        osg::ref_ptr<OpenXRManager::PoseUpdateCallback> mLeftHandAbsoluteCB = nullptr;
-        osg::ref_ptr<OpenXRManager::PoseUpdateCallback> mLeftHandRelativeCB = nullptr;
-        osg::ref_ptr<OpenXRManager::PoseUpdateCallback> mRightHandAbsoluteCB = nullptr;
-        osg::ref_ptr<OpenXRManager::PoseUpdateCallback> mRightHandRelativeCB = nullptr;
+        std::vector< osg::ref_ptr<PoseUpdateCallback> > mPoseUpdateCallbacks{};
+
+        std::mutex mEventMutex{};
+
+        enum {
+            OPENXR_FRAME_STATUS_IDLE, //!< Frame is ready for initialization
+            OPENXR_FRAME_STATUS_READY, //!< Frame has been initialized and swapchains may be acquired
+            OPENXR_FRAME_STATUS_ENDING //!< All swapchains have been releazed, frame ready for presentation
+        } mFrameStatus{ OPENXR_FRAME_STATUS_IDLE };
+        std::condition_variable mFrameStatusSignal{};
+        std::mutex mFrameStatusMutex;
+
+        int mBarrier{ 0 };
+        int mNBarrier{ 0 };
+        std::condition_variable mBarrierSignal{};
+        std::mutex mBarrierMutex;
+
+        void viewerBarrier();
+        void registerToBarrier();
+        void unregisterFromBarrier();
     };
 }
 

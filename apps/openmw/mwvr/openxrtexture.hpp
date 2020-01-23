@@ -13,7 +13,7 @@ namespace MWVR
     class OpenXRTextureBuffer : public osg::Referenced
     {
     public:
-        OpenXRTextureBuffer(osg::ref_ptr<OpenXRManager> XR, osg::ref_ptr<osg::State> state, uint32_t XRColorBuffer, std::size_t width, std::size_t height, uint32_t msaaSamples);
+        OpenXRTextureBuffer(osg::ref_ptr<osg::State> state, uint32_t XRColorBuffer, std::size_t width, std::size_t height, uint32_t msaaSamples);
         ~OpenXRTextureBuffer();
 
         void destroy(osg::State* state);
@@ -22,14 +22,16 @@ namespace MWVR
         auto height() const { return mHeight; }
         auto msaaSamples() const { return mMSAASamples; }
 
-        void beginFrame(osg::RenderInfo& renderInfo);
-        void endFrame(osg::RenderInfo& renderInfo);
+        void beginFrame(osg::GraphicsContext* gc);
+        void endFrame(osg::GraphicsContext* gc);
 
         void writeToJpg(osg::State& state, std::string filename);
 
-    private:
-        osg::observer_ptr<OpenXRManager> mXR;
+        uint32_t fbo(void) const { return mFBO; }
 
+        void blit(osg::GraphicsContext* gc, int x, int y, int w, int h);
+
+    private:
         // Set aside a weak pointer to the constructor state to use when freeing FBOs, if no state is given to destroy()
         osg::observer_ptr<osg::State> mState;
 

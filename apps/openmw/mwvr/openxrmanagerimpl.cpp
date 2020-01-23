@@ -119,9 +119,9 @@ namespace MWVR
 
         { // Set up layers
 
-            mLayer.space = mReferenceSpaceStage;
-            mLayer.viewCount = (uint32_t)mProjectionLayerViews.size();
-            mLayer.views = mProjectionLayerViews.data();
+            //mLayer.space = mReferenceSpaceStage;
+            //mLayer.viewCount = (uint32_t)mProjectionLayerViews.size();
+            //mLayer.views = mProjectionLayerViews.data();
         }
 
         { // Read and log graphics properties for the swapchain
@@ -280,8 +280,61 @@ namespace MWVR
         if (!mSessionRunning)
             return;
 
-        XrFrameBeginInfo frameBeginInfo{ XR_TYPE_FRAME_BEGIN_INFO };
-        CHECK_XRCMD(xrBeginFrame(mSession, &frameBeginInfo));
+        std::unique_lock<std::mutex> lock(mFrameStatusMutex);
+
+        // We need to wait for the frame to become idle or ready
+        // (There is no guarantee osg won't get us here before endFrame() returns)
+        while (mFrameStatus == OPENXR_FRAME_STATUS_ENDING)
+            mFrameStatusSignal.wait(lock);
+
+        if (mFrameStatus == OPENXR_FRAME_STATUS_IDLE)
+        {
+            handleEvents();
+            waitFrame();
+
+            XrFrameBeginInfo frameBeginInfo{ XR_TYPE_FRAME_BEGIN_INFO };
+            CHECK_XRCMD(xrBeginFrame(mSession, &frameBeginInfo));
+
+            updateControls();
+            updatePoses();
+            mFrameStatus = OPENXR_FRAME_STATUS_READY;
+        }
+
+        assert(mFrameStatus == OPENXR_FRAME_STATUS_READY);
+    }
+
+    void OpenXRManagerImpl::viewerBarrier()
+    {
+        std::unique_lock<std::mutex> lock(mBarrierMutex);
+        mBarrier++;
+
+        Log(Debug::Verbose) << "mBarrier=" << mBarrier << ", tid=" << std::this_thread::get_id();
+
+        if (mBarrier == mNBarrier)
+        {
+            std::unique_lock<std::mutex> lock(mFrameStatusMutex);
+            mFrameStatus = OPENXR_FRAME_STATUS_ENDING;
+            mFrameStatusSignal.notify_all();
+            //mBarrierSignal.notify_all();
+            mBarrier = 0;
+        }
+        //else
+        //{
+        //    mBarrierSignal.wait(lock, [this]() { return mBarrier == mNBarrier; });
+        //}
+    }
+
+    void OpenXRManagerImpl::registerToBarrier()
+    {
+        std::unique_lock<std::mutex> lock(mBarrierMutex);
+        mNBarrier++;
+    }
+
+    void OpenXRManagerImpl::unregisterFromBarrier()
+    {
+        std::unique_lock<std::mutex> lock(mBarrierMutex);
+        mNBarrier--;
+        assert(mNBarrier >= 0);
     }
 
     void
@@ -290,12 +343,20 @@ namespace MWVR
         if (!mSessionRunning)
             return;
 
+        std::unique_lock<std::mutex> lock(mFrameStatusMutex);
+        while(mFrameStatus != OPENXR_FRAME_STATUS_ENDING)
+            mFrameStatusSignal.wait(lock);
+
         XrFrameEndInfo frameEndInfo{ XR_TYPE_FRAME_END_INFO };
         frameEndInfo.displayTime = mFrameState.predictedDisplayTime;
         frameEndInfo.environmentBlendMode = mEnvironmentBlendMode;
-        frameEndInfo.layerCount = (uint32_t)1;
-        frameEndInfo.layers = &mLayer_p;
+        //frameEndInfo.layerCount = (uint32_t)1;
+        //frameEndInfo.layers = &mLayer_p;
+        frameEndInfo.layerCount = mLayerStack.layerCount();
+        frameEndInfo.layers = mLayerStack.layerHeaders();
         CHECK_XRCMD(xrEndFrame(mSession, &frameEndInfo));
+        mFrameStatus = OPENXR_FRAME_STATUS_IDLE;
+        mFrameStatusSignal.notify_all();
     }
 
     std::array<XrView, 2> OpenXRManagerImpl::getStageViews()
@@ -352,12 +413,42 @@ namespace MWVR
         return views;
     }
 
-    XrSpaceLocation OpenXRManagerImpl::getHeadLocation()
+    MWVR::Pose OpenXRManagerImpl::getLimbPose(TrackedLimb limb, TrackedSpace space)
     {
-        // The pose of the "View" reference space is the pose of the HMD.
         XrSpaceLocation location{ XR_TYPE_SPACE_LOCATION };
-        CHECK_XRCMD(xrLocateSpace(mReferenceSpaceView, mReferenceSpaceStage, mFrameState.predictedDisplayTime, &location));
-        return location;
+        XrSpaceVelocity velocity{ XR_TYPE_SPACE_VELOCITY };
+        location.next = &velocity;
+        XrSpace limbSpace = XR_NULL_HANDLE;
+        XrSpace referenceSpace = XR_NULL_HANDLE;
+        switch (limb)
+        {
+        case TrackedLimb::HEAD:
+            limbSpace = mReferenceSpaceView;
+            break;
+        case TrackedLimb::LEFT_HAND:
+            limbSpace = mReferenceSpaceView;
+            break;
+        case TrackedLimb::RIGHT_HAND:
+            limbSpace = mReferenceSpaceView;
+            break;
+        }
+        switch (space)
+        {
+        case TrackedSpace::STAGE:
+            referenceSpace = mReferenceSpaceStage;
+            break;
+        case TrackedSpace::VIEW:
+            referenceSpace = mReferenceSpaceView;
+            break;
+        }
+        CHECK_XRCMD(xrLocateSpace(limbSpace, referenceSpace, mFrameState.predictedDisplayTime, &location));
+        if (!(velocity.velocityFlags & XR_SPACE_VELOCITY_LINEAR_VALID_BIT))
+            Log(Debug::Warning) << "Unable to acquire linear velocity";
+        return MWVR::Pose{
+            osg::fromXR(location.pose.position),
+            osg::fromXR(location.pose.orientation),
+            osg::fromXR(velocity.linearVelocity)
+        };
     }
 
     int OpenXRManagerImpl::eyes()
@@ -367,6 +458,8 @@ namespace MWVR
 
     void OpenXRManagerImpl::handleEvents()
     {
+        std::unique_lock<std::mutex> lock(mEventMutex);
+
         // React to events
         while (auto* event = nextEvent())
         {
@@ -426,88 +519,37 @@ namespace MWVR
         }
     }
 
-    void
-        OpenXRManagerImpl::setViewSubImage(
-            int eye,
-            const ::XrSwapchainSubImage& subImage)
-    {
-        if (eye >= mProjectionLayerViews.size())
-            throw std::out_of_range("OpenXRManagerImpl::setViewSubImage: Eye index out of range");
-        mProjectionLayerViews[eye].subImage = subImage;
-    }
-
-    static void
-        poseCallbacks(
-            const XrPosef& newPose,
-            const XrPosef& oldPose,
-            OpenXRManager::PoseUpdateCallback* absoluteCB,
-            OpenXRManager::PoseUpdateCallback* relativeCB
-            )
-    {
-        osg::Quat quat = osg::Quat(
-            newPose.orientation.x,
-            newPose.orientation.y,
-            newPose.orientation.z,
-            newPose.orientation.w
-        );
-
-        osg::Vec3 oldPos = osg::Vec3(
-            oldPose.position.x,
-            oldPose.position.y,
-            oldPose.position.z
-        );
-
-        osg::Vec3 newPos = osg::Vec3(
-            oldPose.position.x,
-            oldPose.position.y,
-            oldPose.position.z
-        );
-
-        if (absoluteCB)
-            (*absoluteCB)(newPos, quat);
-        if (relativeCB)
-            (*relativeCB)(newPos - oldPos, quat);
-    }
-
     void OpenXRManagerImpl::updatePoses()
     {
-        auto newHeadTrackedPose = getHeadLocation();
-        poseCallbacks(newHeadTrackedPose.pose, mHeadTrackedPose, mHeadAbsoluteCB, mHeadRelativeCB);
-        mHeadTrackedPose = newHeadTrackedPose.pose;
+        //auto oldHeadTrackedPose = mHeadTrackedPose; 
+        //auto oldLefthandPose = mLeftHandTrackedPose;
+        //auto oldRightHandPose = mRightHandTrackedPose;
 
-        auto stageViews = getStageViews();
-        mProjectionLayerViews[0].pose = stageViews[0].pose;
-        mProjectionLayerViews[1].pose = stageViews[1].pose;
-        mProjectionLayerViews[0].fov = stageViews[0].fov;
-        mProjectionLayerViews[1].fov = stageViews[1].fov;
+        //mHeadTrackedPose = getLimbPose(TrackedLimb::HEAD);
+        //mLeftHandTrackedPose = getLimbPose(TrackedLimb::LEFT_HAND);
+        //mRightHandTrackedPose = getLimbPose(TrackedLimb::RIGHT_HAND);
+
+        //for (auto& cb : mPoseUpdateCallbacks)
+        //{
+        //    switch (cb->mLimb)
+        //    {
+        //    case TrackedLimb::HEAD:
+        //        (*cb)(mHeadTrackedPose); break;
+        //    case TrackedLimb::LEFT_HAND:
+        //        (*cb)(mLeftHandTrackedPose); break;
+        //    case TrackedLimb::RIGHT_HAND:
+        //        (*cb)(mRightHandTrackedPose); break;
+        //    }
+        //}
+
+        for (auto& cb : mPoseUpdateCallbacks)
+            (*cb)(getLimbPose(cb->mLimb, cb->mSpace));
     }
 
-    void OpenXRManagerImpl::setPoseUpdateCallback(
-        OpenXRManager::PoseUpdateCallback::TrackedLimb limb, 
-        OpenXRManager::PoseUpdateCallback::TrackingMode mode,
-        osg::ref_ptr<OpenXRManager::PoseUpdateCallback> cb)
+    void OpenXRManagerImpl::addPoseUpdateCallback(
+        osg::ref_ptr<PoseUpdateCallback> cb)
     {
-        // This can clearly be made more generic if that ever becomes relevant
-        switch (limb) {
-        case OpenXRManager::PoseUpdateCallback::HEAD:
-            if (mode == OpenXRManager::PoseUpdateCallback::STAGE_ABSOLUTE)
-                mHeadAbsoluteCB = cb;
-            else
-                mHeadRelativeCB = cb;
-            break;
-        case OpenXRManager::PoseUpdateCallback::LEFT_HAND:
-            if (mode == OpenXRManager::PoseUpdateCallback::STAGE_ABSOLUTE)
-                mLeftHandAbsoluteCB = cb;
-            else
-                mLeftHandRelativeCB = cb;
-            break;
-        case OpenXRManager::PoseUpdateCallback::RIGHT_HAND:
-            if (mode == OpenXRManager::PoseUpdateCallback::STAGE_ABSOLUTE)
-                mRightHandAbsoluteCB = cb;
-            else
-                mRightHandRelativeCB = cb;
-            break;
-        }
+        mPoseUpdateCallbacks.push_back(cb);
     }
 
 
@@ -531,5 +573,39 @@ namespace MWVR
         if (result != XR_EVENT_UNAVAILABLE)
             CHECK_XRRESULT(result, "xrPollEvent");
         return nullptr;
+    }
+
+    MWVR::Pose fromXR(XrPosef pose)
+    {
+        return MWVR::Pose{ osg::fromXR(pose.position), osg::fromXR(pose.orientation) };
+    }
+
+    XrPosef toXR(MWVR::Pose pose)
+    {
+        return XrPosef{ osg::toXR(pose.orientation), osg::toXR(pose.position) };
+    }
+}
+
+namespace osg
+{
+
+    Vec3 fromXR(XrVector3f v)
+    {
+        return Vec3{ v.x, v.y, v.z };
+    }
+
+    Quat fromXR(XrQuaternionf quat)
+    {
+        return Quat{ quat.x, quat.y, quat.z, quat.w };
+    }
+
+    XrVector3f toXR(Vec3 v)
+    {
+        return XrVector3f{ v.x(), v.y(), v.z() };
+    }
+
+    XrQuaternionf toXR(Quat quat)
+    {
+        return XrQuaternionf{ quat.x(), quat.y(), quat.z(), quat.w() };
     }
 }

@@ -229,7 +229,7 @@ namespace MWVR
         strcpy_s(createInfo.actionSetName, "gameplay");
         strcpy_s(createInfo.localizedActionSetName, "Gameplay");
         createInfo.priority = 0;
-        CHECK_XRCMD(xrCreateActionSet(mXR->mPrivate->mInstance, &createInfo, &actionSet));
+        CHECK_XRCMD(xrCreateActionSet(mXR->impl().mInstance, &createInfo, &actionSet));
         return actionSet;
     }
 
@@ -273,7 +273,7 @@ namespace MWVR
         getInfo.subactionPath = subactionPath;
 
         XrActionStateFloat xrValue{ XR_TYPE_ACTION_STATE_FLOAT };
-        CHECK_XRCMD(xrGetActionStateFloat(mXR->mPrivate->mSession, &getInfo, &xrValue));
+        CHECK_XRCMD(xrGetActionStateFloat(mXR->impl().mSession, &getInfo, &xrValue));
 
         if (xrValue.isActive)
             value = xrValue.currentState;
@@ -287,7 +287,7 @@ namespace MWVR
         getInfo.subactionPath = subactionPath;
 
         XrActionStateBoolean xrValue{ XR_TYPE_ACTION_STATE_BOOLEAN };
-        CHECK_XRCMD(xrGetActionStateBoolean(mXR->mPrivate->mSession, &getInfo, &xrValue));
+        CHECK_XRCMD(xrGetActionStateBoolean(mXR->impl().mSession, &getInfo, &xrValue));
 
         if (xrValue.isActive)
             value = xrValue.currentState;
@@ -302,7 +302,7 @@ namespace MWVR
         getInfo.subactionPath = subactionPath;
 
         XrActionStatePose xrValue{ XR_TYPE_ACTION_STATE_POSE };
-        CHECK_XRCMD(xrGetActionStatePose(mXR->mPrivate->mSession, &getInfo, &xrValue));
+        CHECK_XRCMD(xrGetActionStatePose(mXR->impl().mSession, &getInfo, &xrValue));
 
         return xrValue.isActive;
     }
@@ -317,7 +317,7 @@ namespace MWVR
         XrHapticActionInfo hapticActionInfo{ XR_TYPE_HAPTIC_ACTION_INFO };
         hapticActionInfo.action = mAction;
         hapticActionInfo.subactionPath = subactionPath;
-        CHECK_XRCMD(xrApplyHapticFeedback(mXR->mPrivate->mSession, &hapticActionInfo, (XrHapticBaseHeader*)&vibration));
+        CHECK_XRCMD(xrApplyHapticFeedback(mXR->impl().mSession, &hapticActionInfo, (XrHapticBaseHeader*)&vibration));
         return true;
     }
 
@@ -359,9 +359,9 @@ namespace MWVR
         std::string right = std::string("/user/hand/right") + controllerAction;
         std::string pad = std::string("/user/gamepad") + controllerAction;
 
-        CHECK_XRCMD(xrStringToPath(mXR->mPrivate->mInstance, left.c_str(), &actionPaths[LEFT_HAND]));
-        CHECK_XRCMD(xrStringToPath(mXR->mPrivate->mInstance, right.c_str(), &actionPaths[RIGHT_HAND]));
-        CHECK_XRCMD(xrStringToPath(mXR->mPrivate->mInstance, pad.c_str(), &actionPaths[GAMEPAD]));
+        CHECK_XRCMD(xrStringToPath(mXR->impl().mInstance, left.c_str(), &actionPaths[LEFT_HAND]));
+        CHECK_XRCMD(xrStringToPath(mXR->impl().mInstance, right.c_str(), &actionPaths[RIGHT_HAND]));
+        CHECK_XRCMD(xrStringToPath(mXR->impl().mInstance, pad.c_str(), &actionPaths[GAMEPAD]));
 
         return actionPaths;
     }
@@ -391,10 +391,8 @@ namespace MWVR
         , mYPath(generateControllerActionPaths("/input/y/click"))
         , mAPath(generateControllerActionPaths("/input/a/click"))
         , mBPath(generateControllerActionPaths("/input/b/click"))
-        , mTriggerValuePath(generateControllerActionPaths("/input/trigger/value"))
         , mTriggerClickPath(generateControllerActionPaths("/input/trigger/click"))
-        , mActionsMenu(std::move(createAction(XR_ACTION_TYPE_BOOLEAN_INPUT, "actions_menu", "Actions Menu", { })))
-        , mSpellModifier(std::move(createAction(XR_ACTION_TYPE_BOOLEAN_INPUT, "spell_modifier", "Spell Modifier", { })))
+        , mTriggerValuePath(generateControllerActionPaths("/input/trigger/value"))
         , mGameMenu(std::move(createAction(XR_ACTION_TYPE_BOOLEAN_INPUT, "game_menu", "GameMenu", { })))
         , mInventory(std::move(createAction(XR_ACTION_TYPE_BOOLEAN_INPUT, "inventory", "Inventory", { })))
         , mActivate(std::move(createAction(XR_ACTION_TYPE_BOOLEAN_INPUT, "activate", "Activate", { })))
@@ -411,6 +409,8 @@ namespace MWVR
         , mLookLeftRight(std::move(createAction(XR_ACTION_TYPE_FLOAT_INPUT, "look_left_right", "LookLeftRight", { })))
         , mMoveForwardBackward(std::move(createAction(XR_ACTION_TYPE_FLOAT_INPUT, "move_forward_backward", "MoveForwardBackward", { })))
         , mMoveLeftRight(std::move(createAction(XR_ACTION_TYPE_FLOAT_INPUT, "move_left_right", "MoveLeftRight", { })))
+        , mActionsMenu(std::move(createAction(XR_ACTION_TYPE_BOOLEAN_INPUT, "actions_menu", "Actions Menu", { })))
+        , mSpellModifier(std::move(createAction(XR_ACTION_TYPE_BOOLEAN_INPUT, "spell_modifier", "Spell Modifier", { })))
         , mHandPoseAction(std::move(createAction(XR_ACTION_TYPE_POSE_INPUT, "hand_pose", "Hand Pose", { LEFT_HAND, RIGHT_HAND })))
         , mHapticsAction(std::move(createAction(XR_ACTION_TYPE_VIBRATION_OUTPUT, "vibrate_hand", "Vibrate Hand", { LEFT_HAND, RIGHT_HAND })))
     {
@@ -479,7 +479,7 @@ namespace MWVR
         { // Set up default bindings for the oculus
             XrPath oculusTouchInteractionProfilePath;
             CHECK_XRCMD(
-                xrStringToPath(XR->mPrivate->mInstance, "/interaction_profiles/oculus/touch_controller", &oculusTouchInteractionProfilePath));
+                xrStringToPath(XR->impl().mInstance, "/interaction_profiles/oculus/touch_controller", &oculusTouchInteractionProfilePath));
             std::vector<XrActionSuggestedBinding> bindings{ {
                 {mHandPoseAction, mPosePath[LEFT_HAND]},
                 {mHandPoseAction, mPosePath[RIGHT_HAND]},
@@ -507,7 +507,7 @@ namespace MWVR
             suggestedBindings.interactionProfile = oculusTouchInteractionProfilePath;
             suggestedBindings.suggestedBindings = bindings.data();
             suggestedBindings.countSuggestedBindings = (uint32_t)bindings.size();
-            CHECK_XRCMD(xrSuggestInteractionProfileBindings(XR->mPrivate->mInstance, &suggestedBindings));
+            CHECK_XRCMD(xrSuggestInteractionProfileBindings(XR->impl().mInstance, &suggestedBindings));
 
             /*
             mSpellModifier; //  L-Squeeze
@@ -534,16 +534,16 @@ namespace MWVR
             createInfo.action = mHandPoseAction;
             createInfo.poseInActionSpace.orientation.w = 1.f;
             createInfo.subactionPath = mSubactionPath[LEFT_HAND];
-            CHECK_XRCMD(xrCreateActionSpace(XR->mPrivate->mSession, &createInfo, &mHandSpace[LEFT_HAND]));
+            CHECK_XRCMD(xrCreateActionSpace(XR->impl().mSession, &createInfo, &mHandSpace[LEFT_HAND]));
             createInfo.subactionPath = mSubactionPath[RIGHT_HAND];
-            CHECK_XRCMD(xrCreateActionSpace(XR->mPrivate->mSession, &createInfo, &mHandSpace[RIGHT_HAND]));
+            CHECK_XRCMD(xrCreateActionSpace(XR->impl().mSession, &createInfo, &mHandSpace[RIGHT_HAND]));
         }
 
         { // Set up the action set
             XrSessionActionSetsAttachInfo attachInfo{ XR_TYPE_SESSION_ACTION_SETS_ATTACH_INFO };
             attachInfo.countActionSets = 1;
             attachInfo.actionSets = &mActionSet;
-            CHECK_XRCMD(xrAttachSessionActionSets(XR->mPrivate->mSession, &attachInfo));
+            CHECK_XRCMD(xrAttachSessionActionSets(XR->impl().mSession, &attachInfo));
         }
     };
 
@@ -577,7 +577,7 @@ namespace MWVR
         OpenXRInputManagerImpl::updateHandTracking()
     {
         for (auto hand : { LEFT_HAND, RIGHT_HAND }) {
-            CHECK_XRCMD(xrLocateSpace(mHandSpace[hand], mXR->mPrivate->mReferenceSpaceStage, mXR->mPrivate->mFrameState.predictedDisplayTime, &mHandSpaceLocation[hand]));
+            CHECK_XRCMD(xrLocateSpace(mHandSpace[hand], mXR->impl().mReferenceSpaceStage, mXR->impl().mFrameState.predictedDisplayTime, &mHandSpaceLocation[hand]));
         }
     }
 
@@ -593,7 +593,7 @@ namespace MWVR
     void 
         OpenXRInputManagerImpl::updateControls()
     {
-        if (!mXR->mPrivate->mSessionRunning)
+        if (!mXR->impl().mSessionRunning)
             return;
 
         // TODO: Should be in OpenXRViewer
@@ -668,6 +668,11 @@ namespace MWVR
         float moveLeftRight = mMoveLeftRight.value();
         float moveForwardBackward = mMoveForwardBackward.value();
 
+        // Until i implement the rest
+        (void)lookLeftRight;
+        (void)moveLeftRight;
+        (void)moveForwardBackward;
+
         // Propagate movement to openmw
     }
 
@@ -714,7 +719,7 @@ namespace MWVR
     XrPath OpenXRInputManagerImpl::generateXrPath(const std::string& path)
     {
         XrPath xrpath = 0;
-        CHECK_XRCMD(xrStringToPath(mXR->mPrivate->mInstance, path.c_str(), &xrpath));
+        CHECK_XRCMD(xrStringToPath(mXR->impl().mInstance, path.c_str(), &xrpath));
         return xrpath;
     }
 
@@ -733,6 +738,6 @@ namespace MWVR
     void 
         OpenXRInputManager::updateControls()
     {
-        mPrivate->updateControls();
+        impl().updateControls();
     }
 }

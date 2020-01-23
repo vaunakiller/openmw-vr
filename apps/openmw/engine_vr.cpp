@@ -11,10 +11,6 @@ void OMW::Engine::initVr()
         throw std::logic_error("mViewer must be initialized before calling initVr()");
 
     mXR = new MWVR::OpenXRManager();
-    osg::ref_ptr<MWVR::OpenXRManager::RealizeOperation> realizeOperation = new MWVR::OpenXRManager::RealizeOperation(mXR);
-    mViewer->setRealizeOperation(realizeOperation);
-    mXRViewer = new MWVR::OpenXRViewer(mXR, realizeOperation, mViewer, 1.f);
+    mXRViewer = new MWVR::OpenXRViewer(mXR, mViewer, 1.f);
 
-    // Viewers must be the top node of the scene.
-    //mViewer->setSceneData(mXRViewer);
 }

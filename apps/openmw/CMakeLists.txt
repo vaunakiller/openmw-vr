@@ -114,18 +114,26 @@ endif ()
 if(BUILD_VR_OPENXR)
     set(OPENMW_VR_FILES
         engine_vr.cpp
-        mwvr/openxrmanager.hpp
-        mwvr/openxrmanager.cpp
-        mwvr/openxrviewer.hpp
-        mwvr/openxrviewer.cpp
-        mwvr/openxrmanagerimpl.hpp 
-        mwvr/openxrmanagerimpl.cpp
-        mwvr/openxrview.hpp
-        mwvr/openxrview.cpp 
         mwvr/openxrinputmanager.hpp
         mwvr/openxrinputmanager.cpp
+        mwvr/openxrlayer.hpp
+        mwvr/openxrlayer.cpp
+        mwvr/openxrmanager.hpp
+        mwvr/openxrmanager.cpp
+        mwvr/openxrmanagerimpl.hpp 
+        mwvr/openxrmanagerimpl.cpp
+        mwvr/openxrmenu.hpp
+        mwvr/openxrmenu.cpp
+        mwvr/openxrswapchain.hpp
+        mwvr/openxrswapchain.cpp
         mwvr/openxrtexture.hpp
         mwvr/openxrtexture.cpp
+        mwvr/openxrview.hpp
+        mwvr/openxrview.cpp 
+        mwvr/openxrviewer.hpp
+        mwvr/openxrviewer.cpp
+        mwvr/openxrworldview.hpp
+        mwvr/openxrworldview.cpp 
    )
 
     openmw_add_executable(openmw_vr

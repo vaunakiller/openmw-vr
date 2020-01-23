@@ -44,50 +44,51 @@ namespace MWVR
         OpenXRManager::frameIndex()
     {
         if (realized())
-            return mPrivate->frameIndex;
+            return impl().frameIndex;
+        return -1;
     }
 
     bool OpenXRManager::sessionRunning()
     {
         if (realized())
-            return mPrivate->mSessionRunning;
+            return impl().mSessionRunning;
         return false;
     }
 
     void OpenXRManager::handleEvents()
     {
         if (realized())
-            return mPrivate->handleEvents();
+            return impl().handleEvents();
     }
 
     void OpenXRManager::waitFrame()
     {
         if (realized())
-            return mPrivate->waitFrame();
+            return impl().waitFrame();
     }
 
     void OpenXRManager::beginFrame()
     {
         if (realized())
-            return mPrivate->beginFrame();
+            return impl().beginFrame();
     }
 
     void OpenXRManager::endFrame()
     {
         if (realized())
-            return mPrivate->endFrame();
+            return impl().endFrame();
     }
 
     void OpenXRManager::updateControls()
     {
         if (realized())
-            return mPrivate->updateControls();
+            return impl().updateControls();
     }
 
     void OpenXRManager::updatePoses()
     {
         if (realized())
-            return mPrivate->updatePoses();
+            return impl().updatePoses();
     }
 
     void
@@ -110,22 +111,18 @@ namespace MWVR
         }
     }
 
-    void OpenXRManager::setPoseUpdateCallback(PoseUpdateCallback::TrackedLimb limb, PoseUpdateCallback::TrackingMode mode, osg::ref_ptr<PoseUpdateCallback> cb)
-    {
-        if (realized())
-            return mPrivate->setPoseUpdateCallback(limb, mode, cb);
-    }
 
-    void OpenXRManager::setViewSubImage(int eye, const ::XrSwapchainSubImage& subImage)
+    void OpenXRManager::addPoseUpdateCallback(
+        osg::ref_ptr<PoseUpdateCallback> cb)
     {
         if (realized())
-            return mPrivate->setViewSubImage(eye, subImage);
+            return impl().addPoseUpdateCallback(cb);
     }
 
     int OpenXRManager::eyes()
     {
         if (realized())
-            return mPrivate->eyes();
+            return impl().eyes();
         return 0;
     }
 
@@ -133,7 +130,6 @@ namespace MWVR
         OpenXRManager::RealizeOperation::operator()(
             osg::GraphicsContext* gc)
     {
-        osg::ref_ptr<OpenXRManager> XR;
         mXR->realize(gc);
     }
 
@@ -150,11 +146,57 @@ namespace MWVR
 
     }
 
-    void
-        OpenXRManager::SwapBuffersCallback::swapBuffersImplementation(
-            osg::GraphicsContext* gc)
+    void OpenXRManager::viewerBarrier()
     {
-        gc->swapBuffersImplementation();
-        mXR->endFrame();
+        if (realized())
+            return impl().viewerBarrier();
     }
+
+    void OpenXRManager::registerToBarrier()
+    {
+        if (realized())
+            return impl().registerToBarrier();
+    }
+
+    void OpenXRManager::unregisterFromBarrier()
+    {
+        if (realized())
+            return impl().unregisterFromBarrier();
+    }
+
+#ifndef _NDEBUG
+    void PoseLogger::operator()(MWVR::Pose pose)
+    {
+        const char* limb = nullptr;
+        const char* space = nullptr;
+        switch (mLimb)
+        {
+        case TrackedLimb::HEAD:
+            limb = "HEAD"; break;
+        case TrackedLimb::LEFT_HAND:
+            limb = "LEFT_HAND"; break;
+        case TrackedLimb::RIGHT_HAND:
+            limb = "RIGHT_HAND"; break;
+        }
+        switch (mSpace)
+        {
+        case TrackedSpace::STAGE:
+            space = "STAGE"; break;
+        case TrackedSpace::VIEW:
+            space = "VIEW"; break;
+        }
+
+        //TODO: Use a different output to avoid spamming the debug log when enabled
+        Log(Debug::Verbose) << space << "." << limb << ": " << pose;
+    }
+#endif
 }
+
+std::ostream& operator <<(
+    std::ostream& os,
+    const MWVR::Pose& pose)
+{
+    os << "position=" << pose.position << " orientation=" << pose.orientation << " velocity=" << pose.velocity;
+    return os;
+}
+

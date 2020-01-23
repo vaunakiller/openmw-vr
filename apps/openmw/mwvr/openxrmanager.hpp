@@ -14,8 +14,35 @@
 
 struct XrSwapchainSubImage;
 
+
 namespace MWVR
 {
+    //! Represents the pose of a limb in VR space.
+    struct Pose
+    {
+        //! Position in VR space
+        osg::Vec3 position;
+        //! Orientation in VR space.
+        osg::Quat orientation;
+        //! Speed of movement in VR space, expressed in meters per second
+        osg::Vec3 velocity;
+    };
+
+    //! Describes what limb to track.
+    enum class TrackedLimb
+    {
+        LEFT_HAND,
+        RIGHT_HAND,
+        HEAD
+    };
+
+    //! Describes what space to track the limb in
+    enum class TrackedSpace
+    {
+        STAGE, //!< Track limb in the VR stage space. Meaning a space with a floor level origin and fixed horizontal orientation.
+        VIEW //!< Track limb in the VR view space. Meaning a space with the head as origin and orientation.
+    };
+
 
     // Use the pimpl pattern to avoid cluttering the namespace with openxr dependencies.
     class OpenXRManagerImpl;
@@ -26,21 +53,13 @@ namespace MWVR
         class PoseUpdateCallback: public osg::Referenced
         {
         public:
-            enum TrackedLimb
-            {
-                LEFT_HAND,
-                RIGHT_HAND,
-                HEAD
-            };
+            PoseUpdateCallback(TrackedLimb limb, TrackedSpace space)
+                : mLimb(limb), mSpace(space){}
 
-            //! Describes how position is tracked. Orientation is always absolute.
-            enum TrackingMode
-            {
-                STAGE_ABSOLUTE, //!< Position in VR stage. Meaning relative to some floor level origin
-                STAGE_RELATIVE, //!< Same as STAGE_ABSOLUTE but receive only changes in position
-            };
+            virtual void operator()(MWVR::Pose pose) = 0;
 
-            virtual void operator()(osg::Vec3 position, osg::Quat orientation) = 0;
+            TrackedLimb mLimb;
+            TrackedSpace mSpace;
         };
 
     public:
@@ -49,7 +68,7 @@ namespace MWVR
         public:
             RealizeOperation(osg::ref_ptr<OpenXRManager> XR) : osg::GraphicsOperation("OpenXRRealizeOperation", false), mXR(XR) {};
             void operator()(osg::GraphicsContext* gc) override;
-            bool realized();
+            virtual bool realized();
 
         private:
             osg::ref_ptr<OpenXRManager> mXR;
@@ -60,16 +79,6 @@ namespace MWVR
         public:
             CleanupOperation(osg::ref_ptr<OpenXRManager> XR) : osg::GraphicsOperation("OpenXRCleanupOperation", false), mXR(XR) {};
             void operator()(osg::GraphicsContext* gc) override;
-
-        private:
-            osg::ref_ptr<OpenXRManager> mXR;
-        };
-
-        class SwapBuffersCallback : public osg::GraphicsContext::SwapCallback
-        {
-        public:
-            SwapBuffersCallback(osg::ref_ptr<OpenXRManager> XR) : mXR(XR) {};
-            void swapBuffersImplementation(osg::GraphicsContext* gc) override;
 
         private:
             osg::ref_ptr<OpenXRManager> mXR;
@@ -94,23 +103,36 @@ namespace MWVR
 
         void realize(osg::GraphicsContext* gc);
 
-        void setPoseUpdateCallback(PoseUpdateCallback::TrackedLimb limb, PoseUpdateCallback::TrackingMode mode, osg::ref_ptr<PoseUpdateCallback> cb);
-
-        void setViewSubImage(int eye, const ::XrSwapchainSubImage& subImage);
+        void addPoseUpdateCallback(osg::ref_ptr<PoseUpdateCallback> cb);
 
         int eyes();
 
-    private:
-        friend class OpenXRViewImpl;
-        friend class OpenXRInputManagerImpl;
-        friend class OpenXRAction;
-        friend class OpenXRViewer;
+        //! A barrier used internally to ensure all views have released their frames before endFrame can complete.
+        void viewerBarrier();
+        //! Increments the target viewer counter of the barrier
+        void registerToBarrier();
+        //! Decrements the target viewer counter of the barrier
+        void unregisterFromBarrier();
 
+        OpenXRManagerImpl& impl() { return *mPrivate; }
+
+    private:
         std::shared_ptr<OpenXRManagerImpl> mPrivate;
         std::mutex mMutex;
         using lock_guard = std::lock_guard<std::mutex>;
     };
 
+#ifndef _NDEBUG
+    class PoseLogger : public OpenXRManager::PoseUpdateCallback
+    {
+    public:
+        PoseLogger(TrackedLimb limb, TrackedSpace space) 
+            : OpenXRManager::PoseUpdateCallback(limb, space) {};
+        void operator()(MWVR::Pose pose) override;
+    };
+#endif
 }
+
+std::ostream& operator <<(std::ostream& os, const MWVR::Pose& pose);
 
 #endif
