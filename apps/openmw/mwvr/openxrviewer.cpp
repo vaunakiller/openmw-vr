@@ -79,6 +79,7 @@ namespace MWVR
         if (!context->makeCurrent())
         {
             throw std::logic_error("OpenXRViewer::configure() failed to make graphics context current.");
+            return;
         }
 
         mMainCamera = mViewer->getCamera();
@@ -183,8 +184,8 @@ namespace MWVR
         
         mMirrorTextureSwapchain->current()->blit(gc, 0, 0, mMirrorTextureSwapchain->width(), mMirrorTextureSwapchain->height());
 
-        gc->swapBuffersImplementation();
         mMirrorTextureSwapchain->releaseSwapchainImage();
+        gc->swapBuffersImplementation();
 
     }
 
@@ -202,8 +203,8 @@ namespace MWVR
         auto* camera = slave._camera.get();
         auto name = camera->getName();
         
-        Log(Debug::Debug) << "Updating camera " << name;
-
+        Log(Debug::Verbose) << "Updating camera " << name;
+        mXR->beginFrame(mView->frameIndex());
 
         auto viewMatrix = view.getCamera()->getViewMatrix() * mView->viewMatrix();
         auto projMatrix = mView->projectionMatrix();

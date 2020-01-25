@@ -275,8 +275,9 @@ namespace MWVR
     }
 
     void
-        OpenXRManagerImpl::beginFrame()
+        OpenXRManagerImpl::beginFrame(long long frameIndex)
     {
+        Log(Debug::Verbose) << "frameIndex = " << frameIndex;
         if (!mSessionRunning)
             return;
 
@@ -284,11 +285,12 @@ namespace MWVR
 
         // We need to wait for the frame to become idle or ready
         // (There is no guarantee osg won't get us here before endFrame() returns)
-        while (mFrameStatus == OPENXR_FRAME_STATUS_ENDING)
+        while (mFrameStatus == OPENXR_FRAME_STATUS_ENDING || mFrameIndex < frameIndex)
             mFrameStatusSignal.wait(lock);
 
         if (mFrameStatus == OPENXR_FRAME_STATUS_IDLE)
         {
+            Log(Debug::Verbose) << "beginFrame()";
             handleEvents();
             waitFrame();
 
@@ -356,6 +358,7 @@ namespace MWVR
         frameEndInfo.layers = mLayerStack.layerHeaders();
         CHECK_XRCMD(xrEndFrame(mSession, &frameEndInfo));
         mFrameStatus = OPENXR_FRAME_STATUS_IDLE;
+        mFrameIndex++;
         mFrameStatusSignal.notify_all();
     }
 

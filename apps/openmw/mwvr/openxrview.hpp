@@ -66,11 +66,14 @@ namespace MWVR
         OpenXRSwapchain& swapchain(void) { return *mSwapchain; }
         //! Create the view surface
         bool realize(osg::ref_ptr<osg::State> state);
+        //! Current frame being rendered
+        long long frameIndex() { return mFrameIndex; };
 
     protected:
         osg::ref_ptr<OpenXRManager> mXR;
         std::unique_ptr<OpenXRSwapchain> mSwapchain;
         OpenXRSwapchain::Config mSwapchainConfig;
+        long long mFrameIndex{ 0 };
     };
 }
 

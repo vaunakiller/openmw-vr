@@ -96,7 +96,7 @@ namespace MWVR
 
         void handleEvents();
         void waitFrame();
-        void beginFrame();
+        void beginFrame(long long frameIndex);
         void endFrame();
         void updateControls();
         void updatePoses();

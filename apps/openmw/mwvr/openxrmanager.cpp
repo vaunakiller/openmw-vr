@@ -44,7 +44,7 @@ namespace MWVR
         OpenXRManager::frameIndex()
     {
         if (realized())
-            return impl().frameIndex;
+            return impl().mFrameIndex;
         return -1;
     }
 
@@ -67,10 +67,10 @@ namespace MWVR
             return impl().waitFrame();
     }
 
-    void OpenXRManager::beginFrame()
+    void OpenXRManager::beginFrame(long long frameIndex)
     {
         if (realized())
-            return impl().beginFrame();
+            return impl().beginFrame(frameIndex);
     }
 
     void OpenXRManager::endFrame()

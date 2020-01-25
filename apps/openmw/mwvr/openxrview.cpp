@@ -71,7 +71,8 @@ namespace MWVR {
 
     void OpenXRView::prerenderCallback(osg::RenderInfo& renderInfo)
     {
-        mXR->beginFrame();
+        Log(Debug::Verbose) << "prerenderCallback";
+        mXR->beginFrame(mFrameIndex);
         if(mSwapchain)
             mSwapchain->beginFrame(renderInfo.getState()->getGraphicsContext());
     }
@@ -81,6 +82,7 @@ namespace MWVR {
         if (mSwapchain)
             mSwapchain->endFrame(renderInfo.getState()->getGraphicsContext());
         mXR->viewerBarrier();
+        mFrameIndex++;
     }
 
     bool OpenXRView::realize(osg::ref_ptr<osg::State> state)

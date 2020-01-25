@@ -80,7 +80,7 @@ namespace MWVR
         auto hmdViews = mXR->impl().getHmdViews();
 
         float near = Settings::Manager::getFloat("near clip", "Camera");
-        float far = Settings::Manager::getFloat("viewing distance", "Camera");
+        float far = Settings::Manager::getFloat("viewing distance", "Camera") * mMetersPerUnit;
         //return perspectiveFovMatrix()
         return perspectiveFovMatrix(near, far, hmdViews[mView].fov);
     }
@@ -90,17 +90,26 @@ namespace MWVR
         osg::Matrix viewMatrix;
         auto hmdViews = mXR->impl().getHmdViews();
         auto pose = hmdViews[mView].pose;
-        osg::Vec3 position = osg::Vec3(pose.position.x, pose.position.y, pose.position.z);
+        osg::Vec3 position = osg::fromXR(pose.position);
 
         auto stageViews = mXR->impl().getStageViews();
         auto stagePose = stageViews[mView].pose;
 
+        // Comfort shortcut.
+        // TODO: STAGE movement should affect in-game movement but not like this.
+        // This method should only be using HEAD view.
+        // But for comfort i'm keeping this until such movement has been implemented.
+#if 1
+        position = -osg::fromXR(stagePose.position);
+        position.y() += 0.9144 * 2.;
+#endif
+
         // invert orientation (conjugate of Quaternion) and position to apply to the view matrix as offset
-        viewMatrix.setTrans(position);
+        viewMatrix.setTrans(position * mMetersPerUnit);
         viewMatrix.postMultRotate(osg::fromXR(stagePose.orientation).conj());
 
         // Scale to world units
-        viewMatrix.postMultScale(osg::Vec3d(mMetersPerUnit, mMetersPerUnit, mMetersPerUnit));
+        //viewMatrix.postMultScale(osg::Vec3d(1.f / mMetersPerUnit, 1.f / mMetersPerUnit, 1.f / mMetersPerUnit));
 
         return viewMatrix;
     }
@@ -116,6 +125,7 @@ namespace MWVR
         setWidth(config.recommendedImageRectWidth);
         setHeight(config.recommendedImageRectHeight);
         setSamples(config.recommendedSwapchainSampleCount);
+
         realize(state);
         //    XR->setViewSubImage(view, mSwapchain->subImage());
     }

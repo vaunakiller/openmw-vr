@@ -55,6 +55,8 @@ namespace MWVR
         mLayer->pose.position = osg::toXR(pose.position);
         mLayer->pose.orientation = osg::toXR(-pose.orientation);
         mPositionNeedsUpdate = false;
+
+        Log(Debug::Verbose) << "Menu pose updated to: " << pose;
     }
 
     void OpenXRMenu::postrenderCallback(osg::RenderInfo& info)

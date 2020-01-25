@@ -56,7 +56,7 @@ namespace MWVR
 
         const XrEventDataBaseHeader* nextEvent();
         void waitFrame();
-        void beginFrame();
+        void beginFrame(long long frameIndex);
         void endFrame();
         std::array<XrView, 2> getStageViews();
         std::array<XrView, 2> getHmdViews();
@@ -69,7 +69,7 @@ namespace MWVR
         void HandleSessionStateChanged(const XrEventDataSessionStateChanged& stateChangedEvent);
 
         bool initialized = false;
-        long long frameIndex = 0;
+        long long mFrameIndex = 0;
         XrInstance mInstance = XR_NULL_HANDLE;
         XrSession mSession = XR_NULL_HANDLE;
         XrSpace mSpace = XR_NULL_HANDLE;

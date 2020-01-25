@@ -414,68 +414,6 @@ namespace MWVR
         , mHandPoseAction(std::move(createAction(XR_ACTION_TYPE_POSE_INPUT, "hand_pose", "Hand Pose", { LEFT_HAND, RIGHT_HAND })))
         , mHapticsAction(std::move(createAction(XR_ACTION_TYPE_VIBRATION_OUTPUT, "vibrate_hand", "Vibrate Hand", { LEFT_HAND, RIGHT_HAND })))
     {
-
-
-
-        //{ mHandPoseAction, mPosePath[LEFT_HAND]},
-        //{ mHandPoseAction, mPosePath[RIGHT_HAND] },
-        //{ mHapticsAction, mHapticPath[LEFT_HAND] },
-        //{ mHapticsAction, mHapticPath[RIGHT_HAND] },
-
-        //{ mLookLeftRight, mThumbstickXPath[RIGHT_HAND] },
-        //{ mMoveLeftRight, mThumbstickXPath[LEFT_HAND] },
-        //{ mMoveForwardBackward, mThumbstickYPath[LEFT_HAND] },
-        //{ mActivate, mSqueezeClickPath[RIGHT_HAND] },
-        //{ mUse, mTriggerClickPath[RIGHT_HAND] },
-        //{ mJump, mTriggerValuePath[LEFT_HAND] },
-        //{ mWeapon, mAPath[RIGHT_HAND] },
-        //{ mSpell, mAPath[RIGHT_HAND] },
-        //{ mCycleSpellLeft, mThumbstickClickPath[LEFT_HAND] },
-        //{ mCycleSpellRight, mThumbstickClickPath[RIGHT_HAND] },
-        //{ mCycleWeaponLeft, mThumbstickClickPath[LEFT_HAND] },
-        //{ mCycleWeaponRight, mThumbstickClickPath[RIGHT_HAND] },
-        //{ mSneak, mXPath[LEFT_HAND] },
-        //{ mInventory, mBPath[RIGHT_HAND] },
-        //{ mQuickMenu, mYPath[LEFT_HAND] },
-        //{ mSpellModifier, mSqueezeClickPath[LEFT_HAND] },
-        //{ mGameMenu, mMenuClickPath[LEFT_HAND] },
-
-        // There are not enough actions on controllers to assign everything.
-        //mUnused = std::move(createAction(XR_ACTION_TYPE_FLOAT_INPUT, "Unused", "Unused", { }));
-        //mScreenshot = std::move(createAction(XR_ACTION_TYPE_FLOAT_INPUT, "Screenshot", "Screenshot", { }));
-        //mConsole = std::move(createAction(XR_ACTION_TYPE_FLOAT_INPUT, "Console", "Console", { }));
-        //mMoveLeft = std::move(createAction(XR_ACTION_TYPE_FLOAT_INPUT, "MoveLeft", "MoveLeft", { }));
-        //mMoveRight = std::move(createAction(XR_ACTION_TYPE_FLOAT_INPUT, "MoveRight", "MoveRight", { }));
-        //mMoveForward = std::move(createAction(XR_ACTION_TYPE_FLOAT_INPUT, "MoveForward", "MoveForward", { }));
-        //mMoveBackward = std::move(createAction(XR_ACTION_TYPE_FLOAT_INPUT, "MoveBackward", "MoveBackward", { }));
-        //mAutoMove = std::move(createAction(XR_ACTION_TYPE_FLOAT_INPUT, "AutoMove", "AutoMove", { }));
-        //mRest = std::move(createAction(XR_ACTION_TYPE_FLOAT_INPUT, "Rest", "Rest", { }));
-        //mJournal = std::move(createAction(XR_ACTION_TYPE_FLOAT_INPUT, "Journal", "Journal", { }));
-        //mRun = std::move(createAction(XR_ACTION_TYPE_FLOAT_INPUT, "Run", "Run", { }));
-        //mAlwaysRun = std::move(createAction(XR_ACTION_TYPE_FLOAT_INPUT, "AlwaysRun", "AlwaysRun", { }));
-        //mQuickSave = std::move(createAction(XR_ACTION_TYPE_FLOAT_INPUT, "QuickSave", "QuickSave", { }));
-        //mQuickLoad = std::move(createAction(XR_ACTION_TYPE_FLOAT_INPUT, "QuickLoad", "QuickLoad", { }));
-        //mToggleWeapon = std::move(createAction(XR_ACTION_TYPE_FLOAT_INPUT, "ToggleWeapon", "ToggleWeapon", { }));
-        //mToggleSpell = std::move(createAction(XR_ACTION_TYPE_FLOAT_INPUT, "ToggleSpell", "ToggleSpell", { }));
-        //mTogglePOV = std::move(createAction(XR_ACTION_TYPE_FLOAT_INPUT, "TogglePOV", "TogglePOV", { }));
-        //mQuickKey1 = std::move(createAction(XR_ACTION_TYPE_FLOAT_INPUT, "QuickKey1", "QuickKey1", { }));
-        //mQuickKey2 = std::move(createAction(XR_ACTION_TYPE_FLOAT_INPUT, "QuickKey2", "QuickKey2", { }));
-        //mQuickKey3 = std::move(createAction(XR_ACTION_TYPE_FLOAT_INPUT, "QuickKey3", "QuickKey3", { }));
-        //mQuickKey4 = std::move(createAction(XR_ACTION_TYPE_FLOAT_INPUT, "QuickKey4", "QuickKey4", { }));
-        //mQuickKey5 = std::move(createAction(XR_ACTION_TYPE_FLOAT_INPUT, "QuickKey5", "QuickKey5", { }));
-        //mQuickKey6 = std::move(createAction(XR_ACTION_TYPE_FLOAT_INPUT, "QuickKey6", "QuickKey6", { }));
-        //mQuickKey7 = std::move(createAction(XR_ACTION_TYPE_FLOAT_INPUT, "QuickKey7", "QuickKey7", { }));
-        //mQuickKey8 = std::move(createAction(XR_ACTION_TYPE_FLOAT_INPUT, "QuickKey8", "QuickKey8", { }));
-        //mQuickKey9 = std::move(createAction(XR_ACTION_TYPE_FLOAT_INPUT, "QuickKey9", "QuickKey9", { }));
-        //mQuickKey10 = std::move(createAction(XR_ACTION_TYPE_FLOAT_INPUT, "QuickKey10", "QuickKey10", { }));
-        //mQuickKeysMenu = std::move(createAction(XR_ACTION_TYPE_FLOAT_INPUT, "QuickKeysMenu", "QuickKeysMenu", { }));
-        //mToggleHUD = std::move(createAction(XR_ACTION_TYPE_FLOAT_INPUT, "ToggleHUD", "ToggleHUD", { }));
-        //mToggleDebug = std::move(createAction(XR_ACTION_TYPE_FLOAT_INPUT, "ToggleDebug", "ToggleDebug", { }));
-        //mToggleSneak = std::move(createAction(XR_ACTION_TYPE_BOOLEAN_INPUT, "ToggleSneak", "ToggleSneak", { }));
-        //mLookUpDown = std::move(createAction(XR_ACTION_TYPE_FLOAT_INPUT, "LookUpDown", "LookUpDown", { }));
-        //mZoomIn = std::move(createAction(XR_ACTION_TYPE_FLOAT_INPUT, "ZoomIn", "ZoomIn", { }));
-        //mZoomOut = std::move(createAction(XR_ACTION_TYPE_FLOAT_INPUT, "ZoomOut", "ZoomOut", { }));
-
         { // Set up default bindings for the oculus
             XrPath oculusTouchInteractionProfilePath;
             CHECK_XRCMD(

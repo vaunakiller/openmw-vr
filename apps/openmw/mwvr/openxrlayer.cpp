@@ -39,6 +39,6 @@ namespace MWVR {
             if (!mLayers[1])
                 return nullptr;
 
-
+        return nullptr;
     }
 }
