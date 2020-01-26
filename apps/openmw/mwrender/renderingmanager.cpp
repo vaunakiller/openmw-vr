@@ -15,13 +15,14 @@
 #include <osg/TextureCubeMap>
 
 #include <osgUtil/LineSegmentIntersector>
-#include <osgUtil/IncrementalCompileOperation>
 
 #include <osg/ImageUtils>
 
 #include <osgViewer/Viewer>
 
 #include <components/debug/debuglog.hpp>
+
+#include <components/misc/stringops.hpp>
 
 #include <components/resource/resourcesystem.hpp>
 #include <components/resource/imagemanager.hpp>
@@ -47,8 +48,6 @@
 #include <components/fallback/fallback.hpp>
 
 #include <components/detournavigator/navigator.hpp>
-
-#include <boost/algorithm/string.hpp>
 
 #include "../mwworld/cellstore.hpp"
 #include "../mwworld/class.hpp"
@@ -389,6 +388,11 @@ namespace MWRender
     {
         // let background loading thread finish before we delete anything else
         mWorkQueue = nullptr;
+    }
+
+    osgUtil::IncrementalCompileOperation* RenderingManager::getIncrementalCompileOperation()
+    {
+        return mViewer->getIncrementalCompileOperation();
     }
 
     MWRender::Objects& RenderingManager::getObjects()
@@ -763,7 +767,7 @@ namespace MWRender
         int screenshotMapping = 0;
 
         std::vector<std::string> settingArgs;
-        boost::algorithm::split(settingArgs,settingStr,boost::is_any_of(" "));
+        Misc::StringUtils::split(settingStr, settingArgs);
 
         if (settingArgs.size() > 0)
         {
