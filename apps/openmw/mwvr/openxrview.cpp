@@ -16,22 +16,22 @@
 namespace MWVR {
 
     OpenXRView::OpenXRView(
-        osg::ref_ptr<OpenXRManager> XR)
+        osg::ref_ptr<OpenXRManager> XR,
+        std::string name)
         : mXR(XR)
         , mSwapchain(nullptr)
         , mSwapchainConfig{}
+        , mName(name)
     {
         mSwapchainConfig.requestedFormats = {
             GL_RGBA8,
             GL_RGBA8_SNORM,
         };
 
-        mXR->registerToBarrier();
     }
 
     OpenXRView::~OpenXRView()
     {
-        mXR->unregisterFromBarrier();
     }
 
     osg::Camera* OpenXRView::createCamera(int eye, const osg::Vec4& clearColor, osg::GraphicsContext* gc)
@@ -48,7 +48,10 @@ namespace MWVR {
         camera->setGraphicsContext(gc);
 
         camera->setInitialDrawCallback(new OpenXRView::InitialDrawCallback());
-        camera->setPreDrawCallback(new OpenXRView::PredrawCallback(camera.get(), this));
+
+        mPredraw = new OpenXRView::PredrawCallback(camera.get(), this);
+
+        camera->setPreDrawCallback(mPredraw);
         camera->setFinalDrawCallback(new OpenXRView::PostdrawCallback(camera.get(), this));
 
         return camera.release();
@@ -71,18 +74,28 @@ namespace MWVR {
 
     void OpenXRView::prerenderCallback(osg::RenderInfo& renderInfo)
     {
-        Log(Debug::Verbose) << "prerenderCallback";
-        mXR->beginFrame(mFrameIndex);
-        if(mSwapchain)
+        Log(Debug::Verbose) << mName << ": prerenderCallback";
+        if (mSwapchain)
+        {
             mSwapchain->beginFrame(renderInfo.getState()->getGraphicsContext());
+        }
     }
 
     void OpenXRView::postrenderCallback(osg::RenderInfo& renderInfo)
     {
-        if (mSwapchain)
-            mSwapchain->endFrame(renderInfo.getState()->getGraphicsContext());
-        mXR->viewerBarrier();
-        mFrameIndex++;
+        // osg will sometimes call this without a corresponding prerender.
+        Log(Debug::Verbose) << mName << ": postrenderCallback";
+        Log(Debug::Verbose) << renderInfo.getCurrentCamera()->getName() << ": " << renderInfo.getCurrentCamera()->getPreDrawCallback();
+        if (renderInfo.getCurrentCamera()->getPreDrawCallback() != mPredraw)
+        {
+            // It seems OSG will sometimes overwrite the predraw callback.
+            // Undocumented behaviour?
+            renderInfo.getCurrentCamera()->setPreDrawCallback(mPredraw);
+            Log(Debug::Warning) << ("osg overwrote predraw");
+        }
+        //if (mSwapchain)
+        //    mSwapchain->endFrame(renderInfo.getState()->getGraphicsContext());
+
     }
 
     bool OpenXRView::realize(osg::ref_ptr<osg::State> state)

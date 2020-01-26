@@ -26,11 +26,6 @@ namespace MWVR
         ~OpenXRSwapchain();
 
     public:
-        //! Get the next color buffer.
-        //! \return The GL texture ID of the now current swapchain image
-        osg::ref_ptr<OpenXRTextureBuffer> prepareNextSwapchainImage();
-        //! Release current color buffer. Do not forget to call this after rendering to the color buffer.
-        void releaseSwapchainImage();
         //! Prepare for render (set FBO)
         void beginFrame(osg::GraphicsContext* gc);
         //! Finalize render
@@ -44,7 +39,7 @@ namespace MWVR
         //! Samples of the view surface
         int samples();
         //! Get the current texture
-        OpenXRTextureBuffer* current();
+        OpenXRTextureBuffer* renderBuffer();
         //! Get the private implementation
         OpenXRSwapchainImpl& impl() { return *mPrivate; }
         //! Get the private implementation

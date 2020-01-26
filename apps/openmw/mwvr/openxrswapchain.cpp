@@ -26,21 +26,20 @@ namespace MWVR {
         OpenXRSwapchainImpl(osg::ref_ptr<OpenXRManager> XR, osg::ref_ptr<osg::State> state, OpenXRSwapchain::Config config);
         ~OpenXRSwapchainImpl();
 
-        osg::ref_ptr<OpenXRTextureBuffer> prepareNextSwapchainImage();
-        void   releaseSwapchainImage();
         void beginFrame(osg::GraphicsContext* gc);
         void endFrame(osg::GraphicsContext* gc);
 
         osg::ref_ptr<OpenXRManager> mXR;
         XrSwapchain mSwapchain = XR_NULL_HANDLE;
         std::vector<XrSwapchainImageOpenGLKHR> mSwapchainImageBuffers{};
-        std::vector<osg::ref_ptr<OpenXRTextureBuffer> > mTextureBuffers{};
+        //std::vector<osg::ref_ptr<OpenXRTextureBuffer> > mTextureBuffers{};
         XrSwapchainSubImage mSubImage{};
         int32_t mWidth = -1;
         int32_t mHeight = -1;
         int32_t mSamples = -1;
         int64_t mSwapchainColorFormat = -1;
-        OpenXRTextureBuffer* mCurrentBuffer = nullptr;
+        uint32_t mFBO = 0;
+        OpenXRTextureBuffer* mRenderBuffer = nullptr;
     };
 
     OpenXRSwapchainImpl::OpenXRSwapchainImpl(
@@ -99,8 +98,9 @@ namespace MWVR {
 
         mSwapchainImageBuffers.resize(imageCount, { XR_TYPE_SWAPCHAIN_IMAGE_OPENGL_KHR });
         CHECK_XRCMD(xrEnumerateSwapchainImages(mSwapchain, imageCount, &imageCount, reinterpret_cast<XrSwapchainImageBaseHeader*>(mSwapchainImageBuffers.data())));
-        for (const auto& swapchainImage : mSwapchainImageBuffers)
-            mTextureBuffers.push_back(new OpenXRTextureBuffer(state, swapchainImage.image, mWidth, mHeight, 0));
+        //for (const auto& swapchainImage : mSwapchainImageBuffers)
+        //    mTextureBuffers.push_back(new OpenXRTextureBuffer(state, swapchainImage.image, mWidth, mHeight, 0));
+        mRenderBuffer = new OpenXRTextureBuffer(state, mWidth, mHeight, 0);
 
         mSubImage.swapchain = mSwapchain;
         mSubImage.imageRect.offset = { 0, 0 };
@@ -113,11 +113,18 @@ namespace MWVR {
             CHECK_XRCMD(xrDestroySwapchain(mSwapchain));
     }
 
-    osg::ref_ptr<OpenXRTextureBuffer>
-        OpenXRSwapchainImpl::prepareNextSwapchainImage()
+    void OpenXRSwapchainImpl::beginFrame(osg::GraphicsContext* gc)
     {
+        mRenderBuffer->beginFrame(gc);
+    }
+
+    void OpenXRSwapchainImpl::endFrame(osg::GraphicsContext* gc)
+    {
+        Timer timer("Swapchain::endFrame");
+        // Blit frame to swapchain
+
         if (!mXR->sessionRunning())
-            return nullptr;
+            return;
 
         XrSwapchainImageAcquireInfo acquireInfo{ XR_TYPE_SWAPCHAIN_IMAGE_ACQUIRE_INFO };
         uint32_t swapchainImageIndex = 0;
@@ -127,32 +134,11 @@ namespace MWVR {
         waitInfo.timeout = XR_INFINITE_DURATION;
         CHECK_XRCMD(xrWaitSwapchainImage(mSwapchain, &waitInfo));
 
-        return mTextureBuffers[swapchainImageIndex];
-    }
-
-    void
-        OpenXRSwapchainImpl::releaseSwapchainImage()
-    {
-        if (!mXR->sessionRunning())
-            return;
+        mRenderBuffer->endFrame(gc, mSwapchainImageBuffers[swapchainImageIndex].image);
 
         XrSwapchainImageReleaseInfo releaseInfo{ XR_TYPE_SWAPCHAIN_IMAGE_RELEASE_INFO };
         CHECK_XRCMD(xrReleaseSwapchainImage(mSwapchain, &releaseInfo));
-        //mCurrentBuffer = nullptr;
-    }
 
-    void OpenXRSwapchainImpl::beginFrame(osg::GraphicsContext* gc)
-    {
-        mCurrentBuffer = prepareNextSwapchainImage();
-        if (mCurrentBuffer)
-            mCurrentBuffer->beginFrame(gc);
-    }
-
-    void OpenXRSwapchainImpl::endFrame(osg::GraphicsContext* gc)
-    {
-        if (mCurrentBuffer)
-            mCurrentBuffer->endFrame(gc);
-        releaseSwapchainImage();
     }
 
     OpenXRSwapchain::OpenXRSwapchain(
@@ -163,16 +149,6 @@ namespace MWVR {
 
     OpenXRSwapchain::~OpenXRSwapchain()
     {
-    }
-
-    osg::ref_ptr<OpenXRTextureBuffer> OpenXRSwapchain::prepareNextSwapchainImage()
-    {
-        return impl().prepareNextSwapchainImage();
-    }
-
-    void OpenXRSwapchain::releaseSwapchainImage()
-    {
-        impl().releaseSwapchainImage();
     }
 
     void OpenXRSwapchain::beginFrame(osg::GraphicsContext* gc)
@@ -206,8 +182,8 @@ namespace MWVR {
         return impl().mSamples;
     }
 
-    OpenXRTextureBuffer* OpenXRSwapchain::current()
+    OpenXRTextureBuffer* OpenXRSwapchain::renderBuffer()
     {
-        return impl().mCurrentBuffer;
+        return impl().mRenderBuffer;
     }
 }

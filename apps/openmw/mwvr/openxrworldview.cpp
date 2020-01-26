@@ -75,9 +75,10 @@ namespace MWVR
         return osg::Matrix(matrix);
     }
 
+
     osg::Matrix OpenXRWorldView::projectionMatrix()
     {
-        auto hmdViews = mXR->impl().getHmdViews();
+        auto hmdViews = mXR->impl().getPredictedViews(OpenXRFrameIndexer::instance().updateIndex(), TrackedSpace::VIEW);
 
         float near = Settings::Manager::getFloat("near clip", "Camera");
         float far = Settings::Manager::getFloat("viewing distance", "Camera") * mMetersPerUnit;
@@ -88,11 +89,11 @@ namespace MWVR
     osg::Matrix OpenXRWorldView::viewMatrix()
     {
         osg::Matrix viewMatrix;
-        auto hmdViews = mXR->impl().getHmdViews();
+        auto hmdViews = mXR->impl().getPredictedViews(OpenXRFrameIndexer::instance().updateIndex(), TrackedSpace::VIEW);
         auto pose = hmdViews[mView].pose;
         osg::Vec3 position = osg::fromXR(pose.position);
 
-        auto stageViews = mXR->impl().getStageViews();
+        auto stageViews = mXR->impl().getPredictedViews(OpenXRFrameIndexer::instance().updateIndex(), TrackedSpace::STAGE);
         auto stagePose = stageViews[mView].pose;
 
         // Comfort shortcut.
@@ -115,8 +116,8 @@ namespace MWVR
     }
 
     OpenXRWorldView::OpenXRWorldView(
-        osg::ref_ptr<OpenXRManager> XR, osg::ref_ptr<osg::State> state, float metersPerUnit, SubView view)
-        : OpenXRView(XR)
+        osg::ref_ptr<OpenXRManager> XR, std::string name, osg::ref_ptr<osg::State> state, float metersPerUnit, SubView view)
+        : OpenXRView(XR, name)
         , mMetersPerUnit(metersPerUnit)
         , mView(view)
     {
@@ -144,5 +145,45 @@ namespace MWVR
             // Disable normal OSG FBO camera setup because it will undo the MSAA FBO configuration.
             renderer->setCameraRequiresSetUp(false);
         }
+    }
+
+    void OpenXRWorldView::prerenderCallback(osg::RenderInfo& renderInfo)
+    {
+        OpenXRView::prerenderCallback(renderInfo);
+        auto* view = renderInfo.getView();
+        auto* camera = renderInfo.getCurrentCamera();
+        auto name = camera->getName();
+
+        Log(Debug::Verbose) << "Updating camera " << name;
+
+        auto viewMatrix = view->getCamera()->getViewMatrix() * this->viewMatrix();
+        auto projectionMatrix = this->projectionMatrix();
+
+        camera->setViewMatrix(viewMatrix);
+        camera->setProjectionMatrix(projectionMatrix);
+    }
+
+    void
+        OpenXRWorldView::UpdateSlaveCallback::updateSlave(
+            osg::View& view,
+            osg::View::Slave& slave)
+    {
+        mXR->handleEvents();
+        if (!mXR->sessionRunning())
+            return;
+
+
+        auto* camera = slave._camera.get();
+        auto name = camera->getName();
+
+        Log(Debug::Verbose) << "Updating slave " << name;
+
+        //auto viewMatrix = view.getCamera()->getViewMatrix() * mView->viewMatrix();
+        //auto projMatrix = mView->projectionMatrix();
+
+        //camera->setViewMatrix(viewMatrix);
+        //camera->setProjectionMatrix(projMatrix);
+
+        slave.updateSlaveImplementation(view);
     }
 }

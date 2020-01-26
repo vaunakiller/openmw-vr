@@ -31,20 +31,6 @@ namespace MWVR
             osg::ref_ptr<OpenXRViewer> mViewer;
         };
 
-        class UpdateSlaveCallback : public osg::View::Slave::UpdateSlaveCallback
-        {
-        public:
-            UpdateSlaveCallback(osg::ref_ptr<OpenXRManager> XR, osg::ref_ptr<OpenXRWorldView> view, osg::GraphicsContext* gc)
-                : mXR(XR), mView(view), mGC(gc)
-            {}
-
-            void updateSlave(osg::View& view, osg::View::Slave& slave) override;
-
-        private:
-            osg::ref_ptr<OpenXRManager> mXR;
-            osg::ref_ptr<OpenXRWorldView> mView;
-            osg::ref_ptr<osg::GraphicsContext> mGC;
-        };
         class SwapBuffersCallback : public osg::GraphicsContext::SwapCallback
         {
         public:
@@ -90,6 +76,7 @@ namespace MWVR
         //osg::ref_ptr<SDLUtil::GraphicsWindowSDL2> mRightGW;
 
         osg::Camera* mMainCamera = nullptr;
+        osg::Camera* mMenuCamera = nullptr;
         osg::Camera* mLeftCamera = nullptr;
         osg::Camera* mRightCamera = nullptr;
 

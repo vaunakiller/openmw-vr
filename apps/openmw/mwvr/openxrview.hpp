@@ -1,6 +1,7 @@
 #ifndef OPENXR_VIEW_HPP
 #define OPENXR_VIEW_HPP
 
+#include <cassert>
 #include "openxrmanager.hpp"
 #include "openxrswapchain.hpp"
 
@@ -8,6 +9,7 @@ struct XrSwapchainSubImage;
 
 namespace MWVR
 {
+
     class OpenXRView : public osg::Referenced
     {
     public:
@@ -49,7 +51,7 @@ namespace MWVR
         };
 
     protected:
-        OpenXRView(osg::ref_ptr<OpenXRManager> XR);
+        OpenXRView(osg::ref_ptr<OpenXRManager> XR, std::string name);
         virtual ~OpenXRView();
         void setWidth(int width);
         void setHeight(int height);
@@ -66,14 +68,14 @@ namespace MWVR
         OpenXRSwapchain& swapchain(void) { return *mSwapchain; }
         //! Create the view surface
         bool realize(osg::ref_ptr<osg::State> state);
-        //! Current frame being rendered
-        long long frameIndex() { return mFrameIndex; };
 
     protected:
         osg::ref_ptr<OpenXRManager> mXR;
         std::unique_ptr<OpenXRSwapchain> mSwapchain;
         OpenXRSwapchain::Config mSwapchainConfig;
-        long long mFrameIndex{ 0 };
+        std::string mName{};
+        bool mRendering{ false };
+        osg::ref_ptr<OpenXRView::PredrawCallback> mPredraw{ nullptr };
     };
 }
 

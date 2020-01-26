@@ -731,12 +731,12 @@ void OMW::Engine::go()
     mXRViewer->addChild(root);
     mViewer->setSceneData(mXRViewer);
 #ifndef _NDEBUG
-    mXR->addPoseUpdateCallback(new MWVR::PoseLogger(MWVR::TrackedLimb::HEAD, MWVR::TrackedSpace::STAGE));
-    mXR->addPoseUpdateCallback(new MWVR::PoseLogger(MWVR::TrackedLimb::HEAD, MWVR::TrackedSpace::VIEW));
-    mXR->addPoseUpdateCallback(new MWVR::PoseLogger(MWVR::TrackedLimb::LEFT_HAND, MWVR::TrackedSpace::STAGE));
-    mXR->addPoseUpdateCallback(new MWVR::PoseLogger(MWVR::TrackedLimb::LEFT_HAND, MWVR::TrackedSpace::VIEW));
-    mXR->addPoseUpdateCallback(new MWVR::PoseLogger(MWVR::TrackedLimb::RIGHT_HAND, MWVR::TrackedSpace::STAGE));
-    mXR->addPoseUpdateCallback(new MWVR::PoseLogger(MWVR::TrackedLimb::RIGHT_HAND, MWVR::TrackedSpace::VIEW));
+    //mXR->addPoseUpdateCallback(new MWVR::PoseLogger(MWVR::TrackedLimb::HEAD, MWVR::TrackedSpace::STAGE));
+    //mXR->addPoseUpdateCallback(new MWVR::PoseLogger(MWVR::TrackedLimb::HEAD, MWVR::TrackedSpace::VIEW));
+    //mXR->addPoseUpdateCallback(new MWVR::PoseLogger(MWVR::TrackedLimb::LEFT_HAND, MWVR::TrackedSpace::STAGE));
+    //mXR->addPoseUpdateCallback(new MWVR::PoseLogger(MWVR::TrackedLimb::LEFT_HAND, MWVR::TrackedSpace::VIEW));
+    //mXR->addPoseUpdateCallback(new MWVR::PoseLogger(MWVR::TrackedLimb::RIGHT_HAND, MWVR::TrackedSpace::STAGE));
+    //mXR->addPoseUpdateCallback(new MWVR::PoseLogger(MWVR::TrackedLimb::RIGHT_HAND, MWVR::TrackedSpace::VIEW));
 #endif
 #endif
 

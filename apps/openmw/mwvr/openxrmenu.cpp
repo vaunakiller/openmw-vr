@@ -6,7 +6,7 @@ namespace MWVR
 {
 
     OpenXRMenu::OpenXRMenu(osg::ref_ptr<OpenXRManager> XR, osg::ref_ptr<osg::State> state, const std::string& title, int width, int height, osg::Vec2 extent_meters)
-        : OpenXRView(XR)
+        : OpenXRView(XR, title)
         , mTitle(title)
     {
         setWidth(width);
@@ -27,7 +27,7 @@ namespace MWVR
         // Orientation needs a norm of 1 to be accepted by OpenXR, so we default it to 0,0,0,1
         mLayer->pose.orientation.w = 1.f;
 
-        updatePosition();
+        //updatePosition();
     }
 
     OpenXRMenu::~OpenXRMenu()
@@ -47,10 +47,12 @@ namespace MWVR
             return;
         if (!mXR->sessionRunning())
             return;
+        if (OpenXRFrameIndexer::instance().updateIndex() == 0)
+            return;
 
         // Menus are position one meter in front of the player, facing the player.
         // Go via osg since OpenXR doesn't distribute a linear maths library
-        auto pose = mXR->impl().getLimbPose(TrackedLimb::HEAD, TrackedSpace::STAGE);
+        auto pose = mXR->impl().getPredictedLimbPose(OpenXRFrameIndexer::instance().updateIndex(), TrackedLimb::HEAD, TrackedSpace::STAGE);
         pose.position += pose.orientation * osg::Vec3(0, 0, -1);
         mLayer->pose.position = osg::toXR(pose.position);
         mLayer->pose.orientation = osg::toXR(-pose.orientation);

@@ -22,6 +22,7 @@
 #include <map>
 #include <iostream>
 #include <thread>
+#include <chrono>
 
 namespace osg {
     Vec3 fromXR(XrVector3f);
@@ -43,10 +44,33 @@ namespace MWVR
     MWVR::Pose fromXR(XrPosef pose);
     XrPosef toXR(MWVR::Pose pose);
 
+    struct OpenXRTimeKeeper
+    {
+        using seconds = std::chrono::duration<double>;
+        using nanoseconds = std::chrono::nanoseconds;
+        using clock = std::chrono::steady_clock;
+        using time_point = clock::time_point;
+
+        OpenXRTimeKeeper() = default;
+        ~OpenXRTimeKeeper() = default;
+
+        XrTime predictedDisplayTime(int64_t frameIndex);
+        void progressToNextFrame(XrFrameState frameState);
+
+    private:
+
+        XrFrameState mFrameState{ XR_TYPE_FRAME_STATE };
+        std::mutex mMutex{};
+
+        double mFps{ 0. };
+        time_point mLastFrame = clock::now();
+
+        XrTime mPredictedFrameTime{ 0 };
+        XrDuration mPredictedPeriod{ 0 };
+    };
+
     struct OpenXRManagerImpl
     {
-        using PoseUpdateCallback = OpenXRManager::PoseUpdateCallback;
-
         OpenXRManagerImpl(void);
         ~OpenXRManagerImpl(void);
 
@@ -56,17 +80,15 @@ namespace MWVR
 
         const XrEventDataBaseHeader* nextEvent();
         void waitFrame();
-        void beginFrame(long long frameIndex);
+        void beginFrame();
         void endFrame();
-        std::array<XrView, 2> getStageViews();
-        std::array<XrView, 2> getHmdViews();
-        MWVR::Pose getLimbPose(TrackedLimb limb, TrackedSpace space);
+        std::array<XrView, 2> getPredictedViews(int64_t frameIndex, TrackedSpace mSpace);
+        MWVR::Pose getPredictedLimbPose(int64_t frameIndex, TrackedLimb limb, TrackedSpace space);
         int eyes();
         void handleEvents();
         void updateControls();
-        void updatePoses();
-        void addPoseUpdateCallback(osg::ref_ptr<PoseUpdateCallback> cb);
         void HandleSessionStateChanged(const XrEventDataSessionStateChanged& stateChangedEvent);
+        XrTime predictedDisplayTime(int64_t frameIndex);
 
         bool initialized = false;
         long long mFrameIndex = 0;
@@ -83,38 +105,11 @@ namespace MWVR
         XrSpace mReferenceSpaceView = XR_NULL_HANDLE;
         XrSpace mReferenceSpaceStage = XR_NULL_HANDLE;
         XrEventDataBuffer mEventDataBuffer{ XR_TYPE_EVENT_DATA_BUFFER };
-        //XrCompositionLayerProjection mLayer{ XR_TYPE_COMPOSITION_LAYER_PROJECTION };
-        //XrCompositionLayerBaseHeader const* mLayer_p = reinterpret_cast<XrCompositionLayerBaseHeader*>(&mLayer);
-        //std::array<XrCompositionLayerProjectionView, 2> mProjectionLayerViews{ { {XR_TYPE_COMPOSITION_LAYER_PROJECTION_VIEW}, {XR_TYPE_COMPOSITION_LAYER_PROJECTION_VIEW} } };
+        OpenXRTimeKeeper mTimeKeeper{};
         OpenXRLayerStack mLayerStack{};
-        XrFrameState mFrameState{ XR_TYPE_FRAME_STATE };
         XrSessionState mSessionState = XR_SESSION_STATE_UNKNOWN;
         bool mSessionRunning = false;
-        
-        //osg::Pose mHeadTrackedPose{};
-        //osg::Pose mLeftHandTrackedPose{};
-        //osg::Pose mRightHandTrackedPose{};
-
-        std::vector< osg::ref_ptr<PoseUpdateCallback> > mPoseUpdateCallbacks{};
-
         std::mutex mEventMutex{};
-
-        enum {
-            OPENXR_FRAME_STATUS_IDLE, //!< Frame is ready for initialization
-            OPENXR_FRAME_STATUS_READY, //!< Frame has been initialized and swapchains may be acquired
-            OPENXR_FRAME_STATUS_ENDING //!< All swapchains have been releazed, frame ready for presentation
-        } mFrameStatus{ OPENXR_FRAME_STATUS_IDLE };
-        std::condition_variable mFrameStatusSignal{};
-        std::mutex mFrameStatusMutex;
-
-        int mBarrier{ 0 };
-        int mNBarrier{ 0 };
-        std::condition_variable mBarrierSignal{};
-        std::mutex mBarrierMutex;
-
-        void viewerBarrier();
-        void registerToBarrier();
-        void unregisterFromBarrier();
     };
 }
 

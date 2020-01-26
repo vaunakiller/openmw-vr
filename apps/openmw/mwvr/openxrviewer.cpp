@@ -18,20 +18,6 @@ namespace MWVR
         , mCompositionLayerProjectionViews(2, {XR_TYPE_COMPOSITION_LAYER_PROJECTION_VIEW})
     {
         mViewer->setRealizeOperation(mRealizeOperation);
-        //auto* mainContext = mViewer->getCamera()->getGraphicsContext();
-        //assert(mainContext);
-
-        //auto* mainTraits = mainContext->getTraits();
-
-        //osg::ref_ptr<osg::GraphicsContext::Traits> traits = new osg::GraphicsContext::Traits(*mainTraits);
-        //traits->sharedContext = mainContext;
-
-        //mViewerGW = new SDLUtil::GraphicsWindowSDL2(traits);
-        //if (!mViewerGW->valid()) throw std::runtime_error("Failed to create GraphicsContext");
-        //mLeftGW = new SDLUtil::GraphicsWindowSDL2(traits);
-        //if (!mLeftGW->valid()) throw std::runtime_error("Failed to create GraphicsContext");
-        //mRightGW = new SDLUtil::GraphicsWindowSDL2(traits);
-        //if (!mRightGW->valid()) throw std::runtime_error("Failed to create GraphicsContext");
     }
 
     OpenXRViewer::~OpenXRViewer(void)
@@ -50,7 +36,7 @@ namespace MWVR
     const XrCompositionLayerBaseHeader*
         OpenXRViewer::layer()
     {
-        auto stageViews = mXR->impl().getStageViews();
+        auto stageViews = mXR->impl().getPredictedViews(OpenXRFrameIndexer::instance().mRenderIndex, TrackedSpace::STAGE);
         mCompositionLayerProjectionViews[0].pose = stageViews[0].pose;
         mCompositionLayerProjectionViews[1].pose = stageViews[1].pose;
         mCompositionLayerProjectionViews[0].fov = stageViews[0].fov;
@@ -61,6 +47,8 @@ namespace MWVR
     void OpenXRViewer::traversals()
     {
         Log(Debug::Verbose) << "Pre-Update";
+        mXR->handleEvents();
+        OpenXRFrameIndexer::instance().advanceUpdateIndex();
         mViewer->updateTraversal();
         Log(Debug::Verbose) << "Post-Update";
         Log(Debug::Verbose) << "Pre-Rendering";
@@ -89,12 +77,14 @@ namespace MWVR
         // Use the main camera to render any GUI to the OpenXR GUI quad's swapchain.
         // (When swapping the window buffer we'll blit the mirror texture to it instead.)
         mMainCamera->setCullMask(MWRender::Mask_GUI);
-        mMainCamera->getGraphicsContext()->setSwapCallback(new OpenXRViewer::SwapBuffersCallback(this));
 
         osg::Vec4 clearColor = mMainCamera->getClearColor();
 
-        mViews[OpenXRWorldView::LEFT_VIEW] = new OpenXRWorldView(mXR, context->getState(), mMetersPerUnit, OpenXRWorldView::LEFT_VIEW);
-        mViews[OpenXRWorldView::RIGHT_VIEW] = new OpenXRWorldView(mXR, context->getState(), mMetersPerUnit, OpenXRWorldView::RIGHT_VIEW);
+        if (!mXR->realized())
+            mXR->realize(context);
+
+        mViews[OpenXRWorldView::LEFT_VIEW] = new OpenXRWorldView(mXR, "LeftEye", context->getState(), mMetersPerUnit, OpenXRWorldView::LEFT_VIEW);
+        mViews[OpenXRWorldView::RIGHT_VIEW] = new OpenXRWorldView(mXR, "RightEye", context->getState(), mMetersPerUnit, OpenXRWorldView::RIGHT_VIEW);
 
         mLeftCamera = mViews[OpenXRWorldView::LEFT_VIEW]->createCamera(OpenXRWorldView::LEFT_VIEW, clearColor, context);
         mRightCamera = mViews[OpenXRWorldView::RIGHT_VIEW]->createCamera(OpenXRWorldView::RIGHT_VIEW, clearColor, context);
@@ -112,8 +102,8 @@ namespace MWVR
         mViewer->addSlave(mLeftCamera, mViews[OpenXRWorldView::LEFT_VIEW]->projectionMatrix(), mViews[OpenXRWorldView::LEFT_VIEW]->viewMatrix(), true);
         mViewer->addSlave(mRightCamera, mViews[OpenXRWorldView::RIGHT_VIEW]->projectionMatrix(), mViews[OpenXRWorldView::RIGHT_VIEW]->viewMatrix(), true);
 
-        mViewer->getSlave(OpenXRWorldView::LEFT_VIEW)._updateSlaveCallback = new UpdateSlaveCallback(mXR, mViews[OpenXRWorldView::LEFT_VIEW], context);
-        mViewer->getSlave(OpenXRWorldView::RIGHT_VIEW)._updateSlaveCallback = new UpdateSlaveCallback(mXR, mViews[OpenXRWorldView::RIGHT_VIEW], context);
+        mViewer->getSlave(OpenXRWorldView::LEFT_VIEW)._updateSlaveCallback = new OpenXRWorldView::UpdateSlaveCallback(mXR, mViews[OpenXRWorldView::LEFT_VIEW], context);
+        mViewer->getSlave(OpenXRWorldView::RIGHT_VIEW)._updateSlaveCallback = new OpenXRWorldView::UpdateSlaveCallback(mXR, mViews[OpenXRWorldView::RIGHT_VIEW], context);
 
         mViewer->setLightingMode(osg::View::SKY_LIGHT);
         mViewer->setReleaseContextAtEndOfFrameHint(false);
@@ -147,18 +137,24 @@ namespace MWVR
         mMirrorTextureSwapchain.reset(new OpenXRSwapchain(mXR, context->getState(), config));
 
         mXRMenu.reset(new OpenXRMenu(mXR, context->getState(), "MainMenu", config.width, config.height, osg::Vec2(1.f, 1.f)));
-        mMainCamera->setPreDrawCallback(new OpenXRView::PredrawCallback(mMainCamera, mXRMenu.get()));
-        mMainCamera->setFinalDrawCallback(new OpenXRView::PostdrawCallback(mMainCamera, mXRMenu.get()));
+        mMenuCamera = mXRMenu->createCamera(2, clearColor, context);
+        mMenuCamera->setCullMask(MWRender::Mask_GUI);
+        mMenuCamera->setName("MenuCamera");
+        mViewer->addSlave(mMenuCamera, true);
+        //mMenuCamera->setPreDrawCallback(new OpenXRView::PredrawCallback(mMenuCamera, mXRMenu.get()));
+        //mMenuCamera->setFinalDrawCallback(new OpenXRView::PostdrawCallback(mMenuCamera, mXRMenu.get()));
         mXR->impl().mLayerStack.setLayer(OpenXRLayerStack::MENU_VIEW_LAYER, mXRMenu.get());
 
+        mMainCamera->getGraphicsContext()->setSwapCallback(new OpenXRViewer::SwapBuffersCallback(this));
+        mMainCamera->setGraphicsContext(nullptr);
         mConfigured = true;
     }
 
     void OpenXRViewer::blitEyesToMirrorTexture(osg::GraphicsContext* gc) const
     {
         mMirrorTextureSwapchain->beginFrame(gc);
-        mViews[OpenXRWorldView::LEFT_VIEW]->swapchain().current()->blit(gc, 0, 0, mMirrorTextureSwapchain->width() / 2, mMirrorTextureSwapchain->height());
-        mViews[OpenXRWorldView::RIGHT_VIEW]->swapchain().current()->blit(gc, mMirrorTextureSwapchain->width() / 2, 0, mMirrorTextureSwapchain->width(), mMirrorTextureSwapchain->height());
+        mViews[OpenXRWorldView::LEFT_VIEW]->swapchain().renderBuffer()->blit(gc, 0, 0, mMirrorTextureSwapchain->width() / 2, mMirrorTextureSwapchain->height());
+        mViews[OpenXRWorldView::RIGHT_VIEW]->swapchain().renderBuffer()->blit(gc, mMirrorTextureSwapchain->width() / 2, 0, mMirrorTextureSwapchain->width(), mMirrorTextureSwapchain->height());
 
         //mXRMenu->swapchain().current()->blit(gc, 0, 0, mMirrorTextureSwapchain->width() / 2, mMirrorTextureSwapchain->height());
     }
@@ -172,45 +168,30 @@ namespace MWVR
 
     void OpenXRViewer::swapBuffers(osg::GraphicsContext* gc)
     {
+        Timer timer("swapBuffers");
+
+        Log(Debug::Verbose) << "SwapBuffers()";
         std::unique_lock<std::mutex> lock(mMutex);
         if (!mConfigured)
             return;
 
         auto* state = gc->getState();
         auto* gl = osg::GLExtensions::Get(state->getContextID(), false);
-        blitEyesToMirrorTexture(gc);
+
+
+        mXR->beginFrame();
+        //blitEyesToMirrorTexture(gc);
+        mViews[OpenXRWorldView::LEFT_VIEW]->swapchain().endFrame(gc);
+        mViews[OpenXRWorldView::RIGHT_VIEW]->swapchain().endFrame(gc);
+        mXRMenu->swapchain().endFrame(gc);
         mXR->endFrame();
-        gl->glBindFramebuffer(GL_DRAW_FRAMEBUFFER_EXT, 0);
+        mXR->waitFrame();
+        //gl->glBindFramebuffer(GL_DRAW_FRAMEBUFFER_EXT, 0);
         
-        mMirrorTextureSwapchain->current()->blit(gc, 0, 0, mMirrorTextureSwapchain->width(), mMirrorTextureSwapchain->height());
+        //mMirrorTextureSwapchain->renderBuffer()->blit(gc, 0, 0, mMirrorTextureSwapchain->width(), mMirrorTextureSwapchain->height());
 
-        mMirrorTextureSwapchain->releaseSwapchainImage();
+        //mMirrorTextureSwapchain->endFrame(gc);
         gc->swapBuffersImplementation();
-
-    }
-
-    void 
-        OpenXRViewer::UpdateSlaveCallback::updateSlave(
-            osg::View& view, 
-            osg::View::Slave& slave)
-    {
-        mXR->handleEvents();
-        if (!mXR->sessionRunning())
-            return;
-
-
-
-        auto* camera = slave._camera.get();
-        auto name = camera->getName();
-        
-        Log(Debug::Verbose) << "Updating camera " << name;
-        mXR->beginFrame(mView->frameIndex());
-
-        auto viewMatrix = view.getCamera()->getViewMatrix() * mView->viewMatrix();
-        auto projMatrix = mView->projectionMatrix();
-
-        camera->setViewMatrix(viewMatrix);
-        camera->setProjectionMatrix(projMatrix);
     }
 
     void

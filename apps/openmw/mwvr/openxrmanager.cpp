@@ -67,10 +67,10 @@ namespace MWVR
             return impl().waitFrame();
     }
 
-    void OpenXRManager::beginFrame(long long frameIndex)
+    void OpenXRManager::beginFrame()
     {
         if (realized())
-            return impl().beginFrame(frameIndex);
+            return impl().beginFrame();
     }
 
     void OpenXRManager::endFrame()
@@ -83,12 +83,6 @@ namespace MWVR
     {
         if (realized())
             return impl().updateControls();
-    }
-
-    void OpenXRManager::updatePoses()
-    {
-        if (realized())
-            return impl().updatePoses();
     }
 
     void
@@ -109,14 +103,6 @@ namespace MWVR
                 
             }
         }
-    }
-
-
-    void OpenXRManager::addPoseUpdateCallback(
-        osg::ref_ptr<PoseUpdateCallback> cb)
-    {
-        if (realized())
-            return impl().addPoseUpdateCallback(cb);
     }
 
     int OpenXRManager::eyes()
@@ -146,50 +132,58 @@ namespace MWVR
 
     }
 
-    void OpenXRManager::viewerBarrier()
+//#ifndef _NDEBUG
+//    void PoseLogger::operator()(MWVR::Pose pose)
+//    {
+//        const char* limb = nullptr;
+//        const char* space = nullptr;
+//        switch (mLimb)
+//        {
+//        case TrackedLimb::HEAD:
+//            limb = "HEAD"; break;
+//        case TrackedLimb::LEFT_HAND:
+//            limb = "LEFT_HAND"; break;
+//        case TrackedLimb::RIGHT_HAND:
+//            limb = "RIGHT_HAND"; break;
+//        }
+//        switch (mSpace)
+//        {
+//        case TrackedSpace::STAGE:
+//            space = "STAGE"; break;
+//        case TrackedSpace::VIEW:
+//            space = "VIEW"; break;
+//        }
+//
+//        //TODO: Use a different output to avoid spamming the debug log when enabled
+//        Log(Debug::Verbose) << space << "." << limb << ": " << pose;
+//    }
+//#endif
+
+    static OpenXRFrameIndexer g_OpenXRFrameIndexer;
+
+    OpenXRFrameIndexer& OpenXRFrameIndexer::instance()
     {
-        if (realized())
-            return impl().viewerBarrier();
+        return g_OpenXRFrameIndexer;
     }
 
-    void OpenXRManager::registerToBarrier()
+    int64_t OpenXRFrameIndexer::advanceUpdateIndex()
     {
-        if (realized())
-            return impl().registerToBarrier();
+        std::unique_lock<std::mutex> lock(mMutex);
+        mUpdateIndex++;
+        Log(Debug::Verbose) << "Advancing update index to " << mUpdateIndex;
+        assert(mUpdateIndex > mRenderIndex);
+        return mUpdateIndex;
     }
 
-    void OpenXRManager::unregisterFromBarrier()
+    int64_t OpenXRFrameIndexer::advanceRenderIndex()
     {
-        if (realized())
-            return impl().unregisterFromBarrier();
+        std::unique_lock<std::mutex> lock(mMutex);
+        mRenderIndex++;
+        Log(Debug::Verbose) << "Advancing frame index to " << mRenderIndex;
+        if (!(mUpdateIndex >= mRenderIndex))
+            mUpdateIndex = mRenderIndex - 1;
+        return mRenderIndex;
     }
-
-#ifndef _NDEBUG
-    void PoseLogger::operator()(MWVR::Pose pose)
-    {
-        const char* limb = nullptr;
-        const char* space = nullptr;
-        switch (mLimb)
-        {
-        case TrackedLimb::HEAD:
-            limb = "HEAD"; break;
-        case TrackedLimb::LEFT_HAND:
-            limb = "LEFT_HAND"; break;
-        case TrackedLimb::RIGHT_HAND:
-            limb = "RIGHT_HAND"; break;
-        }
-        switch (mSpace)
-        {
-        case TrackedSpace::STAGE:
-            space = "STAGE"; break;
-        case TrackedSpace::VIEW:
-            space = "VIEW"; break;
-        }
-
-        //TODO: Use a different output to avoid spamming the debug log when enabled
-        Log(Debug::Verbose) << space << "." << limb << ": " << pose;
-    }
-#endif
 }
 
 std::ostream& operator <<(

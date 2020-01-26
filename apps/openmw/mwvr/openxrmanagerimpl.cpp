@@ -99,7 +99,6 @@ namespace MWVR
             XrSessionCreateInfo createInfo{ XR_TYPE_SESSION_CREATE_INFO };
             createInfo.next = &mGraphicsBinding;
             createInfo.systemId = mSystemId;
-            createInfo.createFlags;
             CHECK_XRCMD(xrCreateSession(mInstance, &createInfo, &mSession));
             assert(mSession);
         }
@@ -115,13 +114,6 @@ namespace MWVR
             CHECK_XRCMD(xrCreateReferenceSpace(mSession, &createInfo, &mReferenceSpaceView));
             createInfo.referenceSpaceType = XR_REFERENCE_SPACE_TYPE_STAGE;
             CHECK_XRCMD(xrCreateReferenceSpace(mSession, &createInfo, &mReferenceSpaceStage));
-        }
-
-        { // Set up layers
-
-            //mLayer.space = mReferenceSpaceStage;
-            //mLayer.viewCount = (uint32_t)mProjectionLayerViews.size();
-            //mLayer.views = mProjectionLayerViews.data();
         }
 
         { // Read and log graphics properties for the swapchain
@@ -142,32 +134,32 @@ namespace MWVR
 
             uint32_t viewCount = 0;
             CHECK_XRCMD(xrEnumerateViewConfigurationViews(mInstance, mSystemId, mViewConfigType, 2, &viewCount, mConfigViews.data()));
+
+            // OpenXR gives me crazy bananas high resolutions. Likely an oculus bug.
+            mConfigViews[0].recommendedImageRectHeight = 1200;
+            mConfigViews[1].recommendedImageRectHeight = 1200;
+            mConfigViews[0].recommendedImageRectWidth = 1080;
+            mConfigViews[1].recommendedImageRectWidth = 1080;
+
             if (viewCount != 2)
             {
                 std::stringstream ss;
                 ss << "xrEnumerateViewConfigurationViews returned " << viewCount << " views";
                 Log(Debug::Verbose) << ss.str();
             }
-            
-            // TODO: This, including the projection layer views, should be moved to openxrviewer
-            //for (unsigned i = 0; i < 2; i++)
-            //{
-            //    mEyes[i].reset(new OpenXRView(this, mConfigViews[i]));
-
-            //    mProjectionLayerViews[i].subImage.swapchain = mEyes[i]->mSwapchain;
-            //    mProjectionLayerViews[i].subImage.imageRect.offset = { 0, 0 };
-            //    mProjectionLayerViews[i].subImage.imageRect.extent = { mEyes[i]->mWidth, mEyes[i]->mHeight };
-            //}
         }
     }
 
     inline XrResult CheckXrResult(XrResult res, const char* originator, const char* sourceLocation) {
         if (XR_FAILED(res)) {
-            Log(Debug::Error) << sourceLocation << ": OpenXR[" << to_string(res) << "]: " << originator;
+            std::stringstream ss;
+            ss << sourceLocation << ": OpenXR[" << to_string(res) << "]: " << originator;
+            Log(Debug::Error) << ss.str();
+            throw std::runtime_error(ss.str().c_str());
         }
         else
         {
-            Log(Debug::Verbose) << sourceLocation << ": OpenXR[" << to_string(res) << "][" << std::this_thread::get_id() << "][" << wglGetCurrentDC() << "][" << wglGetCurrentContext() << "]: " << originator;
+            // Log(Debug::Verbose) << sourceLocation << ": OpenXR[" << to_string(res) << "][" << std::this_thread::get_id() << "][" << wglGetCurrentDC() << "][" << wglGetCurrentContext() << "]: " << originator;
         }
 
         return res;
@@ -265,123 +257,59 @@ namespace MWVR
     void
         OpenXRManagerImpl::waitFrame()
     {
-        if (!mSessionRunning)
-            return;
+        Timer timer("waitFrame()");
 
-        XrFrameWaitInfo frameWaitInfo{ XR_TYPE_FRAME_WAIT_INFO };
-        XrFrameState frameState{ XR_TYPE_FRAME_STATE };
-        CHECK_XRCMD(xrWaitFrame(mSession, &frameWaitInfo, &frameState));
-        mFrameState = frameState;
+        // In some implementations xrWaitFrame might not return immediately when it should.
+        // So i let it wait in a separate thread. xrBeginFrame() should wait on xrWaitFrame() 
+        // and xrWaitFrame() doesn't happen again until xrEndFrame() so synchronization is not necessary.
+        std::thread([this]() {
+            static std::mutex waitFrameMutex;
+            std::unique_lock<std::mutex> lock(waitFrameMutex);
+
+            if (!mSessionRunning)
+                return;
+
+            XrFrameWaitInfo frameWaitInfo{ XR_TYPE_FRAME_WAIT_INFO };
+            XrFrameState frameState{ XR_TYPE_FRAME_STATE };
+
+            CHECK_XRCMD(xrWaitFrame(mSession, &frameWaitInfo, &frameState));
+
+
+            mTimeKeeper.progressToNextFrame(frameState);
+
+        }).detach();
+
     }
 
     void
-        OpenXRManagerImpl::beginFrame(long long frameIndex)
+        OpenXRManagerImpl::beginFrame()
     {
-        Log(Debug::Verbose) << "frameIndex = " << frameIndex;
-        if (!mSessionRunning)
-            return;
-
-        std::unique_lock<std::mutex> lock(mFrameStatusMutex);
-
-        // We need to wait for the frame to become idle or ready
-        // (There is no guarantee osg won't get us here before endFrame() returns)
-        while (mFrameStatus == OPENXR_FRAME_STATUS_ENDING || mFrameIndex < frameIndex)
-            mFrameStatusSignal.wait(lock);
-
-        if (mFrameStatus == OPENXR_FRAME_STATUS_IDLE)
-        {
-            Log(Debug::Verbose) << "beginFrame()";
-            handleEvents();
-            waitFrame();
-
-            XrFrameBeginInfo frameBeginInfo{ XR_TYPE_FRAME_BEGIN_INFO };
-            CHECK_XRCMD(xrBeginFrame(mSession, &frameBeginInfo));
-
-            updateControls();
-            updatePoses();
-            mFrameStatus = OPENXR_FRAME_STATUS_READY;
-        }
-
-        assert(mFrameStatus == OPENXR_FRAME_STATUS_READY);
-    }
-
-    void OpenXRManagerImpl::viewerBarrier()
-    {
-        std::unique_lock<std::mutex> lock(mBarrierMutex);
-        mBarrier++;
-
-        Log(Debug::Verbose) << "mBarrier=" << mBarrier << ", tid=" << std::this_thread::get_id();
-
-        if (mBarrier == mNBarrier)
-        {
-            std::unique_lock<std::mutex> lock(mFrameStatusMutex);
-            mFrameStatus = OPENXR_FRAME_STATUS_ENDING;
-            mFrameStatusSignal.notify_all();
-            //mBarrierSignal.notify_all();
-            mBarrier = 0;
-        }
-        //else
-        //{
-        //    mBarrierSignal.wait(lock, [this]() { return mBarrier == mNBarrier; });
-        //}
-    }
-
-    void OpenXRManagerImpl::registerToBarrier()
-    {
-        std::unique_lock<std::mutex> lock(mBarrierMutex);
-        mNBarrier++;
-    }
-
-    void OpenXRManagerImpl::unregisterFromBarrier()
-    {
-        std::unique_lock<std::mutex> lock(mBarrierMutex);
-        mNBarrier--;
-        assert(mNBarrier >= 0);
+        Timer timer("beginFrame");
+        XrFrameBeginInfo frameBeginInfo{ XR_TYPE_FRAME_BEGIN_INFO };
+        CHECK_XRCMD(xrBeginFrame(mSession, &frameBeginInfo));
     }
 
     void
         OpenXRManagerImpl::endFrame()
     {
+        Timer timer("endFrame()");
         if (!mSessionRunning)
             return;
 
-        std::unique_lock<std::mutex> lock(mFrameStatusMutex);
-        while(mFrameStatus != OPENXR_FRAME_STATUS_ENDING)
-            mFrameStatusSignal.wait(lock);
 
         XrFrameEndInfo frameEndInfo{ XR_TYPE_FRAME_END_INFO };
-        frameEndInfo.displayTime = mFrameState.predictedDisplayTime;
+        frameEndInfo.displayTime = mTimeKeeper.predictedDisplayTime(OpenXRFrameIndexer::instance().renderIndex());
         frameEndInfo.environmentBlendMode = mEnvironmentBlendMode;
-        //frameEndInfo.layerCount = (uint32_t)1;
-        //frameEndInfo.layers = &mLayer_p;
         frameEndInfo.layerCount = mLayerStack.layerCount();
         frameEndInfo.layers = mLayerStack.layerHeaders();
         CHECK_XRCMD(xrEndFrame(mSession, &frameEndInfo));
-        mFrameStatus = OPENXR_FRAME_STATUS_IDLE;
-        mFrameIndex++;
-        mFrameStatusSignal.notify_all();
     }
 
-    std::array<XrView, 2> OpenXRManagerImpl::getStageViews()
+    std::array<XrView, 2> 
+        OpenXRManagerImpl::getPredictedViews(
+            int64_t frameIndex, 
+            TrackedSpace space)
     {
-        // Get the pose of each eye in the "stage" reference space.
-        // TODO: I likely won't ever use this, since it is only useful if the game world and the 
-        // stage space have matching orientation, which is extremely unlikely. Instead we have
-        // to keep track of the head pose separately and move our world position based on progressive 
-        // changes.
-
-        // In more detail:
-        // When we apply yaw to the game world to allow free rotation of the character, the orientation 
-        // of the stage space and our world space deviates which breaks free movement.
-        //
-        // If we align the orientations by yawing the head pose, that yaw will happen around the origin
-        // of the stage space rather than the character, which will not be comfortable (or make any sense) to the player.
-        //
-        // If we align the orientations by yawing the view poses, the yaw will happen around the character
-        // as intended, but physically walking will move the player in the wrong direction.
-        //
-        // The solution that solves both problems is to yaw the view pose *and* progressively track changes in head pose 
-        // in the stage space and yaw that change before adding it to our separately tracked pose.
 
         std::array<XrView, 2> views{ {{XR_TYPE_VIEW}, {XR_TYPE_VIEW}} };
         XrViewState viewState{ XR_TYPE_VIEW_STATE };
@@ -389,34 +317,22 @@ namespace MWVR
 
         XrViewLocateInfo viewLocateInfo{ XR_TYPE_VIEW_LOCATE_INFO };
         viewLocateInfo.viewConfigurationType = mViewConfigType;
-        viewLocateInfo.displayTime = mFrameState.predictedDisplayTime;
-
-        viewLocateInfo.space = mReferenceSpaceStage;
+        viewLocateInfo.displayTime = mTimeKeeper.predictedDisplayTime(frameIndex);
+        switch (space)
+        {
+        case TrackedSpace::STAGE:
+            viewLocateInfo.space = mReferenceSpaceStage;
+            break;
+        case TrackedSpace::VIEW:
+            viewLocateInfo.space = mReferenceSpaceView;
+            break;
+        }
         CHECK_XRCMD(xrLocateViews(mSession, &viewLocateInfo, &viewState, viewCount, &viewCount, views.data()));
 
         return views;
     }
 
-    std::array<XrView, 2> OpenXRManagerImpl::getHmdViews()
-    {
-        // Eye poses relative to the HMD rarely change. But they might 
-        // if the user reconfigures his or her hmd during runtime, so we 
-        // re-read this every frame anyway.
-        std::array<XrView, 2> views{ {{XR_TYPE_VIEW}, {XR_TYPE_VIEW}} };
-        XrViewState viewState{ XR_TYPE_VIEW_STATE };
-        uint32_t viewCount = 2;
-
-        XrViewLocateInfo viewLocateInfo{ XR_TYPE_VIEW_LOCATE_INFO };
-        viewLocateInfo.viewConfigurationType = mViewConfigType;
-        viewLocateInfo.displayTime = mFrameState.predictedDisplayTime;
-
-        viewLocateInfo.space = mReferenceSpaceView;
-        CHECK_XRCMD(xrLocateViews(mSession, &viewLocateInfo, &viewState, viewCount, &viewCount, views.data()));
-
-        return views;
-    }
-
-    MWVR::Pose OpenXRManagerImpl::getLimbPose(TrackedLimb limb, TrackedSpace space)
+    MWVR::Pose OpenXRManagerImpl::getPredictedLimbPose(int64_t frameIndex, TrackedLimb limb, TrackedSpace space)
     {
         XrSpaceLocation location{ XR_TYPE_SPACE_LOCATION };
         XrSpaceVelocity velocity{ XR_TYPE_SPACE_VELOCITY };
@@ -444,7 +360,7 @@ namespace MWVR
             referenceSpace = mReferenceSpaceView;
             break;
         }
-        CHECK_XRCMD(xrLocateSpace(limbSpace, referenceSpace, mFrameState.predictedDisplayTime, &location));
+        CHECK_XRCMD(xrLocateSpace(limbSpace, referenceSpace, mTimeKeeper.predictedDisplayTime(frameIndex), &location));
         if (!(velocity.velocityFlags & XR_SPACE_VELOCITY_LINEAR_VALID_BIT))
             Log(Debug::Warning) << "Unable to acquire linear velocity";
         return MWVR::Pose{
@@ -503,12 +419,13 @@ namespace MWVR
         switch (newState)
         {
         case XR_SESSION_STATE_READY:
-        case XR_SESSION_STATE_IDLE:
+        //case XR_SESSION_STATE_IDLE:
         {
             XrSessionBeginInfo beginInfo{ XR_TYPE_SESSION_BEGIN_INFO };
             beginInfo.primaryViewConfigurationType = mViewConfigType;
             CHECK_XRCMD(xrBeginSession(mSession, &beginInfo));
             mSessionRunning = true;
+            waitFrame();
             break;
         }
         case XR_SESSION_STATE_STOPPING:
@@ -522,40 +439,11 @@ namespace MWVR
         }
     }
 
-    void OpenXRManagerImpl::updatePoses()
+    XrTime OpenXRManagerImpl::predictedDisplayTime(int64_t frameIndex)
     {
-        //auto oldHeadTrackedPose = mHeadTrackedPose; 
-        //auto oldLefthandPose = mLeftHandTrackedPose;
-        //auto oldRightHandPose = mRightHandTrackedPose;
 
-        //mHeadTrackedPose = getLimbPose(TrackedLimb::HEAD);
-        //mLeftHandTrackedPose = getLimbPose(TrackedLimb::LEFT_HAND);
-        //mRightHandTrackedPose = getLimbPose(TrackedLimb::RIGHT_HAND);
-
-        //for (auto& cb : mPoseUpdateCallbacks)
-        //{
-        //    switch (cb->mLimb)
-        //    {
-        //    case TrackedLimb::HEAD:
-        //        (*cb)(mHeadTrackedPose); break;
-        //    case TrackedLimb::LEFT_HAND:
-        //        (*cb)(mLeftHandTrackedPose); break;
-        //    case TrackedLimb::RIGHT_HAND:
-        //        (*cb)(mRightHandTrackedPose); break;
-        //    }
-        //}
-
-        for (auto& cb : mPoseUpdateCallbacks)
-            (*cb)(getLimbPose(cb->mLimb, cb->mSpace));
+        return mTimeKeeper.predictedDisplayTime(frameIndex);
     }
-
-    void OpenXRManagerImpl::addPoseUpdateCallback(
-        osg::ref_ptr<PoseUpdateCallback> cb)
-    {
-        mPoseUpdateCallbacks.push_back(cb);
-    }
-
-
 
     const XrEventDataBaseHeader*
         OpenXRManagerImpl::nextEvent()
@@ -586,6 +474,62 @@ namespace MWVR
     XrPosef toXR(MWVR::Pose pose)
     {
         return XrPosef{ osg::toXR(pose.orientation), osg::toXR(pose.position) };
+    }
+
+    XrTime OpenXRTimeKeeper::predictedDisplayTime(int64_t frameIndex)
+    {
+        std::unique_lock<std::mutex> lock(mMutex);
+
+        auto prediction = mPredictedFrameTime;
+        auto predictedPeriod = mPredictedPeriod;
+
+        auto futureFrames = frameIndex - OpenXRFrameIndexer::instance().renderIndex();
+
+        prediction += ( 0 + futureFrames) * predictedPeriod;
+
+        Log(Debug::Verbose) << "Predicted: displayTime[" << futureFrames << "]=" << prediction;
+
+        return prediction;
+    }
+
+    void OpenXRTimeKeeper::progressToNextFrame(XrFrameState frameState)
+    {
+        std::unique_lock<std::mutex> lock(mMutex);
+        OpenXRFrameIndexer::instance().advanceRenderIndex();
+        //XrDuration realPeriod = frameState.predictedDisplayPeriod;
+        //if(mFrameState.predictedDisplayTime != 0)
+        //    realPeriod = frameState.predictedDisplayTime - mFrameState.predictedDisplayTime;
+
+        auto now = clock::now();
+        auto nanoseconds_elapsed = std::chrono::duration_cast<nanoseconds>(now - mLastFrame);
+        XrDuration realPeriod = nanoseconds_elapsed.count();
+        mFrameState = frameState;
+
+        mPredictedFrameTime = mFrameState.predictedDisplayTime;
+        mPredictedPeriod = mFrameState.predictedDisplayPeriod;
+
+        // Real fps is lower than expected fps
+        // Adjust predictions
+        // (Really wish OpenXR would handle this!)
+        if (realPeriod > mFrameState.predictedDisplayPeriod)
+        {
+            // predictedDisplayTime refers to the midpoint of the display period
+            // The upjustment must therefore only be half the magnitude
+            // mPredictedFrameTime += (realPeriod - mFrameState.predictedDisplayPeriod);
+            // mPredictedPeriod = realPeriod;
+        }
+
+
+
+        seconds elapsed = std::chrono::duration_cast<seconds>(now - mLastFrame);
+        std::swap(now, mLastFrame);
+        double fps = 1. / elapsed.count();
+        mFps = mFps * 0.8 + 0.2 * fps;
+
+
+
+        Log(Debug::Verbose) << "Render progressed to next frame: elapsed=" << elapsed.count() << ", fps=" << fps << ", ImplementationPeriod=" << mFrameState.predictedDisplayPeriod << " realPeriod=" << realPeriod;
+        Log(Debug::Verbose) << "Render progressed to next frame: predictedDisplayTime=" << mFrameState.predictedDisplayTime << ", mPredictedFrameTime=" << mPredictedFrameTime << ", mFps=" << mFps;
     }
 }
 

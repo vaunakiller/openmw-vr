@@ -515,7 +515,7 @@ namespace MWVR
         OpenXRInputManagerImpl::updateHandTracking()
     {
         for (auto hand : { LEFT_HAND, RIGHT_HAND }) {
-            CHECK_XRCMD(xrLocateSpace(mHandSpace[hand], mXR->impl().mReferenceSpaceStage, mXR->impl().mFrameState.predictedDisplayTime, &mHandSpaceLocation[hand]));
+            CHECK_XRCMD(xrLocateSpace(mHandSpace[hand], mXR->impl().mReferenceSpaceStage, mXR->impl().predictedDisplayTime(OpenXRFrameIndexer::instance().updateIndex()), &mHandSpaceLocation[hand]));
         }
     }
 
