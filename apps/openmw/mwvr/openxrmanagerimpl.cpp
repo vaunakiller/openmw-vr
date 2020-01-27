@@ -262,7 +262,7 @@ namespace MWVR
         // In some implementations xrWaitFrame might not return immediately when it should.
         // So i let it wait in a separate thread. xrBeginFrame() should wait on xrWaitFrame() 
         // and xrWaitFrame() doesn't happen again until xrEndFrame() so synchronization is not necessary.
-        std::thread([this]() {
+        //std::thread([this]() {
             static std::mutex waitFrameMutex;
             std::unique_lock<std::mutex> lock(waitFrameMutex);
 
@@ -277,7 +277,7 @@ namespace MWVR
 
             mTimeKeeper.progressToNextFrame(frameState);
 
-        }).detach();
+        //}).detach();
 
     }
 
@@ -425,7 +425,7 @@ namespace MWVR
             beginInfo.primaryViewConfigurationType = mViewConfigType;
             CHECK_XRCMD(xrBeginSession(mSession, &beginInfo));
             mSessionRunning = true;
-            waitFrame();
+            //waitFrame();
             break;
         }
         case XR_SESSION_STATE_STOPPING:
@@ -480,16 +480,20 @@ namespace MWVR
     {
         std::unique_lock<std::mutex> lock(mMutex);
 
-        auto prediction = mPredictedFrameTime;
-        auto predictedPeriod = mPredictedPeriod;
+        //auto prediction = mPredictedFrameTime;
+        //auto predictedPeriod = mPredictedPeriod;
 
-        auto futureFrames = frameIndex - OpenXRFrameIndexer::instance().renderIndex();
+        //auto futureFrames = frameIndex - OpenXRFrameIndexer::instance().renderIndex();
 
-        prediction += ( 0 + futureFrames) * predictedPeriod;
+        //prediction += ( 0 + futureFrames) * predictedPeriod;
 
-        Log(Debug::Verbose) << "Predicted: displayTime[" << futureFrames << "]=" << prediction;
+        //Log(Debug::Verbose) << "Predicted: displayTime[" << futureFrames << "]=" << prediction;
 
-        return prediction;
+        //return prediction;
+
+        //return mFrameState.predictedDisplayTime;
+
+        return mPredictedFrameTime;
     }
 
     void OpenXRTimeKeeper::progressToNextFrame(XrFrameState frameState)
@@ -515,8 +519,8 @@ namespace MWVR
         {
             // predictedDisplayTime refers to the midpoint of the display period
             // The upjustment must therefore only be half the magnitude
-            // mPredictedFrameTime += (realPeriod - mFrameState.predictedDisplayPeriod);
-            // mPredictedPeriod = realPeriod;
+             mPredictedFrameTime += (realPeriod - mFrameState.predictedDisplayPeriod) / 2;
+             mPredictedPeriod = realPeriod;
         }
 
 

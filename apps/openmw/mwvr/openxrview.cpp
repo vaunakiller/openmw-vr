@@ -74,6 +74,10 @@ namespace MWVR {
 
     void OpenXRView::prerenderCallback(osg::RenderInfo& renderInfo)
     {
+
+        if(mName == "LeftEye")
+            mXR->waitFrame();
+
         Log(Debug::Verbose) << mName << ": prerenderCallback";
         if (mSwapchain)
         {

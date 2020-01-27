@@ -185,7 +185,6 @@ namespace MWVR
         mViews[OpenXRWorldView::RIGHT_VIEW]->swapchain().endFrame(gc);
         mXRMenu->swapchain().endFrame(gc);
         mXR->endFrame();
-        mXR->waitFrame();
         //gl->glBindFramebuffer(GL_DRAW_FRAMEBUFFER_EXT, 0);
         
         //mMirrorTextureSwapchain->renderBuffer()->blit(gc, 0, 0, mMirrorTextureSwapchain->width(), mMirrorTextureSwapchain->height());
