@@ -27,7 +27,7 @@ namespace MWVR {
         ~OpenXRSwapchainImpl();
 
         void beginFrame(osg::GraphicsContext* gc);
-        void endFrame(osg::GraphicsContext* gc);
+        int endFrame(osg::GraphicsContext* gc);
 
         osg::ref_ptr<OpenXRManager> mXR;
         XrSwapchain mSwapchain = XR_NULL_HANDLE;
@@ -118,13 +118,16 @@ namespace MWVR {
         mRenderBuffer->beginFrame(gc);
     }
 
-    void OpenXRSwapchainImpl::endFrame(osg::GraphicsContext* gc)
+    int swapCount = 0;
+
+    int OpenXRSwapchainImpl::endFrame(osg::GraphicsContext* gc)
     {
         Timer timer("Swapchain::endFrame");
         // Blit frame to swapchain
 
         if (!mXR->sessionRunning())
-            return;
+            return -1;
+
 
         XrSwapchainImageAcquireInfo acquireInfo{ XR_TYPE_SWAPCHAIN_IMAGE_ACQUIRE_INFO };
         uint32_t swapchainImageIndex = 0;
@@ -134,11 +137,23 @@ namespace MWVR {
         waitInfo.timeout = XR_INFINITE_DURATION;
         CHECK_XRCMD(xrWaitSwapchainImage(mSwapchain, &waitInfo));
 
+        // Oculus bug: Either the swapchain image index is off by 1 or xrEndFrame() choses the wrong swapchain image.
+        //mRenderBuffer->endFrame(gc, mSwapchainImageBuffers[0].image);
+        //mRenderBuffer->endFrame(gc, mSwapchainImageBuffers[1].image);
+        //mRenderBuffer->endFrame(gc, mSwapchainImageBuffers[2].image);
+        // mRenderBuffer->endFrame(gc, mSwapchainImageBuffers[(swapchainImageIndex + 1) % 3].image);
         mRenderBuffer->endFrame(gc, mSwapchainImageBuffers[swapchainImageIndex].image);
+
+        //Log(Debug::Verbose) << "swapchainImageIndex: " << swapchainImageIndex;
+        //Log(Debug::Verbose) << "swapchainImage: " << mSwapchainImageBuffers[swapchainImageIndex].image;
+        static int asdf = 0;
+        //Log(Debug::Verbose) << "OpenXRSwapchainImpl ENDFRAME[ " << (asdf++ / 3) << "]";
+
+        swapCount = asdf / 3;
 
         XrSwapchainImageReleaseInfo releaseInfo{ XR_TYPE_SWAPCHAIN_IMAGE_RELEASE_INFO };
         CHECK_XRCMD(xrReleaseSwapchainImage(mSwapchain, &releaseInfo));
-
+        return swapchainImageIndex;
     }
 
     OpenXRSwapchain::OpenXRSwapchain(
@@ -156,9 +171,9 @@ namespace MWVR {
         impl().beginFrame(gc);
     }
 
-    void OpenXRSwapchain::endFrame(osg::GraphicsContext* gc)
+    int OpenXRSwapchain::endFrame(osg::GraphicsContext* gc)
     {
-        impl().endFrame(gc);
+        return impl().endFrame(gc);
     }
 
     const XrSwapchainSubImage& 

@@ -3,11 +3,13 @@
 
 #include <memory>
 #include <array>
+#include <map>
 #include <osg/Group>
 #include <osg/Camera>
 #include <osgViewer/Viewer>
 
 #include "openxrmanager.hpp"
+#include "openxrsession.hpp"
 #include "openxrlayer.hpp"
 #include "openxrworldview.hpp"
 #include "openxrmenu.hpp"
@@ -41,6 +43,34 @@ namespace MWVR
             OpenXRViewer* mViewer;
         };
 
+        class PredrawCallback : public osg::Camera::DrawCallback
+        {
+        public:
+            PredrawCallback(OpenXRViewer* viewer)
+                : mViewer(viewer)
+            {}
+
+            void operator()(osg::RenderInfo& info) const override { mViewer->preDrawCallback(info); };
+
+        private:
+
+            OpenXRViewer* mViewer;
+        };
+
+        class PostdrawCallback : public osg::Camera::DrawCallback
+        {
+        public:
+            PostdrawCallback(OpenXRViewer* viewer)
+                : mViewer(viewer)
+            {}
+
+            void operator()(osg::RenderInfo& info) const override { mViewer->postDrawCallback(info); };
+
+        private:
+
+            OpenXRViewer* mViewer;
+        };
+
     public:
         OpenXRViewer(
             osg::ref_ptr<OpenXRManager> XR,
@@ -54,31 +84,28 @@ namespace MWVR
         const XrCompositionLayerBaseHeader* layer() override;
 
         void traversals();
-        void blitEyesToMirrorTexture(osg::GraphicsContext* gc) const;
-        void swapBuffers(osg::GraphicsContext* gc) ;
+        void preDrawCallback(osg::RenderInfo& info);
+        void postDrawCallback(osg::RenderInfo& info);
+        void blitEyesToMirrorTexture(osg::GraphicsContext* gc);
+        void swapBuffers(osg::GraphicsContext* gc) override;
         void realize(osg::GraphicsContext* gc);
 
         bool realized() { return mConfigured; }
 
-    protected:
+    public:
 
         std::unique_ptr<XrCompositionLayerProjection> mLayer = nullptr;
         std::vector<XrCompositionLayerProjectionView> mCompositionLayerProjectionViews;
         osg::observer_ptr<OpenXRManager> mXR = nullptr;
         osg::ref_ptr<OpenXRManager::RealizeOperation> mRealizeOperation = nullptr;
         osg::observer_ptr<osgViewer::Viewer> mViewer = nullptr;
-        std::unique_ptr<MWVR::OpenXRInputManager> mXRInput = nullptr;
-        std::unique_ptr<MWVR::OpenXRMenu> mXRMenu = nullptr;
-        std::array<osg::ref_ptr<OpenXRWorldView>, 2> mViews{};
+        std::unique_ptr<OpenXRInputManager> mXRInput = nullptr;
+        std::unique_ptr<OpenXRSession> mXRSession = nullptr;
+        std::map<std::string, osg::ref_ptr<OpenXRView> > mViews{};
+        std::map<std::string, osg::ref_ptr<osg::Camera> > mCameras{};
 
-        //osg::ref_ptr<SDLUtil::GraphicsWindowSDL2> mViewerGW;
-        //osg::ref_ptr<SDLUtil::GraphicsWindowSDL2> mLeftGW;
-        //osg::ref_ptr<SDLUtil::GraphicsWindowSDL2> mRightGW;
-
-        osg::Camera* mMainCamera = nullptr;
-        osg::Camera* mMenuCamera = nullptr;
-        osg::Camera* mLeftCamera = nullptr;
-        osg::Camera* mRightCamera = nullptr;
+        PredrawCallback* mPreDraw{ nullptr };
+        PostdrawCallback* mPostDraw{ nullptr };
 
         std::unique_ptr<OpenXRSwapchain> mMirrorTextureSwapchain = nullptr;
 

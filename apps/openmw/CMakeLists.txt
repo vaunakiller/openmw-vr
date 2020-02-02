@@ -124,6 +124,8 @@ if(BUILD_VR_OPENXR)
         mwvr/openxrmanagerimpl.cpp
         mwvr/openxrmenu.hpp
         mwvr/openxrmenu.cpp
+        mwvr/openxrsession.hpp
+        mwvr/openxrsession.cpp
         mwvr/openxrswapchain.hpp
         mwvr/openxrswapchain.cpp
         mwvr/openxrtexture.hpp

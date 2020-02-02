@@ -10,12 +10,13 @@ namespace MWVR
 {
     class OpenXRSwapchainImpl;
 
+    extern int swapCount;
+
     class OpenXRSwapchain
     {
     public:
         struct Config
         {
-            std::vector<int64_t> requestedFormats{};
             int width = -1;
             int height = -1;
             int samples = -1;
@@ -29,7 +30,7 @@ namespace MWVR
         //! Prepare for render (set FBO)
         void beginFrame(osg::GraphicsContext* gc);
         //! Finalize render
-        void endFrame(osg::GraphicsContext* gc);
+        int endFrame(osg::GraphicsContext* gc);
         //! Get the view surface
         const XrSwapchainSubImage& subImage(void) const;
         //! Width of the view surface

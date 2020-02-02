@@ -5,27 +5,16 @@
 namespace MWVR
 {
 
-    OpenXRMenu::OpenXRMenu(osg::ref_ptr<OpenXRManager> XR, osg::ref_ptr<osg::State> state, const std::string& title, int width, int height, osg::Vec2 extent_meters)
-        : OpenXRView(XR, title)
+    OpenXRMenu::OpenXRMenu(
+        osg::ref_ptr<OpenXRManager> XR,
+        OpenXRSwapchain::Config config, 
+        osg::ref_ptr<osg::State> state, 
+        const std::string& title,
+        osg::Vec2 extent_meters)
+        : OpenXRView(XR, title, config, state)
         , mTitle(title)
+        , mExtent(extent_meters)
     {
-        setWidth(width);
-        setHeight(height);
-        setSamples(1);
-        if (!realize(state))
-            throw std::runtime_error(std::string("Failed to create swapchain for menu \"") + title + "\"");
-        mLayer.reset(new XrCompositionLayerQuad);
-        mLayer->type = XR_TYPE_COMPOSITION_LAYER_QUAD;
-        mLayer->next = nullptr;
-        mLayer->layerFlags = 0;
-        mLayer->space = XR->impl().mReferenceSpaceStage;
-        mLayer->eyeVisibility = XR_EYE_VISIBILITY_BOTH;
-        mLayer->subImage = swapchain().subImage();
-        mLayer->size.width = extent_meters.x();
-        mLayer->size.height = extent_meters.y();
-
-        // Orientation needs a norm of 1 to be accepted by OpenXR, so we default it to 0,0,0,1
-        mLayer->pose.orientation.w = 1.f;
 
         //updatePosition();
     }
@@ -38,6 +27,14 @@ namespace MWVR
         OpenXRMenu::layer()
     {
         updatePosition();
+        //Log(Debug::Verbose) << "MenuPose: " << mPose;
+
+        if (mLayer)
+        {
+            mLayer->pose.position = osg::toXR(mPose.position);
+            mLayer->pose.orientation = osg::toXR(mPose.orientation);
+        }
+
         return reinterpret_cast<XrCompositionLayerBaseHeader*>(mLayer.get());
     }
 
@@ -47,22 +44,36 @@ namespace MWVR
             return;
         if (!mXR->sessionRunning())
             return;
-        if (OpenXRFrameIndexer::instance().updateIndex() == 0)
-            return;
 
         // Menus are position one meter in front of the player, facing the player.
-        // Go via osg since OpenXR doesn't distribute a linear maths library
-        auto pose = mXR->impl().getPredictedLimbPose(OpenXRFrameIndexer::instance().updateIndex(), TrackedLimb::HEAD, TrackedSpace::STAGE);
-        pose.position += pose.orientation * osg::Vec3(0, 0, -1);
-        mLayer->pose.position = osg::toXR(pose.position);
-        mLayer->pose.orientation = osg::toXR(-pose.orientation);
+        mPose = predictedPose();
+        mPose.position += mPose.orientation * osg::Vec3(0, 0, -1);
+        mPose.orientation = -mPose.orientation;
+
+        Log(Debug::Verbose) << "Menu pose updated to: " << mPose;
         mPositionNeedsUpdate = false;
 
-        Log(Debug::Verbose) << "Menu pose updated to: " << pose;
     }
 
-    void OpenXRMenu::postrenderCallback(osg::RenderInfo& info)
+    void OpenXRMenu::swapBuffers(
+        osg::GraphicsContext* gc)
     {
-        OpenXRView::postrenderCallback(info);
+        OpenXRView::swapBuffers(gc);
+
+        if (!mLayer)
+        {
+            mLayer.reset(new XrCompositionLayerQuad);
+            mLayer->type = XR_TYPE_COMPOSITION_LAYER_QUAD;
+            mLayer->next = nullptr;
+            mLayer->layerFlags = 0;
+            mLayer->space = mXR->impl().mReferenceSpaceStage;
+            mLayer->eyeVisibility = XR_EYE_VISIBILITY_BOTH;
+            mLayer->subImage = swapchain().subImage();
+            mLayer->size.width = mExtent.x();
+            mLayer->size.height = mExtent.y();
+
+            // Orientation needs a norm of 1 to be accepted by OpenXR, so we default it to 0,0,0,1
+            mLayer->pose.orientation.w = 1.f;
+        }
     }
 }

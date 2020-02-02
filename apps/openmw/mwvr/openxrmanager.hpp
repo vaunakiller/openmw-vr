@@ -20,30 +20,29 @@ namespace MWVR
 {
     struct Timer
     {
-        Timer(std::string name) : mName(name) 
-        {
-            mBegin = std::chrono::steady_clock::now();
-        }
-        ~Timer()
-        {
-            std::chrono::steady_clock::time_point end = std::chrono::steady_clock::now();
-            auto elapsed = std::chrono::duration_cast<std::chrono::duration<double>>(end - mBegin);
-            Log(Debug::Verbose) << mName << "Elapsed: " << elapsed.count() << "s";
-        }
+        using Measure = std::pair < const char*, int64_t >;
+        using Measures = std::vector < Measure >;
+        using MeasurementContext = std::pair < const char*, Measures* >;
+
+        Timer(const char* name);
+        ~Timer();
+        void checkpoint(const char* name);
 
         std::chrono::steady_clock::time_point mBegin;
-        std::string mName;
+        std::chrono::steady_clock::time_point mLastCheckpoint;
+        const char* mName = nullptr;
+        Measures* mContext = nullptr;
     };
 
     //! Represents the pose of a limb in VR space.
     struct Pose
     {
         //! Position in VR space
-        osg::Vec3 position;
+        osg::Vec3 position{ 0,0,0 };
         //! Orientation in VR space.
-        osg::Quat orientation;
+        osg::Quat orientation{ 0,0,0,1 };
         //! Speed of movement in VR space, expressed in meters per second
-        osg::Vec3 velocity;
+        osg::Vec3 velocity{ 0,0,0 };
     };
 
     //! Describes what limb to track.
@@ -57,30 +56,15 @@ namespace MWVR
     //! Describes what space to track the limb in
     enum class TrackedSpace
     {
-        STAGE, //!< Track limb in the VR stage space. Meaning a space with a floor level origin and fixed horizontal orientation.
-        VIEW //!< Track limb in the VR view space. Meaning a space with the head as origin and orientation.
+        STAGE=0, //!< Track limb in the VR stage space. Meaning a space with a floor level origin and fixed horizontal orientation.
+        VIEW=1 //!< Track limb in the VR view space. Meaning a space with the head as origin and orientation.
     };
 
-    struct OpenXRFrameIndexer
+    enum class Chirality
     {
-        static OpenXRFrameIndexer& instance();
-
-        OpenXRFrameIndexer() = default;
-        ~OpenXRFrameIndexer() = default;
-
-        int64_t advanceUpdateIndex();
-
-        int64_t renderIndex() { return mRenderIndex; }
-
-        int64_t advanceRenderIndex();
-
-        int64_t updateIndex() { return mUpdateIndex; }
-
-        std::mutex mMutex{};
-        int64_t mUpdateIndex{ -1 };
-        int64_t mRenderIndex{ -1 };
+        LEFT_HAND = 0,
+        RIGHT_HAND = 1
     };
-
 
     // Use the pimpl pattern to avoid cluttering the namespace with openxr dependencies.
     class OpenXRManagerImpl;
@@ -122,7 +106,7 @@ namespace MWVR
         void handleEvents();
         void waitFrame();
         void beginFrame();
-        void endFrame();
+        void endFrame(int64_t displayTime, class OpenXRLayerStack* layerStack);
         void updateControls();
 
         void realize(osg::GraphicsContext* gc);

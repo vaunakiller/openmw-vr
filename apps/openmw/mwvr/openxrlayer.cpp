@@ -5,7 +5,7 @@ namespace MWVR {
 
     void OpenXRLayerStack::setLayer(Layer layer, OpenXRLayer* layerObj)
     {
-        mLayers[layer] = nullptr;
+        mLayers[layer] = layerObj->layer();
         mLayerObjects[layer] = layerObj;
     }
 

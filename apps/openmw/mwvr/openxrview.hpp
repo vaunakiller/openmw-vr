@@ -13,36 +13,6 @@ namespace MWVR
     class OpenXRView : public osg::Referenced
     {
     public:
-        class PredrawCallback : public osg::Camera::DrawCallback
-        {
-        public:
-            PredrawCallback(osg::Camera* camera, OpenXRView* view)
-                : mCamera(camera)
-                , mView(view)
-            {}
-
-            void operator()(osg::RenderInfo& info) const override;
-
-        private:
-
-            osg::observer_ptr<osg::Camera> mCamera;
-            OpenXRView* mView;
-        };
-        class PostdrawCallback : public osg::Camera::DrawCallback
-        {
-        public:
-            PostdrawCallback(osg::Camera* camera, OpenXRView* view)
-                : mCamera(camera)
-                , mView(view)
-            {}
-
-            void operator()(osg::RenderInfo& info) const override;
-
-        private:
-
-            osg::observer_ptr<osg::Camera> mCamera;
-            OpenXRView* mView;
-        };
 
         class InitialDrawCallback : public osg::Camera::DrawCallback
         {
@@ -51,11 +21,8 @@ namespace MWVR
         };
 
     protected:
-        OpenXRView(osg::ref_ptr<OpenXRManager> XR, std::string name);
+        OpenXRView(osg::ref_ptr<OpenXRManager> XR, std::string name, OpenXRSwapchain::Config config, osg::ref_ptr<osg::State> state);
         virtual ~OpenXRView();
-        void setWidth(int width);
-        void setHeight(int height);
-        void setSamples(int samples);
 
     public:
         //! Prepare for render (set FBO)
@@ -66,16 +33,21 @@ namespace MWVR
         osg::Camera* createCamera(int order, const osg::Vec4& clearColor, osg::GraphicsContext* gc);
         //! Get the view surface
         OpenXRSwapchain& swapchain(void) { return *mSwapchain; }
-        //! Create the view surface
-        bool realize(osg::ref_ptr<osg::State> state);
 
-    protected:
+        void swapBuffers(osg::GraphicsContext* gc);
+
+        void  setPredictedPose(const Pose& pose);
+        Pose& predictedPose() { return mPredictedPose; };
+
+    public:
         osg::ref_ptr<OpenXRManager> mXR;
-        std::unique_ptr<OpenXRSwapchain> mSwapchain;
         OpenXRSwapchain::Config mSwapchainConfig;
+        std::unique_ptr<OpenXRSwapchain> mSwapchain;
         std::string mName{};
         bool mRendering{ false };
-        osg::ref_ptr<OpenXRView::PredrawCallback> mPredraw{ nullptr };
+        Timer mTimer;
+
+        Pose mPredictedPose{ {}, {0,0,0,1}, {} };
     };
 }
 

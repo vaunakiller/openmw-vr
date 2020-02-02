@@ -16,6 +16,7 @@ namespace MWVR
         virtual ~OpenXRLayer(void) = default;
 
         virtual const XrCompositionLayerBaseHeader* layer() = 0;
+        virtual void swapBuffers(osg::GraphicsContext* gc) = 0;
     };
 
     class OpenXRLayerStack
@@ -32,9 +33,11 @@ namespace MWVR
         OpenXRLayerStack() = default;
         ~OpenXRLayerStack() = default;
 
+
         void setLayer(Layer layer, OpenXRLayer* layerObj);
         int layerCount();
         const XrCompositionLayerBaseHeader** layerHeaders();
+        LayerObjectStack& layerObjects() { return mLayerObjects; };
 
     private:
         LayerObjectStack mLayerObjects;

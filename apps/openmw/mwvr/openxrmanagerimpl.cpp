@@ -254,60 +254,81 @@ namespace MWVR
         Log(Debug::Verbose) << ss.str();
     }
 
+    XrFrameState OpenXRManagerImpl::frameState()
+    {
+        std::unique_lock<std::mutex> lock(mFrameStateMutex);
+        return mFrameState;
+    }
+
     void
         OpenXRManagerImpl::waitFrame()
     {
+        Log(Debug::Verbose) << "OpenXRSesssion::WaitFrame";
         Timer timer("waitFrame()");
 
-        // In some implementations xrWaitFrame might not return immediately when it should.
-        // So i let it wait in a separate thread. xrBeginFrame() should wait on xrWaitFrame() 
-        // and xrWaitFrame() doesn't happen again until xrEndFrame() so synchronization is not necessary.
-        //std::thread([this]() {
-            static std::mutex waitFrameMutex;
-            std::unique_lock<std::mutex> lock(waitFrameMutex);
+        static std::mutex waitFrameMutex;
 
-            if (!mSessionRunning)
-                return;
+        if (!mSessionRunning)
+            return;
 
-            XrFrameWaitInfo frameWaitInfo{ XR_TYPE_FRAME_WAIT_INFO };
-            XrFrameState frameState{ XR_TYPE_FRAME_STATE };
+        XrFrameWaitInfo frameWaitInfo{ XR_TYPE_FRAME_WAIT_INFO };
+        XrFrameState frameState{ XR_TYPE_FRAME_STATE };
 
-            CHECK_XRCMD(xrWaitFrame(mSession, &frameWaitInfo, &frameState));
+        CHECK_XRCMD(xrWaitFrame(mSession, &frameWaitInfo, &frameState));
 
-
-            mTimeKeeper.progressToNextFrame(frameState);
-
-        //}).detach();
-
+        std::unique_lock<std::mutex> lock(mFrameStateMutex);
+        mFrameState = frameState;
+        Log(Debug::Verbose) << "OpenXRSesssion::WaitFrame END";
     }
 
     void
         OpenXRManagerImpl::beginFrame()
     {
+        Log(Debug::Verbose) << "OpenXRSesssion::BeginFrame";
         Timer timer("beginFrame");
         XrFrameBeginInfo frameBeginInfo{ XR_TYPE_FRAME_BEGIN_INFO };
         CHECK_XRCMD(xrBeginFrame(mSession, &frameBeginInfo));
+        Log(Debug::Verbose) << "OpenXRSesssion::BeginFrame END";
     }
 
     void
-        OpenXRManagerImpl::endFrame()
+        OpenXRManagerImpl::endFrame(int64_t displayTime, OpenXRLayerStack* layerStack)
     {
+        Log(Debug::Verbose) << "OpenXRSesssion::EndFrame";
         Timer timer("endFrame()");
         if (!mSessionRunning)
             return;
 
 
         XrFrameEndInfo frameEndInfo{ XR_TYPE_FRAME_END_INFO };
-        frameEndInfo.displayTime = mTimeKeeper.predictedDisplayTime(OpenXRFrameIndexer::instance().renderIndex());
+        frameEndInfo.displayTime = displayTime;
         frameEndInfo.environmentBlendMode = mEnvironmentBlendMode;
-        frameEndInfo.layerCount = mLayerStack.layerCount();
-        frameEndInfo.layers = mLayerStack.layerHeaders();
+        if (layerStack)
+        {
+            frameEndInfo.layerCount = layerStack->layerCount();
+            frameEndInfo.layers = layerStack->layerHeaders();
+        }
+        else {
+            frameEndInfo.layerCount = 0;
+            frameEndInfo.layers = nullptr;
+        }
+        //Log(Debug::Verbose) << "LayerStack<" << frameEndInfo.layerCount << ", " << frameEndInfo.layers << ">";
+
+        static std::chrono::steady_clock::time_point last = std::chrono::steady_clock::now();
+
+        auto now = std::chrono::steady_clock::now();
+        auto elapsed = now -last;
+        last = now;
+
+        Log(Debug::Verbose) << "endFrame(): period: " << std::chrono::duration_cast<std::chrono::microseconds>(elapsed).count();
+
         CHECK_XRCMD(xrEndFrame(mSession, &frameEndInfo));
+        Log(Debug::Verbose) << "OpenXRSesssion::EndFrame END";
     }
 
     std::array<XrView, 2> 
         OpenXRManagerImpl::getPredictedViews(
-            int64_t frameIndex, 
+            int64_t predictedDisplayTime,
             TrackedSpace space)
     {
 
@@ -317,7 +338,7 @@ namespace MWVR
 
         XrViewLocateInfo viewLocateInfo{ XR_TYPE_VIEW_LOCATE_INFO };
         viewLocateInfo.viewConfigurationType = mViewConfigType;
-        viewLocateInfo.displayTime = mTimeKeeper.predictedDisplayTime(frameIndex);
+        viewLocateInfo.displayTime = predictedDisplayTime;
         switch (space)
         {
         case TrackedSpace::STAGE:
@@ -332,7 +353,7 @@ namespace MWVR
         return views;
     }
 
-    MWVR::Pose OpenXRManagerImpl::getPredictedLimbPose(int64_t frameIndex, TrackedLimb limb, TrackedSpace space)
+    MWVR::Pose OpenXRManagerImpl::getPredictedLimbPose(int64_t predictedDisplayTime, TrackedLimb limb, TrackedSpace space)
     {
         XrSpaceLocation location{ XR_TYPE_SPACE_LOCATION };
         XrSpaceVelocity velocity{ XR_TYPE_SPACE_VELOCITY };
@@ -360,9 +381,9 @@ namespace MWVR
             referenceSpace = mReferenceSpaceView;
             break;
         }
-        CHECK_XRCMD(xrLocateSpace(limbSpace, referenceSpace, mTimeKeeper.predictedDisplayTime(frameIndex), &location));
-        if (!(velocity.velocityFlags & XR_SPACE_VELOCITY_LINEAR_VALID_BIT))
-            Log(Debug::Warning) << "Unable to acquire linear velocity";
+        CHECK_XRCMD(xrLocateSpace(limbSpace, referenceSpace, predictedDisplayTime, &location));
+        //if (!(velocity.velocityFlags & XR_SPACE_VELOCITY_LINEAR_VALID_BIT))
+        //    Log(Debug::Warning) << "Unable to acquire linear velocity";
         return MWVR::Pose{
             osg::fromXR(location.pose.position),
             osg::fromXR(location.pose.orientation),
@@ -439,12 +460,6 @@ namespace MWVR
         }
     }
 
-    XrTime OpenXRManagerImpl::predictedDisplayTime(int64_t frameIndex)
-    {
-
-        return mTimeKeeper.predictedDisplayTime(frameIndex);
-    }
-
     const XrEventDataBaseHeader*
         OpenXRManagerImpl::nextEvent()
     {
@@ -476,65 +491,65 @@ namespace MWVR
         return XrPosef{ osg::toXR(pose.orientation), osg::toXR(pose.position) };
     }
 
-    XrTime OpenXRTimeKeeper::predictedDisplayTime(int64_t frameIndex)
-    {
-        std::unique_lock<std::mutex> lock(mMutex);
+    //XrTime OpenXRTimeKeeper::predictedDisplayTime(int64_t frameIndex)
+    //{
+    //    std::unique_lock<std::mutex> lock(mMutex);
 
-        //auto prediction = mPredictedFrameTime;
-        //auto predictedPeriod = mPredictedPeriod;
+    //    //auto prediction = mPredictedFrameTime;
+    //    //auto predictedPeriod = mPredictedPeriod;
 
-        //auto futureFrames = frameIndex - OpenXRFrameIndexer::instance().renderIndex();
+    //    //auto futureFrames = frameIndex - OpenXRFrameIndexer::instance().renderIndex();
 
-        //prediction += ( 0 + futureFrames) * predictedPeriod;
+    //    //prediction += ( 0 + futureFrames) * predictedPeriod;
 
-        //Log(Debug::Verbose) << "Predicted: displayTime[" << futureFrames << "]=" << prediction;
+    //    //Log(Debug::Verbose) << "Predicted: displayTime[" << futureFrames << "]=" << prediction;
 
-        //return prediction;
+    //    //return prediction;
 
-        //return mFrameState.predictedDisplayTime;
+    //    //return mFrameState.predictedDisplayTime;
 
-        return mPredictedFrameTime;
-    }
+    //    return mPredictedFrameTime;
+    //}
 
-    void OpenXRTimeKeeper::progressToNextFrame(XrFrameState frameState)
-    {
-        std::unique_lock<std::mutex> lock(mMutex);
-        OpenXRFrameIndexer::instance().advanceRenderIndex();
-        //XrDuration realPeriod = frameState.predictedDisplayPeriod;
-        //if(mFrameState.predictedDisplayTime != 0)
-        //    realPeriod = frameState.predictedDisplayTime - mFrameState.predictedDisplayTime;
+    //void OpenXRTimeKeeper::progressToNextFrame(XrFrameState frameState)
+    //{
+    //    std::unique_lock<std::mutex> lock(mMutex);
+    //    OpenXRFrameIndexer::instance().advanceRenderIndex();
+    //    //XrDuration realPeriod = frameState.predictedDisplayPeriod;
+    //    //if(mFrameState.predictedDisplayTime != 0)
+    //    //    realPeriod = frameState.predictedDisplayTime - mFrameState.predictedDisplayTime;
 
-        auto now = clock::now();
-        auto nanoseconds_elapsed = std::chrono::duration_cast<nanoseconds>(now - mLastFrame);
-        XrDuration realPeriod = nanoseconds_elapsed.count();
-        mFrameState = frameState;
+    //    auto now = clock::now();
+    //    auto nanoseconds_elapsed = std::chrono::duration_cast<nanoseconds>(now - mLastFrameTimePoint);
+    //    XrDuration realPeriod = nanoseconds_elapsed.count();
+    //    mFrameState = frameState;
 
-        mPredictedFrameTime = mFrameState.predictedDisplayTime;
-        mPredictedPeriod = mFrameState.predictedDisplayPeriod;
+    //    mPredictedFrameTime = mFrameState.predictedDisplayTime + mFrameState.predictedDisplayPeriod * 4;
+    //    mPredictedPeriod = mFrameState.predictedDisplayPeriod;
 
-        // Real fps is lower than expected fps
-        // Adjust predictions
-        // (Really wish OpenXR would handle this!)
-        if (realPeriod > mFrameState.predictedDisplayPeriod)
-        {
-            // predictedDisplayTime refers to the midpoint of the display period
-            // The upjustment must therefore only be half the magnitude
-             mPredictedFrameTime += (realPeriod - mFrameState.predictedDisplayPeriod) / 2;
-             mPredictedPeriod = realPeriod;
-        }
-
-
-
-        seconds elapsed = std::chrono::duration_cast<seconds>(now - mLastFrame);
-        std::swap(now, mLastFrame);
-        double fps = 1. / elapsed.count();
-        mFps = mFps * 0.8 + 0.2 * fps;
+    //    // Real fps is lower than expected fps
+    //    // Adjust predictions
+    //    // (Really wish OpenXR would handle this!)
+    //    //if (realPeriod > mFrameState.predictedDisplayPeriod)
+    //    //{
+    //    //    // predictedDisplayTime refers to the midpoint of the display period
+    //    //    // The upjustment must therefore only be half the magnitude
+    //    //     mPredictedFrameTime += (realPeriod - mFrameState.predictedDisplayPeriod) / 2;
+    //    //     mPredictedPeriod = realPeriod;
+    //    //}
 
 
 
-        Log(Debug::Verbose) << "Render progressed to next frame: elapsed=" << elapsed.count() << ", fps=" << fps << ", ImplementationPeriod=" << mFrameState.predictedDisplayPeriod << " realPeriod=" << realPeriod;
-        Log(Debug::Verbose) << "Render progressed to next frame: predictedDisplayTime=" << mFrameState.predictedDisplayTime << ", mPredictedFrameTime=" << mPredictedFrameTime << ", mFps=" << mFps;
-    }
+    //    seconds elapsed = std::chrono::duration_cast<seconds>(now - mLastFrame);
+    //    std::swap(now, mLastFrame);
+    //    double fps = 1. / elapsed.count();
+    //    mFps = mFps * 0.8 + 0.2 * fps;
+
+
+
+    //    Log(Debug::Verbose) << "Render progressed to next frame: elapsed=" << elapsed.count() << ", fps=" << fps << ", ImplementationPeriod=" << mFrameState.predictedDisplayPeriod << " realPeriod=" << realPeriod;
+    //    Log(Debug::Verbose) << "Render progressed to next frame: predictedDisplayTime=" << mFrameState.predictedDisplayTime << ", mPredictedFrameTime=" << mPredictedFrameTime << ", mFps=" << mFps;
+    //}
 }
 
 namespace osg

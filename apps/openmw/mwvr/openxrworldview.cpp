@@ -78,57 +78,45 @@ namespace MWVR
 
     osg::Matrix OpenXRWorldView::projectionMatrix()
     {
-        auto hmdViews = mXR->impl().getPredictedViews(OpenXRFrameIndexer::instance().updateIndex(), TrackedSpace::VIEW);
+        // TODO: Get this from the session predictions instead
+        auto hmdViews = mXR->impl().getPredictedViews(mXR->impl().frameState().predictedDisplayTime, TrackedSpace::VIEW);
 
         float near = Settings::Manager::getFloat("near clip", "Camera");
         float far = Settings::Manager::getFloat("viewing distance", "Camera") * mMetersPerUnit;
         //return perspectiveFovMatrix()
-        return perspectiveFovMatrix(near, far, hmdViews[mView].fov);
+        if(mName == "LeftEye")
+            return perspectiveFovMatrix(near, far, hmdViews[0].fov);
+        return perspectiveFovMatrix(near, far, hmdViews[1].fov);
     }
 
     osg::Matrix OpenXRWorldView::viewMatrix()
     {
-        osg::Matrix viewMatrix;
-        auto hmdViews = mXR->impl().getPredictedViews(OpenXRFrameIndexer::instance().updateIndex(), TrackedSpace::VIEW);
-        auto pose = hmdViews[mView].pose;
-        osg::Vec3 position = osg::fromXR(pose.position);
+        auto pose = predictedPose();
+        osg::Vec3 position = pose.position;
 
-        auto stageViews = mXR->impl().getPredictedViews(OpenXRFrameIndexer::instance().updateIndex(), TrackedSpace::STAGE);
-        auto stagePose = stageViews[mView].pose;
-
-        // Comfort shortcut.
-        // TODO: STAGE movement should affect in-game movement but not like this.
-        // This method should only be using HEAD view.
-        // But for comfort i'm keeping this until such movement has been implemented.
 #if 1
-        position = -osg::fromXR(stagePose.position);
-        position.y() += 0.9144 * 2.;
+        // Comfort shortcut.
+        // TODO: Head pose should affect more than just the view !
+        position.y() -= 0.9144 * 2.;
 #endif
 
-        // invert orientation (conjugate of Quaternion) and position to apply to the view matrix as offset
-        viewMatrix.setTrans(position * mMetersPerUnit);
-        viewMatrix.postMultRotate(osg::fromXR(stagePose.orientation).conj());
-
-        // Scale to world units
-        //viewMatrix.postMultScale(osg::Vec3d(1.f / mMetersPerUnit, 1.f / mMetersPerUnit, 1.f / mMetersPerUnit));
+        // invert orientation (co jugate of Quaternion) and position to apply to the view matrix as offset
+        osg::Matrix viewMatrix;
+        viewMatrix.setTrans(-position * mMetersPerUnit);
+        viewMatrix.postMultRotate(pose.orientation.conj());
 
         return viewMatrix;
     }
 
     OpenXRWorldView::OpenXRWorldView(
-        osg::ref_ptr<OpenXRManager> XR, std::string name, osg::ref_ptr<osg::State> state, float metersPerUnit, SubView view)
-        : OpenXRView(XR, name)
+        osg::ref_ptr<OpenXRManager> XR, 
+        std::string name, 
+        osg::ref_ptr<osg::State> state, 
+        OpenXRSwapchain::Config config,
+        float metersPerUnit )
+        : OpenXRView(XR, name, config, state)
         , mMetersPerUnit(metersPerUnit)
-        , mView(view)
     {
-        auto config = mXR->impl().mConfigViews[view];
-
-        setWidth(config.recommendedImageRectWidth);
-        setHeight(config.recommendedImageRectHeight);
-        setSamples(config.recommendedSwapchainSampleCount);
-
-        realize(state);
-        //    XR->setViewSubImage(view, mSwapchain->subImage());
     }
 
     OpenXRWorldView::~OpenXRWorldView()
@@ -154,13 +142,8 @@ namespace MWVR
         auto* camera = renderInfo.getCurrentCamera();
         auto name = camera->getName();
 
-        Log(Debug::Verbose) << "Updating camera " << name;
+        //Log(Debug::Verbose) << "Updating camera " << name;
 
-        auto viewMatrix = view->getCamera()->getViewMatrix() * this->viewMatrix();
-        auto projectionMatrix = this->projectionMatrix();
-
-        camera->setViewMatrix(viewMatrix);
-        camera->setProjectionMatrix(projectionMatrix);
     }
 
     void
@@ -168,21 +151,38 @@ namespace MWVR
             osg::View& view,
             osg::View::Slave& slave)
     {
-        mXR->handleEvents();
-        if (!mXR->sessionRunning())
-            return;
-
-
+        mView->mTimer.checkpoint("UpdateSlave");
         auto* camera = slave._camera.get();
         auto name = camera->getName();
 
-        Log(Debug::Verbose) << "Updating slave " << name;
+        Log(Debug::Verbose) << name << ": slave update";
 
-        //auto viewMatrix = view.getCamera()->getViewMatrix() * mView->viewMatrix();
-        //auto projMatrix = mView->projectionMatrix();
+        auto& poses = mSession->predictedPoses();
 
-        //camera->setViewMatrix(viewMatrix);
-        //camera->setProjectionMatrix(projMatrix);
+        if (name == "LeftEye")
+        {
+            mXR->handleEvents();
+            mSession->waitFrame();
+            auto leftEyePose = poses.eye[(int)Chirality::LEFT_HAND][(int)TrackedSpace::STAGE];
+            mView->setPredictedPose(leftEyePose);
+        }
+        else
+        {
+            auto rightEyePose = poses.eye[(int)Chirality::RIGHT_HAND][(int)TrackedSpace::STAGE];
+            mView->setPredictedPose(rightEyePose);
+        }
+        if (!mXR->sessionRunning())
+            return;
+
+        // TODO: This is where controls should update
+
+
+
+        auto viewMatrix = view.getCamera()->getViewMatrix() * mView->viewMatrix();
+        auto projectionMatrix = mView->projectionMatrix();
+
+        camera->setViewMatrix(viewMatrix);
+        camera->setProjectionMatrix(projectionMatrix);
 
         slave.updateSlaveImplementation(view);
     }

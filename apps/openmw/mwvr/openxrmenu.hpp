@@ -11,17 +11,20 @@ namespace MWVR
     {
 
     public:
-        OpenXRMenu(osg::ref_ptr<OpenXRManager> XR, osg::ref_ptr<osg::State> state, const std::string& title, int width, int height, osg::Vec2 extent_meters);
+        OpenXRMenu(osg::ref_ptr<OpenXRManager> XR, OpenXRSwapchain::Config config, osg::ref_ptr<osg::State> state, const std::string& title, osg::Vec2 extent_meters);
         ~OpenXRMenu();
         const XrCompositionLayerBaseHeader* layer() override;
         const std::string& title() const { return mTitle; }
         void updatePosition();
-        void postrenderCallback(osg::RenderInfo& renderInfo) override;
+
+        void swapBuffers(osg::GraphicsContext* gc) override;
 
     protected:
         bool mPositionNeedsUpdate{ true };
         std::unique_ptr<XrCompositionLayerQuad> mLayer = nullptr;
         std::string mTitle;
+        Pose mPose{ {}, {0,0,0,1}, {} };
+        osg::Vec2 mExtent;
     };
 }
 

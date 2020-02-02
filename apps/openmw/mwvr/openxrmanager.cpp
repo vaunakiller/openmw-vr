@@ -16,11 +16,93 @@
 
 #include <vector>
 #include <array>
+#include <map>
 #include <iostream>
 
 namespace MWVR
 {
+    
 
+    static std::vector<Timer::MeasurementContext> stats;
+    static std::mutex statsMutex;
+    static std::thread statsThread;
+    static bool statsThreadRunning = false;
+
+    static void statsThreadRun()
+    {
+        return;
+        while (statsThreadRunning)
+        {
+            std::stringstream ss;
+            for (auto& context : stats)
+            {
+                for (auto& measurement : *context.second)
+                {
+                    double ms = static_cast<double>(measurement.second) / 1000000.;
+                    Log(Debug::Verbose) << context.first << "." << measurement.first << ": " << ms << "ms";
+                }
+            }
+
+            //Log(Debug::Verbose) << ss.str();
+
+            std::this_thread::sleep_for(std::chrono::seconds(1));
+        }
+    }
+
+
+
+    Timer::Timer(const char* name) : mName(name)
+    {
+        mLastCheckpoint = mBegin = std::chrono::steady_clock::now();
+
+        std::unique_lock<std::mutex> lock(statsMutex);
+        for (auto& m : stats)
+        {
+            if (m.first == mName)
+                mContext = m.second;
+        }
+
+        if (mContext == nullptr)
+        {
+            mContext = new Measures();
+            mContext->reserve(32);
+            stats.emplace_back(MeasurementContext(mName, mContext));
+        }
+
+        if (!statsThreadRunning)
+        {
+            statsThreadRunning = true;
+            statsThread = std::thread([] { statsThreadRun(); });
+        }
+    }
+    Timer::~Timer()
+    {
+        //statsThreadRunning = false;
+        checkpoint("~");
+    }
+
+    void Timer::checkpoint(const char* name)
+    {
+        auto now = std::chrono::steady_clock::now();
+        auto elapsed = std::chrono::duration_cast<std::chrono::nanoseconds>(now - mLastCheckpoint);
+        mLastCheckpoint = now;
+
+        Measure* measure = nullptr;
+        for (auto& m : *mContext)
+        {
+            if (m.first == name)
+            {
+                measure = &m;
+            }
+        }
+        if (!measure)
+        {
+            mContext->push_back(Measure(name, elapsed.count()));
+        }
+        else {
+            measure->second = measure->second * 0.95 + elapsed.count() * 0.05;
+        }
+    }
 
     OpenXRManager::OpenXRManager()
         : mPrivate(nullptr)
@@ -34,7 +116,7 @@ namespace MWVR
 
     }
 
-    bool 
+    bool
         OpenXRManager::realized()
     {
         return !!mPrivate;
@@ -73,10 +155,10 @@ namespace MWVR
             return impl().beginFrame();
     }
 
-    void OpenXRManager::endFrame()
+    void OpenXRManager::endFrame(int64_t displayTime, class OpenXRLayerStack* layerStack)
     {
         if (realized())
-            return impl().endFrame();
+            return impl().endFrame(displayTime, layerStack);
     }
 
     void OpenXRManager::updateControls()
@@ -96,11 +178,11 @@ namespace MWVR
             try {
                 mPrivate = std::make_shared<OpenXRManagerImpl>();
             }
-            catch (std::exception& e)
+            catch (std::exception & e)
             {
                 Log(Debug::Error) << "Exception thrown by OpenXR: " << e.what();
                 osg::ref_ptr<osg::State> state = gc->getState();
-                
+
             }
         }
     }
@@ -119,70 +201,17 @@ namespace MWVR
         mXR->realize(gc);
     }
 
-    bool 
+    bool
         OpenXRManager::RealizeOperation::realized()
     {
         return mXR->realized();
     }
 
-    void 
+    void
         OpenXRManager::CleanupOperation::operator()(
             osg::GraphicsContext* gc)
     {
 
-    }
-
-//#ifndef _NDEBUG
-//    void PoseLogger::operator()(MWVR::Pose pose)
-//    {
-//        const char* limb = nullptr;
-//        const char* space = nullptr;
-//        switch (mLimb)
-//        {
-//        case TrackedLimb::HEAD:
-//            limb = "HEAD"; break;
-//        case TrackedLimb::LEFT_HAND:
-//            limb = "LEFT_HAND"; break;
-//        case TrackedLimb::RIGHT_HAND:
-//            limb = "RIGHT_HAND"; break;
-//        }
-//        switch (mSpace)
-//        {
-//        case TrackedSpace::STAGE:
-//            space = "STAGE"; break;
-//        case TrackedSpace::VIEW:
-//            space = "VIEW"; break;
-//        }
-//
-//        //TODO: Use a different output to avoid spamming the debug log when enabled
-//        Log(Debug::Verbose) << space << "." << limb << ": " << pose;
-//    }
-//#endif
-
-    static OpenXRFrameIndexer g_OpenXRFrameIndexer;
-
-    OpenXRFrameIndexer& OpenXRFrameIndexer::instance()
-    {
-        return g_OpenXRFrameIndexer;
-    }
-
-    int64_t OpenXRFrameIndexer::advanceUpdateIndex()
-    {
-        std::unique_lock<std::mutex> lock(mMutex);
-        mUpdateIndex++;
-        Log(Debug::Verbose) << "Advancing update index to " << mUpdateIndex;
-        assert(mUpdateIndex > mRenderIndex);
-        return mUpdateIndex;
-    }
-
-    int64_t OpenXRFrameIndexer::advanceRenderIndex()
-    {
-        std::unique_lock<std::mutex> lock(mMutex);
-        mRenderIndex++;
-        Log(Debug::Verbose) << "Advancing frame index to " << mRenderIndex;
-        if (!(mUpdateIndex >= mRenderIndex))
-            mUpdateIndex = mRenderIndex - 1;
-        return mRenderIndex;
     }
 }
 

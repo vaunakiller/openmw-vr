@@ -44,31 +44,6 @@ namespace MWVR
     MWVR::Pose fromXR(XrPosef pose);
     XrPosef toXR(MWVR::Pose pose);
 
-    struct OpenXRTimeKeeper
-    {
-        using seconds = std::chrono::duration<double>;
-        using nanoseconds = std::chrono::nanoseconds;
-        using clock = std::chrono::steady_clock;
-        using time_point = clock::time_point;
-
-        OpenXRTimeKeeper() = default;
-        ~OpenXRTimeKeeper() = default;
-
-        XrTime predictedDisplayTime(int64_t frameIndex);
-        void progressToNextFrame(XrFrameState frameState);
-
-    private:
-
-        XrFrameState mFrameState{ XR_TYPE_FRAME_STATE };
-        std::mutex mMutex{};
-
-        double mFps{ 0. };
-        time_point mLastFrame = clock::now();
-
-        XrTime mPredictedFrameTime{ 0 };
-        XrDuration mPredictedPeriod{ 0 };
-    };
-
     struct OpenXRManagerImpl
     {
         OpenXRManagerImpl(void);
@@ -81,14 +56,14 @@ namespace MWVR
         const XrEventDataBaseHeader* nextEvent();
         void waitFrame();
         void beginFrame();
-        void endFrame();
-        std::array<XrView, 2> getPredictedViews(int64_t frameIndex, TrackedSpace mSpace);
-        MWVR::Pose getPredictedLimbPose(int64_t frameIndex, TrackedLimb limb, TrackedSpace space);
+        void endFrame(int64_t displayTime, class OpenXRLayerStack* layerStack);
+        std::array<XrView, 2> getPredictedViews(int64_t predictedDisplayTime, TrackedSpace mSpace);
+        MWVR::Pose getPredictedLimbPose(int64_t predictedDisplayTime, TrackedLimb limb, TrackedSpace space);
         int eyes();
         void handleEvents();
         void updateControls();
         void HandleSessionStateChanged(const XrEventDataSessionStateChanged& stateChangedEvent);
-        XrTime predictedDisplayTime(int64_t frameIndex);
+        XrFrameState frameState();
 
         bool initialized = false;
         long long mFrameIndex = 0;
@@ -105,10 +80,10 @@ namespace MWVR
         XrSpace mReferenceSpaceView = XR_NULL_HANDLE;
         XrSpace mReferenceSpaceStage = XR_NULL_HANDLE;
         XrEventDataBuffer mEventDataBuffer{ XR_TYPE_EVENT_DATA_BUFFER };
-        OpenXRTimeKeeper mTimeKeeper{};
-        OpenXRLayerStack mLayerStack{};
+        XrFrameState mFrameState{};
         XrSessionState mSessionState = XR_SESSION_STATE_UNKNOWN;
         bool mSessionRunning = false;
+        std::mutex mFrameStateMutex{};
         std::mutex mEventMutex{};
     };
 }

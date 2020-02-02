@@ -17,17 +17,15 @@ namespace MWVR {
 
     OpenXRView::OpenXRView(
         osg::ref_ptr<OpenXRManager> XR,
-        std::string name)
+        std::string name,
+        OpenXRSwapchain::Config config,
+        osg::ref_ptr<osg::State> state)
         : mXR(XR)
-        , mSwapchain(nullptr)
-        , mSwapchainConfig{}
+        , mSwapchainConfig{ config }
+        , mSwapchain(new OpenXRSwapchain(mXR, state, mSwapchainConfig))
         , mName(name)
+        , mTimer(mName.c_str())
     {
-        mSwapchainConfig.requestedFormats = {
-            GL_RGBA8,
-            GL_RGBA8_SNORM,
-        };
-
     }
 
     OpenXRView::~OpenXRView()
@@ -49,78 +47,35 @@ namespace MWVR {
 
         camera->setInitialDrawCallback(new OpenXRView::InitialDrawCallback());
 
-        mPredraw = new OpenXRView::PredrawCallback(camera.get(), this);
-
-        camera->setPreDrawCallback(mPredraw);
-        camera->setFinalDrawCallback(new OpenXRView::PostdrawCallback(camera.get(), this));
-
         return camera.release();
-    }
-
-    void OpenXRView::setWidth(int width)
-    {
-        mSwapchainConfig.width = width;
-    }
-
-    void OpenXRView::setHeight(int height)
-    {
-        mSwapchainConfig.height = height;
-    }
-
-    void OpenXRView::setSamples(int samples)
-    {
-        mSwapchainConfig.samples = samples;
     }
 
     void OpenXRView::prerenderCallback(osg::RenderInfo& renderInfo)
     {
-
-        if(mName == "LeftEye")
-            mXR->waitFrame();
-
         Log(Debug::Verbose) << mName << ": prerenderCallback";
         if (mSwapchain)
         {
             mSwapchain->beginFrame(renderInfo.getState()->getGraphicsContext());
         }
+        mTimer.checkpoint("Prerender");
     }
 
     void OpenXRView::postrenderCallback(osg::RenderInfo& renderInfo)
     {
-        // osg will sometimes call this without a corresponding prerender.
         Log(Debug::Verbose) << mName << ": postrenderCallback";
-        Log(Debug::Verbose) << renderInfo.getCurrentCamera()->getName() << ": " << renderInfo.getCurrentCamera()->getPreDrawCallback();
-        if (renderInfo.getCurrentCamera()->getPreDrawCallback() != mPredraw)
-        {
-            // It seems OSG will sometimes overwrite the predraw callback.
-            // Undocumented behaviour?
-            renderInfo.getCurrentCamera()->setPreDrawCallback(mPredraw);
-            Log(Debug::Warning) << ("osg overwrote predraw");
-        }
-        //if (mSwapchain)
         //    mSwapchain->endFrame(renderInfo.getState()->getGraphicsContext());
 
+        mTimer.checkpoint("Postrender");
     }
 
-    bool OpenXRView::realize(osg::ref_ptr<osg::State> state)
+    void OpenXRView::swapBuffers(osg::GraphicsContext* gc)
     {
-        try {
-            mSwapchain.reset(new OpenXRSwapchain(mXR, state, mSwapchainConfig));
-        }
-        catch (...)
-        {
-        }
-
-        return !!mSwapchain;
+        swapchain().endFrame(gc);
     }
 
-    void OpenXRView::PredrawCallback::operator()(osg::RenderInfo& info) const
-    {
-        mView->prerenderCallback(info);
-    }
-
-    void OpenXRView::PostdrawCallback::operator()(osg::RenderInfo& info) const
-    {
-        mView->postrenderCallback(info);
-    }
+    void  OpenXRView::setPredictedPose(const Pose& pose) 
+    { 
+        mPredictedPose = pose; 
+        //Log(Debug::Verbose) << mName << " predicted pose updated to " << pose;
+    };
 }
