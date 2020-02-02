@@ -199,7 +199,7 @@ namespace MWVR
         timer.checkpoint("Poses");
 
         // TODO: Keep track of these in the session too.
-        auto stageViews = mXR->impl().getPredictedViews(mXRSession->predictedDisplayTime(), TrackedSpace::STAGE);
+        auto stageViews = mXR->impl().getPredictedViews(mXR->impl().frameState().predictedDisplayTime, TrackedSpace::STAGE);
         mCompositionLayerProjectionViews[0].fov = stageViews[0].fov;
         mCompositionLayerProjectionViews[1].fov = stageViews[1].fov;
         timer.checkpoint("Fovs");

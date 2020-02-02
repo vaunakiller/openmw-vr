@@ -37,41 +37,21 @@ namespace MWVR
 
         void setLayer(OpenXRLayerStack::Layer layerType, OpenXRLayer* layer);
         void swapBuffers(osg::GraphicsContext* gc);
-        void run();
 
         PoseSets& predictedPoses() { return mPredictedPoses; };
 
-        //! Call before rendering to update predictions
+        //! Call before updating poses
         void waitFrame();
-
-        //! Most recent prediction for display time of next frame.
-        int64_t predictedDisplayTime() { return mPredictedDisplayTime; };
 
         //! Update predictions
         void predictNext(int extraPeriods);
 
         OpenXRLayerStack mLayerStack{};
         osg::ref_ptr<OpenXRManager> mXR;
-        std::thread mXRThread;
-        bool mShouldQuit = false;
 
         PoseSets mPredictedPoses{};
 
-        int64_t mPredictedDisplayTime{ 0 };
-        time_point mPredictedDisplayTimeRealTime{ nanoseconds(0) };
-        std::deque<int64_t> mRenderTimes;
-        int64_t mPredictedPeriods{ 0 };
-        double mFps{ 0. };
-        time_point mFrameEndTimePoint;
-        time_point mFrameBeginTimePoint;
-
-        bool mNeedSync = true;
-        std::condition_variable mSync{};
-        std::mutex mSyncMutex{};
-
-        bool mShouldRenderLayers = false;
-        std::condition_variable mRenderSignal{};
-        std::mutex mRenderMutex{};
+        bool mPredictionsReady;
     };
 
 }

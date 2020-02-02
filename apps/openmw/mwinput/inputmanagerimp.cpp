@@ -752,6 +752,8 @@ namespace MWInput
                     }
                 }
             }
+
+#ifndef USE_OPENXR
             if (actionIsActive(A_MoveForward) ||
                 actionIsActive(A_MoveBackward) ||
                 actionIsActive(A_MoveLeft) ||
@@ -766,6 +768,7 @@ namespace MWInput
             } else {
                 updateIdleTime(dt);
             }
+#endif
         }
         else
             mGamepadZoom = 0;

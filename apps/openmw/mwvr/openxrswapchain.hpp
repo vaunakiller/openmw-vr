@@ -10,8 +10,6 @@ namespace MWVR
 {
     class OpenXRSwapchainImpl;
 
-    extern int swapCount;
-
     class OpenXRSwapchain
     {
     public:

@@ -137,19 +137,7 @@ namespace MWVR {
         waitInfo.timeout = XR_INFINITE_DURATION;
         CHECK_XRCMD(xrWaitSwapchainImage(mSwapchain, &waitInfo));
 
-        // Oculus bug: Either the swapchain image index is off by 1 or xrEndFrame() choses the wrong swapchain image.
-        //mRenderBuffer->endFrame(gc, mSwapchainImageBuffers[0].image);
-        //mRenderBuffer->endFrame(gc, mSwapchainImageBuffers[1].image);
-        //mRenderBuffer->endFrame(gc, mSwapchainImageBuffers[2].image);
-        // mRenderBuffer->endFrame(gc, mSwapchainImageBuffers[(swapchainImageIndex + 1) % 3].image);
         mRenderBuffer->endFrame(gc, mSwapchainImageBuffers[swapchainImageIndex].image);
-
-        //Log(Debug::Verbose) << "swapchainImageIndex: " << swapchainImageIndex;
-        //Log(Debug::Verbose) << "swapchainImage: " << mSwapchainImageBuffers[swapchainImageIndex].image;
-        static int asdf = 0;
-        //Log(Debug::Verbose) << "OpenXRSwapchainImpl ENDFRAME[ " << (asdf++ / 3) << "]";
-
-        swapCount = asdf / 3;
 
         XrSwapchainImageReleaseInfo releaseInfo{ XR_TYPE_SWAPCHAIN_IMAGE_RELEASE_INFO };
         CHECK_XRCMD(xrReleaseSwapchainImage(mSwapchain, &releaseInfo));
