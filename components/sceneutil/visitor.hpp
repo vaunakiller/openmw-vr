@@ -13,8 +13,8 @@ namespace SceneUtil
     class FindByNameVisitor : public osg::NodeVisitor
     {
     public:
-        FindByNameVisitor(const std::string& nameToFind)
-            : osg::NodeVisitor(TRAVERSE_ALL_CHILDREN)
+        FindByNameVisitor(const std::string& nameToFind, TraversalMode traversalMode = TRAVERSE_ALL_CHILDREN)
+            : osg::NodeVisitor(traversalMode)
             , mNameToFind(nameToFind)
             , mFoundNode(nullptr)
         {

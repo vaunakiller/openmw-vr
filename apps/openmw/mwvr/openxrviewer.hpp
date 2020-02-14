@@ -14,6 +14,7 @@
 #include "openxrworldview.hpp"
 #include "openxrmenu.hpp"
 #include "openxrinputmanager.hpp"
+#include <components/sceneutil/positionattitudetransform.hpp>
 
 struct XrCompositionLayerProjection;
 struct XrCompositionLayerProjectionView;
@@ -71,6 +72,17 @@ namespace MWVR
             OpenXRViewer* mViewer;
         };
 
+        class TrackedNodeUpdateCallback : public osg::Callback
+        {
+        public:
+            TrackedNodeUpdateCallback(OpenXRViewer* viewer) : mViewer(viewer) {};
+
+        private:
+            virtual bool run(osg::Object* object, osg::Object* data);
+
+            OpenXRViewer* mViewer;
+        };
+
     public:
         OpenXRViewer(
             osg::ref_ptr<OpenXRManager> XR,
@@ -86,11 +98,14 @@ namespace MWVR
         void traversals();
         void preDrawCallback(osg::RenderInfo& info);
         void postDrawCallback(osg::RenderInfo& info);
-        void blitEyesToMirrorTexture(osg::GraphicsContext* gc);
+        void blitEyesToMirrorTexture(osg::GraphicsContext* gc, bool includeMenu = true);
         void swapBuffers(osg::GraphicsContext* gc) override;
         void realize(osg::GraphicsContext* gc);
 
         bool realized() { return mConfigured; }
+
+
+        void updateTransformNode(osg::Object* object, osg::Object* data);
 
     public:
 
@@ -99,10 +114,12 @@ namespace MWVR
         osg::observer_ptr<OpenXRManager> mXR = nullptr;
         osg::ref_ptr<OpenXRManager::RealizeOperation> mRealizeOperation = nullptr;
         osg::observer_ptr<osgViewer::Viewer> mViewer = nullptr;
-        std::unique_ptr<OpenXRInputManager> mXRInput = nullptr;
         std::unique_ptr<OpenXRSession> mXRSession = nullptr;
         std::map<std::string, osg::ref_ptr<OpenXRView> > mViews{};
         std::map<std::string, osg::ref_ptr<osg::Camera> > mCameras{};
+
+        SceneUtil::PositionAttitudeTransform* mLeftHandTransform = new SceneUtil::PositionAttitudeTransform();
+        SceneUtil::PositionAttitudeTransform* mRightHandTransform = new SceneUtil::PositionAttitudeTransform();
 
         PredrawCallback* mPreDraw{ nullptr };
         PostdrawCallback* mPostDraw{ nullptr };

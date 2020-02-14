@@ -11,6 +11,7 @@
 #include <osg/Camera>
 
 #include <vector>
+#include <deque>
 #include <array>
 #include <iostream>
 
@@ -123,7 +124,7 @@ namespace MWVR
 
         void updateControls();
         void updateHead();
-        void updateHands();
+        PoseSet getHandPoses(int64_t time, TrackedSpace space);
 
         osg::ref_ptr<OpenXRManager> mXR;
         SubActionPaths mSubactionPath;
@@ -219,6 +220,9 @@ namespace MWVR
         osg::Quat   mHeadStageOrientation;
         osg::Vec3f  mHeadWorldPosition;
         osg::Quat   mHeadWorldOrientation;
+
+
+        std::deque<OpenXRActionEvent> mActionEvents{};
     };
 
     XrActionSet
@@ -380,7 +384,7 @@ namespace MWVR
         , mSelectPath(generateControllerActionPaths("/input/select/click"))
         , mSqueezeValuePath(generateControllerActionPaths("/input/squeeze/value"))
         , mSqueezeClickPath(generateControllerActionPaths("/input/squeeze/click"))
-        , mPosePath(generateControllerActionPaths("/input/grip/pose"))
+        , mPosePath(generateControllerActionPaths("/input/aim/pose"))
         , mHapticPath(generateControllerActionPaths("/output/haptic"))
         , mMenuClickPath(generateControllerActionPaths("/input/menu/click"))
         , mThumbstickPath(generateControllerActionPaths("/input/thumbstick/value"))
@@ -535,71 +539,79 @@ namespace MWVR
         if (!mXR->impl().mSessionRunning)
             return;
 
-        // TODO: Should be in OpenXRViewer
-        //mXR->waitFrame();
-        //mXR->beginFrame();
+
+        const XrActiveActionSet activeActionSet{ mActionSet, XR_NULL_PATH };
+        XrActionsSyncInfo syncInfo{ XR_TYPE_ACTIONS_SYNC_INFO };
+        syncInfo.countActiveActionSets = 1;
+        syncInfo.activeActionSets = &activeActionSet;
+        CHECK_XRCMD(xrSyncActions(mXR->impl().mSession, &syncInfo));
 
         updateHead();
-        updateHands();
+
+        mGameMenu.update();
 
         // This set of actions only care about on-press
         if (mActionsMenu.actionOnPress())
         {
-            // Generate on press action
+            mActionEvents.emplace_back(OpenXRActionEvent{ MWInput::InputManager::A_QuickKeysMenu, true });
         }
         if (mGameMenu.actionOnPress())
         {
-            // Generate on press action
+            mActionEvents.emplace_back(OpenXRActionEvent{ MWInput::InputManager::A_GameMenu, true });
         }
         if (mInventory.actionOnPress())
         {
-            // Generate on press action
+            mActionEvents.emplace_back(OpenXRActionEvent{ MWInput::InputManager::A_Inventory, true });
         }
         if (mActivate.actionOnPress())
         {
-            // Generate on press action
+            mActionEvents.emplace_back(OpenXRActionEvent{ MWInput::InputManager::A_Activate, true });
         }
         if (mUse.actionOnPress())
         {
-            // Generate on press action
+            mActionEvents.emplace_back(OpenXRActionEvent{ MWInput::InputManager::A_Use, true });
         }
         if (mJump.actionOnPress())
         {
-            // Generate on press action
+            mActionEvents.emplace_back(OpenXRActionEvent{ MWInput::InputManager::A_Jump, true });
         }
         if (mSneak.actionOnPress())
         {
-            // Generate on press action
+            mActionEvents.emplace_back(OpenXRActionEvent{ MWInput::InputManager::A_Sneak, true });
+        }
+        if (mSneak.actionOnRelease())
+        {
+            mActionEvents.emplace_back(OpenXRActionEvent{ MWInput::InputManager::A_Sneak, false });
         }
         if (mQuickMenu.actionOnPress())
         {
-            // Generate on press action
+            mActionEvents.emplace_back(OpenXRActionEvent{ MWInput::InputManager::A_QuickMenu, true });
         }
 
         // Weapon/Spell actions
         if (mWeapon.actionOnPress() && !mSpellModifier.actionIsPressed())
         {
-            // Generate on press action
+            mActionEvents.emplace_back(OpenXRActionEvent{ MWInput::InputManager::A_Weapon, true });
         }
         if (mCycleWeaponLeft.actionOnPress() && !mSpellModifier.actionIsPressed())
         {
-            // Generate on press action
+            mActionEvents.emplace_back(OpenXRActionEvent{ MWInput::InputManager::A_CycleWeaponLeft, true });
         }
         if (mCycleWeaponRight.actionOnPress() && !mSpellModifier.actionIsPressed())
         {
-            // Generate on press action
+            mActionEvents.emplace_back(OpenXRActionEvent{ MWInput::InputManager::A_CycleWeaponRight, true });
         }
         if (mSpell.actionOnPress() && mSpellModifier.actionIsPressed())
         {
-            // Generate on press action
+            mActionEvents.emplace_back(OpenXRActionEvent{ MWInput::InputManager::A_Spell, true });
         }
         if (mCycleSpellLeft.actionOnPress() && mSpellModifier.actionIsPressed())
         {
-            // Generate on press action
+            mActionEvents.emplace_back(OpenXRActionEvent{ MWInput::InputManager::A_CycleSpellLeft, true });
         }
         if (mCycleSpellRight.actionOnPress() && mSpellModifier.actionIsPressed())
         {
-            // Generate on press action
+            mActionEvents.emplace_back(OpenXRActionEvent{ MWInput::InputManager::A_CycleSpellRight, true });
         }
 
 
@@ -612,7 +624,8 @@ namespace MWVR
         (void)moveLeftRight;
         (void)moveForwardBackward;
 
-        // Propagate movement to openmw
+        // TODO: Propagate movement to openmw
+
     }
 
     void OpenXRInputManagerImpl::updateHead()
@@ -650,11 +663,6 @@ namespace MWVR
         //mHeadRightward.normalize();
     }
 
-    void OpenXRInputManagerImpl::updateHands()
-    {
-        // TODO
-    }
-
     XrPath OpenXRInputManagerImpl::generateXrPath(const std::string& path)
     {
         XrPath xrpath = 0;
@@ -678,5 +686,59 @@ namespace MWVR
         OpenXRInputManager::updateControls()
     {
         impl().updateControls();
+    }
+
+    PoseSet 
+        OpenXRInputManager::getHandPoses(
+            int64_t time,
+            TrackedSpace space)
+    {
+        
+        return mPrivate->getHandPoses(time, space);
+    }
+
+    bool OpenXRInputManager::nextActionEvent(OpenXRActionEvent& action)
+    {
+        if (mPrivate->mActionEvents.empty())
+            return false;
+
+        action = mPrivate->mActionEvents.front();
+        mPrivate->mActionEvents.pop_front();
+        return true;
+
+    }
+
+    PoseSet
+        OpenXRInputManagerImpl::getHandPoses(
+            int64_t time,
+            TrackedSpace space)
+    {
+        PoseSet handPoses{};
+        XrSpace referenceSpace = XR_NULL_HANDLE;
+        if(space == TrackedSpace::STAGE)
+            referenceSpace = mXR->impl().mReferenceSpaceStage;
+        if(space == TrackedSpace::VIEW)
+            referenceSpace = mXR->impl().mReferenceSpaceView;
+
+        XrSpaceLocation location{ XR_TYPE_SPACE_LOCATION };
+        XrSpaceVelocity velocity{ XR_TYPE_SPACE_VELOCITY };
+        location.next = &velocity;
+        CHECK_XRCMD(xrLocateSpace(mHandSpace[(int)Chirality::LEFT_HAND], referenceSpace, time, &location));
+        //if (!(velocity.velocityFlags & XR_SPACE_VELOCITY_LINEAR_VALID_BIT))
+        //    Log(Debug::Warning) << "Unable to acquire linear velocity";
+        handPoses[(int)Chirality::LEFT_HAND] = MWVR::Pose{
+            osg::fromXR(location.pose.position),
+            osg::fromXR(location.pose.orientation),
+            osg::fromXR(velocity.linearVelocity)
+        };
+
+        CHECK_XRCMD(xrLocateSpace(mHandSpace[(int)Chirality::RIGHT_HAND], referenceSpace, time, &location));
+        handPoses[(int)Chirality::RIGHT_HAND] = MWVR::Pose{
+            osg::fromXR(location.pose.position),
+            osg::fromXR(location.pose.orientation),
+            osg::fromXR(velocity.linearVelocity)
+        };
+
+        return handPoses;
     }
 }

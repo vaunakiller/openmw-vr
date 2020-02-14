@@ -114,6 +114,8 @@ endif ()
 if(BUILD_VR_OPENXR)
     set(OPENMW_VR_FILES
         engine_vr.cpp
+        mwvr/openxranimation.hpp
+        mwvr/openxranimation.cpp
         mwvr/openxrinputmanager.hpp
         mwvr/openxrinputmanager.cpp
         mwvr/openxrlayer.hpp

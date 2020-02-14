@@ -949,7 +949,7 @@ void NpcAnimation::addControllers()
             mActiveControllers.emplace(node, mFirstPersonNeckController);
         }
     }
-    else if (mViewMode == VM_Normal)
+    else if (mViewMode == VM_Normal || mViewMode == VM_VRHeadless)
     {
         WeaponAnimation::addControllers(mNodeMap, mActiveControllers, mObjectRoot.get());
     }

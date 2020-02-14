@@ -25,8 +25,6 @@ namespace MWVR
         void beginFrame(osg::GraphicsContext* gc);
         void endFrame(osg::GraphicsContext* gc, uint32_t blitTarget);
 
-        void writeToJpg(osg::State& state, std::string filename);
-
         uint32_t fbo(void) const { return mFBO; }
 
         //! Blit to region in currently bound draw fbo

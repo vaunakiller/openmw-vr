@@ -10,34 +10,11 @@
 
 namespace MWVR
 {
-    //struct OpenXRPoseImpl;
-    //// TODO: Make this an OSG node/group and attach posed elements to it ?
-    //struct OpenXRPose
-    //{
-    //public:
-    //    enum 
-    //    {
-
-    //    };
-
-    //protected:
-    //    OpenXRPose(osg::ref_ptr<OpenXRManager> XR, TrackedLimb limb, TrackingMode mode);
-    //    ~OpenXRPose();
-
-    //public:
-
-    //    bool isActive();
-    //    void update();
-
-    //    TrackedLimb limb() const;
-    //    TrackingMode trackingMode() const;
-    //    
-
-    //    OpenXRPoseImpl& impl() { return *mPrivate; }
-
-    //private:
-    //    std::unique_ptr<OpenXRPoseImpl> mPrivate;
-    //};
+    struct OpenXRActionEvent
+    {
+        MWInput::InputManager::Actions action;
+        bool onPress;
+    };
 
     struct OpenXRInputManagerImpl;
     struct OpenXRInputManager
@@ -46,6 +23,10 @@ namespace MWVR
         ~OpenXRInputManager();
 
         void updateControls();
+
+        PoseSet getHandPoses(int64_t time, TrackedSpace space);
+
+        bool nextActionEvent(OpenXRActionEvent& action);
 
         OpenXRInputManagerImpl& impl() { return *mPrivate; }
 

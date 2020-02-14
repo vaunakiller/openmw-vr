@@ -3,6 +3,13 @@
 
 #include <components/debug/debuglog.hpp>
 #include <components/sdlutil/sdlgraphicswindow.hpp>
+#include "../mwmechanics/actorutil.hpp"
+#include "../mwbase/world.hpp"
+#include "../mwbase/environment.hpp"
+#include "../mwworld/class.hpp"
+#include "../mwworld/player.hpp"
+#include "../mwworld/esmstore.hpp"
+#include <components/esm/loadrace.hpp>
 
 // The OpenXR SDK assumes we've included Windows.h
 #include <Windows.h>
@@ -263,7 +270,6 @@ namespace MWVR
     void
         OpenXRManagerImpl::waitFrame()
     {
-        Log(Debug::Verbose) << "OpenXRSesssion::WaitFrame";
         Timer timer("waitFrame()");
 
         static std::mutex waitFrameMutex;
@@ -278,35 +284,33 @@ namespace MWVR
 
         std::unique_lock<std::mutex> lock(mFrameStateMutex);
         mFrameState = frameState;
-        Log(Debug::Verbose) << "OpenXRSesssion::WaitFrame END";
     }
 
     void
         OpenXRManagerImpl::beginFrame()
     {
-        Log(Debug::Verbose) << "OpenXRSesssion::BeginFrame";
         Timer timer("beginFrame");
         XrFrameBeginInfo frameBeginInfo{ XR_TYPE_FRAME_BEGIN_INFO };
         CHECK_XRCMD(xrBeginFrame(mSession, &frameBeginInfo));
-        Log(Debug::Verbose) << "OpenXRSesssion::BeginFrame END";
     }
 
     void
         OpenXRManagerImpl::endFrame(int64_t displayTime, OpenXRLayerStack* layerStack)
     {
-        Log(Debug::Verbose) << "OpenXRSesssion::EndFrame";
         Timer timer("endFrame()");
         if (!mSessionRunning)
             return;
 
+        OpenXRLayerStack::LayerHeaders headers;
 
         XrFrameEndInfo frameEndInfo{ XR_TYPE_FRAME_END_INFO };
         frameEndInfo.displayTime = displayTime;
         frameEndInfo.environmentBlendMode = mEnvironmentBlendMode;
         if (layerStack)
         {
-            frameEndInfo.layerCount = layerStack->layerCount();
-            frameEndInfo.layers = layerStack->layerHeaders();
+            headers = layerStack->layerHeaders();
+            frameEndInfo.layerCount = headers.size();
+            frameEndInfo.layers = headers.data();
         }
         else {
             frameEndInfo.layerCount = 0;
@@ -320,10 +324,7 @@ namespace MWVR
         auto elapsed = now -last;
         last = now;
 
-        Log(Debug::Verbose) << "endFrame(): period: " << std::chrono::duration_cast<std::chrono::microseconds>(elapsed).count();
-
         CHECK_XRCMD(xrEndFrame(mSession, &frameEndInfo));
-        Log(Debug::Verbose) << "OpenXRSesssion::EndFrame END";
     }
 
     std::array<XrView, 2> 
@@ -491,65 +492,27 @@ namespace MWVR
         return XrPosef{ osg::toXR(pose.orientation), osg::toXR(pose.position) };
     }
 
-    //XrTime OpenXRTimeKeeper::predictedDisplayTime(int64_t frameIndex)
-    //{
-    //    std::unique_lock<std::mutex> lock(mMutex);
 
-    //    //auto prediction = mPredictedFrameTime;
-    //    //auto predictedPeriod = mPredictedPeriod;
-
-    //    //auto futureFrames = frameIndex - OpenXRFrameIndexer::instance().renderIndex();
-
-    //    //prediction += ( 0 + futureFrames) * predictedPeriod;
-
-    //    //Log(Debug::Verbose) << "Predicted: displayTime[" << futureFrames << "]=" << prediction;
-
-    //    //return prediction;
-
-    //    //return mFrameState.predictedDisplayTime;
-
-    //    return mPredictedFrameTime;
-    //}
-
-    //void OpenXRTimeKeeper::progressToNextFrame(XrFrameState frameState)
-    //{
-    //    std::unique_lock<std::mutex> lock(mMutex);
-    //    OpenXRFrameIndexer::instance().advanceRenderIndex();
-    //    //XrDuration realPeriod = frameState.predictedDisplayPeriod;
-    //    //if(mFrameState.predictedDisplayTime != 0)
-    //    //    realPeriod = frameState.predictedDisplayTime - mFrameState.predictedDisplayTime;
-
-    //    auto now = clock::now();
-    //    auto nanoseconds_elapsed = std::chrono::duration_cast<nanoseconds>(now - mLastFrameTimePoint);
-    //    XrDuration realPeriod = nanoseconds_elapsed.count();
-    //    mFrameState = frameState;
-
-    //    mPredictedFrameTime = mFrameState.predictedDisplayTime + mFrameState.predictedDisplayPeriod * 4;
-    //    mPredictedPeriod = mFrameState.predictedDisplayPeriod;
-
-    //    // Real fps is lower than expected fps
-    //    // Adjust predictions
-    //    // (Really wish OpenXR would handle this!)
-    //    //if (realPeriod > mFrameState.predictedDisplayPeriod)
-    //    //{
-    //    //    // predictedDisplayTime refers to the midpoint of the display period
-    //    //    // The upjustment must therefore only be half the magnitude
-    //    //     mPredictedFrameTime += (realPeriod - mFrameState.predictedDisplayPeriod) / 2;
-    //    //     mPredictedPeriod = realPeriod;
-    //    //}
-
-
-
-    //    seconds elapsed = std::chrono::duration_cast<seconds>(now - mLastFrame);
-    //    std::swap(now, mLastFrame);
-    //    double fps = 1. / elapsed.count();
-    //    mFps = mFps * 0.8 + 0.2 * fps;
-
-
-
-    //    Log(Debug::Verbose) << "Render progressed to next frame: elapsed=" << elapsed.count() << ", fps=" << fps << ", ImplementationPeriod=" << mFrameState.predictedDisplayPeriod << " realPeriod=" << realPeriod;
-    //    Log(Debug::Verbose) << "Render progressed to next frame: predictedDisplayTime=" << mFrameState.predictedDisplayTime << ", mPredictedFrameTime=" << mPredictedFrameTime << ", mFps=" << mFps;
-    //}
+    void OpenXRManagerImpl::playerScale(MWVR::Pose& stagePose)
+    {
+        auto worldPtr = MWBase::Environment::get().getWorld();
+        if (worldPtr)
+        {
+            auto playerPtr = MWMechanics::getPlayer();
+            const MWWorld::LiveCellRef<ESM::NPC>* ref = playerPtr.get<ESM::NPC>();
+            const ESM::Race* race =
+                MWBase::Environment::get().getWorld()->getStore().get<ESM::Race>().find(ref->mBase->mRace);
+            bool isMale = ref->mBase->isMale();
+            float charHeightFactor = isMale ? race->mData.mHeight.mMale : race->mData.mHeight.mFemale;
+            float charHeightBase = 1.9f;
+            float charHeight = charHeightBase * charHeightFactor;
+            // TODO: Player height should be configurable
+            // For now i'm just using my own
+            float sizeFactor = 1.85f / charHeight;
+            stagePose.position /= sizeFactor;
+            stagePose.velocity /= sizeFactor;
+        }
+    }
 }
 
 namespace osg

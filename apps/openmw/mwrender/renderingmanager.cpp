@@ -67,6 +67,10 @@
 #include "navmesh.hpp"
 #include "actorspaths.hpp"
 
+#ifdef USE_OPENXR
+#include "../mwvr/openxranimation.hpp"
+#endif
+
 namespace
 {
     float DLLandFogStart;
@@ -1154,8 +1158,12 @@ namespace MWRender
 
     void RenderingManager::renderPlayer(const MWWorld::Ptr &player)
     {
+#ifdef USE_OPENXR
+        mPlayerAnimation = new MWVR::OpenXRAnimation(player, player.getRefData().getBaseNode(), mResourceSystem, false, nullptr);
+#else
         mPlayerAnimation = new NpcAnimation(player, player.getRefData().getBaseNode(), mResourceSystem, 0, NpcAnimation::VM_Normal,
                                                 mFirstPersonFieldOfView);
+#endif
 
         mCamera->setAnimation(mPlayerAnimation.get());
         mCamera->attachTo(player);

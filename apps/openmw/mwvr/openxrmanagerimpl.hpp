@@ -64,6 +64,7 @@ namespace MWVR
         void updateControls();
         void HandleSessionStateChanged(const XrEventDataSessionStateChanged& stateChangedEvent);
         XrFrameState frameState();
+        void playerScale(MWVR::Pose& stagePose);
 
         bool initialized = false;
         long long mFrameIndex = 0;
@@ -85,6 +86,12 @@ namespace MWVR
         bool mSessionRunning = false;
         std::mutex mFrameStateMutex{};
         std::mutex mEventMutex{};
+
+        XrActionSet mActionSet = nullptr;
+        XrAction mHandPoseAction = nullptr;
+        XrSpace mHandSpaces[2]{ nullptr, nullptr };
+        XrPath mSubactionPaths[2]{ 0, 0 };
+        XrPath mPosePath[2]{ 0, 0 };
     };
 }
 

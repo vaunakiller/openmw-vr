@@ -10,6 +10,7 @@
 
 #include <openxr/openxr.h>
 
+#include "../mwrender/vismask.hpp"
 
 #include <osg/Camera>
 #include <osgViewer/Renderer>
@@ -91,16 +92,14 @@ namespace MWVR
 
     osg::Matrix OpenXRWorldView::viewMatrix()
     {
-        auto pose = predictedPose();
+        MWVR::Pose pose = predictedPose();
+        mXR->playerScale(pose);
         osg::Vec3 position = pose.position;
 
-#if 1
-        // Comfort shortcut.
-        // TODO: Head pose should affect more than just the view !
-        position.y() -= 0.9144 * 2.;
-#endif
-
-        // invert orientation (co jugate of Quaternion) and position to apply to the view matrix as offset
+        // invert orientation (co jugate of Quaternion) and position to apply to the view matrix as offset.
+        // This works, despite different conventions between OpenXR and OSG, because the OSG view matrix will
+        // have converted to OpenGL's clip space conventions before this matrix is applied, and OpenXR's conventions
+        // match OpenGL.
         osg::Matrix viewMatrix;
         viewMatrix.setTrans(-position * mMetersPerUnit);
         viewMatrix.postMultRotate(pose.orientation.conj());
@@ -155,20 +154,18 @@ namespace MWVR
         auto* camera = slave._camera.get();
         auto name = camera->getName();
 
-        Log(Debug::Verbose) << name << ": slave update";
-
         auto& poses = mSession->predictedPoses();
 
         if (name == "LeftEye")
         {
             mXR->handleEvents();
             mSession->waitFrame();
-            auto leftEyePose = poses.eye[(int)Chirality::LEFT_HAND][(int)TrackedSpace::STAGE];
+            auto leftEyePose = poses.eye[(int)TrackedSpace::STAGE][(int)Chirality::LEFT_HAND];
             mView->setPredictedPose(leftEyePose);
         }
         else
         {
-            auto rightEyePose = poses.eye[(int)Chirality::RIGHT_HAND][(int)TrackedSpace::STAGE];
+            auto rightEyePose = poses.eye[(int)TrackedSpace::STAGE][(int)Chirality::RIGHT_HAND];
             mView->setPredictedPose(rightEyePose);
         }
         if (!mXR->sessionRunning())
@@ -179,6 +176,7 @@ namespace MWVR
 
 
         auto viewMatrix = view.getCamera()->getViewMatrix() * mView->viewMatrix();
+        //auto viewMatrix = mView->viewMatrix();
         auto projectionMatrix = mView->projectionMatrix();
 
         camera->setViewMatrix(viewMatrix);

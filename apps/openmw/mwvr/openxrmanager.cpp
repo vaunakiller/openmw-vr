@@ -213,6 +213,12 @@ namespace MWVR
     {
 
     }
+
+    void OpenXRManager::playerScale(MWVR::Pose& stagePose)
+    {
+        if (mPrivate)
+            mPrivate->playerScale(stagePose);
+    }
 }
 
 std::ostream& operator <<(

@@ -17,6 +17,13 @@ namespace MWVR
 
         virtual const XrCompositionLayerBaseHeader* layer() = 0;
         virtual void swapBuffers(osg::GraphicsContext* gc) = 0;
+
+        bool isVisible() const { return mVisible; };
+        void setVisible(bool visible) { mVisible = visible; };
+
+    protected:
+
+        bool mVisible{ false };
     };
 
     class OpenXRLayerStack
@@ -28,20 +35,18 @@ namespace MWVR
             LAYER_MAX = MENU_VIEW_LAYER //!< Used to size layer arrays. Not a valid input.
         };
         using LayerObjectStack = std::array< OpenXRLayer*, LAYER_MAX + 1>;
-        using LayerStack = std::array< const XrCompositionLayerBaseHeader*, LAYER_MAX + 1>;
+        using LayerHeaders = std::vector<const XrCompositionLayerBaseHeader*>;
 
         OpenXRLayerStack() = default;
         ~OpenXRLayerStack() = default;
 
 
         void setLayer(Layer layer, OpenXRLayer* layerObj);
-        int layerCount();
-        const XrCompositionLayerBaseHeader** layerHeaders();
+        LayerHeaders layerHeaders();
         LayerObjectStack& layerObjects() { return mLayerObjects; };
 
     private:
         LayerObjectStack mLayerObjects;
-        LayerStack mLayers;
     };
 }
 

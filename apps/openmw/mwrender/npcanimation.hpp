@@ -20,7 +20,10 @@ namespace MWRender
 class NeckController;
 class HeadAnimationTime;
 
-class NpcAnimation : public ActorAnimation, public WeaponAnimation, public MWWorld::InventoryStoreListener
+class NpcAnimation : 
+    public ActorAnimation
+  , public WeaponAnimation
+  , public MWWorld::InventoryStoreListener
 {
 public:
     virtual void equipmentChanged();
@@ -32,10 +35,13 @@ public:
     enum ViewMode {
         VM_Normal,
         VM_FirstPerson,
-        VM_HeadOnly
+        VM_HeadOnly,
+#ifdef USE_OPENXR
+        VM_VRHeadless,
+#endif
     };
 
-private:
+protected:
     static const PartBoneMap sPartList;
 
     // Bounded Parts
@@ -141,9 +147,9 @@ public:
     // WeaponAnimation
     virtual void showWeapon(bool show) { showWeapons(show); }
 
-    void setViewMode(ViewMode viewMode);
+    virtual void setViewMode(ViewMode viewMode);
 
-    void updateParts();
+    virtual void updateParts();
 
     /// Rebuilds the NPC, updating their root model, animation sources, and equipment.
     void rebuild();

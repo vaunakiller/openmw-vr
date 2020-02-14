@@ -26,33 +26,32 @@ namespace MWVR
     const XrCompositionLayerBaseHeader* 
         OpenXRMenu::layer()
     {
-        updatePosition();
-        //Log(Debug::Verbose) << "MenuPose: " << mPose;
 
+        if (mPositionNeedsUpdate)
+        {
+            // Menus are position one meter in front of the player, facing the player.
+            mPose = predictedPose();
+            mPose.position += mPose.orientation * osg::Vec3(0, 0, -1);
+            mPose.orientation = -mPose.orientation;
+
+            Log(Debug::Verbose) << "Menu pose updated to: " << mPose;
+            mPositionNeedsUpdate = false;
+        }
+        
         if (mLayer)
         {
             mLayer->pose.position = osg::toXR(mPose.position);
             mLayer->pose.orientation = osg::toXR(mPose.orientation);
         }
 
-        return reinterpret_cast<XrCompositionLayerBaseHeader*>(mLayer.get());
+        if(mVisible)
+            return reinterpret_cast<XrCompositionLayerBaseHeader*>(mLayer.get());
+        return nullptr;
     }
 
     void OpenXRMenu::updatePosition()
     {        
-        if (!mPositionNeedsUpdate)
-            return;
-        if (!mXR->sessionRunning())
-            return;
-
-        // Menus are position one meter in front of the player, facing the player.
-        mPose = predictedPose();
-        mPose.position += mPose.orientation * osg::Vec3(0, 0, -1);
-        mPose.orientation = -mPose.orientation;
-
-        Log(Debug::Verbose) << "Menu pose updated to: " << mPose;
-        mPositionNeedsUpdate = false;
-
+        mPositionNeedsUpdate = true;
     }
 
     void OpenXRMenu::swapBuffers(

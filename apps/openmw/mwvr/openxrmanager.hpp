@@ -5,6 +5,7 @@
 #endif
 
 #include <memory>
+#include <array>
 #include <mutex>
 #include <components/debug/debuglog.hpp>
 #include <components/sdlutil/sdlgraphicswindow.hpp>
@@ -43,6 +44,15 @@ namespace MWVR
         osg::Quat orientation{ 0,0,0,1 };
         //! Speed of movement in VR space, expressed in meters per second
         osg::Vec3 velocity{ 0,0,0 };
+    };
+
+    using PoseSet = std::array<Pose, 2>;
+
+    struct PoseSets
+    {
+        PoseSet eye[2]{};
+        PoseSet hands[2]{};
+        PoseSet head{};
     };
 
     //! Describes what limb to track.
@@ -108,6 +118,7 @@ namespace MWVR
         void beginFrame();
         void endFrame(int64_t displayTime, class OpenXRLayerStack* layerStack);
         void updateControls();
+        void playerScale(MWVR::Pose& stagePose);
 
         void realize(osg::GraphicsContext* gc);
 

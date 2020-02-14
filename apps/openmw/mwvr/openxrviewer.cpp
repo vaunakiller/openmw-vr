@@ -2,6 +2,14 @@
 #include "openxrmanagerimpl.hpp"
 #include "Windows.h"
 #include "../mwrender/vismask.hpp"
+#include "../mwmechanics/actorutil.hpp"
+#include "../mwbase/world.hpp"
+#include "../mwbase/environment.hpp"
+#include "../mwworld/class.hpp"
+#include "../mwworld/player.hpp"
+#include "../mwworld/esmstore.hpp"
+#include <components/esm/loadrace.hpp>
+#include <osg/MatrixTransform>
 
 namespace MWVR
 {
@@ -10,7 +18,8 @@ namespace MWVR
         osg::ref_ptr<OpenXRManager> XR,
         osg::ref_ptr<osgViewer::Viewer> viewer,
         float metersPerUnit)
-        : mXR(XR)
+        : osg::Group()
+        , mXR(XR)
         , mRealizeOperation(new RealizeOperation(XR, this))
         , mViewer(viewer)
         , mMetersPerUnit(metersPerUnit)
@@ -23,6 +32,17 @@ namespace MWVR
         mViewer->setRealizeOperation(mRealizeOperation);
         mCompositionLayerProjectionViews[0].pose.orientation.w = 1;
         mCompositionLayerProjectionViews[1].pose.orientation.w = 1;
+        this->setName("OpenXRRoot");
+
+        this->setUserData(new TrackedNodeUpdateCallback(this));
+
+        mLeftHandTransform->setName("tracker l hand");
+        mLeftHandTransform->setUpdateCallback(new TrackedNodeUpdateCallback(this));
+        this->addChild(mLeftHandTransform);
+
+        mRightHandTransform->setName("tracker r hand");
+        mRightHandTransform->setUpdateCallback(new TrackedNodeUpdateCallback(this));
+        this->addChild(mRightHandTransform);
     }
 
     OpenXRViewer::~OpenXRViewer(void)
@@ -33,7 +53,6 @@ namespace MWVR
         OpenXRViewer::traverse(
             osg::NodeVisitor& visitor)
     {
-        Log(Debug::Verbose) << "Traversal";
         if (mRealizeOperation->realized())
             osg::Group::traverse(visitor);
     }
@@ -41,18 +60,15 @@ namespace MWVR
     const XrCompositionLayerBaseHeader*
         OpenXRViewer::layer()
     {
+        // Does not check for visible, since this should always render
         return reinterpret_cast<XrCompositionLayerBaseHeader*>(mLayer.get());
     }
 
     void OpenXRViewer::traversals()
     {
-        //Log(Debug::Verbose) << "Pre-Update";
         mXR->handleEvents();
         mViewer->updateTraversal();
-        //Log(Debug::Verbose) << "Post-Update";
-        //Log(Debug::Verbose) << "Pre-Rendering";
         mViewer->renderingTraversals();
-        //Log(Debug::Verbose) << "Post-Rendering";
     }
 
     void OpenXRViewer::realize(osg::GraphicsContext* context)
@@ -122,8 +138,6 @@ namespace MWVR
         mViewer->setLightingMode(osg::View::SKY_LIGHT);
         mViewer->setReleaseContextAtEndOfFrameHint(false);
 
-        mXRInput.reset(new OpenXRInputManager(mXR));
-
         mCompositionLayerProjectionViews[0].subImage = leftView->swapchain().subImage();
         mCompositionLayerProjectionViews[1].subImage = rightView->swapchain().subImage();
 
@@ -160,13 +174,31 @@ namespace MWVR
 
     }
 
-    void OpenXRViewer::blitEyesToMirrorTexture(osg::GraphicsContext* gc)
+    void OpenXRViewer::blitEyesToMirrorTexture(osg::GraphicsContext* gc, bool includeMenu)
     {
         mMirrorTextureSwapchain->beginFrame(gc);
-        mViews["LeftEye"]->swapchain().renderBuffer()->blit(gc, 0, 0, mMirrorTextureSwapchain->width() / 2, mMirrorTextureSwapchain->height());
-        mViews["RightEye"]->swapchain().renderBuffer()->blit(gc, mMirrorTextureSwapchain->width() / 2, 0, mMirrorTextureSwapchain->width(), mMirrorTextureSwapchain->height());
 
-        //mXRMenu->swapchain().current()->blit(gc, 0, 0, mMirrorTextureSwapchain->width() / 2, mMirrorTextureSwapchain->height());
+        int mirror_width = 0;
+        if(includeMenu)
+            mirror_width = mMirrorTextureSwapchain->width() / 3;
+        else
+            mirror_width = mMirrorTextureSwapchain->width() / 2;
+
+
+        mViews["LeftEye"]->swapchain().renderBuffer()->blit(gc, 0, 0, mirror_width, mMirrorTextureSwapchain->height());
+        mViews["RightEye"]->swapchain().renderBuffer()->blit(gc, mirror_width, 0, 2 * mirror_width, mMirrorTextureSwapchain->height());
+
+        if(includeMenu)
+            mViews["MenuView"]->swapchain().renderBuffer()->blit(gc, 2 * mirror_width, 0, 3 * mirror_width, mMirrorTextureSwapchain->height());
+
+        mMirrorTextureSwapchain->endFrame(gc);
+
+
+
+        auto* state = gc->getState();
+        auto* gl = osg::GLExtensions::Get(state->getContextID(), false);
+        gl->glBindFramebuffer(GL_FRAMEBUFFER_EXT, 0);
+        mMirrorTextureSwapchain->renderBuffer()->blit(gc, 0, 0, mMirrorTextureSwapchain->width(), mMirrorTextureSwapchain->height());
     }
 
     void
@@ -182,16 +214,13 @@ namespace MWVR
         if (!mConfigured)
             return;
 
-        auto* state = gc->getState();
-        auto* gl = osg::GLExtensions::Get(state->getContextID(), false);
-
         ////// NEW SYSTEM
         Timer timer("OpenXRViewer::SwapBuffers");
         mViews["LeftEye"]->swapBuffers(gc);
         mViews["RightEye"]->swapBuffers(gc);
         timer.checkpoint("Views");
 
-        auto eyePoses = mXRSession->predictedPoses().eye;
+        auto eyePoses = mXRSession->predictedPoses().eye; 
         auto leftEyePose = toXR(mViews["LeftEye"]->predictedPose());
         auto rightEyePose = toXR(mViews["RightEye"]->predictedPose());
         mCompositionLayerProjectionViews[0].pose = leftEyePose;
@@ -213,6 +242,10 @@ namespace MWVR
             mLayer->viewCount = 2;
             mLayer->views = mCompositionLayerProjectionViews.data();
         }
+
+        blitEyesToMirrorTexture(gc);
+
+        gc->swapBuffersImplementation();
     }
 
     void
@@ -237,10 +270,13 @@ namespace MWVR
 
         if (name == "LeftEye")
         {
-            mXR->beginFrame();
-            auto& poses = mXRSession->predictedPoses();
-            auto menuPose = poses.head[(int)TrackedSpace::STAGE];
-            mViews["MenuView"]->setPredictedPose(menuPose);
+            if (mXR->sessionRunning())
+            {
+                mXR->beginFrame();
+                auto& poses = mXRSession->predictedPoses();
+                auto menuPose = poses.head[(int)TrackedSpace::STAGE];
+                mViews["MenuView"]->setPredictedPose(menuPose);
+            }
         }
 
         view->prerenderCallback(info);
@@ -260,5 +296,75 @@ namespace MWVR
             camera->setPreDrawCallback(mPreDraw);
             Log(Debug::Warning) << ("osg overwrote predraw");
         }
+    }
+
+    void OpenXRViewer::updateTransformNode(osg::Object* object, osg::Object* data)
+    {
+        auto* hand_transform = dynamic_cast<SceneUtil::PositionAttitudeTransform*>(object);
+        if (!hand_transform)
+        {
+            Log(Debug::Error) << "Update node was not PositionAttitudeTransform";
+            return;
+        }
+
+        auto& poses = mXRSession->predictedPoses();
+        auto handPosesView = poses.hands[(int)TrackedSpace::VIEW];
+        auto handPosesStage = poses.hands[(int)TrackedSpace::STAGE];
+        int chirality = (int)Chirality::LEFT_HAND;
+        if (hand_transform->getName() == "tracker r hand")
+            chirality = (int)Chirality::RIGHT_HAND;
+
+        MWVR::Pose hand = handPosesStage[chirality];
+        mXR->playerScale(hand);
+        auto orientation = hand.orientation;
+        auto position = hand.position;
+        position = position * mMetersPerUnit;
+
+        // Move OpenXR's poses into OpenMW's view by applying the inverse of the rotation of the view matrix.
+        // This works because OpenXR's conventions match opengl's clip space, thus the inverse of the view matrix converts an OpenXR pose to OpenMW's view space (including world rotation).
+        // For the hands we don't want the full camera view matrix, but the relative matrix from the player root. So i create a lookat matrix based on osg's conventions.
+        // TODO: The full camera view matrix could work if i change how animations are overriden.
+        osg::Matrix lookAt;
+        lookAt.makeLookAt(osg::Vec3(0, 0, 0), osg::Vec3(0, 1, 0), osg::Vec3(0, 0, 1));
+        lookAt = osg::Matrix::inverse(lookAt);
+
+        orientation = orientation * lookAt.getRotate();
+        //position = invViewMatrix.preMult(position);
+        position = lookAt.getRotate() * position;
+        
+        // Morrowind's meshes do not point forward by default.
+        // Static since they do not need to be recomputed.
+        static float VRbias = osg::DegreesToRadians(-90.f);
+        static osg::Quat yaw(VRbias, osg::Vec3f(0, 1, 0));
+        static osg::Quat pitch(2.f * VRbias, osg::Vec3f(0, 0, 1));
+        static osg::Quat roll (-VRbias, osg::Vec3f(1, 0, 0));
+
+        orientation = pitch * yaw * orientation;
+
+
+        if (hand_transform->getName() == "tracker r hand")
+            orientation = roll * orientation;
+        else
+            orientation = roll.inverse() * orientation;
+        
+        // Hand are by default not well-centered
+        // Note, these numbers are just a rough guess, but seem to work out well.
+        osg::Vec3 offcenter = osg::Vec3(-0.175, 0., .033);
+        if (hand_transform->getName() == "tracker r hand")
+            offcenter.z() *= -1.;
+        osg::Vec3 recenter = orientation * offcenter;
+        position = position + recenter * mMetersPerUnit;
+
+        hand_transform->setAttitude(orientation);
+        hand_transform->setPosition(position);
+    }
+
+    bool
+        OpenXRViewer::TrackedNodeUpdateCallback::run(
+            osg::Object* object, 
+            osg::Object* data)
+    {
+        mViewer->updateTransformNode(object, data);
+        return traverse(object, data);
     }
 }

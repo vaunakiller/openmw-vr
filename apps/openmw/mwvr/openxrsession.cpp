@@ -19,6 +19,7 @@
 #include <array>
 #include <iostream>
 #include "openxrsession.hpp"
+#include "openxrmenu.hpp"
 #include <time.h>
 
 namespace MWVR
@@ -26,6 +27,7 @@ namespace MWVR
     OpenXRSession::OpenXRSession(
         osg::ref_ptr<OpenXRManager> XR)
         : mXR(XR)
+        , mInputManager(new OpenXRInputManager(mXR))
     {
     }
 
@@ -42,7 +44,6 @@ namespace MWVR
 
     void OpenXRSession::swapBuffers(osg::GraphicsContext* gc)
     {
-        Log(Debug::Verbose) << "OpenXRSession::swapBuffers";
         Timer timer("OpenXRSession::SwapBuffers");
         static int wat = 0;
         if (!mXR->sessionRunning())
@@ -60,13 +61,35 @@ namespace MWVR
 
     void OpenXRSession::waitFrame()
     {
+        mXR->handleEvents();
+        if (!mXR->sessionRunning())
+            return;
+
         // For now it seems we must just accept crap performance from the rendering loop
         // Since Oculus' implementation of waitFrame() does not even attempt to reflect real
         // render time and just incurs a huge useless delay.
         Timer timer("OpenXRSession::waitFrame");
         mXR->waitFrame();
         timer.checkpoint("waitFrame");
+        mInputManager->updateControls();
         predictNext(0);
+
+        OpenXRActionEvent event{};
+        while (mInputManager->nextActionEvent(event))
+        {
+            Log(Debug::Verbose) << "ActionEvent action=" << event.action << " onPress=" << event.onPress;
+            if (event.action == MWInput::InputManager::A_GameMenu)
+            {
+                Log(Debug::Verbose) << "A_GameMenu";
+                auto* menuLayer = dynamic_cast<OpenXRMenu*>(mLayerStack.layerObjects()[OpenXRLayerStack::MENU_VIEW_LAYER]);
+                if (menuLayer)
+                {
+                    menuLayer->setVisible(!menuLayer->isVisible());
+                    menuLayer->updatePosition();
+                }
+            }
+        }
+
         mPredictionsReady = true;
 
     }
@@ -75,19 +98,18 @@ namespace MWVR
     {
         auto mPredictedDisplayTime = mXR->impl().frameState().predictedDisplayTime;
 
+
         // Update pose predictions
         mPredictedPoses.head[(int)TrackedSpace::STAGE] = mXR->impl().getPredictedLimbPose(mPredictedDisplayTime, TrackedLimb::HEAD, TrackedSpace::STAGE);
         mPredictedPoses.head[(int)TrackedSpace::VIEW] = mXR->impl().getPredictedLimbPose(mPredictedDisplayTime, TrackedLimb::HEAD, TrackedSpace::VIEW);
-        mPredictedPoses.hands[(int)Chirality::LEFT_HAND][(int)TrackedSpace::STAGE] = mXR->impl().getPredictedLimbPose(mPredictedDisplayTime, TrackedLimb::LEFT_HAND, TrackedSpace::STAGE);
-        mPredictedPoses.hands[(int)Chirality::LEFT_HAND][(int)TrackedSpace::VIEW] = mXR->impl().getPredictedLimbPose(mPredictedDisplayTime, TrackedLimb::LEFT_HAND, TrackedSpace::VIEW);
-        mPredictedPoses.hands[(int)Chirality::RIGHT_HAND][(int)TrackedSpace::STAGE] = mXR->impl().getPredictedLimbPose(mPredictedDisplayTime, TrackedLimb::RIGHT_HAND, TrackedSpace::STAGE);
-        mPredictedPoses.hands[(int)Chirality::RIGHT_HAND][(int)TrackedSpace::VIEW] = mXR->impl().getPredictedLimbPose(mPredictedDisplayTime, TrackedLimb::RIGHT_HAND, TrackedSpace::VIEW);
+        mPredictedPoses.hands[(int)TrackedSpace::STAGE] = mInputManager->getHandPoses(mPredictedDisplayTime, TrackedSpace::STAGE);
+        mPredictedPoses.hands[(int)TrackedSpace::VIEW] = mInputManager->getHandPoses(mPredictedDisplayTime, TrackedSpace::VIEW);
         auto stageViews = mXR->impl().getPredictedViews(mPredictedDisplayTime, TrackedSpace::STAGE);
         auto hmdViews = mXR->impl().getPredictedViews(mPredictedDisplayTime, TrackedSpace::VIEW);
-        mPredictedPoses.eye[(int)Chirality::LEFT_HAND][(int)TrackedSpace::STAGE] = fromXR(stageViews[(int)Chirality::LEFT_HAND].pose);
-        mPredictedPoses.eye[(int)Chirality::LEFT_HAND][(int)TrackedSpace::VIEW] = fromXR(hmdViews[(int)Chirality::LEFT_HAND].pose);
-        mPredictedPoses.eye[(int)Chirality::RIGHT_HAND][(int)TrackedSpace::STAGE] = fromXR(stageViews[(int)Chirality::RIGHT_HAND].pose);
-        mPredictedPoses.eye[(int)Chirality::RIGHT_HAND][(int)TrackedSpace::VIEW] = fromXR(hmdViews[(int)Chirality::RIGHT_HAND].pose);
+        mPredictedPoses.eye[(int)TrackedSpace::STAGE][(int)Chirality::LEFT_HAND] = fromXR(stageViews[(int)Chirality::LEFT_HAND].pose);
+        mPredictedPoses.eye[(int)TrackedSpace::VIEW][(int)Chirality::LEFT_HAND] = fromXR(hmdViews[(int)Chirality::LEFT_HAND].pose);
+        mPredictedPoses.eye[(int)TrackedSpace::STAGE][(int)Chirality::RIGHT_HAND] = fromXR(stageViews[(int)Chirality::RIGHT_HAND].pose);
+        mPredictedPoses.eye[(int)TrackedSpace::VIEW][(int)Chirality::RIGHT_HAND] = fromXR(hmdViews[(int)Chirality::RIGHT_HAND].pose);
     }
 }
 

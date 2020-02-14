@@ -11,18 +11,11 @@
 #include <components/settings/settings.hpp>
 #include "openxrmanager.hpp"
 #include "openxrlayer.hpp"
+#include "openxrinputmanager.hpp"
 
 namespace MWVR
 {
 
-    using PoseSet = std::array<Pose, 2>;
-
-    struct PoseSets
-    {
-        PoseSet eye[2]{};
-        PoseSet hands[2]{};
-        PoseSet head{};
-    };
 
     class OpenXRSession
     {
@@ -46,12 +39,13 @@ namespace MWVR
         //! Update predictions
         void predictNext(int extraPeriods);
 
-        OpenXRLayerStack mLayerStack{};
         osg::ref_ptr<OpenXRManager> mXR;
+        std::unique_ptr<OpenXRInputManager> mInputManager = nullptr;
+        OpenXRLayerStack mLayerStack{};
 
         PoseSets mPredictedPoses{};
 
-        bool mPredictionsReady;
+        bool mPredictionsReady{ false };
     };
 
 }

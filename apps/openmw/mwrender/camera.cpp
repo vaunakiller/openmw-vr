@@ -3,6 +3,7 @@
 #include <osg/Camera>
 
 #include <components/sceneutil/positionattitudetransform.hpp>
+#include <components/sceneutil/visitor.hpp>
 
 #include "../mwbase/environment.hpp"
 #include "../mwbase/windowmanager.hpp"
@@ -11,6 +12,7 @@
 #include "../mwworld/refdata.hpp"
 
 #include "npcanimation.hpp"
+#include <components/debug/debuglog.hpp>
 
 namespace
 {
@@ -88,10 +90,13 @@ namespace MWRender
     {
         const osg::Node* trackNode = mTrackingNode;
         if (!trackNode)
+        {
             return osg::Vec3d();
+        }
         osg::NodePathList nodepaths = trackNode->getParentalNodePaths();
         if (nodepaths.empty())
             return osg::Vec3d();
+
         osg::Matrix worldMat = osg::computeLocalToWorld(nodepaths[0]);
 
         osg::Vec3d position = worldMat.getTrans();
@@ -199,6 +204,10 @@ namespace MWRender
 
     bool Camera::toggleVanityMode(bool enable)
     {
+#ifdef USE_OPENXR
+        // Vanity mode makes no sense in VR
+        enable = false;
+#endif
         // Changing the view will stop all playing animations, so if we are playing
         // anything important, queue the view change for later
         if (mFirstPersonView && !mAnimation->upperBodyReady())
@@ -290,6 +299,10 @@ namespace MWRender
 
     void Camera::setPitch(float angle)
     {
+#ifdef USE_OPENXR
+        // Pitch is defined purely by the HMD.
+        return (void)angle;
+#endif
         const float epsilon = 0.000001f;
         float limit = osg::PI_2 - epsilon;
         if(mPreviewMode)
@@ -361,6 +374,20 @@ namespace MWRender
 
     void Camera::processViewChange()
     {
+#ifdef USE_OPENXR
+        mAnimation->setViewMode(NpcAnimation::VM_VRHeadless);
+
+        // For comfort, in VR mode the camera should only track nodes that don't animate.
+        // As-is, only the first person mode adds any unanimated nodes, but we want the third-person mode body.
+        // So we look up the root node of the player to track that.
+        SceneUtil::FindByNameVisitor findRootVisitor("Player Root", osg::NodeVisitor::TRAVERSE_PARENTS);
+        mAnimation->getObjectRoot()->accept(findRootVisitor);
+        mTrackingNode = findRootVisitor.mFoundNode;
+
+        if (!mTrackingNode)
+            throw std::logic_error("Unapple to find tracking node for VR camera");
+        mHeightScale = 1.f;
+#else
         if(isFirstPerson())
         {
             mAnimation->setViewMode(NpcAnimation::VM_FirstPerson);
@@ -380,6 +407,7 @@ namespace MWRender
                 mHeightScale = 1.f;
         }
         rotateCamera(getPitch(), getYaw(), false);
+#endif
     }
 
     void Camera::getPosition(osg::Vec3f &focal, osg::Vec3f &camera)
