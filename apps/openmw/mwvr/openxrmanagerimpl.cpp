@@ -504,7 +504,7 @@ namespace MWVR
                 MWBase::Environment::get().getWorld()->getStore().get<ESM::Race>().find(ref->mBase->mRace);
             bool isMale = ref->mBase->isMale();
             float charHeightFactor = isMale ? race->mData.mHeight.mMale : race->mData.mHeight.mFemale;
-            float charHeightBase = 1.9f;
+            float charHeightBase = 2.f;
             float charHeight = charHeightBase * charHeightFactor;
             // TODO: Player height should be configurable
             // For now i'm just using my own

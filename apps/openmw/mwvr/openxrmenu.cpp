@@ -29,9 +29,9 @@ namespace MWVR
 
         if (mPositionNeedsUpdate)
         {
-            // Menus are position one meter in front of the player, facing the player.
+            // I position menus half a meter in front of the player, facing the player.
             mPose = predictedPose();
-            mPose.position += mPose.orientation * osg::Vec3(0, 0, -1);
+            mPose.position += mPose.orientation * osg::Vec3(0, 0, -0.5);
             mPose.orientation = -mPose.orientation;
 
             Log(Debug::Verbose) << "Menu pose updated to: " << mPose;

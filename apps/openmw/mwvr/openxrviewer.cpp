@@ -1,4 +1,5 @@
 #include "openxrviewer.hpp"
+#include "openxrsession.hpp"
 #include "openxrmanagerimpl.hpp"
 #include "Windows.h"
 #include "../mwrender/vismask.hpp"
@@ -20,14 +21,13 @@ namespace MWVR
         float metersPerUnit)
         : osg::Group()
         , mXR(XR)
+        , mCompositionLayerProjectionViews(2, {XR_TYPE_COMPOSITION_LAYER_PROJECTION_VIEW})
         , mRealizeOperation(new RealizeOperation(XR, this))
         , mViewer(viewer)
-        , mMetersPerUnit(metersPerUnit)
-        , mConfigured(false)
-        , mCompositionLayerProjectionViews(2, {XR_TYPE_COMPOSITION_LAYER_PROJECTION_VIEW})
-        , mXRSession(nullptr)
         , mPreDraw(new PredrawCallback(this))
         , mPostDraw(new PostdrawCallback(this))
+        , mMetersPerUnit(metersPerUnit)
+        , mConfigured(false)
     {
         mViewer->setRealizeOperation(mRealizeOperation);
         mCompositionLayerProjectionViews[0].pose.orientation.w = 1;
@@ -160,16 +160,16 @@ namespace MWVR
         menuCamera->setPreDrawCallback(mPreDraw);
         menuCamera->setPostDrawCallback(mPostDraw);
 
-        mViewer->addSlave(menuCamera, true);
+        auto* session = MWBase::Environment::get().getXRSession();
 
-        mXRSession.reset(new OpenXRSession(mXR));
-        mViewer->getSlave(0)._updateSlaveCallback = new OpenXRWorldView::UpdateSlaveCallback(mXR, mXRSession.get(), leftView, context);
-        mViewer->getSlave(1)._updateSlaveCallback = new OpenXRWorldView::UpdateSlaveCallback(mXR, mXRSession.get(), rightView, context);
+        mViewer->addSlave(menuCamera, true);
+        mViewer->getSlave(0)._updateSlaveCallback = new OpenXRWorldView::UpdateSlaveCallback(mXR, session, leftView, context);
+        mViewer->getSlave(1)._updateSlaveCallback = new OpenXRWorldView::UpdateSlaveCallback(mXR, session, rightView, context);
 
         mainCamera->getGraphicsContext()->setSwapCallback(new OpenXRViewer::SwapBuffersCallback(this));
         mainCamera->setGraphicsContext(nullptr);
-        mXRSession->setLayer(OpenXRLayerStack::WORLD_VIEW_LAYER, this);
-        mXRSession->setLayer(OpenXRLayerStack::MENU_VIEW_LAYER, dynamic_cast<OpenXRLayer*>(mViews["MenuView"].get()));
+        session->setLayer(OpenXRLayerStack::WORLD_VIEW_LAYER, this);
+        session->setLayer(OpenXRLayerStack::MENU_VIEW_LAYER, dynamic_cast<OpenXRLayer*>(mViews["MenuView"].get()));
         mConfigured = true;
 
     }
@@ -205,7 +205,7 @@ namespace MWVR
         OpenXRViewer::SwapBuffersCallback::swapBuffersImplementation(
             osg::GraphicsContext* gc)
     {
-        mViewer->mXRSession->swapBuffers(gc);
+        MWBase::Environment::get().getXRSession()->swapBuffers(gc);
     }
 
     void OpenXRViewer::swapBuffers(osg::GraphicsContext* gc)
@@ -220,7 +220,6 @@ namespace MWVR
         mViews["RightEye"]->swapBuffers(gc);
         timer.checkpoint("Views");
 
-        auto eyePoses = mXRSession->predictedPoses().eye; 
         auto leftEyePose = toXR(mViews["LeftEye"]->predictedPose());
         auto rightEyePose = toXR(mViews["RightEye"]->predictedPose());
         mCompositionLayerProjectionViews[0].pose = leftEyePose;
@@ -273,7 +272,7 @@ namespace MWVR
             if (mXR->sessionRunning())
             {
                 mXR->beginFrame();
-                auto& poses = mXRSession->predictedPoses();
+                auto& poses = MWBase::Environment::get().getXRSession()->predictedPoses();
                 auto menuPose = poses.head[(int)TrackedSpace::STAGE];
                 mViews["MenuView"]->setPredictedPose(menuPose);
             }
@@ -307,7 +306,7 @@ namespace MWVR
             return;
         }
 
-        auto& poses = mXRSession->predictedPoses();
+        auto& poses = MWBase::Environment::get().getXRSession()->predictedPoses();
         auto handPosesView = poses.hands[(int)TrackedSpace::VIEW];
         auto handPosesStage = poses.hands[(int)TrackedSpace::STAGE];
         int chirality = (int)Chirality::LEFT_HAND;

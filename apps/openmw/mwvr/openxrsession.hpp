@@ -11,42 +11,46 @@
 #include <components/settings/settings.hpp>
 #include "openxrmanager.hpp"
 #include "openxrlayer.hpp"
-#include "openxrinputmanager.hpp"
 
 namespace MWVR
 {
 
+class OpenXRSession
+{
+    using seconds = std::chrono::duration<double>;
+    using nanoseconds = std::chrono::nanoseconds;
+    using clock = std::chrono::steady_clock;
+    using time_point = clock::time_point;
 
-    class OpenXRSession
-    {
-        using seconds = std::chrono::duration<double>;
-        using nanoseconds = std::chrono::nanoseconds;
-        using clock = std::chrono::steady_clock;
-        using time_point = clock::time_point;
+public:
+    OpenXRSession(osg::ref_ptr<OpenXRManager> XR);
+    ~OpenXRSession();
 
-    public:
-        OpenXRSession(osg::ref_ptr<OpenXRManager> XR);
-        ~OpenXRSession();
+    void setLayer(OpenXRLayerStack::Layer layerType, OpenXRLayer* layer);
+    void swapBuffers(osg::GraphicsContext* gc);
 
-        void setLayer(OpenXRLayerStack::Layer layerType, OpenXRLayer* layer);
-        void swapBuffers(osg::GraphicsContext* gc);
+    PoseSets& predictedPoses() { return mPredictedPoses; };
 
-        PoseSets& predictedPoses() { return mPredictedPoses; };
+    //! Call before updating poses and other inputs
+    void waitFrame();
 
-        //! Call before updating poses
-        void waitFrame();
+    //! Update predictions
+    void predictNext(int extraPeriods);
 
-        //! Update predictions
-        void predictNext(int extraPeriods);
+    void showMenu(bool show);
 
-        osg::ref_ptr<OpenXRManager> mXR;
-        std::unique_ptr<OpenXRInputManager> mInputManager = nullptr;
-        OpenXRLayerStack mLayerStack{};
+    void updateMenuPosition(void);
 
-        PoseSets mPredictedPoses{};
+    //! Yaw the movement if a tracking limb is configured
+    float movementYaw(void);
 
-        bool mPredictionsReady{ false };
-    };
+    osg::ref_ptr<OpenXRManager> mXR;
+    OpenXRLayerStack mLayerStack{};
+
+    PoseSets mPredictedPoses{};
+
+    bool mPredictionsReady{ false };
+};
 
 }
 

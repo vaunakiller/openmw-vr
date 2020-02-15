@@ -59,6 +59,10 @@
 
 #include "mwstate/statemanagerimp.hpp"
 
+#ifdef USE_OPENXR
+#include "mwvr/openxrinputmanager.hpp"
+#endif
+
 namespace
 {
     void checkSDLError(int ret)
@@ -542,8 +546,12 @@ void OMW::Engine::prepareEngine (Settings::Manager & settings)
         gameControllerdb = globaldefault;
     else
         gameControllerdb = ""; //if it doesn't exist, pass in an empty string
-
-    MWInput::InputManager* input = new MWInput::InputManager (mWindow, mViewer, mScreenCaptureHandler, mScreenCaptureOperation, keybinderUser, keybinderUserExists, userGameControllerdb, gameControllerdb, mGrab);
+    MWInput::InputManager* input =
+#ifdef USE_OPENXR
+        new MWVR::OpenXRInputManager(mWindow, mXRViewer, mScreenCaptureHandler, mScreenCaptureOperation, keybinderUser, keybinderUserExists, userGameControllerdb, gameControllerdb, mGrab);
+#else
+        new MWInput::InputManager (mWindow, mViewer, mScreenCaptureHandler, mScreenCaptureOperation, keybinderUser, keybinderUserExists, userGameControllerdb, gameControllerdb, mGrab);
+#endif
     mEnvironment.setInputManager (input);
 
     std::string myguiResources = (mResDir / "mygui").string();

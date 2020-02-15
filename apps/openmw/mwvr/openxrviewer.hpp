@@ -13,7 +13,6 @@
 #include "openxrlayer.hpp"
 #include "openxrworldview.hpp"
 #include "openxrmenu.hpp"
-#include "openxrinputmanager.hpp"
 #include <components/sceneutil/positionattitudetransform.hpp>
 
 struct XrCompositionLayerProjection;
@@ -109,12 +108,11 @@ namespace MWVR
 
     public:
 
+        osg::observer_ptr<OpenXRManager> mXR = nullptr;
         std::unique_ptr<XrCompositionLayerProjection> mLayer = nullptr;
         std::vector<XrCompositionLayerProjectionView> mCompositionLayerProjectionViews;
-        osg::observer_ptr<OpenXRManager> mXR = nullptr;
         osg::ref_ptr<OpenXRManager::RealizeOperation> mRealizeOperation = nullptr;
-        osg::observer_ptr<osgViewer::Viewer> mViewer = nullptr;
-        std::unique_ptr<OpenXRSession> mXRSession = nullptr;
+        osg::ref_ptr<osgViewer::Viewer> mViewer = nullptr;
         std::map<std::string, osg::ref_ptr<OpenXRView> > mViews{};
         std::map<std::string, osg::ref_ptr<osg::Camera> > mCameras{};
 

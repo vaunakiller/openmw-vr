@@ -1,7 +1,7 @@
 #ifndef OPENXR_INPUT_MANAGER_HPP
 #define OPENXR_INPUT_MANAGER_HPP
 
-#include "openxrmanager.hpp"
+#include "openxrviewer.hpp"
 #include "../mwinput/inputmanagerimp.hpp"
 
 #include <vector>
@@ -10,27 +10,37 @@
 
 namespace MWVR
 {
-    struct OpenXRActionEvent
-    {
-        MWInput::InputManager::Actions action;
-        bool onPress;
-    };
+    struct OpenXRInput;
+    struct OpenXRActionEvent;
 
-    struct OpenXRInputManagerImpl;
-    struct OpenXRInputManager
+    /// As far as I can tell, SDL does not support VR controllers.
+    /// So I subclass the input manager and insert VR controls.
+    class OpenXRInputManager : public MWInput::InputManager
     {
-        OpenXRInputManager(osg::ref_ptr<OpenXRManager> XR);
-        ~OpenXRInputManager();
+    public:
+        OpenXRInputManager(
+            SDL_Window* window,
+            osg::ref_ptr<OpenXRViewer> viewer,
+            osg::ref_ptr<osgViewer::ScreenCaptureHandler> screenCaptureHandler,
+            osgViewer::ScreenCaptureHandler::CaptureOperation* screenCaptureOperation,
+            const std::string& userFile, bool userFileExists,
+            const std::string& userControllerBindingsFile,
+            const std::string& controllerBindingsFile, bool grab);
 
-        void updateControls();
+        virtual ~OpenXRInputManager();
+
+        /// Overriden to always disallow mouselook and similar.
+        virtual void changeInputMode(bool guiMode);
+
+        /// Overriden to update XR inputs
+        virtual void update(float dt, bool disableControls = false, bool disableEvents = false);
+
+        void processEvent(const OpenXRActionEvent& event);
 
         PoseSet getHandPoses(int64_t time, TrackedSpace space);
 
-        bool nextActionEvent(OpenXRActionEvent& action);
-
-        OpenXRInputManagerImpl& impl() { return *mPrivate; }
-
-        std::unique_ptr<OpenXRInputManagerImpl> mPrivate;
+        osg::ref_ptr<OpenXRViewer>   mXRViewer;
+        std::unique_ptr<OpenXRInput> mXRInput;
     };
 }
 

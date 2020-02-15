@@ -161,7 +161,7 @@ namespace MWInput
         virtual void write(ESM::ESMWriter& writer, Loading::Listener& progress);
         virtual void readRecord(ESM::ESMReader& reader, uint32_t type);
 
-    private:
+    protected:
         SDL_Window* mWindow;
         bool mWindowVisible;
         osg::ref_ptr<osgViewer::Viewer> mViewer;
@@ -218,7 +218,7 @@ namespace MWInput
         float mInvUiScalingFactor;
         float mGamepadCursorSpeed;
 
-    private:
+    protected:
         void convertMousePosForMyGUI(int& x, int& y);
 
         MyGUI::MouseButton sdlButtonToMyGUI(Uint8 button);
@@ -239,7 +239,7 @@ namespace MWInput
 
         bool checkAllowedToUseItems() const;
 
-    private:
+    protected:
         void toggleMainMenu();
         void toggleSpell();
         void toggleWeapon();

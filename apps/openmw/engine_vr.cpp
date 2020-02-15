@@ -1,5 +1,7 @@
 #include "engine.hpp"
+#include "mwbase/environment.hpp"
 #include "mwvr/openxrmanager.hpp"
+#include "mwvr/openxrsession.hpp"
 
 #ifndef USE_OPENXR
 #error "USE_OPENXR not defined"
@@ -11,6 +13,7 @@ void OMW::Engine::initVr()
         throw std::logic_error("mViewer must be initialized before calling initVr()");
 
     mXR = new MWVR::OpenXRManager();
+    mEnvironment.setXRSession(new MWVR::OpenXRSession(mXR));
 
     // Ref: https://wiki.openmw.org/index.php?title=Measurement_Units
     float unitsPerYard = 64.f;

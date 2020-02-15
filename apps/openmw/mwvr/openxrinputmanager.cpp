@@ -1,10 +1,33 @@
 #include "openxrinputmanager.hpp"
 #include "openxrmanager.hpp"
 #include "openxrmanagerimpl.hpp"
-#include "../mwinput/inputmanagerimp.hpp"
 
 #include <components/debug/debuglog.hpp>
 #include <components/sdlutil/sdlgraphicswindow.hpp>
+
+#include <MyGUI_InputManager.h>
+#include <MyGUI_RenderManager.h>
+#include <MyGUI_Widget.h>
+#include <MyGUI_Button.h>
+#include <MyGUI_EditBox.h>
+
+#include <components/debug/debuglog.hpp>
+#include <components/sdlutil/sdlinputwrapper.hpp>
+#include <components/sdlutil/sdlvideowrapper.hpp>
+#include <components/esm/esmwriter.hpp>
+#include <components/esm/esmreader.hpp>
+#include <components/esm/controlsstate.hpp>
+
+#include "../mwbase/world.hpp"
+#include "../mwbase/windowmanager.hpp"
+#include "../mwbase/statemanager.hpp"
+#include "../mwbase/environment.hpp"
+#include "../mwbase/mechanicsmanager.hpp"
+
+#include "../mwworld/player.hpp"
+#include "../mwworld/class.hpp"
+#include "../mwworld/inventorystore.hpp"
+#include "../mwworld/esmstore.hpp"
 
 #include <openxr/openxr.h>
 
@@ -17,6 +40,13 @@
 
 namespace MWVR
 {
+    struct OpenXRActionEvent
+    {
+        MWInput::InputManager::Actions action;
+        bool onPress;
+        float value = 0.f;
+    };
+
     struct OpenXRAction
     {
 
@@ -86,7 +116,7 @@ namespace MWVR
         float mValue = 0.f;
     };
 
-    struct OpenXRInputManagerImpl
+    struct OpenXRInput
     {
         using Actions = MWInput::InputManager::Actions;
 
@@ -112,18 +142,16 @@ namespace MWVR
 
         ControllerActionPaths generateControllerActionPaths(const std::string& controllerAction);
 
-        OpenXRInputManagerImpl(osg::ref_ptr<OpenXRManager> XR);
+        OpenXRInput(osg::ref_ptr<OpenXRManager> XR);
 
         OpenXRAction createAction(XrActionType actionType, const std::string& actionName, const std::string& localName, const std::vector<SubAction>& subActions = {});
 
         XrActionSet createActionSet(void);
 
-        void updateHandTracking();
-
         XrPath subactionPath(SubAction subAction);
 
         void updateControls();
-        void updateHead();
+        bool nextActionEvent(OpenXRActionEvent& action);
         PoseSet getHandPoses(int64_t time, TrackedSpace space);
 
         osg::ref_ptr<OpenXRManager> mXR;
@@ -226,7 +254,7 @@ namespace MWVR
     };
 
     XrActionSet
-        OpenXRInputManagerImpl::createActionSet()
+        OpenXRInput::createActionSet()
     {
         XrActionSet actionSet = XR_NULL_HANDLE;
         XrActionSetCreateInfo createInfo{ XR_TYPE_ACTION_SET_CREATE_INFO };
@@ -353,8 +381,8 @@ namespace MWVR
         mAction.getFloat(0, mValue);
     }
 
-    OpenXRInputManagerImpl::ControllerActionPaths
-        OpenXRInputManagerImpl::generateControllerActionPaths(
+    OpenXRInput::ControllerActionPaths
+        OpenXRInput::generateControllerActionPaths(
             const std::string& controllerAction)
     {
         ControllerActionPaths actionPaths;
@@ -370,7 +398,7 @@ namespace MWVR
         return actionPaths;
     }
 
-    OpenXRInputManagerImpl::OpenXRInputManagerImpl(
+    OpenXRInput::OpenXRInput(
         osg::ref_ptr<OpenXRManager> XR)
         : mXR(XR)
         , mSubactionPath{ {
@@ -430,8 +458,8 @@ namespace MWVR
                 {mLookLeftRight, mThumbstickXPath[RIGHT_HAND]},
                 {mMoveLeftRight, mThumbstickXPath[LEFT_HAND]},
                 {mMoveForwardBackward, mThumbstickYPath[LEFT_HAND]},
-                {mActivate, mSqueezeClickPath[RIGHT_HAND]},
-                {mUse, mTriggerClickPath[RIGHT_HAND]},
+                {mActivate, mSqueezeValuePath[RIGHT_HAND]},
+                {mUse, mTriggerValuePath[RIGHT_HAND]},
                 {mJump, mTriggerValuePath[LEFT_HAND]},
                 {mWeapon, mAPath[RIGHT_HAND]},
                 {mSpell, mAPath[RIGHT_HAND]},
@@ -442,7 +470,7 @@ namespace MWVR
                 {mSneak, mXPath[LEFT_HAND]},
                 {mInventory, mBPath[RIGHT_HAND]},
                 {mQuickMenu, mYPath[LEFT_HAND]},
-                {mSpellModifier, mSqueezeClickPath[LEFT_HAND]},
+                {mSpellModifier, mSqueezeValuePath[LEFT_HAND]},
                 {mGameMenu, mMenuClickPath[LEFT_HAND]},
               } };
             XrInteractionProfileSuggestedBinding suggestedBindings{ XR_TYPE_INTERACTION_PROFILE_SUGGESTED_BINDING };
@@ -490,7 +518,7 @@ namespace MWVR
     };
 
     OpenXRAction
-        OpenXRInputManagerImpl::createAction(
+        OpenXRInput::createAction(
             XrActionType actionType,
             const std::string& actionName,
             const std::string& localName,
@@ -515,17 +543,8 @@ namespace MWVR
         return OpenXRAction(mXR, action, actionType, actionName, localName);
     }
 
-    void
-        OpenXRInputManagerImpl::updateHandTracking()
-    {
-        // TODO
-        //for (auto hand : { LEFT_HAND, RIGHT_HAND }) {
-        //    CHECK_XRCMD(xrLocateSpace(mHandSpace[hand], mXR->impl().mReferenceSpaceStage, mXR->impl().predictedDisplayTime(OpenXRFrameIndexer::instance().updateIndex()), &mHandSpaceLocation[hand]));
-        //}
-    }
-
     XrPath 
-        OpenXRInputManagerImpl::subactionPath(
+        OpenXRInput::subactionPath(
             SubAction subAction)
     {
         if (subAction == NONE)
@@ -534,7 +553,7 @@ namespace MWVR
     }
 
     void 
-        OpenXRInputManagerImpl::updateControls()
+        OpenXRInput::updateControls()
     {
         if (!mXR->impl().mSessionRunning)
             return;
@@ -546,9 +565,24 @@ namespace MWVR
         syncInfo.activeActionSets = &activeActionSet;
         CHECK_XRCMD(xrSyncActions(mXR->impl().mSession, &syncInfo));
 
-        updateHead();
-
         mGameMenu.update();
+        mInventory.update();
+        mActivate.update();
+        mUse.update();
+        mJump.update();
+        mWeapon.update();
+        mSpell.update();
+        mCycleSpellLeft.update();
+        mCycleSpellRight.update();
+        mCycleWeaponLeft.update();
+        mCycleWeaponRight.update();
+        mSneak.update();
+        mQuickMenu.update();
+        mLookLeftRight.update();
+        mMoveForwardBackward.update();
+        mMoveLeftRight.update();
+        mActionsMenu.update();
+        mSpellModifier.update();
 
         // This set of actions only care about on-press
         if (mActionsMenu.actionOnPress())
@@ -567,9 +601,9 @@ namespace MWVR
         {
             mActionEvents.emplace_back(OpenXRActionEvent{ MWInput::InputManager::A_Activate, true });
         }
-        if (mUse.actionOnPress())
+        if (mUse.actionChanged())
         {
-            mActionEvents.emplace_back(OpenXRActionEvent{ MWInput::InputManager::A_Use, true });
+            mActionEvents.emplace_back(OpenXRActionEvent{ MWInput::InputManager::A_Use, mUse.actionOnPress() });
         }
         if (mJump.actionOnPress())
         {
@@ -591,7 +625,7 @@ namespace MWVR
         // Weapon/Spell actions
         if (mWeapon.actionOnPress() && !mSpellModifier.actionIsPressed())
         {
-            mActionEvents.emplace_back(OpenXRActionEvent{ MWInput::InputManager::A_Weapon, true });
+            mActionEvents.emplace_back(OpenXRActionEvent{ MWInput::InputManager::A_ToggleWeapon, true });
         }
         if (mCycleWeaponLeft.actionOnPress() && !mSpellModifier.actionIsPressed())
         {
@@ -603,7 +637,7 @@ namespace MWVR
         }
         if (mSpell.actionOnPress() && mSpellModifier.actionIsPressed())
         {
-            mActionEvents.emplace_back(OpenXRActionEvent{ MWInput::InputManager::A_Spell, true });
+            mActionEvents.emplace_back(OpenXRActionEvent{ MWInput::InputManager::A_ToggleSpell, true });
         }
         if (mCycleSpellLeft.actionOnPress() && mSpellModifier.actionIsPressed())
         {
@@ -619,97 +653,33 @@ namespace MWVR
         float moveLeftRight = mMoveLeftRight.value();
         float moveForwardBackward = mMoveForwardBackward.value();
 
-        // Until i implement the rest
-        (void)lookLeftRight;
-        (void)moveLeftRight;
-        (void)moveForwardBackward;
-
-        // TODO: Propagate movement to openmw
-
+        mActionEvents.emplace_back(OpenXRActionEvent{ MWInput::InputManager::A_LookLeftRight, false, lookLeftRight });
+        mActionEvents.emplace_back(OpenXRActionEvent{ MWInput::InputManager::A_MoveLeftRight, false, moveLeftRight });
+        mActionEvents.emplace_back(OpenXRActionEvent{ MWInput::InputManager::A_MoveForwardBackward, false, moveForwardBackward });
     }
 
-    void OpenXRInputManagerImpl::updateHead()
-    {
-        //auto location = mXR->getHeadLocation();
-
-        ////std::stringstream ss;
-        ////ss << "Head.pose=< position=<"
-        ////    << location.pose.position.x << ", " << location.pose.position.y << ", " << location.pose.position.z << "> orientation=<"
-        ////    << location.pose.orientation.x << ", " << location.pose.orientation.y << ", " << location.pose.orientation.z << ", " << location.pose.orientation.w << "> >";
-        ////mOpenXRLogger.log(ss.str(), 5, "Tracking", "OpenXR");
-
-        //// To keep world movement from physical walking properly oriented, world position must be tracked in differentials from stage position, as orientation between
-        //// stage and world may differ.
-        //osg::Vec3f newHeadStagePosition{ location.pose.position.x, location.pose.position.y, location.pose.position.z };
-        //osg::Vec3f headStageMovement = newHeadStagePosition - mHeadStagePosition;
-        //osg::Vec3f headWorldMovement = yaw() * headStageMovement;
-
-        //// Update positions
-        //mHeadStagePosition = newHeadStagePosition;
-        //mHeadWorldPosition = mHeadWorldPosition + headWorldMovement;
-
-        //// Update orientations
-        //mHeadStageOrientation = osg::fromXR(location.pose.orientation);
-        //mHeadWorldOrientation = yaw() * mHeadStageOrientation;
-
-        //osg::Vec3f up(0.f, 1.f, 0.f);
-        //up = mHeadStageOrientation * up;
-
-        //mHeadUpward = (mHeadWorldOrientation * osg::Vec3f(0.f, 1.f, 0.f));
-        //mHeadUpward.normalize();
-        //mHeadForward = (mHeadWorldOrientation * osg::Vec3f(0.f, 0.f, -1.f));
-        //mHeadForwardmHeadForward.normalize();
-        //mHeadRightward = mHeadForward ^ mHeadUpward;
-        //mHeadRightward.normalize();
-    }
-
-    XrPath OpenXRInputManagerImpl::generateXrPath(const std::string& path)
+    XrPath OpenXRInput::generateXrPath(const std::string& path)
     {
         XrPath xrpath = 0;
         CHECK_XRCMD(xrStringToPath(mXR->impl().mInstance, path.c_str(), &xrpath));
         return xrpath;
     }
 
-    OpenXRInputManager::OpenXRInputManager(
-        osg::ref_ptr<OpenXRManager> XR)
-        : mPrivate(new OpenXRInputManagerImpl(XR))
+    bool OpenXRInput::nextActionEvent(OpenXRActionEvent& action)
     {
+        action = {};
 
-    }
-
-    OpenXRInputManager::~OpenXRInputManager()
-    {
-
-    }
-
-    void 
-        OpenXRInputManager::updateControls()
-    {
-        impl().updateControls();
-    }
-
-    PoseSet 
-        OpenXRInputManager::getHandPoses(
-            int64_t time,
-            TrackedSpace space)
-    {
-        
-        return mPrivate->getHandPoses(time, space);
-    }
-
-    bool OpenXRInputManager::nextActionEvent(OpenXRActionEvent& action)
-    {
-        if (mPrivate->mActionEvents.empty())
+        if (mActionEvents.empty())
             return false;
 
-        action = mPrivate->mActionEvents.front();
-        mPrivate->mActionEvents.pop_front();
+        action = mActionEvents.front();
+        mActionEvents.pop_front();
         return true;
 
     }
 
     PoseSet
-        OpenXRInputManagerImpl::getHandPoses(
+        OpenXRInput::getHandPoses(
             int64_t time,
             TrackedSpace space)
     {
@@ -724,8 +694,7 @@ namespace MWVR
         XrSpaceVelocity velocity{ XR_TYPE_SPACE_VELOCITY };
         location.next = &velocity;
         CHECK_XRCMD(xrLocateSpace(mHandSpace[(int)Chirality::LEFT_HAND], referenceSpace, time, &location));
-        //if (!(velocity.velocityFlags & XR_SPACE_VELOCITY_LINEAR_VALID_BIT))
-        //    Log(Debug::Warning) << "Unable to acquire linear velocity";
+
         handPoses[(int)Chirality::LEFT_HAND] = MWVR::Pose{
             osg::fromXR(location.pose.position),
             osg::fromXR(location.pose.orientation),
@@ -740,5 +709,221 @@ namespace MWVR
         };
 
         return handPoses;
+    }
+
+
+    PoseSet OpenXRInputManager::getHandPoses(int64_t time, TrackedSpace space)
+    {
+        return mXRInput->getHandPoses(time, space);
+    }
+
+    OpenXRInputManager::OpenXRInputManager(
+        SDL_Window* window,
+        osg::ref_ptr<OpenXRViewer> viewer, 
+        osg::ref_ptr<osgViewer::ScreenCaptureHandler> screenCaptureHandler, 
+        osgViewer::ScreenCaptureHandler::CaptureOperation* screenCaptureOperation, 
+        const std::string& userFile, 
+        bool userFileExists, 
+        const std::string& userControllerBindingsFile, 
+        const std::string& controllerBindingsFile, 
+        bool grab)
+        : MWInput::InputManager(
+            window, 
+            viewer->mViewer, 
+            screenCaptureHandler,
+            screenCaptureOperation,
+            userFile,
+            userFileExists,
+            userControllerBindingsFile,
+            controllerBindingsFile,
+            grab)
+        , mXRInput(new OpenXRInput(viewer->mXR))
+    {
+        // VR mode has no concept of these
+        mControlSwitch["vanitymode"] = false;
+        mGuiCursorEnabled = false;
+    }
+
+    OpenXRInputManager::~OpenXRInputManager()
+    {
+    }
+
+    void OpenXRInputManager::changeInputMode(bool mode)
+    {
+        // VR mode has no concept of these
+        mGuiCursorEnabled = false;
+        MWInput::InputManager::changeInputMode(mode);
+        MWBase::Environment::get().getWindowManager()->showCrosshair(false);
+        MWBase::Environment::get().getWindowManager()->setCursorVisible(false);
+    }
+
+    void OpenXRInputManager::update(
+        float dt,
+        bool disableControls,
+        bool disableEvents)
+    {
+
+        mXRInput->updateControls();
+
+        auto* session = MWBase::Environment::get().getXRSession();
+
+        OpenXRActionEvent event{};
+        while (mXRInput->nextActionEvent(event))
+        {
+            //Log(Debug::Verbose) << "ActionEvent action=" << event.action << " onPress=" << event.onPress;
+            processEvent(event);
+        }
+
+        MWInput::InputManager::update(dt, disableControls, disableEvents);
+
+        bool guiMode = MWBase::Environment::get().getWindowManager()->isGuiMode();
+        session->showMenu(guiMode);
+    }
+
+    void OpenXRInputManager::processEvent(const OpenXRActionEvent& event)
+    {
+        switch (event.action)
+        {
+        case A_GameMenu:
+                Log(Debug::Verbose) << "A_GameMenu";
+                toggleMainMenu();
+                // Explicitly request position update here so that the player can move the menu
+                // using the menu key when the menu can't be toggled.
+                MWBase::Environment::get().getXRSession()->updateMenuPosition();
+                break;
+        case A_Screenshot:
+            screenshot();
+            break;
+        case A_Inventory:
+            toggleInventory();
+            break;
+        case A_Console:
+            toggleConsole();
+            break;
+        case A_Activate:
+            resetIdleTime();
+            activate();
+            break;
+        // TODO: Movement
+        //case A_MoveLeft:
+        //case A_MoveRight:
+        //case A_MoveForward:
+        //case A_MoveBackward:
+        //    handleGuiArrowKey(action);
+        //    break;
+        case A_Journal:
+            toggleJournal();
+            break;
+        case A_AutoMove:
+            toggleAutoMove();
+            break;
+        case A_AlwaysRun:
+            toggleWalking();
+            break;
+        case A_ToggleWeapon:
+            toggleWeapon();
+            break;
+        case A_Rest:
+            rest();
+            break;
+        case A_ToggleSpell:
+            toggleSpell();
+            break;
+        case A_QuickKey1:
+            quickKey(1);
+            break;
+        case A_QuickKey2:
+            quickKey(2);
+            break;
+        case A_QuickKey3:
+            quickKey(3);
+            break;
+        case A_QuickKey4:
+            quickKey(4);
+            break;
+        case A_QuickKey5:
+            quickKey(5);
+            break;
+        case A_QuickKey6:
+            quickKey(6);
+            break;
+        case A_QuickKey7:
+            quickKey(7);
+            break;
+        case A_QuickKey8:
+            quickKey(8);
+            break;
+        case A_QuickKey9:
+            quickKey(9);
+            break;
+        case A_QuickKey10:
+            quickKey(10);
+            break;
+        case A_QuickKeysMenu:
+            showQuickKeysMenu();
+            break;
+        case A_ToggleHUD:
+            MWBase::Environment::get().getWindowManager()->toggleHud();
+            break;
+        case A_ToggleDebug:
+            MWBase::Environment::get().getWindowManager()->toggleDebugWindow();
+            break;
+            // Does not apply in VR
+        //case A_ZoomIn:
+        //    if (mControlSwitch["playerviewswitch"] && mControlSwitch["playercontrols"] && !MWBase::Environment::get().getWindowManager()->isGuiMode())
+        //        MWBase::Environment::get().getWorld()->setCameraDistance(ZOOM_SCALE, true, true);
+        //    break;
+        //case A_ZoomOut:
+        //    if (mControlSwitch["playerviewswitch"] && mControlSwitch["playercontrols"] && !MWBase::Environment::get().getWindowManager()->isGuiMode())
+        //        MWBase::Environment::get().getWorld()->setCameraDistance(-ZOOM_SCALE, true, true);
+        //    break;
+        case A_QuickSave:
+            quickSave();
+            break;
+        case A_QuickLoad:
+            quickLoad();
+            break;
+        case A_CycleSpellLeft:
+            if (checkAllowedToUseItems() && MWBase::Environment::get().getWindowManager()->isAllowed(MWGui::GW_Magic))
+                MWBase::Environment::get().getWindowManager()->cycleSpell(false);
+            break;
+        case A_CycleSpellRight:
+            if (checkAllowedToUseItems() && MWBase::Environment::get().getWindowManager()->isAllowed(MWGui::GW_Magic))
+                MWBase::Environment::get().getWindowManager()->cycleSpell(true);
+            break;
+        case A_CycleWeaponLeft:
+            if (checkAllowedToUseItems() && MWBase::Environment::get().getWindowManager()->isAllowed(MWGui::GW_Inventory))
+                MWBase::Environment::get().getWindowManager()->cycleWeapon(false);
+            break;
+        case A_CycleWeaponRight:
+            if (checkAllowedToUseItems() && MWBase::Environment::get().getWindowManager()->isAllowed(MWGui::GW_Inventory))
+                MWBase::Environment::get().getWindowManager()->cycleWeapon(true);
+            break;
+        case A_Sneak:
+            if (mSneakToggles)
+            {
+                toggleSneaking();
+            }
+            break;
+        case A_LookLeftRight:
+            mInputBinder->getChannel(A_LookLeftRight)->setValue(event.value / 2.f + 0.5f);
+            break;
+        case A_MoveLeftRight:
+            mInputBinder->getChannel(A_MoveLeftRight)->setValue(event.value / 2.f + 0.5f);
+            break;
+        case A_MoveForwardBackward:
+            mInputBinder->getChannel(A_MoveForwardBackward)->setValue(-event.value / 2.f + 0.5f);
+            break;
+        case A_Jump:
+            mAttemptJump = true;
+            break;
+        case A_Use:
+            //MWMechanics::DrawState_ state = MWBase::Environment::get().getWorld()->getPlayer().getDrawState();
+            //mPlayer->setAttackingOrSpell(currentValue != 0 && state != MWMechanics::DrawState_Nothing);
+            mInputBinder->getChannel(A_Use)->setValue(event.onPress);
+            break;
+        default:
+            Log(Debug::Warning) << "Unhandled XR action " << event.action;
+        }
     }
 }

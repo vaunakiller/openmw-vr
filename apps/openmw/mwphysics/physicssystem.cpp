@@ -40,6 +40,10 @@
 
 #include "../mwworld/class.hpp"
 
+#ifdef USE_OPENXR
+#include "../mwvr/openxrsession.hpp"
+#endif
+
 #include "collisiontype.hpp"
 #include "actor.hpp"
 #include "trace.h"
@@ -271,13 +275,28 @@ namespace MWPhysics
 
         static osg::Vec3f move(osg::Vec3f position, const MWWorld::Ptr &ptr, Actor* physicActor, const osg::Vec3f &movement, float time,
                                   bool isFlying, float waterlevel, float slowFall, const btCollisionWorld* collisionWorld,
-                               std::map<MWWorld::Ptr, MWWorld::Ptr>& standingCollisionTracker)
+                               std::map<MWWorld::Ptr, MWWorld::Ptr>& standingCollisionTracker, bool isPlayer)
         {
-            const ESM::Position& refpos = ptr.getRefData().getPosition();
+            ESM::Position refpos = ptr.getRefData().getPosition();
             // Early-out for totally static creatures
             // (Not sure if gravity should still apply?)
             if (!ptr.getClass().isMobile(ptr))
                 return position;
+
+            // In VR, player should move according to current direction of
+            // a selected limb, rather than current orientation of camera.
+#ifdef USE_OPENXR
+            if (isPlayer)
+            {
+                auto session = MWBase::Environment::get().getXRSession();
+                if (session)
+                {
+                    float yaw = session->movementYaw();
+                    refpos.rot[2] += yaw;
+                    Log(Debug::Verbose) << "yaw = " << yaw;
+                }
+            }
+#endif
 
             // Reset per-frame data
             physicActor->setWalkingOnWater(false);
@@ -1275,6 +1294,7 @@ namespace MWPhysics
         PtrVelocityList::iterator iter = mMovementQueue.begin();
         for(;iter != mMovementQueue.end();++iter)
         {
+            bool isPlayer = iter->first == MWMechanics::getPlayer();
             ActorMap::iterator foundActor = mActors.find(iter->first);
             if (foundActor == mActors.end()) // actor was already removed from the scene
                 continue;
@@ -1314,7 +1334,7 @@ namespace MWPhysics
             for (int i=0; i<numSteps; ++i)
             {
                 position = MovementSolver::move(position, physicActor->getPtr(), physicActor, iter->second, mPhysicsDt,
-                                                flying, waterlevel, slowFall, mCollisionWorld, mStandingCollisions);
+                                                flying, waterlevel, slowFall, mCollisionWorld, mStandingCollisions, isPlayer);
                 if (position != physicActor->getPosition())
                     positionChanged = true;
                 physicActor->setPosition(position); // always set even if unchanged to make sure interpolation is correct

@@ -126,6 +126,7 @@ namespace MWInput
 
         // Open all presently connected sticks
         int numSticks = SDL_NumJoysticks();
+        Log(Debug::Info) << "Detected " << numSticks << " joysticks";
         for(int i = 0; i < numSticks; i++)
         {
             if(SDL_IsGameController(i))

@@ -1,6 +1,14 @@
 #ifndef GAME_BASE_ENVIRONMENT_H
 #define GAME_BASE_ENVIRONMENT_H
 
+#ifdef USE_OPENXR
+namespace MWVR
+{
+    class OpenXRInputManager;
+    class OpenXRSession;
+}
+#endif
+
 namespace MWBase
 {
     class World;
@@ -21,82 +29,94 @@ namespace MWBase
     /// the set* functions.
     class Environment
     {
-            static Environment *sThis;
 
-            World *mWorld;
-            SoundManager *mSoundManager;
-            ScriptManager *mScriptManager;
-            WindowManager *mWindowManager;
-            MechanicsManager *mMechanicsManager;
-            DialogueManager *mDialogueManager;
-            Journal *mJournal;
-            InputManager *mInputManager;
-            StateManager *mStateManager;
-            float mFrameDuration;
-            float mFrameRateLimit;
+        static Environment *sThis;
 
-            Environment (const Environment&);
-            ///< not implemented
+        World *mWorld;
+        SoundManager *mSoundManager;
+        ScriptManager *mScriptManager;
+        WindowManager *mWindowManager;
+        MechanicsManager *mMechanicsManager;
+        DialogueManager *mDialogueManager;
+        Journal *mJournal;
+        InputManager *mInputManager;
+        StateManager *mStateManager;
+        float mFrameDuration;
+        float mFrameRateLimit;
 
-            Environment& operator= (const Environment&);
-            ///< not implemented
+        Environment (const Environment&);
+        ///< not implemented
 
-        public:
+        Environment& operator= (const Environment&);
+        ///< not implemented
 
-            Environment();
+    public:
 
-            ~Environment();
+        Environment();
 
-            void setWorld (World *world);
+        ~Environment();
 
-            void setSoundManager (SoundManager *soundManager);
+        void setWorld (World *world);
 
-            void setScriptManager (MWBase::ScriptManager *scriptManager);
+        void setSoundManager (SoundManager *soundManager);
 
-            void setWindowManager (WindowManager *windowManager);
+        void setScriptManager (MWBase::ScriptManager *scriptManager);
 
-            void setMechanicsManager (MechanicsManager *mechanicsManager);
+        void setWindowManager (WindowManager *windowManager);
 
-            void setDialogueManager (DialogueManager *dialogueManager);
+        void setMechanicsManager (MechanicsManager *mechanicsManager);
 
-            void setJournal (Journal *journal);
+        void setDialogueManager (DialogueManager *dialogueManager);
 
-            void setInputManager (InputManager *inputManager);
+        void setJournal (Journal *journal);
 
-            void setStateManager (StateManager *stateManager);
+        void setInputManager (InputManager *inputManager);
 
-            void setFrameDuration (float duration);
-            ///< Set length of current frame in seconds.
+        void setStateManager (StateManager *stateManager);
 
-            void setFrameRateLimit(float frameRateLimit);
-            float getFrameRateLimit() const;
-            void limitFrameRate(double dt) const;
+        void setFrameDuration (float duration);
+        ///< Set length of current frame in seconds.
 
-            World *getWorld() const;
+        void setFrameRateLimit(float frameRateLimit);
+        float getFrameRateLimit() const;
+        void limitFrameRate(double dt) const;
 
-            SoundManager *getSoundManager() const;
+        World *getWorld() const;
 
-            ScriptManager *getScriptManager() const;
+        SoundManager *getSoundManager() const;
 
-            WindowManager *getWindowManager() const;
+        ScriptManager *getScriptManager() const;
 
-            MechanicsManager *getMechanicsManager() const;
+        WindowManager *getWindowManager() const;
 
-            DialogueManager *getDialogueManager() const;
+        MechanicsManager *getMechanicsManager() const;
 
-            Journal *getJournal() const;
+        DialogueManager *getDialogueManager() const;
 
-            InputManager *getInputManager() const;
+        Journal *getJournal() const;
 
-            StateManager *getStateManager() const;
+        InputManager* getInputManager() const;
 
-            float getFrameDuration() const;
 
-            void cleanup();
-            ///< Delete all mw*-subsystems.
+        StateManager *getStateManager() const;
 
-            static const Environment& get();
-            ///< Return instance of this class.
+        float getFrameDuration() const;
+
+        void cleanup();
+        ///< Delete all mw*-subsystems.
+
+        static const Environment& get();
+        ///< Return instance of this class.
+
+        // VR Extensions
+#ifdef USE_OPENXR
+        MWVR::OpenXRInputManager* getXRInputManager() const;
+        MWVR::OpenXRSession* getXRSession() const;
+        void setXRSession(MWVR::OpenXRSession* xrSession);
+
+    private:
+        MWVR::OpenXRSession* mXrSession;
+#endif
     };
 }
 
