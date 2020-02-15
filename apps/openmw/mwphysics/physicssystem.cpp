@@ -293,7 +293,6 @@ namespace MWPhysics
                 {
                     float yaw = session->movementYaw();
                     refpos.rot[2] += yaw;
-                    Log(Debug::Verbose) << "yaw = " << yaw;
                 }
             }
 #endif

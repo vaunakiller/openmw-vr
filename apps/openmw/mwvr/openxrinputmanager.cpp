@@ -778,6 +778,8 @@ namespace MWVR
 
         bool guiMode = MWBase::Environment::get().getWindowManager()->isGuiMode();
         session->showMenu(guiMode);
+
+        setPlayerControlsEnabled(!guiMode);
     }
 
     void OpenXRInputManager::processEvent(const OpenXRActionEvent& event)
@@ -918,8 +920,6 @@ namespace MWVR
             mAttemptJump = true;
             break;
         case A_Use:
-            //MWMechanics::DrawState_ state = MWBase::Environment::get().getWorld()->getPlayer().getDrawState();
-            //mPlayer->setAttackingOrSpell(currentValue != 0 && state != MWMechanics::DrawState_Nothing);
             mInputBinder->getChannel(A_Use)->setValue(event.onPress);
             break;
         default:
