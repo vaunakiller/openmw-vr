@@ -48,6 +48,10 @@
 #include "actorutil.hpp"
 #include "spellcasting.hpp"
 
+#ifdef USE_OPENXR
+#include "../mwvr/openxranimation.hpp"
+#endif
+
 namespace
 {
 
@@ -1666,6 +1670,7 @@ bool CharacterController::updateWeaponState(CharacterState& idle)
         animPlaying = mAnimation->getInfo(mCurrentWeapon, &complete);
         if(mUpperBodyState == UpperCharState_MinAttackToMaxAttack && !isKnockedDown())
             mAttackStrength = complete;
+
     }
     else
     {
@@ -1875,6 +1880,18 @@ bool CharacterController::updateWeaponState(CharacterState& idle)
     }
 
     mAnimation->setAccurateAiming(mUpperBodyState > UpperCharState_WeapEquiped);
+
+#ifdef USE_OPENXR
+    if (mPtr == getPlayer())
+    {
+        auto xrAnimation = dynamic_cast<MWVR::OpenXRAnimation*>(mAnimation);
+        if (xrAnimation)
+        {
+            bool pointing = MWBase::Environment::get().getWorld()->getPlayer().getPointing();
+            xrAnimation->setPointForward(pointing);
+        }
+    }
+#endif
 
     return forcestateupdate;
 }

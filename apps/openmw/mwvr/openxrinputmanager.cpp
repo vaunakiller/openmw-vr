@@ -28,6 +28,7 @@
 #include "../mwworld/class.hpp"
 #include "../mwworld/inventorystore.hpp"
 #include "../mwworld/esmstore.hpp"
+#include "../mwmechanics/actorutil.hpp"
 
 #include <openxr/openxr.h>
 
@@ -42,7 +43,7 @@ namespace MWVR
 {
     struct OpenXRActionEvent
     {
-        MWInput::InputManager::Actions action;
+        int action;
         bool onPress;
         float value = 0.f;
     };
@@ -116,9 +117,45 @@ namespace MWVR
         float mValue = 0.f;
     };
 
+    //! Wrapper around float type input actions, converting them to bools above a specified value
+    struct OpenXRAction_FloatToBool
+    {
+        OpenXRAction_FloatToBool(OpenXRAction action, float threshold);
+        operator XrAction() { return mAction; }
+
+        void update();
+
+        //! True if action changed to being pressed in the last update
+        bool actionOnPress() { return actionIsPressed() && actionChanged(); }
+        //! True if action changed to being released in the last update
+        bool actionOnRelease() { return actionIsReleased() && actionChanged(); };
+        //! True if the action is currently being pressed
+        bool actionIsPressed() { return mPressed; }
+        //! True if the action is currently not being pressed
+        bool actionIsReleased() { return !mPressed; }
+        //! True if the action changed state in the last update
+        bool actionChanged() { return mChanged; }
+
+        OpenXRAction_Float mAction;
+        float mThreshold;
+        bool mPressed = false;
+        bool mChanged = false;
+    };
+
     struct OpenXRInput
     {
         using Actions = MWInput::InputManager::Actions;
+
+        // The OpenMW input manager iterates from 0 to A_Last in its actions enum.
+        // I don't know that it would cause any ill effects, but i nonetheless do not
+        // want to contaminate the input manager with my OpenXR specific actions.
+        // Therefore i add them here to a separate enum whose values start past A_Last.
+        enum XrActions
+        {
+            A_XrFirst = MWInput::InputManager::A_Last,
+            A_ActivateTouch,
+            A_XrLast
+        };
 
         enum SubAction : signed
         {
@@ -160,7 +197,6 @@ namespace MWVR
 
         ControllerActionPaths mSelectPath;
         ControllerActionPaths mSqueezeValuePath;
-        ControllerActionPaths mSqueezeClickPath;
         ControllerActionPaths mPosePath;
         ControllerActionPaths mHapticPath;
         ControllerActionPaths mMenuClickPath;
@@ -172,7 +208,6 @@ namespace MWVR
         ControllerActionPaths mYPath;
         ControllerActionPaths mAPath;
         ControllerActionPaths mBPath;
-        ControllerActionPaths mTriggerClickPath;
         ControllerActionPaths mTriggerValuePath;
 
         OpenXRAction_Bool mGameMenu;
@@ -191,45 +226,13 @@ namespace MWVR
         OpenXRAction_Float mLookLeftRight;
         OpenXRAction_Float mMoveForwardBackward;
         OpenXRAction_Float mMoveLeftRight;
-        //OpenXRAction mUnused;
-        //OpenXRAction mScreenshot;
-        //OpenXRAction mConsole;
-        //OpenXRAction mMoveLeft;
-        //OpenXRAction mMoveRight;
-        //OpenXRAction mMoveForward;
-        //OpenXRAction mMoveBackward;
-        //OpenXRAction mAutoMove;
-        //OpenXRAction mRest;
-        //OpenXRAction mJournal;
-        //OpenXRAction mRun;
-        //OpenXRAction mToggleSneak;
-        //OpenXRAction mAlwaysRun;
-        //OpenXRAction mQuickSave;
-        //OpenXRAction mQuickLoad;
-        //OpenXRAction mToggleWeapon;
-        //OpenXRAction mToggleSpell;
-        //OpenXRAction mTogglePOV;
-        //OpenXRAction mQuickKey1;
-        //OpenXRAction mQuickKey2;
-        //OpenXRAction mQuickKey3;
-        //OpenXRAction mQuickKey4;
-        //OpenXRAction mQuickKey5;
-        //OpenXRAction mQuickKey6;
-        //OpenXRAction mQuickKey7;
-        //OpenXRAction mQuickKey8;
-        //OpenXRAction mQuickKey9;
-        //OpenXRAction mQuickKey10;
-        //OpenXRAction mQuickKeysMenu;
-        //OpenXRAction mToggleHUD;
-        //OpenXRAction mToggleDebug;
-        //OpenXRAction mLookUpDown;
-        //OpenXRAction mZoomIn;
-        //OpenXRAction mZoomOut;
 
-        //! Needed to access all the actions that don't fit on the controllers
+        // Needed to access all the actions that don't fit on the controllers
         OpenXRAction_Bool mActionsMenu;
-        //! Economize buttons by accessing spell actions and weapon actions on the same keys, but with/without this modifier
+        // Economize buttons by accessing spell actions and weapon actions on the same keys, but with/without this modifier
         OpenXRAction_Bool mSpellModifier;
+
+        OpenXRAction_FloatToBool mActivateTouch;
 
         // Hand tracking
         OpenXRAction mHandPoseAction;
@@ -353,6 +356,23 @@ namespace MWVR
         return true;
     }
 
+
+    OpenXRAction_FloatToBool::OpenXRAction_FloatToBool(
+        OpenXRAction action, float threshold)
+        : mAction(std::move(action))
+        , mThreshold(threshold)
+    {
+    }
+
+    void OpenXRAction_FloatToBool::update()
+    {
+        mAction.update();
+        bool old = mPressed;
+        float value = mAction.value();
+        mPressed = value > mThreshold;
+        mChanged = mPressed != old;
+    }
+
     OpenXRAction_Bool::OpenXRAction_Bool(
         OpenXRAction action)
         : mAction(std::move(action))
@@ -411,7 +431,6 @@ namespace MWVR
         , mActionSet(createActionSet())
         , mSelectPath(generateControllerActionPaths("/input/select/click"))
         , mSqueezeValuePath(generateControllerActionPaths("/input/squeeze/value"))
-        , mSqueezeClickPath(generateControllerActionPaths("/input/squeeze/click"))
         , mPosePath(generateControllerActionPaths("/input/aim/pose"))
         , mHapticPath(generateControllerActionPaths("/output/haptic"))
         , mMenuClickPath(generateControllerActionPaths("/input/menu/click"))
@@ -423,7 +442,6 @@ namespace MWVR
         , mYPath(generateControllerActionPaths("/input/y/click"))
         , mAPath(generateControllerActionPaths("/input/a/click"))
         , mBPath(generateControllerActionPaths("/input/b/click"))
-        , mTriggerClickPath(generateControllerActionPaths("/input/trigger/click"))
         , mTriggerValuePath(generateControllerActionPaths("/input/trigger/value"))
         , mGameMenu(std::move(createAction(XR_ACTION_TYPE_BOOLEAN_INPUT, "game_menu", "GameMenu", { })))
         , mInventory(std::move(createAction(XR_ACTION_TYPE_BOOLEAN_INPUT, "inventory", "Inventory", { })))
@@ -443,6 +461,7 @@ namespace MWVR
         , mMoveLeftRight(std::move(createAction(XR_ACTION_TYPE_FLOAT_INPUT, "move_left_right", "MoveLeftRight", { })))
         , mActionsMenu(std::move(createAction(XR_ACTION_TYPE_BOOLEAN_INPUT, "actions_menu", "Actions Menu", { })))
         , mSpellModifier(std::move(createAction(XR_ACTION_TYPE_BOOLEAN_INPUT, "spell_modifier", "Spell Modifier", { })))
+        , mActivateTouch(std::move(createAction(XR_ACTION_TYPE_FLOAT_INPUT, "activate_touched", "Activate Touch", { RIGHT_HAND })), 0.01f)
         , mHandPoseAction(std::move(createAction(XR_ACTION_TYPE_POSE_INPUT, "hand_pose", "Hand Pose", { LEFT_HAND, RIGHT_HAND })))
         , mHapticsAction(std::move(createAction(XR_ACTION_TYPE_VIBRATION_OUTPUT, "vibrate_hand", "Vibrate Hand", { LEFT_HAND, RIGHT_HAND })))
     {
@@ -472,6 +491,7 @@ namespace MWVR
                 {mQuickMenu, mYPath[LEFT_HAND]},
                 {mSpellModifier, mSqueezeValuePath[LEFT_HAND]},
                 {mGameMenu, mMenuClickPath[LEFT_HAND]},
+                {mActivateTouch, mSqueezeValuePath[RIGHT_HAND]},
               } };
             XrInteractionProfileSuggestedBinding suggestedBindings{ XR_TYPE_INTERACTION_PROFILE_SUGGESTED_BINDING };
             suggestedBindings.interactionProfile = oculusTouchInteractionProfilePath;
@@ -483,10 +503,10 @@ namespace MWVR
             mSpellModifier; //  L-Squeeze
             mActivate; // R-Squeeze
             mUse; // R-Trigger
-            mJump; // L-Trigger. L-trigger has value, can be used to make measured jumps
-            mWeapon; // A
-            mSpell; // A + SpellModifier
-            mRun; // Based on movement thumbstick value: broken line ( 0 (stand), 0.5 (walk), 1.0 (run) ). Remember to scale fatigue use.
+            mJump; // L-Trigger. L-trigger has value, could use this to make measured jumps ?
+            mToggleWeapon; // A
+            mToggleSpell; // A + SpellModifier
+            mRun; // Based on movement thumbstick value ?
             mCycleSpellLeft; // L-ThumbstickClick + SpellModifier
             mCycleSpellRight; // R-ThumbstickClick + SpellModifier
             mCycleWeaponLeft; // L-ThumbstickClick
@@ -583,8 +603,9 @@ namespace MWVR
         mMoveLeftRight.update();
         mActionsMenu.update();
         mSpellModifier.update();
+        mActivateTouch.update();
 
-        // This set of actions only care about on-press
+        // Simple fire-and-forget on-press actions
         if (mActionsMenu.actionOnPress())
         {
             mActionEvents.emplace_back(OpenXRActionEvent{ MWInput::InputManager::A_QuickKeysMenu, true });
@@ -601,25 +622,27 @@ namespace MWVR
         {
             mActionEvents.emplace_back(OpenXRActionEvent{ MWInput::InputManager::A_Activate, true });
         }
-        if (mUse.actionChanged())
-        {
-            mActionEvents.emplace_back(OpenXRActionEvent{ MWInput::InputManager::A_Use, mUse.actionOnPress() });
-        }
         if (mJump.actionOnPress())
         {
             mActionEvents.emplace_back(OpenXRActionEvent{ MWInput::InputManager::A_Jump, true });
         }
-        if (mSneak.actionOnPress())
-        {
-            mActionEvents.emplace_back(OpenXRActionEvent{ MWInput::InputManager::A_Sneak, true });
-        }
-        if (mSneak.actionOnRelease())
-        {
-            mActionEvents.emplace_back(OpenXRActionEvent{ MWInput::InputManager::A_Sneak, false });
-        }
         if (mQuickMenu.actionOnPress())
         {
             mActionEvents.emplace_back(OpenXRActionEvent{ MWInput::InputManager::A_QuickMenu, true });
+        }
+
+        // Actions that hold with the button
+        if (mUse.actionChanged())
+        {
+            mActionEvents.emplace_back(OpenXRActionEvent{ MWInput::InputManager::A_Use, mUse.actionOnPress() });
+        }
+        if (mSneak.actionChanged())
+        {
+            mActionEvents.emplace_back(OpenXRActionEvent{ MWInput::InputManager::A_Sneak, mSneak.actionOnPress() });
+        }
+        if (mActivateTouch.actionChanged())
+        {
+            mActionEvents.emplace_back(OpenXRActionEvent{ A_ActivateTouch, mActivateTouch.actionOnPress() });
         }
 
         // Weapon/Spell actions
@@ -715,6 +738,11 @@ namespace MWVR
     PoseSet OpenXRInputManager::getHandPoses(int64_t time, TrackedSpace space)
     {
         return mXRInput->getHandPoses(time, space);
+    }
+
+    void OpenXRInputManager::showActivationIndication(bool show)
+    {
+        mPlayer->setPointing(show);
     }
 
     OpenXRInputManager::OpenXRInputManager(
@@ -921,6 +949,9 @@ namespace MWVR
             break;
         case A_Use:
             mInputBinder->getChannel(A_Use)->setValue(event.onPress);
+            break;
+        case OpenXRInput::A_ActivateTouch:
+            showActivationIndication(event.onPress);
             break;
         default:
             Log(Debug::Warning) << "Unhandled XR action " << event.action;

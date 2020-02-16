@@ -9,6 +9,7 @@ namespace MWVR
 {
 
 class HandController;
+class FingerController;
 class ForearmController;
 
 /// Subclassing NpcAnimation to override behaviours not compatible with VR
@@ -29,7 +30,7 @@ public:
      */
     OpenXRAnimation(const MWWorld::Ptr& ptr, osg::ref_ptr<osg::Group> parentNode, Resource::ResourceSystem* resourceSystem,
                  bool disableSounds, std::shared_ptr<OpenXRSession> xrSession );
-    virtual ~OpenXRAnimation() {};
+    virtual ~OpenXRAnimation();
 
     /// Overridden to always be false
     virtual void enableHeadAnimation(bool enable);
@@ -50,11 +51,15 @@ public:
     /// Overriden to include VR modifications
     virtual void updateParts();
 
+    /// Overrides finger animations to point forward
+    /// (Used to visualize direction of activation action)
+    void setPointForward(bool enabled);
+
 private:
     std::shared_ptr<OpenXRSession> mSession;
     ForearmController* mForearmControllers[2]{};
     HandController* mHandControllers[2]{};
-    
+    osg::ref_ptr<FingerController> mIndexFingerControllers[2];
 };
 
 }

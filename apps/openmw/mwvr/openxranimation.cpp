@@ -55,35 +55,34 @@
 namespace MWVR
 {
 
+// This will work for a prototype. But finger/arm control might be better implemented using the 
+// existing animation system, implementing this as an animation source.
+// But I'm not sure it would be since these are not classical animations.
+// It would make it easier to control priority, and later allow for users to add their own stuff to animations based on VR/touch input.
+// But openmw doesn't really have any concepts for user animation overrides.
+
+
 /// Implements dummy control of the forearm, to control mesh/bone deformation of the hand.
 class ForearmController : public osg::NodeCallback
 {
 public:
     ForearmController(osg::Node* relativeTo, SceneUtil::PositionAttitudeTransform* tracker);
-    void setEnabled(bool enabled);
+    void setEnabled(bool enabled) { mEnabled = enabled; };
     void operator()(osg::Node* node, osg::NodeVisitor* nv);
 
 private:
-    bool mEnabled;
-    osg::Quat mRotate;
+    bool mEnabled = true;
+    osg::Quat mRotate{};
     osg::Node* mRelativeTo;
-    osg::Matrix mOffset;
-    bool mOffsetInitialized;
+    osg::Matrix mOffset{ osg::Matrix::identity() };
+    bool mOffsetInitialized = false;
     SceneUtil::PositionAttitudeTransform* mTracker;
 };
 
 ForearmController::ForearmController(osg::Node* relativeTo, SceneUtil::PositionAttitudeTransform* tracker)
-    : mEnabled(true)
-    , mRelativeTo(relativeTo)
-    , mOffset(osg::Matrix::identity())
-    , mOffsetInitialized(false)
+    : mRelativeTo(relativeTo)
     , mTracker(tracker)
 {
-}
-
-void ForearmController::setEnabled(bool enabled)
-{
-    mEnabled = enabled;
 }
 
 void ForearmController::operator()(osg::Node* node, osg::NodeVisitor* nv)
@@ -117,10 +116,46 @@ void ForearmController::operator()(osg::Node* node, osg::NodeVisitor* nv)
     transform->setMatrix(mOffset * worldReference * osg::Matrix::inverse(worldToLimb) * transform->getMatrix());
 
 
-    // TODO: Continued traversal is necessary to allow update of new hand poses such as gribbing a weapon.
+    // TODO: Continued traversal is necessary to allow update of new hand poses such as gripping a weapon.
     // But I want to disable idle animations.
     traverse(node, nv);
 }
+
+/// Implements control of a finger by overriding rotation
+class FingerController : public osg::NodeCallback
+{
+public:
+    FingerController(osg::Quat rotate) : mRotate(rotate) {};
+    void setEnabled(bool enabled) { mEnabled = enabled; };
+    void operator()(osg::Node* node, osg::NodeVisitor* nv);
+
+private:
+    bool mEnabled = true;
+    osg::Quat mRotate{};
+};
+
+void FingerController::operator()(osg::Node* node, osg::NodeVisitor* nv)
+{
+    if (!mEnabled)
+    {
+        traverse(node, nv);
+        return;
+    }
+
+    auto matrixTransform = node->asTransform()->asMatrixTransform();
+    auto matrix = matrixTransform->getMatrix();
+    matrix.setRotate(mRotate);
+    matrixTransform->setMatrix(matrix);
+
+    auto tip = matrixTransform->getChild(0);
+    auto tipMatrixTransform = tip->asTransform()->asMatrixTransform();
+    matrix = tipMatrixTransform->getMatrix();
+    matrix.setRotate(mRotate);
+    tipMatrixTransform->setMatrix(matrix);
+
+    //traverse(node, nv);
+}
+
 
 OpenXRAnimation::OpenXRAnimation(
     const MWWorld::Ptr& ptr, osg::ref_ptr<osg::Group> parentNode, Resource::ResourceSystem* resourceSystem,
@@ -129,8 +164,14 @@ OpenXRAnimation::OpenXRAnimation(
     // when OpenMW sets the view mode of the camera object.
     : MWRender::NpcAnimation(ptr, parentNode, resourceSystem, disableSounds, VM_Normal, 55.f)
     , mSession(xrSession)
+    , mIndexFingerControllers{nullptr, nullptr}
 {
+    mIndexFingerControllers[0] = osg::ref_ptr<FingerController> (new FingerController(osg::Quat(0, 0, 0, 1)));
+    mIndexFingerControllers[1] = osg::ref_ptr<FingerController> (new FingerController(osg::Quat(0, 0, 0, 1)));
 }
+
+OpenXRAnimation::~OpenXRAnimation() {};
+
 void OpenXRAnimation::setViewMode(NpcAnimation::ViewMode viewMode)
 {
     if (viewMode != VM_VRHeadless)
@@ -153,6 +194,16 @@ void OpenXRAnimation::updateParts()
     removeIndividualPart(ESM::PartReferenceType::PRT_RForearm);
     removeIndividualPart(ESM::PartReferenceType::PRT_RUpperarm);
     removeIndividualPart(ESM::PartReferenceType::PRT_RWrist);
+}
+void OpenXRAnimation::setPointForward(bool enabled)
+{
+    auto found00 = mNodeMap.find("bip01 r finger1");
+    if (found00 != mNodeMap.end())
+    {
+        found00->second->removeUpdateCallback(mIndexFingerControllers[0]);
+        if (enabled)
+            found00->second->addUpdateCallback(mIndexFingerControllers[0]);
+    }
 }
 osg::Vec3f OpenXRAnimation::runAnimation(float timepassed)
 {
@@ -187,7 +238,7 @@ void OpenXRAnimation::addControllers()
 
         SceneUtil::PositionAttitudeTransform* tracker = dynamic_cast<SceneUtil::PositionAttitudeTransform*>(findTrackerVisitor.mFoundNode);
 
-        std::map<std::string, osg::ref_ptr<osg::MatrixTransform> >::const_iterator found = mNodeMap.find(i == 0 ? "bip01 l forearm" : "bip01 r forearm");
+        auto found = mNodeMap.find(i == 0 ? "bip01 l forearm" : "bip01 r forearm");
         if (found != mNodeMap.end())
         {
             osg::Node* node = found->second;

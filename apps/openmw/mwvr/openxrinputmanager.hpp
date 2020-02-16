@@ -39,6 +39,8 @@ namespace MWVR
 
         PoseSet getHandPoses(int64_t time, TrackedSpace space);
 
+        void showActivationIndication(bool show);
+
         osg::ref_ptr<OpenXRViewer>   mXRViewer;
         std::unique_ptr<OpenXRInput> mXRInput;
     };
