@@ -15,6 +15,8 @@
 namespace MWVR
 {
 
+extern void getEulerAngles(const osg::Quat& quat, float& yaw, float& pitch, float& roll);
+
 class OpenXRSession
 {
     using seconds = std::chrono::duration<double>;
@@ -23,13 +25,13 @@ class OpenXRSession
     using time_point = clock::time_point;
 
 public:
-    OpenXRSession(osg::ref_ptr<OpenXRManager> XR);
+    OpenXRSession(osg::ref_ptr<OpenXRManager> XR, float unitsPerMeter);
     ~OpenXRSession();
 
     void setLayer(OpenXRLayerStack::Layer layerType, OpenXRLayer* layer);
     void swapBuffers(osg::GraphicsContext* gc);
 
-    PoseSets& predictedPoses() { return mPredictedPoses; };
+    const PoseSets& predictedPoses() const { return mPredictedPoses; };
 
     //! Call before updating poses and other inputs
     void waitFrame();
@@ -41,14 +43,16 @@ public:
 
     void updateMenuPosition(void);
 
-    //! Yaw the movement if a tracking limb is configured
+    //! Yaw angle to be used for offsetting movement direction
     float movementYaw(void);
+
+    float unitsPerMeter() const { return mUnitsPerMeter; };
 
     osg::ref_ptr<OpenXRManager> mXR;
     OpenXRLayerStack mLayerStack{};
+    float mUnitsPerMeter = 1.f;
 
     PoseSets mPredictedPoses{};
-
     bool mPredictionsReady{ false };
 };
 

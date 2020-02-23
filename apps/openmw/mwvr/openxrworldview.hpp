@@ -26,7 +26,7 @@ namespace MWVR
         };
 
     public:
-        OpenXRWorldView(osg::ref_ptr<OpenXRManager> XR, std::string name, osg::ref_ptr<osg::State> state, OpenXRSwapchain::Config config, float metersPerUnit);
+        OpenXRWorldView(osg::ref_ptr<OpenXRManager> XR, std::string name, osg::ref_ptr<osg::State> state, OpenXRSwapchain::Config config, float unitsPerMeter);
         ~OpenXRWorldView();
 
         //! Prepare for render (update matrices)
@@ -36,7 +36,7 @@ namespace MWVR
         //! View offset for this view
         osg::Matrix viewMatrix();
 
-        float mMetersPerUnit = 1.f;
+        float mUnitsPerMeter = 1.f;
     };
 }
 

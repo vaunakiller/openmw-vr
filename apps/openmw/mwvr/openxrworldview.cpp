@@ -2,6 +2,7 @@
 #include "openxrmanager.hpp"
 #include "openxrmanagerimpl.hpp"
 #include "../mwinput/inputmanagerimp.hpp"
+#include "openxrinputmanager.hpp"
 
 #include <components/debug/debuglog.hpp>
 #include <components/sdlutil/sdlgraphicswindow.hpp>
@@ -11,6 +12,7 @@
 #include <openxr/openxr.h>
 
 #include "../mwrender/vismask.hpp"
+#include "../mwbase/environment.hpp"
 
 #include <osg/Camera>
 #include <osgViewer/Renderer>
@@ -83,7 +85,7 @@ namespace MWVR
         auto hmdViews = mXR->impl().getPredictedViews(mXR->impl().frameState().predictedDisplayTime, TrackedSpace::VIEW);
 
         float near = Settings::Manager::getFloat("near clip", "Camera");
-        float far = Settings::Manager::getFloat("viewing distance", "Camera") * mMetersPerUnit;
+        float far = Settings::Manager::getFloat("viewing distance", "Camera");
         //return perspectiveFovMatrix()
         if(mName == "LeftEye")
             return perspectiveFovMatrix(near, far, hmdViews[0].fov);
@@ -94,15 +96,12 @@ namespace MWVR
     {
         MWVR::Pose pose = predictedPose();
         mXR->playerScale(pose);
-        osg::Vec3 position = pose.position;
-
-        // invert orientation (co jugate of Quaternion) and position to apply to the view matrix as offset.
-        // This works, despite different conventions between OpenXR and OSG, because the OSG view matrix will
-        // have converted to OpenGL's clip space conventions before this matrix is applied, and OpenXR's conventions
-        // match OpenGL.
+        osg::Vec3 position = pose.position * mUnitsPerMeter;
+        osg::Quat orientation = pose.orientation;
+        
         osg::Matrix viewMatrix;
-        viewMatrix.setTrans(-position * mMetersPerUnit);
-        viewMatrix.postMultRotate(pose.orientation.conj());
+        viewMatrix.setTrans(-position);
+        viewMatrix.postMultRotate(orientation.conj());
 
         return viewMatrix;
     }
@@ -112,9 +111,9 @@ namespace MWVR
         std::string name, 
         osg::ref_ptr<osg::State> state, 
         OpenXRSwapchain::Config config,
-        float metersPerUnit )
+        float unitsPerMeter)
         : OpenXRView(XR, name, config, state)
-        , mMetersPerUnit(metersPerUnit)
+        , mUnitsPerMeter(unitsPerMeter)
     {
     }
 
@@ -140,9 +139,6 @@ namespace MWVR
         auto* view = renderInfo.getView();
         auto* camera = renderInfo.getCurrentCamera();
         auto name = camera->getName();
-
-        //Log(Debug::Verbose) << "Updating camera " << name;
-
     }
 
     void
@@ -160,23 +156,18 @@ namespace MWVR
         {
             mXR->handleEvents();
             mSession->waitFrame();
-            auto leftEyePose = poses.eye[(int)TrackedSpace::STAGE][(int)Chirality::LEFT_HAND];
+            auto leftEyePose = poses.eye[(int)TrackedSpace::VIEW][(int)Side::LEFT_HAND];
             mView->setPredictedPose(leftEyePose);
         }
         else
         {
-            auto rightEyePose = poses.eye[(int)TrackedSpace::STAGE][(int)Chirality::RIGHT_HAND];
+            auto rightEyePose = poses.eye[(int)TrackedSpace::VIEW][(int)Side::RIGHT_HAND];
             mView->setPredictedPose(rightEyePose);
         }
         if (!mXR->sessionRunning())
             return;
 
-        // TODO: This is where controls should update
-
-
-
         auto viewMatrix = view.getCamera()->getViewMatrix() * mView->viewMatrix();
-        //auto viewMatrix = mView->viewMatrix();
         auto projectionMatrix = mView->projectionMatrix();
 
         camera->setViewMatrix(viewMatrix);

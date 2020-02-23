@@ -70,7 +70,7 @@ namespace MWVR
         VIEW=1 //!< Track limb in the VR view space. Meaning a space with the head as origin and orientation.
     };
 
-    enum class Chirality
+    enum class Side
     {
         LEFT_HAND = 0,
         RIGHT_HAND = 1

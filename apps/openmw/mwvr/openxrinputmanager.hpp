@@ -35,6 +35,8 @@ namespace MWVR
         /// Overriden to update XR inputs
         virtual void update(float dt, bool disableControls = false, bool disableEvents = false);
 
+        void updateHead();
+
         void processEvent(const OpenXRActionEvent& event);
 
         PoseSet getHandPoses(int64_t time, TrackedSpace space);
@@ -43,6 +45,10 @@ namespace MWVR
 
         osg::ref_ptr<OpenXRViewer>   mXRViewer;
         std::unique_ptr<OpenXRInput> mXRInput;
+        Pose mPreviousHeadPose{};
+        osg::Vec3 mHeadOffset{ 0,0,0 };
+        bool mRecenter{ true };
+        float mYaw{ 0.f };
     };
 }
 

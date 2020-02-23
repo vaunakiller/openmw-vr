@@ -696,7 +696,7 @@ namespace MWRender
         if(ptr == mCamera->getTrackingPtr() &&
            !mCamera->isVanityOrPreviewModeEnabled())
         {
-            mCamera->rotateCamera(-ptr.getRefData().getPosition().rot[0], -ptr.getRefData().getPosition().rot[2], false);
+            mCamera->rotateCamera(-ptr.getRefData().getPosition().rot[0], -ptr.getRefData().getPosition().rot[1], -ptr.getRefData().getPosition().rot[2], false);
         }
 
         ptr.getRefData().getBaseNode()->setAttitude(rot);
@@ -1305,7 +1305,7 @@ namespace MWRender
         if(!mCamera->isVanityOrPreviewModeEnabled())
             return false;
 
-        mCamera->rotateCamera(rot[0], rot[2], true);
+        mCamera->rotateCamera(rot[0], 0.f, rot[2], true);
         return true;
     }
 

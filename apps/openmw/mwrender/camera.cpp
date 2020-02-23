@@ -11,6 +11,10 @@
 #include "../mwworld/ptr.hpp"
 #include "../mwworld/refdata.hpp"
 
+#ifdef USE_OPENXR
+#include "../mwvr/openxrinputmanager.hpp"
+#endif
+
 #include "npcanimation.hpp"
 #include <components/debug/debuglog.hpp>
 
@@ -63,9 +67,11 @@ namespace MWRender
         mVanity.enabled = false;
         mVanity.allowed = true;
 
+        mPreviewCam.roll = 0.f;
         mPreviewCam.pitch = 0.f;
         mPreviewCam.yaw = 0.f;
         mPreviewCam.offset = 400.f;
+        mMainCam.roll = 0.f;
         mMainCam.pitch = 0.f;
         mMainCam.yaw = 0.f;
         mMainCam.offset = 400.f;
@@ -112,7 +118,17 @@ namespace MWRender
 
         osg::Vec3d position = getFocalPoint();
 
-        osg::Quat orient =  osg::Quat(getPitch(), osg::Vec3d(1,0,0)) * osg::Quat(getYaw(), osg::Vec3d(0,0,1));
+
+#ifdef USE_OPENXR
+        auto inputManager = MWBase::Environment::get().getXRInputManager();
+        if (inputManager)
+        {
+            position += inputManager->mHeadOffset;
+        }
+#endif
+
+        osg::Quat orient = osg::Quat(getPitch(), osg::Vec3d(1,0,0)) * osg::Quat(getRoll(), osg::Vec3d(0, 1, 0)) * osg::Quat(getYaw(), osg::Vec3d(0,0,1));
+
 
         osg::Vec3d offset = orient * osg::Vec3d(0, isFirstPerson() ? 0 : -mCameraDistance, 0);
         position += offset;
@@ -120,7 +136,10 @@ namespace MWRender
         osg::Vec3d forward = orient * osg::Vec3d(0,1,0);
         osg::Vec3d up = orient * osg::Vec3d(0,0,1);
 
-        cam->setViewMatrixAsLookAt(position, position + forward, up);
+        osg::Matrix lookAt = osg::Matrix::lookAt(position, position + forward, up);
+
+        //cam->setViewMatrixAsLookAt(position, position + forward, up);
+        cam->setViewMatrix(lookAt);
     }
 
     void Camera::reset()
@@ -131,15 +150,17 @@ namespace MWRender
             toggleViewMode();
     }
 
-    void Camera::rotateCamera(float pitch, float yaw, bool adjust)
+    void Camera::rotateCamera(float pitch, float roll, float yaw, bool adjust)
     {
         if (adjust)
         {
             pitch += getPitch();
             yaw += getYaw();
+            roll += getRoll();
         }
         setYaw(yaw);
         setPitch(pitch);
+        setRoll(roll);
     }
 
     void Camera::attachTo(const MWWorld::Ptr &ptr)
@@ -175,7 +196,7 @@ namespace MWRender
 
         if(mVanity.enabled)
         {
-            rotateCamera(0.f, osg::DegreesToRadians(3.f * duration), true);
+            rotateCamera(0.f, 0.f, osg::DegreesToRadians(3.f * duration), true);
         }
     }
 
@@ -289,6 +310,29 @@ namespace MWRender
         }
     }
 
+    float Camera::getRoll()
+    {
+        if (mVanity.enabled || mPreviewMode)
+            return mPreviewCam.roll;
+        return mMainCam.roll;
+    }
+
+    void Camera::setRoll(float angle)
+    {
+        if (angle > osg::PI) {
+            angle -= osg::PI * 2;
+        }
+        else if (angle < -osg::PI) {
+            angle += osg::PI * 2;
+        }
+        if (mVanity.enabled || mPreviewMode) {
+            mPreviewCam.roll = angle;
+        }
+        else {
+            mMainCam.roll = angle;
+        }
+    }
+
     float Camera::getPitch()
     {
         if (mVanity.enabled || mPreviewMode) {
@@ -299,10 +343,10 @@ namespace MWRender
 
     void Camera::setPitch(float angle)
     {
-#ifdef USE_OPENXR
-        // Pitch is defined purely by the HMD.
-        return (void)angle;
-#endif
+//#ifdef USE_OPENXR
+//        // Pitch is defined purely by the HMD.
+//        return (void)angle;
+//#endif
         const float epsilon = 0.000001f;
         float limit = osg::PI_2 - epsilon;
         if(mPreviewMode)

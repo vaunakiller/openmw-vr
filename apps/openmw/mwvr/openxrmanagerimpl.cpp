@@ -520,21 +520,21 @@ namespace osg
 
     Vec3 fromXR(XrVector3f v)
     {
-        return Vec3{ v.x, v.y, v.z };
+        return Vec3{ v.x, -v.z, v.y };
     }
 
     Quat fromXR(XrQuaternionf quat)
     {
-        return Quat{ quat.x, quat.y, quat.z, quat.w };
+        return Quat{ quat.x, -quat.z, quat.y, quat.w };
     }
 
     XrVector3f toXR(Vec3 v)
     {
-        return XrVector3f{ v.x(), v.y(), v.z() };
+        return XrVector3f{ v.x(), v.z(), -v.y() };
     }
 
     XrQuaternionf toXR(Quat quat)
     {
-        return XrQuaternionf{ quat.x(), quat.y(), quat.z(), quat.w() };
+        return XrQuaternionf{ quat.x(), quat.z(), -quat.y(), quat.w() };
     }
 }

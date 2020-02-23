@@ -109,7 +109,7 @@ void ForearmController::operator()(osg::Node* node, osg::NodeVisitor* nv)
     // Get current world transform of limb
     osg::Matrix worldToLimb = osg::computeLocalToWorld(node->getParentalNodePaths()[0]);
     // Get current world of the reference node
-    osg::Matrix worldReference = osg::computeLocalToWorld(mRelativeTo->getParentalNodePaths()[0]);
+    osg::Matrix worldReference = osg::Matrix::identity();
     // New transform is reference node + tracker.
     mTracker->computeLocalToWorldMatrix(worldReference, nullptr);
     // Get hand

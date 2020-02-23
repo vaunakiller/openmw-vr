@@ -85,8 +85,7 @@ namespace MWVR
     public:
         OpenXRViewer(
             osg::ref_ptr<OpenXRManager> XR,
-            osg::ref_ptr<osgViewer::Viewer> viewer,
-            float metersPerUnit = 1.f);
+            osg::ref_ptr<osgViewer::Viewer> viewer);
 
         ~OpenXRViewer(void);
 
@@ -126,7 +125,6 @@ namespace MWVR
 
         std::mutex mMutex;
 
-        float mMetersPerUnit = 1.f;
         bool mConfigured = false;
     };
 }

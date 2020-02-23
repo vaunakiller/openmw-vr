@@ -24,7 +24,7 @@ namespace MWRender
     class Camera
     {
         struct CamData {
-            float pitch, yaw, offset;
+            float roll, pitch, yaw, offset;
         };
 
         MWWorld::Ptr mTrackingPtr;
@@ -70,10 +70,13 @@ namespace MWRender
 
         /// Set where the camera is looking at. Uses Morrowind (euler) angles
         /// \param rot Rotation angles in radians
-        void rotateCamera(float pitch, float yaw, bool adjust);
+        void rotateCamera(float pitch, float roll, float yaw, bool adjust);
 
         float getYaw();
         void setYaw(float angle);
+
+        float getRoll();
+        void setRoll(float angle);
 
         float getPitch();
         void setPitch(float angle);

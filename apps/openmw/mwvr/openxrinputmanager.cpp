@@ -716,16 +716,16 @@ namespace MWVR
         XrSpaceLocation location{ XR_TYPE_SPACE_LOCATION };
         XrSpaceVelocity velocity{ XR_TYPE_SPACE_VELOCITY };
         location.next = &velocity;
-        CHECK_XRCMD(xrLocateSpace(mHandSpace[(int)Chirality::LEFT_HAND], referenceSpace, time, &location));
+        CHECK_XRCMD(xrLocateSpace(mHandSpace[(int)Side::LEFT_HAND], referenceSpace, time, &location));
 
-        handPoses[(int)Chirality::LEFT_HAND] = MWVR::Pose{
+        handPoses[(int)Side::LEFT_HAND] = MWVR::Pose{
             osg::fromXR(location.pose.position),
             osg::fromXR(location.pose.orientation),
             osg::fromXR(velocity.linearVelocity)
         };
 
-        CHECK_XRCMD(xrLocateSpace(mHandSpace[(int)Chirality::RIGHT_HAND], referenceSpace, time, &location));
-        handPoses[(int)Chirality::RIGHT_HAND] = MWVR::Pose{
+        CHECK_XRCMD(xrLocateSpace(mHandSpace[(int)Side::RIGHT_HAND], referenceSpace, time, &location));
+        handPoses[(int)Side::RIGHT_HAND] = MWVR::Pose{
             osg::fromXR(location.pose.position),
             osg::fromXR(location.pose.orientation),
             osg::fromXR(velocity.linearVelocity)
@@ -794,6 +794,8 @@ namespace MWVR
         mXRInput->updateControls();
 
         auto* session = MWBase::Environment::get().getXRSession();
+
+        updateHead();
 
         OpenXRActionEvent event{};
         while (mXRInput->nextActionEvent(event))
@@ -936,7 +938,7 @@ namespace MWVR
             }
             break;
         case A_LookLeftRight:
-            mInputBinder->getChannel(A_LookLeftRight)->setValue(event.value / 2.f + 0.5f);
+            mYaw += osg::DegreesToRadians(event.value) * 2.f;
             break;
         case A_MoveLeftRight:
             mInputBinder->getChannel(A_MoveLeftRight)->setValue(event.value / 2.f + 0.5f);
@@ -956,5 +958,48 @@ namespace MWVR
         default:
             Log(Debug::Warning) << "Unhandled XR action " << event.action;
         }
+    }
+
+    void OpenXRInputManager::updateHead()
+    {
+        if (!mPlayer)
+            return;
+
+        MWBase::World* world = MWBase::Environment::get().getWorld();
+        auto player = mPlayer->getPlayer();
+
+        auto* session = MWBase::Environment::get().getXRSession();
+
+        auto currentHeadPose = session->predictedPoses().head[(int)TrackedSpace::STAGE];
+        currentHeadPose.position *= session->unitsPerMeter();
+        osg::Vec3 vrMovement = currentHeadPose.position - mPreviousHeadPose.position;
+        mPreviousHeadPose = currentHeadPose;
+
+        float yaw = 0.f;
+        float pitch = 0.f;
+        float roll = 0.f;
+        getEulerAngles(currentHeadPose.orientation, yaw, pitch, roll);
+
+        yaw += mYaw;
+
+        if (mRecenter)
+        {
+            mHeadOffset = osg::Vec3(0, 0, 0);
+            mRecenter = false;
+        }
+        else
+        {
+            osg::Quat gameworldYaw = osg::Quat(mYaw, osg::Vec3(0, 0, -1));
+            mHeadOffset += gameworldYaw * vrMovement;
+
+            float rot[3];
+            rot[0] = pitch;
+            rot[1] = roll;
+            rot[2] = yaw;
+            world->rotateObject(player, rot[0], rot[1], rot[2], MWBase::RotationFlag_none);
+        }
+
+        // Z will and should not be caught by the characyer
+        mHeadOffset.z() = currentHeadPose.position.z();
     }
 }

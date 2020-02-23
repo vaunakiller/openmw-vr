@@ -27,9 +27,10 @@
 namespace MWVR
 {
     OpenXRSession::OpenXRSession(
-        osg::ref_ptr<OpenXRManager> XR)
+        osg::ref_ptr<OpenXRManager> XR, 
+        float unitsPerMeter)
         : mXR(XR)
-        // , mInputManager(new OpenXRInput(mXR))
+        , mUnitsPerMeter(unitsPerMeter)
     {
     }
 
@@ -67,30 +68,10 @@ namespace MWVR
         if (!mXR->sessionRunning())
             return;
 
-        // For now it seems we must just accept crap performance from the rendering loop
-        // Since Oculus' implementation of waitFrame() does not even attempt to reflect real
-        // render time and just incurs a huge useless delay.
         Timer timer("OpenXRSession::waitFrame");
         mXR->waitFrame();
         timer.checkpoint("waitFrame");
-        // mInputManager->updateControls();
         predictNext(0);
-
-        //OpenXRActionEvent event{};
-        //while (mInputManager->nextActionEvent(event))
-        //{
-        //    Log(Debug::Verbose) << "ActionEvent action=" << event.action << " onPress=" << event.onPress;
-        //    if (event.action == MWInput::InputManager::A_GameMenu)
-        //    {
-        //        Log(Debug::Verbose) << "A_GameMenu";
-        //        auto* menuLayer = dynamic_cast<OpenXRMenu*>(mLayerStack.layerObjects()[OpenXRLayerStack::MENU_VIEW_LAYER]);
-        //        if (menuLayer)
-        //        {
-        //            menuLayer->setVisible(!menuLayer->isVisible());
-        //            menuLayer->updatePosition();
-        //        }
-        //    }
-        //}
 
         mPredictionsReady = true;
 
@@ -121,10 +102,11 @@ namespace MWVR
     }
 
 
-    // OSG doesn't provide API to extract yaw from a quat, but i need it.
+    // OSG doesn't provide API to extract euler angles from a quat, but i need it.
     // Credits goes to Dennis Bunfield, i just copied his formula https://narkive.com/v0re6547.4
-    static float getYaw(const osg::Quat& quat)
+    void getEulerAngles(const osg::Quat& quat, float& yaw, float& pitch, float& roll)
     {
+        // Now do the computation
         osg::Matrixd m2(osg::Matrixd::rotate(quat));
         double* mat = (double*)m2.ptr();
         double angle_x = 0.0;
@@ -152,16 +134,19 @@ namespace MWVR
             angle_z = atan2(tr_y, tr_x);
         }
 
-        return angle_z;
+        yaw = angle_z;
+        pitch = angle_x;
+        roll = angle_y;
     }
 
     float OpenXRSession::movementYaw(void)
     {
-        osg::Matrix lookAt;
-        lookAt.makeLookAt(osg::Vec3(0, 0, 0), osg::Vec3(0, 1, 0), osg::Vec3(0, 0, 1));
-        lookAt = osg::Matrix::inverse(lookAt);
-        auto lhandquat = predictedPoses().hands[(int)MWVR::TrackedSpace::STAGE][(int)MWVR::Chirality::LEFT_HAND].orientation * lookAt.getRotate();
-        return getYaw(lhandquat);
+        auto lhandquat = predictedPoses().hands[(int)TrackedSpace::VIEW][(int)MWVR::Side::LEFT_HAND].orientation;
+        float yaw = 0.f;
+        float pitch = 0.f;
+        float roll = 0.f;
+        getEulerAngles(lhandquat, yaw, pitch, roll);
+        return yaw;
     }
 
     void OpenXRSession::predictNext(int extraPeriods)
@@ -170,6 +155,8 @@ namespace MWVR
 
         auto input = MWBase::Environment::get().getXRInputManager();
 
+        auto previousHeadPose = mPredictedPoses.head[(int)TrackedSpace::STAGE];
+
         // Update pose predictions
         mPredictedPoses.head[(int)TrackedSpace::STAGE] = mXR->impl().getPredictedLimbPose(mPredictedDisplayTime, TrackedLimb::HEAD, TrackedSpace::STAGE);
         mPredictedPoses.head[(int)TrackedSpace::VIEW] = mXR->impl().getPredictedLimbPose(mPredictedDisplayTime, TrackedLimb::HEAD, TrackedSpace::VIEW);
@@ -177,10 +164,10 @@ namespace MWVR
         mPredictedPoses.hands[(int)TrackedSpace::VIEW] = input->getHandPoses(mPredictedDisplayTime, TrackedSpace::VIEW);
         auto stageViews = mXR->impl().getPredictedViews(mPredictedDisplayTime, TrackedSpace::STAGE);
         auto hmdViews = mXR->impl().getPredictedViews(mPredictedDisplayTime, TrackedSpace::VIEW);
-        mPredictedPoses.eye[(int)TrackedSpace::STAGE][(int)Chirality::LEFT_HAND] = fromXR(stageViews[(int)Chirality::LEFT_HAND].pose);
-        mPredictedPoses.eye[(int)TrackedSpace::VIEW][(int)Chirality::LEFT_HAND] = fromXR(hmdViews[(int)Chirality::LEFT_HAND].pose);
-        mPredictedPoses.eye[(int)TrackedSpace::STAGE][(int)Chirality::RIGHT_HAND] = fromXR(stageViews[(int)Chirality::RIGHT_HAND].pose);
-        mPredictedPoses.eye[(int)TrackedSpace::VIEW][(int)Chirality::RIGHT_HAND] = fromXR(hmdViews[(int)Chirality::RIGHT_HAND].pose);
+        mPredictedPoses.eye[(int)TrackedSpace::STAGE][(int)Side::LEFT_HAND] = fromXR(stageViews[(int)Side::LEFT_HAND].pose);
+        mPredictedPoses.eye[(int)TrackedSpace::VIEW][(int)Side::LEFT_HAND] = fromXR(hmdViews[(int)Side::LEFT_HAND].pose);
+        mPredictedPoses.eye[(int)TrackedSpace::STAGE][(int)Side::RIGHT_HAND] = fromXR(stageViews[(int)Side::RIGHT_HAND].pose);
+        mPredictedPoses.eye[(int)TrackedSpace::VIEW][(int)Side::RIGHT_HAND] = fromXR(hmdViews[(int)Side::RIGHT_HAND].pose);
     }
 }
 

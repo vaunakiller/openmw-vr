@@ -1,6 +1,7 @@
 #include "openxrviewer.hpp"
 #include "openxrsession.hpp"
 #include "openxrmanagerimpl.hpp"
+#include "openxrinputmanager.hpp"
 #include "Windows.h"
 #include "../mwrender/vismask.hpp"
 #include "../mwmechanics/actorutil.hpp"
@@ -17,8 +18,7 @@ namespace MWVR
 
     OpenXRViewer::OpenXRViewer(
         osg::ref_ptr<OpenXRManager> XR,
-        osg::ref_ptr<osgViewer::Viewer> viewer,
-        float metersPerUnit)
+        osg::ref_ptr<osgViewer::Viewer> viewer)
         : osg::Group()
         , mXR(XR)
         , mCompositionLayerProjectionViews(2, {XR_TYPE_COMPOSITION_LAYER_PROJECTION_VIEW})
@@ -26,7 +26,6 @@ namespace MWVR
         , mViewer(viewer)
         , mPreDraw(new PredrawCallback(this))
         , mPostDraw(new PostdrawCallback(this))
-        , mMetersPerUnit(metersPerUnit)
         , mConfigured(false)
     {
         mViewer->setRealizeOperation(mRealizeOperation);
@@ -99,18 +98,19 @@ namespace MWVR
 
         if (!mXR->realized())
             mXR->realize(context);
+        auto* session = MWBase::Environment::get().getXRSession();
 
         OpenXRSwapchain::Config leftConfig;
-        leftConfig.width = mXR->impl().mConfigViews[(int)Chirality::LEFT_HAND].recommendedImageRectWidth;
-        leftConfig.height = mXR->impl().mConfigViews[(int)Chirality::LEFT_HAND].recommendedImageRectHeight;
-        leftConfig.samples = mXR->impl().mConfigViews[(int)Chirality::LEFT_HAND].recommendedSwapchainSampleCount;
+        leftConfig.width = mXR->impl().mConfigViews[(int)Side::LEFT_HAND].recommendedImageRectWidth;
+        leftConfig.height = mXR->impl().mConfigViews[(int)Side::LEFT_HAND].recommendedImageRectHeight;
+        leftConfig.samples = mXR->impl().mConfigViews[(int)Side::LEFT_HAND].recommendedSwapchainSampleCount;
         OpenXRSwapchain::Config rightConfig;
-        rightConfig.width = mXR->impl().mConfigViews[(int)Chirality::RIGHT_HAND].recommendedImageRectWidth;
-        rightConfig.height = mXR->impl().mConfigViews[(int)Chirality::RIGHT_HAND].recommendedImageRectHeight;
-        rightConfig.samples = mXR->impl().mConfigViews[(int)Chirality::RIGHT_HAND].recommendedSwapchainSampleCount;
+        rightConfig.width = mXR->impl().mConfigViews[(int)Side::RIGHT_HAND].recommendedImageRectWidth;
+        rightConfig.height = mXR->impl().mConfigViews[(int)Side::RIGHT_HAND].recommendedImageRectHeight;
+        rightConfig.samples = mXR->impl().mConfigViews[(int)Side::RIGHT_HAND].recommendedSwapchainSampleCount;
 
-        auto leftView = new OpenXRWorldView(mXR, "LeftEye", context->getState(), leftConfig, mMetersPerUnit);
-        auto rightView = new OpenXRWorldView(mXR, "RightEye", context->getState(), rightConfig, mMetersPerUnit);
+        auto leftView = new OpenXRWorldView(mXR, "LeftEye", context->getState(), leftConfig, session->unitsPerMeter());
+        auto rightView = new OpenXRWorldView(mXR, "RightEye", context->getState(), rightConfig, session->unitsPerMeter());
 
         mViews["LeftEye"] = leftView;
         mViews["RightEye"] = rightView;
@@ -160,7 +160,6 @@ namespace MWVR
         menuCamera->setPreDrawCallback(mPreDraw);
         menuCamera->setPostDrawCallback(mPostDraw);
 
-        auto* session = MWBase::Environment::get().getXRSession();
 
         mViewer->addSlave(menuCamera, true);
         mViewer->getSlave(0)._updateSlaveCallback = new OpenXRWorldView::UpdateSlaveCallback(mXR, session, leftView, context);
@@ -214,20 +213,21 @@ namespace MWVR
         if (!mConfigured)
             return;
 
-        ////// NEW SYSTEM
         Timer timer("OpenXRViewer::SwapBuffers");
-        mViews["LeftEye"]->swapBuffers(gc);
-        mViews["RightEye"]->swapBuffers(gc);
+
+        auto leftView = mViews["LeftEye"];
+        auto rightView = mViews["RightEye"];
+
+        leftView->swapBuffers(gc);
+        rightView->swapBuffers(gc);
         timer.checkpoint("Views");
 
-        auto leftEyePose = toXR(mViews["LeftEye"]->predictedPose());
-        auto rightEyePose = toXR(mViews["RightEye"]->predictedPose());
-        mCompositionLayerProjectionViews[0].pose = leftEyePose;
-        mCompositionLayerProjectionViews[1].pose = rightEyePose;
+        mCompositionLayerProjectionViews[0].pose = toXR(leftView->predictedPose());
+        mCompositionLayerProjectionViews[1].pose = toXR(rightView->predictedPose());
         timer.checkpoint("Poses");
 
         // TODO: Keep track of these in the session too.
-        auto stageViews = mXR->impl().getPredictedViews(mXR->impl().frameState().predictedDisplayTime, TrackedSpace::STAGE);
+        auto stageViews = mXR->impl().getPredictedViews(mXR->impl().frameState().predictedDisplayTime, TrackedSpace::VIEW);
         mCompositionLayerProjectionViews[0].fov = stageViews[0].fov;
         mCompositionLayerProjectionViews[1].fov = stageViews[1].fov;
         timer.checkpoint("Fovs");
@@ -237,7 +237,7 @@ namespace MWVR
         {
             mLayer.reset(new XrCompositionLayerProjection);
             mLayer->type = XR_TYPE_COMPOSITION_LAYER_PROJECTION;
-            mLayer->space = mXR->impl().mReferenceSpaceStage;
+            mLayer->space = mXR->impl().mReferenceSpaceView;
             mLayer->viewCount = 2;
             mLayer->views = mCompositionLayerProjectionViews.data();
         }
@@ -306,53 +306,64 @@ namespace MWVR
             return;
         }
 
-        auto& poses = MWBase::Environment::get().getXRSession()->predictedPoses();
-        auto handPosesView = poses.hands[(int)TrackedSpace::VIEW];
+        auto session = MWBase::Environment::get().getXRSession();
+        auto& poses = session->predictedPoses();
         auto handPosesStage = poses.hands[(int)TrackedSpace::STAGE];
-        int chirality = (int)Chirality::LEFT_HAND;
+        int side = (int)Side::LEFT_HAND;
         if (hand_transform->getName() == "tracker r hand")
-            chirality = (int)Chirality::RIGHT_HAND;
+        {
+            side = (int)Side::RIGHT_HAND;
+        }
 
-        MWVR::Pose hand = handPosesStage[chirality];
-        mXR->playerScale(hand);
-        auto orientation = hand.orientation;
-        auto position = hand.position;
-        position = position * mMetersPerUnit;
+        MWVR::Pose handStage = handPosesStage[side];
+        MWVR::Pose headStage = poses.head[(int)TrackedSpace::STAGE];
+        mXR->playerScale(handStage);
+        mXR->playerScale(headStage);
+        auto orientation = handStage.orientation;
+        auto position = handStage.position - headStage.position;
+        position = position * session->unitsPerMeter();
 
-        // Move OpenXR's poses into OpenMW's view by applying the inverse of the rotation of the view matrix.
-        // This works because OpenXR's conventions match opengl's clip space, thus the inverse of the view matrix converts an OpenXR pose to OpenMW's view space (including world rotation).
-        // For the hands we don't want the full camera view matrix, but the relative matrix from the player root. So i create a lookat matrix based on osg's conventions.
-        // TODO: The full camera view matrix could work if i change how animations are overriden.
-        osg::Matrix lookAt;
-        lookAt.makeLookAt(osg::Vec3(0, 0, 0), osg::Vec3(0, 1, 0), osg::Vec3(0, 0, 1));
-        lookAt = osg::Matrix::inverse(lookAt);
+        auto camera = mViewer->getCamera();
+        auto viewMatrix = camera->getViewMatrix();
 
-        orientation = orientation * lookAt.getRotate();
-        //position = invViewMatrix.preMult(position);
-        position = lookAt.getRotate() * position;
-        
-        // Morrowind's meshes do not point forward by default.
-        // Static since they do not need to be recomputed.
+
+        // Align orientation with the game world
+        auto inputManager = MWBase::Environment::get().getXRInputManager();
+        if (inputManager)
+        {
+            auto playerYaw = osg::Quat(-inputManager->mYaw, osg::Vec3d(0, 0, 1));
+            position = playerYaw * position;
+            orientation = orientation * playerYaw;
+        }
+
+        // Add camera offset
+        osg::Vec3 viewPosition;
+        osg::Vec3 center;
+        osg::Vec3 up;
+
+        viewMatrix.getLookAt(viewPosition, center, up, 1.0);
+        position += viewPosition;
+
+        //// Morrowind's meshes do not point forward by default.
+        //// Static since they do not need to be recomputed.
         static float VRbias = osg::DegreesToRadians(-90.f);
-        static osg::Quat yaw(VRbias, osg::Vec3f(0, 1, 0));
-        static osg::Quat pitch(2.f * VRbias, osg::Vec3f(0, 0, 1));
-        static osg::Quat roll (-VRbias, osg::Vec3f(1, 0, 0));
+        static osg::Quat yaw(VRbias, osg::Vec3f(0, 0, 1));
+        static osg::Quat pitch(2.f * VRbias, osg::Vec3f(0, 1, 0));
+        static osg::Quat roll (2.f * VRbias, osg::Vec3f(1, 0, 0));
 
         orientation = pitch * yaw * orientation;
 
 
         if (hand_transform->getName() == "tracker r hand")
             orientation = roll * orientation;
-        else
-            orientation = roll.inverse() * orientation;
         
         // Hand are by default not well-centered
-        // Note, these numbers are just a rough guess, but seem to work out well.
+        // These numbers are just a rough guess
         osg::Vec3 offcenter = osg::Vec3(-0.175, 0., .033);
         if (hand_transform->getName() == "tracker r hand")
             offcenter.z() *= -1.;
         osg::Vec3 recenter = orientation * offcenter;
-        position = position + recenter * mMetersPerUnit;
+        position = position + recenter * session->unitsPerMeter();
 
         hand_transform->setAttitude(orientation);
         hand_transform->setPosition(position);
