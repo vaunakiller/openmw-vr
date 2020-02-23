@@ -194,6 +194,15 @@ void OpenXRAnimation::updateParts()
     removeIndividualPart(ESM::PartReferenceType::PRT_RForearm);
     removeIndividualPart(ESM::PartReferenceType::PRT_RUpperarm);
     removeIndividualPart(ESM::PartReferenceType::PRT_RWrist);
+    removeIndividualPart(ESM::PartReferenceType::PRT_Cuirass);
+    removeIndividualPart(ESM::PartReferenceType::PRT_Groin);
+    removeIndividualPart(ESM::PartReferenceType::PRT_Neck);
+    removeIndividualPart(ESM::PartReferenceType::PRT_Skirt);
+    removeIndividualPart(ESM::PartReferenceType::PRT_Tail);
+    removeIndividualPart(ESM::PartReferenceType::PRT_LLeg);
+    removeIndividualPart(ESM::PartReferenceType::PRT_RLeg);
+    removeIndividualPart(ESM::PartReferenceType::PRT_LAnkle);
+    removeIndividualPart(ESM::PartReferenceType::PRT_RAnkle);
 }
 void OpenXRAnimation::setPointForward(bool enabled)
 {

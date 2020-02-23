@@ -116,22 +116,24 @@ namespace MWRender
         if (mTrackingPtr.isEmpty())
             return;
 
-        osg::Vec3d position = getFocalPoint();
+        osg::Quat orient = osg::Quat(getPitch(), osg::Vec3d(1,0,0)) * osg::Quat(getRoll(), osg::Vec3d(0, 1, 0)) * osg::Quat(getYaw(), osg::Vec3d(0,0,1));
 
+        osg::Vec3d position = getFocalPoint();
 
 #ifdef USE_OPENXR
         auto inputManager = MWBase::Environment::get().getXRInputManager();
         if (inputManager)
         {
             position += inputManager->mHeadOffset;
+            // To show the body, we'll need a neck offset for comfort
+            // This won't do as it will mess with tracking when the player turns his head
+            //position += orient * osg::Vec3(0, 15, 0);
         }
-#endif
-
-        osg::Quat orient = osg::Quat(getPitch(), osg::Vec3d(1,0,0)) * osg::Quat(getRoll(), osg::Vec3d(0, 1, 0)) * osg::Quat(getYaw(), osg::Vec3d(0,0,1));
-
-
+#else
         osg::Vec3d offset = orient * osg::Vec3d(0, isFirstPerson() ? 0 : -mCameraDistance, 0);
         position += offset;
+#endif
+
 
         osg::Vec3d forward = orient * osg::Vec3d(0,1,0);
         osg::Vec3d up = orient * osg::Vec3d(0,0,1);
@@ -343,10 +345,6 @@ namespace MWRender
 
     void Camera::setPitch(float angle)
     {
-//#ifdef USE_OPENXR
-//        // Pitch is defined purely by the HMD.
-//        return (void)angle;
-//#endif
         const float epsilon = 0.000001f;
         float limit = osg::PI_2 - epsilon;
         if(mPreviewMode)

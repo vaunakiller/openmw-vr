@@ -42,6 +42,7 @@
 
 #ifdef USE_OPENXR
 #include "../mwvr/openxrsession.hpp"
+#include "../mwvr/openxrinputmanager.hpp"
 #endif
 
 #include "collisiontype.hpp"
@@ -383,6 +384,81 @@ namespace MWPhysics
             Stepper stepper(collisionWorld, colobj);
             osg::Vec3f origVelocity = velocity;
             osg::Vec3f newPosition = position;
+
+#ifdef USE_OPENXR
+            if (isPlayer)
+            {
+                auto inputManager = MWBase::Environment::get().getXRInputManager();
+
+                osg::Vec3 trackingOffset = inputManager->mHeadOffset;
+                // Player's tracking height should not affect character position
+                trackingOffset.z() = 0;
+
+                float remainingTime = time;
+                float remainder = 1.f;
+
+                for (int iterations = 0; iterations < sMaxIterations && remainingTime > 0.01f && remainder > 0.01; ++iterations)
+                {
+                    osg::Vec3 toMove = trackingOffset * remainder;
+                    osg::Vec3 nextpos = newPosition + toMove;
+
+                    if ((newPosition - nextpos).length2() > 0.0001)
+                    {
+                        // trace to where character would go if there were no obstructions
+                        tracer.doTrace(colobj, newPosition, nextpos, collisionWorld);
+
+                        // check for obstructions
+                        if (tracer.mFraction >= 1.0f)
+                        {
+                            newPosition = tracer.mEndPos; // ok to move, so set newPosition
+                            remainder = 0.f;
+                            break;
+                        }
+                    }
+                    else
+                    {
+                        // The current position and next position are nearly the same, so just exit.
+                        // Note: Bullet can trigger an assert in debug modes if the positions
+                        // are the same, since that causes it to attempt to normalize a zero
+                        // length vector (which can also happen with nearly identical vectors, since
+                        // precision can be lost due to any math Bullet does internally). Since we
+                        // aren't performing any collision detection, we want to reject the next
+                        // position, so that we don't slowly move inside another object.
+                        remainder = 0.f;
+                        break;
+                    }
+                    // We are touching something.
+                    if (tracer.mFraction < 1E-9f)
+                    {
+                        // Try to separate by backing off slighly to unstuck the solver
+                        osg::Vec3f backOff = (newPosition - tracer.mHitPoint) * 1E-2f;
+                        newPosition += backOff;
+                    }
+
+                    // We hit something. Check if we can step up.
+                    float hitHeight = tracer.mHitPoint.z() - tracer.mEndPos.z() + halfExtents.z();
+                    osg::Vec3f oldPosition = newPosition;
+                    bool result = false;
+                    if (hitHeight < sStepSizeUp && !isActor(tracer.mHitObject))
+                    {
+                        // Try to step up onto it.
+                        // NOTE: stepMove does not allow stepping over, modifies newPosition if successful
+                        result = stepper.step(newPosition, toMove, remainingTime);
+                        remainder = remainingTime / time;
+                    }
+                }
+
+                // Best effort attempt and not losing any tracking
+                osg::Vec3 moved = newPosition - position;
+                inputManager->mHeadOffset.x() -= moved.x();
+                inputManager->mHeadOffset.y() -= moved.y();
+
+                Log(Debug::Verbose) << "trackingOffset: " << trackingOffset << ", remainder=" << remainder << ", moved=" << moved;
+
+            }
+#endif
+
+
             /*
              * A loop to find newPosition using tracer, if successful different from the starting position.
              * nextpos is the local variable used to find potential newPosition, using velocity and remainingTime
@@ -391,7 +467,7 @@ namespace MWPhysics
             float remainingTime = time;
             for(int iterations = 0; iterations < sMaxIterations && remainingTime > 0.01f; ++iterations)
             {
-                osg::Vec3f nextpos = newPosition + velocity * remainingTime;
+                osg::Vec3 nextpos = newPosition + velocity * remainingTime;
 
                 // If not able to fly, don't allow to swim up into the air
                 if(!isFlying &&                   // can't fly

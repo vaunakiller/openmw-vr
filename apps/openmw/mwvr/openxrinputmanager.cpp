@@ -971,6 +971,7 @@ namespace MWVR
         auto* session = MWBase::Environment::get().getXRSession();
 
         auto currentHeadPose = session->predictedPoses().head[(int)TrackedSpace::STAGE];
+        session->mXR->playerScale(currentHeadPose);
         currentHeadPose.position *= session->unitsPerMeter();
         osg::Vec3 vrMovement = currentHeadPose.position - mPreviousHeadPose.position;
         mPreviousHeadPose = currentHeadPose;
@@ -999,7 +1000,7 @@ namespace MWVR
             world->rotateObject(player, rot[0], rot[1], rot[2], MWBase::RotationFlag_none);
         }
 
-        // Z will and should not be caught by the characyer
+        // Z should not be affected
         mHeadOffset.z() = currentHeadPose.position.z();
     }
 }
