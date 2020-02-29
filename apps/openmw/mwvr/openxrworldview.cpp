@@ -1,4 +1,5 @@
 #include "openxrworldview.hpp"
+#include "openxrenvironment.hpp"
 #include "openxrmanager.hpp"
 #include "openxrmanagerimpl.hpp"
 #include "../mwinput/inputmanagerimp.hpp"
@@ -99,7 +100,7 @@ namespace MWVR
     {
         MWVR::Pose pose = predictedPose();
         mXR->playerScale(pose);
-        osg::Vec3 position = pose.position * mUnitsPerMeter;
+        osg::Vec3 position = pose.position * OpenXREnvironment::get().unitsPerMeter();
         osg::Quat orientation = pose.orientation;
 
         float y = position.y();
@@ -123,10 +124,8 @@ namespace MWVR
         osg::ref_ptr<OpenXRManager> XR, 
         std::string name, 
         osg::ref_ptr<osg::State> state, 
-        OpenXRSwapchain::Config config,
-        float unitsPerMeter)
+        OpenXRSwapchain::Config config)
         : OpenXRView(XR, name, config, state)
-        , mUnitsPerMeter(unitsPerMeter)
     {
     }
 
@@ -167,7 +166,7 @@ namespace MWVR
             // Updating the head pose needs to happen after waitFrame(),
             // But i can't call waitFrame from the input manager since it might
             // not always be active.
-            auto inputManager = MWBase::Environment::get().getXRInputManager();
+            auto* inputManager = OpenXREnvironment::get().getInputManager();
             if (inputManager)
                 inputManager->updateHead();
 
@@ -191,8 +190,5 @@ namespace MWVR
         camera->setViewMatrix(modifiedViewMatrix);
         camera->setProjectionMatrix(projectionMatrix);
         slave.updateSlaveImplementation(view);
-
-
-
     }
 }

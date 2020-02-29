@@ -25,12 +25,11 @@ namespace MWVR
         class RealizeOperation : public OpenXRManager::RealizeOperation
         {
         public:
-            RealizeOperation(osg::ref_ptr<OpenXRManager> XR, osg::ref_ptr<OpenXRViewer> viewer) : OpenXRManager::RealizeOperation(XR), mViewer(viewer) {};
+            RealizeOperation() {};
             void operator()(osg::GraphicsContext* gc) override;
             bool realized() override;
 
         private:
-            osg::ref_ptr<OpenXRViewer> mViewer;
         };
 
         class SwapBuffersCallback : public osg::GraphicsContext::SwapCallback
@@ -84,7 +83,6 @@ namespace MWVR
 
     public:
         OpenXRViewer(
-            osg::ref_ptr<OpenXRManager> XR,
             osg::ref_ptr<osgViewer::Viewer> viewer);
 
         ~OpenXRViewer(void);
@@ -107,7 +105,6 @@ namespace MWVR
 
     public:
 
-        osg::observer_ptr<OpenXRManager> mXR = nullptr;
         std::unique_ptr<XrCompositionLayerProjection> mLayer = nullptr;
         std::vector<XrCompositionLayerProjectionView> mCompositionLayerProjectionViews;
         osg::ref_ptr<OpenXRManager::RealizeOperation> mRealizeOperation = nullptr;
@@ -126,9 +123,6 @@ namespace MWVR
         std::mutex mMutex;
 
         bool mConfigured{ false };
-
-        osg::ref_ptr<osg::Group> mMenusRoot{ new osg::Group };
-        std::unique_ptr<OpenXRMenu> mMenus{ nullptr };
     };
 }
 

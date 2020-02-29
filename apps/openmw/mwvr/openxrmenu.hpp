@@ -42,6 +42,25 @@ namespace MWVR
         osg::ref_ptr<osg::Geode> mGeode{ new osg::Geode };
         osg::ref_ptr<osg::PositionAttitudeTransform> mTransform{ new osg::PositionAttitudeTransform() };
     };
+
+    class OpenXRMenuManager
+    {
+    public:
+        OpenXRMenuManager(
+            osg::ref_ptr<osgViewer::Viewer> viewer);
+
+        ~OpenXRMenuManager(void);
+
+        void showMenus(bool show);
+
+        void updatePose(Pose pose);
+
+    private:
+        Pose pose{};
+        osg::ref_ptr<osgViewer::Viewer> mOsgViewer{ nullptr };
+        osg::ref_ptr<osg::Group> mMenusRoot{ new osg::Group };
+        std::unique_ptr<OpenXRMenu> mMenu{ nullptr };
+    };
 }
 
 #endif

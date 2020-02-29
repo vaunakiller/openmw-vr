@@ -25,7 +25,7 @@ class OpenXRSession
     using time_point = clock::time_point;
 
 public:
-    OpenXRSession(osg::ref_ptr<OpenXRManager> XR, float unitsPerMeter);
+    OpenXRSession();
     ~OpenXRSession();
 
     void setLayer(OpenXRLayerStack::Layer layerType, OpenXRLayer* layer);
@@ -46,11 +46,7 @@ public:
     //! Yaw angle to be used for offsetting movement direction
     float movementYaw(void);
 
-    float unitsPerMeter() const { return mUnitsPerMeter; };
-
-    osg::ref_ptr<OpenXRManager> mXR;
     OpenXRLayerStack mLayerStack{};
-    float mUnitsPerMeter = 1.f;
 
     PoseSets mPredictedPoses{};
     bool mPredictionsReady{ false };

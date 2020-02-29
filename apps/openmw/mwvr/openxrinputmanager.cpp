@@ -1,4 +1,5 @@
 #include "openxrinputmanager.hpp"
+#include "openxrenvironment.hpp"
 #include "openxrmanager.hpp"
 #include "openxrmanagerimpl.hpp"
 
@@ -63,7 +64,7 @@ namespace MWVR
         OpenXRAction(const OpenXRAction&) = default;
         OpenXRAction& operator=(const OpenXRAction&) = default;
     public:
-        OpenXRAction(osg::ref_ptr<OpenXRManager> XR, XrAction action, XrActionType actionType, const std::string& actionName, const std::string& localName);
+        OpenXRAction(XrAction action, XrActionType actionType, const std::string& actionName, const std::string& localName);
         ~OpenXRAction();
 
 
@@ -74,7 +75,6 @@ namespace MWVR
         bool getPose(XrPath subactionPath);
         bool applyHaptics(XrPath subactionPath, float amplitude);
 
-        osg::ref_ptr<OpenXRManager> mXR = nullptr;
         XrAction mAction = XR_NULL_HANDLE;
         XrActionType mType;
         std::string mName;
@@ -182,7 +182,7 @@ namespace MWVR
 
         ControllerActionPaths generateControllerActionPaths(const std::string& controllerAction);
 
-        OpenXRInput(osg::ref_ptr<OpenXRManager> XR);
+        OpenXRInput();
 
         OpenXRAction createAction(XrActionType actionType, const std::string& actionName, const std::string& localName, const std::vector<SubAction>& subActions = {});
 
@@ -194,7 +194,6 @@ namespace MWVR
         bool nextActionEvent(OpenXRActionEvent& action);
         PoseSet getHandPoses(int64_t time, TrackedSpace space);
 
-        osg::ref_ptr<OpenXRManager> mXR;
         SubActionPaths mSubactionPath;
         XrActionSet mActionSet = XR_NULL_HANDLE;
 
@@ -262,12 +261,13 @@ namespace MWVR
     XrActionSet
         OpenXRInput::createActionSet()
     {
+        auto* xr = OpenXREnvironment::get().getManager();
         XrActionSet actionSet = XR_NULL_HANDLE;
         XrActionSetCreateInfo createInfo{ XR_TYPE_ACTION_SET_CREATE_INFO };
         strcpy_s(createInfo.actionSetName, "gameplay");
         strcpy_s(createInfo.localizedActionSetName, "Gameplay");
         createInfo.priority = 0;
-        CHECK_XRCMD(xrCreateActionSet(mXR->impl().mInstance, &createInfo, &actionSet));
+        CHECK_XRCMD(xrCreateActionSet(xr->impl().mInstance, &createInfo, &actionSet));
         return actionSet;
     }
 
@@ -283,13 +283,11 @@ namespace MWVR
 
 
     OpenXRAction::OpenXRAction(
-        osg::ref_ptr<OpenXRManager> XR,
         XrAction action,
         XrActionType actionType,
         const std::string& actionName,
         const std::string& localName)
-        : mXR(XR)
-        , mAction(action)
+        : mAction(action)
         , mType(actionType)
         , mName(actionName)
         , mLocalName(localName)
@@ -306,12 +304,13 @@ namespace MWVR
 
     bool OpenXRAction::getFloat(XrPath subactionPath, float& value)
     {
+        auto* xr = OpenXREnvironment::get().getManager();
         XrActionStateGetInfo getInfo{ XR_TYPE_ACTION_STATE_GET_INFO };
         getInfo.action = mAction;
         getInfo.subactionPath = subactionPath;
 
         XrActionStateFloat xrValue{ XR_TYPE_ACTION_STATE_FLOAT };
-        CHECK_XRCMD(xrGetActionStateFloat(mXR->impl().mSession, &getInfo, &xrValue));
+        CHECK_XRCMD(xrGetActionStateFloat(xr->impl().mSession, &getInfo, &xrValue));
 
         if (xrValue.isActive)
             value = xrValue.currentState;
@@ -320,12 +319,13 @@ namespace MWVR
 
     bool OpenXRAction::getBool(XrPath subactionPath, bool& value)
     {
+        auto* xr = OpenXREnvironment::get().getManager();
         XrActionStateGetInfo getInfo{ XR_TYPE_ACTION_STATE_GET_INFO };
         getInfo.action = mAction;
         getInfo.subactionPath = subactionPath;
 
         XrActionStateBoolean xrValue{ XR_TYPE_ACTION_STATE_BOOLEAN };
-        CHECK_XRCMD(xrGetActionStateBoolean(mXR->impl().mSession, &getInfo, &xrValue));
+        CHECK_XRCMD(xrGetActionStateBoolean(xr->impl().mSession, &getInfo, &xrValue));
 
         if (xrValue.isActive)
             value = xrValue.currentState;
@@ -335,18 +335,20 @@ namespace MWVR
     // Pose action only checks if the pose is active or not
     bool OpenXRAction::getPose(XrPath subactionPath)
     {
+        auto* xr = OpenXREnvironment::get().getManager();
         XrActionStateGetInfo getInfo{ XR_TYPE_ACTION_STATE_GET_INFO };
         getInfo.action = mAction;
         getInfo.subactionPath = subactionPath;
 
         XrActionStatePose xrValue{ XR_TYPE_ACTION_STATE_POSE };
-        CHECK_XRCMD(xrGetActionStatePose(mXR->impl().mSession, &getInfo, &xrValue));
+        CHECK_XRCMD(xrGetActionStatePose(xr->impl().mSession, &getInfo, &xrValue));
 
         return xrValue.isActive;
     }
 
     bool OpenXRAction::applyHaptics(XrPath subactionPath, float amplitude)
     {
+        auto* xr = OpenXREnvironment::get().getManager();
         XrHapticVibration vibration{ XR_TYPE_HAPTIC_VIBRATION };
         vibration.amplitude = amplitude;
         vibration.duration = XR_MIN_HAPTIC_DURATION;
@@ -355,7 +357,7 @@ namespace MWVR
         XrHapticActionInfo hapticActionInfo{ XR_TYPE_HAPTIC_ACTION_INFO };
         hapticActionInfo.action = mAction;
         hapticActionInfo.subactionPath = subactionPath;
-        CHECK_XRCMD(xrApplyHapticFeedback(mXR->impl().mSession, &hapticActionInfo, (XrHapticBaseHeader*)&vibration));
+        CHECK_XRCMD(xrApplyHapticFeedback(xr->impl().mSession, &hapticActionInfo, (XrHapticBaseHeader*)&vibration));
         return true;
     }
 
@@ -408,23 +410,22 @@ namespace MWVR
         OpenXRInput::generateControllerActionPaths(
             const std::string& controllerAction)
     {
+        auto* xr = OpenXREnvironment::get().getManager();
         ControllerActionPaths actionPaths;
 
         std::string left = std::string("/user/hand/left") + controllerAction;
         std::string right = std::string("/user/hand/right") + controllerAction;
         std::string pad = std::string("/user/gamepad") + controllerAction;
 
-        CHECK_XRCMD(xrStringToPath(mXR->impl().mInstance, left.c_str(), &actionPaths[LEFT_HAND]));
-        CHECK_XRCMD(xrStringToPath(mXR->impl().mInstance, right.c_str(), &actionPaths[RIGHT_HAND]));
-        CHECK_XRCMD(xrStringToPath(mXR->impl().mInstance, pad.c_str(), &actionPaths[GAMEPAD]));
+        CHECK_XRCMD(xrStringToPath(xr->impl().mInstance, left.c_str(), &actionPaths[LEFT_HAND]));
+        CHECK_XRCMD(xrStringToPath(xr->impl().mInstance, right.c_str(), &actionPaths[RIGHT_HAND]));
+        CHECK_XRCMD(xrStringToPath(xr->impl().mInstance, pad.c_str(), &actionPaths[GAMEPAD]));
 
         return actionPaths;
     }
 
-    OpenXRInput::OpenXRInput(
-        osg::ref_ptr<OpenXRManager> XR)
-        : mXR(XR)
-        , mSubactionPath{ {
+    OpenXRInput::OpenXRInput()
+        : mSubactionPath{ {
                 generateXrPath("/user/hand/left"),
                 generateXrPath("/user/hand/right"),
                 generateXrPath("/user/gamepad"),
@@ -468,10 +469,11 @@ namespace MWVR
         , mHandPoseAction(std::move(createAction(XR_ACTION_TYPE_POSE_INPUT, "hand_pose", "Hand Pose", { LEFT_HAND, RIGHT_HAND })))
         , mHapticsAction(std::move(createAction(XR_ACTION_TYPE_VIBRATION_OUTPUT, "vibrate_hand", "Vibrate Hand", { LEFT_HAND, RIGHT_HAND })))
     {
+        auto* xr = OpenXREnvironment::get().getManager();
         { // Set up default bindings for the oculus
             XrPath oculusTouchInteractionProfilePath;
             CHECK_XRCMD(
-                xrStringToPath(XR->impl().mInstance, "/interaction_profiles/oculus/touch_controller", &oculusTouchInteractionProfilePath));
+                xrStringToPath(xr->impl().mInstance, "/interaction_profiles/oculus/touch_controller", &oculusTouchInteractionProfilePath));
             std::vector<XrActionSuggestedBinding> bindings{ {
                 {mHandPoseAction, mPosePath[LEFT_HAND]},
                 {mHandPoseAction, mPosePath[RIGHT_HAND]},
@@ -500,7 +502,7 @@ namespace MWVR
             suggestedBindings.interactionProfile = oculusTouchInteractionProfilePath;
             suggestedBindings.suggestedBindings = bindings.data();
             suggestedBindings.countSuggestedBindings = (uint32_t)bindings.size();
-            CHECK_XRCMD(xrSuggestInteractionProfileBindings(XR->impl().mInstance, &suggestedBindings));
+            CHECK_XRCMD(xrSuggestInteractionProfileBindings(xr->impl().mInstance, &suggestedBindings));
 
             /*
             mSpellModifier; //  L-Squeeze
@@ -527,16 +529,16 @@ namespace MWVR
             createInfo.action = mHandPoseAction;
             createInfo.poseInActionSpace.orientation.w = 1.f;
             createInfo.subactionPath = mSubactionPath[LEFT_HAND];
-            CHECK_XRCMD(xrCreateActionSpace(XR->impl().mSession, &createInfo, &mHandSpace[LEFT_HAND]));
+            CHECK_XRCMD(xrCreateActionSpace(xr->impl().mSession, &createInfo, &mHandSpace[LEFT_HAND]));
             createInfo.subactionPath = mSubactionPath[RIGHT_HAND];
-            CHECK_XRCMD(xrCreateActionSpace(XR->impl().mSession, &createInfo, &mHandSpace[RIGHT_HAND]));
+            CHECK_XRCMD(xrCreateActionSpace(xr->impl().mSession, &createInfo, &mHandSpace[RIGHT_HAND]));
         }
 
         { // Set up the action set
             XrSessionActionSetsAttachInfo attachInfo{ XR_TYPE_SESSION_ACTION_SETS_ATTACH_INFO };
             attachInfo.countActionSets = 1;
             attachInfo.actionSets = &mActionSet;
-            CHECK_XRCMD(xrAttachSessionActionSets(XR->impl().mSession, &attachInfo));
+            CHECK_XRCMD(xrAttachSessionActionSets(xr->impl().mSession, &attachInfo));
         }
     };
 
@@ -563,7 +565,8 @@ namespace MWVR
 
         XrAction action = XR_NULL_HANDLE;
         CHECK_XRCMD(xrCreateAction(mActionSet, &createInfo, &action));
-        return OpenXRAction(mXR, action, actionType, actionName, localName);
+
+        return OpenXRAction(action, actionType, actionName, localName);
     }
 
     XrPath 
@@ -578,7 +581,8 @@ namespace MWVR
     void 
         OpenXRInput::updateControls()
     {
-        if (!mXR->impl().mSessionRunning)
+        auto* xr = OpenXREnvironment::get().getManager();
+        if (!xr->impl().mSessionRunning)
             return;
 
 
@@ -586,7 +590,7 @@ namespace MWVR
         XrActionsSyncInfo syncInfo{ XR_TYPE_ACTIONS_SYNC_INFO };
         syncInfo.countActiveActionSets = 1;
         syncInfo.activeActionSets = &activeActionSet;
-        CHECK_XRCMD(xrSyncActions(mXR->impl().mSession, &syncInfo));
+        CHECK_XRCMD(xrSyncActions(xr->impl().mSession, &syncInfo));
 
         mGameMenu.update();
         mInventory.update();
@@ -686,8 +690,9 @@ namespace MWVR
 
     XrPath OpenXRInput::generateXrPath(const std::string& path)
     {
+        auto* xr = OpenXREnvironment::get().getManager();
         XrPath xrpath = 0;
-        CHECK_XRCMD(xrStringToPath(mXR->impl().mInstance, path.c_str(), &xrpath));
+        CHECK_XRCMD(xrStringToPath(xr->impl().mInstance, path.c_str(), &xrpath));
         return xrpath;
     }
 
@@ -709,12 +714,13 @@ namespace MWVR
             int64_t time,
             TrackedSpace space)
     {
+        auto* xr = OpenXREnvironment::get().getManager();
         PoseSet handPoses{};
         XrSpace referenceSpace = XR_NULL_HANDLE;
         if(space == TrackedSpace::STAGE)
-            referenceSpace = mXR->impl().mReferenceSpaceStage;
+            referenceSpace = xr->impl().mReferenceSpaceStage;
         if(space == TrackedSpace::VIEW)
-            referenceSpace = mXR->impl().mReferenceSpaceView;
+            referenceSpace = xr->impl().mReferenceSpaceView;
 
         XrSpaceLocation location{ XR_TYPE_SPACE_LOCATION };
         XrSpaceVelocity velocity{ XR_TYPE_SPACE_VELOCITY };
@@ -750,7 +756,7 @@ namespace MWVR
 
     OpenXRInputManager::OpenXRInputManager(
         SDL_Window* window,
-        osg::ref_ptr<OpenXRViewer> viewer, 
+        osg::ref_ptr<osgViewer::Viewer> viewer, 
         osg::ref_ptr<osgViewer::ScreenCaptureHandler> screenCaptureHandler, 
         osgViewer::ScreenCaptureHandler::CaptureOperation* screenCaptureOperation, 
         const std::string& userFile, 
@@ -760,7 +766,7 @@ namespace MWVR
         bool grab)
         : MWInput::InputManager(
             window, 
-            viewer->mViewer, 
+            viewer, 
             screenCaptureHandler,
             screenCaptureOperation,
             userFile,
@@ -768,7 +774,7 @@ namespace MWVR
             userControllerBindingsFile,
             controllerBindingsFile,
             grab)
-        , mXRInput(new OpenXRInput(viewer->mXR))
+        , mXRInput(new OpenXRInput())
     {
         // VR mode has no concept of these
         mControlSwitch["vanitymode"] = false;
@@ -793,10 +799,9 @@ namespace MWVR
         bool disableControls,
         bool disableEvents)
     {
+        auto* session = OpenXREnvironment::get().getSession();
 
         mXRInput->updateControls();
-
-        auto* session = MWBase::Environment::get().getXRSession();
 
         OpenXRActionEvent event{};
         while (mXRInput->nextActionEvent(event))
@@ -814,6 +819,7 @@ namespace MWVR
 
     void OpenXRInputManager::processEvent(const OpenXRActionEvent& event)
     {
+        auto* session = OpenXREnvironment::get().getSession();
         switch (event.action)
         {
         case A_GameMenu:
@@ -821,7 +827,7 @@ namespace MWVR
                 toggleMainMenu();
                 // Explicitly request position update here so that the player can move the menu
                 // using the menu key when the menu can't be toggled.
-                MWBase::Environment::get().getXRSession()->updateMenuPosition();
+                session->updateMenuPosition();
                 break;
         case A_Screenshot:
             screenshot();
@@ -968,10 +974,11 @@ namespace MWVR
         MWBase::World* world = MWBase::Environment::get().getWorld();
         auto player = mPlayer->getPlayer();
 
-        auto* session = MWBase::Environment::get().getXRSession();
+        auto* xr = OpenXREnvironment::get().getManager();
+        auto* session = OpenXREnvironment::get().getSession();
         auto currentHeadPose = session->predictedPoses().head[(int)TrackedSpace::STAGE];
-        session->mXR->playerScale(currentHeadPose);
-        currentHeadPose.position *= session->unitsPerMeter();
+        xr->playerScale(currentHeadPose);
+        currentHeadPose.position *= OpenXREnvironment::get().unitsPerMeter();
         osg::Vec3 vrMovement = currentHeadPose.position - mPreviousHeadPose.position;
         mPreviousHeadPose = currentHeadPose;
 
@@ -994,13 +1001,10 @@ namespace MWVR
             osg::Quat gameworldYaw = osg::Quat(mYaw, osg::Vec3(0, 0, -1));
             mHeadOffset += vrMovement;
 
-            Log(Debug::Verbose) << "Set head offset";
-
             mVrAngles[0] = pitch;
             mVrAngles[1] = roll;
             mVrAngles[2] = yaw;
             world->rotateObject(player, mVrAngles[0], mVrAngles[1], mVrAngles[2], MWBase::RotationFlag_none);
-            Log(Debug::Verbose) << "yaw=" << yaw << ", pitch=" << pitch << ", roll=" << roll;
             
             MWBase::Environment::get().getWorld()->getRenderingManager().getCamera()->updateCamera();
         }

@@ -97,4 +97,23 @@ namespace MWVR
     {
         // Doesn't need to do anything
     }
+
+    OpenXRMenuManager::OpenXRMenuManager(
+        osg::ref_ptr<osgViewer::Viewer> viewer)
+        : mOsgViewer(viewer)
+    {
+        mMenusRoot->setName("XR Menus Root");
+    }
+
+    OpenXRMenuManager::~OpenXRMenuManager(void)
+    {
+    }
+
+    void OpenXRMenuManager::showMenus(bool show)
+    {
+    }
+
+    void OpenXRMenuManager::updatePose(Pose pose)
+    {
+    }
 }

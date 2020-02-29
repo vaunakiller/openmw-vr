@@ -61,6 +61,7 @@
 
 #ifdef USE_OPENXR
 #include "mwvr/openxrinputmanager.hpp"
+#include "mwvr/openxrviewer.hpp"
 #endif
 
 namespace
@@ -548,7 +549,7 @@ void OMW::Engine::prepareEngine (Settings::Manager & settings)
         gameControllerdb = ""; //if it doesn't exist, pass in an empty string
     MWInput::InputManager* input =
 #ifdef USE_OPENXR
-        new MWVR::OpenXRInputManager(mWindow, mXRViewer, mScreenCaptureHandler, mScreenCaptureOperation, keybinderUser, keybinderUserExists, userGameControllerdb, gameControllerdb, mGrab);
+        new MWVR::OpenXRInputManager(mWindow, mViewer, mScreenCaptureHandler, mScreenCaptureOperation, keybinderUser, keybinderUserExists, userGameControllerdb, gameControllerdb, mGrab);
 #else
         new MWInput::InputManager (mWindow, mViewer, mScreenCaptureHandler, mScreenCaptureOperation, keybinderUser, keybinderUserExists, userGameControllerdb, gameControllerdb, mGrab);
 #endif
@@ -736,8 +737,9 @@ void OMW::Engine::go()
 
 #ifdef USE_OPENXR
     auto* root = mViewer->getSceneData();
-    mXRViewer->addChild(root);
-    mViewer->setSceneData(mXRViewer);
+    auto* xrViewer = MWVR::OpenXREnvironment::get().getViewer();
+    xrViewer->addChild(root);
+    mViewer->setSceneData(xrViewer);
 #ifndef _NDEBUG
     //mXR->addPoseUpdateCallback(new MWVR::PoseLogger(MWVR::TrackedLimb::HEAD, MWVR::TrackedSpace::STAGE));
     //mXR->addPoseUpdateCallback(new MWVR::PoseLogger(MWVR::TrackedLimb::HEAD, MWVR::TrackedSpace::VIEW));
@@ -798,7 +800,7 @@ void OMW::Engine::go()
             mEnvironment.getWorld()->updateWindowManager();
 
 #ifdef USE_OPENXR
-            mXRViewer->traversals();
+            xrViewer->traversals();
 #else
             mViewer->updateTraversal();
 

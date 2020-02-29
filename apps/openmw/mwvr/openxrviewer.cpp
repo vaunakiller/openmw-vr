@@ -2,6 +2,7 @@
 #include "openxrsession.hpp"
 #include "openxrmanagerimpl.hpp"
 #include "openxrinputmanager.hpp"
+#include "openxrenvironment.hpp"
 #include "Windows.h"
 #include "../mwrender/vismask.hpp"
 #include "../mwmechanics/actorutil.hpp"
@@ -17,12 +18,10 @@ namespace MWVR
 {
 
     OpenXRViewer::OpenXRViewer(
-        osg::ref_ptr<OpenXRManager> XR,
         osg::ref_ptr<osgViewer::Viewer> viewer)
         : osg::Group()
-        , mXR(XR)
         , mCompositionLayerProjectionViews(2, {XR_TYPE_COMPOSITION_LAYER_PROJECTION_VIEW})
-        , mRealizeOperation(new RealizeOperation(XR, this))
+        , mRealizeOperation(new RealizeOperation())
         , mViewer(viewer)
         , mPreDraw(new PredrawCallback(this))
         , mPostDraw(new PostdrawCallback(this))
@@ -42,10 +41,6 @@ namespace MWVR
         mRightHandTransform->setName("tracker r hand");
         mRightHandTransform->setUpdateCallback(new TrackedNodeUpdateCallback(this));
         this->addChild(mRightHandTransform);
-
-        // TODO: Left off here
-        mMenusRoot = new osg::Group();
-        mMenusRoot->setName("XR Menus Root");
     }
 
     OpenXRViewer::~OpenXRViewer(void)
@@ -69,7 +64,8 @@ namespace MWVR
 
     void OpenXRViewer::traversals()
     {
-        mXR->handleEvents();
+        auto* xr = OpenXREnvironment::get().getManager();
+        xr->handleEvents();
         mViewer->updateTraversal();
         mViewer->renderingTraversals();
     }
@@ -100,21 +96,23 @@ namespace MWVR
 
         osg::Vec4 clearColor = mainCamera->getClearColor();
 
-        if (!mXR->realized())
-            mXR->realize(context);
-        auto* session = MWBase::Environment::get().getXRSession();
+        auto* xr = OpenXREnvironment::get().getManager();
+        if (!xr->realized())
+            xr->realize(context);
+
+        auto* session = OpenXREnvironment::get().getSession();
 
         OpenXRSwapchain::Config leftConfig;
-        leftConfig.width = mXR->impl().mConfigViews[(int)Side::LEFT_HAND].recommendedImageRectWidth;
-        leftConfig.height = mXR->impl().mConfigViews[(int)Side::LEFT_HAND].recommendedImageRectHeight;
-        leftConfig.samples = mXR->impl().mConfigViews[(int)Side::LEFT_HAND].recommendedSwapchainSampleCount;
+        leftConfig.width = xr->impl().mConfigViews[(int)Side::LEFT_HAND].recommendedImageRectWidth;
+        leftConfig.height = xr->impl().mConfigViews[(int)Side::LEFT_HAND].recommendedImageRectHeight;
+        leftConfig.samples = xr->impl().mConfigViews[(int)Side::LEFT_HAND].recommendedSwapchainSampleCount;
         OpenXRSwapchain::Config rightConfig;
-        rightConfig.width = mXR->impl().mConfigViews[(int)Side::RIGHT_HAND].recommendedImageRectWidth;
-        rightConfig.height = mXR->impl().mConfigViews[(int)Side::RIGHT_HAND].recommendedImageRectHeight;
-        rightConfig.samples = mXR->impl().mConfigViews[(int)Side::RIGHT_HAND].recommendedSwapchainSampleCount;
+        rightConfig.width = xr->impl().mConfigViews[(int)Side::RIGHT_HAND].recommendedImageRectWidth;
+        rightConfig.height = xr->impl().mConfigViews[(int)Side::RIGHT_HAND].recommendedImageRectHeight;
+        rightConfig.samples = xr->impl().mConfigViews[(int)Side::RIGHT_HAND].recommendedSwapchainSampleCount;
 
-        auto leftView = new OpenXRWorldView(mXR, "LeftEye", context->getState(), leftConfig, session->unitsPerMeter());
-        auto rightView = new OpenXRWorldView(mXR, "RightEye", context->getState(), rightConfig, session->unitsPerMeter());
+        auto leftView = new OpenXRWorldView(xr, "LeftEye", context->getState(), leftConfig);
+        auto rightView = new OpenXRWorldView(xr, "RightEye", context->getState(), rightConfig);
 
         mViews["LeftEye"] = leftView;
         mViews["RightEye"] = rightView;
@@ -153,9 +151,9 @@ namespace MWVR
 
         // Mirror texture doesn't have to be an OpenXR swapchain.
         // It's just convenient.
-        mMirrorTextureSwapchain.reset(new OpenXRSwapchain(mXR, context->getState(), config));
+        mMirrorTextureSwapchain.reset(new OpenXRSwapchain(xr, context->getState(), config));
 
-        //auto menuView = new OpenXRMenu(mXR, config, context->getState(), "MainMenu", osg::Vec2(1.f, 1.f));
+        //auto menuView = new OpenXRMenu(xr, config, context->getState(), "MainMenu", osg::Vec2(1.f, 1.f));
         //mViews["MenuView"] = menuView;
         //auto menuCamera = mCameras["MenuView"] = menuView->createCamera(2, clearColor, context);
 
@@ -166,10 +164,11 @@ namespace MWVR
         //menuCamera->setPreDrawCallback(mPreDraw);
         //menuCamera->setPostDrawCallback(mPostDraw);
 
+        
 
         //mViewer->addSlave(menuCamera, true);
-        mViewer->getSlave(0)._updateSlaveCallback = new OpenXRWorldView::UpdateSlaveCallback(mXR, session, leftView, context);
-        mViewer->getSlave(1)._updateSlaveCallback = new OpenXRWorldView::UpdateSlaveCallback(mXR, session, rightView, context);
+        mViewer->getSlave(0)._updateSlaveCallback = new OpenXRWorldView::UpdateSlaveCallback(xr, session, leftView, context);
+        mViewer->getSlave(1)._updateSlaveCallback = new OpenXRWorldView::UpdateSlaveCallback(xr, session, rightView, context);
 
         mainCamera->getGraphicsContext()->setSwapCallback(new OpenXRViewer::SwapBuffersCallback(this));
         mainCamera->setGraphicsContext(nullptr);
@@ -211,7 +210,8 @@ namespace MWVR
         OpenXRViewer::SwapBuffersCallback::swapBuffersImplementation(
             osg::GraphicsContext* gc)
     {
-        MWBase::Environment::get().getXRSession()->swapBuffers(gc);
+        auto* session = OpenXREnvironment::get().getSession();
+        session->swapBuffers(gc);
     }
 
     void OpenXRViewer::swapBuffers(osg::GraphicsContext* gc)
@@ -219,6 +219,9 @@ namespace MWVR
 
         if (!mConfigured)
             return;
+
+        auto* session = OpenXREnvironment::get().getSession();
+        auto* xr = OpenXREnvironment::get().getManager();
 
         Timer timer("OpenXRViewer::SwapBuffers");
 
@@ -229,13 +232,13 @@ namespace MWVR
         rightView->swapBuffers(gc);
         timer.checkpoint("Views");
 
-        mCompositionLayerProjectionViews[0].pose = toXR(MWBase::Environment::get().getXRSession()->predictedPoses().eye[(int)TrackedSpace::STAGE][(int)Side::LEFT_HAND]);
-        mCompositionLayerProjectionViews[1].pose = toXR(MWBase::Environment::get().getXRSession()->predictedPoses().eye[(int)TrackedSpace::STAGE][(int)Side::RIGHT_HAND]);
+        mCompositionLayerProjectionViews[0].pose = toXR(session->predictedPoses().eye[(int)TrackedSpace::STAGE][(int)Side::LEFT_HAND]);
+        mCompositionLayerProjectionViews[1].pose = toXR(session->predictedPoses().eye[(int)TrackedSpace::STAGE][(int)Side::RIGHT_HAND]);
 
         timer.checkpoint("Poses");
 
         // TODO: Keep track of these in the session too.
-        auto stageViews = mXR->impl().getPredictedViews(mXR->impl().frameState().predictedDisplayTime, TrackedSpace::STAGE);
+        auto stageViews = xr->impl().getPredictedViews(xr->impl().frameState().predictedDisplayTime, TrackedSpace::STAGE);
         mCompositionLayerProjectionViews[0].fov = stageViews[0].fov;
         mCompositionLayerProjectionViews[1].fov = stageViews[1].fov;
         timer.checkpoint("Fovs");
@@ -245,7 +248,7 @@ namespace MWVR
         {
             mLayer.reset(new XrCompositionLayerProjection);
             mLayer->type = XR_TYPE_COMPOSITION_LAYER_PROJECTION;
-            mLayer->space = mXR->impl().mReferenceSpaceStage;
+            mLayer->space = xr->impl().mReferenceSpaceStage;
             mLayer->viewCount = 2;
             mLayer->views = mCompositionLayerProjectionViews.data();
         }
@@ -260,13 +263,14 @@ namespace MWVR
             osg::GraphicsContext* gc)
     {
         OpenXRManager::RealizeOperation::operator()(gc);
-        mViewer->realize(gc);
+
+        OpenXREnvironment::get().getViewer()->realize(gc);
     }
 
     bool
         OpenXRViewer::RealizeOperation::realized()
     {
-        return mViewer->realized();
+        return OpenXREnvironment::get().getViewer()->realized();
     }
 
     void OpenXRViewer::preDrawCallback(osg::RenderInfo& info)
@@ -277,10 +281,12 @@ namespace MWVR
 
         if (name == "LeftEye")
         {
-            if (mXR->sessionRunning())
+            auto* xr = OpenXREnvironment::get().getManager();
+            auto* session = OpenXREnvironment::get().getSession();
+            if (xr->sessionRunning())
             {
-                mXR->beginFrame();
-                auto& poses = MWBase::Environment::get().getXRSession()->predictedPoses();
+                xr->beginFrame();
+                auto& poses = session->predictedPoses();
                 //auto menuPose = poses.head[(int)TrackedSpace::STAGE];
                 //mViews["MenuView"]->setPredictedPose(menuPose);
             }
@@ -314,7 +320,8 @@ namespace MWVR
             return;
         }
 
-        auto session = MWBase::Environment::get().getXRSession();
+        auto* xr = OpenXREnvironment::get().getManager();
+        auto* session = OpenXREnvironment::get().getSession();
         auto& poses = session->predictedPoses();
         auto handPosesStage = poses.hands[(int)TrackedSpace::STAGE];
         int side = (int)Side::LEFT_HAND;
@@ -325,18 +332,18 @@ namespace MWVR
 
         MWVR::Pose handStage = handPosesStage[side];
         MWVR::Pose headStage = poses.head[(int)TrackedSpace::STAGE];
-        mXR->playerScale(handStage);
-        mXR->playerScale(headStage);
+        xr->playerScale(handStage);
+        xr->playerScale(headStage);
         auto orientation = handStage.orientation;
         auto position = handStage.position - headStage.position;
-        position = position * session->unitsPerMeter();
+        position = position * OpenXREnvironment::get().unitsPerMeter();
 
         auto camera = mViewer->getCamera();
         auto viewMatrix = camera->getViewMatrix();
 
 
         // Align orientation with the game world
-        auto inputManager = MWBase::Environment::get().getXRInputManager();
+        auto* inputManager = OpenXREnvironment::get().getInputManager();
         if (inputManager)
         {
             auto playerYaw = osg::Quat(-inputManager->mYaw, osg::Vec3d(0, 0, 1));
@@ -371,7 +378,7 @@ namespace MWVR
         if (hand_transform->getName() == "tracker r hand")
             offcenter.z() *= -1.;
         osg::Vec3 recenter = orientation * offcenter;
-        position = position + recenter * session->unitsPerMeter();
+        position = position + recenter * OpenXREnvironment::get().unitsPerMeter();
 
         hand_transform->setAttitude(orientation);
         hand_transform->setPosition(position);

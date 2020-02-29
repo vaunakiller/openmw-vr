@@ -200,26 +200,3 @@ const MWBase::Environment& MWBase::Environment::get()
     return *sThis;
 }
 
-#ifdef USE_OPENXR
-#include "../mwvr/openxrinputmanager.hpp"
-#include "../mwvr/openxrsession.hpp"
-
-MWVR::OpenXRInputManager* MWBase::Environment::getXRInputManager() const
-{
-    assert(mInputManager);
-    auto xrInputManager = dynamic_cast<MWVR::OpenXRInputManager*>(mInputManager);
-    assert(xrInputManager);
-    return xrInputManager;
-}
-
-MWVR::OpenXRSession* MWBase::Environment::getXRSession() const
-{
-    return mXrSession;
-}
-
-void MWBase::Environment::setXRSession(MWVR::OpenXRSession* xrSession)
-{
-    mXrSession = xrSession;
-}
-
-#endif

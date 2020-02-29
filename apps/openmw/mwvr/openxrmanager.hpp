@@ -85,22 +85,20 @@ namespace MWVR
         class RealizeOperation : public osg::GraphicsOperation
         {
         public:
-            RealizeOperation(osg::ref_ptr<OpenXRManager> XR) : osg::GraphicsOperation("OpenXRRealizeOperation", false), mXR(XR) {};
+            RealizeOperation() : osg::GraphicsOperation("OpenXRRealizeOperation", false){};
             void operator()(osg::GraphicsContext* gc) override;
             virtual bool realized();
 
         private:
-            osg::ref_ptr<OpenXRManager> mXR;
         };
 
         class CleanupOperation : public osg::GraphicsOperation
         {
         public:
-            CleanupOperation(osg::ref_ptr<OpenXRManager> XR) : osg::GraphicsOperation("OpenXRCleanupOperation", false), mXR(XR) {};
+            CleanupOperation() : osg::GraphicsOperation("OpenXRCleanupOperation", false) {};
             void operator()(osg::GraphicsContext* gc) override;
 
         private:
-            osg::ref_ptr<OpenXRManager> mXR;
         };
 
     public:

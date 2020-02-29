@@ -26,15 +26,13 @@ namespace MWVR
         };
 
     public:
-        OpenXRWorldView(osg::ref_ptr<OpenXRManager> XR, std::string name, osg::ref_ptr<osg::State> state, OpenXRSwapchain::Config config, float unitsPerMeter);
+        OpenXRWorldView(osg::ref_ptr<OpenXRManager> XR, std::string name, osg::ref_ptr<osg::State> state, OpenXRSwapchain::Config config);
         ~OpenXRWorldView();
 
         //! Projection offset for this view
         osg::Matrix projectionMatrix();
         //! View offset for this view
         osg::Matrix viewMatrix();
-
-        float mUnitsPerMeter = 1.f;
     };
 }
 

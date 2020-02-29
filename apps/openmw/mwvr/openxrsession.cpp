@@ -1,3 +1,4 @@
+#include "openxrenvironment.hpp"
 #include "openxrmanager.hpp"
 #include "openxrmanagerimpl.hpp"
 #include "openxrinputmanager.hpp"
@@ -26,11 +27,7 @@
 
 namespace MWVR
 {
-    OpenXRSession::OpenXRSession(
-        osg::ref_ptr<OpenXRManager> XR, 
-        float unitsPerMeter)
-        : mXR(XR)
-        , mUnitsPerMeter(unitsPerMeter)
+    OpenXRSession::OpenXRSession()
     {
     }
 
@@ -48,8 +45,10 @@ namespace MWVR
     void OpenXRSession::swapBuffers(osg::GraphicsContext* gc)
     {
         Timer timer("OpenXRSession::SwapBuffers");
-        static int wat = 0;
-        if (!mXR->sessionRunning())
+        
+        auto* xr = OpenXREnvironment::get().getManager();
+
+        if (!xr->sessionRunning())
             return;
         if (!mPredictionsReady)
             return;
@@ -60,17 +59,18 @@ namespace MWVR
 
         timer.checkpoint("Rendered");
 
-        mXR->endFrame(mXR->impl().frameState().predictedDisplayTime, &mLayerStack);
+        xr->endFrame(xr->impl().frameState().predictedDisplayTime, &mLayerStack);
     }
 
     void OpenXRSession::waitFrame()
     {
-        mXR->handleEvents();
-        if (!mXR->sessionRunning())
+        auto* xr = OpenXREnvironment::get().getManager();
+        xr->handleEvents();
+        if (!xr->sessionRunning())
             return;
 
         Timer timer("OpenXRSession::waitFrame");
-        mXR->waitFrame();
+        xr->waitFrame();
         timer.checkpoint("waitFrame");
         predictNext(0);
 
@@ -152,26 +152,26 @@ namespace MWVR
 
     void OpenXRSession::predictNext(int extraPeriods)
     {
-        auto mPredictedDisplayTime = mXR->impl().frameState().predictedDisplayTime;
-
-        auto input = MWBase::Environment::get().getXRInputManager();
+        auto* xr = OpenXREnvironment::get().getManager();
+        auto* input = OpenXREnvironment::get().getInputManager();
+        auto mPredictedDisplayTime = xr->impl().frameState().predictedDisplayTime;
 
         auto previousHeadPose = mPredictedPoses.head[(int)TrackedSpace::STAGE];
 
         // Update pose predictions
-        mPredictedPoses.head[(int)TrackedSpace::STAGE] = mXR->impl().getPredictedLimbPose(mPredictedDisplayTime, TrackedLimb::HEAD, TrackedSpace::STAGE);
-        mPredictedPoses.head[(int)TrackedSpace::VIEW] = mXR->impl().getPredictedLimbPose(mPredictedDisplayTime, TrackedLimb::HEAD, TrackedSpace::VIEW);
+        mPredictedPoses.head[(int)TrackedSpace::STAGE] = xr->impl().getPredictedLimbPose(mPredictedDisplayTime, TrackedLimb::HEAD, TrackedSpace::STAGE);
+        mPredictedPoses.head[(int)TrackedSpace::VIEW] = xr->impl().getPredictedLimbPose(mPredictedDisplayTime, TrackedLimb::HEAD, TrackedSpace::VIEW);
         mPredictedPoses.hands[(int)TrackedSpace::STAGE] = input->getHandPoses(mPredictedDisplayTime, TrackedSpace::STAGE);
         mPredictedPoses.hands[(int)TrackedSpace::VIEW] = input->getHandPoses(mPredictedDisplayTime, TrackedSpace::VIEW);
-        auto stageViews = mXR->impl().getPredictedViews(mPredictedDisplayTime, TrackedSpace::STAGE);
-        auto hmdViews = mXR->impl().getPredictedViews(mPredictedDisplayTime, TrackedSpace::VIEW);
+        auto stageViews = xr->impl().getPredictedViews(mPredictedDisplayTime, TrackedSpace::STAGE);
+        auto hmdViews = xr->impl().getPredictedViews(mPredictedDisplayTime, TrackedSpace::VIEW);
         mPredictedPoses.eye[(int)TrackedSpace::STAGE][(int)Side::LEFT_HAND] = fromXR(stageViews[(int)Side::LEFT_HAND].pose);
         mPredictedPoses.eye[(int)TrackedSpace::VIEW][(int)Side::LEFT_HAND] = fromXR(hmdViews[(int)Side::LEFT_HAND].pose);
         mPredictedPoses.eye[(int)TrackedSpace::STAGE][(int)Side::RIGHT_HAND] = fromXR(stageViews[(int)Side::RIGHT_HAND].pose);
         mPredictedPoses.eye[(int)TrackedSpace::VIEW][(int)Side::RIGHT_HAND] = fromXR(hmdViews[(int)Side::RIGHT_HAND].pose);
 
-        auto newpos = mPredictedPoses.head[(int)TrackedSpace::STAGE].position * mUnitsPerMeter;
-        auto oldpos = previousHeadPose.position * mUnitsPerMeter;
+        auto newpos = mPredictedPoses.head[(int)TrackedSpace::STAGE].position * OpenXREnvironment::get().unitsPerMeter();
+        auto oldpos = previousHeadPose.position * OpenXREnvironment::get().unitsPerMeter();
 
         Log(Debug::Verbose) << "Head stage: " << newpos << ", diff=" << (newpos - oldpos);
     }

@@ -14,8 +14,7 @@
 #include "mwworld/ptr.hpp"
 
 #ifdef USE_OPENXR
-#include "mwvr/openxrmanager.hpp"
-#include "mwvr/openxrviewer.hpp"
+#include "mwvr/openxrenvironment.hpp"
 #endif
 
 namespace Resource
@@ -213,8 +212,7 @@ namespace OMW
             Files::ConfigurationManager& mCfgMgr;
 
 #ifdef USE_OPENXR
-            osg::ref_ptr<MWVR::OpenXRManager> mXR;
-            osg::ref_ptr<MWVR::OpenXRViewer> mXRViewer;
+            MWVR::OpenXREnvironment mXrEnvironment;
 
             void initVr();
 #endif

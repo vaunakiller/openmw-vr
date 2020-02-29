@@ -1,3 +1,4 @@
+#include "openxrenvironment.hpp"
 #include "openxrmanager.hpp"
 #include "openxrmanagerimpl.hpp"
 #include "../mwinput/inputmanagerimp.hpp"
@@ -198,13 +199,15 @@ namespace MWVR
         OpenXRManager::RealizeOperation::operator()(
             osg::GraphicsContext* gc)
     {
-        mXR->realize(gc);
+        auto* xr = OpenXREnvironment::get().getManager();
+        xr->realize(gc);
     }
 
     bool
         OpenXRManager::RealizeOperation::realized()
     {
-        return mXR->realized();
+        auto* xr = OpenXREnvironment::get().getManager();
+        return xr->realized();
     }
 
     void

@@ -1,14 +1,6 @@
 #ifndef GAME_BASE_ENVIRONMENT_H
 #define GAME_BASE_ENVIRONMENT_H
 
-#ifdef USE_OPENXR
-namespace MWVR
-{
-    class OpenXRInputManager;
-    class OpenXRSession;
-}
-#endif
-
 namespace MWBase
 {
     class World;
@@ -108,15 +100,6 @@ namespace MWBase
         static const Environment& get();
         ///< Return instance of this class.
 
-        // VR Extensions
-#ifdef USE_OPENXR
-        MWVR::OpenXRInputManager* getXRInputManager() const;
-        MWVR::OpenXRSession* getXRSession() const;
-        void setXRSession(MWVR::OpenXRSession* xrSession);
-
-    private:
-        MWVR::OpenXRSession* mXrSession;
-#endif
     };
 }
 

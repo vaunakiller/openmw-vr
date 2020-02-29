@@ -43,6 +43,7 @@
 #ifdef USE_OPENXR
 #include "../mwvr/openxrsession.hpp"
 #include "../mwvr/openxrinputmanager.hpp"
+#include "../mwvr/openxrenvironment.hpp"
 #endif
 
 #include "collisiontype.hpp"
@@ -289,7 +290,7 @@ namespace MWPhysics
 #ifdef USE_OPENXR
             if (isPlayer)
             {
-                auto session = MWBase::Environment::get().getXRSession();
+                auto* session = MWVR::OpenXREnvironment::get().getSession();
                 if (session)
                 {
                     float yaw = session->movementYaw();
@@ -388,7 +389,7 @@ namespace MWPhysics
 #ifdef USE_OPENXR
             if (isPlayer)
             {
-                auto inputManager = MWBase::Environment::get().getXRInputManager();
+                auto* inputManager = MWVR::OpenXREnvironment::get().getInputManager();
 
                 osg::Vec3 trackingOffset = inputManager->mHeadOffset;
                 // Player's tracking height should not affect character position

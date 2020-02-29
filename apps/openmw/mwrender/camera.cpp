@@ -13,6 +13,7 @@
 
 #ifdef USE_OPENXR
 #include "../mwvr/openxrinputmanager.hpp"
+#include "../mwvr/openxrenvironment.hpp"
 #endif
 
 #include "npcanimation.hpp"
@@ -126,7 +127,7 @@ namespace MWRender
         osg::Vec3d position = getFocalPoint();
 
 #ifdef USE_OPENXR
-        auto inputManager = MWBase::Environment::get().getXRInputManager();
+        auto* inputManager = MWVR::OpenXREnvironment::get().getInputManager();
         if (inputManager)
         {
             position += inputManager->mHeadOffset;

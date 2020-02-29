@@ -20,7 +20,7 @@ namespace MWVR
     public:
         OpenXRInputManager(
             SDL_Window* window,
-            osg::ref_ptr<OpenXRViewer> viewer,
+            osg::ref_ptr<osgViewer::Viewer> viewer,
             osg::ref_ptr<osgViewer::ScreenCaptureHandler> screenCaptureHandler,
             osgViewer::ScreenCaptureHandler::CaptureOperation* screenCaptureOperation,
             const std::string& userFile, bool userFileExists,
@@ -43,7 +43,6 @@ namespace MWVR
 
         void showActivationIndication(bool show);
 
-        osg::ref_ptr<OpenXRViewer>   mXRViewer;
         std::unique_ptr<OpenXRInput> mXRInput;
         Pose mPreviousHeadPose{};
         osg::Vec3 mHeadOffset{ 0,0,0 };
