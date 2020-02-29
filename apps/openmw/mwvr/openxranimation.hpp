@@ -60,6 +60,7 @@ private:
     ForearmController* mForearmControllers[2]{};
     HandController* mHandControllers[2]{};
     osg::ref_ptr<FingerController> mIndexFingerControllers[2];
+    osg::ref_ptr<osg::MatrixTransform> mModelOffset;
 };
 
 }

@@ -13,6 +13,9 @@
 
 #include "../mwrender/vismask.hpp"
 #include "../mwbase/environment.hpp"
+#include "../mwbase/world.hpp"
+#include "../mwrender/renderingmanager.hpp"
+#include "../mwrender/camera.hpp"
 
 #include <osg/Camera>
 #include <osgViewer/Renderer>
@@ -82,7 +85,7 @@ namespace MWVR
     osg::Matrix OpenXRWorldView::projectionMatrix()
     {
         // TODO: Get this from the session predictions instead
-        auto hmdViews = mXR->impl().getPredictedViews(mXR->impl().frameState().predictedDisplayTime, TrackedSpace::VIEW);
+        auto hmdViews = mXR->impl().getPredictedViews(mXR->impl().frameState().predictedDisplayTime, TrackedSpace::STAGE);
 
         float near = Settings::Manager::getFloat("near clip", "Camera");
         float far = Settings::Manager::getFloat("viewing distance", "Camera");
@@ -98,7 +101,17 @@ namespace MWVR
         mXR->playerScale(pose);
         osg::Vec3 position = pose.position * mUnitsPerMeter;
         osg::Quat orientation = pose.orientation;
-        
+
+        float y = position.y();
+        float z = position.z();
+        position.y() = z;
+        position.z() = -y;
+
+        y = orientation.y();
+        z = orientation.z();
+        orientation.y() = z;
+        orientation.z() = -y;
+
         osg::Matrix viewMatrix;
         viewMatrix.setTrans(-position);
         viewMatrix.postMultRotate(orientation.conj());
@@ -133,14 +146,6 @@ namespace MWVR
         }
     }
 
-    void OpenXRWorldView::prerenderCallback(osg::RenderInfo& renderInfo)
-    {
-        OpenXRView::prerenderCallback(renderInfo);
-        auto* view = renderInfo.getView();
-        auto* camera = renderInfo.getCurrentCamera();
-        auto name = camera->getName();
-    }
-
     void
         OpenXRWorldView::UpdateSlaveCallback::updateSlave(
             osg::View& view,
@@ -152,27 +157,42 @@ namespace MWVR
 
         auto& poses = mSession->predictedPoses();
 
+        Pose viewPose{};
+        Pose stagePose{};
+
         if (name == "LeftEye")
         {
-            mXR->handleEvents();
             mSession->waitFrame();
-            auto leftEyePose = poses.eye[(int)TrackedSpace::VIEW][(int)Side::LEFT_HAND];
-            mView->setPredictedPose(leftEyePose);
+
+            // Updating the head pose needs to happen after waitFrame(),
+            // But i can't call waitFrame from the input manager since it might
+            // not always be active.
+            auto inputManager = MWBase::Environment::get().getXRInputManager();
+            if (inputManager)
+                inputManager->updateHead();
+
+            stagePose = poses.eye[(int)TrackedSpace::STAGE][(int)Side::LEFT_HAND];
+            viewPose = poses.eye[(int)TrackedSpace::VIEW][(int)Side::LEFT_HAND];
+            mView->setPredictedPose(viewPose);
         }
         else
         {
-            auto rightEyePose = poses.eye[(int)TrackedSpace::VIEW][(int)Side::RIGHT_HAND];
-            mView->setPredictedPose(rightEyePose);
+            stagePose = poses.eye[(int)TrackedSpace::STAGE][(int)Side::RIGHT_HAND];
+            viewPose = poses.eye[(int)TrackedSpace::VIEW][(int)Side::RIGHT_HAND];
+            mView->setPredictedPose(viewPose);
         }
         if (!mXR->sessionRunning())
             return;
 
-        auto viewMatrix = view.getCamera()->getViewMatrix() * mView->viewMatrix();
+        auto viewMatrix = view.getCamera()->getViewMatrix();
+        auto modifiedViewMatrix = viewMatrix * mView->viewMatrix();
         auto projectionMatrix = mView->projectionMatrix();
 
-        camera->setViewMatrix(viewMatrix);
+        camera->setViewMatrix(modifiedViewMatrix);
         camera->setProjectionMatrix(projectionMatrix);
-
         slave.updateSlaveImplementation(view);
+
+
+
     }
 }

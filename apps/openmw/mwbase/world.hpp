@@ -51,6 +51,7 @@ namespace ESM
 namespace MWRender
 {
     class Animation;
+    class RenderingManager;
 }
 
 namespace MWMechanics
@@ -134,6 +135,8 @@ namespace MWBase
             virtual MWWorld::Player& getPlayer() = 0;
             virtual MWWorld::Ptr getPlayerPtr() = 0;
             virtual MWWorld::ConstPtr getPlayerConstPtr() const = 0;
+
+            virtual MWRender::RenderingManager& getRenderingManager() = 0;
 
             virtual const MWWorld::ESMStore& getStore() const = 0;
 

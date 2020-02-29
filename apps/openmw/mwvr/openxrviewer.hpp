@@ -121,11 +121,14 @@ namespace MWVR
         PredrawCallback* mPreDraw{ nullptr };
         PostdrawCallback* mPostDraw{ nullptr };
 
-        std::unique_ptr<OpenXRSwapchain> mMirrorTextureSwapchain = nullptr;
+        std::unique_ptr<OpenXRSwapchain> mMirrorTextureSwapchain{ nullptr };
 
         std::mutex mMutex;
 
-        bool mConfigured = false;
+        bool mConfigured{ false };
+
+        osg::ref_ptr<osg::Group> mMenusRoot{ new osg::Group };
+        std::unique_ptr<OpenXRMenu> mMenus{ nullptr };
     };
 }
 

@@ -3511,6 +3511,11 @@ namespace MWWorld
         return mPlayer->getConstPlayer();
     }
 
+    MWRender::RenderingManager& World::getRenderingManager()
+    {
+        return *mRendering;
+    }
+
     void World::updateDialogueGlobals()
     {
         MWWorld::Ptr player = getPlayerPtr();

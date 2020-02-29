@@ -243,6 +243,8 @@ namespace MWWorld
             MWWorld::Ptr getPlayerPtr() override;
             MWWorld::ConstPtr getPlayerConstPtr() const override;
 
+            MWRender::RenderingManager& getRenderingManager() override;
+
             const MWWorld::ESMStore& getStore() const override;
 
             std::vector<ESM::ESMReader>& getEsmReader() override;

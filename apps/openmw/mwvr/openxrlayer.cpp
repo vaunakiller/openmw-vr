@@ -13,9 +13,12 @@ namespace MWVR {
         LayerHeaders headers{};
         for (auto* layerObject: mLayerObjects)
         {
-            auto* header = layerObject->layer();
-            if (header)
-                headers.push_back(header);
+            if (layerObject)
+            {
+                auto* header = layerObject->layer();
+                if (header)
+                    headers.push_back(header);
+            }
         }
 
         return headers;

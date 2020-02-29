@@ -42,6 +42,10 @@ namespace MWVR
         mRightHandTransform->setName("tracker r hand");
         mRightHandTransform->setUpdateCallback(new TrackedNodeUpdateCallback(this));
         this->addChild(mRightHandTransform);
+
+        // TODO: Left off here
+        mMenusRoot = new osg::Group();
+        mMenusRoot->setName("XR Menus Root");
     }
 
     OpenXRViewer::~OpenXRViewer(void)
@@ -151,30 +155,33 @@ namespace MWVR
         // It's just convenient.
         mMirrorTextureSwapchain.reset(new OpenXRSwapchain(mXR, context->getState(), config));
 
-        auto menuView = new OpenXRMenu(mXR, config, context->getState(), "MainMenu", osg::Vec2(1.f, 1.f));
-        mViews["MenuView"] = menuView;
+        //auto menuView = new OpenXRMenu(mXR, config, context->getState(), "MainMenu", osg::Vec2(1.f, 1.f));
+        //mViews["MenuView"] = menuView;
+        //auto menuCamera = mCameras["MenuView"] = menuView->createCamera(2, clearColor, context);
 
-        auto menuCamera = mCameras["MenuView"] = menuView->createCamera(2, clearColor, context);
-        menuCamera->setCullMask(MWRender::Mask_GUI);
-        menuCamera->setName("MenuView");
-        menuCamera->setPreDrawCallback(mPreDraw);
-        menuCamera->setPostDrawCallback(mPostDraw);
+        //mMenus.reset(new OpenXRMenu(mMenusRoot, "MainMenu", osg::Vec2(1.f, 1.f), MWVR::Pose(), config.width, config.height, osg::Vec4(0.f, 0.f, 0.f, 0.f), context));
+        //auto menuCamera = mMenus->camera();
+        //menuCamera->setCullMask(MWRender::Mask_GUI);
+        //menuCamera->setName("MenuView");
+        //menuCamera->setPreDrawCallback(mPreDraw);
+        //menuCamera->setPostDrawCallback(mPostDraw);
 
 
-        mViewer->addSlave(menuCamera, true);
+        //mViewer->addSlave(menuCamera, true);
         mViewer->getSlave(0)._updateSlaveCallback = new OpenXRWorldView::UpdateSlaveCallback(mXR, session, leftView, context);
         mViewer->getSlave(1)._updateSlaveCallback = new OpenXRWorldView::UpdateSlaveCallback(mXR, session, rightView, context);
 
         mainCamera->getGraphicsContext()->setSwapCallback(new OpenXRViewer::SwapBuffersCallback(this));
         mainCamera->setGraphicsContext(nullptr);
         session->setLayer(OpenXRLayerStack::WORLD_VIEW_LAYER, this);
-        session->setLayer(OpenXRLayerStack::MENU_VIEW_LAYER, dynamic_cast<OpenXRLayer*>(mViews["MenuView"].get()));
+        //session->setLayer(OpenXRLayerStack::MENU_VIEW_LAYER, dynamic_cast<OpenXRLayer*>(mViews["MenuView"].get()));
         mConfigured = true;
 
     }
 
     void OpenXRViewer::blitEyesToMirrorTexture(osg::GraphicsContext* gc, bool includeMenu)
     {
+        includeMenu = false;
         mMirrorTextureSwapchain->beginFrame(gc);
 
         int mirror_width = 0;
@@ -187,8 +194,8 @@ namespace MWVR
         mViews["RightEye"]->swapchain().renderBuffer()->blit(gc, 0, 0, mirror_width, mMirrorTextureSwapchain->height());
         mViews["LeftEye"]->swapchain().renderBuffer()->blit(gc, mirror_width, 0, 2 * mirror_width, mMirrorTextureSwapchain->height());
 
-        if(includeMenu)
-            mViews["MenuView"]->swapchain().renderBuffer()->blit(gc, 2 * mirror_width, 0, 3 * mirror_width, mMirrorTextureSwapchain->height());
+        //if(includeMenu)
+        //    mViews["MenuView"]->swapchain().renderBuffer()->blit(gc, 2 * mirror_width, 0, 3 * mirror_width, mMirrorTextureSwapchain->height());
 
         mMirrorTextureSwapchain->endFrame(gc);
 
@@ -222,12 +229,13 @@ namespace MWVR
         rightView->swapBuffers(gc);
         timer.checkpoint("Views");
 
-        mCompositionLayerProjectionViews[0].pose = toXR(leftView->predictedPose());
-        mCompositionLayerProjectionViews[1].pose = toXR(rightView->predictedPose());
+        mCompositionLayerProjectionViews[0].pose = toXR(MWBase::Environment::get().getXRSession()->predictedPoses().eye[(int)TrackedSpace::STAGE][(int)Side::LEFT_HAND]);
+        mCompositionLayerProjectionViews[1].pose = toXR(MWBase::Environment::get().getXRSession()->predictedPoses().eye[(int)TrackedSpace::STAGE][(int)Side::RIGHT_HAND]);
+
         timer.checkpoint("Poses");
 
         // TODO: Keep track of these in the session too.
-        auto stageViews = mXR->impl().getPredictedViews(mXR->impl().frameState().predictedDisplayTime, TrackedSpace::VIEW);
+        auto stageViews = mXR->impl().getPredictedViews(mXR->impl().frameState().predictedDisplayTime, TrackedSpace::STAGE);
         mCompositionLayerProjectionViews[0].fov = stageViews[0].fov;
         mCompositionLayerProjectionViews[1].fov = stageViews[1].fov;
         timer.checkpoint("Fovs");
@@ -237,7 +245,7 @@ namespace MWVR
         {
             mLayer.reset(new XrCompositionLayerProjection);
             mLayer->type = XR_TYPE_COMPOSITION_LAYER_PROJECTION;
-            mLayer->space = mXR->impl().mReferenceSpaceView;
+            mLayer->space = mXR->impl().mReferenceSpaceStage;
             mLayer->viewCount = 2;
             mLayer->views = mCompositionLayerProjectionViews.data();
         }
@@ -273,8 +281,8 @@ namespace MWVR
             {
                 mXR->beginFrame();
                 auto& poses = MWBase::Environment::get().getXRSession()->predictedPoses();
-                auto menuPose = poses.head[(int)TrackedSpace::STAGE];
-                mViews["MenuView"]->setPredictedPose(menuPose);
+                //auto menuPose = poses.head[(int)TrackedSpace::STAGE];
+                //mViews["MenuView"]->setPredictedPose(menuPose);
             }
         }
 

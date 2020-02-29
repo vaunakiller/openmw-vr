@@ -448,7 +448,7 @@ namespace MWPhysics
                     }
                 }
 
-                // Best effort attempt and not losing any tracking
+                // Best effort attempt at not losing any tracking
                 osg::Vec3 moved = newPosition - position;
                 inputManager->mHeadOffset.x() -= moved.x();
                 inputManager->mHeadOffset.y() -= moved.y();

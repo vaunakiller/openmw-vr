@@ -165,9 +165,13 @@ OpenXRAnimation::OpenXRAnimation(
     : MWRender::NpcAnimation(ptr, parentNode, resourceSystem, disableSounds, VM_Normal, 55.f)
     , mSession(xrSession)
     , mIndexFingerControllers{nullptr, nullptr}
+    // The player model needs to be pushed back a little to make sure the player's view point is naturally protruding 
+    // Pushing the camera forward instead would produce an unnatural extra movement when rotating the player model.
+    , mModelOffset(new osg::MatrixTransform(osg::Matrix::translate(osg::Vec3(0,-15,0))))
 {
     mIndexFingerControllers[0] = osg::ref_ptr<FingerController> (new FingerController(osg::Quat(0, 0, 0, 1)));
     mIndexFingerControllers[1] = osg::ref_ptr<FingerController> (new FingerController(osg::Quat(0, 0, 0, 1)));
+    mModelOffset->setName("ModelOffset");
 }
 
 OpenXRAnimation::~OpenXRAnimation() {};
@@ -255,6 +259,17 @@ void OpenXRAnimation::addControllers()
             node->addUpdateCallback(mForearmControllers[i]);
             mActiveControllers.insert(std::make_pair(node, mForearmControllers[i]));
         }
+    }
+
+
+    auto parent = mObjectRoot->getParent(0);
+
+    if (parent->getName() == "Player Root")
+    {
+        auto group = parent->asGroup();
+        group->removeChildren(0, parent->getNumChildren());
+        group->addChild(mModelOffset);
+        mModelOffset->addChild(mObjectRoot);
     }
 }
 void OpenXRAnimation::enableHeadAnimation(bool)

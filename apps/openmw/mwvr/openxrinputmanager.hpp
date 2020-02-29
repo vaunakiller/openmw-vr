@@ -49,6 +49,8 @@ namespace MWVR
         osg::Vec3 mHeadOffset{ 0,0,0 };
         bool mRecenter{ true };
         float mYaw{ 0.f };
+
+        float mVrAngles[3]{ 0.f,0.f,0.f };
     };
 }
 

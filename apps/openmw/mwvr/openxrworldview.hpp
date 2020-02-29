@@ -29,8 +29,6 @@ namespace MWVR
         OpenXRWorldView(osg::ref_ptr<OpenXRManager> XR, std::string name, osg::ref_ptr<osg::State> state, OpenXRSwapchain::Config config, float unitsPerMeter);
         ~OpenXRWorldView();
 
-        //! Prepare for render (update matrices)
-        void prerenderCallback(osg::RenderInfo& renderInfo) override;
         //! Projection offset for this view
         osg::Matrix projectionMatrix();
         //! View offset for this view

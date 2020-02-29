@@ -65,6 +65,9 @@ namespace MWRender
         /// Update the view matrix of \a cam
         void updateCamera(osg::Camera* cam);
 
+        /// Update the view matrix of the current camera
+        void updateCamera();
+
         /// Reset to defaults
         void reset();
 

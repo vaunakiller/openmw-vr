@@ -30,6 +30,9 @@
 #include "../mwworld/esmstore.hpp"
 #include "../mwmechanics/actorutil.hpp"
 
+#include "../mwrender/renderingmanager.hpp"
+#include "../mwrender/camera.hpp"
+
 #include <openxr/openxr.h>
 
 #include <osg/Camera>
@@ -795,12 +798,9 @@ namespace MWVR
 
         auto* session = MWBase::Environment::get().getXRSession();
 
-        updateHead();
-
         OpenXRActionEvent event{};
         while (mXRInput->nextActionEvent(event))
         {
-            //Log(Debug::Verbose) << "ActionEvent action=" << event.action << " onPress=" << event.onPress;
             processEvent(event);
         }
 
@@ -969,7 +969,6 @@ namespace MWVR
         auto player = mPlayer->getPlayer();
 
         auto* session = MWBase::Environment::get().getXRSession();
-
         auto currentHeadPose = session->predictedPoses().head[(int)TrackedSpace::STAGE];
         session->mXR->playerScale(currentHeadPose);
         currentHeadPose.position *= session->unitsPerMeter();
@@ -986,21 +985,25 @@ namespace MWVR
         if (mRecenter)
         {
             mHeadOffset = osg::Vec3(0, 0, 0);
+            // Z should not be affected
+            mHeadOffset.z() = currentHeadPose.position.z();
             mRecenter = false;
         }
         else
         {
             osg::Quat gameworldYaw = osg::Quat(mYaw, osg::Vec3(0, 0, -1));
-            mHeadOffset += gameworldYaw * vrMovement;
+            mHeadOffset += vrMovement;
 
-            float rot[3];
-            rot[0] = pitch;
-            rot[1] = roll;
-            rot[2] = yaw;
-            world->rotateObject(player, rot[0], rot[1], rot[2], MWBase::RotationFlag_none);
+            Log(Debug::Verbose) << "Set head offset";
+
+            mVrAngles[0] = pitch;
+            mVrAngles[1] = roll;
+            mVrAngles[2] = yaw;
+            world->rotateObject(player, mVrAngles[0], mVrAngles[1], mVrAngles[2], MWBase::RotationFlag_none);
+            Log(Debug::Verbose) << "yaw=" << yaw << ", pitch=" << pitch << ", roll=" << roll;
+            
+            MWBase::Environment::get().getWorld()->getRenderingManager().getCamera()->updateCamera();
         }
 
-        // Z should not be affected
-        mHeadOffset.z() = currentHeadPose.position.z();
     }
 }
