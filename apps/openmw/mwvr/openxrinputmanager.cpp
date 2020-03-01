@@ -799,7 +799,6 @@ namespace MWVR
         bool disableControls,
         bool disableEvents)
     {
-        auto* session = OpenXREnvironment::get().getSession();
 
         mXRInput->updateControls();
 
@@ -812,7 +811,9 @@ namespace MWVR
         MWInput::InputManager::update(dt, disableControls, disableEvents);
 
         bool guiMode = MWBase::Environment::get().getWindowManager()->isGuiMode();
-        session->showMenu(guiMode);
+        auto* xrMenuManager = OpenXREnvironment::get().getMenuManager();
+        if(xrMenuManager)
+            xrMenuManager->showMenus(guiMode);
 
         setPlayerControlsEnabled(!guiMode);
     }
@@ -820,6 +821,7 @@ namespace MWVR
     void OpenXRInputManager::processEvent(const OpenXRActionEvent& event)
     {
         auto* session = OpenXREnvironment::get().getSession();
+        auto* xrMenuManager = OpenXREnvironment::get().getMenuManager();
         switch (event.action)
         {
         case A_GameMenu:
@@ -827,7 +829,7 @@ namespace MWVR
                 toggleMainMenu();
                 // Explicitly request position update here so that the player can move the menu
                 // using the menu key when the menu can't be toggled.
-                session->updateMenuPosition();
+                xrMenuManager->updatePose();
                 break;
         case A_Screenshot:
             screenshot();
@@ -999,7 +1001,7 @@ namespace MWVR
         else
         {
             osg::Quat gameworldYaw = osg::Quat(mYaw, osg::Vec3(0, 0, -1));
-            mHeadOffset += vrMovement;
+            mHeadOffset += gameworldYaw * vrMovement;
 
             mVrAngles[0] = pitch;
             mVrAngles[1] = roll;

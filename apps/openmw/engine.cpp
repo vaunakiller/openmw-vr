@@ -740,14 +740,7 @@ void OMW::Engine::go()
     auto* xrViewer = MWVR::OpenXREnvironment::get().getViewer();
     xrViewer->addChild(root);
     mViewer->setSceneData(xrViewer);
-#ifndef _NDEBUG
-    //mXR->addPoseUpdateCallback(new MWVR::PoseLogger(MWVR::TrackedLimb::HEAD, MWVR::TrackedSpace::STAGE));
-    //mXR->addPoseUpdateCallback(new MWVR::PoseLogger(MWVR::TrackedLimb::HEAD, MWVR::TrackedSpace::VIEW));
-    //mXR->addPoseUpdateCallback(new MWVR::PoseLogger(MWVR::TrackedLimb::LEFT_HAND, MWVR::TrackedSpace::STAGE));
-    //mXR->addPoseUpdateCallback(new MWVR::PoseLogger(MWVR::TrackedLimb::LEFT_HAND, MWVR::TrackedSpace::VIEW));
-    //mXR->addPoseUpdateCallback(new MWVR::PoseLogger(MWVR::TrackedLimb::RIGHT_HAND, MWVR::TrackedSpace::STAGE));
-    //mXR->addPoseUpdateCallback(new MWVR::PoseLogger(MWVR::TrackedLimb::RIGHT_HAND, MWVR::TrackedSpace::VIEW));
-#endif
+    mXrEnvironment.setMenuManager(new MWVR::OpenXRMenuManager(mViewer));
 #endif
 
     // Start the game

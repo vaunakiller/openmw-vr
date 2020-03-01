@@ -78,30 +78,6 @@ namespace MWVR
 
     }
 
-    void OpenXRSession::showMenu(bool show)
-    {
-        //auto* menuLayer = dynamic_cast<OpenXRMenu*>(mLayerStack.layerObjects()[OpenXRLayerStack::MENU_VIEW_LAYER]);
-        //if (menuLayer)
-        //{
-        //    bool change = show != menuLayer->isVisible();
-        //    menuLayer->setVisible(show);
-
-        //    // Automatically update position of menu whenever the menu opens.
-        //    // This ensures menus are always opened near the player.
-        //    if(change)
-        //        menuLayer->updatePosition();
-        //}
-    }
-
-    void OpenXRSession::updateMenuPosition(void)
-    {
-        //auto* menuLayer = dynamic_cast<OpenXRMenu*>(mLayerStack.layerObjects()[OpenXRLayerStack::MENU_VIEW_LAYER]);
-        //if (menuLayer)
-        //{
-        //    menuLayer->updatePosition();
-        //}
-    }
-
 
     // OSG doesn't provide API to extract euler angles from a quat, but i need it.
     // Credits goes to Dennis Bunfield, i just copied his formula https://narkive.com/v0re6547.4
@@ -169,11 +145,6 @@ namespace MWVR
         mPredictedPoses.eye[(int)TrackedSpace::VIEW][(int)Side::LEFT_HAND] = fromXR(hmdViews[(int)Side::LEFT_HAND].pose);
         mPredictedPoses.eye[(int)TrackedSpace::STAGE][(int)Side::RIGHT_HAND] = fromXR(stageViews[(int)Side::RIGHT_HAND].pose);
         mPredictedPoses.eye[(int)TrackedSpace::VIEW][(int)Side::RIGHT_HAND] = fromXR(hmdViews[(int)Side::RIGHT_HAND].pose);
-
-        auto newpos = mPredictedPoses.head[(int)TrackedSpace::STAGE].position * OpenXREnvironment::get().unitsPerMeter();
-        auto oldpos = previousHeadPose.position * OpenXREnvironment::get().unitsPerMeter();
-
-        Log(Debug::Verbose) << "Head stage: " << newpos << ", diff=" << (newpos - oldpos);
     }
 }
 

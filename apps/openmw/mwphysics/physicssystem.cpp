@@ -454,8 +454,6 @@ namespace MWPhysics
                 inputManager->mHeadOffset.x() -= moved.x();
                 inputManager->mHeadOffset.y() -= moved.y();
 
-                Log(Debug::Verbose) << "trackingOffset: " << trackingOffset << ", remainder=" << remainder << ", moved=" << moved;
-
             }
 #endif
 

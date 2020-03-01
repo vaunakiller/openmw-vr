@@ -39,10 +39,6 @@ public:
     //! Update predictions
     void predictNext(int extraPeriods);
 
-    void showMenu(bool show);
-
-    void updateMenuPosition(void);
-
     //! Yaw angle to be used for offsetting movement direction
     float movementYaw(void);
 

@@ -60,11 +60,11 @@ namespace MWVR
         void setUnitsPerMeter(float unitsPerMeter);
 
     private:
-        MWVR::OpenXRSession* mSession;
-        MWVR::OpenXRMenuManager* mMenuManager;
-        MWVR::OpenXRViewer* mViewer;
-        MWVR::OpenXRManager* mOpenXRManager;
-        float mUnitsPerMeter;
+        MWVR::OpenXRSession* mSession{ nullptr };
+        MWVR::OpenXRMenuManager* mMenuManager{ nullptr };
+        MWVR::OpenXRViewer* mViewer{ nullptr };
+        MWVR::OpenXRManager* mOpenXRManager{ nullptr };
+        float mUnitsPerMeter{ 1.f };
     };
 }
 

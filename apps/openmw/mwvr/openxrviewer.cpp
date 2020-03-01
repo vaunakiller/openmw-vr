@@ -127,8 +127,8 @@ namespace MWVR
         rightCamera->setPostDrawCallback(mPostDraw);
 
         // Stereo cameras should only draw the scene (AR layers should later add minimap, health, etc.)
-        leftCamera->setCullMask(~MWRender::Mask_GUI);
-        rightCamera->setCullMask(~MWRender::Mask_GUI);
+        //leftCamera->setCullMask(~MWRender::Mask_GUI);
+        //rightCamera->setCullMask(~MWRender::Mask_GUI);
 
         leftCamera->setName("LeftEye");
         rightCamera->setName("RightEye");
@@ -220,6 +220,7 @@ namespace MWVR
         if (!mConfigured)
             return;
 
+        Log(Debug::Verbose) << "OpenXRViewer: swapBuffers";
         auto* session = OpenXREnvironment::get().getSession();
         auto* xr = OpenXREnvironment::get().getManager();
 

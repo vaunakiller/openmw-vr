@@ -2,6 +2,7 @@
 #include "mwvr/openxrmanager.hpp"
 #include "mwvr/openxrsession.hpp"
 #include "mwvr/openxrviewer.hpp"
+#include "mwvr/openxrmenu.hpp"
 
 #ifndef USE_OPENXR
 #error "USE_OPENXR not defined"
@@ -21,5 +22,4 @@ void OMW::Engine::initVr()
     mXrEnvironment.setUnitsPerMeter(unitsPerMeter);
     mXrEnvironment.setSession(new MWVR::OpenXRSession());
     mXrEnvironment.setViewer(new MWVR::OpenXRViewer(mViewer));
-
 }
