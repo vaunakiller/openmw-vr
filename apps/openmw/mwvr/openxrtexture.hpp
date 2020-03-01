@@ -26,9 +26,11 @@ namespace MWVR
         void endFrame(osg::GraphicsContext* gc, uint32_t blitTarget);
 
         uint32_t fbo(void) const { return mFBO; }
+        uint32_t colorBuffer(void) const { return mColorBuffer; }
 
         //! Blit to region in currently bound draw fbo
         void blit(osg::GraphicsContext* gc, int x, int y, int w, int h);
+        void blit(osg::GraphicsContext* gc, int x, int y, int w, int h, int target);
 
     private:
         // Set aside a weak pointer to the constructor state to use when freeing FBOs, if no state is given to destroy()

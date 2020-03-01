@@ -38,7 +38,7 @@ namespace MWVR {
         camera->setClearColor(clearColor);
         camera->setClearMask(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
         camera->setRenderTargetImplementation(osg::Camera::FRAME_BUFFER_OBJECT);
-        camera->setRenderOrder(osg::Camera::PRE_RENDER, eye);
+        camera->setRenderOrder(osg::Camera::PRE_RENDER, eye + 2);
         camera->setComputeNearFarMode(osg::CullSettings::DO_NOT_COMPUTE_NEAR_FAR);
         camera->setAllowEventFocus(false);
         camera->setReferenceFrame(osg::Transform::ABSOLUTE_RF);
@@ -50,8 +50,12 @@ namespace MWVR {
         return camera.release();
     }
 
+    static GLint wfbo = 0;
+    static GLint rfbo = 0;
     void OpenXRView::prerenderCallback(osg::RenderInfo& renderInfo)
     {
+        glGetIntegerv(GL_DRAW_FRAMEBUFFER_BINDING_EXT, &wfbo);
+        glGetIntegerv(GL_READ_FRAMEBUFFER_BINDING_EXT, &rfbo);
         if (mSwapchain)
         {
             mSwapchain->beginFrame(renderInfo.getState()->getGraphicsContext());
@@ -66,6 +70,10 @@ namespace MWVR {
 
         mTimer.checkpoint("Postrender");
         Log(Debug::Verbose) << "XRView: PostRender";
+        auto state = renderInfo.getState();
+        auto gl = osg::GLExtensions::Get(state->getContextID(), false);
+        gl->glBindFramebuffer(GL_DRAW_FRAMEBUFFER_EXT, wfbo);
+        gl->glBindFramebuffer(GL_READ_FRAMEBUFFER_EXT, rfbo);
     }
 
     void OpenXRView::swapBuffers(osg::GraphicsContext* gc)

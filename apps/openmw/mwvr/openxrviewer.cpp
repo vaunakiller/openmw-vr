@@ -123,12 +123,14 @@ namespace MWVR
         leftCamera->setPreDrawCallback(mPreDraw);
         rightCamera->setPreDrawCallback(mPreDraw);
 
-        leftCamera->setPostDrawCallback(mPostDraw);
-        rightCamera->setPostDrawCallback(mPostDraw);
+        //leftCamera->setPostDrawCallback(mPostDraw);
+        //rightCamera->setPostDrawCallback(mPostDraw);
+        leftCamera->setFinalDrawCallback(mPostDraw);
+        rightCamera->setFinalDrawCallback(mPostDraw);
 
         // Stereo cameras should only draw the scene (AR layers should later add minimap, health, etc.)
-        //leftCamera->setCullMask(~MWRender::Mask_GUI);
-        //rightCamera->setCullMask(~MWRender::Mask_GUI);
+        leftCamera->setCullMask(~MWRender::Mask_GUI);
+        rightCamera->setCullMask(~MWRender::Mask_GUI);
 
         leftCamera->setName("LeftEye");
         rightCamera->setName("RightEye");
@@ -153,19 +155,6 @@ namespace MWVR
         // It's just convenient.
         mMirrorTextureSwapchain.reset(new OpenXRSwapchain(xr, context->getState(), config));
 
-        //auto menuView = new OpenXRMenu(xr, config, context->getState(), "MainMenu", osg::Vec2(1.f, 1.f));
-        //mViews["MenuView"] = menuView;
-        //auto menuCamera = mCameras["MenuView"] = menuView->createCamera(2, clearColor, context);
-
-        //mMenus.reset(new OpenXRMenu(mMenusRoot, "MainMenu", osg::Vec2(1.f, 1.f), MWVR::Pose(), config.width, config.height, osg::Vec4(0.f, 0.f, 0.f, 0.f), context));
-        //auto menuCamera = mMenus->camera();
-        //menuCamera->setCullMask(MWRender::Mask_GUI);
-        //menuCamera->setName("MenuView");
-        //menuCamera->setPreDrawCallback(mPreDraw);
-        //menuCamera->setPostDrawCallback(mPostDraw);
-
-        
-
         //mViewer->addSlave(menuCamera, true);
         mViewer->getSlave(0)._updateSlaveCallback = new OpenXRWorldView::UpdateSlaveCallback(xr, session, leftView, context);
         mViewer->getSlave(1)._updateSlaveCallback = new OpenXRWorldView::UpdateSlaveCallback(xr, session, rightView, context);
@@ -173,14 +162,13 @@ namespace MWVR
         mainCamera->getGraphicsContext()->setSwapCallback(new OpenXRViewer::SwapBuffersCallback(this));
         mainCamera->setGraphicsContext(nullptr);
         session->setLayer(OpenXRLayerStack::WORLD_VIEW_LAYER, this);
-        //session->setLayer(OpenXRLayerStack::MENU_VIEW_LAYER, dynamic_cast<OpenXRLayer*>(mViews["MenuView"].get()));
         mConfigured = true;
 
     }
 
     void OpenXRViewer::blitEyesToMirrorTexture(osg::GraphicsContext* gc, bool includeMenu)
     {
-        includeMenu = false;
+        //includeMenu = false;
         mMirrorTextureSwapchain->beginFrame(gc);
 
         int mirror_width = 0;
@@ -193,15 +181,51 @@ namespace MWVR
         mViews["RightEye"]->swapchain().renderBuffer()->blit(gc, 0, 0, mirror_width, mMirrorTextureSwapchain->height());
         mViews["LeftEye"]->swapchain().renderBuffer()->blit(gc, mirror_width, 0, 2 * mirror_width, mMirrorTextureSwapchain->height());
 
-        //if(includeMenu)
-        //    mViews["MenuView"]->swapchain().renderBuffer()->blit(gc, 2 * mirror_width, 0, 3 * mirror_width, mMirrorTextureSwapchain->height());
+        auto* state = gc->getState();
+        auto* gl = osg::GLExtensions::Get(state->getContextID(), false);
+
+        if (includeMenu)
+        {
+            auto menuManager = OpenXREnvironment::get().getMenuManager();
+            if (menuManager)
+            {
+                auto menu = menuManager->getMenu();
+                if (menu)
+                {
+                    auto texture = menu->menuTexture();
+                    if (texture)
+                    {
+                        auto textureObject = texture->getTextureObject(state->getContextID());
+                        if (textureObject)
+                        {
+                            auto textureId = textureObject->id();
+
+                            Log(Debug::Verbose) << "texture id: " << textureId;
+
+                            GLuint fbo = 0;
+                            gl->glGenFramebuffers(1, &fbo);
+
+                            gl->glBindFramebuffer(GL_READ_FRAMEBUFFER_EXT, fbo);
+                            gl->glFramebufferTexture2D(GL_READ_FRAMEBUFFER_EXT, GL_COLOR_ATTACHMENT0_EXT, GL_TEXTURE_2D, textureId, 0);
+                            gl->glBlitFramebuffer(0, 0, texture->getTextureWidth(), texture->getTextureHeight(), 2 * mirror_width, 0, 3 * mirror_width, mMirrorTextureSwapchain->height(), GL_COLOR_BUFFER_BIT, GL_NEAREST);
+                            gl->glFramebufferTexture2D(GL_READ_FRAMEBUFFER_EXT, GL_COLOR_ATTACHMENT0_EXT, GL_TEXTURE_2D, 0, 0);
+                            gl->glBindFramebuffer(GL_READ_FRAMEBUFFER_EXT, 0);
+
+                            gl->glDeleteFramebuffers(1, &fbo);
+                        }
+                        else
+                        {
+                            Log(Debug::Warning) << "Texture object was null";
+                        }
+                    }
+                }
+            }
+        }
 
         mMirrorTextureSwapchain->endFrame(gc);
 
 
 
-        auto* state = gc->getState();
-        auto* gl = osg::GLExtensions::Get(state->getContextID(), false);
         gl->glBindFramebuffer(GL_FRAMEBUFFER_EXT, 0);
         mMirrorTextureSwapchain->renderBuffer()->blit(gc, 0, 0, mMirrorTextureSwapchain->width(), mMirrorTextureSwapchain->height());
     }

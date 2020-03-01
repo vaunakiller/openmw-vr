@@ -4,10 +4,82 @@
 #include "openxrmanagerimpl.hpp"
 #include <openxr/openxr.h>
 #include <osg/Texture2D>
+#include <osg/ClipNode>
+#include <osg/FrontFace>
 #include <components/sceneutil/visitor.hpp>
+#include <components/sceneutil/shadow.hpp>
+#include <osgViewer/Renderer>
+#include "../mwrender/util.hpp"
 
 namespace MWVR
 {
+
+
+class Menus : public osg::Camera
+{
+public:
+    Menus()
+    {
+        setRenderOrder(osg::Camera::PRE_RENDER);
+        setClearMask(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+        setRenderTargetImplementation(osg::Camera::FRAME_BUFFER_OBJECT);
+        setReferenceFrame(osg::Camera::ABSOLUTE_RF);
+        setSmallFeatureCullingPixelSize(Settings::Manager::getInt("small feature culling pixel size", "Water"));
+        setComputeNearFarMode(osg::CullSettings::DO_NOT_COMPUTE_NEAR_FAR);
+        setName("ReflectionCamera");
+
+        setCullMask(MWRender::Mask_GUI);
+        setNodeMask(MWRender::Mask_RenderToTexture);
+
+        unsigned int rttSize = 1000;
+        setViewport(0, 0, rttSize, rttSize);
+
+        // No need for Update traversal since the mSceneRoot is already updated as part of the main scene graph
+        // A double update would mess with the light collection (in addition to being plain redundant)
+        setUpdateCallback(new MWRender::NoTraverseCallback);
+
+        mMenuTexture = new osg::Texture2D;
+        mMenuTexture->setTextureSize(rttSize, rttSize);
+        mMenuTexture->setInternalFormat(GL_RGB);
+        mMenuTexture->setFilter(osg::Texture::MIN_FILTER, osg::Texture::LINEAR);
+        mMenuTexture->setFilter(osg::Texture::MAG_FILTER, osg::Texture::LINEAR);
+        mMenuTexture->setWrap(osg::Texture::WRAP_S, osg::Texture::CLAMP_TO_EDGE);
+        mMenuTexture->setWrap(osg::Texture::WRAP_T, osg::Texture::CLAMP_TO_EDGE);
+
+        attach(osg::Camera::COLOR_BUFFER, mMenuTexture);
+
+        // XXX: should really flip the FrontFace on each renderable instead of forcing clockwise.
+        //osg::ref_ptr<osg::FrontFace> frontFace(new osg::FrontFace);
+        //frontFace->setMode(osg::FrontFace::CLOCKWISE);
+        //getOrCreateStateSet()->setAttributeAndModes(frontFace, osg::StateAttribute::ON);
+
+        //mClipCullNode = new ClipCullNode;
+        //addChild(mClipCullNode);
+
+        SceneUtil::ShadowManager::disableShadowsForStateSet(getOrCreateStateSet());
+    }
+
+    void setScene(osg::Node* scene)
+    {
+        if (mScene)
+            removeChild(mScene);
+        mScene = scene;
+        addChild(scene);
+    }
+
+    osg::Texture2D* getMenuTexture() const
+    {
+        return mMenuTexture.get();
+    }
+
+private:
+    osg::ref_ptr<osg::Texture2D> mMenuTexture;
+    osg::ref_ptr<osg::Node> mScene;
+};
+
+
+
+
     class PredrawCallback : public osg::Camera::DrawCallback
     {
     public:
@@ -38,7 +110,7 @@ namespace MWVR
 
     OpenXRMenu::OpenXRMenu(
         osg::ref_ptr<osg::Group> parent,
-        osg::ref_ptr<osg::Group> menuSubgraph,
+        osg::ref_ptr<osg::Node> menuSubgraph,
         const std::string& title,
         osg::Vec2 extent_meters,
         Pose pose,
@@ -50,11 +122,6 @@ namespace MWVR
         , mParent(parent)
         , mMenuSubgraph(menuSubgraph)
     {
-        mMenuTexture->setTextureSize(width, height);
-        mMenuTexture->setInternalFormat(GL_RGBA);
-        mMenuTexture->setFilter(osg::Texture2D::MIN_FILTER, osg::Texture2D::LINEAR);
-        mMenuTexture->setFilter(osg::Texture2D::MAG_FILTER, osg::Texture2D::LINEAR);
-
         osg::ref_ptr<osg::Vec3Array> vertices{ new osg::Vec3Array(4) };
         osg::ref_ptr<osg::Vec2Array> texCoords{ new osg::Vec2Array(4) };
         osg::ref_ptr<osg::Vec3Array> normals{ new osg::Vec3Array(1) };
@@ -87,7 +154,10 @@ namespace MWVR
         mGeometry->setDataVariance(osg::Object::DYNAMIC);
         mGeometry->setSupportsDisplayList(false);
 
-        mStateSet->setTextureAttributeAndModes(0, mMenuTexture, osg::StateAttribute::ON);
+        mMenuCamera = new Menus();
+        mMenuCamera->setScene(menuSubgraph);
+
+        mStateSet->setTextureAttributeAndModes(0, menuTexture(), osg::StateAttribute::ON);
         mStateSet->setMode(GL_LIGHTING, osg::StateAttribute::OFF);
         mGeometry->setStateSet(mStateSet);
 
@@ -104,58 +174,29 @@ namespace MWVR
 
 
 
-        mMenuCamera->setClearColor(clearColor);
-        mMenuCamera->setClearMask(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
-
-
-        // This is based on the osgprerender example.
-        // I'm not sure this part is meaningful when all i'm rendering is the GUI.
-
-        //auto& bs = mMenuSubgraph->getBound();
-        //if (!bs.valid())
-        //    Log(Debug::Verbose) << "OpenXRMenu: Invalid bound";
-        //float znear = 1.0f * bs.radius();
-        //float zfar = 3.0f * bs.radius();
-        //float proj_top = 0.25f * znear;
-        //float proj_right = 0.5f * znear;
-        //znear *= 0.9f;
-        //zfar *= 1.1f;
-        //mMenuCamera->setProjectionMatrixAsFrustum(-proj_right, proj_right, -proj_top, proj_top, znear, zfar);
-        //mMenuCamera->setViewMatrixAsLookAt(bs.center() - osg::Vec3(0.0f, 2.0f, 0.0f) * bs.radius(), bs.center(), osg::Vec3(0.0f, 0.0f, 1.0f));
-
-
-        mMenuCamera->setViewMatrix(viewer->getCamera()->getViewMatrix());
-        mMenuCamera->setProjectionMatrix(viewer->getCamera()->getProjectionMatrix());
-
-        // Camera details
-        mMenuCamera->setReferenceFrame(osg::Transform::ABSOLUTE_RF);
-        mMenuCamera->setViewport(0, 0, width, height);
-        mMenuCamera->setRenderOrder(osg::Camera::PRE_RENDER);
-        mMenuCamera->setRenderTargetImplementation(osg::Camera::FRAME_BUFFER_OBJECT);
-        mMenuCamera->attach(osg::Camera::COLOR_BUFFER, mMenuTexture);
-        mMenuCamera->addChild(mMenuSubgraph);
-        mMenuCamera->setCullMask(MWRender::Mask_GUI);
-        mMenuCamera->setPreDrawCallback(new PredrawCallback(this));
-        mMenuCamera->setPostDrawCallback(new PostdrawCallback(this));
-        mMenuCamera->setComputeNearFarMode(osg::CullSettings::DO_NOT_COMPUTE_NEAR_FAR);
-        mMenuCamera->setAllowEventFocus(false);
-
-        mParent->addChild(mMenuCamera);
+        mParent->addChild(mMenuCamera.get());
     }
 
     OpenXRMenu::~OpenXRMenu()
     {
         mParent->removeChild(mTransform);
-        mParent->removeChild(mMenuCamera);
+        mParent->removeChild(mMenuCamera.get());
     }
 
     void OpenXRMenu::updateCallback()
     {
     }
 
-    void OpenXRMenu::postRenderCallback(osg::RenderInfo& renderInfo)
+    osg::Camera* OpenXRMenu::camera()
     {
-        Log(Debug::Verbose) << "Menu: PostRender";
+        return mMenuCamera.get();
+    }
+
+    osg::ref_ptr<osg::Texture2D> OpenXRMenu::menuTexture()
+    {
+        if (mMenuCamera)
+            return mMenuCamera->getMenuTexture();
+        return nullptr;
     }
 
     void OpenXRMenu::updatePose(Pose pose)
@@ -164,10 +205,6 @@ namespace MWVR
         mTransform->setPosition(pose.position);
     }
 
-    void OpenXRMenu::preRenderCallback(osg::RenderInfo& renderInfo)
-    {
-        Log(Debug::Verbose) << "Menu: PreRender";
-    }
 
     OpenXRMenuManager::OpenXRMenuManager(
         osg::ref_ptr<osgViewer::Viewer> viewer)

@@ -13,12 +13,14 @@
 struct XrCompositionLayerQuad;
 namespace MWVR
 {
+    class Menus;
+
     class OpenXRMenu
     {
     public:
         OpenXRMenu(
             osg::ref_ptr<osg::Group> parent,
-            osg::ref_ptr<osg::Group> menuSubgraph,
+            osg::ref_ptr<osg::Node> menuSubgraph,
             const std::string& title, 
             osg::Vec2 extent_meters,
             Pose pose,
@@ -32,21 +34,22 @@ namespace MWVR
 
         void preRenderCallback(osg::RenderInfo& renderInfo);
         void postRenderCallback(osg::RenderInfo& renderInfo);
-        osg::Camera* camera() { return mMenuCamera; }
+        osg::Camera* camera();
+
+        osg::ref_ptr<osg::Texture2D> menuTexture();
 
         void updatePose(Pose pose);
 
-    protected:
+    public:
         std::string mTitle;
         osg::ref_ptr<osg::Group> mParent;
         osg::ref_ptr<osg::Geometry> mGeometry{ new osg::Geometry };
         osg::ref_ptr<osg::Geode> mGeode{ new osg::Geode };
         osg::ref_ptr<osg::PositionAttitudeTransform> mTransform{ new osg::PositionAttitudeTransform };
 
-        osg::ref_ptr<osg::Group> mMenuSubgraph;
-        osg::ref_ptr<osg::Camera> mMenuCamera{ new osg::Camera };
-        osg::ref_ptr<osg::Texture2D> mMenuTexture{ new osg::Texture2D };
+        osg::ref_ptr<osg::Node> mMenuSubgraph;
         osg::ref_ptr<osg::StateSet> mStateSet{ new osg::StateSet };
+        osg::ref_ptr<Menus> mMenuCamera;
     };
 
     class OpenXRMenuManager
@@ -61,11 +64,13 @@ namespace MWVR
 
         void updatePose(void);
 
+        OpenXRMenu* getMenu(void) const { return mMenu.get(); }
+
     private:
         Pose mPose{};
         osg::ref_ptr<osgViewer::Viewer> mOsgViewer{ nullptr };
         osg::ref_ptr<osg::Group> mMenusRoot{ new osg::Group };
-        osg::ref_ptr<osg::Group> mGuiRoot{ new osg::Group };
+        osg::ref_ptr<osg::Node> mGuiRoot{ nullptr };
         std::unique_ptr<OpenXRMenu> mMenu{ nullptr };
     };
 }
