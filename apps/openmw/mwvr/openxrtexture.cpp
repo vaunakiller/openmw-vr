@@ -129,7 +129,7 @@ namespace MWVR
         auto* state = gc->getState();
         auto* gl = osg::GLExtensions::Get(state->getContextID(), false);
         gl->glBindFramebuffer(GL_READ_FRAMEBUFFER_EXT, mFBO);
-        gl->glBlitFramebuffer(0, 0, mWidth, mHeight, x, y, w, h, GL_COLOR_BUFFER_BIT, GL_NEAREST);
+        gl->glBlitFramebuffer(0, 0, mWidth, mHeight, x, y, w, h, GL_COLOR_BUFFER_BIT, GL_LINEAR);
         gl->glBindFramebuffer(GL_READ_FRAMEBUFFER_EXT, 0);
     }
 
@@ -140,7 +140,7 @@ namespace MWVR
         gl->glBindFramebuffer(GL_DRAW_FRAMEBUFFER_EXT, mBlitFBO);
         gl->glBindFramebuffer(GL_READ_FRAMEBUFFER_EXT, mFBO);
         gl->glFramebufferTexture2D(GL_DRAW_FRAMEBUFFER_EXT, GL_COLOR_ATTACHMENT0_EXT, GL_TEXTURE_2D, blitTarget, 0);
-        gl->glBlitFramebuffer(0, 0, mWidth, mHeight, x, y, w, h, GL_COLOR_BUFFER_BIT, GL_NEAREST);
+        gl->glBlitFramebuffer(0, 0, mWidth, mHeight, x, y, w, h, GL_COLOR_BUFFER_BIT, GL_LINEAR);
         gl->glFramebufferTexture2D(GL_DRAW_FRAMEBUFFER_EXT, GL_COLOR_ATTACHMENT0_EXT, GL_TEXTURE_2D, 0, 0);
         gl->glBindFramebuffer(GL_DRAW_FRAMEBUFFER_EXT, 0);
         gl->glBindFramebuffer(GL_READ_FRAMEBUFFER_EXT, 0);

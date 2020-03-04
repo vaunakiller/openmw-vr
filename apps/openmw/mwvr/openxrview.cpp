@@ -50,12 +50,8 @@ namespace MWVR {
         return camera.release();
     }
 
-    static GLint wfbo = 0;
-    static GLint rfbo = 0;
     void OpenXRView::prerenderCallback(osg::RenderInfo& renderInfo)
     {
-        glGetIntegerv(GL_DRAW_FRAMEBUFFER_BINDING_EXT, &wfbo);
-        glGetIntegerv(GL_READ_FRAMEBUFFER_BINDING_EXT, &rfbo);
         if (mSwapchain)
         {
             mSwapchain->beginFrame(renderInfo.getState()->getGraphicsContext());
@@ -72,8 +68,6 @@ namespace MWVR {
         Log(Debug::Verbose) << "XRView: PostRender";
         auto state = renderInfo.getState();
         auto gl = osg::GLExtensions::Get(state->getContextID(), false);
-        gl->glBindFramebuffer(GL_DRAW_FRAMEBUFFER_EXT, wfbo);
-        gl->glBindFramebuffer(GL_READ_FRAMEBUFFER_EXT, rfbo);
     }
 
     void OpenXRView::swapBuffers(osg::GraphicsContext* gc)

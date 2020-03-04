@@ -278,7 +278,7 @@ namespace MWVR
             mLayer->views = mCompositionLayerProjectionViews.data();
         }
 
-        blitEyesToMirrorTexture(gc);
+        blitEyesToMirrorTexture(gc, false);
 
         gc->swapBuffersImplementation();
     }

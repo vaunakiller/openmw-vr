@@ -99,6 +99,7 @@ public:
     // Stage 2: execute the draw calls. Run during the Draw traversal. May run in parallel with the update traversal of the next frame.
     virtual void drawImplementation(osg::RenderInfo &renderInfo) const
     {
+        std::cout << "DrawImplementation" << std::endl;
         osg::State *state = renderInfo.getState();
 
         state->pushStateSet(mStateSet);
@@ -386,16 +387,18 @@ void RenderManager::initialise()
     mUpdate = false;
 
     mDrawable = new Drawable(this);
+    mDrawable->setName("GUI Drawable");
 
     osg::ref_ptr<osg::Camera> camera = new osg::Camera();
     camera->setReferenceFrame(osg::Transform::ABSOLUTE_RF);
     camera->setProjectionResizePolicy(osg::Camera::FIXED);
     camera->setProjectionMatrix(osg::Matrix::identity());
     camera->setViewMatrix(osg::Matrix::identity());
-    camera->setRenderOrder(osg::Camera::POST_RENDER);
+    camera->setRenderOrder(osg::Camera::NESTED_RENDER);
     camera->setClearMask(GL_NONE);
     mDrawable->setCullingActive(false);
     camera->addChild(mDrawable.get());
+    camera->setName("GUI Camera");
 
     mGuiRoot = camera;
     mSceneRoot->addChild(mGuiRoot.get());
