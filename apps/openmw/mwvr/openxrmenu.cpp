@@ -17,15 +17,34 @@
 namespace MWVR
 {
 
-class Menus : public osg::Camera
+/// Draw callback for RTT that can be used to regenerate mipmaps
+/// either as a predraw before use or a postdraw after RTT.
+class MipmapCallback : public osg::Camera::DrawCallback
 {
 public:
-    Menus()
+    MipmapCallback(osg::Texture2D* texture)
+        : mTexture(texture)
+    {}
+
+    void operator()(osg::RenderInfo& info) const override;
+
+private:
+
+    osg::observer_ptr<osg::Texture2D> mTexture;
+};
+
+/// RTT camera used to draw the osg GUI to a texture
+class GUICamera : public osg::Camera
+{
+public:
+    GUICamera()
     {
         setRenderOrder(osg::Camera::PRE_RENDER);
         setClearMask(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
-        // Give bg a tint of green just to stand out, for testing
+
+        // Make the texture just a little transparent to feel more natural in the game world.
         setClearColor(osg::Vec4(0.f,0.f,0.f,.75f));
+
         setRenderTargetImplementation(osg::Camera::FRAME_BUFFER_OBJECT);
         setReferenceFrame(osg::Camera::ABSOLUTE_RF);
         setComputeNearFarMode(osg::CullSettings::DO_NOT_COMPUTE_NEAR_FAR);
@@ -41,20 +60,24 @@ public:
         // A double update would mess with the light collection (in addition to being plain redundant)
         setUpdateCallback(new MWRender::NoTraverseCallback);
 
-        mMenuTexture = new osg::Texture2D;
-        mMenuTexture->setTextureSize(rttSize, rttSize);
-        mMenuTexture->setInternalFormat(GL_RGBA);
-        mMenuTexture->setFilter(osg::Texture::MIN_FILTER, osg::Texture::LINEAR_MIPMAP_LINEAR);
-        mMenuTexture->setFilter(osg::Texture::MAG_FILTER, osg::Texture::LINEAR);
-        mMenuTexture->setWrap(osg::Texture::WRAP_S, osg::Texture::CLAMP_TO_EDGE);
-        mMenuTexture->setWrap(osg::Texture::WRAP_T, osg::Texture::CLAMP_TO_EDGE);
-        
-        
+        // Create the texture
+        mTexture = new osg::Texture2D;
+        mTexture->setTextureSize(rttSize, rttSize);
+        mTexture->setInternalFormat(GL_RGBA);
+        mTexture->setFilter(osg::Texture::MIN_FILTER, osg::Texture::LINEAR_MIPMAP_LINEAR);
+        mTexture->setFilter(osg::Texture::MAG_FILTER, osg::Texture::LINEAR);
+        mTexture->setWrap(osg::Texture::WRAP_S, osg::Texture::CLAMP_TO_EDGE);
+        mTexture->setWrap(osg::Texture::WRAP_T, osg::Texture::CLAMP_TO_EDGE);
+        attach(osg::Camera::COLOR_BUFFER, mTexture);
+        // Need to regenerate mipmaps every frame
+        setPostDrawCallback(new MipmapCallback(mTexture));
 
-        attach(osg::Camera::COLOR_BUFFER, mMenuTexture);
-
+        // Do not want to waste time on shadows when generating the GUI texture
         SceneUtil::ShadowManager::disableShadowsForStateSet(getOrCreateStateSet());
+
+        // Put rendering as early as possible
         getOrCreateStateSet()->setRenderBinDetails(-1, "RenderBin");
+
     }
 
     void setScene(osg::Node* scene)
@@ -66,49 +89,20 @@ public:
         Log(Debug::Verbose) << "Set new scene: " << mScene->getName();
     }
 
-    osg::Texture2D* getMenuTexture() const
+    osg::Texture2D* getTexture() const
     {
-        return mMenuTexture.get();
+        return mTexture.get();
     }
 
 private:
-    osg::ref_ptr<osg::Texture2D> mMenuTexture;
+    osg::ref_ptr<osg::Texture2D> mTexture;
     osg::ref_ptr<osg::Node> mScene;
 };
 
 
-
-
-    class PredrawCallback : public osg::Camera::DrawCallback
-    {
-    public:
-        PredrawCallback(OpenXRMenu* menu)
-            : mMenu(menu)
-        {}
-
-        void operator()(osg::RenderInfo& info) const override { mMenu->preRenderCallback(info); };
-
-    private:
-
-        OpenXRMenu* mMenu;
-    };
-
-    class PostdrawCallback : public osg::Camera::DrawCallback
-    {
-    public:
-        PostdrawCallback(OpenXRMenu* menu)
-            : mMenu(menu)
-        {}
-
-        void operator()(osg::RenderInfo& info) const override { mMenu->postRenderCallback(info); };
-
-    private:
-
-        OpenXRMenu* mMenu;
-    };
-
     OpenXRMenu::OpenXRMenu(
-        osg::ref_ptr<osg::Group> parent,
+        osg::ref_ptr<osg::Group> geometryRoot,
+        osg::ref_ptr<osg::Group> cameraRoot,
         osg::ref_ptr<osg::Node> menuSubgraph,
         const std::string& title,
         osg::Vec2 extent_meters,
@@ -118,17 +112,18 @@ private:
         const osg::Vec4& clearColor,
         osgViewer::Viewer* viewer)
         : mTitle(title)
-        , mParent(parent)
+        , mGeometryRoot(geometryRoot)
+        , mCameraRoot(cameraRoot)
         , mMenuSubgraph(menuSubgraph)
     {
         osg::ref_ptr<osg::Vec3Array> vertices{ new osg::Vec3Array(4) };
         osg::ref_ptr<osg::Vec2Array> texCoords{ new osg::Vec2Array(4) };
         osg::ref_ptr<osg::Vec3Array> normals{ new osg::Vec3Array(1) };
-        osg::ref_ptr<osg::Vec4Array> colors{ new osg::Vec4Array(1) };
 
         // Units are divided by 2 because geometry has an extent of 2 (-1 to 1)
         auto extent_units = extent_meters * OpenXREnvironment::get().unitsPerMeter() / 2.f;
 
+        // Define the menu quad
         osg::Vec3 top_left    (-1, 1, 1);
         osg::Vec3 bottom_left(-1, -1, 1);
         osg::Vec3 bottom_right(1, -1, 1);
@@ -144,62 +139,65 @@ private:
         (*texCoords)[3].set(1.0f, 1.0f);
         mGeometry->setTexCoordArray(0, texCoords);
         (*normals)[0].set(0.0f, -1.0f, 0.0f);
-        (*colors)[0].set(1.0f, 1.0f, 1.0f, 1.0f);
         mGeometry->setNormalArray(normals, osg::Array::BIND_OVERALL);
-        //mGeometry->setColorArray(colors, osg::Array::BIND_OVERALL);
         mGeometry->addPrimitiveSet(new osg::DrawArrays(GL_QUADS, 0, 4));
         mGeometry->setDataVariance(osg::Object::DYNAMIC);
         mGeometry->setSupportsDisplayList(false);
+        //mGeode->addDrawable(mGeometry);
 
-        mMenuCamera = new Menus();
-        mMenuCamera->setScene(menuSubgraph);
+        // Define the camera that will render the menu texture
+        mGUICamera = new GUICamera();
+        mGUICamera->setScene(menuSubgraph);
 
+        // Define state set that allows rendering with transparency
         mStateSet->setTextureAttributeAndModes(0, menuTexture(), osg::StateAttribute::ON);
         mStateSet->setMode(GL_LIGHTING, osg::StateAttribute::OFF);
         mStateSet->setMode(GL_BLEND, osg::StateAttribute::ON);
         mStateSet->setAttributeAndModes(new osg::BlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA));
         mStateSet->setRenderingHint(osg::StateSet::TRANSPARENT_BIN);
-
-
         mGeometry->setStateSet(mStateSet);
 
-
+        // Position in the game world
         mTransform->setScale(osg::Vec3(extent_units.x(), extent_units.y(), 1.f));
         mTransform->setAttitude(pose.orientation);
         mTransform->setPosition(pose.position);
-        mGeode->addDrawable(mGeometry);
-        mTransform->addChild(mGeode);
-        mParent->addChild(mTransform);
+        mTransform->addChild(mGeometry);
 
-        
-
-        SceneUtil::FindByNameVisitor findRootVisitor("OpenXRRoot", osg::NodeVisitor::TRAVERSE_PARENTS);
-        mParent->accept(findRootVisitor);
-        findRootVisitor.mFoundNode->addChild(mMenuCamera.get());
+        // Add to scene graph
+        mGeometryRoot->addChild(mTransform);
+        mCameraRoot->addChild(mGUICamera);
     }
 
     OpenXRMenu::~OpenXRMenu()
     {
-        mParent->removeChild(mTransform);
-
-        SceneUtil::FindByNameVisitor findRootVisitor("OpenXRRoot", osg::NodeVisitor::TRAVERSE_PARENTS);
-        mParent->accept(findRootVisitor);
-        findRootVisitor.mFoundNode->removeChild(mMenuCamera.get());
+        mGeometryRoot->removeChild(mTransform);
+        mCameraRoot->removeChild(mGUICamera);
     }
 
     void OpenXRMenu::updateCallback()
     {
     }
 
+    void MipmapCallback::operator()(osg::RenderInfo& renderInfo) const
+    {
+        auto* gl = renderInfo.getState()->get<osg::GLExtensions>();
+        auto* tex = mTexture->getTextureObject(renderInfo.getContextID());
+        if (tex)
+        {
+            tex->bind();
+            gl->glGenerateMipmap(tex->target());
+        }
+    }
+
     osg::Camera* OpenXRMenu::camera()
     {
-        return mMenuCamera.get();
+        return mGUICamera.get();
     }
 
     osg::ref_ptr<osg::Texture2D> OpenXRMenu::menuTexture()
     {
-        if (mMenuCamera)
-            return mMenuCamera->getMenuTexture();
+        if (mGUICamera)
+            return mGUICamera->getTexture();
         return nullptr;
     }
 
@@ -214,7 +212,8 @@ private:
         osg::ref_ptr<osgViewer::Viewer> viewer)
         : mOsgViewer(viewer)
     {
-        mMenusRoot->setName("XR Menus Root");
+        mGUIGeometriesRoot->setName("XR GUI Geometry Root");
+        mGUICamerasRoot->setName("XR GUI Cameras Root");
         auto* root = viewer->getSceneData();
 
         SceneUtil::FindByNameVisitor findGUIVisitor("GUI Root");
@@ -236,7 +235,9 @@ private:
 
         Log(Debug::Verbose) << "Root note: " << root->getName();
 
-        findSceneVisitor.mFoundNode->addChild(mMenusRoot);
+        findSceneVisitor.mFoundNode->addChild(mGUIGeometriesRoot);
+        root->asGroup()->addChild(mGUICamerasRoot);
+        
     }
 
     OpenXRMenuManager::~OpenXRMenuManager(void)
@@ -253,7 +254,8 @@ private:
         {
             updatePose();
             mMenu.reset(new OpenXRMenu(
-                mMenusRoot,
+                mGUIGeometriesRoot,
+                mGUICamerasRoot,
                 mGuiRoot,
                 "Main Menu",
                 osg::Vec2(1.5f, 1.5f),

@@ -13,13 +13,14 @@
 struct XrCompositionLayerQuad;
 namespace MWVR
 {
-    class Menus;
+    class GUICamera;
 
     class OpenXRMenu
     {
     public:
         OpenXRMenu(
-            osg::ref_ptr<osg::Group> parent,
+            osg::ref_ptr<osg::Group> geometryRoot,
+            osg::ref_ptr<osg::Group> cameraRoot,
             osg::ref_ptr<osg::Node> menuSubgraph,
             const std::string& title, 
             osg::Vec2 extent_meters,
@@ -42,14 +43,14 @@ namespace MWVR
 
     public:
         std::string mTitle;
-        osg::ref_ptr<osg::Group> mParent;
+        osg::ref_ptr<osg::Group> mGeometryRoot;
         osg::ref_ptr<osg::Geometry> mGeometry{ new osg::Geometry };
-        osg::ref_ptr<osg::Geode> mGeode{ new osg::Geode };
         osg::ref_ptr<osg::PositionAttitudeTransform> mTransform{ new osg::PositionAttitudeTransform };
 
+        osg::ref_ptr<osg::Group> mCameraRoot;
         osg::ref_ptr<osg::Node> mMenuSubgraph;
         osg::ref_ptr<osg::StateSet> mStateSet{ new osg::StateSet };
-        osg::ref_ptr<Menus> mMenuCamera;
+        osg::ref_ptr<GUICamera> mGUICamera;
     };
 
     class OpenXRMenuManager
@@ -69,8 +70,12 @@ namespace MWVR
     private:
         Pose mPose{};
         osg::ref_ptr<osgViewer::Viewer> mOsgViewer{ nullptr };
-        osg::ref_ptr<osg::Group> mMenusRoot{ new osg::Group };
+
+        osg::ref_ptr<osg::Group> mGUIGeometriesRoot{ new osg::Group };
+        osg::ref_ptr<osg::Group> mGUICamerasRoot{ new osg::Group };
+
         osg::ref_ptr<osg::Node> mGuiRoot{ nullptr };
+
         std::unique_ptr<OpenXRMenu> mMenu{ nullptr };
     };
 }

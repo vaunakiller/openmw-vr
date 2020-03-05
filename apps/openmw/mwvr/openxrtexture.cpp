@@ -107,8 +107,6 @@ namespace MWVR
         auto state = gc->getState();
         auto* gl = osg::GLExtensions::Get(state->getContextID(), false);
         gl->glBindFramebuffer(GL_FRAMEBUFFER_EXT, mFBO);
-
-        Log(Debug::Verbose) << "Bound FBO: " << mFBO;
     }
 
     void OpenXRTextureBuffer::endFrame(osg::GraphicsContext* gc, uint32_t blitTarget)

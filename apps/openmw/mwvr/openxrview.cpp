@@ -57,7 +57,6 @@ namespace MWVR {
             mSwapchain->beginFrame(renderInfo.getState()->getGraphicsContext());
         }
         mTimer.checkpoint("Prerender");
-        Log(Debug::Verbose) << "XRView: PreRender";
     }
 
     void OpenXRView::postrenderCallback(osg::RenderInfo& renderInfo)
@@ -65,7 +64,6 @@ namespace MWVR {
         //    mSwapchain->endFrame(renderInfo.getState()->getGraphicsContext());
 
         mTimer.checkpoint("Postrender");
-        Log(Debug::Verbose) << "XRView: PostRender";
         auto state = renderInfo.getState();
         auto gl = osg::GLExtensions::Get(state->getContextID(), false);
     }
