@@ -6,6 +6,7 @@
 #include <osg/Depth>
 #include <osg/Drawable>
 #include <osg/Object>
+#include <osg/BlendFunc>
 
 #include <osgUtil/RenderBin>
 #include <osgUtil/CullVisitor>
@@ -51,6 +52,15 @@
 #include "../mwrender/rotatecontroller.hpp"
 #include "../mwrender/renderbin.hpp"
 #include "../mwrender/vismask.hpp"
+#include "../mwrender/renderingmanager.hpp"
+#include "../mwrender/objects.hpp"
+
+#include "../mwphysics/collisiontype.hpp"
+#include "../mwphysics/physicssystem.hpp"
+
+#include "openxrenvironment.hpp"
+#include "openxrviewer.hpp"
+#include "openxrinputmanager.hpp"
 
 namespace MWVR
 {
@@ -59,7 +69,7 @@ namespace MWVR
 // existing animation system, implementing this as an animation source.
 // But I'm not sure it would be since these are not classical animations.
 // It would make it easier to control priority, and later allow for users to add their own stuff to animations based on VR/touch input.
-// But openmw doesn't really have any concepts for user animation overrides.
+// But openmw doesn't really have any concepts for user animation overrides as far as i can tell.
 
 
 /// Implements dummy control of the forearm, to control mesh/bone deformation of the hand.
@@ -142,18 +152,44 @@ void FingerController::operator()(osg::Node* node, osg::NodeVisitor* nv)
         return;
     }
 
+    // This update needs to hard override all other animation updates.
+    // To do this i need to make sure no further update calls are made.
+    // Therefore i do not traverse normally but instead explicitly fetch 
+    // the children i want to update and update them here.
+
+    // I'm sure this could be done in a cleaner way
+
+
+    // First, update the base of the finger to the overriding orientation
     auto matrixTransform = node->asTransform()->asMatrixTransform();
     auto matrix = matrixTransform->getMatrix();
     matrix.setRotate(mRotate);
     matrixTransform->setMatrix(matrix);
 
-    auto tip = matrixTransform->getChild(0);
-    auto tipMatrixTransform = tip->asTransform()->asMatrixTransform();
-    matrix = tipMatrixTransform->getMatrix();
+    // Next update the tip.
+    // Note that for now both tips are just given osg::Quat(0,0,0,1) as that amounts to pointing forward.
+    auto tip = matrixTransform->getChild(0)->asTransform()->asMatrixTransform();
+    matrix = tip->getMatrix();
     matrix.setRotate(mRotate);
-    tipMatrixTransform->setMatrix(matrix);
+    tip->setMatrix(matrix);
 
-    //traverse(node, nv);
+    // Finally, if pointing forward is enabled we need to intersect the scene to find where the player is pointing
+    // So that we can display a beam to visualize where the player is pointing.
+
+    // Dig up the pointer transform
+    SceneUtil::FindByNameVisitor findPointerVisitor("Pointer Transform", osg::NodeVisitor::TRAVERSE_ALL_CHILDREN);
+    tip->accept(findPointerVisitor);
+    auto pointerTransform = findPointerVisitor.mFoundNode;
+    if (pointerTransform)
+    {
+        // Get distance to pointer intersection
+        auto pat = pointerTransform->asTransform()->asPositionAttitudeTransform();
+        // TODO: Using the cached value from the input manager makes this off by one frame
+        float intersected_distance = MWBase::Environment::get().getWorld()->getDistanceToPointedAtObject();
+
+        // Stretch beam to point of intersection.
+        pat->setScale(osg::Vec3(1.f, 1.f, intersected_distance));
+    }
 }
 
 
@@ -172,6 +208,7 @@ OpenXRAnimation::OpenXRAnimation(
     mIndexFingerControllers[0] = osg::ref_ptr<FingerController> (new FingerController(osg::Quat(0, 0, 0, 1)));
     mIndexFingerControllers[1] = osg::ref_ptr<FingerController> (new FingerController(osg::Quat(0, 0, 0, 1)));
     mModelOffset->setName("ModelOffset");
+    createPointer();
 }
 
 OpenXRAnimation::~OpenXRAnimation() {};
@@ -213,11 +250,99 @@ void OpenXRAnimation::setPointForward(bool enabled)
     auto found00 = mNodeMap.find("bip01 r finger1");
     if (found00 != mNodeMap.end())
     {
-        found00->second->removeUpdateCallback(mIndexFingerControllers[0]);
+        auto base_joint = found00->second;
+        auto second_joint = base_joint->getChild(0)->asTransform()->asMatrixTransform();
+        assert(second_joint);
+
+        second_joint->removeChild(mPointerTransform);
+        base_joint->removeUpdateCallback(mIndexFingerControllers[0]);
         if (enabled)
-            found00->second->addUpdateCallback(mIndexFingerControllers[0]);
+        {
+            second_joint->addChild(mPointerTransform);
+            base_joint->addUpdateCallback(mIndexFingerControllers[0]);
+        }
     }
 }
+
+void OpenXRAnimation::createPointer(void)
+{
+    mPointerGeometry = createPointerGeometry();
+    mPointerTransform = new osg::PositionAttitudeTransform();
+    mPointerTransform->addChild(mPointerGeometry);
+    mPointerTransform->asPositionAttitudeTransform()->setAttitude(osg::Quat(osg::DegreesToRadians(90.f), osg::Vec3(0.f, 1.f, 0.f)));
+    mPointerTransform->asPositionAttitudeTransform()->setPosition(osg::Vec3(0.f, 0.f, 0.f));
+    mPointerTransform->asPositionAttitudeTransform()->setScale(osg::Vec3(1.f, 1.f, 1.f));
+    mPointerTransform->setName("Pointer Transform");
+}
+
+osg::ref_ptr<osg::Geometry> OpenXRAnimation::createPointerGeometry(void)
+{
+    osg::ref_ptr<osg::Geometry> geometry = new osg::Geometry();
+
+    // Create pointer geometry, which will point from the tip of the player's finger.
+    // The geometry will be a Four sided pyramid, with the top at the player's fingers
+
+    osg::Vec3 vertices[]{
+        {0, 0, 0}, // origin
+        {-1, 1, 1}, // top_left
+        {-1, -1, 1}, // bottom_left
+        {1, -1, 1}, // bottom_right
+        {1, 1, 1}, // top_right
+    };
+
+    osg::Vec4 colors[]{
+        osg::Vec4(1.0f, 0.0f, 0.0f, 0.0f),
+        osg::Vec4(1.0f, 0.0f, 0.0f, 1.0f),
+        osg::Vec4(1.0f, 0.0f, 0.0f, 1.0f),
+        osg::Vec4(1.0f, 0.0f, 0.0f, 1.0f),
+        osg::Vec4(1.0f, 0.0f, 0.0f, 1.0f),
+    };
+
+    const int origin = 0;
+    const int top_left = 1;
+    const int bottom_left = 2;
+    const int bottom_right = 3;
+    const int top_right = 4;
+
+    const int triangles[] =
+    {
+        bottom_right, top_right, top_left,
+        bottom_right, top_left, bottom_left,
+        origin, top_left, top_right,
+        origin, top_right, bottom_right,
+        origin, bottom_left, top_left,
+        origin, bottom_right, bottom_left,
+    };
+    int numVertices = sizeof(triangles) / sizeof(*triangles);
+    osg::ref_ptr<osg::Vec3Array> vertexArray = new osg::Vec3Array(numVertices);
+    osg::ref_ptr<osg::Vec4Array> colorArray = new osg::Vec4Array(numVertices);
+    for (int i = 0; i < numVertices; i++)
+    {
+        (*vertexArray)[i] = vertices[triangles[i]];
+        (*colorArray)[i] = colors[triangles[i]];
+    }
+
+    osg::ref_ptr<osg::Vec3Array> normals = new osg::Vec3Array;
+    normals->push_back(osg::Vec3(0.0f, -1.0f, 0.0f));
+
+
+
+    geometry->setVertexArray(vertexArray);
+    geometry->setColorArray(colorArray, osg::Array::BIND_PER_VERTEX);
+    geometry->addPrimitiveSet(new osg::DrawArrays(osg::PrimitiveSet::TRIANGLES, 0, numVertices));
+    geometry->setDataVariance(osg::Object::DYNAMIC);
+    geometry->setSupportsDisplayList(false);
+    geometry->setCullingActive(false);
+
+    auto stateset = geometry->getOrCreateStateSet();
+    stateset->setMode(GL_LIGHTING, osg::StateAttribute::OFF);
+    stateset->setMode(GL_BLEND, osg::StateAttribute::ON);
+    stateset->setAttributeAndModes(new osg::BlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA));
+    stateset->setRenderingHint(osg::StateSet::TRANSPARENT_BIN);
+
+    return geometry;
+}
+
 osg::Vec3f OpenXRAnimation::runAnimation(float timepassed)
 {
     return NpcAnimation::runAnimation(timepassed);

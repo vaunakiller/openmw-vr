@@ -61,8 +61,6 @@ namespace MWVR {
 
     void OpenXRView::postrenderCallback(osg::RenderInfo& renderInfo)
     {
-        //    mSwapchain->endFrame(renderInfo.getState()->getGraphicsContext());
-
         mTimer.checkpoint("Postrender");
         auto state = renderInfo.getState();
         auto gl = osg::GLExtensions::Get(state->getContextID(), false);
@@ -76,6 +74,5 @@ namespace MWVR {
     void  OpenXRView::setPredictedPose(const Pose& pose) 
     { 
         mPredictedPose = pose; 
-        //Log(Debug::Verbose) << mName << " predicted pose updated to " << pose;
     };
 }

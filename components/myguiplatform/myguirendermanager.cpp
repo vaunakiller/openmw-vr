@@ -99,7 +99,6 @@ public:
     // Stage 2: execute the draw calls. Run during the Draw traversal. May run in parallel with the update traversal of the next frame.
     virtual void drawImplementation(osg::RenderInfo &renderInfo) const
     {
-        std::cout << "DrawImplementation" << std::endl;
         osg::State *state = renderInfo.getState();
 
         state->pushStateSet(mStateSet);

@@ -799,8 +799,14 @@ namespace MWVR
         bool disableControls,
         bool disableEvents)
     {
-
         mXRInput->updateControls();
+
+        auto* world = MWBase::Environment::get().getWorld();
+        if (world)
+        {
+            auto pointedAt = world->getPointedAtObject();
+            // TODO: Left off here
+        }
 
         OpenXRActionEvent event{};
         while (mXRInput->nextActionEvent(event))
@@ -820,7 +826,7 @@ namespace MWVR
 
     void OpenXRInputManager::processEvent(const OpenXRActionEvent& event)
     {
-        auto* session = OpenXREnvironment::get().getSession();
+        //auto* session = OpenXREnvironment::get().getSession();
         auto* xrMenuManager = OpenXREnvironment::get().getMenuManager();
         switch (event.action)
         {

@@ -244,7 +244,6 @@ namespace MWVR
         if (!mConfigured)
             return;
 
-        Log(Debug::Verbose) << "OpenXRViewer: swapBuffers";
         auto* session = OpenXREnvironment::get().getSession();
         auto* xr = OpenXREnvironment::get().getManager();
 
@@ -311,9 +310,6 @@ namespace MWVR
             if (xr->sessionRunning())
             {
                 xr->beginFrame();
-                auto& poses = session->predictedPoses();
-                //auto menuPose = poses.head[(int)TrackedSpace::STAGE];
-                //mViews["MenuView"]->setPredictedPose(menuPose);
             }
         }
 

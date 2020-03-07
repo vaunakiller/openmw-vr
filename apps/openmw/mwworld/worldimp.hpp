@@ -140,6 +140,8 @@ namespace MWWorld
 
             MWWorld::Ptr getFacedObject(float maxDistance, bool ignorePlayer=true);
 
+            std::pair<MWWorld::Ptr, osg::Node*> getPointedAtObject(float maxDistance, bool ignorePlayer=true);
+
     public: // FIXME
             void addContainerScripts(const Ptr& reference, CellStore* cell) override;
             void removeContainerScripts(const Ptr& reference) override;
@@ -174,6 +176,7 @@ namespace MWWorld
             float mSwimHeightScale;
 
             float mDistanceToFacedObject;
+            float mDistanceToPointedAtObject;
 
             bool mTeleportEnabled;
             bool mLevitationEnabled;
@@ -374,7 +377,11 @@ namespace MWWorld
             MWWorld::Ptr getFacedObject() override;
             ///< Return pointer to the object the player is looking at, if it is within activation range
 
+            std::pair<MWWorld::Ptr, osg::Node*> getPointedAtObject() override;
+            ///< Return pointer to the object and/or node the player is currently pointing at
+
             float getDistanceToFacedObject() override;
+            float getDistanceToPointedAtObject() override;
 
             /// Returns a pointer to the object the provided object would hit (if within the
             /// specified distance), and the point where the hit occurs. This will attempt to

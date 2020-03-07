@@ -7,6 +7,7 @@
 #include <map>
 #include <set>
 #include <deque>
+#include <osg/node>
 
 #include <components/esm/cellid.hpp>
 
@@ -260,7 +261,11 @@ namespace MWBase
             virtual MWWorld::Ptr  getFacedObject() = 0;
             ///< Return pointer to the object the player is looking at, if it is within activation range
 
+            virtual std::pair<MWWorld::Ptr, osg::Node*> getPointedAtObject() = 0;
+            ///< Return pointer to the object and/or node the player is currently pointing at
+
             virtual float getDistanceToFacedObject() = 0;
+            virtual float getDistanceToPointedAtObject() = 0;
 
             virtual float getMaxActivationDistance() = 0;
 

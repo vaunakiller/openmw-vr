@@ -23,6 +23,7 @@
 #include <components/resource/resourcesystem.hpp>
 
 #include <components/sceneutil/positionattitudetransform.hpp>
+#include <components/sceneutil/visitor.hpp>
 
 #include <components/detournavigator/debug.hpp>
 #include <components/detournavigator/navigatorimpl.hpp>
@@ -1112,9 +1113,32 @@ namespace MWWorld
         return facedObject;
     }
 
+    std::pair<MWWorld::Ptr, osg::Node*> World::getPointedAtObject()
+    {
+        if (MWBase::Environment::get().getWindowManager()->isGuiMode() &&
+            MWBase::Environment::get().getWindowManager()->isConsoleMode())
+        {
+            return getPointedAtObject(getMaxActivationDistance() * 50, false);
+        }
+        else
+        {
+            auto pointedAtObject = getPointedAtObject(getActivationDistancePlusTelekinesis(), true);
+
+            if (!pointedAtObject.first.isEmpty() && !pointedAtObject.first.getClass().allowTelekinesis(pointedAtObject.first)
+                && mDistanceToFacedObject > getMaxActivationDistance() && !MWBase::Environment::get().getWindowManager()->isGuiMode())
+                return std::pair<MWWorld::Ptr, osg::Node*>();
+            return pointedAtObject;
+        }
+    }
+
    float World::getDistanceToFacedObject()
    {
         return mDistanceToFacedObject;
+   }
+
+   float World::getDistanceToPointedAtObject()
+   {
+       return mDistanceToPointedAtObject;
    }
 
     osg::Matrixf World::getActorHeadTransform(const MWWorld::ConstPtr& actor) const
@@ -2044,6 +2068,46 @@ namespace MWWorld
         else
             mDistanceToFacedObject = -1;
         return facedObject;
+    }
+
+    std::pair<MWWorld::Ptr, osg::Node*> World::getPointedAtObject(float maxDistance, bool ignorePlayer)
+    {
+        auto sceneRoot = mRendering->getLightRoot();
+
+        // Find the transform giving the finger's pointing direction.
+        SceneUtil::FindByNameVisitor findPointerVisitor("Pointer Transform", osg::NodeVisitor::TRAVERSE_ALL_CHILDREN);
+        sceneRoot->accept(findPointerVisitor);
+        auto pointerTransform = findPointerVisitor.mFoundNode;
+        if (pointerTransform)
+        {
+            auto pat = pointerTransform->asTransform()->asPositionAttitudeTransform();
+
+            // Discover the world position of the finger
+            // (This is actually the base of the last joint bone but so long as it is pointing forward it serves the same purpose).
+            osg::Matrix worldMatrix = osg::computeLocalToWorld(pointerTransform->getParentalNodePaths()[0]);
+            pat->computeLocalToWorldMatrix(worldMatrix, nullptr);
+            osg::Vec3 translate;
+            osg::Quat rotation;
+            osg::Vec3 scale;
+            osg::Quat scaleRotation;
+            worldMatrix.decompose(translate, rotation, scale, scaleRotation);
+            osg::Vec3f direction = rotation * osg::Vec3f(-1, 0, 0);
+            direction.normalize();
+
+            osg::Vec3f raySource = translate;
+            osg::Vec3f rayTarget = translate + direction * maxDistance;
+
+            auto rayToObject = mRendering->castRay(raySource, rayTarget, ignorePlayer, false);
+            if (rayToObject.mHit)
+                mDistanceToPointedAtObject = (rayToObject.mHitPointWorld - raySource).length();
+            else
+            // Leave a very large but not too large number to permit visualizing a beam going into "infinity"
+                mDistanceToPointedAtObject = 10000.f;
+
+            return { rayToObject.mHitObject, rayToObject.mHitNode };
+        }
+
+        return std::pair<MWWorld::Ptr, osg::Node*>();
     }
 
     bool World::isCellExterior() const

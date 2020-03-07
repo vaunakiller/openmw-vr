@@ -55,12 +55,19 @@ public:
     /// (Used to visualize direction of activation action)
     void setPointForward(bool enabled);
 
+public:
+    void createPointer(void);
+    static osg::ref_ptr<osg::Geometry> createPointerGeometry(void);
+
 private:
     std::shared_ptr<OpenXRSession> mSession;
     ForearmController* mForearmControllers[2]{};
     HandController* mHandControllers[2]{};
     osg::ref_ptr<FingerController> mIndexFingerControllers[2];
     osg::ref_ptr<osg::MatrixTransform> mModelOffset;
+    osg::ref_ptr<osg::Geometry> mPointerGeometry{ nullptr };
+    osg::ref_ptr<osg::Transform> mPointerTransform{ nullptr };
+    
 };
 
 }

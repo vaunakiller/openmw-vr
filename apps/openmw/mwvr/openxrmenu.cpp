@@ -2,6 +2,7 @@
 #include "openxrenvironment.hpp"
 #include "openxrsession.hpp"
 #include "openxrmanagerimpl.hpp"
+#include "openxranimation.hpp"
 #include <openxr/openxr.h>
 #include <osg/Texture2D>
 #include <osg/ClipNode>
@@ -30,7 +31,7 @@ public:
 
 private:
 
-    osg::observer_ptr<osg::Texture2D> mTexture;
+    osg::ref_ptr<osg::Texture2D> mTexture;
 };
 
 /// RTT camera used to draw the osg GUI to a texture
@@ -143,6 +144,7 @@ private:
         mGeometry->addPrimitiveSet(new osg::DrawArrays(GL_QUADS, 0, 4));
         mGeometry->setDataVariance(osg::Object::DYNAMIC);
         mGeometry->setSupportsDisplayList(false);
+        mGeometry->setName("XR Menu Geometry");
         //mGeode->addDrawable(mGeometry);
 
         // Define the camera that will render the menu texture
@@ -162,6 +164,7 @@ private:
         mTransform->setAttitude(pose.orientation);
         mTransform->setPosition(pose.position);
         mTransform->addChild(mGeometry);
+        //mTransform->addChild(OpenXRAnimation::createPointerGeometry());
 
         // Add to scene graph
         mGeometryRoot->addChild(mTransform);

@@ -8,6 +8,8 @@
 #include <array>
 #include <iostream>
 
+#include "../mwworld/ptr.hpp"
+
 namespace MWVR
 {
     struct OpenXRInput;

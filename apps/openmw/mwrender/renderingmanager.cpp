@@ -1019,6 +1019,7 @@ namespace MWRender
         RenderingManager::RayResult result;
         result.mHit = false;
         result.mRatio = 0;
+        result.mHitNode = nullptr;
         if (intersector->containsIntersections())
         {
             result.mHit = true;
@@ -1027,6 +1028,9 @@ namespace MWRender
             result.mHitPointWorld = intersection.getWorldIntersectPoint();
             result.mHitNormalWorld = intersection.getWorldIntersectNormal();
             result.mRatio = intersection.ratio;
+
+            if(!intersection.nodePath.empty())
+                result.mHitNode = intersection.nodePath.back();
 
             PtrHolder* ptrHolder = nullptr;
             for (osg::NodePath::const_iterator it = intersection.nodePath.begin(); it != intersection.nodePath.end(); ++it)
