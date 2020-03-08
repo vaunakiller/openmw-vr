@@ -44,6 +44,7 @@ namespace MWVR
         PoseSet getHandPoses(int64_t time, TrackedSpace space);
 
         void updateActivationIndication(void);
+        void pointActivation(bool onPress);
 
         std::unique_ptr<OpenXRInput> mXRInput;
         Pose mPreviousHeadPose{};

@@ -187,7 +187,11 @@ InputWrapper::InputWrapper(SDL_Window* window, osg::ref_ptr<osgViewer::Viewer> v
                 SDL_GetWindowSize(mSDLWindow, &w, &h);
                 int x,y;
                 SDL_GetWindowPosition(mSDLWindow, &x,&y);
-                mViewer->getCamera()->getGraphicsContext()->resized(x,y,w,h);
+                {
+                    auto* gc = mViewer->getCamera()->getGraphicsContext();
+                    if (gc)
+                        gc->resized(x, y, w, h);
+                }
 
                 mViewer->getEventQueue()->windowResize(x,y,w,h);
 

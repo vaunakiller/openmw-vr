@@ -223,6 +223,11 @@ namespace MWWorld
          return ptr.getClass().getNpcStats(ptr).getDrawState();
     }
 
+    void Player::activate(MWWorld::Ptr obj)
+    {
+        MWBase::Environment::get().getWorld()->activate(obj, getPlayer());
+    }
+
     void Player::activate()
     {
         if (MWBase::Environment::get().getWindowManager()->isGuiMode())
