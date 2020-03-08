@@ -69,6 +69,7 @@
 
 #ifdef USE_OPENXR
 #include "../mwvr/openxranimation.hpp"
+#include "../mwvr/openxrenvironment.hpp"
 #endif
 
 namespace
@@ -1025,6 +1026,7 @@ namespace MWRender
             result.mHit = true;
             osgUtil::LineSegmentIntersector::Intersection intersection = intersector->getFirstIntersection();
 
+            result.mHitPointLocal = intersection.getLocalIntersectPoint();
             result.mHitPointWorld = intersection.getWorldIntersectPoint();
             result.mHitNormalWorld = intersection.getWorldIntersectNormal();
             result.mRatio = intersection.ratio;
@@ -1163,7 +1165,8 @@ namespace MWRender
     void RenderingManager::renderPlayer(const MWWorld::Ptr &player)
     {
 #ifdef USE_OPENXR
-        mPlayerAnimation = new MWVR::OpenXRAnimation(player, player.getRefData().getBaseNode(), mResourceSystem, false, nullptr);
+        MWVR::OpenXREnvironment::get().setPlayerAnimation(new MWVR::OpenXRAnimation(player, player.getRefData().getBaseNode(), mResourceSystem, false, nullptr));
+        mPlayerAnimation = MWVR::OpenXREnvironment::get().getPlayerAnimation();
 #else
         mPlayerAnimation = new NpcAnimation(player, player.getRefData().getBaseNode(), mResourceSystem, 0, NpcAnimation::VM_Normal,
                                                 mFirstPersonFieldOfView);

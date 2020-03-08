@@ -184,11 +184,17 @@ void FingerController::operator()(osg::Node* node, osg::NodeVisitor* nv)
     {
         // Get distance to pointer intersection
         auto pat = pointerTransform->asTransform()->asPositionAttitudeTransform();
-        // TODO: Using the cached value from the input manager makes this off by one frame
-        float intersected_distance = MWBase::Environment::get().getWorld()->getDistanceToPointedAtObject();
+        auto* world = MWBase::Environment::get().getWorld();
+        if (world)
+        {
+            // TODO: Using the cached value from the input manager makes this off by one frame
+            // So do one otherwise redundant intersection here.
+            world->getPointedAtObject();
+            float intersected_distance = world->getDistanceToPointedAtObject();
 
-        // Stretch beam to point of intersection.
-        pat->setScale(osg::Vec3(1.f, 1.f, intersected_distance));
+            // Stretch beam to point of intersection.
+            pat->setScale(osg::Vec3(.25f, .25f, intersected_distance));
+        }
     }
 }
 

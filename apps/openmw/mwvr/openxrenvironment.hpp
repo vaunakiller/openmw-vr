@@ -3,6 +3,7 @@
 
 namespace MWVR
 {
+    class OpenXRAnimation;
     class OpenXRInputManager;
     class OpenXRSession;
     class OpenXRMenuManager;
@@ -35,7 +36,7 @@ namespace MWVR
         void cleanup();
         ///< Delete all mwvr-subsystems.
 
-        static const OpenXREnvironment& get();
+        static OpenXREnvironment& get();
         ///< Return instance of this class.
 
         MWVR::OpenXRInputManager* getInputManager() const;
@@ -46,6 +47,9 @@ namespace MWVR
 
         MWVR::OpenXRMenuManager* getMenuManager() const;
         void setMenuManager(MWVR::OpenXRMenuManager* xrMenuManager);
+
+        MWVR::OpenXRAnimation* getPlayerAnimation() const;
+        void setPlayerAnimation(MWVR::OpenXRAnimation* xrAnimation);
 
         MWVR::OpenXRSession* getSession() const;
         void setSession(MWVR::OpenXRSession* xrSession);
@@ -62,6 +66,7 @@ namespace MWVR
     private:
         MWVR::OpenXRSession* mSession{ nullptr };
         MWVR::OpenXRMenuManager* mMenuManager{ nullptr };
+        MWVR::OpenXRAnimation* mPlayerAnimation{ nullptr };
         MWVR::OpenXRViewer* mViewer{ nullptr };
         MWVR::OpenXRManager* mOpenXRManager{ nullptr };
         float mUnitsPerMeter{ 1.f };

@@ -140,7 +140,7 @@ namespace MWWorld
 
             MWWorld::Ptr getFacedObject(float maxDistance, bool ignorePlayer=true);
 
-            std::pair<MWWorld::Ptr, osg::Node*> getPointedAtObject(float maxDistance, bool ignorePlayer=true);
+            IntersectedObject getPointedAtObject(float maxDistance, bool ignorePlayer=true);
 
     public: // FIXME
             void addContainerScripts(const Ptr& reference, CellStore* cell) override;
@@ -377,7 +377,7 @@ namespace MWWorld
             MWWorld::Ptr getFacedObject() override;
             ///< Return pointer to the object the player is looking at, if it is within activation range
 
-            std::pair<MWWorld::Ptr, osg::Node*> getPointedAtObject() override;
+            IntersectedObject getPointedAtObject() override;
             ///< Return pointer to the object and/or node the player is currently pointing at
 
             float getDistanceToFacedObject() override;

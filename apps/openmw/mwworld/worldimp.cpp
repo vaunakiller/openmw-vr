@@ -1113,7 +1113,7 @@ namespace MWWorld
         return facedObject;
     }
 
-    std::pair<MWWorld::Ptr, osg::Node*> World::getPointedAtObject()
+    World::IntersectedObject World::getPointedAtObject()
     {
         if (MWBase::Environment::get().getWindowManager()->isGuiMode() &&
             MWBase::Environment::get().getWindowManager()->isConsoleMode())
@@ -1123,10 +1123,10 @@ namespace MWWorld
         else
         {
             auto pointedAtObject = getPointedAtObject(getActivationDistancePlusTelekinesis(), true);
-
-            if (!pointedAtObject.first.isEmpty() && !pointedAtObject.first.getClass().allowTelekinesis(pointedAtObject.first)
+            auto ptr = std::get<0>(pointedAtObject);
+            if (!ptr.isEmpty() && !ptr.getClass().allowTelekinesis(ptr)
                 && mDistanceToFacedObject > getMaxActivationDistance() && !MWBase::Environment::get().getWindowManager()->isGuiMode())
-                return std::pair<MWWorld::Ptr, osg::Node*>();
+                return IntersectedObject();
             return pointedAtObject;
         }
     }
@@ -2070,7 +2070,7 @@ namespace MWWorld
         return facedObject;
     }
 
-    std::pair<MWWorld::Ptr, osg::Node*> World::getPointedAtObject(float maxDistance, bool ignorePlayer)
+    World::IntersectedObject World::getPointedAtObject(float maxDistance, bool ignorePlayer)
     {
         auto sceneRoot = mRendering->getLightRoot();
 
@@ -2103,11 +2103,10 @@ namespace MWWorld
             else
             // Leave a very large but not too large number to permit visualizing a beam going into "infinity"
                 mDistanceToPointedAtObject = 10000.f;
-
-            return { rayToObject.mHitObject, rayToObject.mHitNode };
+            return { rayToObject.mHitObject, rayToObject.mHitNode, rayToObject.mHitPointLocal };
         }
 
-        return std::pair<MWWorld::Ptr, osg::Node*>();
+        return IntersectedObject();
     }
 
     bool World::isCellExterior() const

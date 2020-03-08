@@ -1,3 +1,4 @@
+#include "openxranimation.hpp"
 #include "openxrinputmanager.hpp"
 #include "openxrenvironment.hpp"
 #include "openxrmanager.hpp"
@@ -625,10 +626,6 @@ namespace MWVR
         {
             mActionEvents.emplace_back(OpenXRActionEvent{ MWInput::InputManager::A_Inventory, true });
         }
-        if (mActivate.actionOnPress())
-        {
-            mActionEvents.emplace_back(OpenXRActionEvent{ MWInput::InputManager::A_Activate, true });
-        }
         if (mJump.actionOnPress())
         {
             mActionEvents.emplace_back(OpenXRActionEvent{ MWInput::InputManager::A_Jump, true });
@@ -636,6 +633,12 @@ namespace MWVR
         if (mQuickMenu.actionOnPress())
         {
             mActionEvents.emplace_back(OpenXRActionEvent{ MWInput::InputManager::A_QuickMenu, true });
+        }
+        
+        // Actions that activate on release
+        if (mActivate.actionChanged())
+        {
+            mActionEvents.emplace_back(OpenXRActionEvent{ MWInput::InputManager::A_Activate, mActivate.actionOnPress() });
         }
 
         // Actions that hold with the button
@@ -749,9 +752,16 @@ namespace MWVR
         return mXRInput->getHandPoses(time, space);
     }
 
-    void OpenXRInputManager::showActivationIndication(bool show)
+    void OpenXRInputManager::updateActivationIndication(void)
     {
-        mPlayer->setPointing(show);
+        bool guiMode = MWBase::Environment::get().getWindowManager()->isGuiMode();
+        bool show = guiMode | mActivationIndication;
+        if (mPlayer)
+            mPlayer->setPointing(show);
+
+        auto* playerAnimation = OpenXREnvironment::get().getPlayerAnimation();
+        if (playerAnimation)
+            playerAnimation->setPointForward(show);
     }
 
     OpenXRInputManager::OpenXRInputManager(
@@ -801,11 +811,30 @@ namespace MWVR
     {
         mXRInput->updateControls();
 
+
         auto* world = MWBase::Environment::get().getWorld();
         if (world)
         {
             auto pointedAt = world->getPointedAtObject();
             // TODO: Left off here
+
+            auto* node = std::get<1>(pointedAt);
+            if (node)
+            {
+
+                int w, h;
+                SDL_GetWindowSize(mWindow, &w, &h);
+
+                osg::Vec3 local = std::get<2>(pointedAt);
+                local.x() = (local.x() + 1.f) / 2.f;
+                local.y() = 1.f - (local.y() + 1.f) / 2.f;
+
+
+                mGuiCursorX = mInvUiScalingFactor * (local.x() * w);
+                mGuiCursorY = mInvUiScalingFactor * (local.y() * h);
+
+                MyGUI::InputManager::getInstance().injectMouseMove(int(mGuiCursorX), int(mGuiCursorY), 0);
+            }
         }
 
         OpenXRActionEvent event{};
@@ -813,6 +842,8 @@ namespace MWVR
         {
             processEvent(event);
         }
+
+        updateActivationIndication();
 
         MWInput::InputManager::update(dt, disableControls, disableEvents);
 
@@ -831,7 +862,6 @@ namespace MWVR
         switch (event.action)
         {
         case A_GameMenu:
-                Log(Debug::Verbose) << "A_GameMenu";
                 toggleMainMenu();
                 // Explicitly request position update here so that the player can move the menu
                 // using the menu key when the menu can't be toggled.
@@ -848,7 +878,14 @@ namespace MWVR
             break;
         case A_Activate:
             resetIdleTime();
-            activate();
+            {
+                if (MWBase::Environment::get().getWindowManager()->isGuiMode())
+                {
+                    // Do nothing
+                }
+                else if(!event.onPress)
+                    activate();
+            }
             break;
         // TODO: Movement
         //case A_MoveLeft:
@@ -964,10 +1001,19 @@ namespace MWVR
             mAttemptJump = true;
             break;
         case A_Use:
-            mInputBinder->getChannel(A_Use)->setValue(event.onPress);
+            if (MWBase::Environment::get().getWindowManager()->isGuiMode())
+            {
+                SDL_MouseButtonEvent arg;
+                if (event.onPress)
+                    mousePressed(arg, SDL_BUTTON_LEFT);
+                else
+                    mouseReleased(arg, SDL_BUTTON_LEFT);
+            }
+            else
+                mInputBinder->getChannel(A_Use)->setValue(event.onPress);
             break;
         case OpenXRInput::A_ActivateTouch:
-            showActivationIndication(event.onPress);
+            mActivationIndication = event.onPress;
             break;
         default:
             Log(Debug::Warning) << "Unhandled XR action " << event.action;

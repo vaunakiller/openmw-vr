@@ -151,6 +151,7 @@ namespace MWRender
             bool mHit;
             osg::Vec3f mHitNormalWorld;
             osg::Vec3f mHitPointWorld;
+            osg::Vec3f mHitPointLocal;
             MWWorld::Ptr mHitObject;
             osg::Node* mHitNode;
             float mRatio;

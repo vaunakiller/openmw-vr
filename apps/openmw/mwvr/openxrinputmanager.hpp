@@ -43,12 +43,13 @@ namespace MWVR
 
         PoseSet getHandPoses(int64_t time, TrackedSpace space);
 
-        void showActivationIndication(bool show);
+        void updateActivationIndication(void);
 
         std::unique_ptr<OpenXRInput> mXRInput;
         Pose mPreviousHeadPose{};
         osg::Vec3 mHeadOffset{ 0,0,0 };
         bool mRecenter{ true };
+        bool mActivationIndication{ false };
         float mYaw{ 0.f };
 
         float mVrAngles[3]{ 0.f,0.f,0.f };

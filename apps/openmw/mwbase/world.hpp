@@ -7,7 +7,7 @@
 #include <map>
 #include <set>
 #include <deque>
-#include <osg/node>
+#include <tuple>
 
 #include <components/esm/cellid.hpp>
 
@@ -22,6 +22,7 @@ namespace osg
     class Matrixf;
     class Quat;
     class Image;
+    class Node;
 }
 
 namespace Loading
@@ -96,6 +97,12 @@ namespace MWBase
                 float x, y; // world position
                 ESM::CellId dest;
             };
+
+            using IntersectedObject = std::tuple<
+                MWWorld::Ptr,
+                osg::Node*,
+                osg::Vec3f
+            >;
 
             World() {}
 
@@ -261,7 +268,7 @@ namespace MWBase
             virtual MWWorld::Ptr  getFacedObject() = 0;
             ///< Return pointer to the object the player is looking at, if it is within activation range
 
-            virtual std::pair<MWWorld::Ptr, osg::Node*> getPointedAtObject() = 0;
+            virtual IntersectedObject getPointedAtObject() = 0;
             ///< Return pointer to the object and/or node the player is currently pointing at
 
             virtual float getDistanceToFacedObject() = 0;

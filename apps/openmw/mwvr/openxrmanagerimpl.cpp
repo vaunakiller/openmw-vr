@@ -58,7 +58,7 @@ namespace MWVR
             createInfo.enabledExtensionCount = extensions.size();
             createInfo.enabledExtensionNames = extensions.data();
 
-            strcpy(createInfo.applicationInfo.applicationName, "Boo");
+            strcpy(createInfo.applicationInfo.applicationName, "openmw_vr");
             createInfo.applicationInfo.apiVersion = XR_CURRENT_API_VERSION;
             CHECK_XRCMD(xrCreateInstance(&createInfo, &mInstance));
             assert(mInstance);
@@ -504,7 +504,7 @@ namespace MWVR
                 MWBase::Environment::get().getWorld()->getStore().get<ESM::Race>().find(ref->mBase->mRace);
             bool isMale = ref->mBase->isMale();
             float charHeightFactor = isMale ? race->mData.mHeight.mMale : race->mData.mHeight.mFemale;
-            float charHeightBase = 2.f;
+            float charHeightBase = 1.8f;
             float charHeight = charHeightBase * charHeightFactor;
             // TODO: Player height should be configurable
             // For now i'm just using my own

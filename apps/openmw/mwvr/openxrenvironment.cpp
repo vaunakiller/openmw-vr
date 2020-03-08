@@ -2,6 +2,7 @@
 
 #include <cassert>
 
+#include "openxranimation.hpp"
 #include "openxrinputmanager.hpp"
 #include "openxrsession.hpp"
 #include "openxrmenu.hpp"
@@ -31,6 +32,9 @@ void MWVR::OpenXREnvironment::cleanup()
     if (mMenuManager)
         delete mMenuManager;
     mMenuManager = nullptr;
+    if (mPlayerAnimation)
+        delete mPlayerAnimation;
+    mPlayerAnimation = nullptr;
     if (mViewer)
         delete mViewer;
     mViewer = nullptr;
@@ -39,7 +43,7 @@ void MWVR::OpenXREnvironment::cleanup()
     mOpenXRManager = nullptr;
 }
 
-const MWVR::OpenXREnvironment& MWVR::OpenXREnvironment::get()
+MWVR::OpenXREnvironment& MWVR::OpenXREnvironment::get()
 {
     assert (sThis);
     return *sThis;
@@ -72,6 +76,16 @@ MWVR::OpenXRMenuManager* MWVR::OpenXREnvironment::getMenuManager() const
 void MWVR::OpenXREnvironment::setMenuManager(MWVR::OpenXRMenuManager* menuManager)
 {
     mMenuManager = menuManager;
+}
+
+MWVR::OpenXRAnimation* MWVR::OpenXREnvironment::getPlayerAnimation() const
+{
+    return mPlayerAnimation;
+}
+
+void MWVR::OpenXREnvironment::setPlayerAnimation(MWVR::OpenXRAnimation* xrAnimation)
+{
+    mPlayerAnimation = xrAnimation;
 }
 
 
