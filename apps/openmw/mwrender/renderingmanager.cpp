@@ -1015,9 +1015,9 @@ namespace MWRender
         return osg::Vec4f(min_x, min_y, max_x, max_y);
     }
 
-    RenderingManager::RayResult getIntersectionResult (osgUtil::LineSegmentIntersector* intersector)
+    RayResult getIntersectionResult (osgUtil::LineSegmentIntersector* intersector)
     {
-        RenderingManager::RayResult result;
+        RayResult result;
         result.mHit = false;
         result.mRatio = 0;
         result.mHitNode = nullptr;
@@ -1074,7 +1074,7 @@ namespace MWRender
         return mIntersectionVisitor;
     }
 
-    RenderingManager::RayResult RenderingManager::castRay(const osg::Vec3f& origin, const osg::Vec3f& dest, bool ignorePlayer, bool ignoreActors)
+    RayResult RenderingManager::castRay(const osg::Vec3f& origin, const osg::Vec3f& dest, bool ignorePlayer, bool ignoreActors)
     {
         osg::ref_ptr<osgUtil::LineSegmentIntersector> intersector (new osgUtil::LineSegmentIntersector(osgUtil::LineSegmentIntersector::MODEL,
             origin, dest));
@@ -1085,7 +1085,7 @@ namespace MWRender
         return getIntersectionResult(intersector);
     }
 
-    RenderingManager::RayResult RenderingManager::castCameraToViewportRay(const float nX, const float nY, float maxDistance, bool ignorePlayer, bool ignoreActors)
+    RayResult RenderingManager::castCameraToViewportRay(const float nX, const float nY, float maxDistance, bool ignorePlayer, bool ignoreActors)
     {
         osg::ref_ptr<osgUtil::LineSegmentIntersector> intersector (new osgUtil::LineSegmentIntersector(osgUtil::LineSegmentIntersector::PROJECTION,
                                                                                                        nX * 2.f - 1.f, nY * (-2.f) + 1.f));

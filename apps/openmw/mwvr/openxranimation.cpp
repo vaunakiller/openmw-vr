@@ -189,7 +189,8 @@ void FingerController::operator()(osg::Node* node, osg::NodeVisitor* nv)
         {
             // TODO: Using the cached value from the input manager makes this off by one frame
             // So do one otherwise redundant intersection here.
-            world->getPointedAtObject();
+            MWRender::RayResult result;
+            world->getPointedAtObject(result);
             float intersected_distance = world->getDistanceToPointedAtObject();
 
             // Stretch beam to point of intersection.

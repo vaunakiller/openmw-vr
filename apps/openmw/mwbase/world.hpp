@@ -54,6 +54,7 @@ namespace MWRender
 {
     class Animation;
     class RenderingManager;
+    struct RayResult;
 }
 
 namespace MWMechanics
@@ -97,12 +98,6 @@ namespace MWBase
                 float x, y; // world position
                 ESM::CellId dest;
             };
-
-            using IntersectedObject = std::tuple<
-                MWWorld::Ptr,
-                osg::Node*,
-                osg::Vec3f
-            >;
 
             World() {}
 
@@ -268,11 +263,7 @@ namespace MWBase
             virtual MWWorld::Ptr  getFacedObject() = 0;
             ///< Return pointer to the object the player is looking at, if it is within activation range
 
-            virtual IntersectedObject getPointedAtObject() = 0;
-            ///< Return pointer to the object and/or node the player is currently pointing at
-
             virtual float getDistanceToFacedObject() = 0;
-            virtual float getDistanceToPointedAtObject() = 0;
 
             virtual float getMaxActivationDistance() = 0;
 
@@ -638,6 +629,27 @@ namespace MWBase
             virtual osg::Vec3f getPathfindingHalfExtents(const MWWorld::ConstPtr& actor) const = 0;
 
             virtual bool hasCollisionWithDoor(const MWWorld::ConstPtr& door, const osg::Vec3f& position, const osg::Vec3f& destination) const = 0;
+
+#ifdef USE_OPENXR
+            using IntersectedObject = std::tuple<
+                MWWorld::Ptr,
+                osg::Node*,
+                osg::Vec3f
+            >;
+
+            virtual float getDistanceToPointedAtObject() = 0;
+            ///< Return the distance to the object and/or node the player is currently pointing at
+            virtual void getPointedAtObject(MWRender::RayResult& result) = 0;
+            ///< Return pointer to the object and/or node the player is currently pointing at
+
+            virtual MWWorld::Ptr placeObject(const MWWorld::ConstPtr& object, int amount) = 0;
+            ///< copy and place an object into the gameworld where the player is currently pointing
+            /// @param object
+            /// @param number of objects to place
+
+            virtual bool canPlaceObject() = 0;
+            ///< @return true if it is possible to place on object where the player is currently pointing
+#endif
     };
 }
 

@@ -113,6 +113,11 @@
 #include "keyboardnavigation.hpp"
 #include "resourceskin.hpp"
 
+#ifdef USE_OPENXR
+#include "../mwvr/openxrenvironment.hpp"
+#include "../mwvr/openxrmenu.hpp"
+#endif
+
 namespace
 {
 
@@ -175,6 +180,7 @@ namespace MWGui
       , mHudEnabled(true)
       , mCursorVisible(true)
       , mCursorActive(false)
+      , mVideoEnabled(false)
       , mPlayerBounty(-1)
       , mPlayerName()
       , mPlayerRaceId()
@@ -872,6 +878,8 @@ namespace MWGui
             }
         }
 
+        mVideoEnabled = false;
+
         popGuiMode();
     }
 
@@ -1532,6 +1540,11 @@ namespace MWGui
         updateVisible();
     }
 
+    DragAndDrop& WindowManager::getDragAndDrop(void)
+    {
+        return *mDragAndDrop;
+    }
+
     void WindowManager::forceHide(GuiWindow wnd)
     {
         mForceHidden = (GuiWindow)(mForceHidden | wnd);
@@ -1549,7 +1562,8 @@ namespace MWGui
         return
             !mGuiModes.empty() ||
             isConsoleMode() ||
-            (mMessageBoxManager && mMessageBoxManager->isInteractiveMessageBox());
+            (mMessageBoxManager && mMessageBoxManager->isInteractiveMessageBox()) ||
+            mVideoEnabled;
     }
 
     bool WindowManager::isConsoleMode() const
@@ -1870,7 +1884,14 @@ namespace MWGui
 
     void WindowManager::playVideo(const std::string &name, bool allowSkipping)
     {
+        mVideoEnabled = true;
         mVideoWidget->playVideo("video\\" + name);
+
+#ifdef USE_OPENXR
+        // Temporary hack to force update of menu placement
+        // (Menu gets recreated next tick)
+        auto* xrMenuManager = MWVR::OpenXREnvironment::get().getMenuManager();
+#endif
 
         mVideoWidget->eventKeyButtonPressed.clear();
         mVideoBackground->eventKeyButtonPressed.clear();
@@ -1902,12 +1923,22 @@ namespace MWGui
                 ~MWSound::Type::Movie & MWSound::Type::Mask
             );
         osg::Timer frameTimer;
-        while (mVideoWidget->update() && !MWBase::Environment::get().getStateManager()->hasQuitRequest())
+        while (mVideoEnabled && mVideoWidget->update() && !MWBase::Environment::get().getStateManager()->hasQuitRequest())
         {
+
             double dt = frameTimer.time_s();
             frameTimer.setStartTick();
 
             MWBase::Environment::get().getInputManager()->update(dt, true, false);
+#ifdef USE_OPENXR
+            // Temporary hack to force update of menu placement
+            // (Menu gets recreated next tick)
+            if (xrMenuManager)
+            {
+                xrMenuManager->showMenus(false);
+                xrMenuManager = nullptr;
+            }
+#endif
 
             if (!MWBase::Environment::get().getInputManager()->isWindowVisible())
                 OpenThreads::Thread::microSleep(5000);
@@ -1937,6 +1968,7 @@ namespace MWGui
         mViewer->getCamera()->setCullMask(oldCullMask);
 
         mVideoBackground->setVisible(false);
+        mVideoEnabled = false;
     }
 
     void WindowManager::sizeVideo(int screenWidth, int screenHeight)

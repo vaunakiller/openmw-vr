@@ -83,6 +83,19 @@ namespace MWRender
     class NavMesh;
     class ActorsPaths;
 
+    // Result data of ray cast methods.
+    // Needs to be declared outside the RenderingManager class to be forward declarable
+    struct RayResult
+    {
+        bool mHit;
+        osg::Vec3f mHitNormalWorld;
+        osg::Vec3f mHitPointWorld;
+        osg::Vec3f mHitPointLocal;
+        MWWorld::Ptr mHitObject;
+        osg::Node* mHitNode;
+        float mRatio;
+    };
+
     class RenderingManager : public MWRender::RenderingInterface
     {
     public:
@@ -145,17 +158,6 @@ namespace MWRender
         /// Take a screenshot of w*h onto the given image, not including the GUI.
         void screenshot(osg::Image* image, int w, int h, osg::Matrixd cameraTransform=osg::Matrixd());
         bool screenshot360(osg::Image* image, std::string settingStr);
-
-        struct RayResult
-        {
-            bool mHit;
-            osg::Vec3f mHitNormalWorld;
-            osg::Vec3f mHitPointWorld;
-            osg::Vec3f mHitPointLocal;
-            MWWorld::Ptr mHitObject;
-            osg::Node* mHitNode;
-            float mRatio;
-        };
 
         RayResult castRay(const osg::Vec3f& origin, const osg::Vec3f& dest, bool ignorePlayer, bool ignoreActors=false);
 

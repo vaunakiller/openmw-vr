@@ -26,6 +26,9 @@
 #include "../mwbase/environment.hpp"
 #include "../mwbase/mechanicsmanager.hpp"
 
+#include "../mwgui/itemmodel.hpp"
+#include "../mwgui/draganddrop.hpp"
+
 #include "../mwworld/player.hpp"
 #include "../mwworld/class.hpp"
 #include "../mwworld/inventorystore.hpp"
@@ -764,14 +767,51 @@ void OpenXRInputManager::updateActivationIndication(void)
         playerAnimation->setPointForward(show);
 }
 
+
+/**
+ * Makes it possible to use ItemModel::moveItem to move an item from an inventory to the world.
+ */
+class DropItemAtPointModel: public MWGui::ItemModel
+{
+public:
+    DropItemAtPointModel(){}
+    virtual ~DropItemAtPointModel() {}
+    virtual MWWorld::Ptr copyItem(const MWGui::ItemStack& item, size_t count, bool /*allowAutoEquip*/)
+    {
+        MWBase::World* world = MWBase::Environment::get().getWorld();
+
+        MWWorld::Ptr dropped;
+        if (world->canPlaceObject())
+            dropped = world->placeObject(item.mBase, count);
+        else
+            dropped = world->dropObjectOnGround(world->getPlayerPtr(), item.mBase, count);
+        dropped.getCellRef().setOwner("");
+
+        return dropped;
+    }
+
+    virtual void removeItem(const MWGui::ItemStack& item, size_t count) { throw std::runtime_error("removeItem not implemented"); }
+    virtual ModelIndex getIndex(MWGui::ItemStack item) { throw std::runtime_error("getIndex not implemented"); }
+    virtual void update() {}
+    virtual size_t getItemCount() { return 0; }
+    virtual MWGui::ItemStack getItem(ModelIndex index) { throw std::runtime_error("getItem not implemented"); }
+
+private:
+    // Where to drop the item
+    MWRender::RayResult mIntersection;
+};
+
     void OpenXRInputManager::pointActivation(bool onPress)
     {
         auto* world = MWBase::Environment::get().getWorld();
         if (world)
         {
-            auto pointedAt = world->getPointedAtObject();
-            auto* node = std::get<1>(pointedAt);
-            MWWorld::Ptr ptr = std::get<0>(pointedAt);
+            MWRender::RayResult pointedAt;
+            world->getPointedAtObject(pointedAt);
+            auto* node = pointedAt.mHitNode;
+            MWWorld::Ptr ptr = pointedAt.mHitObject;
+            auto& dnd = MWBase::Environment::get().getWindowManager()->getDragAndDrop();
+
             if (node && node->getName() == "XR Menu Geometry")
             {
                 // Interseceted with the menu
@@ -782,8 +822,21 @@ void OpenXRInputManager::updateActivationIndication(void)
                 else
                     mouseReleased(arg, SDL_BUTTON_LEFT);
             }
-
-            if (!ptr.isEmpty())
+            else if (onPress)
+            {
+                // Other actions should only happen on release;
+                return;
+            }
+            else if (dnd.mIsOnDragAndDrop)
+            {
+                // Intersected with the world while drag and drop is active
+                // Drop item into the world
+                MWBase::Environment::get().getWorld()->breakInvisibility(
+                    MWMechanics::getPlayer());
+                DropItemAtPointModel drop;
+                dnd.drop(&drop, nullptr);
+            }
+            else if (!ptr.isEmpty())
             {
                 if (mPlayer)
                 {
@@ -840,18 +893,18 @@ void OpenXRInputManager::updateActivationIndication(void)
     {
         mXRInput->updateControls();
 
-
         auto* world = MWBase::Environment::get().getWorld();
         if (world)
         {
-            auto pointedAt = world->getPointedAtObject();
-            auto* node = std::get<1>(pointedAt);
+            MWRender::RayResult pointedAt;
+            world->getPointedAtObject(pointedAt);
+            auto* node = pointedAt.mHitNode;
             if (node)
             {
                 int w, h;
                 SDL_GetWindowSize(mWindow, &w, &h);
 
-                osg::Vec3 local = std::get<2>(pointedAt);
+                osg::Vec3 local = pointedAt.mHitPointLocal;
                 local.x() = (local.x() + 1.f) / 2.f;
                 local.y() = 1.f - (local.y() + 1.f) / 2.f;
 
@@ -1027,7 +1080,7 @@ void OpenXRInputManager::updateActivationIndication(void)
             mAttemptJump = true;
             break;
         case A_Use:
-            if (mActivationIndication | MWBase::Environment::get().getWindowManager()->isGuiMode())
+            if (mActivationIndication || MWBase::Environment::get().getWindowManager()->isGuiMode())
                 pointActivation(event.onPress);
             else
                 mInputBinder->getChannel(A_Use)->setValue(event.onPress);

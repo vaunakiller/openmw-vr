@@ -53,7 +53,7 @@ namespace MWWorld
 namespace MWGui
 {
     class Layout;
-
+    class DragAndDrop;
     class Console;
     class SpellWindow;
     class TradeWindow;
@@ -226,6 +226,7 @@ namespace MWBase
             virtual void showCrosshair(bool show) = 0;
             virtual bool getSubtitlesEnabled() = 0;
             virtual bool toggleHud() = 0;
+            virtual MWGui::DragAndDrop& getDragAndDrop(void) = 0;
 
             virtual void disallowMouse() = 0;
             virtual void allowMouse() = 0;

@@ -168,6 +168,8 @@ namespace MWGui
 
     virtual void toggleVisible(GuiWindow wnd);
 
+    virtual DragAndDrop& getDragAndDrop(void) override;
+
     virtual void forceHide(MWGui::GuiWindow wnd);
     virtual void unsetForceHide(MWGui::GuiWindow wnd);
 
@@ -461,6 +463,7 @@ namespace MWGui
     bool mHudEnabled;
     bool mCursorVisible;
     bool mCursorActive;
+    bool mVideoEnabled;
 
     int mPlayerBounty;
 
