@@ -113,11 +113,7 @@ endif ()
 
 if(BUILD_VR_OPENXR)
     set(OPENMW_VR_FILES
-        engine_vr.cpp
-        mwvr/openxranimation.hpp
-        mwvr/openxranimation.cpp
-        mwvr/openxrenvironment.hpp
-        mwvr/openxrenvironment.cpp
+        vrengine.cpp
         mwvr/openxrinputmanager.hpp
         mwvr/openxrinputmanager.cpp
         mwvr/openxrlayer.hpp
@@ -140,6 +136,12 @@ if(BUILD_VR_OPENXR)
         mwvr/openxrviewer.cpp
         mwvr/openxrworldview.hpp
         mwvr/openxrworldview.cpp 
+        mwvr/realisticcombat.hpp
+        mwvr/realisticcombat.cpp
+        mwvr/vranimation.hpp
+        mwvr/vranimation.cpp
+        mwvr/vrenvironment.hpp
+        mwvr/vrenvironment.cpp
    )
 
     openmw_add_executable(openmw_vr

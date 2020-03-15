@@ -49,7 +49,7 @@
 #include "spellcasting.hpp"
 
 #ifdef USE_OPENXR
-#include "../mwvr/openxranimation.hpp"
+#include "../mwvr/vranimation.hpp"
 #endif
 
 namespace
@@ -1029,7 +1029,7 @@ void CharacterController::handleTextKey(const std::string &groupname, const std:
         else if (groupname == "attack3" || groupname == "swimattack3")
             mPtr.getClass().hit(mPtr, mAttackStrength, ESM::Weapon::AT_Thrust);
         else
-            mPtr.getClass().hit(mPtr, mAttackStrength);
+            mPtr.getClass().hit(mPtr, mAttackStrength, -1);
     }
     else if (!groupname.empty()
              && (groupname.compare(0, groupname.size()-1, "attack") == 0 || groupname.compare(0, groupname.size()-1, "swimattack") == 0)

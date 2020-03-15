@@ -227,7 +227,7 @@ namespace MWClass
     }
 
 
-    void Creature::hit(const MWWorld::Ptr& ptr, float attackStrength, int type) const
+    bool Creature::hit(const MWWorld::Ptr& ptr, float attackStrength, int type, bool) const
     {
         MWWorld::LiveCellRef<ESM::Creature> *ref =
             ptr.get<ESM::Creature>();
@@ -235,7 +235,7 @@ namespace MWClass
         MWMechanics::CreatureStats &stats = getCreatureStats(ptr);
 
         if (stats.getDrawState() != MWMechanics::DrawState_Weapon)
-            return;
+            return false;
 
         // Get the weapon used (if hand-to-hand, weapon = inv.end())
         MWWorld::Ptr weapon;
@@ -259,12 +259,12 @@ namespace MWClass
 
         std::pair<MWWorld::Ptr, osg::Vec3f> result = MWBase::Environment::get().getWorld()->getHitContact(ptr, dist, targetActors);
         if (result.first.isEmpty())
-            return; // Didn't hit anything
+            return false; // Didn't hit anything
 
         MWWorld::Ptr victim = result.first;
 
         if (!victim.getClass().isActor())
-            return; // Can't hit non-actors
+            return false; // Can't hit non-actors
 
         osg::Vec3f hitPosition (result.second);
 
@@ -274,7 +274,7 @@ namespace MWClass
         {
             victim.getClass().onHit(victim, 0.0f, false, MWWorld::Ptr(), ptr, osg::Vec3f(), false);
             MWMechanics::reduceWeaponCondition(0.f, false, weapon, ptr);
-            return;
+            return true;
         }
 
         int min,max;
@@ -330,6 +330,7 @@ namespace MWClass
         MWMechanics::diseaseContact(victim, ptr);
 
         victim.getClass().onHit(victim, damage, healthdmg, weapon, ptr, hitPosition, true);
+        return true;
     }
 
     void Creature::onHit(const MWWorld::Ptr &ptr, float damage, bool ishealth, const MWWorld::Ptr &object, const MWWorld::Ptr &attacker, const osg::Vec3f &hitPosition, bool successful) const

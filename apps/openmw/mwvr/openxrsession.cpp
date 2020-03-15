@@ -1,4 +1,4 @@
-#include "openxrenvironment.hpp"
+#include "vrenvironment.hpp"
 #include "openxrmanager.hpp"
 #include "openxrmanagerimpl.hpp"
 #include "openxrinputmanager.hpp"
@@ -46,7 +46,7 @@ namespace MWVR
     {
         Timer timer("OpenXRSession::SwapBuffers");
         
-        auto* xr = OpenXREnvironment::get().getManager();
+        auto* xr = Environment::get().getManager();
 
         if (!xr->sessionRunning())
             return;
@@ -64,7 +64,7 @@ namespace MWVR
 
     void OpenXRSession::waitFrame()
     {
-        auto* xr = OpenXREnvironment::get().getManager();
+        auto* xr = Environment::get().getManager();
         xr->handleEvents();
         if (!xr->sessionRunning())
             return;
@@ -128,8 +128,8 @@ namespace MWVR
 
     void OpenXRSession::predictNext(int extraPeriods)
     {
-        auto* xr = OpenXREnvironment::get().getManager();
-        auto* input = OpenXREnvironment::get().getInputManager();
+        auto* xr = Environment::get().getManager();
+        auto* input = Environment::get().getInputManager();
         auto mPredictedDisplayTime = xr->impl().frameState().predictedDisplayTime;
 
         auto previousHeadPose = mPredictedPoses.head[(int)TrackedSpace::STAGE];

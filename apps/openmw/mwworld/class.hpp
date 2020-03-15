@@ -121,12 +121,14 @@ namespace MWWorld
             ///< Return item max health or throw an exception, if class does not have item health
             /// (default implementation: throw an exception)
 
-            virtual void hit(const Ptr& ptr, float attackStrength, int type=-1) const;
+            virtual bool hit(const Ptr& ptr, float attackStrength, int type, bool simulated = false ) const;
             ///< Execute a melee hit, using the current weapon. This will check the relevant skills
             /// of the given attacker, and whoever is hit.
             /// \param attackStrength how long the attack was charged for, a value in 0-1 range.
             /// \param type - type of attack, one of the MWMechanics::CreatureStats::AttackType
             ///               enums. ignored for creature attacks.
+            /// \param simulated - If true, this function will only check if a hit would be made, and have no side effects. This parameter has no effect for Creature classes.
+            /// @return True if the attack had a victim, regardless if hit was successful or not.
             /// (default implementation: throw an exception)
 
             virtual void onHit(const MWWorld::Ptr &ptr, float damage, bool ishealth, const MWWorld::Ptr &object, const MWWorld::Ptr &attacker, const osg::Vec3f &hitPosition, bool successful) const;

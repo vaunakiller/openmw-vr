@@ -55,7 +55,7 @@ namespace MWClass
             virtual MWMechanics::CreatureStats& getCreatureStats (const MWWorld::Ptr& ptr) const;
             ///< Return creature stats
 
-            virtual void hit(const MWWorld::Ptr& ptr, float attackStrength, int type) const;
+            virtual bool hit(const MWWorld::Ptr& ptr, float attackStrength, int type, bool simulated) const;
 
             virtual void onHit(const MWWorld::Ptr &ptr, float damage, bool ishealth, const MWWorld::Ptr &object, const MWWorld::Ptr &attacker, const osg::Vec3f &hitPosition, bool successful) const;
 

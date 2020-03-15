@@ -70,6 +70,11 @@
 #include "contentloader.hpp"
 #include "esmloader.hpp"
 
+#ifdef USE_OPENXR
+#include "../mwvr/vrenvironment.hpp"
+#include "../mwvr/vranimation.hpp"
+#endif
+
 namespace
 {
 
@@ -1146,15 +1151,29 @@ namespace MWWorld
         // the origin of hitbox is an actor's front, not center
         distance += halfExtents.y();
 
-        // special cased for better aiming with the camera
-        // if we do not hit anything, will use the default approach as fallback
         if (ptr == getPlayerPtr())
         {
+#ifdef USE_OPENXR
+            // TODO: Configurable realistic fighting.
+
+            // Use current aim of weapon to impact
+            // TODO: Use bounding box of weapon instead ?
+            auto* anim = MWVR::Environment::get().getPlayerAnimation();
+            osg::Matrix worldMatrix = osg::computeLocalToWorld(anim->mWeaponDirectionTransform->getParentalNodePaths()[0]);
+            
+            auto result = mPhysics->getHitContact(ptr, worldMatrix.getTrans(), worldMatrix.getRotate(), distance, targets);
+            if (!result.first.isEmpty())
+                Log(Debug::Verbose) << "Hit: " << result.first.getTypeName();
+            return result;
+#else
+            // special cased for better aiming with the camera
+            // if we do not hit anything, will use the default approach as fallback
             osg::Vec3f pos = getActorHeadTransform(ptr).getTrans();
 
             std::pair<MWWorld::Ptr,osg::Vec3f> result = mPhysics->getHitContact(ptr, pos, rot, distance, targets);
             if(!result.first.isEmpty())
                 return std::make_pair(result.first, result.second);
+#endif
         }
 
         osg::Vec3f pos = ptr.getRefData().getPosition().asVec3();
@@ -3916,121 +3935,69 @@ namespace MWWorld
         return btRayAabb(localFrom, localTo, aabbMin, aabbMax, hitDistance, hitNormal);
     }
 
-
-#ifdef USE_OPENXR
-    void World::getPointedAtObject(MWRender::RayResult& result)
+    float World::getTargetObject(MWRender::RayResult& result, osg::Transform* pointer)
     {
         result = {};
         result.mHit = false;
 
-        if (MWBase::Environment::get().getWindowManager()->isGuiMode() &&
-            MWBase::Environment::get().getWindowManager()->isConsoleMode())
+        auto* windowManager = MWBase::Environment::get().getWindowManager();
+
+        if (windowManager->isGuiMode() && windowManager->isConsoleMode())
         {
-            return getPointedAtObject(result, getMaxActivationDistance() * 50, false);
+            return getTargetObject(result, pointer, getMaxActivationDistance() * 50, false);
         }
         else
         {
-            MWRender::RayResult pointedAtObject;
-            getPointedAtObject(pointedAtObject, getActivationDistancePlusTelekinesis(), true);
-            auto ptr = pointedAtObject.mHitObject;
+            float maxDistance = getActivationDistancePlusTelekinesis();
+            MWRender::RayResult rayToObject{};
+            float distance = getTargetObject(rayToObject, pointer, maxDistance, true);
+            auto ptr = rayToObject.mHitObject;
             if (!ptr.isEmpty() && !ptr.getClass().allowTelekinesis(ptr)
-                && mDistanceToFacedObject > getMaxActivationDistance() && !MWBase::Environment::get().getWindowManager()->isGuiMode())
-                return;
-            result = pointedAtObject;
-        }
-    }
-
-    float World::getDistanceToPointedAtObject()
-    {
-        return mDistanceToPointedAtObject;
-    }
-
-    void World::getPointedAtObject(MWRender::RayResult& result, float maxDistance, bool ignorePlayer)
-    {
-        auto sceneRoot = mRendering->getLightRoot();
-        result = {};
-        result.mHit = false;
-
-        // Find the transform giving the finger's pointing direction.
-        SceneUtil::FindByNameVisitor findPointerVisitor("Pointer Transform", osg::NodeVisitor::TRAVERSE_ALL_CHILDREN);
-        sceneRoot->accept(findPointerVisitor);
-        auto pointerTransform = findPointerVisitor.mFoundNode;
-        if (pointerTransform)
-        {
-            auto pat = pointerTransform->asTransform()->asPositionAttitudeTransform();
-
-            // Discover the world position of the finger
-            // (This is actually the base of the last joint bone but so long as it is pointing forward it serves the same purpose).
-            osg::Matrix worldMatrix = osg::computeLocalToWorld(pointerTransform->getParentalNodePaths()[0]);
-            pat->computeLocalToWorldMatrix(worldMatrix, nullptr);
-            osg::Vec3 translate;
-            osg::Quat rotation;
-            osg::Vec3 scale;
-            osg::Quat scaleRotation;
-            worldMatrix.decompose(translate, rotation, scale, scaleRotation);
-            osg::Vec3f direction = rotation * osg::Vec3f(-1, 0, 0);
-            direction.normalize();
-
-            osg::Vec3f raySource = translate;
-            osg::Vec3f rayTarget = translate + direction * maxDistance;
-
-            auto rayToObject = mRendering->castRay(raySource, rayTarget, ignorePlayer, false);
-            if (rayToObject.mHit)
-                mDistanceToPointedAtObject = (rayToObject.mHitPointWorld - raySource).length();
-            else
-                // Leave a very large but not too large number to permit visualizing a beam going into "infinity"
-                mDistanceToPointedAtObject = 10000.f;
+                && distance > getMaxActivationDistance() && !MWBase::Environment::get().getWindowManager()->isGuiMode())
+                return -1.f;
             result = rayToObject;
+            return distance;
         }
+        return -1.f;
     }
 
-    MWWorld::Ptr World::placeObject(const MWWorld::ConstPtr& object, int amount)
+    float World::getTargetObject(MWRender::RayResult& result, osg::Transform* pointer, float maxDistance, bool ignorePlayer)
+    {
+        result = mRendering->castRay(pointer, maxDistance, ignorePlayer, false);
+        if(result.mHit)
+            return result.mRatio * maxDistance;
+        return -1.f;
+    }
+
+    MWWorld::Ptr World::placeObject(const MWWorld::ConstPtr& object, const MWRender::RayResult& ray, int amount)
     {
         const float maxDist = 200.f;
-
-        MWRender::RayResult pointedAt;
-        getPointedAtObject(pointedAt);
 
         CellStore* cell = getPlayerPtr().getCell();
 
         ESM::Position pos = getPlayerPtr().getRefData().getPosition();
 
-        if (pointedAt.mHit)
+        if (ray.mHit && !ray.mHitObject.isEmpty())
         {
-            pos.pos[0] = pointedAt.mHitPointWorld.x();
-            pos.pos[1] = pointedAt.mHitPointWorld.y();
-            pos.pos[2] = pointedAt.mHitPointWorld.z();
+            pos.pos[0] = ray.mHitPointWorld.x();
+            pos.pos[1] = ray.mHitPointWorld.y();
+            pos.pos[2] = ray.mHitPointWorld.z();
         }
         // We want only the Z part of the player's rotation
-        // TODO: Use the hand's orientation?
+        // TODO: Use the hand to orient in VR?
         pos.rot[0] = 0;
         pos.rot[1] = 0;
 
         // copy the object and set its count
-        Ptr dropped = copyObjectToCell(object, cell, pos, amount, true);
+        MWWorld::Ptr dropped = copyObjectToCell(object, cell, pos, amount, true);
 
         // only the player place items in the world, so no need to check actor
         PCDropped(dropped);
 
         return dropped;
     }
-
-    bool World::canPlaceObject()
+    MWPhysics::PhysicsSystem* World::getPhysicsSystem(void)
     {
-        const float maxDist = 200.f;
-        MWRender::RayResult pointedAt;
-        getPointedAtObject(pointedAt);
-
-        if (pointedAt.mHit)
-        {
-            // check if the wanted position is on a flat surface, and not e.g. against a vertical wall
-            if (std::acos((pointedAt.mHitNormalWorld / pointedAt.mHitNormalWorld.length()) * osg::Vec3f(0, 0, 1)) >= osg::DegreesToRadians(30.f))
-                return false;
-
-            return true;
-        }
-        else
-            return false;
+        return mPhysics.get();
     }
-#endif
 }

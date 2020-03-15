@@ -14,7 +14,7 @@
 #include "mwworld/ptr.hpp"
 
 #ifdef USE_OPENXR
-#include "mwvr/openxrenvironment.hpp"
+#include "mwvr/vrenvironment.hpp"
 #endif
 
 namespace Resource
@@ -212,7 +212,7 @@ namespace OMW
             Files::ConfigurationManager& mCfgMgr;
 
 #ifdef USE_OPENXR
-            MWVR::OpenXREnvironment mXrEnvironment;
+            MWVR::Environment mXrEnvironment;
 
             void initVr();
 #endif

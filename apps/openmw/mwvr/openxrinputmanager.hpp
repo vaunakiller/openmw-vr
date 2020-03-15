@@ -2,6 +2,7 @@
 #define OPENXR_INPUT_MANAGER_HPP
 
 #include "openxrviewer.hpp"
+#include "realisticcombat.hpp"
 #include "../mwinput/inputmanagerimp.hpp"
 
 #include <vector>
@@ -47,6 +48,7 @@ namespace MWVR
         void pointActivation(bool onPress);
 
         std::unique_ptr<OpenXRInput> mXRInput;
+        std::unique_ptr<RealisticCombat::StateMachine> mRealisticCombat;
         Pose mPreviousHeadPose{};
         osg::Vec3 mHeadOffset{ 0,0,0 };
         bool mRecenter{ true };

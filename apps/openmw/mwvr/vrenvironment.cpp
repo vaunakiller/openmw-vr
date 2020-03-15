@@ -1,30 +1,30 @@
-#include "openxrenvironment.hpp"
+#include "vrenvironment.hpp"
 
 #include <cassert>
 
-#include "openxranimation.hpp"
+#include "vranimation.hpp"
 #include "openxrinputmanager.hpp"
 #include "openxrsession.hpp"
 #include "openxrmenu.hpp"
 
 #include "../mwbase/environment.hpp"
 
-MWVR::OpenXREnvironment *MWVR::OpenXREnvironment::sThis = 0;
+MWVR::Environment *MWVR::Environment::sThis = 0;
 
-MWVR::OpenXREnvironment::OpenXREnvironment()
+MWVR::Environment::Environment()
 : mSession(nullptr)
 {
     assert (!sThis);
     sThis = this;
 }
 
-MWVR::OpenXREnvironment::~OpenXREnvironment()
+MWVR::Environment::~Environment()
 {
     cleanup();
     sThis = 0;
 }
 
-void MWVR::OpenXREnvironment::cleanup()
+void MWVR::Environment::cleanup()
 {
     if (mSession)
         delete mSession;
@@ -43,13 +43,13 @@ void MWVR::OpenXREnvironment::cleanup()
     mOpenXRManager = nullptr;
 }
 
-MWVR::OpenXREnvironment& MWVR::OpenXREnvironment::get()
+MWVR::Environment& MWVR::Environment::get()
 {
     assert (sThis);
     return *sThis;
 }
 
-MWVR::OpenXRInputManager* MWVR::OpenXREnvironment::getInputManager() const
+MWVR::OpenXRInputManager* MWVR::Environment::getInputManager() const
 {
     auto* inputManager = MWBase::Environment::get().getInputManager();
     assert(inputManager);
@@ -58,63 +58,63 @@ MWVR::OpenXRInputManager* MWVR::OpenXREnvironment::getInputManager() const
     return xrInputManager;
 }
 
-MWVR::OpenXRSession* MWVR::OpenXREnvironment::getSession() const
+MWVR::OpenXRSession* MWVR::Environment::getSession() const
 {
     return mSession;
 }
 
-void MWVR::OpenXREnvironment::setSession(MWVR::OpenXRSession* xrSession)
+void MWVR::Environment::setSession(MWVR::OpenXRSession* xrSession)
 {
     mSession = xrSession;
 }
 
-MWVR::OpenXRMenuManager* MWVR::OpenXREnvironment::getMenuManager() const
+MWVR::OpenXRMenuManager* MWVR::Environment::getMenuManager() const
 {
     return mMenuManager;
 }
 
-void MWVR::OpenXREnvironment::setMenuManager(MWVR::OpenXRMenuManager* menuManager)
+void MWVR::Environment::setMenuManager(MWVR::OpenXRMenuManager* menuManager)
 {
     mMenuManager = menuManager;
 }
 
-MWVR::OpenXRAnimation* MWVR::OpenXREnvironment::getPlayerAnimation() const
+MWVR::VRAnimation* MWVR::Environment::getPlayerAnimation() const
 {
     return mPlayerAnimation;
 }
 
-void MWVR::OpenXREnvironment::setPlayerAnimation(MWVR::OpenXRAnimation* xrAnimation)
+void MWVR::Environment::setPlayerAnimation(MWVR::VRAnimation* xrAnimation)
 {
     mPlayerAnimation = xrAnimation;
 }
 
 
-MWVR::OpenXRViewer* MWVR::OpenXREnvironment::getViewer() const
+MWVR::OpenXRViewer* MWVR::Environment::getViewer() const
 {
     return mViewer;
 }
 
-void MWVR::OpenXREnvironment::setViewer(MWVR::OpenXRViewer* xrViewer)
+void MWVR::Environment::setViewer(MWVR::OpenXRViewer* xrViewer)
 {
     mViewer = xrViewer;
 }
 
-MWVR::OpenXRManager* MWVR::OpenXREnvironment::getManager() const
+MWVR::OpenXRManager* MWVR::Environment::getManager() const
 {
     return mOpenXRManager;
 }
 
-void MWVR::OpenXREnvironment::setManager(MWVR::OpenXRManager* xrManager)
+void MWVR::Environment::setManager(MWVR::OpenXRManager* xrManager)
 {
     mOpenXRManager = xrManager;
 }
 
-float MWVR::OpenXREnvironment::unitsPerMeter() const
+float MWVR::Environment::unitsPerMeter() const
 {
     return mUnitsPerMeter;
 }
 
-void MWVR::OpenXREnvironment::setUnitsPerMeter(float unitsPerMeter)
+void MWVR::Environment::setUnitsPerMeter(float unitsPerMeter)
 {
     mUnitsPerMeter = unitsPerMeter;
 }

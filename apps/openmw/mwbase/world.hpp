@@ -23,6 +23,7 @@ namespace osg
     class Quat;
     class Image;
     class Node;
+    class Transform;
 }
 
 namespace Loading
@@ -77,6 +78,11 @@ namespace MWWorld
     class RefData;
 
     typedef std::vector<std::pair<MWWorld::Ptr,MWMechanics::Movement> > PtrMovementList;
+}
+
+namespace MWPhysics
+{
+    class PhysicsSystem;
 }
 
 namespace MWBase
@@ -391,6 +397,12 @@ namespace MWBase
             /// @param cursor Y (relative 0-1)
             /// @param number of objects to place
 
+            virtual MWWorld::Ptr placeObject (const MWWorld::ConstPtr& object, const MWRender::RayResult& ray, int amount) = 0;
+            ///< copy and place an object into the gameworld based on the given intersection
+            /// @param object
+            /// @param world position to place object
+            /// @param number of objects to place
+
             virtual MWWorld::Ptr dropObjectOnGround (const MWWorld::Ptr& actor, const MWWorld::ConstPtr& object, int amount) = 0;
             ///< copy and place an object into the gameworld at the given actor's position
             /// @param actor giving the dropped object position
@@ -630,26 +642,12 @@ namespace MWBase
 
             virtual bool hasCollisionWithDoor(const MWWorld::ConstPtr& door, const osg::Vec3f& position, const osg::Vec3f& destination) const = 0;
 
-#ifdef USE_OPENXR
-            using IntersectedObject = std::tuple<
-                MWWorld::Ptr,
-                osg::Node*,
-                osg::Vec3f
-            >;
+            /// @result pointer to the object and/or node the given node is currently pointing at
+            /// @Return distance to the target object, or -1 if no object was targeted / in range
+            virtual float getTargetObject(MWRender::RayResult& result, osg::Transform* pointer) = 0;
+            virtual float getTargetObject(MWRender::RayResult& result, osg::Transform* pointer, float maxDistance, bool ignorePlayer) = 0;
 
-            virtual float getDistanceToPointedAtObject() = 0;
-            ///< Return the distance to the object and/or node the player is currently pointing at
-            virtual void getPointedAtObject(MWRender::RayResult& result) = 0;
-            ///< Return pointer to the object and/or node the player is currently pointing at
-
-            virtual MWWorld::Ptr placeObject(const MWWorld::ConstPtr& object, int amount) = 0;
-            ///< copy and place an object into the gameworld where the player is currently pointing
-            /// @param object
-            /// @param number of objects to place
-
-            virtual bool canPlaceObject() = 0;
-            ///< @return true if it is possible to place on object where the player is currently pointing
-#endif
+            virtual MWPhysics::PhysicsSystem* getPhysicsSystem(void) = 0;
     };
 }
 

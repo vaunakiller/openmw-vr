@@ -33,6 +33,7 @@
 #include <components/settings/settings.hpp>
 
 #include <components/sceneutil/util.hpp>
+#include <components/sceneutil/visitor.hpp>
 #include <components/sceneutil/lightmanager.hpp>
 #include <components/sceneutil/statesetupdater.hpp>
 #include <components/sceneutil/positionattitudetransform.hpp>
@@ -68,8 +69,8 @@
 #include "actorspaths.hpp"
 
 #ifdef USE_OPENXR
-#include "../mwvr/openxranimation.hpp"
-#include "../mwvr/openxrenvironment.hpp"
+#include "../mwvr/vranimation.hpp"
+#include "../mwvr/vrenvironment.hpp"
 #endif
 
 namespace
@@ -1085,6 +1086,24 @@ namespace MWRender
         return getIntersectionResult(intersector);
     }
 
+    RayResult RenderingManager::castRay(const osg::Transform* source, float maxDistance, bool ignorePlayer, bool ignoreActors)
+    {
+
+        if (source)
+        {
+            osg::Matrix worldMatrix = osg::computeLocalToWorld(source->getParentalNodePaths()[0]);
+
+            osg::Vec3f direction = worldMatrix.getRotate() * osg::Vec3f(1, 0, 0);
+            direction.normalize();
+
+            osg::Vec3f raySource = worldMatrix.getTrans();
+            osg::Vec3f rayTarget = worldMatrix.getTrans() + direction * maxDistance;
+
+            return castRay(raySource, rayTarget, ignorePlayer, ignoreActors);
+        }
+        return RayResult();
+    }
+
     RayResult RenderingManager::castCameraToViewportRay(const float nX, const float nY, float maxDistance, bool ignorePlayer, bool ignoreActors)
     {
         osg::ref_ptr<osgUtil::LineSegmentIntersector> intersector (new osgUtil::LineSegmentIntersector(osgUtil::LineSegmentIntersector::PROJECTION,
@@ -1165,8 +1184,8 @@ namespace MWRender
     void RenderingManager::renderPlayer(const MWWorld::Ptr &player)
     {
 #ifdef USE_OPENXR
-        MWVR::OpenXREnvironment::get().setPlayerAnimation(new MWVR::OpenXRAnimation(player, player.getRefData().getBaseNode(), mResourceSystem, false, nullptr));
-        mPlayerAnimation = MWVR::OpenXREnvironment::get().getPlayerAnimation();
+        MWVR::Environment::get().setPlayerAnimation(new MWVR::VRAnimation(player, player.getRefData().getBaseNode(), mResourceSystem, false, nullptr));
+        mPlayerAnimation = MWVR::Environment::get().getPlayerAnimation();
 #else
         mPlayerAnimation = new NpcAnimation(player, player.getRefData().getBaseNode(), mResourceSystem, 0, NpcAnimation::VM_Normal,
                                                 mFirstPersonFieldOfView);

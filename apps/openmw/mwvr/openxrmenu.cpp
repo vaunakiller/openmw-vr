@@ -1,8 +1,8 @@
 #include "openxrmenu.hpp"
-#include "openxrenvironment.hpp"
+#include "vrenvironment.hpp"
 #include "openxrsession.hpp"
 #include "openxrmanagerimpl.hpp"
-#include "openxranimation.hpp"
+#include "vranimation.hpp"
 #include <openxr/openxr.h>
 #include <osg/Texture2D>
 #include <osg/ClipNode>
@@ -122,7 +122,7 @@ private:
         osg::ref_ptr<osg::Vec3Array> normals{ new osg::Vec3Array(1) };
 
         // Units are divided by 2 because geometry has an extent of 2 (-1 to 1)
-        auto extent_units = extent_meters * OpenXREnvironment::get().unitsPerMeter() / 2.f;
+        auto extent_units = extent_meters * Environment::get().unitsPerMeter() / 2.f;
 
         // Define the menu quad
         osg::Vec3 top_left    (-1, 1, 1);
@@ -164,7 +164,7 @@ private:
         mTransform->setAttitude(pose.orientation);
         mTransform->setPosition(pose.position);
         mTransform->addChild(mGeometry);
-        //mTransform->addChild(OpenXRAnimation::createPointerGeometry());
+        //mTransform->addChild(VRAnimation::createPointerGeometry());
 
         // Add to scene graph
         mGeometryRoot->addChild(mTransform);
@@ -295,7 +295,7 @@ private:
         // Position the menu about two thirds of a meter in front of the player
         osg::Vec3 dir = center - eye;
         dir.normalize();
-        mPose.position = eye + dir * OpenXREnvironment::get().unitsPerMeter() * 2.f / 3.f;
+        mPose.position = eye + dir * Environment::get().unitsPerMeter() * 2.f / 3.f;
 
 
         mPose.orientation = camera->getViewMatrix().getRotate().inverse();

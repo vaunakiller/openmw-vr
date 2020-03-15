@@ -551,7 +551,7 @@ namespace MWClass
     }
 
 
-    void Npc::hit(const MWWorld::Ptr& ptr, float attackStrength, int type) const
+    bool Npc::hit(const MWWorld::Ptr& ptr, float attackStrength, int type, bool simulated) const
     {
         MWBase::World *world = MWBase::Environment::get().getWorld();
 
@@ -564,7 +564,11 @@ namespace MWClass
         if(!weapon.isEmpty() && weapon.getTypeName() != typeid(ESM::Weapon).name())
             weapon = MWWorld::Ptr();
 
-        MWMechanics::applyFatigueLoss(ptr, weapon, attackStrength);
+        if (getCreatureStats(ptr).getDrawState() != MWMechanics::DrawState_Weapon)
+            return false;
+
+        if (!simulated)
+            MWMechanics::applyFatigueLoss(ptr, weapon, attackStrength);
 
         const float fCombatDistance = store.find("fCombatDistance")->mValue.getFloat();
         float dist = fCombatDistance * (!weapon.isEmpty() ?
@@ -581,14 +585,17 @@ namespace MWClass
         MWWorld::Ptr victim = result.first;
         osg::Vec3f hitPosition (result.second);
         if(victim.isEmpty()) // Didn't hit anything
-            return;
+            return false;
 
         const MWWorld::Class &othercls = victim.getClass();
         if(!othercls.isActor()) // Can't hit non-actors
-            return;
+            return false;
         MWMechanics::CreatureStats &otherstats = othercls.getCreatureStats(victim);
         if(otherstats.isDead()) // Can't hit dead actors
-            return;
+            return false;
+
+        if (simulated)
+            return true;
 
         if(ptr == MWMechanics::getPlayer())
             MWBase::Environment::get().getWindowManager()->setEnemy(victim);
@@ -603,7 +610,7 @@ namespace MWClass
         {
             othercls.onHit(victim, 0.0f, false, weapon, ptr, osg::Vec3f(), false);
             MWMechanics::reduceWeaponCondition(0.f, false, weapon, ptr);
-            return;
+            return true;
         }
 
         bool healthdmg;
@@ -664,6 +671,7 @@ namespace MWClass
         MWMechanics::diseaseContact(victim, ptr);
 
         othercls.onHit(victim, damage, healthdmg, weapon, ptr, hitPosition, true);
+        return true;
     }
 
     void Npc::onHit(const MWWorld::Ptr &ptr, float damage, bool ishealth, const MWWorld::Ptr &object, const MWWorld::Ptr &attacker, const osg::Vec3f &hitPosition, bool successful) const

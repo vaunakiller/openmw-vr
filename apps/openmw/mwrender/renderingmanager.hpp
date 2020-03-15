@@ -159,7 +159,11 @@ namespace MWRender
         void screenshot(osg::Image* image, int w, int h, osg::Matrixd cameraTransform=osg::Matrixd());
         bool screenshot360(osg::Image* image, std::string settingStr);
 
+        /// Cast a ray between two points
         RayResult castRay(const osg::Vec3f& origin, const osg::Vec3f& dest, bool ignorePlayer, bool ignoreActors=false);
+        
+        /// Cast a ray from a node in the scene graph
+        RayResult castRay(const osg::Transform* source, float maxDistance, bool ignorePlayer, bool ignoreActors=false);
 
         /// Return the object under the mouse cursor / crosshair position, given by nX and nY normalized screen coordinates,
         /// where (0,0) is the top left corner.

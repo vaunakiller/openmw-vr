@@ -43,7 +43,7 @@
 #ifdef USE_OPENXR
 #include "../mwvr/openxrsession.hpp"
 #include "../mwvr/openxrinputmanager.hpp"
-#include "../mwvr/openxrenvironment.hpp"
+#include "../mwvr/vrenvironment.hpp"
 #endif
 
 #include "collisiontype.hpp"
@@ -277,7 +277,7 @@ namespace MWPhysics
 
         static osg::Vec3f move(osg::Vec3f position, const MWWorld::Ptr &ptr, Actor* physicActor, const osg::Vec3f &movement, float time,
                                   bool isFlying, float waterlevel, float slowFall, const btCollisionWorld* collisionWorld,
-                               std::map<MWWorld::Ptr, MWWorld::Ptr>& standingCollisionTracker, bool isPlayer)
+                               std::map<MWWorld::Ptr, MWWorld::Ptr>& standingCollisionTracker)
         {
             ESM::Position refpos = ptr.getRefData().getPosition();
             // Early-out for totally static creatures
@@ -285,12 +285,14 @@ namespace MWPhysics
             if (!ptr.getClass().isMobile(ptr))
                 return position;
 
+            const bool isPlayer = (ptr == MWMechanics::getPlayer());
+
             // In VR, player should move according to current direction of
             // a selected limb, rather than current orientation of camera.
 #ifdef USE_OPENXR
             if (isPlayer)
             {
-                auto* session = MWVR::OpenXREnvironment::get().getSession();
+                auto* session = MWVR::Environment::get().getSession();
                 if (session)
                 {
                     float yaw = session->movementYaw();
@@ -349,7 +351,6 @@ namespace MWPhysics
 
             if (ptr.getClass().getMovementSettings(ptr).mPosition[2])
             {
-                const bool isPlayer = (ptr == MWMechanics::getPlayer());
                 // Advance acrobatics and set flag for GetPCJumping
                 if (isPlayer)
                 {
@@ -389,7 +390,7 @@ namespace MWPhysics
 #ifdef USE_OPENXR
             if (isPlayer)
             {
-                auto* inputManager = MWVR::OpenXREnvironment::get().getInputManager();
+                auto* inputManager = MWVR::Environment::get().getInputManager();
 
                 osg::Vec3 trackingOffset = inputManager->mHeadOffset;
                 // Player's tracking height should not affect character position
@@ -449,7 +450,7 @@ namespace MWPhysics
                     }
                 }
 
-                // Best effort attempt at not losing any tracking
+                // Try not to lose any tracking
                 osg::Vec3 moved = newPosition - position;
                 inputManager->mHeadOffset.x() -= moved.x();
                 inputManager->mHeadOffset.y() -= moved.y();
@@ -1368,7 +1369,6 @@ namespace MWPhysics
         PtrVelocityList::iterator iter = mMovementQueue.begin();
         for(;iter != mMovementQueue.end();++iter)
         {
-            bool isPlayer = iter->first == MWMechanics::getPlayer();
             ActorMap::iterator foundActor = mActors.find(iter->first);
             if (foundActor == mActors.end()) // actor was already removed from the scene
                 continue;
@@ -1408,7 +1408,7 @@ namespace MWPhysics
             for (int i=0; i<numSteps; ++i)
             {
                 position = MovementSolver::move(position, physicActor->getPtr(), physicActor, iter->second, mPhysicsDt,
-                                                flying, waterlevel, slowFall, mCollisionWorld, mStandingCollisions, isPlayer);
+                                                flying, waterlevel, slowFall, mCollisionWorld, mStandingCollisions);
                 if (position != physicActor->getPosition())
                     positionChanged = true;
                 physicActor->setPosition(position); // always set even if unchanged to make sure interpolation is correct

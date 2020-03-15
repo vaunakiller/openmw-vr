@@ -1,9 +1,9 @@
-#ifndef OPENXR_ENVIRONMENT_H
-#define OPENXR_ENVIRONMENT_H
+#ifndef MWVR_ENVIRONMENT_H
+#define MWVR_ENVIRONMENT_H
 
 namespace MWVR
 {
-    class OpenXRAnimation;
+    class VRAnimation;
     class OpenXRInputManager;
     class OpenXRSession;
     class OpenXRMenuManager;
@@ -14,29 +14,29 @@ namespace MWVR
     ///
     /// This class allows each mw openxr subsystem to access any others subsystem's top-level manager class.
     ///
-    /// \attention OpenXREnvironment takes ownership of the manager class instances it is handed over in
+    /// \attention Environment takes ownership of the manager class instances it is handed over in
     /// the set* functions.
-    class OpenXREnvironment
+    class Environment
     {
 
-        static OpenXREnvironment*sThis;
+        static Environment* sThis;
 
-        OpenXREnvironment(const OpenXREnvironment&) = delete;
+        Environment(const Environment&) = delete;
         ///< not implemented
 
-        OpenXREnvironment& operator= (const OpenXREnvironment&) = delete;
+        Environment& operator= (const Environment&) = delete;
         ///< not implemented
 
     public:
 
-        OpenXREnvironment();
+        Environment();
 
-        ~OpenXREnvironment();
+        ~Environment();
 
         void cleanup();
         ///< Delete all mwvr-subsystems.
 
-        static OpenXREnvironment& get();
+        static Environment& get();
         ///< Return instance of this class.
 
         MWVR::OpenXRInputManager* getInputManager() const;
@@ -48,8 +48,8 @@ namespace MWVR
         MWVR::OpenXRMenuManager* getMenuManager() const;
         void setMenuManager(MWVR::OpenXRMenuManager* xrMenuManager);
 
-        MWVR::OpenXRAnimation* getPlayerAnimation() const;
-        void setPlayerAnimation(MWVR::OpenXRAnimation* xrAnimation);
+        MWVR::VRAnimation* getPlayerAnimation() const;
+        void setPlayerAnimation(MWVR::VRAnimation* xrAnimation);
 
         MWVR::OpenXRSession* getSession() const;
         void setSession(MWVR::OpenXRSession* xrSession);
@@ -66,7 +66,7 @@ namespace MWVR
     private:
         MWVR::OpenXRSession* mSession{ nullptr };
         MWVR::OpenXRMenuManager* mMenuManager{ nullptr };
-        MWVR::OpenXRAnimation* mPlayerAnimation{ nullptr };
+        MWVR::VRAnimation* mPlayerAnimation{ nullptr };
         MWVR::OpenXRViewer* mViewer{ nullptr };
         MWVR::OpenXRManager* mOpenXRManager{ nullptr };
         float mUnitsPerMeter{ 1.f };

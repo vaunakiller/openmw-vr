@@ -1,4 +1,4 @@
-#include "openxranimation.hpp"
+#include "vranimation.hpp"
 
 #include <osg/UserDataContainer>
 #include <osg/MatrixTransform>
@@ -47,6 +47,7 @@
 #include "../mwbase/world.hpp"
 #include "../mwbase/mechanicsmanager.hpp"
 #include "../mwbase/soundmanager.hpp"
+#include "../mwbase/windowmanager.hpp"
 
 #include "../mwrender/camera.hpp"
 #include "../mwrender/rotatecontroller.hpp"
@@ -58,7 +59,7 @@
 #include "../mwphysics/collisiontype.hpp"
 #include "../mwphysics/physicssystem.hpp"
 
-#include "openxrenvironment.hpp"
+#include "vrenvironment.hpp"
 #include "openxrviewer.hpp"
 #include "openxrinputmanager.hpp"
 
@@ -177,30 +178,13 @@ void FingerController::operator()(osg::Node* node, osg::NodeVisitor* nv)
     // So that we can display a beam to visualize where the player is pointing.
 
     // Dig up the pointer transform
-    SceneUtil::FindByNameVisitor findPointerVisitor("Pointer Transform", osg::NodeVisitor::TRAVERSE_ALL_CHILDREN);
-    tip->accept(findPointerVisitor);
-    auto pointerTransform = findPointerVisitor.mFoundNode;
-    if (pointerTransform)
-    {
-        // Get distance to pointer intersection
-        auto pat = pointerTransform->asTransform()->asPositionAttitudeTransform();
-        auto* world = MWBase::Environment::get().getWorld();
-        if (world)
-        {
-            // TODO: Using the cached value from the input manager makes this off by one frame
-            // So do one otherwise redundant intersection here.
-            MWRender::RayResult result;
-            world->getPointedAtObject(result);
-            float intersected_distance = world->getDistanceToPointedAtObject();
-
-            // Stretch beam to point of intersection.
-            pat->setScale(osg::Vec3(.25f, .25f, intersected_distance));
-        }
-    }
+    auto* anim = MWVR::Environment::get().getPlayerAnimation();
+    if (anim)
+        anim->updatePointerTarget();
 }
 
 
-OpenXRAnimation::OpenXRAnimation(
+VRAnimation::VRAnimation(
     const MWWorld::Ptr& ptr, osg::ref_ptr<osg::Group> parentNode, Resource::ResourceSystem* resourceSystem,
     bool disableSounds, std::shared_ptr<OpenXRSession> xrSession)
     // Note that i let it construct as 3rd person and then later update it to VM_VRHeadless
@@ -218,17 +202,17 @@ OpenXRAnimation::OpenXRAnimation(
     createPointer();
 }
 
-OpenXRAnimation::~OpenXRAnimation() {};
+VRAnimation::~VRAnimation() {};
 
-void OpenXRAnimation::setViewMode(NpcAnimation::ViewMode viewMode)
+void VRAnimation::setViewMode(NpcAnimation::ViewMode viewMode)
 {
     if (viewMode != VM_VRHeadless)
-        Log(Debug::Warning) << "View mode of OpenXRAnimation may only be VM_VRHeadless";
+        Log(Debug::Warning) << "View mode of VRAnimation may only be VM_VRHeadless";
     NpcAnimation::setViewMode(VM_VRHeadless);
     return;
 }
 
-void OpenXRAnimation::updateParts()
+void VRAnimation::updateParts()
 {
     NpcAnimation::updateParts();
 
@@ -252,9 +236,10 @@ void OpenXRAnimation::updateParts()
     removeIndividualPart(ESM::PartReferenceType::PRT_LAnkle);
     removeIndividualPart(ESM::PartReferenceType::PRT_RAnkle);
 }
-void OpenXRAnimation::setPointForward(bool enabled)
+void VRAnimation::setPointForward(bool enabled)
 {
     auto found00 = mNodeMap.find("bip01 r finger1");
+    //auto weapon = mNodeMap.find("weapon");
     if (found00 != mNodeMap.end())
     {
         auto base_joint = found00->second;
@@ -262,27 +247,50 @@ void OpenXRAnimation::setPointForward(bool enabled)
         assert(second_joint);
 
         second_joint->removeChild(mPointerTransform);
+        //weapon->second->removeChild(mWeaponDirectionTransform);
+        mWeaponDirectionTransform->removeChild(mPointerGeometry);
         base_joint->removeUpdateCallback(mIndexFingerControllers[0]);
         if (enabled)
         {
             second_joint->addChild(mPointerTransform);
+            //weapon->second->addChild(mWeaponDirectionTransform);
+            mWeaponDirectionTransform->addChild(mPointerGeometry);
             base_joint->addUpdateCallback(mIndexFingerControllers[0]);
         }
     }
 }
 
-void OpenXRAnimation::createPointer(void)
+void VRAnimation::createPointer(void)
 {
     mPointerGeometry = createPointerGeometry();
-    mPointerTransform = new osg::PositionAttitudeTransform();
+    mPointerTransform = new osg::MatrixTransform();
     mPointerTransform->addChild(mPointerGeometry);
-    mPointerTransform->asPositionAttitudeTransform()->setAttitude(osg::Quat(osg::DegreesToRadians(90.f), osg::Vec3(0.f, 1.f, 0.f)));
-    mPointerTransform->asPositionAttitudeTransform()->setPosition(osg::Vec3(0.f, 0.f, 0.f));
-    mPointerTransform->asPositionAttitudeTransform()->setScale(osg::Vec3(1.f, 1.f, 1.f));
     mPointerTransform->setName("Pointer Transform");
+
+    mWeaponPointerTransform = new osg::MatrixTransform();
+    mWeaponPointerTransform->addChild(mPointerGeometry);
+    mWeaponPointerTransform->setMatrix(
+        osg::Matrix::scale(64.f, 1.f, 1.f)
+    );
+    mWeaponPointerTransform->setName("Weapon Pointer");
+
+    mWeaponDirectionTransform = new osg::MatrixTransform();
+    mWeaponDirectionTransform->addChild(mWeaponPointerTransform);
+    mWeaponDirectionTransform->setMatrix(
+        osg::Matrix::rotate(osg::DegreesToRadians(-90.f), osg::Y_AXIS)
+    );
+    mWeaponDirectionTransform->setName("Weapon Direction");
+
+    mWeaponAdjustment = new osg::MatrixTransform();
+    //mWeaponAdjustment->addChild(mWeaponPointerTransform);
+    mWeaponAdjustment->setMatrix(
+        osg::Matrix::rotate(osg::DegreesToRadians(90.f), osg::Y_AXIS)
+    );
+    mWeaponAdjustment->setName("Weapon Adjustment");
+
 }
 
-osg::ref_ptr<osg::Geometry> OpenXRAnimation::createPointerGeometry(void)
+osg::ref_ptr<osg::Geometry> VRAnimation::createPointerGeometry(void)
 {
     osg::ref_ptr<osg::Geometry> geometry = new osg::Geometry();
 
@@ -291,8 +299,8 @@ osg::ref_ptr<osg::Geometry> OpenXRAnimation::createPointerGeometry(void)
 
     osg::Vec3 vertices[]{
         {0, 0, 0}, // origin
-        {-1, 1, 1}, // top_left
-        {-1, -1, 1}, // bottom_left
+        {1, 1, -1}, // top_left
+        {1, -1, -1}, // bottom_left
         {1, -1, 1}, // bottom_right
         {1, 1, 1}, // top_right
     };
@@ -350,12 +358,12 @@ osg::ref_ptr<osg::Geometry> OpenXRAnimation::createPointerGeometry(void)
     return geometry;
 }
 
-osg::Vec3f OpenXRAnimation::runAnimation(float timepassed)
+osg::Vec3f VRAnimation::runAnimation(float timepassed)
 {
     return NpcAnimation::runAnimation(timepassed);
 }
 
-void OpenXRAnimation::addControllers()
+void VRAnimation::addControllers()
 {
     NpcAnimation::addControllers();
 
@@ -402,14 +410,58 @@ void OpenXRAnimation::addControllers()
         group->removeChildren(0, parent->getNumChildren());
         group->addChild(mModelOffset);
         mModelOffset->addChild(mObjectRoot);
+
+        auto weapon = mNodeMap.find("weapon");
+        weapon->second->addChild(mWeaponDirectionTransform);
     }
+
+
+
+    
+
 }
-void OpenXRAnimation::enableHeadAnimation(bool)
+void VRAnimation::enableHeadAnimation(bool)
 {
     NpcAnimation::enableHeadAnimation(false);
 }
-void OpenXRAnimation::setAccurateAiming(bool)
+void VRAnimation::setAccurateAiming(bool)
 {
     NpcAnimation::setAccurateAiming(false);
 }
+
+bool VRAnimation::canPlaceObject()
+{
+    const float maxDist = 200.f;
+    if (mPointerTarget.mHit)
+    {
+        // check if the wanted position is on a flat surface, and not e.g. against a vertical wall
+        if (std::acos((mPointerTarget.mHitNormalWorld / mPointerTarget.mHitNormalWorld.length()) * osg::Vec3f(0, 0, 1)) >= osg::DegreesToRadians(30.f))
+            return false;
+
+        return true;
+    }
+
+    return false;
+}
+
+const MWRender::RayResult& VRAnimation::getPointerTarget() const
+{
+    return mPointerTarget;
+}
+
+void VRAnimation::updatePointerTarget()
+{
+    auto* world = MWBase::Environment::get().getWorld();
+    if (world)
+    {
+        mPointerTransform->setMatrix(osg::Matrix::scale(1, 1, 1));
+        mDistanceToPointerTarget = world->getTargetObject(mPointerTarget, mPointerTransform);
+
+        if(mDistanceToPointerTarget >= 0)
+            mPointerTransform->setMatrix(osg::Matrix::scale(mDistanceToPointerTarget, 0.25f, 0.25f));
+        else
+            mPointerTransform->setMatrix(osg::Matrix::scale(10000.f, 0.25f, 0.25f));
+    }
+}
+
 }

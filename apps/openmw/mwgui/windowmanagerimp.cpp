@@ -114,7 +114,7 @@
 #include "resourceskin.hpp"
 
 #ifdef USE_OPENXR
-#include "../mwvr/openxrenvironment.hpp"
+#include "../mwvr/vrenvironment.hpp"
 #include "../mwvr/openxrmenu.hpp"
 #endif
 
@@ -1890,7 +1890,7 @@ namespace MWGui
 #ifdef USE_OPENXR
         // Temporary hack to force update of menu placement
         // (Menu gets recreated next tick)
-        auto* xrMenuManager = MWVR::OpenXREnvironment::get().getMenuManager();
+        auto* xrMenuManager = MWVR::Environment::get().getMenuManager();
 #endif
 
         mVideoWidget->eventKeyButtonPressed.clear();

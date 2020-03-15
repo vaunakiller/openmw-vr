@@ -1,6 +1,6 @@
-#include "openxranimation.hpp"
+#include "vranimation.hpp"
 #include "openxrinputmanager.hpp"
-#include "openxrenvironment.hpp"
+#include "vrenvironment.hpp"
 #include "openxrmanager.hpp"
 #include "openxrmanagerimpl.hpp"
 
@@ -265,7 +265,7 @@ struct OpenXRInput
 XrActionSet
 OpenXRInput::createActionSet()
 {
-    auto* xr = OpenXREnvironment::get().getManager();
+    auto* xr = Environment::get().getManager();
     XrActionSet actionSet = XR_NULL_HANDLE;
     XrActionSetCreateInfo createInfo{ XR_TYPE_ACTION_SET_CREATE_INFO };
     strcpy_s(createInfo.actionSetName, "gameplay");
@@ -308,7 +308,7 @@ OpenXRAction::~OpenXRAction() {
 
 bool OpenXRAction::getFloat(XrPath subactionPath, float& value)
 {
-    auto* xr = OpenXREnvironment::get().getManager();
+    auto* xr = Environment::get().getManager();
     XrActionStateGetInfo getInfo{ XR_TYPE_ACTION_STATE_GET_INFO };
     getInfo.action = mAction;
     getInfo.subactionPath = subactionPath;
@@ -323,7 +323,7 @@ bool OpenXRAction::getFloat(XrPath subactionPath, float& value)
 
 bool OpenXRAction::getBool(XrPath subactionPath, bool& value)
 {
-    auto* xr = OpenXREnvironment::get().getManager();
+    auto* xr = Environment::get().getManager();
     XrActionStateGetInfo getInfo{ XR_TYPE_ACTION_STATE_GET_INFO };
     getInfo.action = mAction;
     getInfo.subactionPath = subactionPath;
@@ -339,7 +339,7 @@ bool OpenXRAction::getBool(XrPath subactionPath, bool& value)
 // Pose action only checks if the pose is active or not
 bool OpenXRAction::getPose(XrPath subactionPath)
 {
-    auto* xr = OpenXREnvironment::get().getManager();
+    auto* xr = Environment::get().getManager();
     XrActionStateGetInfo getInfo{ XR_TYPE_ACTION_STATE_GET_INFO };
     getInfo.action = mAction;
     getInfo.subactionPath = subactionPath;
@@ -352,7 +352,7 @@ bool OpenXRAction::getPose(XrPath subactionPath)
 
 bool OpenXRAction::applyHaptics(XrPath subactionPath, float amplitude)
 {
-    auto* xr = OpenXREnvironment::get().getManager();
+    auto* xr = Environment::get().getManager();
     XrHapticVibration vibration{ XR_TYPE_HAPTIC_VIBRATION };
     vibration.amplitude = amplitude;
     vibration.duration = XR_MIN_HAPTIC_DURATION;
@@ -414,7 +414,7 @@ OpenXRInput::ControllerActionPaths
 OpenXRInput::generateControllerActionPaths(
     const std::string& controllerAction)
 {
-    auto* xr = OpenXREnvironment::get().getManager();
+    auto* xr = Environment::get().getManager();
     ControllerActionPaths actionPaths;
 
     std::string left = std::string("/user/hand/left") + controllerAction;
@@ -473,7 +473,7 @@ OpenXRInput::OpenXRInput()
     , mHandPoseAction(std::move(createAction(XR_ACTION_TYPE_POSE_INPUT, "hand_pose", "Hand Pose", { LEFT_HAND, RIGHT_HAND })))
     , mHapticsAction(std::move(createAction(XR_ACTION_TYPE_VIBRATION_OUTPUT, "vibrate_hand", "Vibrate Hand", { LEFT_HAND, RIGHT_HAND })))
 {
-    auto* xr = OpenXREnvironment::get().getManager();
+    auto* xr = Environment::get().getManager();
     { // Set up default bindings for the oculus
         XrPath oculusTouchInteractionProfilePath;
         CHECK_XRCMD(
@@ -585,7 +585,7 @@ OpenXRInput::subactionPath(
 void
 OpenXRInput::updateControls()
 {
-    auto* xr = OpenXREnvironment::get().getManager();
+    auto* xr = Environment::get().getManager();
     if (!xr->impl().mSessionRunning)
         return;
 
@@ -696,7 +696,7 @@ OpenXRInput::updateControls()
 
 XrPath OpenXRInput::generateXrPath(const std::string& path)
 {
-    auto* xr = OpenXREnvironment::get().getManager();
+    auto* xr = Environment::get().getManager();
     XrPath xrpath = 0;
     CHECK_XRCMD(xrStringToPath(xr->impl().mInstance, path.c_str(), &xrpath));
     return xrpath;
@@ -720,7 +720,7 @@ OpenXRInput::getHandPoses(
     int64_t time,
     TrackedSpace space)
 {
-    auto* xr = OpenXREnvironment::get().getManager();
+    auto* xr = Environment::get().getManager();
     PoseSet handPoses{};
     XrSpace referenceSpace = XR_NULL_HANDLE;
     if (space == TrackedSpace::STAGE)
@@ -762,7 +762,7 @@ void OpenXRInputManager::updateActivationIndication(void)
     if (mPlayer)
         mPlayer->setPointing(show);
 
-    auto* playerAnimation = OpenXREnvironment::get().getPlayerAnimation();
+    auto* playerAnimation = Environment::get().getPlayerAnimation();
     if (playerAnimation)
         playerAnimation->setPointForward(show);
 }
@@ -779,10 +779,11 @@ public:
     virtual MWWorld::Ptr copyItem(const MWGui::ItemStack& item, size_t count, bool /*allowAutoEquip*/)
     {
         MWBase::World* world = MWBase::Environment::get().getWorld();
+        MWVR::VRAnimation* anim = MWVR::Environment::get().getPlayerAnimation();
 
         MWWorld::Ptr dropped;
-        if (world->canPlaceObject())
-            dropped = world->placeObject(item.mBase, count);
+        if (anim->canPlaceObject())
+            dropped = world->placeObject(item.mBase, anim->getPointerTarget(), count);
         else
             dropped = world->dropObjectOnGround(world->getPlayerPtr(), item.mBase, count);
         dropped.getCellRef().setOwner("");
@@ -804,12 +805,11 @@ private:
     void OpenXRInputManager::pointActivation(bool onPress)
     {
         auto* world = MWBase::Environment::get().getWorld();
-        if (world)
+        auto* anim = MWVR::Environment::get().getPlayerAnimation();
+        if (world && anim && anim->mPointerTarget.mHit)
         {
-            MWRender::RayResult pointedAt;
-            world->getPointedAtObject(pointedAt);
-            auto* node = pointedAt.mHitNode;
-            MWWorld::Ptr ptr = pointedAt.mHitObject;
+            auto* node = anim->mPointerTarget.mHitNode;
+            MWWorld::Ptr ptr = anim->mPointerTarget.mHitObject;
             auto& dnd = MWBase::Environment::get().getWindowManager()->getDragAndDrop();
 
             if (node && node->getName() == "XR Menu Geometry")
@@ -894,17 +894,16 @@ private:
         mXRInput->updateControls();
 
         auto* world = MWBase::Environment::get().getWorld();
-        if (world)
+        auto* anim = MWVR::Environment::get().getPlayerAnimation();
+        if (world && anim && anim->mPointerTarget.mHit)
         {
-            MWRender::RayResult pointedAt;
-            world->getPointedAtObject(pointedAt);
-            auto* node = pointedAt.mHitNode;
+            auto* node = anim->mPointerTarget.mHitNode;
             if (node)
             {
                 int w, h;
                 SDL_GetWindowSize(mWindow, &w, &h);
 
-                osg::Vec3 local = pointedAt.mHitPointLocal;
+                osg::Vec3 local = anim->mPointerTarget.mHitPointLocal;
                 local.x() = (local.x() + 1.f) / 2.f;
                 local.y() = 1.f - (local.y() + 1.f) / 2.f;
 
@@ -914,6 +913,8 @@ private:
                 MyGUI::InputManager::getInstance().injectMouseMove(int(mGuiCursorX), int(mGuiCursorY), 0);
             }
         }
+
+
 
         OpenXRActionEvent event{};
         while (mXRInput->nextActionEvent(event))
@@ -926,17 +927,25 @@ private:
         MWInput::InputManager::update(dt, disableControls, disableEvents);
 
         bool guiMode = MWBase::Environment::get().getWindowManager()->isGuiMode();
-        auto* xrMenuManager = OpenXREnvironment::get().getMenuManager();
+        auto* xrMenuManager = Environment::get().getMenuManager();
         if(xrMenuManager)
             xrMenuManager->showMenus(guiMode);
 
         setPlayerControlsEnabled(!guiMode);
+
+        if (mPlayer)
+        {
+            auto player = mPlayer->getPlayer();
+            if (!mRealisticCombat || mRealisticCombat->ptr != player)
+                mRealisticCombat.reset(new RealisticCombat::StateMachine(player));
+            mRealisticCombat->update(dt, !guiMode);
+        }
     }
 
     void OpenXRInputManager::processEvent(const OpenXRActionEvent& event)
     {
-        //auto* session = OpenXREnvironment::get().getSession();
-        auto* xrMenuManager = OpenXREnvironment::get().getMenuManager();
+        //auto* session = Environment::get().getSession();
+        auto* xrMenuManager = Environment::get().getMenuManager();
         switch (event.action)
         {
         case A_GameMenu:
@@ -1101,11 +1110,11 @@ private:
         MWBase::World* world = MWBase::Environment::get().getWorld();
         auto player = mPlayer->getPlayer();
 
-        auto* xr = OpenXREnvironment::get().getManager();
-        auto* session = OpenXREnvironment::get().getSession();
+        auto* xr = Environment::get().getManager();
+        auto* session = Environment::get().getSession();
         auto currentHeadPose = session->predictedPoses().head[(int)TrackedSpace::STAGE];
         xr->playerScale(currentHeadPose);
-        currentHeadPose.position *= OpenXREnvironment::get().unitsPerMeter();
+        currentHeadPose.position *= Environment::get().unitsPerMeter();
         osg::Vec3 vrMovement = currentHeadPose.position - mPreviousHeadPose.position;
         mPreviousHeadPose = currentHeadPose;
 

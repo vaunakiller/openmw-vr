@@ -737,7 +737,7 @@ void OMW::Engine::go()
 
 #ifdef USE_OPENXR
     auto* root = mViewer->getSceneData();
-    auto* xrViewer = MWVR::OpenXREnvironment::get().getViewer();
+    auto* xrViewer = MWVR::Environment::get().getViewer();
     xrViewer->addChild(root);
     mViewer->setSceneData(xrViewer);
     mXrEnvironment.setMenuManager(new MWVR::OpenXRMenuManager(mViewer));

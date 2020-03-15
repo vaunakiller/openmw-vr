@@ -8,6 +8,8 @@
 
 #include "../mwbase/world.hpp"
 
+#include "../mwrender/renderingmanager.hpp"
+
 #include "ptr.hpp"
 #include "scene.hpp"
 #include "esmstore.hpp"
@@ -729,24 +731,20 @@ namespace MWWorld
 
             bool hasCollisionWithDoor(const MWWorld::ConstPtr& door, const osg::Vec3f& position, const osg::Vec3f& destination) const override;
 
-#ifdef USE_OPENXR
-        private:
-            float mDistanceToPointedAtObject;
-            void getPointedAtObject(MWRender::RayResult& result, float maxDistance, bool ignorePlayer = true);
-        public:
-            void getPointedAtObject(MWRender::RayResult& result) override;
-            ///< Return pointer to the object and/or node the player is currently pointing at
-            float getDistanceToPointedAtObject() override;
-            ///< Return the distance to the object and/or node the player is currently pointing at
+            /// @result pointer to the object and/or node the given node is currently pointing at
+            /// @Return distance to the target object, or -1 if no object was targeted / in range
+            float getTargetObject(MWRender::RayResult& result, osg::Transform* pointer) override;
+            float getTargetObject(MWRender::RayResult& result, osg::Transform* pointer, float maxDistance, bool ignorePlayer) override;
 
-            MWWorld::Ptr placeObject(const MWWorld::ConstPtr& object, int amount) override;
-            ///< copy and place an object into the gameworld where the player is currently pointing
+
+            MWWorld::Ptr placeObject(const MWWorld::ConstPtr& object, const MWRender::RayResult& ray, int amount) override;
+            ///< copy and place an object into the gameworld based on the given intersection
             /// @param object
+            /// @param world position to place object
             /// @param number of objects to place
 
-            bool canPlaceObject() override;
-            ///< @return true if it is possible to place on object where the player is currently pointing
-#endif
+
+            MWPhysics::PhysicsSystem* getPhysicsSystem(void) override;
     };
 }
 

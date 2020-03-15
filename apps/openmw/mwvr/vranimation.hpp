@@ -1,7 +1,8 @@
-#ifndef MWVR_OPENRXANIMATION_H
-#define MWVR_OPENRXANIMATION_H
+#ifndef MWVR_VRANIMATION_H
+#define MWVR_VRANIMATION_H
 
 #include "../mwrender/npcanimation.hpp"
+#include "../mwrender/renderingmanager.hpp"
 #include "openxrmanager.hpp"
 #include "openxrsession.hpp"
 
@@ -13,7 +14,7 @@ class FingerController;
 class ForearmController;
 
 /// Subclassing NpcAnimation to override behaviours not compatible with VR
-class OpenXRAnimation : public MWRender::NpcAnimation
+class VRAnimation : public MWRender::NpcAnimation
 {
 protected:
     virtual void addControllers();
@@ -28,9 +29,9 @@ public:
      * @param disableSounds    Same as \a disableListener but for playing items sounds
      * @param xrSession        The XR session that shall be used to track limbs
      */
-    OpenXRAnimation(const MWWorld::Ptr& ptr, osg::ref_ptr<osg::Group> parentNode, Resource::ResourceSystem* resourceSystem,
+    VRAnimation(const MWWorld::Ptr& ptr, osg::ref_ptr<osg::Group> parentNode, Resource::ResourceSystem* resourceSystem,
                  bool disableSounds, std::shared_ptr<OpenXRSession> xrSession );
-    virtual ~OpenXRAnimation();
+    virtual ~VRAnimation();
 
     /// Overridden to always be false
     virtual void enableHeadAnimation(bool enable);
@@ -55,19 +56,31 @@ public:
     /// (Used to visualize direction of activation action)
     void setPointForward(bool enabled);
 
+    bool canPlaceObject();
+    ///< @return true if it is possible to place on object where the player is currently pointing
+
+    const MWRender::RayResult& getPointerTarget() const;
+    ///< @return pointer to the object the player's melee weapon is currently intersecting.
+
+    void updatePointerTarget();
+
 public:
     void createPointer(void);
     static osg::ref_ptr<osg::Geometry> createPointerGeometry(void);
 
-private:
+public:
     std::shared_ptr<OpenXRSession> mSession;
     ForearmController* mForearmControllers[2]{};
     HandController* mHandControllers[2]{};
     osg::ref_ptr<FingerController> mIndexFingerControllers[2];
     osg::ref_ptr<osg::MatrixTransform> mModelOffset;
     osg::ref_ptr<osg::Geometry> mPointerGeometry{ nullptr };
-    osg::ref_ptr<osg::Transform> mPointerTransform{ nullptr };
-    
+    osg::ref_ptr<osg::MatrixTransform> mPointerTransform{ nullptr };
+    osg::ref_ptr<osg::MatrixTransform> mWeaponAdjustment{ nullptr };
+    osg::ref_ptr<osg::MatrixTransform> mWeaponDirectionTransform{ nullptr };
+    osg::ref_ptr<osg::MatrixTransform> mWeaponPointerTransform{ nullptr };
+    MWRender::RayResult mPointerTarget{};
+    float mDistanceToPointerTarget{ -1.f };
 };
 
 }
