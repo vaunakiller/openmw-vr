@@ -125,10 +125,6 @@ namespace MWVR {
         Timer timer("Swapchain::endFrame");
         // Blit frame to swapchain
 
-        if (!mXR->sessionRunning())
-            return -1;
-
-
         XrSwapchainImageAcquireInfo acquireInfo{ XR_TYPE_SWAPCHAIN_IMAGE_ACQUIRE_INFO };
         uint32_t swapchainImageIndex = 0;
         CHECK_XRCMD(xrAcquireSwapchainImage(mSwapchain, &acquireInfo, &swapchainImageIndex));

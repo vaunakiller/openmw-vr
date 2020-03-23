@@ -163,10 +163,6 @@ namespace MWRender
         setYaw(yaw);
         setPitch(pitch);
         setRoll(roll);
-
-        // This might happen mid-update traversal because of openxr input management.
-        // It is essential to VR comfort that this be effective immediately and not next frame.
-        updateCamera();
     }
 
     void Camera::attachTo(const MWWorld::Ptr &ptr)
@@ -431,7 +427,7 @@ namespace MWRender
         mTrackingNode = findRootVisitor.mFoundNode;
 
         if (!mTrackingNode)
-            throw std::logic_error("Unapple to find tracking node for VR camera");
+            throw std::logic_error("Unable to find tracking node for VR camera");
         mHeightScale = 1.f;
 #else
         if(isFirstPerson())
@@ -452,7 +448,7 @@ namespace MWRender
             else
                 mHeightScale = 1.f;
         }
-        rotateCamera(getPitch(), getYaw(), false);
+        rotateCamera(getPitch(), 0.f, getYaw(), false);
 #endif
     }
 

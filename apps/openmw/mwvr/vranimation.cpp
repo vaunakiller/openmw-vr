@@ -66,35 +66,32 @@
 namespace MWVR
 {
 
-// This will work for a prototype. But finger/arm control might be better implemented using the 
-// existing animation system, implementing this as an animation source.
-// But I'm not sure it would be since these are not classical animations.
-// It would make it easier to control priority, and later allow for users to add their own stuff to animations based on VR/touch input.
-// But openmw doesn't really have any concepts for user animation overrides as far as i can tell.
+// Some weapon types, such as spellcast, are classified as melee even though they are not.
+// All the fake melee types have negative type enum, but also so does hand to hand.
+// I think this covers all the cases
+static bool isMeleeWeapon(int type)
+{
+    if (MWMechanics::getWeaponType(type)->mWeaponClass != ESM::WeaponType::Melee)
+        return false;
+    if (type == ESM::Weapon::HandToHand)
+        return true;
+    if (type >= 0)
+        return true;
 
+    return false;
+}
 
-/// Implements dummy control of the forearm, to control mesh/bone deformation of the hand.
+/// Implements VR control of the forearm, to control mesh/bone deformation of the hand.
 class ForearmController : public osg::NodeCallback
 {
 public:
-    ForearmController(osg::Node* relativeTo, SceneUtil::PositionAttitudeTransform* tracker);
+    ForearmController() = default;
     void setEnabled(bool enabled) { mEnabled = enabled; };
     void operator()(osg::Node* node, osg::NodeVisitor* nv);
 
 private:
-    bool mEnabled = true;
-    osg::Quat mRotate{};
-    osg::Node* mRelativeTo;
-    osg::Matrix mOffset{ osg::Matrix::identity() };
-    bool mOffsetInitialized = false;
-    SceneUtil::PositionAttitudeTransform* mTracker;
+    bool mEnabled{ true };
 };
-
-ForearmController::ForearmController(osg::Node* relativeTo, SceneUtil::PositionAttitudeTransform* tracker)
-    : mRelativeTo(relativeTo)
-    , mTracker(tracker)
-{
-}
 
 void ForearmController::operator()(osg::Node* node, osg::NodeVisitor* nv)
 {
@@ -105,44 +102,102 @@ void ForearmController::operator()(osg::Node* node, osg::NodeVisitor* nv)
     }
 
     osg::MatrixTransform* transform = static_cast<osg::MatrixTransform*>(node);
-    if (!mOffsetInitialized)
+
+    auto* xr = Environment::get().getManager();
+    auto* session = Environment::get().getSession();
+    auto* xrViewer = Environment::get().getViewer();
+    auto& poses = session->predictedPoses(OpenXRSession::PredictionSlice::Predraw);
+    auto handPosesStage = poses.hands[(int)TrackedSpace::STAGE];
+    int side = (int)Side::RIGHT_HAND;
+    if (node->getName().find_first_of("L") != std::string::npos)
     {
-        // This is a bit of a hack.
-        // Trackers track hands, not forearms.
-        // But i have to transform the forearms to account for deformations,
-        // so i subtract the hand transform from the final transform to center the hands.
-        std::string handName = node->getName() == "Bip01 L Forearm" ? "Bip01 L Hand" : "Bip01 R Hand";
-        SceneUtil::FindByNameVisitor findHandVisitor(handName);
-        node->accept(findHandVisitor);
-        mOffset = findHandVisitor.mFoundNode->asTransform()->asMatrixTransform()->getInverseMatrix();
-        mOffsetInitialized = true;
+        side = (int)Side::LEFT_HAND;
+        // We base ourselves on the world position of the camera
+        // Ensure it is updated before placing the hands
+        // I'm sure this can be achieved properly by managing the scene graph better.
+        MWBase::Environment::get().getWorld()->getRenderingManager().getCamera()->updateCamera();
     }
+
+    MWVR::Pose handStage = handPosesStage[side];
+    MWVR::Pose headStage = poses.head[(int)TrackedSpace::STAGE];
+    xr->playerScale(handStage);
+    xr->playerScale(headStage);
+
+    auto orientation = handStage.orientation;
+
+    auto position = handStage.position - headStage.position;
+    position = position * Environment::get().unitsPerMeter();
+
+    auto camera = xrViewer->mViewer->getCamera();
+    auto viewMatrix = camera->getViewMatrix();
+
+
+    // Align orientation with the game world
+    auto* inputManager = Environment::get().getInputManager();
+    if (inputManager)
+    {
+        auto playerYaw = osg::Quat(-inputManager->mYaw, osg::Vec3d(0, 0, 1));
+        position = playerYaw * position;
+        orientation = orientation * playerYaw;
+    }
+
+    // Add camera offset
+    osg::Vec3 viewPosition;
+    osg::Vec3 center;
+    osg::Vec3 up;
+
+    viewMatrix.getLookAt(viewPosition, center, up, 1.0);
+    position += viewPosition;
+
+    //// Morrowind's meshes do not point forward by default.
+    //// Declare the offsets static since they do not need to be recomputed.
+    static float VRbias = osg::DegreesToRadians(-90.f);
+    static osg::Quat yaw(-VRbias, osg::Vec3f(0, 0, 1));
+    static osg::Quat pitch(2.f * VRbias, osg::Vec3f(0, 1, 0));
+    static osg::Quat roll(2 * VRbias, osg::Vec3f(1, 0, 0));
+    orientation = yaw * orientation;
+    if (side == (int)Side::LEFT_HAND)
+        orientation = roll * orientation;
+
+    // Undo the wrist translate
+    auto* hand = transform->getChild(0);
+    auto handMatrix = hand->asTransform()->asMatrixTransform()->getMatrix();
+    position -= orientation * handMatrix.getTrans();
+
+    // Center hand mesh on tracking
+    // This is just an estimate from trial and error, any suggestion for improving this is welcome
+    position -= orientation * osg::Vec3{ 15,0,0 };
+
     // Get current world transform of limb
     osg::Matrix worldToLimb = osg::computeLocalToWorld(node->getParentalNodePaths()[0]);
     // Get current world of the reference node
     osg::Matrix worldReference = osg::Matrix::identity();
-    // New transform is reference node + tracker.
-    mTracker->computeLocalToWorldMatrix(worldReference, nullptr);
-    // Get hand
-    transform->setMatrix(mOffset * worldReference * osg::Matrix::inverse(worldToLimb) * transform->getMatrix());
+    // New transform based on tracking.
+    worldReference.preMultTranslate(position);
+    worldReference.preMultRotate(orientation);
 
+    // Finally, set transform
+    transform->setMatrix(worldReference * osg::Matrix::inverse(worldToLimb) * transform->getMatrix());
 
-    // TODO: Continued traversal is necessary to allow update of new hand poses such as gripping a weapon.
-    // But I want to disable idle animations.
+    Log(Debug::Verbose) << "Updating hand: " << node->getName();
+
+    // Omit nested callbacks to override animations of this node
+    osg::ref_ptr<osg::Callback> ncb = getNestedCallback();
+    setNestedCallback(nullptr);
     traverse(node, nv);
+    setNestedCallback(ncb);
 }
 
 /// Implements control of a finger by overriding rotation
 class FingerController : public osg::NodeCallback
 {
 public:
-    FingerController(osg::Quat rotate) : mRotate(rotate) {};
+    FingerController() {};
     void setEnabled(bool enabled) { mEnabled = enabled; };
     void operator()(osg::Node* node, osg::NodeVisitor* nv);
 
 private:
     bool mEnabled = true;
-    osg::Quat mRotate{};
 };
 
 void FingerController::operator()(osg::Node* node, osg::NodeVisitor* nv)
@@ -153,36 +208,224 @@ void FingerController::operator()(osg::Node* node, osg::NodeVisitor* nv)
         return;
     }
 
-    // This update needs to hard override all other animation updates.
-    // To do this i need to make sure no further update calls are made.
-    // Therefore i do not traverse normally but instead explicitly fetch 
-    // the children i want to update and update them here.
 
-    // I'm sure this could be done in a cleaner way
+    osg::Quat rotate{ 0,0,0,1 };
 
+    // TODO: 
+    // To make finger pointing more natural each joint should angle down roughly 5-6 degrees per joint.
+    // But this creates obvious visual conflicts with the hand and the rest of the fingers which are not posed naturally,
+    // and looks particularly riddiculous when a weapon is drawn.
+    // Therefore, for the time being i will simply have them point straight forward relative to the current hand rotation.
+    // This leads to particularly awkward finger pointing while a weapon is drawn and should be replaced by a 
+    // complete override of all hand animations by the end of 2090.
+
+    //////// Add a slight rotation down of the fingers to naturalize the pointing.
+    //////rotate = osg::Quat(osg::PI_4 / 8, osg::Vec3{ 0,1,0 }) * rotate;
+    //////if (node->getName() == "Bip01 R Finger1")
+    //////{
+    //////    auto* world = MWBase::Environment::get().getWorld();
+
+    //////    // Morrowind models do not hold weapons at a natural angle, so i rotate the hand forward 
+    //////    // to get a more natural angle on the weapon to allow more comfortable combat.
+    //////    // Fingers need to angle back up to keep pointing natural.
+    //////    if (world->getActiveWeaponType() >= 0)
+    //////    {
+    //////        rotate = osg::Quat(-osg::PI_4, osg::Vec3{ 0,1,0 }) * rotate;
+    //////    }
+    //////}
 
     // First, update the base of the finger to the overriding orientation
     auto matrixTransform = node->asTransform()->asMatrixTransform();
     auto matrix = matrixTransform->getMatrix();
-    matrix.setRotate(mRotate);
+    matrix.setRotate(rotate);
     matrixTransform->setMatrix(matrix);
 
-    // Next update the tip.
-    // Note that for now both tips are just given osg::Quat(0,0,0,1) as that amounts to pointing forward.
-    auto tip = matrixTransform->getChild(0)->asTransform()->asMatrixTransform();
-    matrix = tip->getMatrix();
-    matrix.setRotate(mRotate);
-    tip->setMatrix(matrix);
 
-    // Finally, if pointing forward is enabled we need to intersect the scene to find where the player is pointing
-    // So that we can display a beam to visualize where the player is pointing.
+    // Omit nested callbacks to override animations of this node
+    osg::ref_ptr<osg::Callback> ncb = getNestedCallback();
+    setNestedCallback(nullptr);
+    traverse(node, nv);
+    setNestedCallback(ncb);
 
-    // Dig up the pointer transform
+    // Update where the player is currently pointing
     auto* anim = MWVR::Environment::get().getPlayerAnimation();
-    if (anim)
+    if (anim && node->getName() == "Bip01 R Finger1")
+    {
         anim->updatePointerTarget();
+    }
 }
 
+/// Implements control of a finger by overriding rotation
+class HandController : public osg::NodeCallback
+{
+public:
+    HandController() = default;
+    void setEnabled(bool enabled) { mEnabled = enabled; };
+    void operator()(osg::Node* node, osg::NodeVisitor* nv);
+
+private:
+    bool mEnabled = true;
+};
+
+void HandController::operator()(osg::Node* node, osg::NodeVisitor* nv)
+{
+    if (!mEnabled)
+    {
+        traverse(node, nv);
+        return;
+    }
+    float PI_2 = osg::PI_2;
+    if (node->getName() == "Bip01 L Hand")
+        PI_2 = -PI_2;
+    float PI_4 = PI_2 / 2.f;
+
+    osg::Quat rotate{ 0,0,0,1 };
+    auto* world = MWBase::Environment::get().getWorld();
+    auto windowManager = MWBase::Environment::get().getWindowManager();
+    auto weaponType = world->getActiveWeaponType();
+    // Morrowind models do not hold most weapons at a natural angle, so i rotate the hand
+    // to more natural angles on weapons to allow more comfortable combat.
+    if (!windowManager->isGuiMode())
+    {
+
+        switch (weaponType)
+        {
+        case ESM::Weapon::None:
+        case ESM::Weapon::HandToHand:
+        case ESM::Weapon::MarksmanThrown:
+        case ESM::Weapon::Spell:
+        case ESM::Weapon::Arrow:
+        case ESM::Weapon::Bolt:
+            // No adjustment
+            break;
+        case ESM::Weapon::MarksmanCrossbow:
+            // Crossbow points upwards. Assumedly because i am overriding hand animations.
+            rotate = osg::Quat(PI_4 / 1.05, osg::Vec3{ 0,1,0 }) * osg::Quat(0.06, osg::Vec3{ 0,0,1 });
+            break;
+        case ESM::Weapon::MarksmanBow:
+            // Bow points down by default, rotate it back up a little
+            rotate = osg::Quat(-PI_2 * .10f, osg::Vec3{ 0,1,0 });
+            break;
+        default:
+            // Melee weapons Need adjustment
+            rotate = osg::Quat(PI_4, osg::Vec3{ 0,1,0 });
+            break;
+        }
+    }
+
+    auto matrixTransform = node->asTransform()->asMatrixTransform();
+    auto matrix = matrixTransform->getMatrix();
+    matrix.setRotate(rotate);
+    matrixTransform->setMatrix(matrix);
+
+
+    // Omit nested callbacks to override animations of this node
+    osg::ref_ptr<osg::Callback> ncb = getNestedCallback();
+    setNestedCallback(nullptr);
+    traverse(node, nv);
+    setNestedCallback(ncb);
+}
+
+/// Implements control of weapon direction
+class WeaponDirectionController : public osg::NodeCallback
+{
+public:
+    WeaponDirectionController() = default;
+    void setEnabled(bool enabled) { mEnabled = enabled; };
+    void operator()(osg::Node* node, osg::NodeVisitor* nv);
+
+private:
+    bool mEnabled = true;
+};
+
+void WeaponDirectionController::operator()(osg::Node* node, osg::NodeVisitor* nv)
+{
+    if (!mEnabled)
+    {
+        traverse(node, nv);
+        return;
+    }
+
+    // Arriving here implies a parent, no need to check
+    auto parent = static_cast<osg::MatrixTransform*>(node->getParent(0));
+
+
+
+    osg::Quat rotate{ 0,0,0,1 };
+    auto* world = MWBase::Environment::get().getWorld();
+    auto weaponType = world->getActiveWeaponType();
+    switch (weaponType)
+    {
+    case ESM::Weapon::MarksmanThrown:
+    case ESM::Weapon::Spell:
+    case ESM::Weapon::Arrow:
+    case ESM::Weapon::Bolt:
+    case ESM::Weapon::HandToHand:
+    case ESM::Weapon::MarksmanBow:
+    case ESM::Weapon::MarksmanCrossbow:
+        // Rotate to point straight forward, reverting any rotation of the hand to keep aim consistent.
+        rotate = parent->getInverseMatrix().getRotate();
+        rotate = osg::Quat(-osg::PI_2, osg::Vec3{ 0,0,1 }) * rotate;
+        break;
+    default:
+        // Melee weapons point straight up from the hand
+        rotate = osg::Quat(-osg::PI_2, osg::Vec3{ 0,1,0 });
+        break;
+    }
+
+    auto matrixTransform = node->asTransform()->asMatrixTransform();
+    auto matrix = matrixTransform->getMatrix();
+    matrix.setRotate(rotate);
+    matrixTransform->setMatrix(matrix);
+
+    traverse(node, nv);
+}
+
+/// Implements control of the weapon pointer
+class WeaponPointerController : public osg::NodeCallback
+{
+public:
+    WeaponPointerController() = default;
+    void setEnabled(bool enabled) { mEnabled = enabled; };
+    void operator()(osg::Node* node, osg::NodeVisitor* nv);
+
+private:
+    bool mEnabled = true;
+};
+
+void WeaponPointerController::operator()(osg::Node* node, osg::NodeVisitor* nv)
+{
+    if (!mEnabled)
+    {
+        traverse(node, nv);
+        return;
+    }
+
+    auto matrixTransform = node->asTransform()->asMatrixTransform();
+    auto world = MWBase::Environment::get().getWorld();
+    auto weaponType = world->getActiveWeaponType();
+    auto windowManager = MWBase::Environment::get().getWindowManager();
+
+    if (!isMeleeWeapon(weaponType) && !windowManager->isGuiMode())
+    {
+        // Ranged weapons should show a pointer to where they are targeting
+        matrixTransform->setMatrix(
+            osg::Matrix::scale(1.f, 64.f, 1.f)
+        );
+    }
+    else
+    {
+        // Hide the pointer
+        matrixTransform->setMatrix(
+            osg::Matrix::scale(1.f, 64.f, 1.f)
+            //osg::Matrix::scale(0.f, 0.f, 0.f)
+        );
+    }
+
+    // First, update the base of the finger to the overriding orientation
+
+    traverse(node, nv);
+}
 
 VRAnimation::VRAnimation(
     const MWWorld::Ptr& ptr, osg::ref_ptr<osg::Group> parentNode, Resource::ResourceSystem* resourceSystem,
@@ -196,10 +439,35 @@ VRAnimation::VRAnimation(
     // Pushing the camera forward instead would produce an unnatural extra movement when rotating the player model.
     , mModelOffset(new osg::MatrixTransform(osg::Matrix::translate(osg::Vec3(0,-15,0))))
 {
-    mIndexFingerControllers[0] = osg::ref_ptr<FingerController> (new FingerController(osg::Quat(0, 0, 0, 1)));
-    mIndexFingerControllers[1] = osg::ref_ptr<FingerController> (new FingerController(osg::Quat(0, 0, 0, 1)));
+    for (int i = 0; i < 2; i++)
+    {
+        mIndexFingerControllers[i] = new FingerController;
+        mForearmControllers[i] = new ForearmController;
+        mHandControllers[i] = new HandController;
+    }
+
+    mWeaponDirectionTransform = new osg::MatrixTransform();
+    mWeaponDirectionTransform->setName("Weapon Direction");
+    mWeaponDirectionTransform->setUpdateCallback(new WeaponDirectionController);
+
     mModelOffset->setName("ModelOffset");
-    createPointer();
+    mPointerGeometry = createPointerGeometry();
+    mPointerRescale = new osg::MatrixTransform();
+    mPointerRescale->addChild(mPointerGeometry);
+    mPointerTransform = new osg::MatrixTransform();
+    mPointerTransform->addChild(mPointerRescale);
+    mPointerTransform->setName("Pointer Transform");
+    // Morrowind's hands don't actually point forward, so we have to reorient the pointer.
+    mPointerTransform->setMatrix(osg::Matrix::rotate(osg::Quat(-osg::PI_2, osg::Vec3f(0, 0, 1))));
+
+    mWeaponPointerTransform = new osg::MatrixTransform();
+    mWeaponPointerTransform->addChild(mPointerGeometry);
+    mWeaponPointerTransform->setMatrix(
+        osg::Matrix::scale(0.f, 0.f, 0.f)
+    );
+    mWeaponPointerTransform->setName("Weapon Pointer");
+    mWeaponPointerTransform->setUpdateCallback(new WeaponPointerController);
+    mWeaponDirectionTransform->addChild(mWeaponPointerTransform);
 }
 
 VRAnimation::~VRAnimation() {};
@@ -236,58 +504,29 @@ void VRAnimation::updateParts()
     removeIndividualPart(ESM::PartReferenceType::PRT_LAnkle);
     removeIndividualPart(ESM::PartReferenceType::PRT_RAnkle);
 }
+
 void VRAnimation::setPointForward(bool enabled)
 {
-    auto found00 = mNodeMap.find("bip01 r finger1");
-    //auto weapon = mNodeMap.find("weapon");
-    if (found00 != mNodeMap.end())
+    auto finger = mNodeMap.find("bip01 r finger1");
+    if (finger != mNodeMap.end())
     {
-        auto base_joint = found00->second;
+        auto base_joint = finger->second;
         auto second_joint = base_joint->getChild(0)->asTransform()->asMatrixTransform();
         assert(second_joint);
 
-        second_joint->removeChild(mPointerTransform);
-        //weapon->second->removeChild(mWeaponDirectionTransform);
-        mWeaponDirectionTransform->removeChild(mPointerGeometry);
         base_joint->removeUpdateCallback(mIndexFingerControllers[0]);
+        second_joint->removeUpdateCallback(mIndexFingerControllers[1]);
         if (enabled)
         {
-            second_joint->addChild(mPointerTransform);
-            //weapon->second->addChild(mWeaponDirectionTransform);
-            mWeaponDirectionTransform->addChild(mPointerGeometry);
             base_joint->addUpdateCallback(mIndexFingerControllers[0]);
+            second_joint->addUpdateCallback(mIndexFingerControllers[1]);
+            
         }
     }
-}
 
-void VRAnimation::createPointer(void)
-{
-    mPointerGeometry = createPointerGeometry();
-    mPointerTransform = new osg::MatrixTransform();
-    mPointerTransform->addChild(mPointerGeometry);
-    mPointerTransform->setName("Pointer Transform");
-
-    mWeaponPointerTransform = new osg::MatrixTransform();
-    mWeaponPointerTransform->addChild(mPointerGeometry);
-    mWeaponPointerTransform->setMatrix(
-        osg::Matrix::scale(64.f, 1.f, 1.f)
-    );
-    mWeaponPointerTransform->setName("Weapon Pointer");
-
-    mWeaponDirectionTransform = new osg::MatrixTransform();
-    mWeaponDirectionTransform->addChild(mWeaponPointerTransform);
-    mWeaponDirectionTransform->setMatrix(
-        osg::Matrix::rotate(osg::DegreesToRadians(-90.f), osg::Y_AXIS)
-    );
-    mWeaponDirectionTransform->setName("Weapon Direction");
-
-    mWeaponAdjustment = new osg::MatrixTransform();
-    //mWeaponAdjustment->addChild(mWeaponPointerTransform);
-    mWeaponAdjustment->setMatrix(
-        osg::Matrix::rotate(osg::DegreesToRadians(90.f), osg::Y_AXIS)
-    );
-    mWeaponAdjustment->setName("Weapon Adjustment");
-
+    mPointerTransform->removeChild(mPointerRescale);
+    if (enabled)
+        mPointerTransform->addChild(mPointerRescale);
 }
 
 osg::ref_ptr<osg::Geometry> VRAnimation::createPointerGeometry(void)
@@ -300,8 +539,8 @@ osg::ref_ptr<osg::Geometry> VRAnimation::createPointerGeometry(void)
     osg::Vec3 vertices[]{
         {0, 0, 0}, // origin
         {1, 1, -1}, // top_left
-        {1, -1, -1}, // bottom_left
-        {1, -1, 1}, // bottom_right
+        {-1, 1, -1}, // bottom_left
+        {-1, 1, 1}, // bottom_right
         {1, 1, 1}, // top_right
     };
 
@@ -340,8 +579,6 @@ osg::ref_ptr<osg::Geometry> VRAnimation::createPointerGeometry(void)
     osg::ref_ptr<osg::Vec3Array> normals = new osg::Vec3Array;
     normals->push_back(osg::Vec3(0.0f, -1.0f, 0.0f));
 
-
-
     geometry->setVertexArray(vertexArray);
     geometry->setColorArray(colorArray, osg::Array::BIND_PER_VERTEX);
     geometry->addPrimitiveSet(new osg::DrawArrays(osg::PrimitiveSet::TRIANGLES, 0, numVertices));
@@ -367,58 +604,46 @@ void VRAnimation::addControllers()
 {
     NpcAnimation::addControllers();
 
-    // TODO: 
-    // Those controllers should be made using the openxr session *here* rather than magicking up
-    // a couple nodes by searching the scene graph.
-
-    //mNodeMap, mActiveControllers, mObjectRoot.get()
-    SceneUtil::FindByNameVisitor findXRVisitor("OpenXRRoot", osg::NodeVisitor::TRAVERSE_PARENTS);
-    getObjectRoot()->accept(findXRVisitor);
-    auto* xrRoot = findXRVisitor.mFoundNode;
-    if (!xrRoot)
-    {
-        throw std::logic_error("Viewmode is VM_VRHeadless but OpenXRRoot does not exist");
-    }
-
     for (int i = 0; i < 2; ++i)
     {
-        mHandControllers[i] = nullptr;
-
-        SceneUtil::FindByNameVisitor findTrackerVisitor(i == 0 ? "tracker l hand" : "tracker r hand");
-        xrRoot->accept(findTrackerVisitor);
-        if (!findTrackerVisitor.mFoundNode)
-            continue;
-
-        SceneUtil::PositionAttitudeTransform* tracker = dynamic_cast<SceneUtil::PositionAttitudeTransform*>(findTrackerVisitor.mFoundNode);
-
-        auto found = mNodeMap.find(i == 0 ? "bip01 l forearm" : "bip01 r forearm");
-        if (found != mNodeMap.end())
+        auto forearm = mNodeMap.find(i == 0 ? "bip01 l forearm" : "bip01 r forearm");
+        if (forearm != mNodeMap.end())
         {
-            osg::Node* node = found->second;
-            mForearmControllers[i] = new ForearmController(mObjectRoot, tracker);
+            auto node = forearm->second;
+            node->removeUpdateCallback(mForearmControllers[i]);
             node->addUpdateCallback(mForearmControllers[i]);
-            mActiveControllers.insert(std::make_pair(node, mForearmControllers[i]));
+        }
+
+        auto hand = mNodeMap.find(i == 0 ? "bip01 l hand" : "bip01 r hand");
+        if (hand != mNodeMap.end())
+        {
+            auto node = hand->second;
+            node->removeUpdateCallback(mHandControllers[i]);
+            node->addUpdateCallback(mHandControllers[i]);
         }
     }
 
+    auto hand = mNodeMap.find("bip01 r hand");
+    if (hand != mNodeMap.end())
+    {
+        hand->second->removeChild(mWeaponDirectionTransform);
+        hand->second->addChild(mWeaponDirectionTransform);
+    }
+    auto finger = mNodeMap.find("bip01 r finger11");
+    if (finger != mNodeMap.end())
+    {
+        finger->second->removeChild(mPointerTransform);
+        finger->second->addChild(mPointerTransform);
+    }
 
     auto parent = mObjectRoot->getParent(0);
-
     if (parent->getName() == "Player Root")
     {
         auto group = parent->asGroup();
         group->removeChildren(0, parent->getNumChildren());
         group->addChild(mModelOffset);
         mModelOffset->addChild(mObjectRoot);
-
-        auto weapon = mNodeMap.find("weapon");
-        weapon->second->addChild(mWeaponDirectionTransform);
     }
-
-
-
-    
-
 }
 void VRAnimation::enableHeadAnimation(bool)
 {
@@ -454,13 +679,13 @@ void VRAnimation::updatePointerTarget()
     auto* world = MWBase::Environment::get().getWorld();
     if (world)
     {
-        mPointerTransform->setMatrix(osg::Matrix::scale(1, 1, 1));
+        mPointerRescale->setMatrix(osg::Matrix::scale(1, 1, 1));
         mDistanceToPointerTarget = world->getTargetObject(mPointerTarget, mPointerTransform);
 
         if(mDistanceToPointerTarget >= 0)
-            mPointerTransform->setMatrix(osg::Matrix::scale(mDistanceToPointerTarget, 0.25f, 0.25f));
+            mPointerRescale->setMatrix(osg::Matrix::scale(0.25f, mDistanceToPointerTarget, 0.25f));
         else
-            mPointerTransform->setMatrix(osg::Matrix::scale(10000.f, 0.25f, 0.25f));
+            mPointerRescale->setMatrix(osg::Matrix::scale(0.25f, 10000.f, 0.25f));
     }
 }
 

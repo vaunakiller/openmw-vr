@@ -70,17 +70,6 @@ namespace MWVR
             OpenXRViewer* mViewer;
         };
 
-        class TrackedNodeUpdateCallback : public osg::Callback
-        {
-        public:
-            TrackedNodeUpdateCallback(OpenXRViewer* viewer) : mViewer(viewer) {};
-
-        private:
-            virtual bool run(osg::Object* object, osg::Object* data);
-
-            OpenXRViewer* mViewer;
-        };
-
     public:
         OpenXRViewer(
             osg::ref_ptr<osgViewer::Viewer> viewer);
@@ -111,10 +100,6 @@ namespace MWVR
         osg::ref_ptr<osgViewer::Viewer> mViewer = nullptr;
         std::map<std::string, osg::ref_ptr<OpenXRView> > mViews{};
         std::map<std::string, osg::ref_ptr<osg::Camera> > mCameras{};
-
-        SceneUtil::PositionAttitudeTransform* mLeftHandTransform = new SceneUtil::PositionAttitudeTransform();
-        SceneUtil::PositionAttitudeTransform* mRightHandTransform = new SceneUtil::PositionAttitudeTransform();
-
         PredrawCallback* mPreDraw{ nullptr };
         PostdrawCallback* mPostDraw{ nullptr };
 

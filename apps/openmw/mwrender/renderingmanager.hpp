@@ -242,6 +242,8 @@ namespace MWRender
 
         void setNavMeshNumber(const std::size_t value);
 
+        void toggleWaterRTT(bool enable);
+
     private:
         void updateProjectionMatrix();
         void updateTextureFiltering();

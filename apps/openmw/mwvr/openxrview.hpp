@@ -19,6 +19,11 @@ namespace MWVR
         public:
             virtual void operator()(osg::RenderInfo& renderInfo) const;
         };
+        class FinalDrawCallback : public osg::Camera::DrawCallback
+        {
+        public:
+            virtual void operator()(osg::RenderInfo& renderInfo) const;
+        };
 
     protected:
         OpenXRView(osg::ref_ptr<OpenXRManager> XR, std::string name, OpenXRSwapchain::Config config, osg::ref_ptr<osg::State> state);

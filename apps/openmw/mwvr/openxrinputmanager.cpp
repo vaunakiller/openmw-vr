@@ -760,11 +760,16 @@ void OpenXRInputManager::updateActivationIndication(void)
     bool guiMode = MWBase::Environment::get().getWindowManager()->isGuiMode();
     bool show = guiMode | mActivationIndication;
     if (mPlayer)
-        mPlayer->setPointing(show);
+    {
+        if (show != mPlayer->getPointing())
+        {
+            mPlayer->setPointing(show);
 
-    auto* playerAnimation = Environment::get().getPlayerAnimation();
-    if (playerAnimation)
-        playerAnimation->setPointForward(show);
+            auto* playerAnimation = Environment::get().getPlayerAnimation();
+            if (playerAnimation)
+                playerAnimation->setPointForward(show);
+        }
+    }
 }
 
 
@@ -938,8 +943,11 @@ private:
             auto player = mPlayer->getPlayer();
             if (!mRealisticCombat || mRealisticCombat->ptr != player)
                 mRealisticCombat.reset(new RealisticCombat::StateMachine(player));
-            mRealisticCombat->update(dt, !guiMode);
+            bool enabled = !guiMode && mPlayer->getDrawState() == MWMechanics::DrawState_Weapon;
+            mRealisticCombat->update(dt, enabled);
         }
+
+        updateHead();
     }
 
     void OpenXRInputManager::processEvent(const OpenXRActionEvent& event)
@@ -1112,7 +1120,7 @@ private:
 
         auto* xr = Environment::get().getManager();
         auto* session = Environment::get().getSession();
-        auto currentHeadPose = session->predictedPoses().head[(int)TrackedSpace::STAGE];
+        auto currentHeadPose = session->predictedPoses(OpenXRSession::PredictionSlice::Predraw).head[(int)TrackedSpace::STAGE];
         xr->playerScale(currentHeadPose);
         currentHeadPose.position *= Environment::get().unitsPerMeter();
         osg::Vec3 vrMovement = currentHeadPose.position - mPreviousHeadPose.position;
@@ -1141,8 +1149,6 @@ private:
             mVrAngles[1] = roll;
             mVrAngles[2] = yaw;
             world->rotateObject(player, mVrAngles[0], mVrAngles[1], mVrAngles[2], MWBase::RotationFlag_none);
-            
-            MWBase::Environment::get().getWorld()->getRenderingManager().getCamera()->updateCamera();
         }
 
     }

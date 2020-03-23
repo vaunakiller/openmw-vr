@@ -745,6 +745,11 @@ namespace MWWorld
 
 
             MWPhysics::PhysicsSystem* getPhysicsSystem(void) override;
+
+            /// @Return ESM::Weapon::Type enum describing the type of weapon currently drawn by the player.
+            int getActiveWeaponType(void) override;
+
+            void toggleWaterRTT(bool enable) override;
     };
 }
 

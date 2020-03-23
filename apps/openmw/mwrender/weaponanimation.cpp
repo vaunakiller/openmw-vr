@@ -17,6 +17,11 @@
 #include "../mwmechanics/combat.hpp"
 #include "../mwmechanics/weapontype.hpp"
 
+#ifdef USE_OPENXR
+#include "../mwvr/vrenvironment.hpp"
+#include "../mwvr/vranimation.hpp"
+#endif
+
 #include "animation.hpp"
 #include "rotatecontroller.hpp"
 
@@ -107,9 +112,16 @@ void WeaponAnimation::releaseArrow(MWWorld::Ptr actor, float attackStrength)
     if (weapon->getTypeName() != typeid(ESM::Weapon).name())
         return;
 
+#ifdef USE_OPENXR
+    // In VR player rotation and weapon aim are unrelated.
+    auto* anim = MWVR::Environment::get().getPlayerAnimation();
+    osg::Matrix worldMatrix = osg::computeLocalToWorld(anim->mWeaponDirectionTransform->getParentalNodePaths()[0]);
+    osg::Quat orient = worldMatrix.getRotate();
+#else
     // The orientation of the launched projectile. Always the same as the actor orientation, even if the ArrowBone's orientation dictates otherwise.
     osg::Quat orient = osg::Quat(actor.getRefData().getPosition().rot[0], osg::Vec3f(-1,0,0))
             * osg::Quat(actor.getRefData().getPosition().rot[2], osg::Vec3f(0,0,-1));
+#endif
 
     const MWWorld::Store<ESM::GameSetting> &gmst =
         MWBase::Environment::get().getWorld()->getStore().get<ESM::GameSetting>();

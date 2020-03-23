@@ -454,7 +454,6 @@ namespace MWPhysics
                 osg::Vec3 moved = newPosition - position;
                 inputManager->mHeadOffset.x() -= moved.x();
                 inputManager->mHeadOffset.y() -= moved.y();
-
             }
 #endif
 

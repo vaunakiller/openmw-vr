@@ -36,9 +36,7 @@ public:
         VM_Normal,
         VM_FirstPerson,
         VM_HeadOnly,
-#ifdef USE_OPENXR
         VM_VRHeadless,
-#endif
     };
 
 protected:

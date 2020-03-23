@@ -71,6 +71,8 @@ namespace MWRender
         float mTop;
         bool mInterior;
 
+        bool mRTTToggled;
+
         osg::Vec3f getSceneNodeCoordinates(int gridX, int gridY);
         void updateVisible();
 
@@ -93,6 +95,9 @@ namespace MWRender
         void setEnabled(bool enabled);
 
         bool toggle();
+
+        /// Call before each eye to allow rendering water only once per frame in VR
+        void toggleRTT(bool enable);
 
         bool isUnderwater(const osg::Vec3f& pos) const;
 

@@ -43,6 +43,11 @@
 
 #include "../mwphysics/physicssystem.hpp"
 
+#ifdef USE_OPENXR
+#include "../mwvr/vrenvironment.hpp"
+#include "../mwvr/vranimation.hpp"
+#endif
+
 namespace
 {
     ESM::EffectList getMagicBoltData(std::vector<std::string>& projectileIDs, std::set<std::string>& sounds, float& speed, std::string& texture, std::string& sourceName, const std::string& id)
@@ -269,6 +274,16 @@ namespace MWWorld
             return;
 
         osg::Quat orient;
+#ifdef USE_OPENXR
+        if (caster == MWBase::Environment::get().getWorld()->getPlayerPtr())
+        {
+            auto* anim = MWVR::Environment::get().getPlayerAnimation();
+            osg::Matrix worldMatrix = osg::computeLocalToWorld(anim->mWeaponDirectionTransform->getParentalNodePaths()[0]);
+            orient = worldMatrix.getRotate();
+            pos = worldMatrix.getTrans();
+        }
+        else
+#endif
         if (caster.getClass().isActor())
             orient = osg::Quat(caster.getRefData().getPosition().rot[0], osg::Vec3f(-1,0,0))
                     * osg::Quat(caster.getRefData().getPosition().rot[2], osg::Vec3f(0,0,-1));

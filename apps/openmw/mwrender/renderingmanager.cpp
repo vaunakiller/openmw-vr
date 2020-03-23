@@ -1093,7 +1093,7 @@ namespace MWRender
         {
             osg::Matrix worldMatrix = osg::computeLocalToWorld(source->getParentalNodePaths()[0]);
 
-            osg::Vec3f direction = worldMatrix.getRotate() * osg::Vec3f(1, 0, 0);
+            osg::Vec3f direction = worldMatrix.getRotate() * osg::Vec3f(0, 1, 0);
             direction.normalize();
 
             osg::Vec3f raySource = worldMatrix.getTrans();
@@ -1467,6 +1467,11 @@ namespace MWRender
     void RenderingManager::setNavMeshNumber(const std::size_t value)
     {
         mNavMeshNumber = value;
+    }
+
+    void RenderingManager::toggleWaterRTT(bool enable)
+    {
+        mWater->toggleRTT(enable);
     }
 
     void RenderingManager::updateNavMesh()

@@ -1154,7 +1154,7 @@ namespace MWWorld
         if (ptr == getPlayerPtr())
         {
 #ifdef USE_OPENXR
-            // TODO: Configurable realistic fighting.
+            // TODO: Configurable realistic fighting ?
 
             // Use current aim of weapon to impact
             // TODO: Use bounding box of weapon instead ?
@@ -3063,8 +3063,11 @@ namespace MWWorld
 
         // for player we can take faced object first
         MWWorld::Ptr target;
+#ifndef USE_OPENXR
+        // Does not apply to VR
         if (actor == MWMechanics::getPlayer())
             target = getFacedObject();
+#endif
 
         // if the faced object can not be activated, do not use it
         if (!target.isEmpty() && !target.getClass().hasToolTip(target))
@@ -3101,9 +3104,20 @@ namespace MWWorld
                 osg::Quat orient = osg::Quat(actor.getRefData().getPosition().rot[0], osg::Vec3f(-1,0,0))
                         * osg::Quat(actor.getRefData().getPosition().rot[2], osg::Vec3f(0,0,-1));
 
+#ifdef USE_OPENXR
+                if (actor == MWMechanics::getPlayer())
+                {
+                    auto* anim = MWVR::Environment::get().getPlayerAnimation();
+                    osg::Matrix worldMatrix = osg::computeLocalToWorld(anim->mWeaponDirectionTransform->getParentalNodePaths()[0]);
+                    origin = worldMatrix.getTrans();
+                    orient = worldMatrix.getRotate();
+                }
+#endif
+
                 osg::Vec3f direction = orient * osg::Vec3f(0,1,0);
                 float distance = getMaxActivationDistance();
                 osg::Vec3f dest = origin + direction * distance;
+
 
                 MWRender::RayResult result2 = mRendering->castRay(origin, dest, true, true);
 
@@ -3999,5 +4013,36 @@ namespace MWWorld
     MWPhysics::PhysicsSystem* World::getPhysicsSystem(void)
     {
         return mPhysics.get();
+    }
+    int World::getActiveWeaponType(void)
+    {
+        if (mPlayer)
+        {
+            if (mPlayer->getDrawState() == MWMechanics::DrawState_Nothing)
+                return ESM::Weapon::Type::None;
+
+            if (mPlayer->getDrawState() == MWMechanics::DrawState_Spell)
+                return ESM::Weapon::Type::Spell;
+
+            MWWorld::Ptr ptr = mPlayer->getPlayer();
+            const MWWorld::InventoryStore& invStore = ptr.getClass().getInventoryStore(ptr);
+            MWWorld::ConstContainerStoreIterator it = invStore.getSlot(MWWorld::InventoryStore::Slot_CarriedRight);
+            if (it != invStore.end())
+            {
+                if (it->getTypeName() == typeid(ESM::Weapon).name())
+                    return ESM::Weapon::Type(it->get<ESM::Weapon>()->mBase->mData.mType);
+                if (it->getTypeName() == typeid(ESM::Lockpick).name())
+                    return ESM::Weapon::Type::PickProbe;
+                if (it->getTypeName() == typeid(ESM::Probe).name())
+                    return ESM::Weapon::Type::PickProbe;
+            }
+            return ESM::Weapon::Type::HandToHand;
+        }
+        return ESM::Weapon::Type::None;
+    }
+
+    void World::toggleWaterRTT(bool enable)
+    {
+        mRendering->toggleWaterRTT(enable);
     }
 }

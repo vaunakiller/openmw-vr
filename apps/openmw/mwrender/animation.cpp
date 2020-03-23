@@ -43,6 +43,7 @@
 #include "../mwworld/cellstore.hpp"
 
 #include "../mwmechanics/character.hpp" // FIXME: for MWMechanics::Priority
+#include "../mwmechanics/actorutil.hpp"
 
 #include "vismask.hpp"
 #include "util.hpp"
@@ -895,6 +896,13 @@ namespace MWRender
             return;
         }
 
+
+        const bool isPlayer = (mPtr == MWMechanics::getPlayer());
+        if (isPlayer)
+        {
+            Log(Debug::Verbose) << "groupname=" << groupname << ", start=" << start << ", stop=" << stop << ", accumRoot=" << mAccumRoot->getName();
+        }
+
         AnimStateMap::iterator stateiter = mStates.begin();
         while(stateiter != mStates.end())
         {
@@ -1053,8 +1061,65 @@ namespace MWRender
         return mNodeMap;
     }
 
+    // In VR, only jump, walk, and run groups should accumulate movement.
+    static bool vrAccum(const std::string& groupname)
+    {
+#ifdef USE_OPENXR
+        if (groupname.compare(0, 4, "jump"))
+            if (groupname.compare(0, 4, "walk"))
+                if (groupname.compare(0, 3, "run"))
+                    return false;
+#else
+        (void)groupname;
+#endif
+        return true;
+    }
+
+    static bool vrOverride(const std::string& groupname, const std::string& bone)
+    {
+#ifdef USE_OPENXR
+        // TODO: Some overrides cause NaN during cull.
+        // I believe this happens if an override causes a bone to never receive
+        // a valid matrix, but i'm not totally sure.
+        
+        // Add any bone+animation pair that is messing with Vr comfort here.
+        using Overrides = std::set<std::string>;
+        using GroupOverrides = std::map<std::string, Overrides>;
+        static GroupOverrides sVrOverrides =
+        {
+            {
+                "crossbow",
+                {
+                    "weapon bone"
+                }
+            },
+            {
+                "throwweapon",
+                {
+                    "weapon bone"
+                }
+            },
+        };
+
+        bool override = false;
+        auto find = sVrOverrides.find(groupname);
+        if (find != sVrOverrides.end())
+        {
+            override = !!find->second.count(bone);
+        }
+
+        return override;
+#else
+        (void)bone;
+        (void)groupname;
+        return false;
+#endif
+    }
+
     void Animation::resetActiveGroups()
     {
+        const bool isPlayer = (mPtr == MWMechanics::getPlayer());
+
         // remove all previous external controllers from the scene graph
         for (ControllerMap::iterator it = mActiveControllers.begin(); it != mActiveControllers.end(); ++it)
         {
@@ -1093,11 +1158,12 @@ namespace MWRender
                 for (AnimSource::ControllerMap::iterator it = animsrc->mControllerMap[blendMask].begin(); it != animsrc->mControllerMap[blendMask].end(); ++it)
                 {
                     osg::ref_ptr<osg::Node> node = getNodeMap().at(it->first); // this should not throw, we already checked for the node existing in addAnimSource
-
-                    node->addUpdateCallback(it->second);
+                    if(!isPlayer || !vrOverride(active->first, it->first))
+                        node->addUpdateCallback(it->second);
                     mActiveControllers.insert(std::make_pair(node, it->second));
 
-                    if (blendMask == 0 && node == mAccumRoot)
+                    if (blendMask == 0 && node == mAccumRoot
+                        && (!isPlayer || vrAccum(active->first)))
                     {
                         mAccumCtrl = it->second;
 

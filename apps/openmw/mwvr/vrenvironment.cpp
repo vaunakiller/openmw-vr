@@ -32,9 +32,6 @@ void MWVR::Environment::cleanup()
     if (mMenuManager)
         delete mMenuManager;
     mMenuManager = nullptr;
-    if (mPlayerAnimation)
-        delete mPlayerAnimation;
-    mPlayerAnimation = nullptr;
     if (mViewer)
         delete mViewer;
     mViewer = nullptr;

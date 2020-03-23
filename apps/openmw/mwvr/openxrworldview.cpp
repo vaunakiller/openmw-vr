@@ -143,6 +143,12 @@ namespace MWVR
             // Disable normal OSG FBO camera setup because it will undo the MSAA FBO configuration.
             renderer->setCameraRequiresSetUp(false);
         }
+        auto name = renderInfo.getCurrentCamera()->getName();
+    }
+
+    // TODO: This would have been useful but OSG never calls it.
+    void OpenXRWorldView::FinalDrawCallback::operator()(osg::RenderInfo& renderInfo) const
+    {
     }
 
     void
@@ -151,37 +157,27 @@ namespace MWVR
             osg::View::Slave& slave)
     {
         mView->mTimer.checkpoint("UpdateSlave");
+
         auto* camera = slave._camera.get();
         auto name = camera->getName();
 
-        auto& poses = mSession->predictedPoses();
-
-        Pose viewPose{};
-        Pose stagePose{};
+        int side = 0;
 
         if (name == "LeftEye")
         {
-            mSession->waitFrame();
-
-            // Updating the head pose needs to happen after waitFrame(),
-            // But i can't call waitFrame from the input manager since it might
-            // not always be active.
-            auto* inputManager = Environment::get().getInputManager();
-            if (inputManager)
-                inputManager->updateHead();
-
-            stagePose = poses.eye[(int)TrackedSpace::STAGE][(int)Side::LEFT_HAND];
-            viewPose = poses.eye[(int)TrackedSpace::VIEW][(int)Side::LEFT_HAND];
-            mView->setPredictedPose(viewPose);
+            side = (int)Side::LEFT_HAND;
         }
         else
         {
-            stagePose = poses.eye[(int)TrackedSpace::STAGE][(int)Side::RIGHT_HAND];
-            viewPose = poses.eye[(int)TrackedSpace::VIEW][(int)Side::RIGHT_HAND];
-            mView->setPredictedPose(viewPose);
+            side = (int)Side::RIGHT_HAND;
         }
-        if (!mXR->sessionRunning())
-            return;
+
+        auto& poses = mSession->predictedPoses(OpenXRSession::PredictionSlice::Predraw);
+        Pose viewPose{};
+        Pose stagePose{};
+        stagePose = poses.eye[(int)TrackedSpace::STAGE][side];
+        viewPose = poses.eye[(int)TrackedSpace::VIEW][side];
+        mView->setPredictedPose(viewPose);
 
         auto viewMatrix = view.getCamera()->getViewMatrix();
         auto modifiedViewMatrix = viewMatrix * mView->viewMatrix();

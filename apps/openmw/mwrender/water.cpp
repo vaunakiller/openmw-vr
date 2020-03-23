@@ -436,6 +436,7 @@ Water::Water(osg::Group *parent, osg::Group* sceneRoot, Resource::ResourceSystem
     , mToggled(true)
     , mTop(0)
     , mInterior(false)
+    , mRTTToggled(true)
 {
     mSimulation.reset(new RippleSimulation(mSceneRoot, resourceSystem));
 
@@ -718,6 +719,20 @@ bool Water::toggle()
     mToggled = !mToggled;
     updateVisible();
     return mToggled;
+}
+
+void Water::toggleRTT(bool enable)
+{
+    mRTTToggled = enable;
+    bool visible = mEnabled && mToggled && mRTTToggled;
+    // The idea here is to stop RTT from happening on one eye to save performance
+    // This didn't work, though
+    //{
+    //    if (mRefraction)
+    //        mRefraction->setNodeMask(visible ? Mask_RenderToTexture : 0);
+    //    if (mReflection)
+    //        mReflection->setNodeMask(visible ? Mask_RenderToTexture : 0);
+    //}
 }
 
 bool Water::isUnderwater(const osg::Vec3f &pos) const

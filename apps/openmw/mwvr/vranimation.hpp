@@ -65,18 +65,17 @@ public:
     void updatePointerTarget();
 
 public:
-    void createPointer(void);
     static osg::ref_ptr<osg::Geometry> createPointerGeometry(void);
 
 public:
     std::shared_ptr<OpenXRSession> mSession;
-    ForearmController* mForearmControllers[2]{};
-    HandController* mHandControllers[2]{};
+    osg::ref_ptr<ForearmController> mForearmControllers[2];
+    osg::ref_ptr<HandController> mHandControllers[2];
     osg::ref_ptr<FingerController> mIndexFingerControllers[2];
     osg::ref_ptr<osg::MatrixTransform> mModelOffset;
     osg::ref_ptr<osg::Geometry> mPointerGeometry{ nullptr };
+    osg::ref_ptr<osg::MatrixTransform> mPointerRescale{ nullptr };
     osg::ref_ptr<osg::MatrixTransform> mPointerTransform{ nullptr };
-    osg::ref_ptr<osg::MatrixTransform> mWeaponAdjustment{ nullptr };
     osg::ref_ptr<osg::MatrixTransform> mWeaponDirectionTransform{ nullptr };
     osg::ref_ptr<osg::MatrixTransform> mWeaponPointerTransform{ nullptr };
     MWRender::RayResult mPointerTarget{};

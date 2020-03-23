@@ -48,10 +48,6 @@
 #include "actorutil.hpp"
 #include "spellcasting.hpp"
 
-#ifdef USE_OPENXR
-#include "../mwvr/vranimation.hpp"
-#endif
-
 namespace
 {
 

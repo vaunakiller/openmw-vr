@@ -647,7 +647,12 @@ namespace MWBase
             virtual float getTargetObject(MWRender::RayResult& result, osg::Transform* pointer) = 0;
             virtual float getTargetObject(MWRender::RayResult& result, osg::Transform* pointer, float maxDistance, bool ignorePlayer) = 0;
 
+            /// @Return ESM::Weapon::Type enum describing the type of weapon currently drawn by the player.
+            virtual int getActiveWeaponType(void) = 0;
+
             virtual MWPhysics::PhysicsSystem* getPhysicsSystem(void) = 0;
+
+            virtual void toggleWaterRTT(bool enable) = 0;
     };
 }
 

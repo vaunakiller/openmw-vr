@@ -48,34 +48,49 @@ namespace MWVR
         
         auto* xr = Environment::get().getManager();
 
-        if (!xr->sessionRunning())
+        if (!mShouldRender)
             return;
-        if (!mPredictionsReady)
+
+        if (mRenderedFrames != mRenderFrame - 1)
+        {
+            Log(Debug::Warning) << "swapBuffers called out of order";
+            waitFrame();
             return;
+        }
 
         for (auto layer : mLayerStack.layerObjects())
             if(layer)
                 layer->swapBuffers(gc);
 
         timer.checkpoint("Rendered");
-
         xr->endFrame(xr->impl().frameState().predictedDisplayTime, &mLayerStack);
+        mRenderedFrames++;
+    }
+
+    const PoseSets& OpenXRSession::predictedPoses(PredictionSlice slice)
+    {
+        if(slice == PredictionSlice::Predraw)
+            waitFrame();
+        return mPredictedPoses[(int)slice];
     }
 
     void OpenXRSession::waitFrame()
     {
-        auto* xr = Environment::get().getManager();
-        xr->handleEvents();
-        if (!xr->sessionRunning())
-            return;
+        if(mPredictedFrames < mPredictionFrame)
+        {
+            Timer timer("OpenXRSession::waitFrame");
+            auto* xr = Environment::get().getManager();
+            xr->handleEvents();
+            mIsRunning = xr->sessionRunning();
+            if (!mIsRunning)
+                return;
 
-        Timer timer("OpenXRSession::waitFrame");
-        xr->waitFrame();
-        timer.checkpoint("waitFrame");
-        predictNext(0);
+            xr->waitFrame();
+            timer.checkpoint("waitFrame");
+            predictNext(0);
 
-        mPredictionsReady = true;
-
+            mPredictedFrames++;
+        }
     }
 
 
@@ -118,12 +133,30 @@ namespace MWVR
 
     float OpenXRSession::movementYaw(void)
     {
-        auto lhandquat = predictedPoses().hands[(int)TrackedSpace::VIEW][(int)MWVR::Side::LEFT_HAND].orientation;
+        auto lhandquat = predictedPoses(PredictionSlice::Predraw).hands[(int)TrackedSpace::VIEW][(int)MWVR::Side::LEFT_HAND].orientation;
         float yaw = 0.f;
         float pitch = 0.f;
         float roll = 0.f;
         getEulerAngles(lhandquat, yaw, pitch, roll);
         return yaw;
+    }
+
+    void OpenXRSession::advanceFrame(void)
+    {
+        auto* xr = Environment::get().getManager();
+        mShouldRender = mIsRunning;
+        if (!mIsRunning)
+            return;
+        if (mPredictedFrames != mPredictionFrame)
+        {
+            Log(Debug::Warning) << "advanceFrame() called out of order";
+            return;
+        }
+
+        xr->beginFrame();
+        mPredictionFrame++;
+        mRenderFrame++;
+        mPredictedPoses[(int)PredictionSlice::Draw] = mPredictedPoses[(int)PredictionSlice::Predraw];
     }
 
     void OpenXRSession::predictNext(int extraPeriods)
@@ -132,19 +165,18 @@ namespace MWVR
         auto* input = Environment::get().getInputManager();
         auto mPredictedDisplayTime = xr->impl().frameState().predictedDisplayTime;
 
-        auto previousHeadPose = mPredictedPoses.head[(int)TrackedSpace::STAGE];
-
-        // Update pose predictions
-        mPredictedPoses.head[(int)TrackedSpace::STAGE] = xr->impl().getPredictedLimbPose(mPredictedDisplayTime, TrackedLimb::HEAD, TrackedSpace::STAGE);
-        mPredictedPoses.head[(int)TrackedSpace::VIEW] = xr->impl().getPredictedLimbPose(mPredictedDisplayTime, TrackedLimb::HEAD, TrackedSpace::VIEW);
-        mPredictedPoses.hands[(int)TrackedSpace::STAGE] = input->getHandPoses(mPredictedDisplayTime, TrackedSpace::STAGE);
-        mPredictedPoses.hands[(int)TrackedSpace::VIEW] = input->getHandPoses(mPredictedDisplayTime, TrackedSpace::VIEW);
+        PoseSets newPoses{};
+        newPoses.head[(int)TrackedSpace::STAGE] = xr->impl().getPredictedLimbPose(mPredictedDisplayTime, TrackedLimb::HEAD, TrackedSpace::STAGE);
+        newPoses.head[(int)TrackedSpace::VIEW] = xr->impl().getPredictedLimbPose(mPredictedDisplayTime, TrackedLimb::HEAD, TrackedSpace::VIEW);
+        newPoses.hands[(int)TrackedSpace::STAGE] = input->getHandPoses(mPredictedDisplayTime, TrackedSpace::STAGE);
+        newPoses.hands[(int)TrackedSpace::VIEW] = input->getHandPoses(mPredictedDisplayTime, TrackedSpace::VIEW);
         auto stageViews = xr->impl().getPredictedViews(mPredictedDisplayTime, TrackedSpace::STAGE);
         auto hmdViews = xr->impl().getPredictedViews(mPredictedDisplayTime, TrackedSpace::VIEW);
-        mPredictedPoses.eye[(int)TrackedSpace::STAGE][(int)Side::LEFT_HAND] = fromXR(stageViews[(int)Side::LEFT_HAND].pose);
-        mPredictedPoses.eye[(int)TrackedSpace::VIEW][(int)Side::LEFT_HAND] = fromXR(hmdViews[(int)Side::LEFT_HAND].pose);
-        mPredictedPoses.eye[(int)TrackedSpace::STAGE][(int)Side::RIGHT_HAND] = fromXR(stageViews[(int)Side::RIGHT_HAND].pose);
-        mPredictedPoses.eye[(int)TrackedSpace::VIEW][(int)Side::RIGHT_HAND] = fromXR(hmdViews[(int)Side::RIGHT_HAND].pose);
+        newPoses.eye[(int)TrackedSpace::STAGE][(int)Side::LEFT_HAND] = fromXR(stageViews[(int)Side::LEFT_HAND].pose);
+        newPoses.eye[(int)TrackedSpace::VIEW][(int)Side::LEFT_HAND] = fromXR(hmdViews[(int)Side::LEFT_HAND].pose);
+        newPoses.eye[(int)TrackedSpace::STAGE][(int)Side::RIGHT_HAND] = fromXR(stageViews[(int)Side::RIGHT_HAND].pose);
+        newPoses.eye[(int)TrackedSpace::VIEW][(int)Side::RIGHT_HAND] = fromXR(hmdViews[(int)Side::RIGHT_HAND].pose);
+        mPredictedPoses[(int)PredictionSlice::Predraw] = newPoses;
     }
 }
 

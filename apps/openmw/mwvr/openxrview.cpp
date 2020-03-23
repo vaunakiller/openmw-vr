@@ -2,6 +2,11 @@
 #include "openxrmanager.hpp"
 #include "openxrmanagerimpl.hpp"
 #include "../mwinput/inputmanagerimp.hpp"
+#include "../mwbase/environment.hpp"
+#include "../mwbase/world.hpp"
+#include "../mwrender/renderingmanager.hpp"
+#include "../mwrender/water.hpp"
+
 
 #include <components/debug/debuglog.hpp>
 #include <components/sdlutil/sdlgraphicswindow.hpp>
@@ -46,6 +51,7 @@ namespace MWVR {
         camera->setGraphicsContext(gc);
 
         camera->setInitialDrawCallback(new OpenXRView::InitialDrawCallback());
+        camera->setFinalDrawCallback(new OpenXRView::FinalDrawCallback());
 
         return camera.release();
     }
@@ -57,13 +63,18 @@ namespace MWVR {
             mSwapchain->beginFrame(renderInfo.getState()->getGraphicsContext());
         }
         mTimer.checkpoint("Prerender");
+
     }
 
     void OpenXRView::postrenderCallback(osg::RenderInfo& renderInfo)
     {
+        auto name = renderInfo.getCurrentCamera()->getName();
         mTimer.checkpoint("Postrender");
-        auto state = renderInfo.getState();
-        auto gl = osg::GLExtensions::Get(state->getContextID(), false);
+        // Water RTT happens before the initial draw callback,
+        // so i have to disable it in postrender of the first eye, and then re-enable it
+        auto world = MWBase::Environment::get().getWorld();
+        if (world)
+            world->toggleWaterRTT(name == "RightEye");
     }
 
     void OpenXRView::swapBuffers(osg::GraphicsContext* gc)

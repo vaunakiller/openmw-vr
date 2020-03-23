@@ -31,16 +31,6 @@ namespace MWVR
         mCompositionLayerProjectionViews[0].pose.orientation.w = 1;
         mCompositionLayerProjectionViews[1].pose.orientation.w = 1;
         this->setName("OpenXRRoot");
-
-        this->setUserData(new TrackedNodeUpdateCallback(this));
-
-        mLeftHandTransform->setName("tracker l hand");
-        mLeftHandTransform->setUpdateCallback(new TrackedNodeUpdateCallback(this));
-        this->addChild(mLeftHandTransform);
-
-        mRightHandTransform->setName("tracker r hand");
-        mRightHandTransform->setUpdateCallback(new TrackedNodeUpdateCallback(this));
-        this->addChild(mRightHandTransform);
     }
 
     OpenXRViewer::~OpenXRViewer(void)
@@ -64,8 +54,6 @@ namespace MWVR
 
     void OpenXRViewer::traversals()
     {
-        auto* xr = Environment::get().getManager();
-        xr->handleEvents();
         mViewer->updateTraversal();
         mViewer->renderingTraversals();
     }
@@ -256,8 +244,10 @@ namespace MWVR
         rightView->swapBuffers(gc);
         timer.checkpoint("Views");
 
-        mCompositionLayerProjectionViews[0].pose = toXR(session->predictedPoses().eye[(int)TrackedSpace::STAGE][(int)Side::LEFT_HAND]);
-        mCompositionLayerProjectionViews[1].pose = toXR(session->predictedPoses().eye[(int)TrackedSpace::STAGE][(int)Side::RIGHT_HAND]);
+        auto& drawPoses = session->predictedPoses(OpenXRSession::PredictionSlice::Draw);
+
+        mCompositionLayerProjectionViews[0].pose = toXR(drawPoses.eye[(int)TrackedSpace::STAGE][(int)Side::LEFT_HAND]);
+        mCompositionLayerProjectionViews[1].pose = toXR(drawPoses.eye[(int)TrackedSpace::STAGE][(int)Side::RIGHT_HAND]);
 
         timer.checkpoint("Poses");
 
@@ -304,13 +294,7 @@ namespace MWVR
         auto& view = mViews[name];
 
         if (name == "LeftEye")
-        {
-            auto* xr = Environment::get().getManager();
-            if (xr->sessionRunning())
-            {
-                xr->beginFrame();
-            }
-        }
+            Environment::get().getSession()->advanceFrame();
 
         view->prerenderCallback(info);
     }
@@ -329,87 +313,5 @@ namespace MWVR
             camera->setPreDrawCallback(mPreDraw);
             Log(Debug::Warning) << ("osg overwrote predraw");
         }
-    }
-
-    void OpenXRViewer::updateTransformNode(osg::Object* object, osg::Object* data)
-    {
-        auto* hand_transform = dynamic_cast<SceneUtil::PositionAttitudeTransform*>(object);
-        if (!hand_transform)
-        {
-            Log(Debug::Error) << "Update node was not PositionAttitudeTransform";
-            return;
-        }
-
-        auto* xr = Environment::get().getManager();
-        auto* session = Environment::get().getSession();
-        auto& poses = session->predictedPoses();
-        auto handPosesStage = poses.hands[(int)TrackedSpace::STAGE];
-        int side = (int)Side::LEFT_HAND;
-        if (hand_transform->getName() == "tracker r hand")
-        {
-            side = (int)Side::RIGHT_HAND;
-        }
-
-        MWVR::Pose handStage = handPosesStage[side];
-        MWVR::Pose headStage = poses.head[(int)TrackedSpace::STAGE];
-        xr->playerScale(handStage);
-        xr->playerScale(headStage);
-        auto orientation = handStage.orientation;
-        auto position = handStage.position - headStage.position;
-        position = position * Environment::get().unitsPerMeter();
-
-        auto camera = mViewer->getCamera();
-        auto viewMatrix = camera->getViewMatrix();
-
-
-        // Align orientation with the game world
-        auto* inputManager = Environment::get().getInputManager();
-        if (inputManager)
-        {
-            auto playerYaw = osg::Quat(-inputManager->mYaw, osg::Vec3d(0, 0, 1));
-            position = playerYaw * position;
-            orientation = orientation * playerYaw;
-        }
-
-        // Add camera offset
-        osg::Vec3 viewPosition;
-        osg::Vec3 center;
-        osg::Vec3 up;
-
-        viewMatrix.getLookAt(viewPosition, center, up, 1.0);
-        position += viewPosition;
-
-        //// Morrowind's meshes do not point forward by default.
-        //// Static since they do not need to be recomputed.
-        static float VRbias = osg::DegreesToRadians(-90.f);
-        static osg::Quat yaw(VRbias, osg::Vec3f(0, 0, 1));
-        static osg::Quat pitch(2.f * VRbias, osg::Vec3f(0, 1, 0));
-        static osg::Quat roll (2.f * VRbias, osg::Vec3f(1, 0, 0));
-
-        orientation = pitch * yaw * orientation;
-
-
-        if (hand_transform->getName() == "tracker r hand")
-            orientation = roll * orientation;
-        
-        // Hand are by default not well-centered
-        // These numbers are just a rough guess
-        osg::Vec3 offcenter = osg::Vec3(-0.175, 0., .033);
-        if (hand_transform->getName() == "tracker r hand")
-            offcenter.z() *= -1.;
-        osg::Vec3 recenter = orientation * offcenter;
-        position = position + recenter * Environment::get().unitsPerMeter();
-
-        hand_transform->setAttitude(orientation);
-        hand_transform->setPosition(position);
-    }
-
-    bool
-        OpenXRViewer::TrackedNodeUpdateCallback::run(
-            osg::Object* object, 
-            osg::Object* data)
-    {
-        mViewer->updateTransformNode(object, data);
-        return traverse(object, data);
     }
 }
