@@ -293,6 +293,18 @@ namespace MWWorld
         return MWBase::Environment::get().getMechanicsManager()->getActorsFighting(getPlayer()).size() != 0;
     }
 
+    bool Player::isDisabled()
+    {
+        bool disabled = false;
+        auto ptr = getPlayer();
+        const MWWorld::Class& cls = ptr.getClass();
+        auto& stats = cls.getCreatureStats(ptr);
+        disabled |= stats.getKnockedDown();
+        disabled |= stats.getMagicEffects().get(ESM::MagicEffect::Paralyze).getMagnitude() > 0.f;
+        disabled |= stats.isDead();
+        return disabled;
+    }
+
     bool Player::enemiesNearby()
     {
         return MWBase::Environment::get().getMechanicsManager()->getEnemiesNearby(getPlayer()).size() != 0;

@@ -179,8 +179,6 @@ void ForearmController::operator()(osg::Node* node, osg::NodeVisitor* nv)
     // Finally, set transform
     transform->setMatrix(worldReference * osg::Matrix::inverse(worldToLimb) * transform->getMatrix());
 
-    Log(Debug::Verbose) << "Updating hand: " << node->getName();
-
     // Omit nested callbacks to override animations of this node
     osg::ref_ptr<osg::Callback> ncb = getNestedCallback();
     setNestedCallback(nullptr);
@@ -431,7 +429,7 @@ VRAnimation::VRAnimation(
     const MWWorld::Ptr& ptr, osg::ref_ptr<osg::Group> parentNode, Resource::ResourceSystem* resourceSystem,
     bool disableSounds, std::shared_ptr<OpenXRSession> xrSession)
     // Note that i let it construct as 3rd person and then later update it to VM_VRHeadless
-    // when OpenMW sets the view mode of the camera object.
+    // when the character controller updates
     : MWRender::NpcAnimation(ptr, parentNode, resourceSystem, disableSounds, VM_Normal, 55.f)
     , mSession(xrSession)
     , mIndexFingerControllers{nullptr, nullptr}
@@ -474,9 +472,12 @@ VRAnimation::~VRAnimation() {};
 
 void VRAnimation::setViewMode(NpcAnimation::ViewMode viewMode)
 {
-    if (viewMode != VM_VRHeadless)
-        Log(Debug::Warning) << "View mode of VRAnimation may only be VM_VRHeadless";
-    NpcAnimation::setViewMode(VM_VRHeadless);
+    if (viewMode != VM_VRFirstPerson && viewMode != VM_VRNormal)
+    {
+        Log(Debug::Warning) << "Attempted to set view mode of VRAnimation to non-vr mode. Defaulted to VM_VRFirstPerson.";
+        viewMode = VM_VRFirstPerson;
+    }
+    NpcAnimation::setViewMode(viewMode);
     return;
 }
 
@@ -484,25 +485,36 @@ void VRAnimation::updateParts()
 {
     NpcAnimation::updateParts();
 
-    // Hide head and hair to avoid getting them in the player's face
-    // TODO: Hair might be acceptable ?
-    removeIndividualPart(ESM::PartReferenceType::PRT_Hair);
-    removeIndividualPart(ESM::PartReferenceType::PRT_Head);
-    removeIndividualPart(ESM::PartReferenceType::PRT_LForearm);
-    removeIndividualPart(ESM::PartReferenceType::PRT_LUpperarm);
-    removeIndividualPart(ESM::PartReferenceType::PRT_LWrist);
-    removeIndividualPart(ESM::PartReferenceType::PRT_RForearm);
-    removeIndividualPart(ESM::PartReferenceType::PRT_RUpperarm);
-    removeIndividualPart(ESM::PartReferenceType::PRT_RWrist);
-    removeIndividualPart(ESM::PartReferenceType::PRT_Cuirass);
-    removeIndividualPart(ESM::PartReferenceType::PRT_Groin);
-    removeIndividualPart(ESM::PartReferenceType::PRT_Neck);
-    removeIndividualPart(ESM::PartReferenceType::PRT_Skirt);
-    removeIndividualPart(ESM::PartReferenceType::PRT_Tail);
-    removeIndividualPart(ESM::PartReferenceType::PRT_LLeg);
-    removeIndividualPart(ESM::PartReferenceType::PRT_RLeg);
-    removeIndividualPart(ESM::PartReferenceType::PRT_LAnkle);
-    removeIndividualPart(ESM::PartReferenceType::PRT_RAnkle);
+    if (mViewMode == VM_VRFirstPerson)
+    {
+        // Hide everything other than the hands and feet.
+        removeIndividualPart(ESM::PartReferenceType::PRT_Hair);
+        removeIndividualPart(ESM::PartReferenceType::PRT_Head);
+        removeIndividualPart(ESM::PartReferenceType::PRT_LForearm);
+        removeIndividualPart(ESM::PartReferenceType::PRT_LUpperarm);
+        removeIndividualPart(ESM::PartReferenceType::PRT_LWrist);
+        removeIndividualPart(ESM::PartReferenceType::PRT_RForearm);
+        removeIndividualPart(ESM::PartReferenceType::PRT_RUpperarm);
+        removeIndividualPart(ESM::PartReferenceType::PRT_RWrist);
+        removeIndividualPart(ESM::PartReferenceType::PRT_Cuirass);
+        removeIndividualPart(ESM::PartReferenceType::PRT_Groin);
+        removeIndividualPart(ESM::PartReferenceType::PRT_Neck);
+        removeIndividualPart(ESM::PartReferenceType::PRT_Skirt);
+        removeIndividualPart(ESM::PartReferenceType::PRT_Tail);
+        removeIndividualPart(ESM::PartReferenceType::PRT_LLeg);
+        removeIndividualPart(ESM::PartReferenceType::PRT_RLeg);
+        removeIndividualPart(ESM::PartReferenceType::PRT_LAnkle);
+        removeIndividualPart(ESM::PartReferenceType::PRT_RAnkle);
+        removeIndividualPart(ESM::PartReferenceType::PRT_LKnee);
+        removeIndividualPart(ESM::PartReferenceType::PRT_RKnee);
+    }
+    else
+    {
+        removeIndividualPart(ESM::PartReferenceType::PRT_LForearm);
+        removeIndividualPart(ESM::PartReferenceType::PRT_LWrist);
+        removeIndividualPart(ESM::PartReferenceType::PRT_RForearm);
+        removeIndividualPart(ESM::PartReferenceType::PRT_RWrist);
+    }
 }
 
 void VRAnimation::setPointForward(bool enabled)

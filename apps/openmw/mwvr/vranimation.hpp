@@ -46,14 +46,13 @@ public:
     /// to indicate the facing orientation of the character.
     virtual void setPitchFactor(float factor) { mPitchFactor = factor; }
 
-    /// Overriden to always be VM_VRHeadless
+    /// Overriden to always be a variant of VM_VR*
     virtual void setViewMode(ViewMode viewMode);
 
     /// Overriden to include VR modifications
     virtual void updateParts();
 
     /// Overrides finger animations to point forward
-    /// (Used to visualize direction of activation action)
     void setPointForward(bool enabled);
 
     bool canPlaceObject();

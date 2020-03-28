@@ -127,6 +127,9 @@ namespace MWWorld
         ///Checks all nearby actors to see if anyone has an aipackage against you
         bool isInCombat();
 
+        ///Checks if the player is currently in a state where he cannot act
+        bool isDisabled();
+
         bool enemiesNearby();
 
         void clear();

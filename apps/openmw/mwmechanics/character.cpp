@@ -39,6 +39,7 @@
 #include "../mwworld/inventorystore.hpp"
 #include "../mwworld/esmstore.hpp"
 #include "../mwworld/player.hpp"
+#include "../mwrender/npcanimation.hpp"
 
 #include "aicombataction.hpp"
 #include "movement.hpp"
@@ -2377,6 +2378,18 @@ void CharacterController::update(float duration, bool animationOnly)
     mSkipAnim = false;
 
     mAnimation->enableHeadAnimation(cls.isActor() && !cls.getCreatureStats(mPtr).isDead());
+
+#ifdef USE_OPENXR
+    if (isPlayer)
+    {
+        auto disabled = MWBase::Environment::get().getWorld()->getPlayer().isDisabled();
+        auto animation = static_cast<MWRender::NpcAnimation*>(mAnimation);
+        if (disabled)
+            animation->setViewMode(MWRender::NpcAnimation::VM_VRNormal);
+        else
+            animation->setViewMode(MWRender::NpcAnimation::VM_VRFirstPerson);
+    }
+#endif
 }
 
 void CharacterController::persistAnimationState()

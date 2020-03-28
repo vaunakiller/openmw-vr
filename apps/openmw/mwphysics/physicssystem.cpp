@@ -286,6 +286,7 @@ namespace MWPhysics
                 return position;
 
             const bool isPlayer = (ptr == MWMechanics::getPlayer());
+            auto* world = MWBase::Environment::get().getWorld();
 
             // In VR, player should move according to current direction of
             // a selected limb, rather than current orientation of camera.
@@ -320,7 +321,7 @@ namespace MWPhysics
             // While this is strictly speaking wrong, it's needed for MW compatibility.
             position.z() += halfExtents.z();
 
-            static const float fSwimHeightScale = MWBase::Environment::get().getWorld()->getStore().get<ESM::GameSetting>()
+            static const float fSwimHeightScale = world->getStore().get<ESM::GameSetting>()
                     .find("fSwimHeightScale")->mValue.getFloat();
             float swimlevel = waterlevel + halfExtents.z() - (physicActor->getRenderingHalfExtents().z() * 2 * fSwimHeightScale);
 
@@ -355,13 +356,13 @@ namespace MWPhysics
                 if (isPlayer)
                 {
                     ptr.getClass().skillUsageSucceeded(ptr, ESM::Skill::Acrobatics, 0);
-                    MWBase::Environment::get().getWorld()->getPlayer().setJumping(true);
+                    world->getPlayer().setJumping(true);
                 }
 
                 // Decrease fatigue
-                if (!isPlayer || !MWBase::Environment::get().getWorld()->getGodModeState())
+                if (!isPlayer || !world->getGodModeState())
                 {
-                    const MWWorld::Store<ESM::GameSetting> &gmst = MWBase::Environment::get().getWorld()->getStore().get<ESM::GameSetting>();
+                    const MWWorld::Store<ESM::GameSetting> &gmst = world->getStore().get<ESM::GameSetting>();
                     const float fFatigueJumpBase = gmst.find("fFatigueJumpBase")->mValue.getFloat();
                     const float fFatigueJumpMult = gmst.find("fFatigueJumpMult")->mValue.getFloat();
                     const float normalizedEncumbrance = std::min(1.f, ptr.getClass().getNormalizedEncumbrance(ptr));
@@ -374,11 +375,11 @@ namespace MWPhysics
             }
 
             // Now that we have the effective movement vector, apply wind forces to it
-            if (MWBase::Environment::get().getWorld()->isInStorm())
+            if (world->isInStorm())
             {
-                osg::Vec3f stormDirection = MWBase::Environment::get().getWorld()->getStormDirection();
+                osg::Vec3f stormDirection = world->getStormDirection();
                 float angleDegrees = osg::RadiansToDegrees(std::acos(stormDirection * velocity / (stormDirection.length() * velocity.length())));
-                static const float fStromWalkMult = MWBase::Environment::get().getWorld()->getStore().get<ESM::GameSetting>()
+                static const float fStromWalkMult = world->getStore().get<ESM::GameSetting>()
                         .find("fStromWalkMult")->mValue.getFloat();
                 velocity *= 1.f-(fStromWalkMult * (angleDegrees/180.f));
             }
@@ -388,8 +389,9 @@ namespace MWPhysics
             osg::Vec3f newPosition = position;
 
 #ifdef USE_OPENXR
-            if (isPlayer)
+            if (isPlayer && !world->getPlayer().isDisabled())
             {
+                
                 auto* inputManager = MWVR::Environment::get().getInputManager();
 
                 osg::Vec3 trackingOffset = inputManager->mHeadOffset;

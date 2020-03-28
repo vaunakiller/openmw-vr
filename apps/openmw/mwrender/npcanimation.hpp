@@ -36,7 +36,8 @@ public:
         VM_Normal,
         VM_FirstPerson,
         VM_HeadOnly,
-        VM_VRHeadless,
+        VM_VRNormal,
+        VM_VRFirstPerson,
     };
 
 protected:

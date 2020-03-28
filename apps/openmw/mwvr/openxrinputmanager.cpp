@@ -943,7 +943,7 @@ private:
             auto player = mPlayer->getPlayer();
             if (!mRealisticCombat || mRealisticCombat->ptr != player)
                 mRealisticCombat.reset(new RealisticCombat::StateMachine(player));
-            bool enabled = !guiMode && mPlayer->getDrawState() == MWMechanics::DrawState_Weapon;
+            bool enabled = !guiMode && mPlayer->getDrawState() == MWMechanics::DrawState_Weapon && !mPlayer->isDisabled();
             mRealisticCombat->update(dt, enabled);
         }
 
@@ -1126,13 +1126,6 @@ private:
         osg::Vec3 vrMovement = currentHeadPose.position - mPreviousHeadPose.position;
         mPreviousHeadPose = currentHeadPose;
 
-        float yaw = 0.f;
-        float pitch = 0.f;
-        float roll = 0.f;
-        getEulerAngles(currentHeadPose.orientation, yaw, pitch, roll);
-
-        yaw += mYaw;
-
         if (mRecenter)
         {
             mHeadOffset = osg::Vec3(0, 0, 0);
@@ -1145,10 +1138,25 @@ private:
             osg::Quat gameworldYaw = osg::Quat(mYaw, osg::Vec3(0, 0, -1));
             mHeadOffset += gameworldYaw * vrMovement;
 
+            float yaw = 0.f;
+            float pitch = 0.f;
+            float roll = 0.f;
+            getEulerAngles(currentHeadPose.orientation, yaw, pitch, roll);
+
+            yaw += mYaw;
+
             mVrAngles[0] = pitch;
             mVrAngles[1] = roll;
             mVrAngles[2] = yaw;
-            world->rotateObject(player, mVrAngles[0], mVrAngles[1], mVrAngles[2], MWBase::RotationFlag_none);
+
+            if (!mPlayer->isDisabled())
+            {
+                world->rotateObject(player, mVrAngles[0], mVrAngles[1], mVrAngles[2], MWBase::RotationFlag_none);
+            }
+            else {
+                // Update the camera directly to avoid rotating the disabled player
+                world->getRenderingManager().getCamera()->rotateCamera(-pitch, -roll, -yaw, false);
+            }
         }
 
     }

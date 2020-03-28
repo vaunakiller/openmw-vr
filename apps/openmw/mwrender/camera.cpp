@@ -417,11 +417,8 @@ namespace MWRender
     void Camera::processViewChange()
     {
 #ifdef USE_OPENXR
-        mAnimation->setViewMode(NpcAnimation::VM_VRHeadless);
+        //mAnimation->setViewMode(NpcAnimation::VM_VRFirstPerson);
 
-        // For comfort, in VR mode the camera should only track nodes that don't animate.
-        // As-is, only the first person mode adds any unanimated nodes, but we want the third-person mode body.
-        // So we look up the root node of the player to track that.
         SceneUtil::FindByNameVisitor findRootVisitor("Player Root", osg::NodeVisitor::TRAVERSE_PARENTS);
         mAnimation->getObjectRoot()->accept(findRootVisitor);
         mTrackingNode = findRootVisitor.mFoundNode;
