@@ -34,8 +34,8 @@ struct StateMachine
     float strength = 0.f;
 
     float thrustVelocity{ 0.f };
-    float slashVelocity{ 0.f };
-    float chopVelocity{ 0.f };
+    float slashChopVelocity{ 0.f };
+    float sideVelocity{ 0.f };
 
     float minimumPeriod{ .25f };
     float timeSinceEnteredState = { 0.f };

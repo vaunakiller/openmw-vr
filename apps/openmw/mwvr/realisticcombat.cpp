@@ -20,14 +20,31 @@ static const char* stateToString(SwingState florida)
         return "Swinging";
     }
 }
+static const char* swingTypeToString(int type)
+{
+    switch (type)
+    {
+    case ESM::Weapon::AT_Chop:
+        return "Chop";
+    case ESM::Weapon::AT_Slash:
+        return "Slash";
+    case ESM::Weapon::AT_Thrust:
+        return "Thrust";
+    case -1:
+        return "Fail";
+    default:
+        return "Invalid";
+    }
+}
 
 StateMachine::StateMachine(MWWorld::Ptr ptr) : ptr(ptr) {}
 
 bool StateMachine::canSwing()
 {
-    if (velocity >= minVelocity)
-        if(swingType != ESM::Weapon::AT_Thrust || thrustVelocity >= 0.f)
-        return true;
+    if (swingType >= 0)
+        if (velocity >= minVelocity)
+            if (swingType != ESM::Weapon::AT_Thrust || thrustVelocity >= 0.f)
+                return true;
     return false;
 }
 
@@ -35,8 +52,6 @@ bool StateMachine::canSwing()
 void StateMachine::transition(
     SwingState newState)
 {
-    Log(Debug::Verbose) << "Transition: " << stateToString(state) << " -> " << stateToString(newState);
-
     maxSwingVelocity = 0.f;
     timeSinceEnteredState = 0.f;
     movementSinceEnteredState = 0.f;
@@ -64,13 +79,32 @@ static bool isMeleeWeapon(int type)
     return false;
 }
 
+static bool isSideSwingValidForWeapon(int type)
+{
+    switch (type)
+    {
+    case ESM::Weapon::HandToHand:
+    case ESM::Weapon::BluntOneHand:
+    case ESM::Weapon::BluntTwoClose:
+    case ESM::Weapon::BluntTwoWide:
+    case ESM::Weapon::SpearTwoWide:
+        return true;
+    case ESM::Weapon::ShortBladeOneHand:
+    case ESM::Weapon::LongBladeOneHand:
+    case ESM::Weapon::LongBladeTwoHand:
+    case ESM::Weapon::AxeOneHand:
+    case ESM::Weapon::AxeTwoHand:
+    default:
+        return false;
+    }
+}
+
 void StateMachine::update(float dt, bool enabled)
 {
     auto* session = Environment::get().getSession();
     auto* world = MWBase::Environment::get().getWorld();
     auto& predictedPoses = session->predictedPoses(OpenXRSession::PredictionSlice::Predraw);
     auto& handPose = predictedPoses.hands[(int)MWVR::TrackedSpace::STAGE][(int)MWVR::Side::RIGHT_HAND];
-    auto& headPose = predictedPoses.head[(int)MWVR::TrackedSpace::STAGE];
     auto weaponType = world->getActiveWeaponType();
 
     enabled = enabled && isMeleeWeapon(weaponType);
@@ -99,11 +133,11 @@ void StateMachine::update(float dt, bool enabled)
     // Thrust means stabbing in the direction of the weapon
     osg::Vec3 thrustDirection = weaponDir * osg::Vec3{ 0,1,0 };
 
-    // Chop is vertical, relative to the orientation of the weapon
-    osg::Vec3 chopDirection = weaponDir * osg::Vec3{ 0,0,1 };
+    // Slash and Chop are vertical, relative to the orientation of the weapon (direction of the sharp edge / hammer)
+    osg::Vec3 slashChopDirection = weaponDir * osg::Vec3{ 0,0,1 };
 
-    // Swing is horizontal, relative to the orientation of the weapon
-    osg::Vec3 slashDirection = weaponDir * osg::Vec3{ 1,0,0 };
+    // Side direction of the weapon (i.e. The blunt side of the sword)
+    osg::Vec3 sideDirection = weaponDir * osg::Vec3{ 1,0,0 };
 
 
     // Next determine current hand movement
@@ -119,29 +153,64 @@ void StateMachine::update(float dt, bool enabled)
     movementSinceEnteredState += movement.length();
     previousPosition = handPose.position;
     osg::Vec3 swingVector = movement / dt;
+    osg::Vec3 swingDirection = swingVector;
+    swingDirection.normalize();
 
-    // Compute swing velocity
-    // Unidirectional
+    // Compute swing velocities
+
+    // Thrust follows the orientation of the weapon. Negative thrust = no attack.
     thrustVelocity = swingVector * thrustDirection;
-    // Bidirectional
-    slashVelocity = std::abs(swingVector * slashDirection);
-    chopVelocity = std::abs(swingVector * chopDirection);
     velocity = swingVector.length();
+    
 
-    // Pick swing type based on greatest current velocity
-    // Note i use abs() of thrust velocity to prevent accidentally triggering
-    // chop or slash when player is withdrawing his limb.
-    if (std::abs(thrustVelocity) > slashVelocity && std::abs(thrustVelocity) > chopVelocity)
+    if (isSideSwingValidForWeapon(weaponType))
     {
-        swingType = ESM::Weapon::AT_Thrust;
-    }
-    else if (slashVelocity > chopVelocity)
-    {
-        swingType = ESM::Weapon::AT_Slash;
+        // Compute velocity in the plane normal to the thrust direction.
+        float thrustComponent = std::abs(thrustVelocity / velocity);
+        float planeComponent = std::sqrt(1 - thrustComponent * thrustComponent);
+        slashChopVelocity = velocity * planeComponent;
+        sideVelocity = -1000.f;
     }
     else
     {
-        swingType = ESM::Weapon::AT_Chop;
+        // If side swing is not valid for the weapon, count slash/chop only along in
+        // the direction of the weapon's edge.
+        slashChopVelocity = std::abs(swingVector * slashChopDirection);
+        sideVelocity = std::abs(swingVector * sideDirection);
+    }
+
+
+    float orientationVerticality = std::abs(thrustDirection * osg::Vec3{ 0,0,1 });
+    float swingVerticality = std::abs(swingDirection * osg::Vec3{ 0,0,1 });
+
+    // Pick swing type based on greatest current velocity
+    // Note i use abs() of thrust velocity to prevent accidentally triggering
+    // chop/slash when player is withdrawing the weapon.
+    if (sideVelocity > std::abs(thrustVelocity) && sideVelocity > slashChopVelocity)
+    {
+        // Player is swinging with the "blunt" side of a weapon that
+        // cannot be used that way.
+        swingType = -1;
+    }
+    else if (std::abs(thrustVelocity) > slashChopVelocity)
+    {
+        swingType = ESM::Weapon::AT_Thrust;
+    }
+    else
+    {
+        // First check if the weapon is pointing upwards. In which case slash is not 
+        // applicable, and the attack must be a chop.
+        if (orientationVerticality > 0.707)
+            swingType = ESM::Weapon::AT_Chop;
+        else
+        {
+            // Next check if the swing is more horizontal or vertical. A slash
+            // would be more horizontal.
+            if(swingVerticality > 0.707)
+                swingType = ESM::Weapon::AT_Chop;
+            else
+                swingType = ESM::Weapon::AT_Slash;
+        }
     }
 
     switch (state)
@@ -199,6 +268,8 @@ void StateMachine::playSwish()
         else
             sndMgr->playSound3D(ptr, sound, 1.0f, 1.2f); //Strong attack
         shouldSwish = false;
+
+        Log(Debug::Verbose) << "Swing: " << swingTypeToString(swingType);
     }
 }
 

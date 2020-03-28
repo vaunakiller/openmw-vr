@@ -367,7 +367,7 @@ void WeaponDirectionController::operator()(osg::Node* node, osg::NodeVisitor* nv
         break;
     default:
         // Melee weapons point straight up from the hand
-        rotate = osg::Quat(-osg::PI_2, osg::Vec3{ 0,1,0 });
+        rotate = osg::Quat(osg::PI_2, osg::Vec3{ 1,0,0 });
         break;
     }
 
