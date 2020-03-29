@@ -143,7 +143,7 @@ void StateMachine::update(float dt, bool enabled)
     // Next determine current hand movement
 
     // If tracking is lost, openxr will return a position of 0
-    // Reset position when tracking is re-acquired
+    // So i reset position when tracking is re-acquired to avoid a superspeed strike.
     // Theoretically, the player's hand really could be at 0,0,0
     // but that's a super rare case so whatever.
     if (previousPosition == osg::Vec3(0.f, 0.f, 0.f))

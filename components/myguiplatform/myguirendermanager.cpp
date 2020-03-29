@@ -2,6 +2,9 @@
 
 #include <MyGUI_Gui.h>
 #include <MyGUI_Timer.h>
+#include <MyGUI_LayerManager.h>
+#include <MyGUI_LayerNode.h>
+#include <MyGUI_Enumerator.h>
 
 #include <osg/Drawable>
 #include <osg/BlendFunc>
@@ -346,7 +349,7 @@ osg::VertexBufferObject* OSGVertexBuffer::getVertexBuffer()
 
 // ---------------------------------------------------------------------------
 
-RenderManager::RenderManager(osgViewer::Viewer *viewer, osg::Group *sceneroot, Resource::ImageManager* imageManager, float scalingFactor)
+RenderManager::RenderManager(osgViewer::Viewer *viewer, osg::Group *sceneroot, Resource::ImageManager* imageManager, float scalingFactor, bool VRMode)
   : mViewer(viewer)
   , mSceneRoot(sceneroot)
   , mImageManager(imageManager)
@@ -354,6 +357,7 @@ RenderManager::RenderManager(osgViewer::Viewer *viewer, osg::Group *sceneroot, R
   , mIsInitialise(false)
   , mInvScalingFactor(1.f)
   , mInjectState(nullptr)
+  , mVRMode(VRMode)
 {
     if (scalingFactor != 0.f)
         mInvScalingFactor = 1.f / scalingFactor;
@@ -393,7 +397,7 @@ void RenderManager::initialise()
     camera->setProjectionResizePolicy(osg::Camera::FIXED);
     camera->setProjectionMatrix(osg::Matrix::identity());
     camera->setViewMatrix(osg::Matrix::identity());
-    camera->setRenderOrder(osg::Camera::NESTED_RENDER);
+    camera->setRenderOrder(mVRMode ? osg::Camera::NESTED_RENDER : osg::Camera::POST_RENDER);
     camera->setClearMask(GL_NONE);
     mDrawable->setCullingActive(false);
     camera->addChild(mDrawable.get());
@@ -450,6 +454,19 @@ void RenderManager::doRender(MyGUI::IVertexBuffer *buffer, MyGUI::ITexture *text
         batch.mStateSet = mInjectState;
 
     mDrawable->addBatch(batch);
+}
+
+void RenderManager::onRenderToTarget(IRenderTarget* _target, bool _update)
+{
+    MyGUI::LayerManager* layers = MyGUI::LayerManager::getInstancePtr();
+    if (layers != nullptr)
+    {
+        for (unsigned i = 0; i < layers->getLayerCount(); i++)
+        {
+            auto layer = layers->getLayer(i);
+            layer->renderToTarget(_target, _update);
+        }
+    }
 }
 
 void RenderManager::setInjectState(osg::StateSet* stateSet)

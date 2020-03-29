@@ -30,7 +30,7 @@ namespace osgMyGUI
     class Platform
     {
     public:
-        Platform(osgViewer::Viewer* viewer, osg::Group* guiRoot, Resource::ImageManager* imageManager, float uiScalingFactor);
+        Platform(osgViewer::Viewer* viewer, osg::Group* guiRoot, Resource::ImageManager* imageManager, float uiScalingFactor, bool VRMode);
 
         ~Platform();
 
@@ -47,6 +47,7 @@ namespace osgMyGUI
         DataManager* mDataManager;
         MyGUI::LogManager* mLogManager;
         LogFacility* mLogFacility;
+        bool mVRMode;
 
         void operator=(const Platform&);
         Platform(const Platform&);

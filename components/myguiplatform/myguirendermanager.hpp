@@ -51,10 +51,12 @@ class RenderManager : public MyGUI::RenderManager, public MyGUI::IRenderTarget
 
     osg::StateSet* mInjectState;
 
+    bool mVRMode;
+
     void destroyAllResources();
 
 public:
-    RenderManager(osgViewer::Viewer *viewer, osg::Group *sceneroot, Resource::ImageManager* imageManager, float scalingFactor);
+    RenderManager(osgViewer::Viewer *viewer, osg::Group *sceneroot, Resource::ImageManager* imageManager, float scalingFactor, bool VRMode);
     virtual ~RenderManager();
 
     void initialise();
@@ -96,7 +98,10 @@ public:
     /** @see IRenderTarget::end */
     virtual void end();
     /** @see IRenderTarget::doRender */
-    virtual void doRender(MyGUI::IVertexBuffer *buffer, MyGUI::ITexture *texture, size_t count);
+    void doRender(MyGUI::IVertexBuffer *buffer, MyGUI::ITexture *texture, size_t count) override;
+
+    /** @see IRenderTarget::onRenderToTarget */
+    void onRenderToTarget(IRenderTarget* _target, bool _update) override;
 
     /** specify a StateSet to inject for rendering. The StateSet will be used by future doRender calls until you reset it to nullptr again. */
     void setInjectState(osg::StateSet* stateSet);
