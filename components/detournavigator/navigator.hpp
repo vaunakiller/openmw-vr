@@ -1,4 +1,4 @@
-#ifndef OPENMW_COMPONENTS_DETOURNAVIGATOR_NAVIGATOR_H
+﻿#ifndef OPENMW_COMPONENTS_DETOURNAVIGATOR_NAVIGATOR_H
 #define OPENMW_COMPONENTS_DETOURNAVIGATOR_NAVIGATOR_H
 
 #include "findsmoothpath.hpp"
@@ -6,6 +6,8 @@
 #include "settings.hpp"
 #include "objectid.hpp"
 #include "navmeshcacheitem.hpp"
+#include "recastmesh.hpp"
+#include "recastmeshtiles.hpp"
 
 namespace DetourNavigator
 {
@@ -159,8 +161,8 @@ namespace DetourNavigator
          * Equal to out if no path is found.
          */
         template <class OutputIterator>
-        OutputIterator findPath(const osg::Vec3f& agentHalfExtents, const float stepSize, const osg::Vec3f& start,
-            const osg::Vec3f& end, const Flags includeFlags, OutputIterator out) const
+        Status findPath(const osg::Vec3f& agentHalfExtents, const float stepSize, const osg::Vec3f& start,
+            const osg::Vec3f& end, const Flags includeFlags, OutputIterator& out) const
         {
             static_assert(
                 std::is_same<
@@ -171,7 +173,7 @@ namespace DetourNavigator
             );
             const auto navMesh = getNavMesh(agentHalfExtents);
             if (!navMesh)
-                return out;
+                return Status::NavMeshNotFound;
             const auto settings = getSettings();
             return findSmoothPath(navMesh->lockConst()->getImpl(), toNavMeshCoordinates(settings, agentHalfExtents),
                 toNavMeshCoordinates(settings, stepSize), toNavMeshCoordinates(settings, start),
@@ -204,6 +206,8 @@ namespace DetourNavigator
          */
         boost::optional<osg::Vec3f> findRandomPointAroundCircle(const osg::Vec3f& agentHalfExtents,
             const osg::Vec3f& start, const float maxRadius, const Flags includeFlags) const;
+
+        virtual RecastMeshTiles getRecastMeshTiles() = 0;
     };
 }
 
