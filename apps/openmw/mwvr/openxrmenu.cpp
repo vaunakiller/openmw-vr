@@ -51,8 +51,8 @@ public:
         setComputeNearFarMode(osg::CullSettings::DO_NOT_COMPUTE_NEAR_FAR);
         setName("MenuCamera");
 
-        setCullMask(MWRender::Mask_GUI);
-        setNodeMask(MWRender::Mask_RenderToTexture);
+        setCullMask(SceneUtil::Mask_GUI);
+        setNodeMask(SceneUtil::Mask_RenderToTexture);
 
         unsigned int rttSize = 4000;
         setViewport(0, 0, rttSize, rttSize);

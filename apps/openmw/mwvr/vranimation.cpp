@@ -24,6 +24,7 @@
 #include <components/sceneutil/attach.hpp>
 #include <components/sceneutil/clone.hpp>
 #include <components/sceneutil/visitor.hpp>
+#include <components/sceneutil/vismask.hpp>
 #include <components/sceneutil/skeleton.hpp>
 #include <components/sceneutil/riggeometry.hpp>
 #include <components/sceneutil/positionattitudetransform.hpp>
@@ -52,7 +53,6 @@
 #include "../mwrender/camera.hpp"
 #include "../mwrender/rotatecontroller.hpp"
 #include "../mwrender/renderbin.hpp"
-#include "../mwrender/vismask.hpp"
 #include "../mwrender/renderingmanager.hpp"
 #include "../mwrender/objects.hpp"
 

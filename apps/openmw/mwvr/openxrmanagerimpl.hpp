@@ -4,10 +4,10 @@
 #include "openxrmanager.hpp"
 #include "openxrlayer.hpp"
 #include "../mwinput/inputmanagerimp.hpp"
-#include "../mwrender/vismask.hpp"
 
 #include <components/debug/debuglog.hpp>
 #include <components/sdlutil/sdlgraphicswindow.hpp>
+#include <components/sceneutil/vismask.hpp>
 
 // The OpenXR SDK assumes we've included Windows.h
 #include <Windows.h>

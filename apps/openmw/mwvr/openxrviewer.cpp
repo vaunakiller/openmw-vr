@@ -4,7 +4,6 @@
 #include "openxrinputmanager.hpp"
 #include "vrenvironment.hpp"
 #include "Windows.h"
-#include "../mwrender/vismask.hpp"
 #include "../mwmechanics/actorutil.hpp"
 #include "../mwbase/world.hpp"
 #include "../mwbase/environment.hpp"
@@ -12,6 +11,7 @@
 #include "../mwworld/player.hpp"
 #include "../mwworld/esmstore.hpp"
 #include <components/esm/loadrace.hpp>
+#include <components/sceneutil/vismask.hpp>
 #include <osg/MatrixTransform>
 
 namespace MWVR
@@ -80,7 +80,7 @@ namespace MWVR
 
         // Use the main camera to render any GUI to the OpenXR GUI quad's swapchain.
         // (When swapping the window buffer we'll blit the mirror texture to it instead.)
-        mainCamera->setCullMask(MWRender::Mask_GUI);
+        mainCamera->setCullMask(SceneUtil::Mask_GUI);
 
         osg::Vec4 clearColor = mainCamera->getClearColor();
 
@@ -117,8 +117,8 @@ namespace MWVR
         rightCamera->setFinalDrawCallback(mPostDraw);
 
         // Stereo cameras should only draw the scene (AR layers should later add minimap, health, etc.)
-        leftCamera->setCullMask(~MWRender::Mask_GUI);
-        rightCamera->setCullMask(~MWRender::Mask_GUI);
+        leftCamera->setCullMask(~SceneUtil::Mask_GUI);
+        rightCamera->setCullMask(~SceneUtil::Mask_GUI);
 
         leftCamera->setName("LeftEye");
         rightCamera->setName("RightEye");
