@@ -321,6 +321,7 @@ namespace MWRender
 
     void Camera::setRoll(float angle)
     {
+#ifdef USE_OPENXR
         if (angle > osg::PI) {
             angle -= osg::PI * 2;
         }
@@ -333,6 +334,11 @@ namespace MWRender
         else {
             mMainCam.roll = angle;
         }
+#else
+        // It seems OpenMW saves roll data, causing the camera to get tilted
+        // when loading a VR save in non-VR.
+        mMainCam.roll = mPreviewCam.roll = 0.f;
+#endif
     }
 
     float Camera::getPitch()
