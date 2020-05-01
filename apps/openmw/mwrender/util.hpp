@@ -2,12 +2,14 @@
 #define OPENMW_MWRENDER_UTIL_H
 
 #include <osg/NodeCallback>
+#include <osg/Camera>
 #include <osg/ref_ptr>
 #include <string>
 
 namespace osg
 {
     class Node;
+    class Texture2D;
 }
 
 namespace Resource
@@ -31,6 +33,24 @@ namespace MWRender
         {
             // no traverse()
         }
+    };
+
+    /// Draw callback for RTT that can be used to regenerate mipmaps
+    /// either as a predraw before use or a postdraw after RTT.
+    class MipmapCallback : public osg::Camera::DrawCallback
+    {
+    public:
+        MipmapCallback(osg::Texture2D* texture)
+            : mTexture(texture)
+        {}
+
+        ~MipmapCallback();
+
+        void operator()(osg::RenderInfo& info) const override;
+
+    private:
+
+        osg::ref_ptr<osg::Texture2D> mTexture;
     };
 }
 

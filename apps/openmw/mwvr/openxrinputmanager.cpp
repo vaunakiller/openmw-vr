@@ -732,6 +732,10 @@ OpenXRInput::getHandPoses(
     XrSpaceVelocity velocity{ XR_TYPE_SPACE_VELOCITY };
     location.next = &velocity;
     CHECK_XRCMD(xrLocateSpace(mHandSpace[(int)Side::LEFT_HAND], referenceSpace, time, &location));
+    if (!location.locationFlags & XR_SPACE_LOCATION_ORIENTATION_VALID_BIT)
+        // Quat must have a magnitude of 1 but openxr sets it to 0 when tracking is unavailable.
+        // I want a no-track pose to still be valid
+        location.pose.orientation.w = 1;
 
     handPoses[(int)Side::LEFT_HAND] = MWVR::Pose{
         osg::fromXR(location.pose.position),
@@ -740,6 +744,11 @@ OpenXRInput::getHandPoses(
     };
 
     CHECK_XRCMD(xrLocateSpace(mHandSpace[(int)Side::RIGHT_HAND], referenceSpace, time, &location));
+    if (!location.locationFlags & XR_SPACE_LOCATION_ORIENTATION_VALID_BIT)
+        // Quat must have a magnitude of 1 but openxr sets it to 0 when tracking is unavailable.
+        // I want a no-track pose to still be valid
+        location.pose.orientation.w = 1;
+    
     handPoses[(int)Side::RIGHT_HAND] = MWVR::Pose{
         osg::fromXR(location.pose.position),
         osg::fromXR(location.pose.orientation),
@@ -817,15 +826,18 @@ private:
             MWWorld::Ptr ptr = anim->mPointerTarget.mHitObject;
             auto& dnd = MWBase::Environment::get().getWindowManager()->getDragAndDrop();
 
-            if (node && node->getName() == "XR Menu Geometry")
+            if (node && node->getName() == "VRGUILayer")
             {
-                // Interseceted with the menu
-                // Inject mouse buttons 
-                SDL_MouseButtonEvent arg;
-                if (onPress)
-                    mousePressed(arg, SDL_BUTTON_LEFT);
-                else
-                    mouseReleased(arg, SDL_BUTTON_LEFT);
+                // Intersected with a GUI layer
+                // Inject mouse press
+                //VRGUILayerUserData* userData = static_cast<VRGUILayerUserData*>(node->getUserData());
+                //userData->mLayer->injectMouseClick(SDL_BUTTON_LEFT, onPress);
+                injectMousePress(SDL_BUTTON_LEFT, onPress);
+                //SDL_MouseButtonEvent arg;
+                //if (onPress)
+                //    mousePressed(arg, SDL_BUTTON_LEFT);
+                //else
+                //    mouseReleased(arg, SDL_BUTTON_LEFT);
             }
             else if (onPress)
             {
@@ -849,6 +861,15 @@ private:
                 }
             }
         }
+    }
+
+    void OpenXRInputManager::injectMousePress(int sdlButton, bool onPress)
+    {
+        SDL_MouseButtonEvent arg;
+        if (onPress)
+            mousePressed(arg, sdlButton);
+        else
+            mouseReleased(arg, sdlButton);
     }
 
     OpenXRInputManager::OpenXRInputManager(
@@ -903,19 +924,26 @@ private:
         if (world && anim && anim->mPointerTarget.mHit)
         {
             auto* node = anim->mPointerTarget.mHitNode;
-            if (node)
+            auto* vrGuiManager = Environment::get().getGUIManager();
+            if (node && node->getName() == "VRGUILayer")
             {
                 int w, h;
                 SDL_GetWindowSize(mWindow, &w, &h);
 
                 osg::Vec3 local = anim->mPointerTarget.mHitPointLocal;
                 local.x() = (local.x() + 1.f) / 2.f;
-                local.y() = 1.f - (local.y() + 1.f) / 2.f;
+                local.z() = 1.f - (local.z() + 1.f) / 2.f;
 
                 mGuiCursorX = mInvUiScalingFactor * (local.x() * w);
-                mGuiCursorY = mInvUiScalingFactor * (local.y() * h);
+                mGuiCursorY = mInvUiScalingFactor * (local.z() * h);
 
-                MyGUI::InputManager::getInstance().injectMouseMove(int(mGuiCursorX), int(mGuiCursorY), 0);
+                VRGUILayerUserData* userData = static_cast<VRGUILayerUserData*>(node->getUserData());
+                vrGuiManager->setFocusLayer(userData->mLayer);
+                MyGUI::InputManager::getInstance().injectMouseMove((int)mGuiCursorX, (int)mGuiCursorY, 0);
+            }
+            else
+            {
+                vrGuiManager->setFocusLayer(nullptr);
             }
         }
 
@@ -932,9 +960,9 @@ private:
         MWInput::InputManager::update(dt, disableControls, disableEvents);
 
         bool guiMode = MWBase::Environment::get().getWindowManager()->isGuiMode();
-        auto* xrMenuManager = Environment::get().getMenuManager();
-        if(xrMenuManager)
-            xrMenuManager->showMenus(guiMode);
+        auto* xrGUIManager = Environment::get().getGUIManager();
+        if(xrGUIManager)
+            xrGUIManager->showGUIs(guiMode);
 
         setPlayerControlsEnabled(!guiMode);
 
@@ -953,14 +981,14 @@ private:
     void OpenXRInputManager::processEvent(const OpenXRActionEvent& event)
     {
         //auto* session = Environment::get().getSession();
-        auto* xrMenuManager = Environment::get().getMenuManager();
+        auto* xrGUIManager = Environment::get().getGUIManager();
         switch (event.action)
         {
         case A_GameMenu:
                 toggleMainMenu();
                 // Explicitly request position update here so that the player can move the menu
                 // using the menu key when the menu can't be toggled.
-                xrMenuManager->updatePose();
+                xrGUIManager->updatePose();
                 break;
         case A_Screenshot:
             screenshot();

@@ -7,15 +7,14 @@
 namespace osgMyGUI
 {
 
-Platform::Platform(osgViewer::Viewer *viewer, osg::Group *guiRoot, Resource::ImageManager *imageManager, float uiScalingFactor, bool VRMode)
+Platform::Platform(osgViewer::Viewer *viewer, osg::Group *guiRoot, Resource::ImageManager *imageManager, float uiScalingFactor)
     : mRenderManager(nullptr)
     , mDataManager(nullptr)
     , mLogManager(nullptr)
     , mLogFacility(nullptr)
-    , mVRMode(VRMode)
 {
     mLogManager = new MyGUI::LogManager();
-    mRenderManager = new RenderManager(viewer, guiRoot, imageManager, uiScalingFactor, VRMode);
+    mRenderManager = new RenderManager(viewer, guiRoot, imageManager, uiScalingFactor);
     mDataManager = new DataManager();
 }
 

@@ -154,16 +154,12 @@ namespace MWVR
 
     }
 
-    void OpenXRViewer::blitEyesToMirrorTexture(osg::GraphicsContext* gc, bool includeMenu)
+    void OpenXRViewer::blitEyesToMirrorTexture(osg::GraphicsContext* gc)
     {
         //includeMenu = false;
         mMirrorTextureSwapchain->beginFrame(gc);
 
-        int mirror_width = 0;
-        if(includeMenu)
-            mirror_width = mMirrorTextureSwapchain->width() / 3;
-        else
-            mirror_width = mMirrorTextureSwapchain->width() / 2;
+        int mirror_width = mMirrorTextureSwapchain->width() / 2;
 
 
         mViews["RightEye"]->swapchain().renderBuffer()->blit(gc, 0, 0, mirror_width, mMirrorTextureSwapchain->height());
@@ -171,44 +167,6 @@ namespace MWVR
 
         auto* state = gc->getState();
         auto* gl = osg::GLExtensions::Get(state->getContextID(), false);
-
-        if (includeMenu)
-        {
-            auto menuManager = Environment::get().getMenuManager();
-            if (menuManager)
-            {
-                auto menu = menuManager->getMenu();
-                if (menu)
-                {
-                    auto texture = menu->menuTexture();
-                    if (texture)
-                    {
-                        auto textureObject = texture->getTextureObject(state->getContextID());
-                        if (textureObject)
-                        {
-                            auto textureId = textureObject->id();
-
-                            Log(Debug::Verbose) << "texture id: " << textureId;
-
-                            GLuint fbo = 0;
-                            gl->glGenFramebuffers(1, &fbo);
-
-                            gl->glBindFramebuffer(GL_READ_FRAMEBUFFER_EXT, fbo);
-                            gl->glFramebufferTexture2D(GL_READ_FRAMEBUFFER_EXT, GL_COLOR_ATTACHMENT0_EXT, GL_TEXTURE_2D, textureId, 0);
-                            gl->glBlitFramebuffer(0, 0, texture->getTextureWidth(), texture->getTextureHeight(), 2 * mirror_width, 0, 3 * mirror_width, mMirrorTextureSwapchain->height(), GL_COLOR_BUFFER_BIT, GL_NEAREST);
-                            gl->glFramebufferTexture2D(GL_READ_FRAMEBUFFER_EXT, GL_COLOR_ATTACHMENT0_EXT, GL_TEXTURE_2D, 0, 0);
-                            gl->glBindFramebuffer(GL_READ_FRAMEBUFFER_EXT, 0);
-
-                            gl->glDeleteFramebuffers(1, &fbo);
-                        }
-                        else
-                        {
-                            Log(Debug::Warning) << "Texture object was null";
-                        }
-                    }
-                }
-            }
-        }
 
         mMirrorTextureSwapchain->endFrame(gc);
 
@@ -267,7 +225,7 @@ namespace MWVR
             mLayer->views = mCompositionLayerProjectionViews.data();
         }
 
-        blitEyesToMirrorTexture(gc, false);
+        blitEyesToMirrorTexture(gc);
 
         gc->swapBuffersImplementation();
     }

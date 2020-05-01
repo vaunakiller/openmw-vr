@@ -12,6 +12,11 @@
 #include "draganddrop.hpp"
 #include "exposedwindow.hpp"
 
+#ifdef USE_OPENXR
+#include "../mwvr/vrgui.hpp"
+#include "../mwvr/vrenvironment.hpp"
+#endif
+
 using namespace MWGui;
 
 WindowBase::WindowBase(const std::string& parLayout)
@@ -48,6 +53,7 @@ void WindowBase::onDoubleClick(MyGUI::Widget *_sender)
 
 void WindowBase::setVisible(bool visible)
 {
+    Log(Debug::Verbose) << mLayoutName << ".setVisible: " << visible;
     bool wasVisible = mMainWidget->getVisible();
     mMainWidget->setVisible(visible);
 
@@ -55,6 +61,14 @@ void WindowBase::setVisible(bool visible)
         onOpen();
     else if (wasVisible)
         onClose();
+
+#ifdef USE_OPENXR
+    auto* vrGUIManager = MWVR::Environment::get().getGUIManager();
+    if (!vrGUIManager)
+        // May end up here before before rendering has been fully set up
+        return;
+    vrGUIManager->setVisible(this, visible);
+#endif
 }
 
 bool WindowBase::isVisible()

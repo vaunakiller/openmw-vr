@@ -121,6 +121,8 @@ namespace MWRender
 
         osg::Vec3d getFocalPoint();
 
+        osg::Camera* getOsgCamera();
+
         /// Stores focal and camera world positions in passed arguments
         void getPosition(osg::Vec3f &focal, osg::Vec3f &camera);
 

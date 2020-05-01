@@ -222,6 +222,18 @@ namespace MWVR
         if (mPrivate)
             mPrivate->playerScale(stagePose);
     }
+    Pose Pose::operator+(const Pose& rhs)
+    {
+        Pose pose = *this;
+        pose.position += this->orientation * rhs.position;
+        pose.orientation = rhs.orientation * this->orientation;
+        return pose;
+    }
+    const Pose& Pose::operator+=(const Pose& rhs)
+    {
+        *this = *this + rhs;
+        return *this;
+    }
 }
 
 std::ostream& operator <<(

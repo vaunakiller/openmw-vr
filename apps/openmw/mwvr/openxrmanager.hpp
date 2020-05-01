@@ -44,6 +44,9 @@ namespace MWVR
         osg::Quat orientation{ 0,0,0,1 };
         //! Speed of movement in VR space, expressed in meters per second
         osg::Vec3 velocity{ 0,0,0 };
+
+        Pose operator+(const Pose& rhs);
+        const Pose& operator+=(const Pose& rhs);
     };
 
     using PoseSet = std::array<Pose, 2>;

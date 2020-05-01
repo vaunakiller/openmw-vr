@@ -1,5 +1,5 @@
 #include "openxrmanagerimpl.hpp"
-#include "openxrtexture.hpp"
+#include "vrtexture.hpp"
 
 #include <components/debug/debuglog.hpp>
 #include <components/sdlutil/sdlgraphicswindow.hpp>
@@ -385,6 +385,12 @@ namespace MWVR
         CHECK_XRCMD(xrLocateSpace(limbSpace, referenceSpace, predictedDisplayTime, &location));
         //if (!(velocity.velocityFlags & XR_SPACE_VELOCITY_LINEAR_VALID_BIT))
         //    Log(Debug::Warning) << "Unable to acquire linear velocity";
+        if (!location.locationFlags & XR_SPACE_LOCATION_ORIENTATION_VALID_BIT)
+        {
+            // Quat must have a magnitude of 1 but openxr sets it to 0 when tracking is unavailable.
+            // I want a no-track pose to still be valid
+            location.pose.orientation.w = 1;
+        }
         return MWVR::Pose{
             osg::fromXR(location.pose.position),
             osg::fromXR(location.pose.orientation),

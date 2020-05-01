@@ -66,7 +66,11 @@ namespace MWGui
 
 
     HUD::HUD(CustomMarkerCollection &customMarkers, DragAndDrop* dragAndDrop, MWRender::LocalMap* localMapRender)
+#ifdef USE_OPENXR
+        : WindowBase("openmw_hud_vr.layout")
+#else
         : WindowBase("openmw_hud.layout")
+#endif
         , LocalMapBase(customMarkers, localMapRender, Settings::Manager::getBool("local map hud fog of war", "Map"))
         , mHealth(nullptr)
         , mMagicka(nullptr)
@@ -99,7 +103,10 @@ namespace MWGui
         , mIsDrowning(false)
         , mDrowningFlashTheta(0.f)
     {
+#ifndef USE_OPENXR
         mMainWidget->setSize(MyGUI::RenderManager::getInstance().getViewSize());
+#endif
+        mMainWidgetBaseSize = mMainWidget->getSize();
 
         // Energy bars
         getWidget(mHealthFrame, "HealthFrame");
@@ -374,6 +381,9 @@ namespace MWGui
             mDrowningFlashTheta += dt * osg::PI*2;
 
         mSpellIcons->updateWidgets(mEffectBox, true);
+        Log(Debug::Verbose) << "Size: " << mMainWidget->getSize();
+        Log(Debug::Verbose) << "width: " << mMainWidget->getWidth();
+        Log(Debug::Verbose) << "height: " << mMainWidget->getHeight();
 
         if (mEnemyActorId != -1 && mEnemyHealth->getVisible())
         {
@@ -587,6 +597,7 @@ namespace MWGui
 
         const MyGUI::IntSize& viewSize = MyGUI::RenderManager::getInstance().getViewSize();
 
+#ifndef USE_OPENXR
         // effect box can have variable width -> variable left coordinate
         int effectsDx = 0;
         if (!mMinimapBox->getVisible ())
@@ -597,6 +608,11 @@ namespace MWGui
             mCellNameBox->setVisible(false);
 
         mEffectBox->setPosition((viewSize.width - mEffectBoxBaseRight) - mEffectBox->getWidth() + effectsDx, mEffectBox->getTop());
+#else
+        // in VR mode, the effect box grows to the right and does not need repositioning
+        int width = std::max(mMainWidgetBaseSize.width, mEffectBox->getSize().width);
+        mMainWidget->setSize(width, mMainWidget->getHeight());
+#endif
     }
 
     void HUD::updateEnemyHealthBar()

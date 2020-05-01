@@ -6,7 +6,7 @@ namespace MWVR
     class VRAnimation;
     class OpenXRInputManager;
     class OpenXRSession;
-    class OpenXRMenuManager;
+    class VRGUIManager;
     class OpenXRViewer;
     class OpenXRManager;
 
@@ -45,8 +45,8 @@ namespace MWVR
         // which is stored in MWBase::Environment
         // void setInputManager(MWVR::OpenXRInputManager*);
 
-        MWVR::OpenXRMenuManager* getMenuManager() const;
-        void setMenuManager(MWVR::OpenXRMenuManager* xrMenuManager);
+        MWVR::VRGUIManager* getGUIManager() const;
+        void setGUIManager(MWVR::VRGUIManager* xrGUIManager);
 
         MWVR::VRAnimation* getPlayerAnimation() const;
         void setPlayerAnimation(MWVR::VRAnimation* xrAnimation);
@@ -65,7 +65,7 @@ namespace MWVR
 
     private:
         MWVR::OpenXRSession* mSession{ nullptr };
-        MWVR::OpenXRMenuManager* mMenuManager{ nullptr };
+        MWVR::VRGUIManager* mGUIManager{ nullptr };
         MWVR::VRAnimation* mPlayerAnimation{ nullptr };
         MWVR::OpenXRViewer* mViewer{ nullptr };
         MWVR::OpenXRManager* mOpenXRManager{ nullptr };

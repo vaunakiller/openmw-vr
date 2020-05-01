@@ -114,7 +114,7 @@
 
 #ifdef USE_OPENXR
 #include "../mwvr/vrenvironment.hpp"
-#include "../mwvr/openxrmenu.hpp"
+#include "../mwvr/vrgui.hpp"
 #endif
 
 namespace
@@ -133,9 +133,8 @@ namespace MWGui
     WindowManager::WindowManager(
             osgViewer::Viewer* viewer, osg::Group* guiRoot, Resource::ResourceSystem* resourceSystem, SceneUtil::WorkQueue* workQueue,
             const std::string& logpath, const std::string& resourcePath, bool consoleOnlyScripts, Translation::Storage& translationDataStorage,
-            ToUTF8::FromType encoding, bool exportFonts, const std::string& versionDescription, const std::string& userDataPath, bool VRMode)
+            ToUTF8::FromType encoding, bool exportFonts, const std::string& versionDescription, const std::string& userDataPath)
       : mStore(nullptr)
-      , mVRMode(VRMode)
       , mResourceSystem(resourceSystem)
       , mWorkQueue(workQueue)
       , mViewer(viewer)
@@ -202,7 +201,7 @@ namespace MWGui
       , mVersionDescription(versionDescription)
     {
         float uiScale = Settings::Manager::getFloat("scaling factor", "GUI");
-        mGuiPlatform = new osgMyGUI::Platform(viewer, guiRoot, resourceSystem->getImageManager(), uiScale, mVRMode);
+        mGuiPlatform = new osgMyGUI::Platform(viewer, guiRoot, resourceSystem->getImageManager(), uiScale);
         mGuiPlatform->initialise(resourcePath, logpath);
 
         mGui = new MyGUI::Gui;
@@ -246,7 +245,11 @@ namespace MWGui
 
         MyGUI::FactoryManager::getInstance().registerFactory<ResourceImageSetPointerFix>("Resource", "ResourceImageSetPointer");
         MyGUI::FactoryManager::getInstance().registerFactory<AutoSizedResourceSkin>("Resource", "AutoSizedResourceSkin");
+#ifdef USE_OPENXR
+        MyGUI::ResourceManager::getInstance().load("core_vr.xml");
+#else
         MyGUI::ResourceManager::getInstance().load("core.xml");
+#endif
         WindowManager::loadUserFonts();
 
         bool keyboardNav = Settings::Manager::getBool("keyboard navigation", "GUI");
@@ -1890,7 +1893,7 @@ namespace MWGui
 #ifdef USE_OPENXR
         // Temporary hack to force update of menu placement
         // (Menu gets recreated next tick)
-        auto* xrMenuManager = MWVR::Environment::get().getMenuManager();
+        auto* xrMenuManager = MWVR::Environment::get().getGUIManager();
 #endif
 
         mVideoWidget->eventKeyButtonPressed.clear();
@@ -1935,7 +1938,7 @@ namespace MWGui
             // (Menu gets recreated next tick)
             if (xrMenuManager)
             {
-                xrMenuManager->showMenus(false);
+                xrMenuManager->showGUIs(false);
                 xrMenuManager = nullptr;
             }
 #endif

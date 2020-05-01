@@ -65,8 +65,14 @@ namespace MWGui
 
         int w=2;
 
+        for(auto rit = effects.rbegin(); rit != effects.rend(); rit++)
+        {
+            auto& effectInfoPair = *rit;
+#if 0
+            // in VR mode, the effect box grows to the right so we want to invert the order to avoid reordering effects.
         for (auto& effectInfoPair : effects)
         {
+#endif
             const int effectId = effectInfoPair.first;
             const ESM::MagicEffect* effect =
                 MWBase::Environment::get().getWorld ()->getStore ().get<ESM::MagicEffect>().find(effectId);
@@ -192,7 +198,10 @@ namespace MWGui
                 s = 0;
             int diff = parent->getWidth() - s;
             parent->setSize(s, parent->getHeight());
+#ifndef USE_OPENXR
+            // in VR mode, the effect box grows to the right and does not need repositioning
             parent->setPosition(parent->getLeft()+diff, parent->getTop());
+#endif
         }
 
         // hide inactive effects

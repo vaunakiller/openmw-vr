@@ -12,7 +12,7 @@
 #include "openxrsession.hpp"
 #include "openxrlayer.hpp"
 #include "openxrworldview.hpp"
-#include "openxrmenu.hpp"
+#include "vrgui.hpp"
 #include <components/sceneutil/positionattitudetransform.hpp>
 
 struct XrCompositionLayerProjection;
@@ -83,7 +83,7 @@ namespace MWVR
         void traversals();
         void preDrawCallback(osg::RenderInfo& info);
         void postDrawCallback(osg::RenderInfo& info);
-        void blitEyesToMirrorTexture(osg::GraphicsContext* gc, bool includeMenu = true);
+        void blitEyesToMirrorTexture(osg::GraphicsContext* gc);
         void swapBuffers(osg::GraphicsContext* gc) override;
         void realize(osg::GraphicsContext* gc);
 

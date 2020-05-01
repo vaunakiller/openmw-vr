@@ -132,7 +132,7 @@ namespace MWGui
 
     WindowManager(osgViewer::Viewer* viewer, osg::Group* guiRoot, Resource::ResourceSystem* resourceSystem, SceneUtil::WorkQueue* workQueue,
                   const std::string& logpath, const std::string& cacheDir, bool consoleOnlyScripts, Translation::Storage& translationDataStorage,
-                  ToUTF8::FromType encoding, bool exportFonts, const std::string& versionDescription, const std::string& localPath, bool VRMode);
+                  ToUTF8::FromType encoding, bool exportFonts, const std::string& versionDescription, const std::string& localPath);
     virtual ~WindowManager();
 
     /// Set the ESMStore to use for retrieving of GUI-related strings.

@@ -640,7 +640,11 @@ namespace MWGui
     // ------------------------------------------------------------------------------------------
 
     MapWindow::MapWindow(CustomMarkerCollection &customMarkers, DragAndDrop* drag, MWRender::LocalMap* localMapRender, SceneUtil::WorkQueue* workQueue)
+#ifdef USE_OPENXR
+        : WindowPinnableBase("openmw_map_window_vr.layout")
+#else
         : WindowPinnableBase("openmw_map_window.layout")
+#endif
         , LocalMapBase(customMarkers, localMapRender)
         , NoDrop(drag, mMainWidget)
         , mGlobalMap(0)

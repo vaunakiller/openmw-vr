@@ -5,7 +5,7 @@
 #include "vranimation.hpp"
 #include "openxrinputmanager.hpp"
 #include "openxrsession.hpp"
-#include "openxrmenu.hpp"
+#include "vrgui.hpp"
 
 #include "../mwbase/environment.hpp"
 
@@ -29,9 +29,9 @@ void MWVR::Environment::cleanup()
     if (mSession)
         delete mSession;
     mSession = nullptr;
-    if (mMenuManager)
-        delete mMenuManager;
-    mMenuManager = nullptr;
+    if (mGUIManager)
+        delete mGUIManager;
+    mGUIManager = nullptr;
     if (mViewer)
         delete mViewer;
     mViewer = nullptr;
@@ -65,14 +65,14 @@ void MWVR::Environment::setSession(MWVR::OpenXRSession* xrSession)
     mSession = xrSession;
 }
 
-MWVR::OpenXRMenuManager* MWVR::Environment::getMenuManager() const
+MWVR::VRGUIManager* MWVR::Environment::getGUIManager() const
 {
-    return mMenuManager;
+    return mGUIManager;
 }
 
-void MWVR::Environment::setMenuManager(MWVR::OpenXRMenuManager* menuManager)
+void MWVR::Environment::setGUIManager(MWVR::VRGUIManager* GUIManager)
 {
-    mMenuManager = menuManager;
+    mGUIManager = GUIManager;
 }
 
 MWVR::VRAnimation* MWVR::Environment::getPlayerAnimation() const

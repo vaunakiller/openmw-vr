@@ -10,11 +10,11 @@
 
 namespace MWVR
 {
-    class OpenXRTextureBuffer : public osg::Referenced
+    class VRTexture : public osg::Referenced
     {
     public:
-        OpenXRTextureBuffer(osg::ref_ptr<osg::State> state, std::size_t width, std::size_t height, uint32_t msaaSamples);
-        ~OpenXRTextureBuffer();
+        VRTexture(osg::ref_ptr<osg::State> state, std::size_t width, std::size_t height, uint32_t msaaSamples);
+        ~VRTexture();
 
         void destroy(osg::State* state);
 

@@ -2,7 +2,7 @@
 #define OPENXR_SWAPCHAIN_HPP
 
 #include "openxrmanager.hpp"
-#include "openxrtexture.hpp"
+#include "vrtexture.hpp"
 
 struct XrSwapchainSubImage;
 
@@ -38,7 +38,7 @@ namespace MWVR
         //! Samples of the view surface
         int samples();
         //! Get the current texture
-        OpenXRTextureBuffer* renderBuffer();
+        VRTexture* renderBuffer();
         //! Get the private implementation
         OpenXRSwapchainImpl& impl() { return *mPrivate; }
         //! Get the private implementation

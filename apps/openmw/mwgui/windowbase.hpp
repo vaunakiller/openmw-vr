@@ -53,6 +53,9 @@ namespace MWGui
         /// Called when GUI viewport changes size
         virtual void onResChange(int width, int height) {}
 
+        /// Called when Window widget changes in size
+        virtual void onWindowResize(MyGUI::Window* window) {}
+
     protected:
         virtual void onTitleDoubleClicked();
 

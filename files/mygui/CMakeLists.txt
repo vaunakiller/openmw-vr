@@ -9,6 +9,7 @@ set(DDIRRELATIVE resources/mygui)
 set(MYGUI_FILES
     core.skin
     core.xml
+    core_vr.xml
     core_layouteditor.xml
     openmw_alchemy_window.layout
     openmw_book.layout
@@ -36,17 +37,21 @@ set(MYGUI_FILES
     openmw_hud_box.skin.xml
     openmw_hud_energybar.skin.xml
     openmw_hud.layout
+    openmw_hud_vr.layout
     openmw_infobox.layout
     openmw_interactive_messagebox.layout
     openmw_interactive_messagebox_notransp.layout
     openmw_inventory_window.layout
+    openmw_inventory_window_vr.layout
     openmw_journal.layout
     openmw_journal.skin.xml
     openmw_layers.xml
+    openmw_layers_vr.xml
     openmw_list.skin.xml
     openmw_mainmenu.layout
     openmw_mainmenu.skin.xml
     openmw_map_window.layout
+    openmw_map_window_vr.layout
     openmw_map_window.skin.xml
     openmw_messagebox.layout
     openmw_pointer.xml
@@ -57,7 +62,9 @@ set(MYGUI_FILES
     openmw_settings_window.layout
     openmw_settings.xml
     openmw_spell_window.layout
+    openmw_spell_window_vr.layout
     openmw_stats_window.layout
+    openmw_stats_window_vr.layout
     openmw_text_input.layout
     openmw_text.skin.xml
     openmw_tooltips.layout

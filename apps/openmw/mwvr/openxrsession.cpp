@@ -22,7 +22,7 @@
 #include <array>
 #include <iostream>
 #include "openxrsession.hpp"
-#include "openxrmenu.hpp"
+#include "vrgui.hpp"
 #include <time.h>
 
 namespace MWVR

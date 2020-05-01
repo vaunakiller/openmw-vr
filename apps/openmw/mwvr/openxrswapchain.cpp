@@ -32,14 +32,14 @@ namespace MWVR {
         osg::ref_ptr<OpenXRManager> mXR;
         XrSwapchain mSwapchain = XR_NULL_HANDLE;
         std::vector<XrSwapchainImageOpenGLKHR> mSwapchainImageBuffers{};
-        //std::vector<osg::ref_ptr<OpenXRTextureBuffer> > mTextureBuffers{};
+        //std::vector<osg::ref_ptr<VRTexture> > mTextureBuffers{};
         XrSwapchainSubImage mSubImage{};
         int32_t mWidth = -1;
         int32_t mHeight = -1;
         int32_t mSamples = -1;
         int64_t mSwapchainColorFormat = -1;
         uint32_t mFBO = 0;
-        OpenXRTextureBuffer* mRenderBuffer = nullptr;
+        VRTexture* mRenderBuffer = nullptr;
     };
 
     OpenXRSwapchainImpl::OpenXRSwapchainImpl(
@@ -99,8 +99,8 @@ namespace MWVR {
         mSwapchainImageBuffers.resize(imageCount, { XR_TYPE_SWAPCHAIN_IMAGE_OPENGL_KHR });
         CHECK_XRCMD(xrEnumerateSwapchainImages(mSwapchain, imageCount, &imageCount, reinterpret_cast<XrSwapchainImageBaseHeader*>(mSwapchainImageBuffers.data())));
         //for (const auto& swapchainImage : mSwapchainImageBuffers)
-        //    mTextureBuffers.push_back(new OpenXRTextureBuffer(state, swapchainImage.image, mWidth, mHeight, 0));
-        mRenderBuffer = new OpenXRTextureBuffer(state, mWidth, mHeight, 0);
+        //    mTextureBuffers.push_back(new VRTexture(state, swapchainImage.image, mWidth, mHeight, 0));
+        mRenderBuffer = new VRTexture(state, mWidth, mHeight, 0);
 
         mSubImage.swapchain = mSwapchain;
         mSubImage.imageRect.offset = { 0, 0 };
@@ -181,7 +181,7 @@ namespace MWVR {
         return impl().mSamples;
     }
 
-    OpenXRTextureBuffer* OpenXRSwapchain::renderBuffer()
+    VRTexture* OpenXRSwapchain::renderBuffer()
     {
         return impl().mRenderBuffer;
     }

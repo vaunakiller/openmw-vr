@@ -3,7 +3,7 @@
 
 #include <array>
 #include "openxrmanager.hpp"
-#include "openxrtexture.hpp"
+#include "vrtexture.hpp"
 
 struct XrCompositionLayerBaseHeader;
 

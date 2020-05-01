@@ -1,5 +1,5 @@
 #include "openxrviewer.hpp"
-#include "openxrtexture.hpp"
+#include "vrtexture.hpp"
 #include <osg/Texture2D>
 #include <osgViewer/Renderer>
 #include <components/debug/debuglog.hpp>
@@ -13,7 +13,7 @@
 
 namespace MWVR
 {
-    OpenXRTextureBuffer::OpenXRTextureBuffer(
+    VRTexture::VRTexture(
         osg::ref_ptr<osg::State> state,
         std::size_t width, 
         std::size_t height,
@@ -71,12 +71,12 @@ namespace MWVR
         gl->glBindFramebuffer(GL_FRAMEBUFFER_EXT, 0);
     }
 
-    OpenXRTextureBuffer::~OpenXRTextureBuffer()
+    VRTexture::~VRTexture()
     {
         destroy(nullptr);
     }
 
-    void OpenXRTextureBuffer::destroy(osg::State* state)
+    void VRTexture::destroy(osg::State* state)
     {
         if (!state)
         {
@@ -102,14 +102,14 @@ namespace MWVR
         mFBO = mDepthBuffer = mColorBuffer;
     }
 
-    void OpenXRTextureBuffer::beginFrame(osg::GraphicsContext* gc)
+    void VRTexture::beginFrame(osg::GraphicsContext* gc)
     {
         auto state = gc->getState();
         auto* gl = osg::GLExtensions::Get(state->getContextID(), false);
         gl->glBindFramebuffer(GL_FRAMEBUFFER_EXT, mFBO);
     }
 
-    void OpenXRTextureBuffer::endFrame(osg::GraphicsContext* gc, uint32_t blitTarget)
+    void VRTexture::endFrame(osg::GraphicsContext* gc, uint32_t blitTarget)
     {
         auto* state = gc->getState();
         auto* gl = osg::GLExtensions::Get(state->getContextID(), false);
@@ -122,7 +122,7 @@ namespace MWVR
         gl->glBindFramebuffer(GL_READ_FRAMEBUFFER_EXT, 0);
     }
 
-    void OpenXRTextureBuffer::blit(osg::GraphicsContext* gc, int x, int y, int w, int h)
+    void VRTexture::blit(osg::GraphicsContext* gc, int x, int y, int w, int h)
     {
         auto* state = gc->getState();
         auto* gl = osg::GLExtensions::Get(state->getContextID(), false);
@@ -131,7 +131,7 @@ namespace MWVR
         gl->glBindFramebuffer(GL_READ_FRAMEBUFFER_EXT, 0);
     }
 
-    void OpenXRTextureBuffer::blit(osg::GraphicsContext* gc, int x, int y, int w, int h, int blitTarget)
+    void VRTexture::blit(osg::GraphicsContext* gc, int x, int y, int w, int h, int blitTarget)
     {
         auto* state = gc->getState();
         auto* gl = osg::GLExtensions::Get(state->getContextID(), false);

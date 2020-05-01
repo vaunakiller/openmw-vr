@@ -2,6 +2,7 @@
 
 #include <osg/Node>
 #include <osg/ValueObject>
+#include <osg/RenderInfo>
 
 #include <components/resource/resourcesystem.hpp>
 #include <components/resource/imagemanager.hpp>
@@ -62,6 +63,23 @@ void overrideTexture(const std::string &texture, Resource::ResourceSystem *resou
     stateset->setTextureAttribute(0, tex, osg::StateAttribute::OVERRIDE);
 
     node->setStateSet(stateset);
+}
+
+MipmapCallback::~MipmapCallback()
+{
+
+}
+
+
+void MipmapCallback::operator()(osg::RenderInfo& renderInfo) const
+{
+    auto* gl = renderInfo.getState()->get<osg::GLExtensions>();
+    auto* tex = mTexture->getTextureObject(renderInfo.getContextID());
+    if (tex)
+    {
+        tex->bind();
+        gl->glGenerateMipmap(tex->target());
+    }
 }
 
 }

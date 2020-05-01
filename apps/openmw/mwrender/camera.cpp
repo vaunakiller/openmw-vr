@@ -112,6 +112,11 @@ namespace MWRender
         return position;
     }
 
+    osg::Camera* Camera::getOsgCamera()
+    {
+        return mCamera;
+    }
+
     void Camera::updateCamera()
     {
         updateCamera(mCamera);

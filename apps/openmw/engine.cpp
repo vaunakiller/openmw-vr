@@ -562,17 +562,15 @@ void OMW::Engine::prepareEngine (Settings::Manager & settings)
     MWGui::WindowManager* window = new MWGui::WindowManager(mViewer, guiRoot, mResourceSystem.get(), mWorkQueue.get(),
                 mCfgMgr.getLogPath().string() + std::string("/"), myguiResources,
                 mScriptConsoleMode, mTranslationDataStorage, mEncoding, mExportFonts,
-                Version::getOpenmwVersionDescription(mResDir.string()), mCfgMgr.getUserConfigPath().string(),
-#ifdef USE_OPENXR
-        true
-#else
-        false
-#endif
-        );
+                Version::getOpenmwVersionDescription(mResDir.string()), mCfgMgr.getUserConfigPath().string());
     mEnvironment.setWindowManager (window);
 
     // Create sound system
     mEnvironment.setSoundManager (new MWSound::SoundManager(mVFS.get(), mUseSound));
+
+#ifdef USE_OPENXR
+    mXrEnvironment.setGUIManager(new MWVR::VRGUIManager(mViewer));
+#endif
 
     if (!mSkipMenu)
     {
@@ -745,7 +743,7 @@ void OMW::Engine::go()
     auto* xrViewer = MWVR::Environment::get().getViewer();
     xrViewer->addChild(root);
     mViewer->setSceneData(xrViewer);
-    mXrEnvironment.setMenuManager(new MWVR::OpenXRMenuManager(mViewer));
+    mXrEnvironment.setGUIManager(new MWVR::VRGUIManager(mViewer));
 #endif
 
     // Start the game

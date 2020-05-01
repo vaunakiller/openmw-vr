@@ -47,6 +47,8 @@ namespace MWVR
         void updateActivationIndication(void);
         void pointActivation(bool onPress);
 
+        void injectMousePress(int sdlButton, bool onPress);
+
         std::unique_ptr<OpenXRInput> mXRInput;
         std::unique_ptr<RealisticCombat::StateMachine> mRealisticCombat;
         Pose mPreviousHeadPose{};

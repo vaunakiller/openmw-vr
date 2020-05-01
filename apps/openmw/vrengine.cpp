@@ -2,7 +2,7 @@
 #include "mwvr/openxrmanager.hpp"
 #include "mwvr/openxrsession.hpp"
 #include "mwvr/openxrviewer.hpp"
-#include "mwvr/openxrmenu.hpp"
+#include "mwvr/vrgui.hpp"
 
 #ifndef USE_OPENXR
 #error "USE_OPENXR not defined"

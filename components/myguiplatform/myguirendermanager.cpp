@@ -1,5 +1,7 @@
 #include "myguirendermanager.hpp"
 
+#include <regex>
+
 #include <MyGUI_Gui.h>
 #include <MyGUI_Timer.h>
 #include <MyGUI_LayerManager.h>
@@ -42,8 +44,10 @@
 namespace osgMyGUI
 {
 
+class GUICamera;
+
 class Drawable : public osg::Drawable {
-    osgMyGUI::RenderManager *mParent;
+    osgMyGUI::RenderManager *mManager;
     osg::ref_ptr<osg::StateSet> mStateSet;
 
 public:
@@ -77,26 +81,26 @@ public:
     {
     public:
         CollectDrawCalls()
-            : mRenderManager(nullptr)
+            : mCamera(nullptr)
+            , mFilter("")
         {
         }
 
-        void setRenderManager(osgMyGUI::RenderManager* renderManager)
+        void setCamera(osgMyGUI::GUICamera* camera)
         {
-            mRenderManager = renderManager;
+            mCamera = camera;
         }
 
-        virtual bool cull(osg::NodeVisitor*, osg::Drawable*, osg::State*) const
+        void setFilter(std::string filter)
         {
-            if (!mRenderManager)
-                return false;
-
-            mRenderManager->collectDrawCalls();
-            return false;
+            mFilter = filter;
         }
+
+        virtual bool cull(osg::NodeVisitor*, osg::Drawable*, osg::State*) const;
 
     private:
-        osgMyGUI::RenderManager* mRenderManager;
+        GUICamera* mCamera;
+        std::string mFilter;
     };
 
     // Stage 2: execute the draw calls. Run during the Draw traversal. May run in parallel with the update traversal of the next frame.
@@ -167,20 +171,24 @@ public:
     }
 
 public:
-    Drawable(osgMyGUI::RenderManager *parent = nullptr)
-        : mParent(parent)
+    Drawable(std::string filter = "", osgMyGUI::RenderManager *manager = nullptr, osgMyGUI::GUICamera* camera = nullptr)
+        : mManager(manager)
         , mWriteTo(0)
         , mReadFrom(0)
     {
         setSupportsDisplayList(false);
 
         osg::ref_ptr<CollectDrawCalls> collectDrawCalls = new CollectDrawCalls;
-        collectDrawCalls->setRenderManager(mParent);
+        collectDrawCalls->setCamera(camera);
+        collectDrawCalls->setFilter(filter);
         setCullCallback(collectDrawCalls);
 
-        osg::ref_ptr<FrameUpdate> frameUpdate = new FrameUpdate;
-        frameUpdate->setRenderManager(mParent);
-        setUpdateCallback(frameUpdate);
+        if (mManager)
+        {
+            osg::ref_ptr<FrameUpdate> frameUpdate = new FrameUpdate;
+            frameUpdate->setRenderManager(mManager);
+            setUpdateCallback(frameUpdate);
+        }
 
         mStateSet = new osg::StateSet;
         mStateSet->setMode(GL_LIGHTING, osg::StateAttribute::OFF);
@@ -196,7 +204,7 @@ public:
     }
     Drawable(const Drawable &copy, const osg::CopyOp &copyop=osg::CopyOp::SHALLOW_COPY)
         : osg::Drawable(copy, copyop)
-        , mParent(copy.mParent)
+        , mManager(copy.mManager)
         , mStateSet(copy.mStateSet)
         , mWriteTo(0)
         , mReadFrom(0)
@@ -349,15 +357,82 @@ osg::VertexBufferObject* OSGVertexBuffer::getVertexBuffer()
 
 // ---------------------------------------------------------------------------
 
-RenderManager::RenderManager(osgViewer::Viewer *viewer, osg::Group *sceneroot, Resource::ImageManager* imageManager, float scalingFactor, bool VRMode)
+/// Camera used to draw a MyGUI layer
+class GUICamera : public osg::Camera, public StateInjectableRenderTarget
+{
+public:
+    GUICamera(osg::Camera::RenderOrder order, RenderManager* parent, std::string filter)
+        : mParent(parent)
+        , mUpdate(false)
+    {
+        setReferenceFrame(osg::Transform::ABSOLUTE_RF);
+        setProjectionResizePolicy(osg::Camera::FIXED);
+        setProjectionMatrix(osg::Matrix::identity());
+        setViewMatrix(osg::Matrix::identity());
+        setRenderOrder(order);
+        setClearMask(GL_NONE);
+        setName("GUI Camera");
+        mDrawable = new Drawable(filter, parent, this);
+        mDrawable->setName("GUI Drawable");
+        addChild(mDrawable.get());
+        mDrawable->setCullingActive(false);
+    }
+
+    ~GUICamera()
+    {
+        mParent->deleteGUICamera(this);
+    }
+
+
+    // Called by the cull traversal
+    /** @see IRenderTarget::begin */
+    void begin() override;
+    void end() override;
+
+    /** @see IRenderTarget::doRender */
+    void doRender(MyGUI::IVertexBuffer* buffer, MyGUI::ITexture* texture, size_t count) override;
+
+
+    void collectDrawCalls();
+    void collectDrawCalls(std::string filter);
+
+    void setViewSize(MyGUI::IntSize viewSize);
+
+    /** @see IRenderTarget::getInfo */
+    const MyGUI::RenderTargetInfo& getInfo() override { return mInfo; }
+
+    RenderManager* mParent;
+    osg::ref_ptr<Drawable> mDrawable;
+    MyGUI::RenderTargetInfo mInfo;
+    bool mUpdate;
+};
+
+
+void GUICamera::begin()
+{
+    mDrawable->clear();
+    // variance will be recomputed based on textures being rendered in this frame
+    mDrawable->setDataVariance(osg::Object::STATIC);
+}
+
+bool Drawable::CollectDrawCalls::cull(osg::NodeVisitor*, osg::Drawable*, osg::State*) const
+{
+    if (!mCamera)
+        return false;
+
+    if (mFilter.empty())
+        mCamera->collectDrawCalls();
+    else
+        mCamera->collectDrawCalls(mFilter);
+    return false;
+}
+
+RenderManager::RenderManager(osgViewer::Viewer *viewer, osg::Group *sceneroot, Resource::ImageManager* imageManager, float scalingFactor)
   : mViewer(viewer)
   , mSceneRoot(sceneroot)
   , mImageManager(imageManager)
-  , mUpdate(false)
   , mIsInitialise(false)
   , mInvScalingFactor(1.f)
-  , mInjectState(nullptr)
-  , mVRMode(VRMode)
 {
     if (scalingFactor != 0.f)
         mInvScalingFactor = 1.f / scalingFactor;
@@ -367,9 +442,9 @@ RenderManager::~RenderManager()
 {
     MYGUI_PLATFORM_LOG(Info, "* Shutdown: "<<getClassTypeName());
 
-    if(mGuiRoot.valid())
-        mSceneRoot->removeChild(mGuiRoot.get());
-    mGuiRoot = nullptr;
+    for (auto guiCamera : mGuiCameras)
+        mSceneRoot->removeChild(guiCamera);
+    mGuiCameras.clear();
     mSceneRoot = nullptr;
     mViewer = nullptr;
 
@@ -387,27 +462,7 @@ void RenderManager::initialise()
 
     mVertexFormat = MyGUI::VertexColourType::ColourABGR;
 
-    mUpdate = false;
-
-    mDrawable = new Drawable(this);
-    mDrawable->setName("GUI Drawable");
-
-    osg::ref_ptr<osg::Camera> camera = new osg::Camera();
-    camera->setReferenceFrame(osg::Transform::ABSOLUTE_RF);
-    camera->setProjectionResizePolicy(osg::Camera::FIXED);
-    camera->setProjectionMatrix(osg::Matrix::identity());
-    camera->setViewMatrix(osg::Matrix::identity());
-    camera->setRenderOrder(mVRMode ? osg::Camera::NESTED_RENDER : osg::Camera::POST_RENDER);
-    camera->setClearMask(GL_NONE);
-    mDrawable->setCullingActive(false);
-    camera->addChild(mDrawable.get());
-    camera->setName("GUI Camera");
-
-    mGuiRoot = camera;
-    mSceneRoot->addChild(mGuiRoot.get());
-
-    osg::ref_ptr<osg::Viewport> vp = mViewer->getCamera()->getViewport();
-    setViewSize(vp->width(), vp->height());
+    mSceneRoot->addChild(createGUICamera(osg::Camera::POST_RENDER, ""));
 
     MYGUI_PLATFORM_LOG(Info, getClassTypeName()<<" successfully initialized");
     mIsInitialise = true;
@@ -415,8 +470,12 @@ void RenderManager::initialise()
 
 void RenderManager::shutdown()
 {
-    mGuiRoot->removeChildren(0, mGuiRoot->getNumChildren());
-    mSceneRoot->removeChild(mGuiRoot);
+    // TODO: Is this method meaningful? Why not just let the destructor handle everything?
+    for (auto guiCamera : mGuiCameras)
+    {
+        guiCamera->removeChildren(0, guiCamera->getNumChildren());
+        mSceneRoot->removeChild(guiCamera);
+    }
 }
 
 MyGUI::IVertexBuffer* RenderManager::createVertexBuffer()
@@ -429,15 +488,7 @@ void RenderManager::destroyVertexBuffer(MyGUI::IVertexBuffer *buffer)
     delete buffer;
 }
 
-
-void RenderManager::begin()
-{
-    mDrawable->clear();
-    // variance will be recomputed based on textures being rendered in this frame
-    mDrawable->setDataVariance(osg::Object::STATIC);
-}
-
-void RenderManager::doRender(MyGUI::IVertexBuffer *buffer, MyGUI::ITexture *texture, size_t count)
+void GUICamera::doRender(MyGUI::IVertexBuffer *buffer, MyGUI::ITexture *texture, size_t count)
 {
     Drawable::Batch batch;
     batch.mVertexCount = count;
@@ -450,31 +501,19 @@ void RenderManager::doRender(MyGUI::IVertexBuffer *buffer, MyGUI::ITexture *text
         if (batch.mTexture->getDataVariance() == osg::Object::DYNAMIC)
             mDrawable->setDataVariance(osg::Object::DYNAMIC); // only for this frame, reset in begin()
     }
+
     if (mInjectState)
         batch.mStateSet = mInjectState;
 
     mDrawable->addBatch(batch);
 }
 
-void RenderManager::onRenderToTarget(IRenderTarget* _target, bool _update)
-{
-    MyGUI::LayerManager* layers = MyGUI::LayerManager::getInstancePtr();
-    if (layers != nullptr)
-    {
-        for (unsigned i = 0; i < layers->getLayerCount(); i++)
-        {
-            auto layer = layers->getLayer(i);
-            layer->renderToTarget(_target, _update);
-        }
-    }
-}
-
-void RenderManager::setInjectState(osg::StateSet* stateSet)
+void StateInjectableRenderTarget::setInjectState(osg::StateSet* stateSet)
 {
     mInjectState = stateSet;
 }
 
-void RenderManager::end()
+void GUICamera::end()
 {
 }
 
@@ -490,13 +529,60 @@ void RenderManager::update()
     last_time = now_time;
 }
 
-void RenderManager::collectDrawCalls()
+void GUICamera::collectDrawCalls()
 {
     begin();
-    onRenderToTarget(this, mUpdate);
+    MyGUI::LayerManager* myGUILayers = MyGUI::LayerManager::getInstancePtr();
+    if (myGUILayers != nullptr)
+    {
+        for (unsigned i = 0; i < myGUILayers->getLayerCount(); i++)
+        {
+            auto layer = myGUILayers->getLayer(i);
+            layer->renderToTarget(this, mUpdate);
+        }
+    }
     end();
 
     mUpdate = false;
+}
+
+void GUICamera::collectDrawCalls(std::string filter)
+{
+    begin();
+    MyGUI::LayerManager* myGUILayers = MyGUI::LayerManager::getInstancePtr();
+    if (myGUILayers != nullptr)
+    {
+        std::regex layerRegex{ filter, std::regex_constants::icase };
+        for (unsigned i = 0; i < myGUILayers->getLayerCount(); i++)
+        {
+            auto layer = myGUILayers->getLayer(i);
+
+            auto name = layer->getName();
+
+            if (std::regex_search(name, layerRegex))
+            {
+                //std::cout << "Including Layer: " << layer->getName() << std::endl;
+                layer->renderToTarget(this, mUpdate);
+            }
+            else {
+                //std::cout << "Excluding Layer: " << layer->getName() << std::endl;
+            }
+        }
+    }
+    end();
+
+    mUpdate = false;
+}
+
+void GUICamera::setViewSize(MyGUI::IntSize viewSize)
+{
+    mInfo.maximumDepth = 1;
+    mInfo.hOffset = 0;
+    mInfo.vOffset = 0;
+    mInfo.aspectCoef = float(viewSize.height) / float(viewSize.width);
+    mInfo.pixScaleX = 1.0f / float(viewSize.width);
+    mInfo.pixScaleY = 1.0f / float(viewSize.height);
+    mUpdate = true;
 }
 
 void RenderManager::setViewSize(int width, int height)
@@ -504,19 +590,29 @@ void RenderManager::setViewSize(int width, int height)
     if(width < 1) width = 1;
     if(height < 1) height = 1;
 
-    mGuiRoot->setViewport(0, 0, width, height);
-
     mViewSize.set(width * mInvScalingFactor, height * mInvScalingFactor);
 
-    mInfo.maximumDepth = 1;
-    mInfo.hOffset = 0;
-    mInfo.vOffset = 0;
-    mInfo.aspectCoef = float(mViewSize.height) / float(mViewSize.width);
-    mInfo.pixScaleX = 1.0f / float(mViewSize.width);
-    mInfo.pixScaleY = 1.0f / float(mViewSize.height);
-
+    for (auto* camera : mGuiCameras)
+    {
+        GUICamera* guiCamera = static_cast<GUICamera*>(camera);
+        guiCamera->setViewport(0, 0, width, height);
+        guiCamera->setViewSize(mViewSize);
+    }
     onResizeView(mViewSize);
-    mUpdate = true;
+}
+
+osg::ref_ptr<osg::Camera> RenderManager::createGUICamera(int order, std::string layerFilter)
+{
+    osg::ref_ptr<GUICamera> camera = new GUICamera(static_cast<osg::Camera::RenderOrder>(order), this, layerFilter);
+    mGuiCameras.insert(camera);
+    osg::ref_ptr<osg::Viewport> vp = mViewer->getCamera()->getViewport();
+    setViewSize(vp->width(), vp->height());
+    return camera;
+}
+
+void RenderManager::deleteGUICamera(GUICamera* camera)
+{
+    mGuiCameras.erase(camera);
 }
 
 
