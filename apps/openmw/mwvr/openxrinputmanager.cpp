@@ -828,16 +828,7 @@ private:
 
             if (node && node->getName() == "VRGUILayer")
             {
-                // Intersected with a GUI layer
-                // Inject mouse press
-                //VRGUILayerUserData* userData = static_cast<VRGUILayerUserData*>(node->getUserData());
-                //userData->mLayer->injectMouseClick(SDL_BUTTON_LEFT, onPress);
                 injectMousePress(SDL_BUTTON_LEFT, onPress);
-                //SDL_MouseButtonEvent arg;
-                //if (onPress)
-                //    mousePressed(arg, SDL_BUTTON_LEFT);
-                //else
-                //    mouseReleased(arg, SDL_BUTTON_LEFT);
             }
             else if (onPress)
             {
@@ -919,35 +910,11 @@ private:
     {
         mXRInput->updateControls();
 
-        auto* world = MWBase::Environment::get().getWorld();
-        auto* anim = MWVR::Environment::get().getPlayerAnimation();
-        if (world && anim && anim->mPointerTarget.mHit)
-        {
-            auto* node = anim->mPointerTarget.mHitNode;
-            auto* vrGuiManager = Environment::get().getGUIManager();
-            if (node && node->getName() == "VRGUILayer")
-            {
-                int w, h;
-                SDL_GetWindowSize(mWindow, &w, &h);
-
-                osg::Vec3 local = anim->mPointerTarget.mHitPointLocal;
-                local.x() = (local.x() + 1.f) / 2.f;
-                local.z() = 1.f - (local.z() + 1.f) / 2.f;
-
-                mGuiCursorX = mInvUiScalingFactor * (local.x() * w);
-                mGuiCursorY = mInvUiScalingFactor * (local.z() * h);
-
-                VRGUILayerUserData* userData = static_cast<VRGUILayerUserData*>(node->getUserData());
-                vrGuiManager->setFocusLayer(userData->mLayer);
-                MyGUI::InputManager::getInstance().injectMouseMove((int)mGuiCursorX, (int)mGuiCursorY, 0);
-            }
-            else
-            {
-                vrGuiManager->setFocusLayer(nullptr);
-            }
-        }
-
-
+        auto* vrGuiManager = Environment::get().getGUIManager();
+        vrGuiManager->updateFocus();
+        auto guiCursor = vrGuiManager->guiCursor();
+        mGuiCursorX = guiCursor.x();
+        mGuiCursorY = guiCursor.y();
 
         OpenXRActionEvent event{};
         while (mXRInput->nextActionEvent(event))
@@ -988,7 +955,8 @@ private:
                 toggleMainMenu();
                 // Explicitly request position update here so that the player can move the menu
                 // using the menu key when the menu can't be toggled.
-                xrGUIManager->updatePose();
+                // TODO: This should respond to a menu HODL instead
+                // xrGUIManager->updateTracking();
                 break;
         case A_Screenshot:
             screenshot();

@@ -266,7 +266,11 @@ namespace MWGui
     // --------------------------------------------------------------------------------------------------
 
     DialogueWindow::DialogueWindow()
+#ifdef USE_OPENXR
+        : WindowBase("openmw_dialogue_window_vr.layout")
+#else
         : WindowBase("openmw_dialogue_window.layout")
+#endif
         , mIsCompanion(false)
         , mGoodbye(false)
         , mPersuasionDialog(new ResponseCallback(this))

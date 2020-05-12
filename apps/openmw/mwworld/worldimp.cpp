@@ -1100,6 +1100,15 @@ namespace MWWorld
 
     MWWorld::Ptr World::getFacedObject()
     {
+#ifdef USE_OPENXR
+
+        auto* anim = MWVR::Environment::get().getPlayerAnimation();
+        if (anim && anim->mPointerTarget.mHit)
+            return anim->mPointerTarget.mHitObject;
+        else
+            return MWWorld::Ptr();
+#endif
+
         MWWorld::Ptr facedObject;
 
         if (MWBase::Environment::get().getWindowManager()->isGuiMode() &&

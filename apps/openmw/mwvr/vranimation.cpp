@@ -465,7 +465,7 @@ VRAnimation::VRAnimation(
     );
     mWeaponPointerTransform->setName("Weapon Pointer");
     mWeaponPointerTransform->setUpdateCallback(new WeaponPointerController);
-    mWeaponDirectionTransform->addChild(mWeaponPointerTransform);
+    //mWeaponDirectionTransform->addChild(mWeaponPointerTransform);
 }
 
 VRAnimation::~VRAnimation() {};
@@ -538,7 +538,13 @@ void VRAnimation::setPointForward(bool enabled)
 
     mPointerTransform->removeChild(mPointerRescale);
     if (enabled)
+    {
         mPointerTransform->addChild(mPointerRescale);
+    }
+    else
+    {
+        mPointerTarget = MWRender::RayResult{};
+    }
 }
 
 osg::ref_ptr<osg::Geometry> VRAnimation::createPointerGeometry(void)

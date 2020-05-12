@@ -47,8 +47,8 @@ public:
     //! Update predictions
     void predictNext(int extraPeriods);
 
-    //! Yaw angle to be used for offsetting movement direction
-    float movementYaw(void);
+    //! Angles to be used for overriding movement direction
+    void movementAngles(float& yaw, float& pitch);
 
     void advanceFrame(void);
 

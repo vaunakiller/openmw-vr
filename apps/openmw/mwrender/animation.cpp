@@ -898,6 +898,7 @@ namespace MWRender
 
 
         const bool isPlayer = (mPtr == MWMechanics::getPlayer());
+
         if (isPlayer)
         {
             Log(Debug::Verbose) << "groupname=" << groupname << ", start=" << start << ", stop=" << stop << ", accumRoot=" << mAccumRoot->getName();
@@ -1068,7 +1069,8 @@ namespace MWRender
         if (groupname.compare(0, 4, "jump"))
             if (groupname.compare(0, 4, "walk"))
                 if (groupname.compare(0, 3, "run"))
-                    return false;
+                    if (groupname.compare(0, 4, "swim"))
+                        return false;
 #else
         (void)groupname;
 #endif

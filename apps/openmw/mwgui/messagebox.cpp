@@ -117,6 +117,8 @@ namespace MWGui
             messageBox->update(height);
             height += messageBox->getHeight();
         }
+
+        box->setVisible(true);
     }
 
     void MessageBoxManager::removeStaticMessageBox ()
@@ -187,6 +189,11 @@ namespace MWGui
         getWidget(mMessageWidget, "message");
 
         mMessageWidget->setCaptionWithReplacing(mMessage);
+    }
+
+    MessageBox::~MessageBox()
+    {
+        setVisible(false);
     }
 
     void MessageBox::update (int height)

@@ -204,6 +204,10 @@ namespace MWGui
         mGuiPlatform = new osgMyGUI::Platform(viewer, guiRoot, resourceSystem->getImageManager(), uiScale);
         mGuiPlatform->initialise(resourcePath, logpath);
 
+#ifdef USE_OPENXR
+        mGuiPlatform->getRenderManagerPtr()->setViewSize(1024, 1024);
+#endif
+
         mGui = new MyGUI::Gui;
         mGui->initialise("");
 
@@ -1246,6 +1250,9 @@ namespace MWGui
 
     void WindowManager::windowResized(int x, int y)
     {
+#ifdef USE_OPENXR
+        return;
+#endif
         mGuiPlatform->getRenderManagerPtr()->setViewSize(x, y);
 
         // scaled size

@@ -4,6 +4,7 @@
 #include <map>
 #include <set>
 #include <regex>
+#include <MyGUI_Widget.h>
 
 #include <osg/Geometry>
 #include <osg/TexMat>
@@ -34,21 +35,34 @@ namespace MWVR
 
     enum class TrackingMode
     {
-        Auto, //!< Update tracking every frame
-        Manual //!< Update tracking only on user request or when GUI visibility changes.
+        Menu, //!< Menu quads with fixed position based on head tracking.
+        HudLeftHand, //!< Hud quads tracking the left hand every frame
+        HudRightHand, //!< Hud quads tracking the right hand every frame
+    };
+
+    // Some UI elements should occupy predefined geometries
+    // Others should grow/shrink freely
+    enum class SizingMode
+    {
+        Auto,
+        Fixed
     };
 
     struct LayerConfig
     {
-        bool stretch; //!< Resize layer window to occupy full quad
+        int priority; //!< Higher priority shows over lower priority windows.
+        bool sideBySide; //!< Resize layer window to occupy full quad
         osg::Vec4 backgroundColor; //!< Background color of layer
-        osg::Quat rotation; //!< Rotation relative to the tracking node
         osg::Vec3 offset; //!< Offset from tracked node in meters
-        osg::Vec2 extent; //!< Spatial extent of the layer in meters
-        osg::Vec2i resolution; //!< Pixel resolution of the texture
-        TrackedLimb trackedLimb; //!< Which limb to track
+        osg::Vec2 center; //!< Model space centerpoint of menu geometry. All menu geometries have model space lengths of 1 in each dimension. Use this to affect how geometries grow with changing size.
+        osg::Vec2 extent; //!< Spatial extent of the layer in meters when using Fixed sizing mode
+        int spatialResolution; //!< Pixels when using the Auto sizing mode. \note Meters per pixel of the GUI viewport, not the RTT texture.
+        osg::Vec2i pixelResolution; //!< Pixel resolution of the RTT texture
+        osg::Vec2 myGUIViewSize; //!< Resizable elements are resized to this (fraction of full view)
+        SizingMode sizingMode; //!< How to size the layer
         TrackingMode trackingMode; //!< Tracking mode
-        bool vertical; //!< Make layer vertical regardless of tracking orientation
+
+        bool operator<(const LayerConfig& rhs) const { return priority < rhs.priority; }
     };
 
     class VRGUILayer
@@ -57,11 +71,8 @@ namespace MWVR
         VRGUILayer(
             osg::ref_ptr<osg::Group> geometryRoot,
             osg::ref_ptr<osg::Group> cameraRoot,
-            int width,
-            int height,
             std::string filter,
             LayerConfig config,
-            MWGui::Layout* widget,
             VRGUIManager* parent);
         ~VRGUILayer();
 
@@ -69,33 +80,39 @@ namespace MWVR
 
         osg::ref_ptr<osg::Texture2D> menuTexture();
 
+        void setAngle(float angle);
+        void updateTracking(const Pose& headPose = {});
         void updatePose();
+        void updateRect();
         void update();
+
+        void insertWidget(MWGui::Layout* widget);
+        void removeWidget(MWGui::Layout* widget);
+        int  widgetCount() { return mWidgets.size(); }
+
+        bool operator<(const VRGUILayer& rhs) const { return mConfig.priority < rhs.mConfig.priority; }
 
     public:
         Pose mTrackedPose{};
-        Pose mLayerPose{};
         LayerConfig mConfig;
         std::string mFilter;
-        MWGui::Layout* mWidget;
-        MWGui::WindowBase* mWindow;
-        MyGUI::Window* mMyGUIWindow;
-        VRGUIManager* mParent;
+        std::vector<MWGui::Layout*> mWidgets;
         osg::ref_ptr<osg::Group> mGeometryRoot;
         osg::ref_ptr<osg::Geometry> mGeometry{ new osg::Geometry };
         osg::ref_ptr<osg::PositionAttitudeTransform> mTransform{ new osg::PositionAttitudeTransform };
-
         osg::ref_ptr<osg::Group> mCameraRoot;
-        osg::ref_ptr<osg::StateSet> mStateSet{ new osg::StateSet };
         osg::ref_ptr<GUICamera> mGUICamera;
+        osg::ref_ptr<osg::Camera> mMyGUICamera{ nullptr };
+        MyGUI::FloatRect mRealRect{};
+        osg::Quat mRotation{ 0,0,0,1 };
     };
 
     class VRGUILayerUserData : public osg::Referenced
     {
     public:
-        VRGUILayerUserData(VRGUILayer* layer) : mLayer(layer) {};
+        VRGUILayerUserData(std::shared_ptr<VRGUILayer> layer) : mLayer(layer) {};
 
-        VRGUILayer* mLayer;
+        std::weak_ptr<VRGUILayer> mLayer;
     };
 
     class VRGUIManager
@@ -110,18 +127,38 @@ namespace MWVR
 
         void setVisible(MWGui::Layout*, bool visible);
 
-        void updatePose(void);
+        void updateSideBySideLayers();
+
+        void insertLayer(const std::string& name);
+
+        void insertWidget(MWGui::Layout* widget);
+
+        void removeLayer(const std::string& name);
+
+        void removeWidget(MWGui::Layout* widget);
+
+        void updateTracking(void);
+
+        void updateFocus();
 
         void setFocusLayer(VRGUILayer* layer);
 
+        osg::Vec2i guiCursor() { return mGuiCursor; };
+
     private:
+        void computeGuiCursor(osg::Vec3 hitPoint);
+
         osg::ref_ptr<osgViewer::Viewer> mOsgViewer{ nullptr };
 
         osg::ref_ptr<osg::Group> mGUIGeometriesRoot{ new osg::Group };
         osg::ref_ptr<osg::Group> mGUICamerasRoot{ new osg::Group };
 
-        std::map<std::string, std::unique_ptr<VRGUILayer>> mLayers;
+        std::map<std::string, std::shared_ptr<VRGUILayer>> mLayers;
+        std::vector<std::shared_ptr<VRGUILayer> > mSideBySideLayers;
 
+        int         mVisibleMenus{ 0 };
+        Pose        mHeadPose{};
+        osg::Vec2i  mGuiCursor{};
         VRGUILayer* mFocusLayer{ nullptr };
     };
 }

@@ -103,10 +103,13 @@ namespace MWGui
         , mIsDrowning(false)
         , mDrowningFlashTheta(0.f)
     {
-#ifndef USE_OPENXR
-        mMainWidget->setSize(MyGUI::RenderManager::getInstance().getViewSize());
-#endif
+#ifdef USE_OPENXR
         mMainWidgetBaseSize = mMainWidget->getSize();
+        mMainWidget->setSize(mMainWidgetBaseSize);
+#else
+        mMainWidget->setSize(MyGUI::RenderManager::getInstance().getViewSize());
+        mMainWidgetBaseSize = mMainWidget->getSize();
+#endif
 
         // Energy bars
         getWidget(mHealthFrame, "HealthFrame");
@@ -381,9 +384,6 @@ namespace MWGui
             mDrowningFlashTheta += dt * osg::PI*2;
 
         mSpellIcons->updateWidgets(mEffectBox, true);
-        Log(Debug::Verbose) << "Size: " << mMainWidget->getSize();
-        Log(Debug::Verbose) << "width: " << mMainWidget->getWidth();
-        Log(Debug::Verbose) << "height: " << mMainWidget->getHeight();
 
         if (mEnemyActorId != -1 && mEnemyHealth->getVisible())
         {

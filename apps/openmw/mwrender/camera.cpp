@@ -361,10 +361,12 @@ namespace MWRender
         if(mPreviewMode)
             limit /= 2;
 
+#ifndef USE_OPENXR
         if(angle > limit)
             angle = limit;
         else if(angle < -limit)
             angle = -limit;
+#endif
 
         if (mVanity.enabled || mPreviewMode) {
             mPreviewCam.pitch = angle;

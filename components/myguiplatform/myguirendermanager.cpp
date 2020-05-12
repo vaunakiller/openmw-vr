@@ -364,6 +364,7 @@ public:
     GUICamera(osg::Camera::RenderOrder order, RenderManager* parent, std::string filter)
         : mParent(parent)
         , mUpdate(false)
+        , mFilter(filter)
     {
         setReferenceFrame(osg::Transform::ABSOLUTE_RF);
         setProjectionResizePolicy(osg::Camera::FIXED);
@@ -405,6 +406,7 @@ public:
     osg::ref_ptr<Drawable> mDrawable;
     MyGUI::RenderTargetInfo mInfo;
     bool mUpdate;
+    std::string mFilter;
 };
 
 
@@ -436,6 +438,10 @@ RenderManager::RenderManager(osgViewer::Viewer *viewer, osg::Group *sceneroot, R
 {
     if (scalingFactor != 0.f)
         mInvScalingFactor = 1.f / scalingFactor;
+
+
+    osg::ref_ptr<osg::Viewport> vp = mViewer->getCamera()->getViewport();
+    setViewSize(vp->width(), vp->height());
 }
 
 RenderManager::~RenderManager()
@@ -552,21 +558,13 @@ void GUICamera::collectDrawCalls(std::string filter)
     MyGUI::LayerManager* myGUILayers = MyGUI::LayerManager::getInstancePtr();
     if (myGUILayers != nullptr)
     {
-        std::regex layerRegex{ filter, std::regex_constants::icase };
         for (unsigned i = 0; i < myGUILayers->getLayerCount(); i++)
         {
             auto layer = myGUILayers->getLayer(i);
-
             auto name = layer->getName();
 
-            if (std::regex_search(name, layerRegex))
-            {
-                //std::cout << "Including Layer: " << layer->getName() << std::endl;
+            if (name == filter)
                 layer->renderToTarget(this, mUpdate);
-            }
-            else {
-                //std::cout << "Excluding Layer: " << layer->getName() << std::endl;
-            }
         }
     }
     end();
@@ -590,6 +588,11 @@ void RenderManager::setViewSize(int width, int height)
     if(width < 1) width = 1;
     if(height < 1) height = 1;
 
+////#ifdef USE_OPENXR
+//    width = 1024;
+//    height = 1024;
+////#endif
+
     mViewSize.set(width * mInvScalingFactor, height * mInvScalingFactor);
 
     for (auto* camera : mGuiCameras)
@@ -605,8 +608,8 @@ osg::ref_ptr<osg::Camera> RenderManager::createGUICamera(int order, std::string 
 {
     osg::ref_ptr<GUICamera> camera = new GUICamera(static_cast<osg::Camera::RenderOrder>(order), this, layerFilter);
     mGuiCameras.insert(camera);
-    osg::ref_ptr<osg::Viewport> vp = mViewer->getCamera()->getViewport();
-    setViewSize(vp->width(), vp->height());
+    camera->setViewport(0, 0, mViewSize.width, mViewSize.height);
+    camera->setViewSize(mViewSize);
     return camera;
 }
 

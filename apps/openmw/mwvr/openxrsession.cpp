@@ -131,14 +131,12 @@ namespace MWVR
         roll = angle_y;
     }
 
-    float OpenXRSession::movementYaw(void)
+    void OpenXRSession::movementAngles(float& yaw, float& pitch)
     {
         auto lhandquat = predictedPoses(PredictionSlice::Predraw).hands[(int)TrackedSpace::VIEW][(int)MWVR::Side::LEFT_HAND].orientation;
-        float yaw = 0.f;
-        float pitch = 0.f;
         float roll = 0.f;
         getEulerAngles(lhandquat, yaw, pitch, roll);
-        return yaw;
+        
     }
 
     void OpenXRSession::advanceFrame(void)

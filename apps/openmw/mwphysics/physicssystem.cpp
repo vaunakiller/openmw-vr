@@ -297,7 +297,10 @@ namespace MWPhysics
                 auto* session = MWVR::Environment::get().getSession();
                 if (session)
                 {
-                    float yaw = session->movementYaw();
+                    float pitch = 0.f;
+                    float yaw = 0.f;
+                    session->movementAngles(yaw, pitch);
+                    refpos.rot[0] += pitch;
                     refpos.rot[2] += yaw;
                 }
             }

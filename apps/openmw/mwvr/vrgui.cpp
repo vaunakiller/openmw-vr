@@ -20,6 +20,7 @@
 #include "../mwrender/camera.hpp"
 #include "../mwbase/world.hpp"
 #include "../mwbase/environment.hpp"
+#include "../mwbase/windowmanager.hpp"
 #include "../mwgui/windowbase.hpp"
 
 #include <MyGUI_Widget.h>
@@ -28,8 +29,21 @@
 #include <MyGUI_WidgetManager.h>
 #include <MyGUI_Window.h>
 
+namespace osg
+{
+// Convenience
+const double PI_8 = osg::PI_4 / 2.;
+}
+
 namespace MWVR
 {
+
+// When making a circle of a given radius of equally wide planes separated by a given angle, what is the width
+static osg::Vec2 radiusAngleWidth(float radius, float angleRadian)
+{
+    const float width = std::fabs( 2.f * radius * std::tanf(angleRadian / 2.f) );
+    return osg::Vec2(width, width);
+}
 
 /// RTT camera used to draw the osg GUI to a texture
 class GUICamera : public osg::Camera
@@ -120,18 +134,11 @@ private:
 VRGUILayer::VRGUILayer(
     osg::ref_ptr<osg::Group> geometryRoot,
     osg::ref_ptr<osg::Group> cameraRoot,
-    int width,
-    int height,
     std::string filter,
     LayerConfig config,
-    MWGui::Layout* widget,
     VRGUIManager* parent)
     : mConfig(config)
     , mFilter(filter)
-    , mWidget(widget)
-    , mWindow(dynamic_cast<MWGui::WindowBase*>(mWidget))
-    , mMyGUIWindow(dynamic_cast<MyGUI::Window*>(mWidget->mMainWidget))
-    , mParent(parent)
     , mGeometryRoot(geometryRoot)
     , mCameraRoot(cameraRoot)
 {
@@ -139,14 +146,18 @@ VRGUILayer::VRGUILayer(
     osg::ref_ptr<osg::Vec2Array> texCoords{ new osg::Vec2Array(4) };
     osg::ref_ptr<osg::Vec3Array> normals{ new osg::Vec3Array(1) };
 
-    // Units are divided by 2 because geometry has an extent of 2 (-1 to 1)
-    auto extent_units = config.extent * Environment::get().unitsPerMeter() / 2.f;
+    auto extent_units = config.extent * Environment::get().unitsPerMeter();
+
+    float left = mConfig.center.x() - 0.5;
+    float right = left + 1.f;
+    float top = 0.5f + mConfig.center.y();
+    float bottom = top - 1.f;
 
     // Define the menu quad
-    osg::Vec3 top_left    (-1, 1, 1);
-    osg::Vec3 bottom_left(-1, 1, -1);
-    osg::Vec3 bottom_right(1, 1, -1);
-    osg::Vec3 top_right   (1, 1, 1);
+    osg::Vec3 top_left    (left, 1, top);
+    osg::Vec3 bottom_left(left, 1, bottom);
+    osg::Vec3 bottom_right(right , 1, bottom);
+    osg::Vec3 top_right   (right, 1, top);
     (*vertices)[0] = top_left;
     (*vertices)[1] = bottom_left;
     (*vertices)[2] = bottom_right;
@@ -163,20 +174,23 @@ VRGUILayer::VRGUILayer(
     mGeometry->setDataVariance(osg::Object::DYNAMIC);
     mGeometry->setSupportsDisplayList(false);
     mGeometry->setName("VRGUILayer");
-    mGeometry->setUserData(new VRGUILayerUserData(this));
 
     // Create the camera that will render the menu texture
-    mGUICamera = new GUICamera(width, height, config.backgroundColor);
+    mGUICamera = new GUICamera(config.pixelResolution.x(), config.pixelResolution.y(), config.backgroundColor);
     osgMyGUI::RenderManager& renderManager = static_cast<osgMyGUI::RenderManager&>(MyGUI::RenderManager::getInstance());
-    mGUICamera->setScene(renderManager.createGUICamera(osg::Camera::NESTED_RENDER, filter));
+    mMyGUICamera = renderManager.createGUICamera(osg::Camera::NESTED_RENDER, filter);
+    //myGUICamera->setViewport(0, 0, 256, 256);
+    //mMyGUICamera->setProjectionMatrixAsOrtho2D(-1, 1, -1, 1);
+    mGUICamera->setScene(mMyGUICamera);
 
     // Define state set that allows rendering with transparency
-    mStateSet->setTextureAttributeAndModes(0, menuTexture(), osg::StateAttribute::ON);
-    mStateSet->setMode(GL_LIGHTING, osg::StateAttribute::OFF);
-    mStateSet->setMode(GL_BLEND, osg::StateAttribute::ON);
-    mStateSet->setAttributeAndModes(new osg::BlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA));
-    mStateSet->setRenderingHint(osg::StateSet::TRANSPARENT_BIN);
-    mGeometry->setStateSet(mStateSet);
+    osg::StateSet* stateSet = mGeometry->getOrCreateStateSet();
+    stateSet->setTextureAttributeAndModes(0, menuTexture(), osg::StateAttribute::ON);
+    stateSet->setMode(GL_LIGHTING, osg::StateAttribute::OFF);
+    stateSet->setMode(GL_BLEND, osg::StateAttribute::ON);
+    stateSet->setAttributeAndModes(new osg::BlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA));
+    stateSet->setRenderingHint(osg::StateSet::TRANSPARENT_BIN);
+    mGeometry->setStateSet(stateSet);
 
     // Position in the game world
     mTransform->setScale(osg::Vec3(extent_units.x(), 1.f, extent_units.y()));
@@ -185,6 +199,10 @@ VRGUILayer::VRGUILayer(
     // Add to scene graph
     mGeometryRoot->addChild(mTransform);
     mCameraRoot->addChild(mGUICamera);
+
+    // Edit offset to account for priority
+    if(!mConfig.sideBySide)
+        mConfig.offset.y() -= 0.001f * mConfig.priority;
 
     mTransform->addUpdateCallback(new LayerUpdateCallback(this));
 }
@@ -206,68 +224,174 @@ osg::ref_ptr<osg::Texture2D> VRGUILayer::menuTexture()
     return nullptr;
 }
 
-void VRGUILayer::updatePose()
+void VRGUILayer::setAngle(float angle)
 {
-    osg::Vec3 eye{};
-    osg::Vec3 center{};
-    osg::Vec3 up{};
+    mRotation = osg::Quat{ angle, osg::Z_AXIS };
+    updatePose();
+}
 
-    // Get head pose by reading the camera view matrix to place the GUI in the world.
-    Pose headPose{};
-    auto* world = MWBase::Environment::get().getWorld();
-    if (!world)
-        return;
-    auto* camera = world->getRenderingManager().getCamera()->getOsgCamera();
-    if (!camera)
-        return;
-    camera->getViewMatrixAsLookAt(eye, center, up);
-    headPose.position = eye;
-    headPose.orientation = camera->getViewMatrix().getRotate();
-
-    if (mConfig.trackedLimb == TrackedLimb::HEAD)
+void VRGUILayer::updateTracking(const Pose& headPose)
+{
+    if (mConfig.trackingMode == TrackingMode::Menu)
     {
         mTrackedPose = headPose;
-        mTrackedPose.orientation = mTrackedPose.orientation.inverse();
     }
     else
     {
-        // If it's not head, it's one of the hands, so i don't bother checking
-        auto* session = MWVR::Environment::get().getSession();
-        auto& poses = session->predictedPoses(OpenXRSession::PredictionSlice::Predraw);
-        mTrackedPose = poses.hands[(int)TrackedSpace::STAGE][(int)mConfig.trackedLimb];
-        // World position is the head, so must add difference between head and hand in tracking space to world pose
-        mTrackedPose.position = mTrackedPose.position * MWVR::Environment::get().unitsPerMeter() - poses.head[(int)TrackedSpace::STAGE].position * MWVR::Environment::get().unitsPerMeter() + headPose.position;
+        auto* anim = MWVR::Environment::get().getPlayerAnimation();
+        if (anim)
+        {
+            const osg::Node* hand = nullptr;
+            if (mConfig.trackingMode == TrackingMode::HudLeftHand)
+                hand = anim->getNode("bip01 l hand");
+            else
+                hand = anim->getNode("bip01 r hand");
+            if (hand)
+            {
+                auto world = osg::computeLocalToWorld(hand->getParentalNodePaths()[0]);
+                mTrackedPose.position = world.getTrans();
+                mTrackedPose.orientation = world.getRotate();
+                if (mConfig.trackingMode == TrackingMode::HudRightHand)
+                    mTrackedPose.orientation = osg::Quat(osg::PI, osg::Vec3(1, 0, 0)) * mTrackedPose.orientation;
+                mTrackedPose.orientation = osg::Quat(osg::PI_2, osg::Vec3(0, 0, 1)) * mTrackedPose.orientation;
+                mTrackedPose.orientation = osg::Quat(osg::PI, osg::Vec3(1, 0, 0)) * mTrackedPose.orientation;
+            }
+        }
     }
 
-    mLayerPose.orientation = mConfig.rotation * mTrackedPose.orientation;
+    updatePose();
+}
 
-    if (mConfig.vertical)
+void VRGUILayer::updatePose()
+{
+
+    auto orientation = mRotation * mTrackedPose.orientation;
+
+    if (mConfig.trackingMode == TrackingMode::Menu)
     {
-        // Force layer to be vertical
+        // Force menu layers to be vertical
         auto axis = osg::Z_AXIS;
         osg::Quat vertical;
-        auto local = mLayerPose.orientation * axis;
+        auto local = orientation * axis;
         vertical.makeRotate(local, axis);
-        mLayerPose.orientation = mLayerPose.orientation * vertical;
+        orientation = orientation * vertical;
     }
     // Orient the offset and move the layer
-    mLayerPose.position = mTrackedPose.position + mLayerPose.orientation * mConfig.offset * MWVR::Environment::get().unitsPerMeter();
+    auto position = mTrackedPose.position + orientation * mConfig.offset * MWVR::Environment::get().unitsPerMeter();
 
-    mTransform->setAttitude(mLayerPose.orientation);
-    mTransform->setPosition(mLayerPose.position);
+    mTransform->setAttitude(orientation);
+    mTransform->setPosition(position);
+}
+
+void VRGUILayer::updateRect()
+{
+    auto viewSize = MyGUI::RenderManager::getInstance().getViewSize();
+    mRealRect.left = 1.f;
+    mRealRect.top = 1.f;
+    mRealRect.right = 0.f;
+    mRealRect.bottom = 0.f;
+    float realWidth = static_cast<float>(viewSize.width);
+    float realHeight = static_cast<float>(viewSize.height);
+    for (auto* widget : mWidgets)
+    {
+        auto rect = widget->mMainWidget->getAbsoluteRect();
+        mRealRect.left = std::min(static_cast<float>(rect.left) / realWidth, mRealRect.left);
+        mRealRect.top = std::min(static_cast<float>(rect.top) / realHeight, mRealRect.top);
+        mRealRect.right = std::max(static_cast<float>(rect.right) / realWidth, mRealRect.right);
+        mRealRect.bottom = std::max(static_cast<float>(rect.bottom) / realHeight, mRealRect.bottom);
+    }
+
+    // Some widgets don't capture the full visual
+    if (mFilter == "JournalBooks" || mFilter == "MessageBox" )
+    {
+        mRealRect.left = 0.f;
+        mRealRect.top = 0.f;
+        mRealRect.right = 1.f;
+        mRealRect.bottom = 1.f;
+    }
+
+    if (mFilter == "Notification")
+    {
+        // The latest widget for notification is always the top one
+        // So we just have to stretch the rectangle to the bottom
+        // TODO: This might get deprecated with this new system?
+        mRealRect.bottom = 1.f;
+    }
 }
 
 void VRGUILayer::update()
 {
-    if (mConfig.trackingMode == TrackingMode::Auto)
-        updatePose();
+    if (mConfig.trackingMode != TrackingMode::Menu)
+        updateTracking();
 
-    if (mConfig.stretch)
+    if (mConfig.sideBySide)
     {
-        if (mWindow && mMyGUIWindow)
+        // The side-by-side windows are also the resizable windows.
+        // Stretch according to config
+        // This genre of layer should only ever have 1 widget as it will cover the full layer
+        auto* widget = mWidgets.front();
+        auto* myGUIWindow = dynamic_cast<MyGUI::Window*>(widget->mMainWidget);
+        auto* windowBase = dynamic_cast<MWGui::WindowBase*>(widget);
+        if (windowBase && myGUIWindow)
         {
-            mWindow->setCoordf(0.f, 0.f, 1.f, 1.f);
-            mWindow->onWindowResize(mMyGUIWindow);
+            auto w = mConfig.myGUIViewSize.x();
+            auto h = mConfig.myGUIViewSize.y();
+            windowBase->setCoordf(0.f, 0.f, w, h);
+            windowBase->onWindowResize(myGUIWindow);
+        }
+    }
+    updateRect();
+
+    float w = 0.f; 
+    float h = 0.f;
+    for (auto* widget : mWidgets)
+    {
+        w = std::max(w, (float)widget->mMainWidget->getWidth());
+        h = std::max(h, (float)widget->mMainWidget->getHeight());
+    }
+
+    // Pixels per unit
+    float res = static_cast<float>(mConfig.spatialResolution) / Environment::get().unitsPerMeter();
+
+    if (mConfig.sizingMode == SizingMode::Auto)
+    {
+        mTransform->setScale(osg::Vec3(w / res, 1.f, h / res));
+    }
+    if (mFilter == "Notification")
+    {
+        auto viewSize = MyGUI::RenderManager::getInstance().getViewSize();
+        h = (1.f - mRealRect.top) * viewSize.height;
+        mTransform->setScale(osg::Vec3(w / res, 1.f, h / res));
+    }
+
+    osg::ref_ptr<osg::Vec2Array> texCoords{ new osg::Vec2Array(4) };
+    (*texCoords)[0].set(mRealRect.left, 1.f - mRealRect.top);
+    (*texCoords)[1].set(mRealRect.left, 1.f - mRealRect.bottom);
+    (*texCoords)[2].set(mRealRect.right, 1.f - mRealRect.bottom);
+    (*texCoords)[3].set(mRealRect.right, 1.f - mRealRect.top);
+    mGeometry->setTexCoordArray(0, texCoords);
+}
+
+void 
+VRGUILayer::insertWidget(
+    MWGui::Layout* widget)
+{
+    for (auto* w : mWidgets)
+        if (w == widget)
+            return;
+    mWidgets.push_back(widget);
+}
+
+void 
+VRGUILayer::removeWidget(
+    MWGui::Layout* widget)
+{
+    for (auto it = mWidgets.begin(); it != mWidgets.end(); it++)
+    {
+        if (*it == widget)
+        {
+            mWidgets.erase(it);
+            return;
         }
     }
 }
@@ -301,148 +425,255 @@ void VRGUIManager::showGUIs(bool show)
 {
 }
 
-LayerConfig gDefaultConfig = LayerConfig
+static const LayerConfig createDefaultConfig(int priority)
 {
-    true, // stretch
-    osg::Vec4{0.f,0.f,0.f,.75f}, // background
-    osg::Quat{}, // rotation
-    osg::Vec3(0.f,1.f,0.f), // offset
-    osg::Vec2(1.f, 1.f), // extent (meters)
-    osg::Vec2i(2024,2024), // resolution (pixels)
-    TrackedLimb::HEAD,
-    TrackingMode::Manual,
-    true // vertical
+    return LayerConfig{
+        1,
+        false, // side-by-side
+        osg::Vec4{0.f,0.f,0.f,.75f}, // background
+        osg::Vec3(0.f,0.66f,-.25f), // offset
+        osg::Vec2(0.f,0.f), // center (model space)
+        osg::Vec2(1.f, 1.f), // extent (meters)
+        1024, // Spatial resolution (pixels per meter)
+        osg::Vec2i(2048,2048), // Texture resolution
+        osg::Vec2(1,1),
+        SizingMode::Auto,
+        TrackingMode::Menu
+    };
+}
+LayerConfig gDefaultConfig = createDefaultConfig(1);
+LayerConfig gJournalBooksConfig = LayerConfig
+{
+    2,
+    gDefaultConfig.sideBySide,
+    osg::Vec4{}, // background
+    gDefaultConfig.offset,
+    gDefaultConfig.center,
+    gDefaultConfig.extent,
+    gDefaultConfig.spatialResolution,
+    gDefaultConfig.pixelResolution,
+    gDefaultConfig.myGUIViewSize,
+    SizingMode::Fixed,
+    gDefaultConfig.trackingMode
 };
+LayerConfig gDefaultWindowsConfig = createDefaultConfig(3);
+LayerConfig gMessageBoxConfig = gJournalBooksConfig;
+LayerConfig gNotificationConfig = gJournalBooksConfig;
+
+static const float sSideBySideRadius = 1.f;
+static const float sSideBySideAzimuthInterval = -osg::PI_4;
+static const LayerConfig createSideBySideConfig(int priority)
+{
+    return LayerConfig{
+        priority,
+        true, // side-by-side
+        gDefaultConfig.backgroundColor,
+        osg::Vec3(0.f,sSideBySideRadius,-.25f), // offset
+        gDefaultConfig.center,
+        radiusAngleWidth(sSideBySideRadius, sSideBySideAzimuthInterval), // extent (meters)
+        gDefaultConfig.spatialResolution,
+        gDefaultConfig.pixelResolution,
+        osg::Vec2(0.70f, 0.70f),
+        SizingMode::Fixed,
+        gDefaultConfig.trackingMode
+    };
+};
+
+LayerConfig gStatsWindowConfig = createSideBySideConfig(0);
+LayerConfig gInventoryWindowConfig = createSideBySideConfig(1);
+LayerConfig gSpellWindowConfig = createSideBySideConfig(2);
+LayerConfig gMapWindowConfig = createSideBySideConfig(3);
+LayerConfig gInventoryCompanionWindowConfig = createSideBySideConfig(4);
+LayerConfig gDialogueWindowConfig = createSideBySideConfig(5);
 
 LayerConfig gStatusHUDConfig = LayerConfig
 {
-    false, // stretch
-    osg::Vec4{0.f,0.f,0.f,0.f}, // background
-    osg::Quat{}, // rotation
-    osg::Vec3(0.f,.0f,.2f), // offset (meters)
-    osg::Vec2(.2f, .2f), // extent (meters)
-    osg::Vec2i(1024,512), // resolution (pixels)
-    TrackedLimb::RIGHT_HAND,
-    TrackingMode::Auto,
-    false // vertical
-};
-
-LayerConfig gMinimapHUDConfig = LayerConfig
-{
-    false, // stretch
-    osg::Vec4{0.f,0.f,0.f,0.f}, // background
-    osg::Quat{}, // rotation
-    osg::Vec3(0.f,.0f,.2f), // offset (meters)
-    osg::Vec2(.2f, .2f), // extent (meters)
-    osg::Vec2i(1024,512), // resolution (pixels)
-    TrackedLimb::RIGHT_HAND,
-    TrackingMode::Auto,
-    false // vertical
+    0,
+    false, // side-by-side
+    osg::Vec4{}, // background
+    osg::Vec3(0.025f,.025f,.066f), // offset (meters)
+    osg::Vec2(0.f,0.5f), // center (model space)
+    osg::Vec2(.1f, .1f), // extent (meters)
+    1024, // resolution (pixels per meter)
+    osg::Vec2i(1024,1024),
+    gDefaultConfig.myGUIViewSize,
+    SizingMode::Auto,
+    TrackingMode::HudLeftHand,
 };
 
 LayerConfig gPopupConfig = LayerConfig
 {
-    false, // stretch
+    0,
+    false, // side-by-side
     osg::Vec4{0.f,0.f,0.f,0.f}, // background
-    osg::Quat{}, // rotation
-    osg::Vec3(0.f,0.f,.2f), // offset
-    osg::Vec2(.2f, .2f), // extent (meters)
-    osg::Vec2i(1024,1024),
-    TrackedLimb::RIGHT_HAND,
-    TrackingMode::Auto,
-    false // vertical
+    osg::Vec3(-0.025f,.025f,.066f), // offset (meters)
+    osg::Vec2(0.f,0.5f), // center (model space)
+    osg::Vec2(.1f, .1f), // extent (meters)
+    1024, // resolution (pixels per meter)
+    osg::Vec2i(2048,2048),
+    gDefaultConfig.myGUIViewSize,
+    SizingMode::Auto,
+    TrackingMode::HudRightHand,
 };
 
-LayerConfig gWindowsConfig = gDefaultConfig;
-LayerConfig gJournalBooksConfig = LayerConfig
-{
-    true, // stretch
-    gDefaultConfig.backgroundColor,
-    osg::Quat{}, // rotation
-    gDefaultConfig.offset,
-    gDefaultConfig.extent,
-    gDefaultConfig.resolution,
-    TrackedLimb::HEAD,
-    TrackingMode::Manual,
-    true // vertical
-};
-LayerConfig gSpellWindowConfig = LayerConfig
-{
-    true, // stretch
-    gDefaultConfig.backgroundColor,
-    osg::Quat{-osg::PI_2, osg::Z_AXIS}, // rotation
-    gDefaultConfig.offset,
-    gDefaultConfig.extent,
-    gDefaultConfig.resolution,
-    TrackedLimb::HEAD,
-    TrackingMode::Manual,
-    true // vertical
-};
-LayerConfig gInventoryWindowConfig = LayerConfig
-{
-    true, // stretch
-    gDefaultConfig.backgroundColor,
-    osg::Quat{}, // rotation
-    gDefaultConfig.offset,
-    gDefaultConfig.extent,
-    gDefaultConfig.resolution,
-    TrackedLimb::HEAD,
-    TrackingMode::Manual,
-    true // vertical
-};
-LayerConfig gMapWindowConfig = LayerConfig
-{
-    true, // stretch
-    gDefaultConfig.backgroundColor,
-    osg::Quat{osg::PI, osg::Z_AXIS}, // rotation
-    gDefaultConfig.offset,
-    gDefaultConfig.extent,
-    gDefaultConfig.resolution,
-    TrackedLimb::HEAD,
-    TrackingMode::Manual,
-    true // vertical
-};
-LayerConfig gStatsWindowConfig = LayerConfig
-{
-    true, // stretch
-    gDefaultConfig.backgroundColor,
-    osg::Quat{osg::PI_2, osg::Z_AXIS}, // rotation
-    gDefaultConfig.offset,
-    gDefaultConfig.extent,
-    gDefaultConfig.resolution,
-    TrackedLimb::HEAD,
-    TrackingMode::Manual,
-    true // vertical
-};
 
 
 static std::map<std::string, LayerConfig&> gLayerConfigs =
 {
     {"StatusHUD", gStatusHUDConfig},
-    {"MinimapHUD", gMinimapHUDConfig},
+    //{"MinimapHUD", gMinimapHUDConfig},
     {"Popup", gPopupConfig},
-    {"Windows", gWindowsConfig},
     {"JournalBooks", gJournalBooksConfig},
-    {"SpellWindow", gSpellWindowConfig},
+    {"InventoryCompanionWindow", gInventoryCompanionWindowConfig},
     {"InventoryWindow", gInventoryWindowConfig},
+    {"SpellWindow", gSpellWindowConfig},
     {"MapWindow", gMapWindowConfig},
     {"StatsWindow", gStatsWindowConfig},
-    {"Default", gDefaultConfig},
+    {"DialogueWindow", gDialogueWindowConfig},
+    {"MessageBox", gMessageBoxConfig},
+    {"Windows", gDefaultWindowsConfig},
+    {"Notification", gNotificationConfig}
 };
 
 static std::set<std::string> layerBlacklist =
 {
-    "Overlay"
+    "Overlay",
+    "AdditiveOverlay"
 };
+
+void VRGUIManager::updateSideBySideLayers()
+{
+    // Nothing to update
+    if (mSideBySideLayers.size() == 0)
+        return;
+
+    std::sort(mSideBySideLayers.begin(), mSideBySideLayers.end(), [](const auto& lhs, const auto& rhs) { return *lhs < *rhs; });
+
+    int n = mSideBySideLayers.size();
+
+    float span = sSideBySideAzimuthInterval * (n - 1); // zero index, places lone layers straight ahead
+    float low = -span / 2;
+
+    for (int i = 0; i < mSideBySideLayers.size(); i++)
+        mSideBySideLayers[i]->setAngle(low + static_cast<float>(i) * sSideBySideAzimuthInterval);
+}
+
+void VRGUIManager::insertLayer(const std::string& name)
+{
+    LayerConfig config = gDefaultConfig;
+    auto configIt = gLayerConfigs.find(name);
+    if (configIt != gLayerConfigs.end())
+    {
+        config = configIt->second;
+    }
+    else
+    {
+        Log(Debug::Warning) << "Layer " << name << " has no configuration, using default";
+    }
+
+    auto layer = std::shared_ptr<VRGUILayer>(new VRGUILayer(
+        mGUIGeometriesRoot,
+        mGUICamerasRoot,
+        name,
+        config,
+        this
+    ));
+    mLayers[name] = layer;
+
+    layer->mGeometry->setUserData(new VRGUILayerUserData(mLayers[name]));
+
+    // Default new layer's pick to false
+    // TODO: re-add widget->setLayerPick(false) somewhere;
+
+    if (config.sideBySide)
+    {
+        mSideBySideLayers.push_back(layer);
+        updateSideBySideLayers();
+    }
+
+    if (config.trackingMode == TrackingMode::Menu)
+    {
+        // Update tracking when a menu is opened
+        // But don't automatically update it again until all menus have been closed
+        if (mVisibleMenus == 0)
+            updateTracking();
+        else
+            layer->updateTracking(mHeadPose);
+        mVisibleMenus++;
+    }
+}
+
+void VRGUIManager::insertWidget(MWGui::Layout* widget)
+{
+    auto* layer = widget->mMainWidget->getLayer();
+    auto name = layer->getName();
+
+    auto it = mLayers.find(name);
+    if (it == mLayers.end())
+    {
+        insertLayer(name);
+        it = mLayers.find(name);
+        if (it == mLayers.end())
+        {
+            Log(Debug::Error) << "Failed to insert layer " << name;
+            return;
+        }
+    }
+
+    it->second->insertWidget(widget);
+
+    if (it->second.get() != mFocusLayer)
+        widget->setLayerPick(false);
+}
+
+void VRGUIManager::removeLayer(const std::string& name)
+{
+    auto it = mLayers.find(name);
+    if (it == mLayers.end())
+        return;
+    
+    auto layer = it->second;
+
+    for (auto it2 = mSideBySideLayers.begin(); it2 < mSideBySideLayers.end(); it2++)
+    {
+        if (*it2 == layer)
+        {
+            mSideBySideLayers.erase(it2);
+            updateSideBySideLayers();
+        }
+    }
+
+    if (it->second.get() == mFocusLayer)
+        setFocusLayer(nullptr);
+
+    if (it->second->mConfig.trackingMode == TrackingMode::Menu)
+        mVisibleMenus--;
+
+    mLayers.erase(it);
+}
+
+void VRGUIManager::removeWidget(MWGui::Layout* widget)
+{
+    auto* layer = widget->mMainWidget->getLayer();
+    auto name = layer->getName();
+
+    auto it = mLayers.find(name);
+    if (it == mLayers.end())
+    {
+        Log(Debug::Warning) << "Tried to remove widget from nonexistent layer " << name;
+        return;
+    }
+
+    it->second->removeWidget(widget);
+    if (it->second->widgetCount() == 0)
+    {
+        removeLayer(name);
+    }
+}
 
 void VRGUIManager::setVisible(MWGui::Layout* widget, bool visible)
 {
     auto* layer = widget->mMainWidget->getLayer();
-    //if (!layer)
-    //{
-    //    Log(Debug::Warning) << "Hark! MyGUI has betrayed us. The widget " << widget->mMainWidget->getName() << " has no layer";
-    //    return;
-    //}
     auto name = layer->getName();
 
     Log(Debug::Verbose) << "setVisible (" << name << "): " << visible;
@@ -453,60 +684,103 @@ void VRGUIManager::setVisible(MWGui::Layout* widget, bool visible)
         widget->setLayerPick(false);
         return;
     }
+
     if (visible)
-    {
-        if (mLayers.find(name) == mLayers.end())
-        {
-            LayerConfig config = gDefaultConfig;
-            auto configIt = gLayerConfigs.find(name);
-            if (configIt != gLayerConfigs.end())
-                config = configIt->second;
-
-            mLayers[name] = std::unique_ptr<VRGUILayer>(new VRGUILayer(
-                mGUIGeometriesRoot,
-                mGUICamerasRoot,
-                2048,
-                2048,
-                name,
-                config,
-                widget,
-                this
-            ));
-
-            // Default new layer's pick to false
-            widget->setLayerPick(false);
-
-            Log(Debug::Verbose) << "Created GUI layer " << name;
-        }
-        updatePose();
-    }
+        insertWidget(widget);
     else
-    {
-        auto it = mLayers.find(name);
-        if (it != mLayers.end())
-        {
-            if (it->second.get() == mFocusLayer)
-                setFocusLayer(nullptr);
-            mLayers.erase(it);
-            Log(Debug::Verbose) << "Erased GUI layer " << name;
-        }
-    }
+        removeWidget(widget);
 }
 
-void VRGUIManager::updatePose(void)
+void VRGUIManager::updateTracking(void)
 {
+    // Get head pose by reading the camera view matrix to place the GUI in the world.
+    osg::Vec3 eye{};
+    osg::Vec3 center{};
+    osg::Vec3 up{};
+    Pose headPose{};
+    auto* world = MWBase::Environment::get().getWorld();
+    if (!world)
+        return;
+    auto* camera = world->getRenderingManager().getCamera()->getOsgCamera();
+    if (!camera)
+        return;
+    camera->getViewMatrixAsLookAt(eye, center, up);
+    headPose.position = eye;
+    headPose.orientation = camera->getViewMatrix().getRotate();
+    headPose.orientation = headPose.orientation.inverse();
+
+    mHeadPose = headPose;
+
     for (auto& layer : mLayers)
-        layer.second->updatePose();
+        layer.second->updateTracking(mHeadPose);
+}
+
+void VRGUIManager::updateFocus()
+{
+    auto* anim = MWVR::Environment::get().getPlayerAnimation();
+    if (anim && anim->mPointerTarget.mHit)
+    {
+        std::shared_ptr<VRGUILayer> newFocusLayer = nullptr;
+        auto* node = anim->mPointerTarget.mHitNode;
+        if (node->getName() == "VRGUILayer")
+        {
+            VRGUILayerUserData* userData = static_cast<VRGUILayerUserData*>(node->getUserData());
+            newFocusLayer = userData->mLayer.lock();
+        }
+
+        if (newFocusLayer && newFocusLayer->mFilter != "Notification")
+        {
+            setFocusLayer(newFocusLayer.get());
+            computeGuiCursor(anim->mPointerTarget.mHitPointLocal);
+        }
+    }
 }
 
 void VRGUIManager::setFocusLayer(VRGUILayer* layer)
 {
+    if (layer == mFocusLayer)
+        return;
+
     if (mFocusLayer)
-        mFocusLayer->mWidget->setLayerPick(false);
+    {
+        mFocusLayer->mWidgets.front()->setLayerPick(false);
+    }
     mFocusLayer = layer;
     if (mFocusLayer)
-        mFocusLayer->mWidget->setLayerPick(true);
-    
+    {
+        Log(Debug::Verbose) << "Set focus layer to " << mFocusLayer->mWidgets.front()->mMainWidget->getLayer()->getName();
+        mFocusLayer->mWidgets.front()->setLayerPick(true);
+    }
+    else
+    {
+        Log(Debug::Verbose) << "Set focus layer to null";
+    }
+}
+
+void VRGUIManager::computeGuiCursor(osg::Vec3 hitPoint)
+{
+    float x = 0;
+    float y = 0;
+    if (mFocusLayer)
+    {
+        osg::Vec2 bottomLeft = mFocusLayer->mConfig.center - osg::Vec2(0.5f, 0.5f);
+        x = hitPoint.x() - bottomLeft.x();
+        y = hitPoint.z() - bottomLeft.y();
+        auto rect = mFocusLayer->mRealRect;
+        auto viewSize = MyGUI::RenderManager::getInstance().getViewSize();
+        auto width = viewSize.width * rect.width();
+        auto height = viewSize.height * rect.height();
+        auto left = viewSize.width * rect.left;
+        auto bottom = viewSize.height * rect.bottom;
+        x = width * x + left;
+        y = bottom - height * y;
+    }
+
+    mGuiCursor.x() = (int)x;
+    mGuiCursor.y() = (int)y;
+
+    MyGUI::InputManager::getInstance().injectMouseMove((int)x, (int)y, 0);
+    MWBase::Environment::get().getWindowManager()->setCursorActive(true);
 }
 
 }
