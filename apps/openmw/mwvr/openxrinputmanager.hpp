@@ -40,7 +40,7 @@ namespace MWVR
 
         void updateHead();
 
-        void processEvent(const OpenXRActionEvent& event);
+        void processAction(const class Action* action);
 
         PoseSet getHandPoses(int64_t time, TrackedSpace space);
 
