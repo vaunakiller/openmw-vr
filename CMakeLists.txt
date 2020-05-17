@@ -8,11 +8,11 @@ option(BUILD_ESSIMPORTER        "Build ESS (Morrowind save game) importer" ON)
 option(BUILD_BSATOOL            "Build BSA extractor" ON)
 option(BUILD_ESMTOOL            "Build ESM inspector" ON)
 option(BUILD_NIFTEST            "Build nif file tester" ON)
-option(BUILD_MYGUI_PLUGIN       "Build MyGUI plugin for OpenMW resources, to use with MyGUI tools" ON)
 option(BUILD_DOCS               "Build documentation." OFF)
 option(BUILD_VR_OPENXR          "Build VR support using OpenXR" on)
 option(BUILD_WITH_CODE_COVERAGE "Enable code coverage with gconv" OFF)
 option(BUILD_UNITTESTS          "Enable Unittests with Google C++ Unittest" OFF)
+option(BULLET_USE_DOUBLES       "Use double precision for Bullet" OFF)
 
 if (NOT BUILD_LAUNCHER AND NOT BUILD_OPENCS AND NOT BUILD_WIZARD)
    set(USE_QT FALSE)
@@ -55,7 +55,7 @@ endif()
 message(STATUS "Configuring OpenMW...")
 
 set(OPENMW_VERSION_MAJOR 0)
-set(OPENMW_VERSION_MINOR 46)
+set(OPENMW_VERSION_MINOR 47)
 set(OPENMW_VERSION_RELEASE 0)
 
 set(OPENMW_VERSION_COMMITHASH "")
@@ -63,6 +63,8 @@ set(OPENMW_VERSION_TAGHASH "")
 set(OPENMW_VERSION_COMMITDATE "")
 
 set(OPENMW_VERSION "${OPENMW_VERSION_MAJOR}.${OPENMW_VERSION_MINOR}.${OPENMW_VERSION_RELEASE}")
+
+set(OPENMW_DOC_BASEURL "https://openmw.readthedocs.io/en/master/")
 
 set(GIT_CHECKOUT FALSE)
 if(EXISTS ${PROJECT_SOURCE_DIR}/.git)
@@ -322,7 +324,7 @@ set(Boost_NO_BOOST_CMAKE ON)
 
 find_package(Boost REQUIRED COMPONENTS ${BOOST_COMPONENTS})
 find_package(MyGUI 3.2.2 REQUIRED)
-find_package(SDL2 REQUIRED)
+find_package(SDL2 2.0.9 REQUIRED)
 find_package(OpenAL REQUIRED)
 find_package(Bullet ${REQUIRED_BULLET_VERSION} REQUIRED COMPONENTS BulletCollision LinearMath)
 
@@ -404,19 +406,13 @@ copy_resource_file(${OpenMW_SOURCE_DIR}/files/opencs/defaultfilters
 configure_resource_file(${OpenMW_SOURCE_DIR}/files/gamecontrollerdb.txt
     "${OpenMW_BINARY_DIR}" "gamecontrollerdb.txt")
 
-configure_resource_file(${OpenMW_SOURCE_DIR}/files/gamecontrollerdb_204.txt
-        "${OpenMW_BINARY_DIR}" "gamecontrollerdb_204.txt")
-
-configure_resource_file(${OpenMW_SOURCE_DIR}/files/gamecontrollerdb_205.txt
-        "${OpenMW_BINARY_DIR}" "gamecontrollerdb_205.txt")
-
 if (NOT WIN32 AND NOT APPLE)
-    configure_file(${OpenMW_SOURCE_DIR}/files/openmw.desktop
-        "${OpenMW_BINARY_DIR}/openmw.desktop")
+    configure_file(${OpenMW_SOURCE_DIR}/files/org.openmw.launcher.desktop
+        "${OpenMW_BINARY_DIR}/org.openmw.launcher.desktop")
     configure_file(${OpenMW_SOURCE_DIR}/files/openmw.appdata.xml
         "${OpenMW_BINARY_DIR}/openmw.appdata.xml")
-    configure_file(${OpenMW_SOURCE_DIR}/files/openmw-cs.desktop
-        "${OpenMW_BINARY_DIR}/openmw-cs.desktop")
+    configure_file(${OpenMW_SOURCE_DIR}/files/org.openmw.cs.desktop
+        "${OpenMW_BINARY_DIR}/org.openmw.cs.desktop")
 endif()
 
 # CXX Compiler settings
@@ -482,19 +478,16 @@ IF(NOT WIN32 AND NOT APPLE)
     IF(BUILD_WIZARD)
         INSTALL(PROGRAMS "${OpenMW_BINARY_DIR}/openmw-wizard" DESTINATION "${BINDIR}" )
     ENDIF(BUILD_WIZARD)
-    #if(BUILD_MYGUI_PLUGIN)
-    #    INSTALL(PROGRAMS "${OpenMW_BINARY_DIR}/Plugin_MyGUI_OpenMW_Resources.so" DESTINATION "${LIBDIR}" )
-    #ENDIF(BUILD_MYGUI_PLUGIN)
 
     # Install licenses
     INSTALL(FILES "files/mygui/DejaVu Font License.txt" DESTINATION "${LICDIR}" )
 
     # Install icon and desktop file
-    INSTALL(FILES "${OpenMW_BINARY_DIR}/openmw.desktop" DESTINATION "${DATAROOTDIR}/applications" COMPONENT "openmw")
+    INSTALL(FILES "${OpenMW_BINARY_DIR}/org.openmw.launcher.desktop" DESTINATION "${DATAROOTDIR}/applications" COMPONENT "openmw")
     INSTALL(FILES "${OpenMW_SOURCE_DIR}/files/launcher/images/openmw.png" DESTINATION "${ICONDIR}" COMPONENT "openmw")
     INSTALL(FILES "${OpenMW_BINARY_DIR}/openmw.appdata.xml" DESTINATION "${DATAROOTDIR}/metainfo" COMPONENT "openmw")
     IF(BUILD_OPENCS)
-        INSTALL(FILES "${OpenMW_BINARY_DIR}/openmw-cs.desktop" DESTINATION "${DATAROOTDIR}/applications" COMPONENT "opencs")
+        INSTALL(FILES "${OpenMW_BINARY_DIR}/org.openmw.cs.desktop" DESTINATION "${DATAROOTDIR}/applications" COMPONENT "opencs")
         INSTALL(FILES "${OpenMW_SOURCE_DIR}/files/opencs/openmw-cs.png" DESTINATION "${ICONDIR}" COMPONENT "opencs")
     ENDIF(BUILD_OPENCS)
 
@@ -503,8 +496,6 @@ IF(NOT WIN32 AND NOT APPLE)
     INSTALL(FILES "${OpenMW_BINARY_DIR}/openmw.cfg.install" DESTINATION "${SYSCONFDIR}" RENAME "openmw.cfg" COMPONENT "openmw")
     INSTALL(FILES "${OpenMW_BINARY_DIR}/resources/version" DESTINATION "${SYSCONFDIR}" COMPONENT "openmw")
     INSTALL(FILES "${OpenMW_BINARY_DIR}/gamecontrollerdb.txt" DESTINATION "${SYSCONFDIR}" COMPONENT "openmw")
-    INSTALL(FILES "${OpenMW_BINARY_DIR}/gamecontrollerdb_204.txt" DESTINATION "${SYSCONFDIR}" COMPONENT "openmw")
-    INSTALL(FILES "${OpenMW_BINARY_DIR}/gamecontrollerdb_205.txt" DESTINATION "${SYSCONFDIR}" COMPONENT "openmw")
 
     IF(BUILD_OPENCS)
         INSTALL(FILES "${OpenMW_BINARY_DIR}/openmw-cs.cfg" DESTINATION "${SYSCONFDIR}" COMPONENT "opencs")
@@ -532,15 +523,6 @@ if(WIN32)
     INSTALL(FILES "${OpenMW_BINARY_DIR}/Release/settings-default.cfg" DESTINATION "." CONFIGURATIONS Release;RelWithDebInfo;MinSizeRel)
     INSTALL(FILES "${OpenMW_BINARY_DIR}/Debug/gamecontrollerdb.txt" DESTINATION "." CONFIGURATIONS Debug)
     INSTALL(FILES "${OpenMW_BINARY_DIR}/Release/gamecontrollerdb.txt" DESTINATION "." CONFIGURATIONS Release;RelWithDebInfo;MinSizeRel)
-    INSTALL(FILES "${OpenMW_BINARY_DIR}/Debug/gamecontrollerdb_204.txt" DESTINATION "." CONFIGURATIONS Debug)
-    INSTALL(FILES "${OpenMW_BINARY_DIR}/Release/gamecontrollerdb_204.txt" DESTINATION "." CONFIGURATIONS Release;RelWithDebInfo;MinSizeRel)
-    INSTALL(FILES "${OpenMW_BINARY_DIR}/Debug/gamecontrollerdb_205.txt" DESTINATION "." CONFIGURATIONS Debug)
-    INSTALL(FILES "${OpenMW_BINARY_DIR}/Release/gamecontrollerdb_205.txt" DESTINATION "." CONFIGURATIONS Release;RelWithDebInfo;MinSizeRel)
-
-    if(BUILD_MYGUI_PLUGIN)
-        INSTALL(PROGRAMS "${OpenMW_BINARY_DIR}/Debug/Plugin_MyGUI_OpenMW_Resources.dll" DESTINATION "." CONFIGURATIONS Debug)
-        INSTALL(PROGRAMS "${OpenMW_BINARY_DIR}/Release/Plugin_MyGUI_OpenMW_Resources.dll" DESTINATION "." CONFIGURATIONS Release;RelWithDebInfo;MinSizeRel)
-    ENDIF(BUILD_MYGUI_PLUGIN)
 
     IF(DESIRED_QT_VERSION MATCHES 5)
         INSTALL(DIRECTORY "${OpenMW_BINARY_DIR}/Debug/platforms" DESTINATION "." CONFIGURATIONS Debug)
@@ -627,6 +609,7 @@ endif()
 
 # Components
 add_subdirectory (components)
+target_compile_definitions(components PRIVATE OPENMW_DOC_BASEURL="${OPENMW_DOC_BASEURL}")
 
 # Apps and tools
 if (BUILD_OPENMW)
@@ -743,6 +726,7 @@ if (WIN32)
         # caused by boost
         4191 # 'type cast' : unsafe conversion (1.56, thread_primitives.hpp, normally off)
         4643 # Forward declaring 'X' in namespace std is not permitted by the C++ Standard. (in *_std_fwd.h files)
+        5204 # Class has virtual functions, but its trivial destructor is not virtual
 
         # caused by MyGUI
         4275 # non dll-interface class 'std::exception' used as base for dll-interface class 'MyGUI::Exception'
@@ -956,4 +940,3 @@ if (DOXYGEN_FOUND)
         WORKING_DIRECTORY ${OpenMW_BINARY_DIR}
         COMMENT "Generating documentation for the github-pages at ${DOXYGEN_PAGES_OUTPUT_DIR}" VERBATIM)
 endif ()
-

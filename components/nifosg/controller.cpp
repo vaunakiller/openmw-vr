@@ -10,7 +10,6 @@
 
 #include <components/nif/data.hpp>
 #include <components/sceneutil/morphgeometry.hpp>
-#include <components/sceneutil/vismask.hpp>
 
 #include "userdata.hpp"
 
@@ -270,12 +269,14 @@ void UVController::apply(osg::StateSet* stateset, osg::NodeVisitor* nv)
     }
 }
 
-VisController::VisController(const Nif::NiVisData *data)
+VisController::VisController(const Nif::NiVisData *data, unsigned int mask)
     : mData(data->mVis)
+    , mMask(mask)
 {
 }
 
 VisController::VisController()
+    : mMask(0)
 {
 }
 
@@ -283,6 +284,7 @@ VisController::VisController(const VisController &copy, const osg::CopyOp &copyo
     : osg::NodeCallback(copy, copyop)
     , Controller(copy)
     , mData(copy.mData)
+    , mMask(copy.mMask)
 {
 }
 
@@ -304,8 +306,7 @@ void VisController::operator() (osg::Node* node, osg::NodeVisitor* nv)
     if (hasInput())
     {
         bool vis = calculate(getInputValue(nv));
-        // Leave 0x1 enabled for UpdateVisitor, so we can make ourselves visible again in the future from this update callback
-        node->setNodeMask(vis ? SceneUtil::Mask_Default : SceneUtil::Mask_UpdateVisitor);
+        node->setNodeMask(vis ? ~0 : mMask);
     }
     traverse(node, nv);
 }
@@ -517,6 +518,52 @@ void ParticleSystemController::operator() (osg::Node* node, osg::NodeVisitor* nv
     }
     else
         emitter->getParticleSystem()->setFrozen(true);
+    traverse(node, nv);
+}
+
+PathController::PathController(const PathController &copy, const osg::CopyOp &copyop)
+    : osg::NodeCallback(copy, copyop)
+    , Controller(copy)
+    , mPath(copy.mPath)
+    , mPercent(copy.mPercent)
+    , mFlags(copy.mFlags)
+{
+}
+
+PathController::PathController(const Nif::NiPathController* ctrl)
+    : mPath(ctrl->posData->mKeyList, osg::Vec3f())
+    , mPercent(ctrl->floatData->mKeyList, 1.f)
+    , mFlags(ctrl->flags)
+{
+}
+
+float PathController::getPercent(float time) const
+{
+    float percent = mPercent.interpKey(time);
+    if (percent < 0.f)
+        percent = std::fmod(percent, 1.f) + 1.f;
+    else if (percent > 1.f)
+        percent = std::fmod(percent, 1.f);
+    return percent;
+}
+
+void PathController::operator() (osg::Node* node, osg::NodeVisitor* nv)
+{
+    if (mPath.empty() || mPercent.empty() || !hasInput())
+    {
+        traverse(node, nv);
+        return;
+    }
+
+    osg::MatrixTransform* trans = static_cast<osg::MatrixTransform*>(node);
+    osg::Matrix mat = trans->getMatrix();
+
+    float time = getInputValue(nv);
+    float percent = getPercent(time);
+    osg::Vec3f pos(mPath.interpKey(percent));
+    mat.setTrans(pos);
+    trans->setMatrix(mat);
+
     traverse(node, nv);
 }
 

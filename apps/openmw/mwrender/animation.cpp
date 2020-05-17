@@ -16,6 +16,7 @@
 
 #include <components/resource/scenemanager.hpp>
 #include <components/resource/keyframemanager.hpp>
+#include <components/resource/resourcesystem.hpp>
 
 #include <components/misc/constants.hpp>
 #include <components/misc/resourcehelpers.hpp>
@@ -28,7 +29,6 @@
 #include <components/sceneutil/actorutil.hpp>
 #include <components/sceneutil/statesetupdater.hpp>
 #include <components/sceneutil/visitor.hpp>
-#include <components/sceneutil/vismask.hpp>
 #include <components/sceneutil/lightmanager.hpp>
 #include <components/sceneutil/lightutil.hpp>
 #include <components/sceneutil/skeleton.hpp>
@@ -36,6 +36,8 @@
 #include <components/sceneutil/util.hpp>
 
 #include <components/settings/settings.hpp>
+
+#include <components/shader/shadermanager.hpp>
 
 #include "../mwbase/environment.hpp"
 #include "../mwbase/world.hpp"
@@ -46,6 +48,7 @@
 #include "../mwmechanics/character.hpp" // FIXME: for MWMechanics::Priority
 #include "../mwmechanics/actorutil.hpp"
 
+#include "vismask.hpp"
 #include "util.hpp"
 #include "rotatecontroller.hpp"
 
@@ -503,8 +506,9 @@ namespace MWRender
     class TransparencyUpdater : public SceneUtil::StateSetUpdater
     {
     public:
-        TransparencyUpdater(const float alpha)
+        TransparencyUpdater(const float alpha, osg::ref_ptr<osg::Uniform> shadowUniform)
             : mAlpha(alpha)
+            , mShadowUniform(shadowUniform)
         {
         }
 
@@ -518,6 +522,9 @@ namespace MWRender
         {
             osg::BlendFunc* blendfunc (new osg::BlendFunc);
             stateset->setAttributeAndModes(blendfunc, osg::StateAttribute::ON|osg::StateAttribute::OVERRIDE);
+            // TODO: don't do this anymore once custom shadow renderbin is handling it
+            if (mShadowUniform)
+                stateset->addUniform(mShadowUniform);
 
             // FIXME: overriding diffuse/ambient/emissive colors
             osg::Material* material = new osg::Material;
@@ -536,6 +543,7 @@ namespace MWRender
 
     private:
         float mAlpha;
+        osg::ref_ptr<osg::Uniform> mShadowUniform;
     };
 
     struct Animation::AnimSource
@@ -579,7 +587,7 @@ namespace MWRender
             else
             {
                 // Hide effect immediately
-                node->setNodeMask(SceneUtil::Mask_Disabled);
+                node->setNodeMask(0);
                 mFinished = true;
             }
         }
@@ -1656,7 +1664,7 @@ namespace MWRender
     {
         bool exterior = mPtr.isInCell() && mPtr.getCell()->getCell()->isExterior();
 
-        SceneUtil::addLight(parent, esmLight, exterior);
+        SceneUtil::addLight(parent, esmLight, Mask_ParticleSystem, Mask_Lighting, exterior);
     }
 
     void Animation::addEffect (const std::string& model, int effectId, bool loop, const std::string& bonename, const std::string& texture)
@@ -1708,7 +1716,7 @@ namespace MWRender
         // FreezeOnCull doesn't work so well with effect particles, that tend to have moving emitters
         SceneUtil::DisableFreezeOnCullVisitor disableFreezeOnCullVisitor;
         node->accept(disableFreezeOnCullVisitor);
-        node->setNodeMask(SceneUtil::Mask_Effect);
+        node->setNodeMask(Mask_Effect);
 
         params.mMaxControllerLength = findMaxLengthVisitor.getMaxLength();
         params.mLoop = loop;
@@ -1805,7 +1813,7 @@ namespace MWRender
         {
             if (mTransparencyUpdater == nullptr)
             {
-                mTransparencyUpdater = new TransparencyUpdater(alpha);
+                mTransparencyUpdater = new TransparencyUpdater(alpha, mResourceSystem->getSceneManager()->getShaderManager().getShadowMapAlphaTestEnableUniform());
                 mObjectRoot->addUpdateCallback(mTransparencyUpdater);
             }
             else
@@ -1867,7 +1875,7 @@ namespace MWRender
                 SceneUtil::configureLight(light, radius, isExterior);
 
                 mGlowLight = new SceneUtil::LightSource;
-                mGlowLight->setNodeMask(SceneUtil::Mask_Lighting);
+                mGlowLight->setNodeMask(Mask_Lighting);
                 mInsert->addChild(mGlowLight);
                 mGlowLight->setLight(light);
             }

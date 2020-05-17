@@ -56,12 +56,8 @@ namespace DetourNavigator
     bool NavMeshManager::updateObject(const ObjectId id, const btCollisionShape& shape, const btTransform& transform,
                                       const AreaType areaType)
     {
-        const auto changedTiles = mRecastMeshManager.updateObject(id, shape, transform, areaType);
-        if (changedTiles.empty())
-            return false;
-        for (const auto& tile : changedTiles)
-            addChangedTile(tile, ChangeType::update);
-        return true;
+        return mRecastMeshManager.updateObject(id, shape, transform, areaType,
+            [&] (const TilePosition& tile) { addChangedTile(tile, ChangeType::update); });
     }
 
     bool NavMeshManager::removeObject(const ObjectId id)
@@ -195,7 +191,7 @@ namespace DetourNavigator
         mAsyncNavMeshUpdater.post(agentHalfExtents, cached, playerTile, tilesToPost);
         if (changedTiles != mChangedTiles.end())
             changedTiles->second.clear();
-        Log(Debug::Debug) << "cache update posted for agent=" << agentHalfExtents <<
+        Log(Debug::Debug) << "Cache update posted for agent=" << agentHalfExtents <<
             " playerTile=" << lastPlayerTile->second <<
             " recastMeshManagerRevision=" << lastRevision;
     }

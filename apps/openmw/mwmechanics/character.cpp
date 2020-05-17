@@ -621,7 +621,9 @@ void CharacterController::refreshMovementAnims(const std::string& weapShortGroup
                     // The first person anims don't have any velocity to calculate a speed multiplier from.
                     // We use the third person velocities instead.
                     // FIXME: should be pulled from the actual animation, but it is not presently loaded.
-                    mMovementAnimSpeed = (isSneaking() ? 33.5452f : (isRunning() ? 222.857f : 154.064f));
+                    bool sneaking = mMovementState == CharState_SneakForward || mMovementState == CharState_SneakBack
+                                 || mMovementState == CharState_SneakLeft    || mMovementState == CharState_SneakRight;
+                    mMovementAnimSpeed = (sneaking ? 33.5452f : (isRunning() ? 222.857f : 154.064f));
                     mMovementAnimationControlled = false;
                 }
             }
@@ -2299,8 +2301,12 @@ void CharacterController::update(float duration, bool animationOnly)
         }
         else if (mMovementState != CharState_None && mAdjustMovementAnimSpeed)
         {
-            float speedmult = speed / mMovementAnimSpeed;
-            mAnimation->adjustSpeedMult(mCurrentMovement, speedmult);
+            // Vanilla caps the played animation speed.
+            const float maxSpeedMult = 10.f;
+            const float speedMult = speed / mMovementAnimSpeed;
+            mAnimation->adjustSpeedMult(mCurrentMovement, std::min(maxSpeedMult, speedMult));
+            // Make sure the actual speed is the "expected" speed even though the animation is slower
+            scale *= std::max(1.f, speedMult / maxSpeedMult);
         }
 
         if (!mSkipAnim)

@@ -22,8 +22,6 @@
 #include <osg/Transform>
 #include <osg/Texture2D>
 
-#include <components/sceneutil/vismask.hpp>
-
 //#include <osgUtil/Export>
 
 #include <set>
@@ -44,7 +42,7 @@ class BaseOptimizerVisitor : public osg::NodeVisitor
             _optimizer(optimizer),
             _operationType(operation)
         {
-            setNodeMaskOverride(SceneUtil::Mask_Default);
+            setNodeMaskOverride(0xffffffff);
         }
 
         inline bool isOperationPermissibleForObject(const osg::StateSet* object) const;
@@ -323,8 +321,6 @@ class Optimizer
                     BaseOptimizerVisitor(optimizer, REMOVE_REDUNDANT_NODES) {}
 
                 virtual void apply(osg::Group& group);
-                virtual void apply(osg::LOD& lod);
-                virtual void apply(osg::Switch& switchNode);
 
                 void removeEmptyNodes();
 

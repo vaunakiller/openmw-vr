@@ -79,7 +79,7 @@ protected:
 
     void updateNpcBase();
 
-    NpcType getNpcType();
+    NpcType getNpcType() const;
 
     PartHolderPtr insertBoundedPart(const std::string &model, const std::string &bonename,
                                         const std::string &bonefilter, bool enchantedGlow, osg::Vec4f* glowColor=nullptr);
@@ -99,6 +99,7 @@ protected:
 
     static bool isFirstPersonPart(const ESM::BodyPart* bodypart);
     static bool isFemalePart(const ESM::BodyPart* bodypart);
+    static NpcType getNpcType(const MWWorld::Ptr& ptr);
 
 protected:
     virtual void addControllers();
@@ -134,6 +135,8 @@ public:
     virtual void setPitchFactor(float factor) { mPitchFactor = factor; }
 
     virtual void showWeapons(bool showWeapon);
+
+    virtual bool getCarriedLeftShown() const { return mShowCarriedLeft; }
     virtual void showCarriedLeft(bool show);
 
     virtual void attachArrow();

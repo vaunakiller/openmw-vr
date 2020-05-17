@@ -3,6 +3,7 @@
 #include <memory>
 
 #include <osg/Group>
+#include <osg/ComputeBoundsVisitor>
 
 #include "chunkmanager.hpp"
 #include "compositemaprenderer.hpp"
@@ -18,8 +19,8 @@ public:
     virtual void reset() {}
 };
 
-TerrainGrid::TerrainGrid(osg::Group* parent, osg::Group* compileRoot, Resource::ResourceSystem* resourceSystem, Storage* storage)
-    : Terrain::World(parent, compileRoot, resourceSystem, storage)
+TerrainGrid::TerrainGrid(osg::Group* parent, osg::Group* compileRoot, Resource::ResourceSystem* resourceSystem, Storage* storage, int nodeMask, int preCompileMask, int borderMask)
+    : Terrain::World(parent, compileRoot, resourceSystem, storage, nodeMask, preCompileMask, borderMask)
     , mNumSplits(4)
 {
 }
@@ -80,6 +81,7 @@ void TerrainGrid::loadCell(int x, int y)
     mTerrainRoot->addChild(terrainNode);
 
     mGrid[std::make_pair(x,y)] = terrainNode;
+    updateWaterCulling();
 }
 
 void TerrainGrid::unloadCell(int x, int y)
@@ -94,6 +96,15 @@ void TerrainGrid::unloadCell(int x, int y)
     mTerrainRoot->removeChild(terrainNode);
 
     mGrid.erase(it);
+    updateWaterCulling();
+}
+
+void TerrainGrid::updateWaterCulling()
+{
+    osg::ComputeBoundsVisitor computeBoundsVisitor;
+    mTerrainRoot->accept(computeBoundsVisitor);
+    float lowZ = computeBoundsVisitor.getBoundingBox()._min.z();
+    mHeightCullCallback->setLowZ(lowZ);
 }
 
 View *TerrainGrid::createView()

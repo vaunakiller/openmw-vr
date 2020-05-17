@@ -6,8 +6,9 @@
 #include <osgParticle/ParticleSystemUpdater>
 #include <osgParticle/Emitter>
 
-#include <components/sceneutil/morphgeometry.hpp>
+#include <components/nifosg/userdata.hpp>
 
+#include <components/sceneutil/morphgeometry.hpp>
 #include <components/sceneutil/riggeometry.hpp>
 
 namespace SceneUtil
@@ -30,6 +31,15 @@ namespace SceneUtil
         return const_cast<osg::StateSet*>(stateset);
     }
 
+    osg::Object* CopyOp::operator ()(const osg::Object* node) const
+    {
+        // We should copy node transformations when we copy node
+        if (const NifOsg::NodeUserData* data = dynamic_cast<const NifOsg::NodeUserData*>(node))
+            return osg::clone(data, *this);
+
+        return osg::CopyOp::operator()(node);
+    }
+
     osg::Node* CopyOp::operator ()(const osg::Node* node) const
     {
         if (const osgParticle::ParticleProcessor* processor = dynamic_cast<const osgParticle::ParticleProcessor*>(node))
@@ -37,7 +47,7 @@ namespace SceneUtil
         if (const osgParticle::ParticleSystemUpdater* updater = dynamic_cast<const osgParticle::ParticleSystemUpdater*>(node))
         {
             osgParticle::ParticleSystemUpdater* cloned = new osgParticle::ParticleSystemUpdater(*updater, osg::CopyOp::SHALLOW_COPY);
-            mMap2[cloned] = updater->getParticleSystem(0);
+            mUpdaterToOldPs[cloned] = updater->getParticleSystem(0);
             return cloned;
         }
         return osg::CopyOp::operator()(node);
@@ -59,7 +69,16 @@ namespace SceneUtil
     osgParticle::ParticleProcessor* CopyOp::operator() (const osgParticle::ParticleProcessor* processor) const
     {
         osgParticle::ParticleProcessor* cloned = osg::clone(processor, osg::CopyOp::DEEP_COPY_CALLBACKS);
-        mMap[cloned] = processor->getParticleSystem();
+        for (const auto& oldPsNewPsPair : mOldPsToNewPs)
+        {
+            if (processor->getParticleSystem() == oldPsNewPsPair.first)
+            {
+                cloned->setParticleSystem(oldPsNewPsPair.second);
+                return cloned;
+            }
+        }
+
+        mProcessorToOldPs[cloned] = processor->getParticleSystem();
         return cloned;
     }
 
@@ -67,22 +86,25 @@ namespace SceneUtil
     {
         osgParticle::ParticleSystem* cloned = osg::clone(partsys, *this);
 
-        for (std::map<osgParticle::ParticleProcessor*, const osgParticle::ParticleSystem*>::const_iterator it = mMap.begin(); it != mMap.end(); ++it)
+        for (const auto& processorPsPair : mProcessorToOldPs)
         {
-            if (it->second == partsys)
+            if (processorPsPair.second == partsys)
             {
-                it->first->setParticleSystem(cloned);
+                processorPsPair.first->setParticleSystem(cloned);
             }
         }
-        for (std::map<osgParticle::ParticleSystemUpdater*, const osgParticle::ParticleSystem*>::const_iterator it = mMap2.begin(); it != mMap2.end(); ++it)
+        for (const auto& updaterPsPair : mUpdaterToOldPs)
         {
-            if (it->second == partsys)
+            if (updaterPsPair.second == partsys)
             {
-                osgParticle::ParticleSystemUpdater* updater = it->first;
+                osgParticle::ParticleSystemUpdater* updater = updaterPsPair.first;
                 updater->removeParticleSystem(updater->getParticleSystem(0));
                 updater->addParticleSystem(cloned);
             }
         }
+        // In rare situations a particle processor may be placed after the particle system in the scene graph.
+        mOldPsToNewPs[partsys] = cloned;
+
         return cloned;
     }
 

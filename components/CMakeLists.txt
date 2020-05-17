@@ -51,7 +51,7 @@ add_component_dir (shader
 add_component_dir (sceneutil
     clone attach visitor util statesetupdater controller skeleton riggeometry morphgeometry lightcontroller
     lightmanager lightutil positionattitudetransform workqueue unrefqueue pathgridutil waterutil writescene serialize optimizer
-    actorutil detourdebugdraw navmesh agentpath shadow mwshadowtechnique vismask recastmesh
+    actorutil detourdebugdraw navmesh agentpath shadow mwshadowtechnique recastmesh
     )
 
 add_component_dir (nif
@@ -139,7 +139,7 @@ add_component_dir (fontloader
     )
 
 add_component_dir (sdlutil
-    sdlgraphicswindow imagetosurface sdlinputwrapper sdlvideowrapper OISCompat events sdlcursormanager
+    sdlgraphicswindow imagetosurface sdlinputwrapper sdlvideowrapper events sdlcursormanager
     )
 
 add_component_dir (version
@@ -194,6 +194,10 @@ if (USE_QT)
 
     add_component_qt_dir (process
         processinvoker
+        )
+
+    add_component_dir (misc
+        helpviewer
         )
 
     if (DESIRED_QT_VERSION MATCHES 4)
@@ -281,3 +285,7 @@ endif()
 
 # Make the variable accessible for other subdirectories
 set(COMPONENT_FILES ${COMPONENT_FILES} PARENT_SCOPE)
+
+if (BULLET_USE_DOUBLES)
+    add_definitions(-DBT_USE_DOUBLE_PRECISION)
+endif()

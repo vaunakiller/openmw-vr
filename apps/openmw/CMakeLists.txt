@@ -15,17 +15,22 @@ set(GAME_HEADER
     engine.hpp
 )
 
+if (BULLET_USE_DOUBLES)
+    add_definitions(-DBT_USE_DOUBLE_PRECISION)
+endif()
+
 source_group(game FILES ${GAME} ${GAME_HEADER})
 
 add_openmw_dir (mwrender
-    actors objects renderingmanager animation rotatecontroller sky npcanimation
+    actors objects renderingmanager animation rotatecontroller sky npcanimation vismask
     creatureanimation effectmanager util renderinginterface pathgrid rendermode weaponanimation
     bulletdebugdraw globalmap characterpreview camera localmap water terrainstorage ripplesimulation
     renderbin actoranimation landmanager navmesh actorspaths recastmesh
     )
 
 add_openmw_dir (mwinput
-    inputmanagerimp
+    actions actionmanager bindingsmanager controllermanager controlswitch
+    inputmanagerimp mousemanager keyboardmanager sdlmappings sensormanager
     )
 
 add_openmw_dir (mwgui
@@ -70,7 +75,9 @@ add_openmw_dir (mwworld
     )
 
 add_openmw_dir (mwphysics
-    physicssystem trace collisiontype actor convert object heightfield
+    physicssystem trace collisiontype actor convert object heightfield closestnotmerayresultcallback
+    contacttestresultcallback deepestnotmecontacttestresultcallback stepper movementsolver
+    closestnotmeconvexresultcallback
     )
 
 add_openmw_dir (mwclass
@@ -81,9 +88,10 @@ add_openmw_dir (mwclass
 add_openmw_dir (mwmechanics
     mechanicsmanagerimp stat creaturestats magiceffects movement actorutil
     drawstate spells activespells npcstats aipackage aisequence aipursue alchemy aiwander aitravel aifollow aiavoiddoor aibreathe
-    aicast aiescort aiface aiactivate aicombat recharge repair enchanting pathfinding pathgrid security spellsuccess spellcasting
+    aicast aiescort aiface aiactivate aicombat recharge repair enchanting pathfinding pathgrid security spellcasting spellresistance
     disease pickpocket levelledlist combat steering obstacle autocalcspell difficultyscaling aicombataction actor summoning
-    character actors objects aistate coordinateconverter trading weaponpriority spellpriority weapontype
+    character actors objects aistate coordinateconverter trading weaponpriority spellpriority weapontype spellutil tickableeffects
+    spellabsorption linkedeffects
     )
 
 add_openmw_dir (mwstate
@@ -246,8 +254,6 @@ if(APPLE)
     configure_file("${OpenMW_BINARY_DIR}/settings-default.cfg" ${BUNDLE_RESOURCES_DIR} COPYONLY)
     configure_file("${OpenMW_BINARY_DIR}/openmw.cfg" ${BUNDLE_RESOURCES_DIR} COPYONLY)
     configure_file("${OpenMW_BINARY_DIR}/gamecontrollerdb.txt" ${BUNDLE_RESOURCES_DIR} COPYONLY)
-    configure_file("${OpenMW_BINARY_DIR}/gamecontrollerdb_204.txt" ${BUNDLE_RESOURCES_DIR} COPYONLY)
-    configure_file("${OpenMW_BINARY_DIR}/gamecontrollerdb_205.txt" ${BUNDLE_RESOURCES_DIR} COPYONLY)
 
     add_custom_command(TARGET openmw
         POST_BUILD

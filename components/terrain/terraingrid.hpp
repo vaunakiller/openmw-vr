@@ -14,7 +14,7 @@ namespace Terrain
     class TerrainGrid : public Terrain::World
     {
     public:
-        TerrainGrid(osg::Group* parent, osg::Group* compileRoot, Resource::ResourceSystem* resourceSystem, Storage* storage);
+        TerrainGrid(osg::Group* parent, osg::Group* compileRoot, Resource::ResourceSystem* resourceSystem, Storage* storage, int nodeMask, int preCompileMask=~0, int borderMask=0);
         ~TerrainGrid();
 
         virtual void cacheCell(View* view, int x, int y);
@@ -27,8 +27,12 @@ namespace Terrain
 
         View* createView();
 
+    protected:
+        bool isGridEmpty() const { return mGrid.empty(); }
+
     private:
         osg::ref_ptr<osg::Node> buildTerrain (osg::Group* parent, float chunkSize, const osg::Vec2f& chunkCenter);
+        void updateWaterCulling();
 
         // split each ESM::Cell into mNumSplits*mNumSplits terrain chunks
         unsigned int mNumSplits;

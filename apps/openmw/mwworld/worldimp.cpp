@@ -11,6 +11,7 @@
 #include <components/esm/esmreader.hpp>
 #include <components/esm/esmwriter.hpp>
 #include <components/esm/cellid.hpp>
+#include <components/esm/cellref.hpp>
 
 #include <components/misc/constants.hpp>
 #include <components/misc/resourcehelpers.hpp>
@@ -24,7 +25,6 @@
 
 #include <components/sceneutil/positionattitudetransform.hpp>
 #include <components/sceneutil/visitor.hpp>
-#include <components/sceneutil/vismask.hpp>
 
 #include <components/detournavigator/debug.hpp>
 #include <components/detournavigator/navigatorimpl.hpp>
@@ -43,11 +43,13 @@
 #include "../mwmechanics/levelledlist.hpp"
 #include "../mwmechanics/combat.hpp"
 #include "../mwmechanics/aiavoiddoor.hpp" //Used to tell actors to avoid doors
+#include "../mwmechanics/summoning.hpp"
 
 #include "../mwrender/animation.hpp"
 #include "../mwrender/npcanimation.hpp"
 #include "../mwrender/renderingmanager.hpp"
 #include "../mwrender/camera.hpp"
+#include "../mwrender/vismask.hpp"
 
 #include "../mwscript/globalscripts.hpp"
 
@@ -57,6 +59,7 @@
 #include "../mwphysics/actor.hpp"
 #include "../mwphysics/collisiontype.hpp"
 #include "../mwphysics/object.hpp"
+#include "../mwphysics/constants.hpp"
 
 #include "player.hpp"
 #include "manualref.hpp"
@@ -756,6 +759,11 @@ namespace MWWorld
         return mWorldScene->searchPtrViaActorId (actorId);
     }
 
+    Ptr World::searchPtrViaRefNum (const std::string& id, const ESM::RefNum& refNum)
+    {
+        return mCells.getPtr (id, refNum);
+    }
+
     struct FindContainerVisitor
     {
         ConstPtr mContainedPtr;
@@ -1314,6 +1322,7 @@ namespace MWWorld
                     mRendering->updatePtr(ptr, newPtr);
                     MWBase::Environment::get().getSoundManager()->updatePtr (ptr, newPtr);
                     mPhysics->updatePtr(ptr, newPtr);
+                    MWBase::Environment::get().getScriptManager()->getGlobalScripts().updatePtrs(ptr, newPtr);
 
                     MWBase::MechanicsManager *mechMgr = MWBase::Environment::get().getMechanicsManager();
                     mechMgr->updateCell(ptr, newPtr);
@@ -2298,7 +2307,7 @@ namespace MWWorld
         {
             // Adjust position so the location we wanted ends up in the middle of the object bounding box
             osg::ComputeBoundsVisitor computeBounds;
-            computeBounds.setTraversalMask(~SceneUtil::Mask_ParticleSystem);
+            computeBounds.setTraversalMask(~MWRender::Mask_ParticleSystem);
             dropped.getRefData().getBaseNode()->accept(computeBounds);
             osg::BoundingBox bounds = computeBounds.getBoundingBox();
             if (bounds.valid())
@@ -2579,7 +2588,7 @@ namespace MWWorld
 
     void World::screenshot(osg::Image* image, int w, int h)
     {
-        mRendering->screenshot(image, w, h);
+        mRendering->screenshotFramebuffer(image, w, h);
     }
 
     bool World::screenshot360(osg::Image* image, std::string settingStr)
@@ -3198,12 +3207,42 @@ namespace MWWorld
         mProjectileManager->launchMagicBolt(spellId, caster, fallbackDirection);
     }
 
+    class ApplyLoopingParticlesVisitor : public MWMechanics::EffectSourceVisitor
+    {
+    private:
+        MWWorld::Ptr mActor;
+
+    public:
+        ApplyLoopingParticlesVisitor(const MWWorld::Ptr& actor)
+            : mActor(actor)
+        {
+        }
+
+        virtual void visit (MWMechanics::EffectKey key,
+                            const std::string& /*sourceName*/, const std::string& /*sourceId*/, int /*casterActorId*/,
+                            float /*magnitude*/, float /*remainingTime*/ = -1, float /*totalTime*/ = -1)
+        {
+            const ESMStore& store = MWBase::Environment::get().getWorld()->getStore();
+            const auto magicEffect = store.get<ESM::MagicEffect>().find(key.mId);
+            if ((magicEffect->mData.mFlags & ESM::MagicEffect::ContinuousVfx) == 0)
+                return;
+            const ESM::Static* castStatic;
+            if (!magicEffect->mHit.empty())
+                castStatic = store.get<ESM::Static>().find (magicEffect->mHit);
+            else
+                castStatic = store.get<ESM::Static>().find ("VFX_DefaultHit");
+            MWRender::Animation* anim = MWBase::Environment::get().getWorld()->getAnimation(mActor);
+            if (anim && !castStatic->mModel.empty())
+                anim->addEffect("meshes\\" + castStatic->mModel, magicEffect->mIndex, /*loop*/true, "", magicEffect->mParticle);
+        }
+    };
+
     void World::applyLoopingParticles(const MWWorld::Ptr& ptr)
     {
         const MWWorld::Class &cls = ptr.getClass();
         if (cls.isActor())
         {
-            MWMechanics::ApplyLoopingParticlesVisitor visitor(ptr);
+            ApplyLoopingParticlesVisitor visitor(ptr);
             cls.getCreatureStats(ptr).getActiveSpells().visitEffectSources(visitor);
             cls.getCreatureStats(ptr).getSpells().visitEffectSources(visitor);
             if (cls.hasInventoryStore(ptr))

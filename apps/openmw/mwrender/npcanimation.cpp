@@ -18,7 +18,6 @@
 #include <components/sceneutil/actorutil.hpp>
 #include <components/sceneutil/attach.hpp>
 #include <components/sceneutil/visitor.hpp>
-#include <components/sceneutil/vismask.hpp>
 #include <components/sceneutil/skeleton.hpp>
 
 #include <components/settings/settings.hpp>
@@ -44,6 +43,7 @@
 #include "camera.hpp"
 #include "rotatecontroller.hpp"
 #include "renderbin.hpp"
+#include "vismask.hpp"
 
 namespace
 {
@@ -266,16 +266,22 @@ void HeadAnimationTime::setBlinkStop(float value)
 
 // ----------------------------------------------------
 
-NpcAnimation::NpcType NpcAnimation::getNpcType()
+NpcAnimation::NpcType NpcAnimation::getNpcType() const
 {
     const MWWorld::Class &cls = mPtr.getClass();
     // Dead vampires should typically stay vampires.
     if (mNpcType == Type_Vampire && cls.getNpcStats(mPtr).isDead() && !cls.getNpcStats(mPtr).isWerewolf())
         return mNpcType;
+    return getNpcType(mPtr);
+}
+
+NpcAnimation::NpcType NpcAnimation::getNpcType(const MWWorld::Ptr& ptr)
+{
+    const MWWorld::Class &cls = ptr.getClass();
     NpcAnimation::NpcType curType = Type_Normal;
-    if (cls.getCreatureStats(mPtr).getMagicEffects().get(ESM::MagicEffect::Vampirism).getMagnitude() > 0)
+    if (cls.getCreatureStats(ptr).getMagicEffects().get(ESM::MagicEffect::Vampirism).getMagnitude() > 0)
         curType = Type_Vampire;
-    if (cls.getNpcStats(mPtr).isWerewolf())
+    if (cls.getNpcStats(ptr).isWerewolf())
         curType = Type_Werewolf;
 
     return curType;
@@ -326,7 +332,7 @@ NpcAnimation::NpcAnimation(const MWWorld::Ptr& ptr, osg::ref_ptr<osg::Group> par
     mViewMode(viewMode),
     mShowWeapons(false),
     mShowCarriedLeft(true),
-    mNpcType(getNpcType()),
+    mNpcType(getNpcType(ptr)),
     mFirstPersonFieldOfView(firstPersonFieldOfView),
     mSoundsDisabled(disableSounds),
     mAccurateAiming(false),
@@ -538,7 +544,7 @@ void NpcAnimation::updateNpcBase()
 
         addAnimSource(smodel, smodel);
 
-        mObjectRoot->setNodeMask(SceneUtil::Mask_FirstPerson);
+        mObjectRoot->setNodeMask(Mask_FirstPerson);
         mObjectRoot->addCullCallback(new OverrideFieldOfViewCallback(mFirstPersonFieldOfView));
     }
 
@@ -1127,7 +1133,7 @@ void NpcAnimation::equipmentChanged()
     static const bool shieldSheathing = Settings::Manager::getBool("shield sheathing", "Game");
     if (shieldSheathing)
     {
-        int weaptype;
+        int weaptype = ESM::Weapon::None;
         MWMechanics::getActiveWeapon(mPtr, &weaptype);
         showCarriedLeft(updateCarriedLeftVisible(weaptype));
     }

@@ -71,7 +71,7 @@ namespace MWRender
         float mTop;
         bool mInterior;
 
-        bool mRTTToggled;
+        osg::Callback* mCullCallback;
 
         osg::Vec3f getSceneNodeCoordinates(int gridX, int gridY);
         void updateVisible();
@@ -90,14 +90,13 @@ namespace MWRender
               const std::string& resourcePath);
         ~Water();
 
+        void setCullCallback(osg::Callback* callback);
+
         void listAssetsToPreload(std::vector<std::string>& textures);
 
         void setEnabled(bool enabled);
 
         bool toggle();
-
-        /// Call before each eye to allow rendering water only once per frame in VR
-        void toggleRTT(bool enable);
 
         bool isUnderwater(const osg::Vec3f& pos) const;
 

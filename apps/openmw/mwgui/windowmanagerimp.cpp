@@ -15,12 +15,16 @@
 #include <MyGUI_ClipboardManager.h>
 #include <MyGUI_WidgetManager.h>
 
+// For BT_NO_PROFILE
+#include <LinearMath/btQuickprof.h>
+
 #include <SDL_keyboard.h>
 #include <SDL_clipboard.h>
 
 #include <components/debug/debuglog.hpp>
 
 #include <components/sdlutil/sdlcursormanager.hpp>
+#include <components/sdlutil/sdlvideowrapper.hpp>
 
 #include <components/esm/esmreader.hpp>
 #include <components/esm/esmwriter.hpp>
@@ -30,7 +34,6 @@
 #include <components/resource/resourcesystem.hpp>
 #include <components/resource/imagemanager.hpp>
 
-#include <components/sceneutil/vismask.hpp>
 #include <components/sceneutil/workqueue.hpp>
 
 #include <components/translation/translation.hpp>
@@ -50,6 +53,8 @@
 #include "../mwbase/statemanager.hpp"
 #include "../mwbase/soundmanager.hpp"
 #include "../mwbase/world.hpp"
+
+#include "../mwrender/vismask.hpp"
 
 #include "../mwworld/class.hpp"
 #include "../mwworld/player.hpp"
@@ -131,10 +136,12 @@ namespace MWGui
 {
 
     WindowManager::WindowManager(
-            osgViewer::Viewer* viewer, osg::Group* guiRoot, Resource::ResourceSystem* resourceSystem, SceneUtil::WorkQueue* workQueue,
+            SDL_Window* window, osgViewer::Viewer* viewer, osg::Group* guiRoot, Resource::ResourceSystem* resourceSystem, SceneUtil::WorkQueue* workQueue,
             const std::string& logpath, const std::string& resourcePath, bool consoleOnlyScripts, Translation::Storage& translationDataStorage,
             ToUTF8::FromType encoding, bool exportFonts, const std::string& versionDescription, const std::string& userDataPath)
-      : mStore(nullptr)
+      : mOldUpdateMask(0)
+      , mOldCullMask(0)
+      , mStore(nullptr)
       , mResourceSystem(resourceSystem)
       , mWorkQueue(workQueue)
       , mViewer(viewer)
@@ -199,6 +206,7 @@ namespace MWGui
       , mEncoding(encoding)
       , mFontHeight(16)
       , mVersionDescription(versionDescription)
+      , mWindowVisible(true)
     {
         float uiScale = Settings::Manager::getFloat("scaling factor", "GUI");
         mGuiPlatform = new osgMyGUI::Platform(viewer, guiRoot, resourceSystem->getImageManager(), uiScale);
@@ -299,6 +307,10 @@ namespace MWGui
         MyGUI::ClipboardManager::getInstance().eventClipboardRequested += MyGUI::newDelegate(this, &WindowManager::onClipboardRequested);
 
         mShowOwned = Settings::Manager::getInt("show owned", "Game");
+
+        mVideoWrapper = new SDLUtil::VideoWrapper(window, viewer);
+        mVideoWrapper->setGammaContrast(Settings::Manager::getFloat("gamma", "Video"),
+                                        Settings::Manager::getFloat("contrast", "Video"));
     }
 
     void WindowManager::loadFontDelegate(MyGUI::xml::ElementPtr _node, const std::string& _file, MyGUI::Version _version)
@@ -664,6 +676,7 @@ namespace MWGui
 
             mGuiPlatform->shutdown();
             delete mGuiPlatform;
+            delete mVideoWrapper;
         }
         catch(const MyGUI::Exception& e)
         {
@@ -689,12 +702,33 @@ namespace MWGui
         }
     }
 
+    void WindowManager::enableScene(bool enable)
+    {
+        unsigned int disablemask = MWRender::Mask_GUI|MWRender::Mask_PreCompile;
+        if (!enable && mViewer->getCamera()->getCullMask() != disablemask)
+        {
+            mOldUpdateMask = mViewer->getUpdateVisitor()->getTraversalMask();
+            mOldCullMask = mViewer->getCamera()->getCullMask();
+            mViewer->getUpdateVisitor()->setTraversalMask(disablemask);
+            mViewer->getCamera()->setCullMask(disablemask);
+        }
+        else if (enable && mViewer->getCamera()->getCullMask() == disablemask)
+        {
+            mViewer->getUpdateVisitor()->setTraversalMask(mOldUpdateMask);
+            mViewer->getCamera()->setCullMask(mOldCullMask);
+        }
+    }
+
     void WindowManager::updateVisible()
     {
+        bool loading = (getMode() == GM_Loading || getMode() == GM_LoadingWallpaper);
+
+        bool mainmenucover = containsMode(GM_MainMenu) && MWBase::Environment::get().getStateManager()->getState() == MWBase::StateManager::State_NoGame;
+
+        enableScene(!loading && !mainmenucover);
+
         if (!mMap)
             return; // UI not created yet
-
-        bool loading = (getMode() == GM_Loading || getMode() == GM_LoadingWallpaper);
 
         mHud->setVisible(mHudEnabled && !loading);
         mToolTips->setVisible(mHudEnabled && !loading);
@@ -908,7 +942,7 @@ namespace MWGui
                 mMessageBoxManager->onFrame(dt);
                 MWBase::Environment::get().getInputManager()->update(dt, true, false);
 
-                if (!MWBase::Environment::get().getInputManager()->isWindowVisible())
+                if (!mWindowVisible)
                     OpenThreads::Thread::microSleep(5000);
                 else
                 {
@@ -1178,11 +1212,7 @@ namespace MWGui
 
     void WindowManager::setCursorVisible(bool visible)
     {
-        if (visible == mCursorVisible)
-            return;
         mCursorVisible = visible;
-        if (!visible)
-            mCursorActive = false;
     }
 
     void WindowManager::setCursorActive(bool active)
@@ -1237,6 +1267,7 @@ namespace MWGui
     {
         mToolTips->setDelay(Settings::Manager::getFloat("tooltip delay", "GUI"));
 
+        bool changeRes = false;
         for (const auto& setting : changed)
         {
             if (setting.first == "HUD" && setting.second == "crosshair")
@@ -1245,6 +1276,26 @@ namespace MWGui
                 mSubtitlesEnabled = Settings::Manager::getBool ("subtitles", "GUI");
             else if (setting.first == "GUI" && setting.second == "menu transparency")
                 setMenuTransparency(Settings::Manager::getFloat("menu transparency", "GUI"));
+            else if (setting.first == "Video" && (
+                    setting.second == "resolution x"
+                    || setting.second == "resolution y"
+                    || setting.second == "fullscreen"
+                    || setting.second == "window border"))
+                changeRes = true;
+
+            else if (setting.first == "Video" && setting.second == "vsync")
+                mVideoWrapper->setSyncToVBlank(Settings::Manager::getBool("vsync", "Video"));
+            else if (setting.first == "Video" && (setting.second == "gamma" || setting.second == "contrast"))
+                mVideoWrapper->setGammaContrast(Settings::Manager::getFloat("gamma", "Video"),
+                                                Settings::Manager::getFloat("contrast", "Video"));
+        }
+
+        if (changeRes)
+        {
+            mVideoWrapper->setVideoMode(Settings::Manager::getInt("resolution x", "Video"),
+                                        Settings::Manager::getInt("resolution y", "Video"),
+                                        Settings::Manager::getBool("fullscreen", "Video"),
+                                        Settings::Manager::getBool("window border", "Video"));
         }
     }
 
@@ -1253,6 +1304,13 @@ namespace MWGui
 #ifdef USE_OPENXR
         return;
 #endif
+        // Note: this is a side effect of resolution change or window resize.
+        // There is no need to track these changes.
+        Settings::Manager::setInt("resolution x", "Video", x);
+        Settings::Manager::setInt("resolution y", "Video", y);
+        Settings::Manager::resetPendingChange("resolution x", "Video");
+        Settings::Manager::resetPendingChange("resolution y", "Video");
+
         mGuiPlatform->getRenderManagerPtr()->setViewSize(x, y);
 
         // scaled size
@@ -1282,7 +1340,25 @@ namespace MWGui
         for (WindowBase* window : mWindows)
             window->onResChange(x, y);
 
+        // We should reload TrueType fonts to fit new resolution
+        loadUserFonts();
+
         // TODO: check if any windows are now off-screen and move them back if so
+    }
+
+    bool WindowManager::isWindowVisible()
+    {
+        return mWindowVisible;
+    }
+
+    void WindowManager::windowVisibilityChange(bool visible)
+    {
+        mWindowVisible = visible;
+    }
+
+    void WindowManager::windowClosed()
+    {
+        MWBase::Environment::get().getStateManager()->requestQuit();
     }
 
     void WindowManager::onCursorChange(const std::string &name)
@@ -1904,11 +1980,7 @@ namespace MWGui
             mVideoBackground->eventKeyButtonPressed += MyGUI::newDelegate(this, &WindowManager::onVideoKeyPressed);
         }
 
-        // Turn off all rendering except for the GUI
-        int oldUpdateMask = mViewer->getUpdateVisitor()->getTraversalMask();
-        int oldCullMask = mViewer->getCamera()->getCullMask();
-        mViewer->getUpdateVisitor()->setTraversalMask(SceneUtil::Mask_GUI);
-        mViewer->getCamera()->setCullMask(SceneUtil::Mask_GUI);
+        enableScene(false);
 
         MyGUI::IntSize screenSize = MyGUI::RenderManager::getInstance().getViewSize();
         sizeVideo(screenSize.width, screenSize.height);
@@ -1922,9 +1994,10 @@ namespace MWGui
         setCursorVisible(false);
 
         if (mVideoWidget->hasAudioStream())
-            MWBase::Environment::get().getSoundManager()->pauseSounds(
+            MWBase::Environment::get().getSoundManager()->pauseSounds(MWSound::VideoPlayback,
                 ~MWSound::Type::Movie & MWSound::Type::Mask
             );
+
         osg::Timer frameTimer;
         while (mVideoEnabled && mVideoWidget->update() && !MWBase::Environment::get().getStateManager()->hasQuitRequest())
         {
@@ -1934,10 +2007,16 @@ namespace MWGui
 
             MWBase::Environment::get().getInputManager()->update(dt, true, false);
 
-            if (!MWBase::Environment::get().getInputManager()->isWindowVisible())
+            if (!mWindowVisible)
+            {
+                mVideoWidget->pause();
                 OpenThreads::Thread::microSleep(5000);
+            }
             else
             {
+                if (mVideoWidget->isPaused())
+                    mVideoWidget->resume();
+
                 mViewer->eventTraversal();
                 mViewer->updateTraversal();
                 mViewer->renderingTraversals();
@@ -1951,15 +2030,14 @@ namespace MWGui
         }
         mVideoWidget->stop();
 
-        MWBase::Environment::get().getSoundManager()->resumeSounds();
+        MWBase::Environment::get().getSoundManager()->resumeSounds(MWSound::VideoPlayback);
 
         setKeyFocusWidget(oldKeyFocus);
 
         setCursorVisible(cursorWasVisible);
 
         // Restore normal rendering
-        mViewer->getUpdateVisitor()->setTraversalMask(oldUpdateMask);
-        mViewer->getCamera()->setCullMask(oldCullMask);
+        updateVisible();
 
         mVideoBackground->setVisible(false);
         mVideoEnabled = false;
@@ -2154,7 +2232,9 @@ namespace MWGui
 
     void WindowManager::toggleDebugWindow()
     {
+#ifndef BT_NO_PROFILE
         mDebugWindow->setVisible(!mDebugWindow->isVisible());
+#endif
     }
 
     void WindowManager::cycleSpell(bool next)

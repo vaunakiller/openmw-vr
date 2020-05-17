@@ -358,7 +358,9 @@ namespace MWGui
     void DialogueWindow::onByeClicked(MyGUI::Widget* _sender)
     {
         if (exit())
+        {
             MWBase::Environment::get().getWindowManager()->removeGuiMode(GM_Dialogue);
+        }
     }
 
     void DialogueWindow::onSelectListItem(const std::string& topic, int id)
@@ -422,9 +424,7 @@ namespace MWGui
         bool sameActor = (mPtr == actor);
         if (!sameActor)
         {
-            for (DialogueText* text : mHistoryContents)
-                delete text;
-            mHistoryContents.clear();
+            // The history is not reset here
             mKeywords.clear();
             mTopicsList->clear();
             for (Link* link : mLinks)
@@ -477,6 +477,16 @@ namespace MWGui
         for (Link* link : mDeleteLater)
             delete link;
         mDeleteLater.clear();
+    }
+
+    void DialogueWindow::onClose()
+    {
+        if (MWBase::Environment::get().getWindowManager()->containsMode(GM_Dialogue))
+            return;
+        // Reset history
+        for (DialogueText* text : mHistoryContents)
+            delete text;
+        mHistoryContents.clear();
     }
 
     void DialogueWindow::setKeywords(std::list<std::string> keyWords)

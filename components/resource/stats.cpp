@@ -8,11 +8,12 @@
 
 #include <osgText/Text>
 
+#include <osgDB/Registry>
+
 #include <osgViewer/Viewer>
 #include <osgViewer/Renderer>
 
 #include <components/myguiplatform/myguidatamanager.hpp>
-#include <components/sceneutil/vismask.hpp>
 
 namespace Resource
 {
@@ -33,12 +34,16 @@ StatsHandler::StatsHandler():
 
     _resourceStatsChildNum = 0;
 
-    _font = osgMyGUI::DataManager::getInstance().getDataPath("DejaVuLGCSansMono.ttf");
+    if (osgDB::Registry::instance()->getReaderWriterForExtension("ttf"))
+        _font = osgMyGUI::DataManager::getInstance().getDataPath("DejaVuLGCSansMono.ttf");
 }
 
 Profiler::Profiler()
 {
-    _font = osgMyGUI::DataManager::getInstance().getDataPath("DejaVuLGCSansMono.ttf");
+    if (osgDB::Registry::instance()->getReaderWriterForExtension("ttf"))
+        _font = osgMyGUI::DataManager::getInstance().getDataPath("DejaVuLGCSansMono.ttf");
+    else
+        _font = "";
 
     setKeyEventTogglesOnScreenStats(osgGA::GUIEventAdapter::KEY_F3);
 }
@@ -104,14 +109,14 @@ void StatsHandler::toggle(osgViewer::ViewerBase *viewer)
 
     if (!_statsType)
     {
-        _camera->setNodeMask(SceneUtil::Mask_Disabled);
+        _camera->setNodeMask(0);
         _switch->setAllChildrenOff();
 
         viewer->getViewerStats()->collectStats("resource", false);
     }
     else
     {
-        _camera->setNodeMask(SceneUtil::Mask_Default);
+        _camera->setNodeMask(0xffffffff);
         _switch->setSingleChildOn(_resourceStatsChildNum);
 
         viewer->getViewerStats()->collectStats("resource", true);

@@ -15,6 +15,7 @@
 
 #include "../mwworld/ptr.hpp"
 
+#include <components/sdlutil/events.hpp>
 #include <components/settings/settings.hpp>
 #include <components/to_utf8/to_utf8.hpp>
 
@@ -70,6 +71,7 @@ namespace SceneUtil
 namespace SDLUtil
 {
     class SDLCursorManager;
+    class VideoWrapper;
 }
 
 namespace osgMyGUI
@@ -124,13 +126,14 @@ namespace MWGui
   class JailScreen;
   class KeyboardNavigation;
 
-  class WindowManager : public MWBase::WindowManager
+  class WindowManager :
+      public MWBase::WindowManager
   {
   public:
     typedef std::pair<std::string, int> Faction;
     typedef std::vector<Faction> FactionList;
 
-    WindowManager(osgViewer::Viewer* viewer, osg::Group* guiRoot, Resource::ResourceSystem* resourceSystem, SceneUtil::WorkQueue* workQueue,
+    WindowManager(SDL_Window* window, osgViewer::Viewer* viewer, osg::Group* guiRoot, Resource::ResourceSystem* resourceSystem, SceneUtil::WorkQueue* workQueue,
                   const std::string& logpath, const std::string& cacheDir, bool consoleOnlyScripts, Translation::Storage& translationDataStorage,
                   ToUTF8::FromType encoding, bool exportFonts, const std::string& versionDescription, const std::string& localPath);
     virtual ~WindowManager();
@@ -298,7 +301,10 @@ namespace MWGui
 
     virtual void processChangedSettings(const Settings::CategorySettingVector& changed);
 
+    virtual void windowVisibilityChange(bool visible);
     virtual void windowResized(int x, int y);
+    virtual void windowClosed();
+    virtual bool isWindowVisible();
 
     virtual void executeInConsole (const std::string& path);
 
@@ -392,6 +398,8 @@ namespace MWGui
     virtual bool injectKeyRelease(MyGUI::KeyCode key);
 
   private:
+    unsigned int mOldUpdateMask; unsigned int mOldCullMask;
+
     const MWWorld::ESMStore* mStore;
     bool mVRMode;
     Resource::ResourceSystem* mResourceSystem;
@@ -531,9 +539,13 @@ namespace MWGui
 
     std::string mVersionDescription;
 
+    bool mWindowVisible;
+
     MWGui::TextColours mTextColours;
 
     std::unique_ptr<KeyboardNavigation> mKeyboardNavigation;
+
+    SDLUtil::VideoWrapper* mVideoWrapper;
 
     /**
      * Called when MyGUI tries to retrieve a tag's value. Tags must be denoted in #{tag} notation and will be replaced upon setting a user visible text/property.
@@ -564,6 +576,8 @@ namespace MWGui
     void setMenuTransparency(float value);
 
     void updatePinnedWindows();
+
+    void enableScene(bool enable);
   };
 }
 

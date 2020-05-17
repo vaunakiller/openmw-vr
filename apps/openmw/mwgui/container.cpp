@@ -25,6 +25,7 @@
 #include "sortfilteritemmodel.hpp"
 #include "pickpocketitemmodel.hpp"
 #include "draganddrop.hpp"
+#include "tooltips.hpp"
 
 namespace MWGui
 {
@@ -83,7 +84,8 @@ namespace MWGui
         if (count > 1 && !shift)
         {
             CountDialog* dialog = MWBase::Environment::get().getWindowManager()->getCountDialog();
-            dialog->openCountDialog(object.getClass().getName(object), "#{sTake}", count);
+            std::string name = object.getClass().getName(object) + MWGui::ToolTips::getSoulString(object.getCellRef());
+            dialog->openCountDialog(name, "#{sTake}", count);
             dialog->eventOkClicked.clear();
             dialog->eventOkClicked += MyGUI::newDelegate(this, &ContainerWindow::dragItem);
         }

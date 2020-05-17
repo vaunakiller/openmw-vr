@@ -4,11 +4,12 @@
 #include <osg/ref_ptr>
 #include <osg/Referenced>
 #include <osg/Vec3f>
+#include <osg/NodeCallback>
 
 #include <atomic>
+#include <limits>
 #include <memory>
 #include <set>
-#include <atomic>
 
 #include "defs.hpp"
 #include "cellborder.hpp"
@@ -39,6 +40,47 @@ namespace Terrain
     class ChunkManager;
     class CompositeMapRenderer;
 
+    class HeightCullCallback : public osg::NodeCallback
+    {
+    public:
+        void setLowZ(float z)
+        {
+            mLowZ = z;
+        }
+        float getLowZ() const
+        {
+            return mLowZ;
+        }
+
+        void setHighZ(float highZ)
+        {
+            mHighZ = highZ;
+        }
+        float getHighZ() const
+        {
+            return mHighZ;
+        }
+
+        void setCullMask(unsigned int mask)
+        {
+            mMask = mask;
+        }
+        unsigned int getCullMask() const
+        {
+            return mMask;
+        }
+
+        virtual void operator()(osg::Node* node, osg::NodeVisitor* nv)
+        {
+            if (mLowZ <= mHighZ)
+                traverse(node, nv);
+        }
+    private:
+        float mLowZ{-std::numeric_limits<float>::max()};
+        float mHighZ{std::numeric_limits<float>::max()};
+        unsigned int mMask{~0u};
+    };
+
     /**
      * @brief A View is a collection of rendering objects that are visible from a given camera/intersection.
      * The base View class is part of the interface for usage in conjunction with preload feature.
@@ -63,7 +105,7 @@ namespace Terrain
         /// @param storage Storage instance to get terrain data from (heights, normals, colors, textures..)
         /// @param nodeMask mask for the terrain root
         /// @param preCompileMask mask for pre compiling textures
-        World(osg::Group* parent, osg::Group* compileRoot, Resource::ResourceSystem* resourceSystem, Storage* storage);
+        World(osg::Group* parent, osg::Group* compileRoot, Resource::ResourceSystem* resourceSystem, Storage* storage, int nodeMask, int preCompileMask, int borderMask);
         virtual ~World();
 
         /// Set a WorkQueue to delete objects in the background thread.
@@ -116,6 +158,8 @@ namespace Terrain
 
         Storage* getStorage() { return mStorage; }
 
+        osg::Callback* getHeightCullCallback(float highz, unsigned int mask);
+
     protected:
         Storage* mStorage;
 
@@ -135,6 +179,7 @@ namespace Terrain
         bool mBorderVisible;
 
         std::set<std::pair<int,int>> mLoadedCells;
+        osg::ref_ptr<HeightCullCallback> mHeightCullCallback;
     };
 }
 
