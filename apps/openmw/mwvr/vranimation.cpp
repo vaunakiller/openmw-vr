@@ -507,6 +507,8 @@ void VRAnimation::updateParts()
         removeIndividualPart(ESM::PartReferenceType::PRT_RAnkle);
         removeIndividualPart(ESM::PartReferenceType::PRT_LKnee);
         removeIndividualPart(ESM::PartReferenceType::PRT_RKnee);
+        removeIndividualPart(ESM::PartReferenceType::PRT_LFoot);
+        removeIndividualPart(ESM::PartReferenceType::PRT_RFoot);
     }
     else
     {
@@ -613,6 +615,11 @@ osg::ref_ptr<osg::Geometry> VRAnimation::createPointerGeometry(void)
     return geometry;
 }
 
+float VRAnimation::getVelocity(const std::string& groupname) const
+{
+  return 0.0f;
+}
+
 osg::Vec3f VRAnimation::runAnimation(float timepassed)
 {
     return NpcAnimation::runAnimation(timepassed);
@@ -662,6 +669,13 @@ void VRAnimation::addControllers()
         group->addChild(mModelOffset);
         mModelOffset->addChild(mObjectRoot);
     }
+
+    auto wb = mNodeMap.find("weapon bone");
+    if (wb != mNodeMap.end())
+    {
+        wb->second->removeChild(mWeaponPointerTransform);
+        wb->second->addChild(mWeaponPointerTransform);
+    }
 }
 void VRAnimation::enableHeadAnimation(bool)
 {
@@ -690,6 +704,23 @@ bool VRAnimation::canPlaceObject()
 const MWRender::RayResult& VRAnimation::getPointerTarget() const
 {
     return mPointerTarget;
+}
+
+
+MWWorld::Ptr VRAnimation::getTarget(const std::string& directorNode)
+{
+    auto node = mNodeMap.find(directorNode);
+    auto* world = MWBase::Environment::get().getWorld();
+    MWRender::RayResult result{};
+    if (node != mNodeMap.end())
+        if (world)
+            world->getTargetObject(result, node->second);
+    return result.mHitObject;
+}
+
+osg::Matrix VRAnimation::getWeaponTransformMatrix() const
+{
+    return osg::computeLocalToWorld(mWeaponDirectionTransform->getParentalNodePaths()[0]);
 }
 
 void VRAnimation::updatePointerTarget()

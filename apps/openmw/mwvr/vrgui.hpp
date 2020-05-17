@@ -61,6 +61,7 @@ namespace MWVR
         osg::Vec2 myGUIViewSize; //!< Resizable elements are resized to this (fraction of full view)
         SizingMode sizingMode; //!< How to size the layer
         TrackingMode trackingMode; //!< Tracking mode
+        std::string extraLayers; //!< Additional layers to draw (list separated by any non-alphabetic)
 
         bool operator<(const LayerConfig& rhs) const { return priority < rhs.priority; }
     };
@@ -71,7 +72,7 @@ namespace MWVR
         VRGUILayer(
             osg::ref_ptr<osg::Group> geometryRoot,
             osg::ref_ptr<osg::Group> cameraRoot,
-            std::string filter,
+            std::string layerName,
             LayerConfig config,
             VRGUIManager* parent);
         ~VRGUILayer();
@@ -95,7 +96,7 @@ namespace MWVR
     public:
         Pose mTrackedPose{};
         LayerConfig mConfig;
-        std::string mFilter;
+        std::string mLayerName;
         std::vector<MWGui::Layout*> mWidgets;
         osg::ref_ptr<osg::Group> mGeometryRoot;
         osg::ref_ptr<osg::Geometry> mGeometry{ new osg::Geometry };
@@ -123,8 +124,6 @@ namespace MWVR
 
         ~VRGUIManager(void);
 
-        void showGUIs(bool show);
-
         void setVisible(MWGui::Layout*, bool visible);
 
         void updateSideBySideLayers();
@@ -139,7 +138,7 @@ namespace MWVR
 
         void updateTracking(void);
 
-        void updateFocus();
+        bool updateFocus();
 
         void setFocusLayer(VRGUILayer* layer);
 

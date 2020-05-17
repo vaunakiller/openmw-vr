@@ -1062,29 +1062,18 @@ namespace MWRender
         return mNodeMap;
     }
 
-    // In VR, only jump, walk, and run groups should accumulate movement.
-    static bool vrAccum(const std::string& groupname)
-    {
-#ifdef USE_OPENXR
-        if (groupname.compare(0, 4, "jump"))
-            if (groupname.compare(0, 4, "walk"))
-                if (groupname.compare(0, 3, "run"))
-                    if (groupname.compare(0, 4, "swim"))
-                        return false;
-#else
-        (void)groupname;
-#endif
-        return true;
-    }
-
     static bool vrOverride(const std::string& groupname, const std::string& bone)
     {
 #ifdef USE_OPENXR
+        // TODO: It's difficult to design a good override system when
+        // I don't have a good understanding of the animation code. So  for
+        // now i just block adding updates for nodes that should not be animated in VR.
+
         // TODO: Some overrides cause NaN during cull.
         // I believe this happens if an override causes a bone to never receive
         // a valid matrix, but i'm not totally sure.
         
-        // Add any bone+animation pair that is messing with Vr comfort here.
+        // Add any bone+groupname pair that is messing with Vr comfort here.
         using Overrides = std::set<std::string>;
         using GroupOverrides = std::map<std::string, Overrides>;
         static GroupOverrides sVrOverrides =
@@ -1165,7 +1154,11 @@ namespace MWRender
                     mActiveControllers.insert(std::make_pair(node, it->second));
 
                     if (blendMask == 0 && node == mAccumRoot
-                        && (!isPlayer || vrAccum(active->first)))
+#ifdef USE_OPENXR
+    // TODO: Little hack to keep certain animations from wobbling the camera in VR
+                        && (!isPlayer)
+#endif
+                        )
                     {
                         mAccumCtrl = it->second;
 

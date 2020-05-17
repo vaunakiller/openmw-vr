@@ -277,8 +277,7 @@ namespace MWWorld
 #ifdef USE_OPENXR
         if (caster == MWBase::Environment::get().getWorld()->getPlayerPtr())
         {
-            auto* anim = MWVR::Environment::get().getPlayerAnimation();
-            osg::Matrix worldMatrix = osg::computeLocalToWorld(anim->mWeaponDirectionTransform->getParentalNodePaths()[0]);
+            osg::Matrix worldMatrix = MWVR::Environment::get().getPlayerAnimation()->getWeaponTransformMatrix();
             orient = worldMatrix.getRotate();
             pos = worldMatrix.getTrans();
         }

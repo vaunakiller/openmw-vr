@@ -49,6 +49,9 @@ namespace MWVR
 
         void injectMousePress(int sdlButton, bool onPress);
 
+        void applyHapticsLeftHand(float intensity) override;
+        void applyHapticsRightHand(float intensity) override;
+
         std::unique_ptr<OpenXRInput> mXRInput;
         std::unique_ptr<RealisticCombat::StateMachine> mRealisticCombat;
         Pose mPreviousHeadPose{};

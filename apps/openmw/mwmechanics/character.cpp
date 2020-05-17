@@ -49,6 +49,11 @@
 #include "actorutil.hpp"
 #include "spellcasting.hpp"
 
+#ifdef USE_OPENXR
+#include "../mwvr/vrenvironment.hpp"
+#include "../mwvr/vranimation.hpp"
+#endif
+
 namespace
 {
 
@@ -1582,9 +1587,14 @@ bool CharacterController::updateWeaponState(CharacterState& idle)
             {
                 MWWorld::ContainerStoreIterator weapon = mPtr.getClass().getInventoryStore(mPtr).getSlot(MWWorld::InventoryStore::Slot_CarriedRight);
                 MWWorld::Ptr item = *weapon;
-                // TODO: this will only work for the player, and needs to be fixed if NPCs should ever use lockpicks/probes.
-                MWWorld::Ptr target = MWBase::Environment::get().getWorld()->getFacedObject();
                 std::string resultMessage, resultSound;
+                // TODO: this will only work for the player, and needs to be fixed if NPCs should ever use lockpicks/probes.
+#ifdef USE_OPENXR
+                auto* anim = MWVR::Environment::get().getPlayerAnimation();
+                auto target = anim->getTarget("weapon bone");
+#else
+                MWWorld::Ptr target = MWBase::Environment::get().getWorld()->getFacedObject();
+#endif
 
                 if(!target.isEmpty())
                 {

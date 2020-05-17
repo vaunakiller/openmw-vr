@@ -92,6 +92,7 @@ set(MYGUI_FILES
     openmw_text.skin.xml
     openmw_text_input.layout
     openmw_tooltips.layout
+    openmw_tooltips_vr.layout
     openmw_trade_window.layout
     openmw_trade_window_vr.layout
     openmw_trainingwindow.layout

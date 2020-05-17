@@ -563,8 +563,10 @@ void GUICamera::collectDrawCalls(std::string filter)
             auto layer = myGUILayers->getLayer(i);
             auto name = layer->getName();
 
-            if (name == filter)
+            if (filter.find(name) != std::string::npos)
+            {
                 layer->renderToTarget(this, mUpdate);
+            }
         }
     }
     end();

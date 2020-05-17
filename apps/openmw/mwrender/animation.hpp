@@ -442,7 +442,7 @@ public:
     void disable(const std::string &groupname);
 
     /** Retrieves the velocity (in units per second) that the animation will move. */
-    float getVelocity(const std::string &groupname) const;
+    virtual float getVelocity(const std::string &groupname) const;
 
     virtual osg::Vec3f runAnimation(float duration);
 

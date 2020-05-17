@@ -127,8 +127,6 @@ public:
         mOnActivate = changed && mActive;
         mOnDeactivate = changed && !mActive;
 
-        //if(openMWActionCode() == MWInput::InputManager::A_Journal)
-            Log(Debug::Verbose) << "Action[" << mXRAction.mName << "]: old=" << old << " shouldQueue=" << shouldQueue() << ", active=" << mActive << ", value=" << mValue << " onActivate=" << mOnActivate << ", mOnDeactivate=" << mOnDeactivate;
         if (shouldQueue())
         {
             queue.push_back(this);
@@ -287,6 +285,7 @@ struct OpenXRInput
     {
         A_XrFirst = MWInput::InputManager::A_Last,
         A_ActivateTouch,
+        A_RepositionMenu,
         A_XrLast
     };
 
@@ -326,6 +325,11 @@ struct OpenXRInput
     const Action* nextAction();
     PoseSet getHandPoses(int64_t time, TrackedSpace space);
 
+    void applyHaptics(SubAction subAction, float intensity)
+    {
+        mHapticsAction.applyHaptics(subactionPath(subAction), intensity);
+    }
+
     SubActionPaths mSubactionPath;
     XrActionSet mActionSet = XR_NULL_HANDLE;
 
@@ -345,6 +349,7 @@ struct OpenXRInput
     ControllerActionPaths mTriggerValuePath;
 
     ActionPtr mGameMenu;
+    ActionPtr mRepositionMenu;
     ActionPtr mInventory;
     ActionPtr mActivate;
     ActionPtr mUse;
@@ -355,18 +360,19 @@ struct OpenXRInput
     ActionPtr mCycleSpellRight;
     ActionPtr mCycleWeaponLeft;
     ActionPtr mCycleWeaponRight;
-    ActionPtr mToggleSneak;
+    ActionPtr mSneak;
     ActionPtr mQuickMenu;
     ActionPtr mLookLeftRight;
     ActionPtr mMoveForwardBackward;
     ActionPtr mMoveLeftRight;
     ActionPtr mJournal;
-    //OpenXRAction_Delayed mQuickSave;
-
-    // Needed to access all the actions that don't fit on the controllers
-    ActionPtr mQuickKeysMenu;
-
+    ActionPtr mQuickSave;
+    ActionPtr mRest;
     ActionPtr mActivateTouch;
+    ActionPtr mAlwaysRun;
+    ActionPtr mAutoMove;
+    ActionPtr mToggleHUD;
+    ActionPtr mToggleDebug;
 
     // Hand tracking
     OpenXRAction mHandPoseAction;
@@ -480,6 +486,8 @@ bool OpenXRAction::getPose(XrPath subactionPath)
 
 bool OpenXRAction::applyHaptics(XrPath subactionPath, float amplitude)
 {
+    amplitude = std::max(0.f, std::min(1.f, amplitude));
+
     auto* xr = Environment::get().getManager();
     XrHapticVibration vibration{ XR_TYPE_HAPTIC_VIBRATION };
     vibration.amplitude = amplitude;
@@ -534,26 +542,31 @@ OpenXRInput::OpenXRInput()
     , mAPath(generateControllerActionPaths("/input/a/click"))
     , mBPath(generateControllerActionPaths("/input/b/click"))
     , mTriggerValuePath(generateControllerActionPaths("/input/trigger/value"))
-    , mGameMenu(std::move(createMWAction<ButtonPressAction>(MWInput::InputManager::A_GameMenu, "game_menu", "GameMenu", { })))
+    , mGameMenu(std::move(createMWAction<ButtonPressAction>(MWInput::InputManager::A_GameMenu, "game_menu", "Game Menu", { })))
+    , mRepositionMenu(std::move(createMWAction<ButtonLongPressAction>(A_RepositionMenu, "reposition_menu", "Reposition Menu", { })))
     , mInventory(std::move(createMWAction<ButtonPressAction>(MWInput::InputManager::A_Inventory, "inventory", "Inventory", { })))
     , mActivate(std::move(createMWAction<ButtonPressAction>(MWInput::InputManager::A_Activate, "activate", "Activate", { })))
-    , mUse(std::move(createMWAction<ButtonPressAction>(MWInput::InputManager::A_Use, "use", "Use", { })))
+    , mUse(std::move(createMWAction<ButtonHoldAction>(MWInput::InputManager::A_Use, "use", "Use", { })))
     , mJump(std::move(createMWAction<ButtonPressAction>(MWInput::InputManager::A_Jump, "jump", "Jump", { })))
     , mToggleWeapon(std::move(createMWAction<ButtonPressAction>(MWInput::InputManager::A_ToggleWeapon, "weapon", "Weapon", { })))
     , mToggleSpell(std::move(createMWAction<ButtonPressAction>(MWInput::InputManager::A_ToggleSpell, "spell", "Spell", { })))
-    , mCycleSpellLeft(std::move(createMWAction<ButtonPressAction>(MWInput::InputManager::A_CycleSpellLeft, "cycle_spell_left", "CycleSpellLeft", { })))
-    , mCycleSpellRight(std::move(createMWAction<ButtonPressAction>(MWInput::InputManager::A_CycleSpellRight, "cycle_spell_right", "CycleSpellRight", { })))
-    , mCycleWeaponLeft(std::move(createMWAction<ButtonPressAction>(MWInput::InputManager::A_CycleWeaponLeft, "cycle_weapon_left", "CycleWeaponLeft", { })))
-    , mCycleWeaponRight(std::move(createMWAction<ButtonPressAction>(MWInput::InputManager::A_CycleWeaponRight, "cycle_weapon_right", "CycleWeaponRight", { })))
-    , mToggleSneak(std::move(createMWAction<ButtonHoldAction>(MWInput::InputManager::A_ToggleSneak, "sneak", "Sneak", { })))
-    , mQuickMenu(std::move(createMWAction<ButtonPressAction>(MWInput::InputManager::A_QuickMenu, "quick_menu", "QuickMenu", { })))
-    , mLookLeftRight(std::move(createMWAction<AxisAction>(MWInput::InputManager::A_LookLeftRight, "look_left_right", "LookLeftRight", { })))
-    , mMoveForwardBackward(std::move(createMWAction<AxisAction>(MWInput::InputManager::A_MoveForwardBackward, "move_forward_backward", "MoveForwardBackward", { })))
-    , mMoveLeftRight(std::move(createMWAction<AxisAction>(MWInput::InputManager::A_MoveLeftRight, "move_left_right", "MoveLeftRight", { })))
-    , mJournal(std::move(createMWAction<ButtonPressAction>(MWInput::InputManager::A_Journal, "journal_book", "Journal Book", { })))
-    //, mQuickSave(std::move(createMWAction<ButtonHoldAction>(MWInput::InputManager::A_QuickSave, "quick_save", "Quick Save", { })))
-    , mQuickKeysMenu(std::move(createMWAction<ButtonPressAction>(MWInput::InputManager::A_QuickKeysMenu, "quick_keys_menu", "Quick Keys Menu", { })))
+    , mCycleSpellLeft(std::move(createMWAction<ButtonPressAction>(MWInput::InputManager::A_CycleSpellLeft, "cycle_spell_left", "Cycle Spell Left", { })))
+    , mCycleSpellRight(std::move(createMWAction<ButtonPressAction>(MWInput::InputManager::A_CycleSpellRight, "cycle_spell_right", "Cycle Spell Right", { })))
+    , mCycleWeaponLeft(std::move(createMWAction<ButtonPressAction>(MWInput::InputManager::A_CycleWeaponLeft, "cycle_weapon_left", "Cycle Weapon Left", { })))
+    , mCycleWeaponRight(std::move(createMWAction<ButtonPressAction>(MWInput::InputManager::A_CycleWeaponRight, "cycle_weapon_right", "Cycle Weapon Right", { })))
+    , mSneak(std::move(createMWAction<ButtonHoldAction>(MWInput::InputManager::A_Sneak, "sneak", "Sneak", { })))
+    , mQuickMenu(std::move(createMWAction<ButtonPressAction>(MWInput::InputManager::A_QuickMenu, "quick_menu", "Quick Menu", { })))
+    , mLookLeftRight(std::move(createMWAction<AxisAction>(MWInput::InputManager::A_LookLeftRight, "look_left_right", "Look Left Right", { })))
+    , mMoveForwardBackward(std::move(createMWAction<AxisAction>(MWInput::InputManager::A_MoveForwardBackward, "move_forward_backward", "Move Forward Backward", { })))
+    , mMoveLeftRight(std::move(createMWAction<AxisAction>(MWInput::InputManager::A_MoveLeftRight, "move_left_right", "Move Left Right", { })))
+    , mJournal(std::move(createMWAction<ButtonLongPressAction>(MWInput::InputManager::A_Journal, "journal_book", "Journal Book", { })))
+    , mQuickSave(std::move(createMWAction<ButtonLongPressAction>(MWInput::InputManager::A_QuickSave, "quick_save", "Quick Save", { })))
+    , mRest(std::move(createMWAction<ButtonLongPressAction>(MWInput::InputManager::A_Rest, "rest", "Rest", { })))
     , mActivateTouch(std::move(createMWAction<AxisAction>(A_ActivateTouch, "activate_touched", "Activate Touch", { RIGHT_HAND })))
+    , mAlwaysRun(std::move(createMWAction<ButtonPressAction>(MWInput::InputManager::A_AlwaysRun, "always_run", "Always Run", { })))
+    , mAutoMove(std::move(createMWAction<ButtonPressAction>(MWInput::InputManager::A_AutoMove, "auto_move", "Auto Move", { })))
+    , mToggleHUD(std::move(createMWAction<ButtonLongPressAction>(MWInput::InputManager::A_ToggleHUD, "toggle_hud", "Toggle HUD", { })))
+    , mToggleDebug(std::move(createMWAction<ButtonLongPressAction>(MWInput::InputManager::A_ToggleDebug, "toggle_debug", "Toggle DEBUG", { })))
     , mHandPoseAction(std::move(createXRAction(XR_ACTION_TYPE_POSE_INPUT, "hand_pose", "Hand Pose", { LEFT_HAND, RIGHT_HAND })))
     , mHapticsAction(std::move(createXRAction(XR_ACTION_TYPE_VIBRATION_OUTPUT, "vibrate_hand", "Vibrate Hand", { LEFT_HAND, RIGHT_HAND })))
 {
@@ -562,6 +575,81 @@ OpenXRInput::OpenXRInput()
         XrPath oculusTouchInteractionProfilePath;
         CHECK_XRCMD(
             xrStringToPath(xr->impl().mInstance, "/interaction_profiles/oculus/touch_controller", &oculusTouchInteractionProfilePath));
+
+        /*
+            // Applicable actions not (yet) included
+            A_QuickKey1,
+            A_QuickKey2,
+            A_QuickKey3,
+            A_QuickKey4,
+            A_QuickKey5,
+            A_QuickKey6,
+            A_QuickKey7,
+            A_QuickKey8,
+            A_QuickKey9,
+            A_QuickKey10,
+            A_QuickKeysMenu,
+            A_QuickLoad,
+            A_CycleSpellLeft,           
+            A_CycleSpellRight,
+            A_CycleWeaponLeft,          
+            A_CycleWeaponRight,
+            A_Screenshot, // Generate a VR screenshot?
+            A_Console,    // Currently awkward due to a lack of virtual keyboard, but should be included when that's in place
+        */
+
+        /*
+            Oculus Bindings:
+            L-Squeeze:
+                Hold: Sneak
+
+            R-Squeeze:
+                Hold: Enable Pointer
+
+            L-Trigger:
+                Press: Jump
+
+            R-Trigger:
+                IF POINTER: 
+                    Activate
+                ELSE:
+                    Use
+
+            L-Thumbstick:
+                X-Axis: MoveForwardBackward
+                Y-Axis: MoveLeftRight
+                Button: 
+                    Press: AlwaysRun
+                    Long: ToggleHUD
+                Touch: 
+
+            R-Thumbstick:
+                X-Axis: LookLeftRight
+                Y-Axis: 
+                Button: 
+                    Press: AutoMove
+                    Long: ToggleDebug
+                Touch: 
+
+            X:
+                Press: Toggle Spell
+                Long: 
+            Y:
+                Press: Rest
+                Long: Quick Save
+            A:
+                Press: Toggle Weapon
+                Long: 
+            B:
+                Press: Inventory
+                Long: Journal
+
+            Menu:
+                Press: GameMenun
+                Long: Reposition GUI
+
+        */
+
         std::vector<XrActionSuggestedBinding> bindings{ {
             {mHandPoseAction, mPosePath[LEFT_HAND]},
             {mHandPoseAction, mPosePath[RIGHT_HAND]},
@@ -574,16 +662,22 @@ OpenXRInput::OpenXRInput()
             {*mUse, mTriggerValuePath[RIGHT_HAND]},
             {*mJump, mTriggerValuePath[LEFT_HAND]},
             {*mToggleWeapon, mAPath[RIGHT_HAND]},
-            {*mToggleSpell, mAPath[RIGHT_HAND]},
-            {*mCycleSpellLeft, mThumbstickClickPath[LEFT_HAND]},
-            {*mCycleSpellRight, mThumbstickClickPath[RIGHT_HAND]},
-            {*mCycleWeaponLeft, mThumbstickClickPath[LEFT_HAND]},
-            {*mCycleWeaponRight, mThumbstickClickPath[RIGHT_HAND]},
-            {*mToggleSneak, mXPath[LEFT_HAND]},
+            {*mToggleSpell, mXPath[LEFT_HAND]},
+            //{*mCycleSpellLeft, mThumbstickClickPath[LEFT_HAND]},
+            //{*mCycleSpellRight, mThumbstickClickPath[RIGHT_HAND]},
+            //{*mCycleWeaponLeft, mThumbstickClickPath[LEFT_HAND]},
+            //{*mCycleWeaponRight, mThumbstickClickPath[RIGHT_HAND]},
+            {*mAlwaysRun, mThumbstickClickPath[LEFT_HAND]},
+            {*mAutoMove, mThumbstickClickPath[RIGHT_HAND]},
+            {*mToggleHUD, mThumbstickClickPath[LEFT_HAND]},
+            {*mToggleDebug, mThumbstickClickPath[RIGHT_HAND]},
+            {*mSneak, mSqueezeValuePath[LEFT_HAND]},
             {*mInventory, mBPath[RIGHT_HAND]},
-            {*mJournal, mYPath[LEFT_HAND]},
-            //{*mQuickSave, mYPath[LEFT_HAND]},
+            {*mRest, mYPath[LEFT_HAND]},
+            {*mJournal, mBPath[RIGHT_HAND]},
+            {*mQuickSave, mYPath[LEFT_HAND]},
             {*mGameMenu, mMenuClickPath[LEFT_HAND]},
+            {*mRepositionMenu, mMenuClickPath[LEFT_HAND]},
             {*mActivateTouch, mSqueezeValuePath[RIGHT_HAND]},
           } };
         XrInteractionProfileSuggestedBinding suggestedBindings{ XR_TYPE_INTERACTION_PROFILE_SUGGESTED_BINDING };
@@ -591,24 +685,6 @@ OpenXRInput::OpenXRInput()
         suggestedBindings.suggestedBindings = bindings.data();
         suggestedBindings.countSuggestedBindings = (uint32_t)bindings.size();
         CHECK_XRCMD(xrSuggestInteractionProfileBindings(xr->impl().mInstance, &suggestedBindings));
-
-        /*
-        mActivate; // R-Squeeze
-        mUse; // R-Trigger
-        mJump; // L-Trigger. L-trigger has value, could use this to make measured jumps ?
-        mToggleWeapon; // A
-        mToggleSpell; // A + SpellModifier
-        mRun; // Based on movement thumbstick value ?
-        mCycleSpellLeft; // L-ThumbstickClick + SpellModifier
-        mCycleSpellRight; // R-ThumbstickClick + SpellModifier
-        mCycleWeaponLeft; // L-ThumbstickClick
-        mCycleWeaponRight; // R-ThumbstickClick
-        mToggleSneak; // X
-        mInventory; // B
-        mQuickMenu; // Y
-        mGameMenu; // Menu
-        */
-
     }
 
     { // Set up action spaces
@@ -691,6 +767,7 @@ OpenXRInput::updateControls()
     CHECK_XRCMD(xrSyncActions(xr->impl().mSession, &syncInfo));
 
     mGameMenu->updateAndQueue(mActionQueue);
+    mRepositionMenu->updateAndQueue(mActionQueue);
     mInventory->updateAndQueue(mActionQueue);
     mActivate->updateAndQueue(mActionQueue);
     mUse->updateAndQueue(mActionQueue);
@@ -701,15 +778,28 @@ OpenXRInput::updateControls()
     mCycleSpellRight->updateAndQueue(mActionQueue);
     mCycleWeaponLeft->updateAndQueue(mActionQueue);
     mCycleWeaponRight->updateAndQueue(mActionQueue);
-    mToggleSneak->updateAndQueue(mActionQueue);
+    mSneak->updateAndQueue(mActionQueue);
     mQuickMenu->updateAndQueue(mActionQueue);
     mLookLeftRight->updateAndQueue(mActionQueue);
     mMoveForwardBackward->updateAndQueue(mActionQueue);
     mMoveLeftRight->updateAndQueue(mActionQueue);
     mJournal->updateAndQueue(mActionQueue);
-    //mQuickSave->updateAndQueue(mActionQueue);
-    mQuickKeysMenu->updateAndQueue(mActionQueue);
+    mQuickSave->updateAndQueue(mActionQueue);
+    mRest->updateAndQueue(mActionQueue);
     mActivateTouch->updateAndQueue(mActionQueue);
+    mAlwaysRun->updateAndQueue(mActionQueue);
+    mAutoMove->updateAndQueue(mActionQueue);
+    mToggleHUD->updateAndQueue(mActionQueue);
+    mToggleDebug->updateAndQueue(mActionQueue);
+
+    //if (mActivateTouch->isActive())
+    //{
+    //    mHapticsAction.applyHaptics(mSubactionPath[RIGHT_HAND], 0.5);
+    //}
+    //if (mSneak->isActive())
+    //{
+    //    mHapticsAction.applyHaptics(mSubactionPath[LEFT_HAND], 0.5);
+    //}
 }
 
 XrPath OpenXRInput::generateXrPath(const std::string& path)
@@ -846,11 +936,11 @@ private:
             {
                 injectMousePress(SDL_BUTTON_LEFT, onPress);
             }
-            //else if (onPress)
-            //{
-            //    // Other actions should only happen on release;
-            //    return;
-            //}
+            else if (onPress)
+            {
+                // Other actions should only happen on release;
+                return;
+            }
             else if (dnd.mIsOnDragAndDrop)
             {
                 // Intersected with the world while drag and drop is active
@@ -879,6 +969,17 @@ private:
             mouseReleased(arg, sdlButton);
     }
 
+    // TODO: Configurable haptics: on/off + max intensity
+    void OpenXRInputManager::applyHapticsLeftHand(float intensity)
+    {
+        mXRInput->applyHaptics(OpenXRInput::LEFT_HAND, intensity);
+    }
+
+    void OpenXRInputManager::applyHapticsRightHand(float intensity)
+    {
+        mXRInput->applyHaptics(OpenXRInput::RIGHT_HAND, intensity);
+    }
+
     OpenXRInputManager::OpenXRInputManager(
         SDL_Window* window,
         osg::ref_ptr<osgViewer::Viewer> viewer, 
@@ -903,7 +1004,7 @@ private:
     {
         // VR mode has no concept of these
         mControlSwitch["vanitymode"] = false;
-        mGuiCursorEnabled = false;
+        //mGuiCursorEnabled = false;
     }
 
     OpenXRInputManager::~OpenXRInputManager()
@@ -913,7 +1014,7 @@ private:
     void OpenXRInputManager::changeInputMode(bool mode)
     {
         // VR mode has no concept of these
-        mGuiCursorEnabled = false;
+        //mGuiCursorEnabled = false;
         MWInput::InputManager::changeInputMode(mode);
         MWBase::Environment::get().getWindowManager()->showCrosshair(false);
         MWBase::Environment::get().getWindowManager()->setCursorVisible(false);
@@ -927,10 +1028,13 @@ private:
         mXRInput->updateControls();
 
         auto* vrGuiManager = Environment::get().getGUIManager();
-        vrGuiManager->updateFocus();
+        bool vrHasFocus = vrGuiManager->updateFocus();
         auto guiCursor = vrGuiManager->guiCursor();
-        mGuiCursorX = guiCursor.x();
-        mGuiCursorY = guiCursor.y();
+        if (vrHasFocus)
+        {
+            mGuiCursorX = guiCursor.x();
+            mGuiCursorY = guiCursor.y();
+        }
 
         while (auto* action = mXRInput->nextAction())
         {
@@ -942,9 +1046,6 @@ private:
         MWInput::InputManager::update(dt, disableControls, disableEvents);
 
         bool guiMode = MWBase::Environment::get().getWindowManager()->isGuiMode();
-        auto* xrGUIManager = Environment::get().getGUIManager();
-        if(xrGUIManager)
-            xrGUIManager->showGUIs(guiMode);
 
         setPlayerControlsEnabled(!guiMode);
 
@@ -981,6 +1082,14 @@ private:
         case A_MoveForwardBackward:
             mInputBinder->getChannel(A_MoveForwardBackward)->setValue(-action->value() / 2.f + 0.5f);
             break;
+        case A_Sneak:
+            if(!mSneakToggles)
+                mInputBinder->getChannel(A_Sneak)->setValue(action->isActive() ? 1.f : 0.f);
+            break;
+        case A_Use:
+            if (!(mActivationIndication || MWBase::Environment::get().getWindowManager()->isGuiMode()))
+                mInputBinder->getChannel(A_Use)->setValue(action->value());
+            break;
         default:
             break;
         }
@@ -992,10 +1101,6 @@ private:
             {
             case A_GameMenu:
                 toggleMainMenu();
-                // Explicitly request position update here so that the player can move the menu
-                // using the menu key when the menu can't be toggled.
-                // TODO: This should respond to a menu HODL instead
-                // xrGUIManager->updateTracking();
                 break;
             case A_Screenshot:
                 screenshot();
@@ -1058,9 +1163,11 @@ private:
                 showQuickKeysMenu();
                 break;
             case A_ToggleHUD:
+                Log(Debug::Verbose) << "Toggle HUD";
                 MWBase::Environment::get().getWindowManager()->toggleHud();
                 break;
             case A_ToggleDebug:
+                Log(Debug::Verbose) << "Toggle Debug";
                 MWBase::Environment::get().getWindowManager()->toggleDebugWindow();
                 break;
             case A_QuickSave:
@@ -1085,27 +1192,33 @@ private:
                 if (checkAllowedToUseItems() && MWBase::Environment::get().getWindowManager()->isAllowed(MWGui::GW_Inventory))
                     MWBase::Environment::get().getWindowManager()->cycleWeapon(true);
                 break;
-            case A_ToggleSneak:
-                toggleSneaking();
-                break;
             case A_Jump:
                 mAttemptJump = true;
                 break;
+            case OpenXRInput::A_RepositionMenu:
+                xrGUIManager->updateTracking();
+                break;
+            case A_Use:
+                if (mActivationIndication || MWBase::Environment::get().getWindowManager()->isGuiMode())
+                    pointActivation(true);
             default:
                 break;
             }
         }
 
-        // A few actions need both activate and deactivate
+        // A few actions need to fire on deactivation
         if (action->onDeactivate())
         {
             switch (action->openMWActionCode())
             {
             case A_Use:
+                mInputBinder->getChannel(A_Use)->setValue(0.f);
                 if (mActivationIndication || MWBase::Environment::get().getWindowManager()->isGuiMode())
-                    pointActivation(action->onActivate());
-                else
-                    mInputBinder->getChannel(A_Use)->setValue(action->isActive());
+                    pointActivation(false);
+                break;
+            case A_Sneak:
+                if (mSneakToggles)
+                    toggleSneaking();
                 break;
             default:
                 break;

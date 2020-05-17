@@ -63,8 +63,14 @@ public:
 
     void updatePointerTarget();
 
-public:
+    MWWorld::Ptr getTarget(const std::string& directorNode);
+
+    osg::Matrix getWeaponTransformMatrix() const;
+
+protected:
     static osg::ref_ptr<osg::Geometry> createPointerGeometry(void);
+
+    float getVelocity(const std::string& groupname) const override;
 
 public:
     std::shared_ptr<OpenXRSession> mSession;

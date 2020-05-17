@@ -113,10 +113,8 @@ void WeaponAnimation::releaseArrow(MWWorld::Ptr actor, float attackStrength)
         return;
 
 #ifdef USE_OPENXR
-    // In VR player rotation and weapon aim are unrelated.
-    auto* anim = MWVR::Environment::get().getPlayerAnimation();
-    osg::Matrix worldMatrix = osg::computeLocalToWorld(anim->mWeaponDirectionTransform->getParentalNodePaths()[0]);
-    osg::Quat orient = worldMatrix.getRotate();
+    // In VR weapon aim is taken from the real orientation of the weapon.
+    osg::Quat orient = MWVR::Environment::get().getPlayerAnimation()->getWeaponTransformMatrix().getRotate();
 #else
     // The orientation of the launched projectile. Always the same as the actor orientation, even if the ArrowBone's orientation dictates otherwise.
     osg::Quat orient = osg::Quat(actor.getRefData().getPosition().rot[0], osg::Vec3f(-1,0,0))

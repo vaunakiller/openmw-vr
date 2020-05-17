@@ -134,11 +134,11 @@ private:
 VRGUILayer::VRGUILayer(
     osg::ref_ptr<osg::Group> geometryRoot,
     osg::ref_ptr<osg::Group> cameraRoot,
-    std::string filter,
+    std::string layerName,
     LayerConfig config,
     VRGUIManager* parent)
     : mConfig(config)
-    , mFilter(filter)
+    , mLayerName(layerName)
     , mGeometryRoot(geometryRoot)
     , mCameraRoot(cameraRoot)
 {
@@ -176,6 +176,9 @@ VRGUILayer::VRGUILayer(
     mGeometry->setName("VRGUILayer");
 
     // Create the camera that will render the menu texture
+    std::string filter = mLayerName;
+    if (!mConfig.extraLayers.empty())
+        filter = filter + ";" + mConfig.extraLayers;
     mGUICamera = new GUICamera(config.pixelResolution.x(), config.pixelResolution.y(), config.backgroundColor);
     osgMyGUI::RenderManager& renderManager = static_cast<osgMyGUI::RenderManager&>(MyGUI::RenderManager::getInstance());
     mMyGUICamera = renderManager.createGUICamera(osg::Camera::NESTED_RENDER, filter);
@@ -201,8 +204,10 @@ VRGUILayer::VRGUILayer(
     mCameraRoot->addChild(mGUICamera);
 
     // Edit offset to account for priority
-    if(!mConfig.sideBySide)
+    if (!mConfig.sideBySide)
+    {
         mConfig.offset.y() -= 0.001f * mConfig.priority;
+    }
 
     mTransform->addUpdateCallback(new LayerUpdateCallback(this));
 }
@@ -302,7 +307,7 @@ void VRGUILayer::updateRect()
     }
 
     // Some widgets don't capture the full visual
-    if (mFilter == "JournalBooks" || mFilter == "MessageBox" )
+    if (mLayerName == "JournalBooks" )
     {
         mRealRect.left = 0.f;
         mRealRect.top = 0.f;
@@ -310,7 +315,7 @@ void VRGUILayer::updateRect()
         mRealRect.bottom = 1.f;
     }
 
-    if (mFilter == "Notification")
+    if (mLayerName == "Notification")
     {
         // The latest widget for notification is always the top one
         // So we just have to stretch the rectangle to the bottom
@@ -357,7 +362,7 @@ void VRGUILayer::update()
     {
         mTransform->setScale(osg::Vec3(w / res, 1.f, h / res));
     }
-    if (mFilter == "Notification")
+    if (mLayerName == "Notification")
     {
         auto viewSize = MyGUI::RenderManager::getInstance().getViewSize();
         h = (1.f - mRealRect.top) * viewSize.height;
@@ -421,44 +426,28 @@ VRGUIManager::~VRGUIManager(void)
 {
 }
 
-void VRGUIManager::showGUIs(bool show)
-{
-}
-
-static const LayerConfig createDefaultConfig(int priority)
+static const LayerConfig createDefaultConfig(int priority, bool background = true, SizingMode sizingMode = SizingMode::Auto)
 {
     return LayerConfig{
-        1,
+        priority,
         false, // side-by-side
-        osg::Vec4{0.f,0.f,0.f,.75f}, // background
+        background ? osg::Vec4{0.f,0.f,0.f,.75f} : osg::Vec4{}, // background
         osg::Vec3(0.f,0.66f,-.25f), // offset
         osg::Vec2(0.f,0.f), // center (model space)
         osg::Vec2(1.f, 1.f), // extent (meters)
         1024, // Spatial resolution (pixels per meter)
         osg::Vec2i(2048,2048), // Texture resolution
         osg::Vec2(1,1),
-        SizingMode::Auto,
-        TrackingMode::Menu
+        sizingMode,
+        TrackingMode::Menu,
+        "Popup"
     };
 }
 LayerConfig gDefaultConfig = createDefaultConfig(1);
-LayerConfig gJournalBooksConfig = LayerConfig
-{
-    2,
-    gDefaultConfig.sideBySide,
-    osg::Vec4{}, // background
-    gDefaultConfig.offset,
-    gDefaultConfig.center,
-    gDefaultConfig.extent,
-    gDefaultConfig.spatialResolution,
-    gDefaultConfig.pixelResolution,
-    gDefaultConfig.myGUIViewSize,
-    SizingMode::Fixed,
-    gDefaultConfig.trackingMode
-};
-LayerConfig gDefaultWindowsConfig = createDefaultConfig(3);
-LayerConfig gMessageBoxConfig = gJournalBooksConfig;
-LayerConfig gNotificationConfig = gJournalBooksConfig;
+LayerConfig gJournalBooksConfig = createDefaultConfig(2, false, SizingMode::Fixed);
+LayerConfig gDefaultWindowsConfig = createDefaultConfig(3, true);
+LayerConfig gMessageBoxConfig = createDefaultConfig(6, false, SizingMode::Auto);;
+LayerConfig gNotificationConfig = createDefaultConfig(7, false, SizingMode::Fixed);;
 
 static const float sSideBySideRadius = 1.f;
 static const float sSideBySideAzimuthInterval = -osg::PI_4;
@@ -475,7 +464,8 @@ static const LayerConfig createSideBySideConfig(int priority)
         gDefaultConfig.pixelResolution,
         osg::Vec2(0.70f, 0.70f),
         SizingMode::Fixed,
-        gDefaultConfig.trackingMode
+        gDefaultConfig.trackingMode,
+        ""
     };
 };
 
@@ -499,6 +489,7 @@ LayerConfig gStatusHUDConfig = LayerConfig
     gDefaultConfig.myGUIViewSize,
     SizingMode::Auto,
     TrackingMode::HudLeftHand,
+    ""
 };
 
 LayerConfig gPopupConfig = LayerConfig
@@ -514,6 +505,7 @@ LayerConfig gPopupConfig = LayerConfig
     gDefaultConfig.myGUIViewSize,
     SizingMode::Auto,
     TrackingMode::HudRightHand,
+    ""
 };
 
 
@@ -521,8 +513,7 @@ LayerConfig gPopupConfig = LayerConfig
 static std::map<std::string, LayerConfig&> gLayerConfigs =
 {
     {"StatusHUD", gStatusHUDConfig},
-    //{"MinimapHUD", gMinimapHUDConfig},
-    {"Popup", gPopupConfig},
+    {"Tooltip", gPopupConfig},
     {"JournalBooks", gJournalBooksConfig},
     {"InventoryCompanionWindow", gInventoryCompanionWindowConfig},
     {"InventoryWindow", gInventoryWindowConfig},
@@ -532,13 +523,13 @@ static std::map<std::string, LayerConfig&> gLayerConfigs =
     {"DialogueWindow", gDialogueWindowConfig},
     {"MessageBox", gMessageBoxConfig},
     {"Windows", gDefaultWindowsConfig},
-    {"Notification", gNotificationConfig}
+    {"Notification", gNotificationConfig},
 };
 
 static std::set<std::string> layerBlacklist =
 {
     "Overlay",
-    "AdditiveOverlay"
+    "AdditiveOverlay",
 };
 
 void VRGUIManager::updateSideBySideLayers()
@@ -581,9 +572,6 @@ void VRGUIManager::insertLayer(const std::string& name)
     mLayers[name] = layer;
 
     layer->mGeometry->setUserData(new VRGUILayerUserData(mLayers[name]));
-
-    // Default new layer's pick to false
-    // TODO: re-add widget->setLayerPick(false) somewhere;
 
     if (config.sideBySide)
     {
@@ -715,7 +703,7 @@ void VRGUIManager::updateTracking(void)
         layer.second->updateTracking(mHeadPose);
 }
 
-void VRGUIManager::updateFocus()
+bool VRGUIManager::updateFocus()
 {
     auto* anim = MWVR::Environment::get().getPlayerAnimation();
     if (anim && anim->mPointerTarget.mHit)
@@ -728,12 +716,14 @@ void VRGUIManager::updateFocus()
             newFocusLayer = userData->mLayer.lock();
         }
 
-        if (newFocusLayer && newFocusLayer->mFilter != "Notification")
+        if (newFocusLayer && newFocusLayer->mLayerName != "Notification")
         {
             setFocusLayer(newFocusLayer.get());
             computeGuiCursor(anim->mPointerTarget.mHitPointLocal);
+            return true;
         }
     }
+    return false;
 }
 
 void VRGUIManager::setFocusLayer(VRGUILayer* layer)

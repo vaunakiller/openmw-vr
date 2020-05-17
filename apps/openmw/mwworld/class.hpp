@@ -131,11 +131,12 @@ namespace MWWorld
             /// @return True if the attack had a victim, regardless if hit was successful or not.
             /// (default implementation: throw an exception)
 
-            virtual void onHit(const MWWorld::Ptr &ptr, float damage, bool ishealth, const MWWorld::Ptr &object, const MWWorld::Ptr &attacker, const osg::Vec3f &hitPosition, bool successful) const;
+            virtual void onHit(const MWWorld::Ptr &ptr, float damage, bool ishealth, const MWWorld::Ptr &object, const MWWorld::Ptr &attacker, const osg::Vec3f &hitPosition, bool successful, float hitStrength = 0.f) const;
             ///< Alerts \a ptr that it's being hit for \a damage points to health if \a ishealth is
             /// true (else fatigue) by \a object (sword, arrow, etc). \a attacker specifies the
             /// actor responsible for the attack, and \a successful specifies if the hit is
-            /// successful or not.
+            /// successful or not. \a hitStrength is the fraction of max attack strength applied, and is
+            /// used to determine haptic feedback intensity.
 
             virtual void block (const Ptr& ptr) const;
             ///< Play the appropriate sound for a blocked attack, depending on the currently equipped shield

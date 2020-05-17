@@ -1101,7 +1101,8 @@ namespace MWWorld
     MWWorld::Ptr World::getFacedObject()
     {
 #ifdef USE_OPENXR
-
+        // TODO: Rename this method to getTargetObject?
+        // "getFacedObject" doesn't make sense with finger pointing.
         auto* anim = MWVR::Environment::get().getPlayerAnimation();
         if (anim && anim->mPointerTarget.mHit)
             return anim->mPointerTarget.mHitObject;
@@ -1163,12 +1164,8 @@ namespace MWWorld
         if (ptr == getPlayerPtr())
         {
 #ifdef USE_OPENXR
-            // TODO: Configurable realistic fighting ?
-
             // Use current aim of weapon to impact
-            // TODO: Use bounding box of weapon instead ?
-            auto* anim = MWVR::Environment::get().getPlayerAnimation();
-            osg::Matrix worldMatrix = osg::computeLocalToWorld(anim->mWeaponDirectionTransform->getParentalNodePaths()[0]);
+            osg::Matrix worldMatrix = MWVR::Environment::get().getPlayerAnimation()->getWeaponTransformMatrix();
             
             auto result = mPhysics->getHitContact(ptr, worldMatrix.getTrans(), worldMatrix.getRotate(), distance, targets);
             if (!result.first.isEmpty())
@@ -3110,8 +3107,7 @@ namespace MWWorld
 #ifdef USE_OPENXR
                 if (actor == MWMechanics::getPlayer())
                 {
-                    auto* anim = MWVR::Environment::get().getPlayerAnimation();
-                    osg::Matrix worldMatrix = osg::computeLocalToWorld(anim->mWeaponDirectionTransform->getParentalNodePaths()[0]);
+                    osg::Matrix worldMatrix = MWVR::Environment::get().getPlayerAnimation()->getWeaponTransformMatrix();
                     origin = worldMatrix.getTrans();
                     orient = worldMatrix.getRotate();
                 }

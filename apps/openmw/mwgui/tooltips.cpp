@@ -30,7 +30,11 @@ namespace MWGui
     std::string ToolTips::sSchoolNames[] = {"#{sSchoolAlteration}", "#{sSchoolConjuration}", "#{sSchoolDestruction}", "#{sSchoolIllusion}", "#{sSchoolMysticism}", "#{sSchoolRestoration}"};
 
     ToolTips::ToolTips() :
+#ifdef USE_OPENXR
+        Layout("openmw_tooltips_vr.layout")
+#else
         Layout("openmw_tooltips.layout")
+#endif
         , mFocusToolTipX(0.0)
         , mFocusToolTipY(0.0)
         , mHorizontalScrollIndex(0)

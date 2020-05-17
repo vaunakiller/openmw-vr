@@ -1945,7 +1945,7 @@ namespace MWGui
             // (Menu gets recreated next tick)
             if (xrMenuManager)
             {
-                xrMenuManager->showGUIs(false);
+                xrMenuManager->updateTracking();
                 xrMenuManager = nullptr;
             }
 #endif

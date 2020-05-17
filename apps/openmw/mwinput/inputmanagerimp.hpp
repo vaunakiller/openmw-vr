@@ -239,6 +239,9 @@ namespace MWInput
 
         bool checkAllowedToUseItems() const;
 
+        void applyHapticsLeftHand(float intensity) override {};
+        void applyHapticsRightHand(float intensity) override {};
+
     protected:
         void toggleMainMenu();
         void toggleSpell();

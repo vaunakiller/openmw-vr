@@ -19,6 +19,7 @@
     </Layer>
     <Layer name="Debug" overlapped="true" pick="true"/>
     <Layer name="Notification" overlapped="false" pick="false"/>
+    <Layer name="Tooltip" overlapped="true" pick="true"/>
     <Layer name="Popup" overlapped="true" pick="true"/>
     <Layer name="DragAndDrop" overlapped="false" pick="false"/>
     <Layer name="LoadingScreen" overlapped="false" pick="true"/>
