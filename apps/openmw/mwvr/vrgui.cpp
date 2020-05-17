@@ -580,15 +580,7 @@ void VRGUIManager::insertLayer(const std::string& name)
     }
 
     if (config.trackingMode == TrackingMode::Menu)
-    {
-        // Update tracking when a menu is opened
-        // But don't automatically update it again until all menus have been closed
-        if (mVisibleMenus == 0)
-            updateTracking();
-        else
-            layer->updateTracking(mHeadPose);
-        mVisibleMenus++;
-    }
+        layer->updateTracking(mHeadPose);
 }
 
 void VRGUIManager::insertWidget(MWGui::Layout* widget)
@@ -633,9 +625,6 @@ void VRGUIManager::removeLayer(const std::string& name)
 
     if (it->second.get() == mFocusLayer)
         setFocusLayer(nullptr);
-
-    if (it->second->mConfig.trackingMode == TrackingMode::Menu)
-        mVisibleMenus--;
 
     mLayers.erase(it);
 }

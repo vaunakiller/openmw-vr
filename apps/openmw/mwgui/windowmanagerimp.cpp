@@ -1572,8 +1572,7 @@ namespace MWGui
         return
             !mGuiModes.empty() ||
             isConsoleMode() ||
-            (mMessageBoxManager && mMessageBoxManager->isInteractiveMessageBox()) ||
-            mVideoEnabled;
+            (mMessageBoxManager && mMessageBoxManager->isInteractiveMessageBox());
     }
 
     bool WindowManager::isConsoleMode() const
@@ -1897,12 +1896,6 @@ namespace MWGui
         mVideoEnabled = true;
         mVideoWidget->playVideo("video\\" + name);
 
-#ifdef USE_OPENXR
-        // Temporary hack to force update of menu placement
-        // (Menu gets recreated next tick)
-        auto* xrMenuManager = MWVR::Environment::get().getGUIManager();
-#endif
-
         mVideoWidget->eventKeyButtonPressed.clear();
         mVideoBackground->eventKeyButtonPressed.clear();
         if (allowSkipping)
@@ -1940,15 +1933,6 @@ namespace MWGui
             frameTimer.setStartTick();
 
             MWBase::Environment::get().getInputManager()->update(dt, true, false);
-#ifdef USE_OPENXR
-            // Temporary hack to force update of menu placement
-            // (Menu gets recreated next tick)
-            if (xrMenuManager)
-            {
-                xrMenuManager->updateTracking();
-                xrMenuManager = nullptr;
-            }
-#endif
 
             if (!MWBase::Environment::get().getInputManager()->isWindowVisible())
                 OpenThreads::Thread::microSleep(5000);

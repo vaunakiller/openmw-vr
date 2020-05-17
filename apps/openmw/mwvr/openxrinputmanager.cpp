@@ -1056,9 +1056,16 @@ private:
                 mRealisticCombat.reset(new RealisticCombat::StateMachine(player));
             bool enabled = !guiMode && mPlayer->getDrawState() == MWMechanics::DrawState_Weapon && !mPlayer->isDisabled();
             mRealisticCombat->update(dt, enabled);
-        }
+        };
 
         updateHead();
+
+        // Update tracking every frame if player is not currently in GUI mode.
+        // This ensures certain widgets like Notifications will be visible.
+        if (!guiMode)
+        {
+            vrGuiManager->updateTracking();
+        }
     }
 
     void OpenXRInputManager::processAction(const Action* action)

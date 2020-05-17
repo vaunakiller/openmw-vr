@@ -155,7 +155,6 @@ namespace MWVR
         std::map<std::string, std::shared_ptr<VRGUILayer>> mLayers;
         std::vector<std::shared_ptr<VRGUILayer> > mSideBySideLayers;
 
-        int         mVisibleMenus{ 0 };
         Pose        mHeadPose{};
         osg::Vec2i  mGuiCursor{};
         VRGUILayer* mFocusLayer{ nullptr };
