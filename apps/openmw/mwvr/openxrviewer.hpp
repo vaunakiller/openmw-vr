@@ -86,11 +86,11 @@ namespace MWVR
         void blitEyesToMirrorTexture(osg::GraphicsContext* gc);
         void swapBuffers(osg::GraphicsContext* gc) override;
         void realize(osg::GraphicsContext* gc);
-
         bool realized() { return mConfigured; }
-
-
         void updateTransformNode(osg::Object* object, osg::Object* data);
+
+        void enableMainCamera(void);
+        void disableMainCamera(void);
 
     public:
 
@@ -100,8 +100,9 @@ namespace MWVR
         osg::ref_ptr<osgViewer::Viewer> mViewer = nullptr;
         std::map<std::string, osg::ref_ptr<OpenXRView> > mViews{};
         std::map<std::string, osg::ref_ptr<osg::Camera> > mCameras{};
-        PredrawCallback* mPreDraw{ nullptr };
-        PostdrawCallback* mPostDraw{ nullptr };
+        osg::ref_ptr<PredrawCallback> mPreDraw{ nullptr };
+        osg::ref_ptr<PostdrawCallback> mPostDraw{ nullptr };
+        osg::GraphicsContext* mMainCameraGC{ nullptr };
 
         std::unique_ptr<OpenXRSwapchain> mMirrorTextureSwapchain{ nullptr };
 

@@ -37,6 +37,10 @@ namespace MWInput
         void setMouseLookEnabled(bool enabled) { mMouseLookEnabled = enabled; }
         void setGuiCursorEnabled(bool enabled) { mGuiCursorEnabled = enabled; }
 
+        // Used to override mouse position when using controllers not through SDL, such as OpenXR.
+        void setMousePosition(int x, int y);
+        void setGUIScale(float scale);
+
     private:
         bool mInvertX;
         bool mInvertY;

@@ -5,6 +5,8 @@
 #include <extern/oics/ICSChannelListener.h>
 #include <extern/oics/ICSInputControlSystem.h>
 
+#include <components/debug/debuglog.hpp>
+
 #include "../mwbase/environment.hpp"
 #include "../mwbase/inputmanager.hpp"
 #include "../mwbase/windowmanager.hpp"
@@ -47,6 +49,12 @@ namespace MWInput
         {
         }
     };
+
+    ICS::InputControlSystem&
+        BindingsManager::ics()
+    {
+        return *mInputBinder;
+    }
 
     class BindingsListener :
             public ICS::ChannelListener,

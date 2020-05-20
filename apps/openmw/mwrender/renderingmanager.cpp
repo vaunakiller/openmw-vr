@@ -73,6 +73,7 @@
 
 #ifdef USE_OPENXR
 #include "../mwvr/vranimation.hpp"
+#include "../mwvr/openxrviewer.hpp"
 #include "../mwvr/vrenvironment.hpp"
 #endif
 
@@ -760,10 +761,12 @@ namespace MWRender
         NotifyDrawCompletedCallback(unsigned int frame)
             : mDone(false), mFrame(frame)
         {
+            Log(Debug::Verbose) << "NotifyDrawCompletedCallback: " << mFrame;
         }
 
         virtual void operator () (osg::RenderInfo& renderInfo) const
         {
+            Log(Debug::Verbose) << "NotifyDrawCompletedCallback: " << renderInfo.getState()->getFrameStamp()->getFrameNumber() << " >= " << mFrame;
             OpenThreads::ScopedLock<OpenThreads::Mutex> lock(mMutex);
             if (renderInfo.getState()->getFrameStamp()->getFrameNumber() >= mFrame)
             {
@@ -1010,12 +1013,18 @@ namespace MWRender
     void RenderingManager::screenshotFramebuffer(osg::Image* image, int w, int h)
     {
         osg::Camera* camera = mViewer->getCamera();
+#ifdef USE_OPENXR
+        // In VR mode, the main camera is disabled.
+        auto& slave = mViewer->getSlave(1);
+        camera = slave._camera;
+#endif
         osg::ref_ptr<osg::Drawable> tempDrw = new osg::Drawable;
         tempDrw->setDrawCallback(new ReadImageFromFramebufferCallback(image, w, h));
         tempDrw->setCullingActive(false);
         tempDrw->getOrCreateStateSet()->setRenderBinDetails(100, "RenderBin", osg::StateSet::USE_RENDERBIN_DETAILS); // so its after all scene bins but before POST_RENDER gui camera
         camera->addChild(tempDrw);
         osg::ref_ptr<NotifyDrawCompletedCallback> callback (new NotifyDrawCompletedCallback(mViewer->getFrameStamp()->getFrameNumber()));
+        auto* oldCb = camera->getFinalDrawCallback();
         camera->setFinalDrawCallback(callback);
         mViewer->eventTraversal();
         mViewer->updateTraversal();
@@ -1024,7 +1033,7 @@ namespace MWRender
         // now that we've "used up" the current frame, get a fresh frame number for the next frame() following after the screenshot is completed
         mViewer->advance(mViewer->getFrameStamp()->getSimulationTime());
         camera->removeChild(tempDrw);
-        camera->setFinalDrawCallback(nullptr);
+        camera->setFinalDrawCallback(oldCb);
     }
 
     void RenderingManager::screenshot(osg::Image *image, int w, int h, osg::Matrixd cameraTransform)
@@ -1533,11 +1542,6 @@ namespace MWRender
     void RenderingManager::setNavMeshNumber(const std::size_t value)
     {
         mNavMeshNumber = value;
-    }
-
-    void RenderingManager::toggleWaterRTT(bool enable)
-    {
-        mWater->toggleRTT(enable);
     }
 
     void RenderingManager::updateNavMesh()

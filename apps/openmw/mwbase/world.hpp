@@ -655,8 +655,6 @@ namespace MWBase
             virtual int getActiveWeaponType(void) = 0;
 
             virtual MWPhysics::PhysicsSystem* getPhysicsSystem(void) = 0;
-
-            virtual void toggleWaterRTT(bool enable) = 0;
 			
             virtual bool isAreaOccupiedByOtherActor(const osg::Vec3f& position, const float radius, const MWWorld::ConstPtr& ignore) const = 0;
     };

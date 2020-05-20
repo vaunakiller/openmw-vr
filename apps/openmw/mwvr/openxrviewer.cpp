@@ -10,8 +10,8 @@
 #include "../mwworld/class.hpp"
 #include "../mwworld/player.hpp"
 #include "../mwworld/esmstore.hpp"
+#include "../mwrender/vismask.hpp"
 #include <components/esm/loadrace.hpp>
-#include <components/sceneutil/vismask.hpp>
 #include <osg/MatrixTransform>
 
 namespace MWVR
@@ -80,7 +80,7 @@ namespace MWVR
 
         // Use the main camera to render any GUI to the OpenXR GUI quad's swapchain.
         // (When swapping the window buffer we'll blit the mirror texture to it instead.)
-        mainCamera->setCullMask(SceneUtil::Mask_GUI);
+        mainCamera->setCullMask(MWRender::Mask_GUI);
 
         osg::Vec4 clearColor = mainCamera->getClearColor();
 
@@ -117,8 +117,8 @@ namespace MWVR
         rightCamera->setFinalDrawCallback(mPostDraw);
 
         // Stereo cameras should only draw the scene (AR layers should later add minimap, health, etc.)
-        leftCamera->setCullMask(~SceneUtil::Mask_GUI);
-        rightCamera->setCullMask(~SceneUtil::Mask_GUI);
+        leftCamera->setCullMask(~MWRender::Mask_GUI);
+        rightCamera->setCullMask(~MWRender::Mask_GUI);
 
         leftCamera->setName("LeftEye");
         rightCamera->setName("RightEye");
@@ -147,11 +147,22 @@ namespace MWVR
         mViewer->getSlave(0)._updateSlaveCallback = new OpenXRWorldView::UpdateSlaveCallback(xr, session, leftView, context);
         mViewer->getSlave(1)._updateSlaveCallback = new OpenXRWorldView::UpdateSlaveCallback(xr, session, rightView, context);
 
-        mainCamera->getGraphicsContext()->setSwapCallback(new OpenXRViewer::SwapBuffersCallback(this));
+        mMainCameraGC = mainCamera->getGraphicsContext();
+        mMainCameraGC->setSwapCallback(new OpenXRViewer::SwapBuffersCallback(this));
         mainCamera->setGraphicsContext(nullptr);
         session->setLayer(OpenXRLayerStack::WORLD_VIEW_LAYER, this);
         mConfigured = true;
 
+    }
+
+    void OpenXRViewer::enableMainCamera(void)
+    {
+        mCameras["MainCamera"]->setGraphicsContext(mMainCameraGC);
+    }
+
+    void OpenXRViewer::disableMainCamera(void)
+    {
+        mCameras["MainCamera"]->setGraphicsContext(nullptr);
     }
 
     void OpenXRViewer::blitEyesToMirrorTexture(osg::GraphicsContext* gc)
@@ -174,6 +185,7 @@ namespace MWVR
 
         gl->glBindFramebuffer(GL_FRAMEBUFFER_EXT, 0);
         mMirrorTextureSwapchain->renderBuffer()->blit(gc, 0, 0, mMirrorTextureSwapchain->width(), mMirrorTextureSwapchain->height());
+
     }
 
     void
@@ -186,7 +198,6 @@ namespace MWVR
 
     void OpenXRViewer::swapBuffers(osg::GraphicsContext* gc)
     {
-
         if (!mConfigured)
             return;
 

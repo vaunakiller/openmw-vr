@@ -121,9 +121,6 @@ namespace MWWorld
         void setJumping(bool jumping);
         bool getJumping() const;
 
-        void setPointing(bool pointing);
-        bool getPointing(void) const;
-
         ///Checks all nearby actors to see if anyone has an aipackage against you
         bool isInCombat();
 

@@ -29,6 +29,11 @@
 #include "../mwgui/itemmodel.hpp"
 #include "../mwgui/draganddrop.hpp"
 
+#include "../mwinput/actionmanager.hpp"
+#include "../mwinput/bindingsmanager.hpp"
+#include "../mwinput/controlswitch.hpp"
+#include "../mwinput/mousemanager.hpp"
+
 #include "../mwworld/player.hpp"
 #include "../mwworld/class.hpp"
 #include "../mwworld/inventorystore.hpp"
@@ -39,6 +44,8 @@
 #include "../mwrender/camera.hpp"
 
 #include <openxr/openxr.h>
+
+#include <extern/oics/ICSInputControlSystem.h>
 
 #include <osg/Camera>
 
@@ -275,7 +282,7 @@ public:
 
 struct OpenXRInput
 {
-    using Actions = MWInput::InputManager::Actions;
+    using Actions = MWInput::Actions;
 
     // The OpenMW input manager iterates from 0 to A_Last in its actions enum.
     // I don't know that it would cause any ill effects, but i nonetheless do not
@@ -283,7 +290,7 @@ struct OpenXRInput
     // Therefore i add them here to a separate enum whose values start past A_Last.
     enum XrActions
     {
-        A_XrFirst = MWInput::InputManager::A_Last,
+        A_XrFirst = MWInput::A_Last,
         A_ActivateTouch,
         A_RepositionMenu,
         A_XrLast
@@ -542,31 +549,31 @@ OpenXRInput::OpenXRInput()
     , mAPath(generateControllerActionPaths("/input/a/click"))
     , mBPath(generateControllerActionPaths("/input/b/click"))
     , mTriggerValuePath(generateControllerActionPaths("/input/trigger/value"))
-    , mGameMenu(std::move(createMWAction<ButtonPressAction>(MWInput::InputManager::A_GameMenu, "game_menu", "Game Menu", { })))
+    , mGameMenu(std::move(createMWAction<ButtonPressAction>(MWInput::A_GameMenu, "game_menu", "Game Menu", { })))
     , mRepositionMenu(std::move(createMWAction<ButtonLongPressAction>(A_RepositionMenu, "reposition_menu", "Reposition Menu", { })))
-    , mInventory(std::move(createMWAction<ButtonPressAction>(MWInput::InputManager::A_Inventory, "inventory", "Inventory", { })))
-    , mActivate(std::move(createMWAction<ButtonPressAction>(MWInput::InputManager::A_Activate, "activate", "Activate", { })))
-    , mUse(std::move(createMWAction<ButtonHoldAction>(MWInput::InputManager::A_Use, "use", "Use", { })))
-    , mJump(std::move(createMWAction<ButtonPressAction>(MWInput::InputManager::A_Jump, "jump", "Jump", { })))
-    , mToggleWeapon(std::move(createMWAction<ButtonPressAction>(MWInput::InputManager::A_ToggleWeapon, "weapon", "Weapon", { })))
-    , mToggleSpell(std::move(createMWAction<ButtonPressAction>(MWInput::InputManager::A_ToggleSpell, "spell", "Spell", { })))
-    , mCycleSpellLeft(std::move(createMWAction<ButtonPressAction>(MWInput::InputManager::A_CycleSpellLeft, "cycle_spell_left", "Cycle Spell Left", { })))
-    , mCycleSpellRight(std::move(createMWAction<ButtonPressAction>(MWInput::InputManager::A_CycleSpellRight, "cycle_spell_right", "Cycle Spell Right", { })))
-    , mCycleWeaponLeft(std::move(createMWAction<ButtonPressAction>(MWInput::InputManager::A_CycleWeaponLeft, "cycle_weapon_left", "Cycle Weapon Left", { })))
-    , mCycleWeaponRight(std::move(createMWAction<ButtonPressAction>(MWInput::InputManager::A_CycleWeaponRight, "cycle_weapon_right", "Cycle Weapon Right", { })))
-    , mSneak(std::move(createMWAction<ButtonHoldAction>(MWInput::InputManager::A_Sneak, "sneak", "Sneak", { })))
-    , mQuickMenu(std::move(createMWAction<ButtonPressAction>(MWInput::InputManager::A_QuickMenu, "quick_menu", "Quick Menu", { })))
-    , mLookLeftRight(std::move(createMWAction<AxisAction>(MWInput::InputManager::A_LookLeftRight, "look_left_right", "Look Left Right", { })))
-    , mMoveForwardBackward(std::move(createMWAction<AxisAction>(MWInput::InputManager::A_MoveForwardBackward, "move_forward_backward", "Move Forward Backward", { })))
-    , mMoveLeftRight(std::move(createMWAction<AxisAction>(MWInput::InputManager::A_MoveLeftRight, "move_left_right", "Move Left Right", { })))
-    , mJournal(std::move(createMWAction<ButtonLongPressAction>(MWInput::InputManager::A_Journal, "journal_book", "Journal Book", { })))
-    , mQuickSave(std::move(createMWAction<ButtonLongPressAction>(MWInput::InputManager::A_QuickSave, "quick_save", "Quick Save", { })))
-    , mRest(std::move(createMWAction<ButtonLongPressAction>(MWInput::InputManager::A_Rest, "rest", "Rest", { })))
+    , mInventory(std::move(createMWAction<ButtonPressAction>(MWInput::A_Inventory, "inventory", "Inventory", { })))
+    , mActivate(std::move(createMWAction<ButtonPressAction>(MWInput::A_Activate, "activate", "Activate", { })))
+    , mUse(std::move(createMWAction<ButtonHoldAction>(MWInput::A_Use, "use", "Use", { })))
+    , mJump(std::move(createMWAction<ButtonPressAction>(MWInput::A_Jump, "jump", "Jump", { })))
+    , mToggleWeapon(std::move(createMWAction<ButtonPressAction>(MWInput::A_ToggleWeapon, "weapon", "Weapon", { })))
+    , mToggleSpell(std::move(createMWAction<ButtonPressAction>(MWInput::A_ToggleSpell, "spell", "Spell", { })))
+    , mCycleSpellLeft(std::move(createMWAction<ButtonPressAction>(MWInput::A_CycleSpellLeft, "cycle_spell_left", "Cycle Spell Left", { })))
+    , mCycleSpellRight(std::move(createMWAction<ButtonPressAction>(MWInput::A_CycleSpellRight, "cycle_spell_right", "Cycle Spell Right", { })))
+    , mCycleWeaponLeft(std::move(createMWAction<ButtonPressAction>(MWInput::A_CycleWeaponLeft, "cycle_weapon_left", "Cycle Weapon Left", { })))
+    , mCycleWeaponRight(std::move(createMWAction<ButtonPressAction>(MWInput::A_CycleWeaponRight, "cycle_weapon_right", "Cycle Weapon Right", { })))
+    , mSneak(std::move(createMWAction<ButtonHoldAction>(MWInput::A_Sneak, "sneak", "Sneak", { })))
+    , mQuickMenu(std::move(createMWAction<ButtonPressAction>(MWInput::A_QuickMenu, "quick_menu", "Quick Menu", { })))
+    , mLookLeftRight(std::move(createMWAction<AxisAction>(MWInput::A_LookLeftRight, "look_left_right", "Look Left Right", { })))
+    , mMoveForwardBackward(std::move(createMWAction<AxisAction>(MWInput::A_MoveForwardBackward, "move_forward_backward", "Move Forward Backward", { })))
+    , mMoveLeftRight(std::move(createMWAction<AxisAction>(MWInput::A_MoveLeftRight, "move_left_right", "Move Left Right", { })))
+    , mJournal(std::move(createMWAction<ButtonLongPressAction>(MWInput::A_Journal, "journal_book", "Journal Book", { })))
+    , mQuickSave(std::move(createMWAction<ButtonLongPressAction>(MWInput::A_QuickSave, "quick_save", "Quick Save", { })))
+    , mRest(std::move(createMWAction<ButtonLongPressAction>(MWInput::A_Rest, "rest", "Rest", { })))
     , mActivateTouch(std::move(createMWAction<AxisAction>(A_ActivateTouch, "activate_touched", "Activate Touch", { RIGHT_HAND })))
-    , mAlwaysRun(std::move(createMWAction<ButtonPressAction>(MWInput::InputManager::A_AlwaysRun, "always_run", "Always Run", { })))
-    , mAutoMove(std::move(createMWAction<ButtonPressAction>(MWInput::InputManager::A_AutoMove, "auto_move", "Auto Move", { })))
-    , mToggleHUD(std::move(createMWAction<ButtonLongPressAction>(MWInput::InputManager::A_ToggleHUD, "toggle_hud", "Toggle HUD", { })))
-    , mToggleDebug(std::move(createMWAction<ButtonLongPressAction>(MWInput::InputManager::A_ToggleDebug, "toggle_debug", "Toggle DEBUG", { })))
+    , mAlwaysRun(std::move(createMWAction<ButtonPressAction>(MWInput::A_AlwaysRun, "always_run", "Always Run", { })))
+    , mAutoMove(std::move(createMWAction<ButtonPressAction>(MWInput::A_AutoMove, "auto_move", "Auto Move", { })))
+    , mToggleHUD(std::move(createMWAction<ButtonLongPressAction>(MWInput::A_ToggleHUD, "toggle_hud", "Toggle HUD", { })))
+    , mToggleDebug(std::move(createMWAction<ButtonLongPressAction>(MWInput::A_ToggleDebug, "toggle_debug", "Toggle DEBUG", { })))
     , mHandPoseAction(std::move(createXRAction(XR_ACTION_TYPE_POSE_INPUT, "hand_pose", "Hand Pose", { LEFT_HAND, RIGHT_HAND })))
     , mHapticsAction(std::move(createXRAction(XR_ACTION_TYPE_VIBRATION_OUTPUT, "vibrate_hand", "Vibrate Hand", { LEFT_HAND, RIGHT_HAND })))
 {
@@ -874,17 +881,10 @@ void OpenXRInputManager::updateActivationIndication(void)
 {
     bool guiMode = MWBase::Environment::get().getWindowManager()->isGuiMode();
     bool show = guiMode | mActivationIndication;
-    if (mPlayer)
-    {
-        if (show != mPlayer->getPointing())
-        {
-            mPlayer->setPointing(show);
-
-            auto* playerAnimation = Environment::get().getPlayerAnimation();
-            if (playerAnimation)
-                playerAnimation->setPointForward(show);
-        }
-    }
+    auto* playerAnimation = Environment::get().getPlayerAnimation();
+    if (playerAnimation)
+        if (show != playerAnimation->isPointingForward())
+            playerAnimation->setPointForward(show);
 }
 
 
@@ -952,10 +952,8 @@ private:
             }
             else if (!ptr.isEmpty())
             {
-                if (mPlayer)
-                {
-                    mPlayer->activate(ptr);
-                }
+                MWWorld::Player& player = MWBase::Environment::get().getWorld()->getPlayer();
+                player.activate(ptr);
             }
         }
     }
@@ -964,9 +962,17 @@ private:
     {
         SDL_MouseButtonEvent arg;
         if (onPress)
-            mousePressed(arg, sdlButton);
+            mMouseManager->mousePressed(arg, sdlButton);
         else
-            mouseReleased(arg, sdlButton);
+            mMouseManager->mouseReleased(arg, sdlButton);
+    }
+
+    void OpenXRInputManager::injectChannelValue(
+        MWInput::Actions action, 
+        float value)
+    {
+        auto channel = mBindingsManager->ics().getChannel(MWInput::A_MoveLeftRight);// ->setValue(value);
+        channel->setEnabled(true);
     }
 
     // TODO: Configurable haptics: on/off + max intensity
@@ -1002,9 +1008,8 @@ private:
             grab)
         , mXRInput(new OpenXRInput())
     {
-        // VR mode has no concept of these
-        mControlSwitch["vanitymode"] = false;
-        //mGuiCursorEnabled = false;
+        // VR mode should never go vanity mode.
+        //mControlSwitch->set("vanitymode", false);
     }
 
     OpenXRInputManager::~OpenXRInputManager()
@@ -1027,13 +1032,17 @@ private:
     {
         mXRInput->updateControls();
 
+        // Annoyingly, this is called at least once before the World object has been instantiated.
+        auto* world = MWBase::Environment::get().getWorld();
+        if (!world)
+            return;
+
         auto* vrGuiManager = Environment::get().getGUIManager();
         bool vrHasFocus = vrGuiManager->updateFocus();
         auto guiCursor = vrGuiManager->guiCursor();
         if (vrHasFocus)
         {
-            mGuiCursorX = guiCursor.x();
-            mGuiCursorY = guiCursor.y();
+            mMouseManager->setMousePosition(guiCursor.x(), guiCursor.y());
         }
 
         while (auto* action = mXRInput->nextAction())
@@ -1047,16 +1056,16 @@ private:
 
         bool guiMode = MWBase::Environment::get().getWindowManager()->isGuiMode();
 
-        setPlayerControlsEnabled(!guiMode);
+        // OpenMW assumes all input will come via SDL which i often violate.
+        // This keeps player controls correctly enabled for my purposes.
+        mBindingsManager->setPlayerControlsEnabled(!guiMode);
 
-        if (mPlayer)
-        {
-            auto player = mPlayer->getPlayer();
-            if (!mRealisticCombat || mRealisticCombat->ptr != player)
-                mRealisticCombat.reset(new RealisticCombat::StateMachine(player));
-            bool enabled = !guiMode && mPlayer->getDrawState() == MWMechanics::DrawState_Weapon && !mPlayer->isDisabled();
-            mRealisticCombat->update(dt, enabled);
-        };
+        auto& player = world->getPlayer();
+        auto playerPtr = player.getPlayer();
+        if (!mRealisticCombat || mRealisticCombat->ptr != playerPtr)
+            mRealisticCombat.reset(new RealisticCombat::StateMachine(playerPtr));
+        bool enabled = !guiMode && player.getDrawState() == MWMechanics::DrawState_Weapon && !player.isDisabled();
+        mRealisticCombat->update(dt, enabled);
 
         updateHead();
 
@@ -1070,7 +1079,7 @@ private:
 
     void OpenXRInputManager::processAction(const Action* action)
     {
-        //auto* session = Environment::get().getSession();
+        static const bool isToggleSneak = Settings::Manager::getBool("toggle sneak", "Input");
         auto* xrGUIManager = Environment::get().getGUIManager();
 
         // Hold actions
@@ -1080,22 +1089,24 @@ private:
             resetIdleTime();
             mActivationIndication = action->isActive();
             break;
-        case A_LookLeftRight:
+        case MWInput::A_LookLeftRight:
             mYaw += osg::DegreesToRadians(action->value()) * 2.f;
             break;
-        case A_MoveLeftRight:
-            mInputBinder->getChannel(A_MoveLeftRight)->setValue(action->value() / 2.f + 0.5f);
+        case MWInput::A_MoveLeftRight:
+            mBindingsManager->ics().getChannel(MWInput::A_MoveLeftRight)->setValue(action->value() / 2.f + 0.5f);
             break;
-        case A_MoveForwardBackward:
-            mInputBinder->getChannel(A_MoveForwardBackward)->setValue(-action->value() / 2.f + 0.5f);
+        case MWInput::A_MoveForwardBackward:
+            mBindingsManager->ics().getChannel(MWInput::A_MoveForwardBackward)->setValue(-action->value() / 2.f + 0.5f);
             break;
-        case A_Sneak:
-            if(!mSneakToggles)
-                mInputBinder->getChannel(A_Sneak)->setValue(action->isActive() ? 1.f : 0.f);
+        case MWInput::A_Sneak:
+        {
+            if (!isToggleSneak)
+                mBindingsManager->ics().getChannel(MWInput::A_Sneak)->setValue(action->isActive() ? 1.f : 0.f);
             break;
-        case A_Use:
+        }
+        case MWInput::A_Use:
             if (!(mActivationIndication || MWBase::Environment::get().getWindowManager()->isGuiMode()))
-                mInputBinder->getChannel(A_Use)->setValue(action->value());
+                mBindingsManager->ics().getChannel(MWInput::A_Use)->setValue(action->value());
             break;
         default:
             break;
@@ -1106,106 +1117,107 @@ private:
         {
             switch (action->openMWActionCode())
             {
-            case A_GameMenu:
-                toggleMainMenu();
+            case MWInput::A_GameMenu:
+                mActionManager->toggleMainMenu();
                 break;
-            case A_Screenshot:
-                screenshot();
+            case MWInput::A_Screenshot:
+                mActionManager->screenshot();
                 break;
-            case A_Inventory:
-                toggleInventory();
+            case MWInput::A_Inventory:
+                //mActionManager->toggleInventory();
+                injectMousePress(SDL_BUTTON_RIGHT, true);
                 break;
-            case A_Console:
-                toggleConsole();
+            case MWInput::A_Console:
+                mActionManager->toggleConsole();
                 break;
-            case A_Journal:
-                toggleJournal();
+            case MWInput::A_Journal:
+                mActionManager->toggleJournal();
                 break;
-            case A_AutoMove:
-                toggleAutoMove();
+            case MWInput::A_AutoMove:
+                mActionManager->toggleAutoMove();
                 break;
-            case A_AlwaysRun:
-                toggleWalking();
+            case MWInput::A_AlwaysRun:
+                mActionManager->toggleWalking();
                 break;
-            case A_ToggleWeapon:
-                toggleWeapon();
+            case MWInput::A_ToggleWeapon:
+                mActionManager->toggleWeapon();
                 break;
-            case A_Rest:
-                rest();
+            case MWInput::A_Rest:
+                mActionManager->rest();
                 break;
-            case A_ToggleSpell:
-                toggleSpell();
+            case MWInput::A_ToggleSpell:
+                mActionManager->toggleSpell();
                 break;
-            case A_QuickKey1:
-                quickKey(1);
+            case MWInput::A_QuickKey1:
+                mActionManager->quickKey(1);
                 break;
-            case A_QuickKey2:
-                quickKey(2);
+            case MWInput::A_QuickKey2:
+                mActionManager->quickKey(2);
                 break;
-            case A_QuickKey3:
-                quickKey(3);
+            case MWInput::A_QuickKey3:
+                mActionManager->quickKey(3);
                 break;
-            case A_QuickKey4:
-                quickKey(4);
+            case MWInput::A_QuickKey4:
+                mActionManager->quickKey(4);
                 break;
-            case A_QuickKey5:
-                quickKey(5);
+            case MWInput::A_QuickKey5:
+                mActionManager->quickKey(5);
                 break;
-            case A_QuickKey6:
-                quickKey(6);
+            case MWInput::A_QuickKey6:
+                mActionManager->quickKey(6);
                 break;
-            case A_QuickKey7:
-                quickKey(7);
+            case MWInput::A_QuickKey7:
+                mActionManager->quickKey(7);
                 break;
-            case A_QuickKey8:
-                quickKey(8);
+            case MWInput::A_QuickKey8:
+                mActionManager->quickKey(8);
                 break;
-            case A_QuickKey9:
-                quickKey(9);
+            case MWInput::A_QuickKey9:
+                mActionManager->quickKey(9);
                 break;
-            case A_QuickKey10:
-                quickKey(10);
+            case MWInput::A_QuickKey10:
+                mActionManager->quickKey(10);
                 break;
-            case A_QuickKeysMenu:
-                showQuickKeysMenu();
+            case MWInput::A_QuickKeysMenu:
+                mActionManager->showQuickKeysMenu();
                 break;
-            case A_ToggleHUD:
+            case MWInput::A_ToggleHUD:
                 Log(Debug::Verbose) << "Toggle HUD";
                 MWBase::Environment::get().getWindowManager()->toggleHud();
                 break;
-            case A_ToggleDebug:
+            case MWInput::A_ToggleDebug:
                 Log(Debug::Verbose) << "Toggle Debug";
                 MWBase::Environment::get().getWindowManager()->toggleDebugWindow();
                 break;
-            case A_QuickSave:
-                quickSave();
+            case MWInput::A_QuickSave:
+                mActionManager->quickSave();
                 break;
-            case A_QuickLoad:
-                quickLoad();
+            case MWInput::A_QuickLoad:
+                mActionManager->quickLoad();
                 break;
-            case A_CycleSpellLeft:
-                if (checkAllowedToUseItems() && MWBase::Environment::get().getWindowManager()->isAllowed(MWGui::GW_Magic))
+            case MWInput::A_CycleSpellLeft:
+                if (mActionManager->checkAllowedToUseItems() && MWBase::Environment::get().getWindowManager()->isAllowed(MWGui::GW_Magic))
                     MWBase::Environment::get().getWindowManager()->cycleSpell(false);
                 break;
-            case A_CycleSpellRight:
-                if (checkAllowedToUseItems() && MWBase::Environment::get().getWindowManager()->isAllowed(MWGui::GW_Magic))
+            case MWInput::A_CycleSpellRight:
+                if (mActionManager->checkAllowedToUseItems() && MWBase::Environment::get().getWindowManager()->isAllowed(MWGui::GW_Magic))
                     MWBase::Environment::get().getWindowManager()->cycleSpell(true);
                 break;
-            case A_CycleWeaponLeft:
-                if (checkAllowedToUseItems() && MWBase::Environment::get().getWindowManager()->isAllowed(MWGui::GW_Inventory))
+            case MWInput::A_CycleWeaponLeft:
+                if (mActionManager->checkAllowedToUseItems() && MWBase::Environment::get().getWindowManager()->isAllowed(MWGui::GW_Inventory))
                     MWBase::Environment::get().getWindowManager()->cycleWeapon(false);
                 break;
-            case A_CycleWeaponRight:
-                if (checkAllowedToUseItems() && MWBase::Environment::get().getWindowManager()->isAllowed(MWGui::GW_Inventory))
+            case MWInput::A_CycleWeaponRight:
+                if (mActionManager->checkAllowedToUseItems() && MWBase::Environment::get().getWindowManager()->isAllowed(MWGui::GW_Inventory))
                     MWBase::Environment::get().getWindowManager()->cycleWeapon(true);
                 break;
-            case A_Jump:
-                mAttemptJump = true;
+            case MWInput::A_Jump:
+                mActionManager->setAttemptJump(true);
                 break;
             case OpenXRInput::A_RepositionMenu:
                 xrGUIManager->updateTracking();
                 break;
-            case A_Use:
+            case MWInput::A_Use:
                 if (mActivationIndication || MWBase::Environment::get().getWindowManager()->isGuiMode())
                     pointActivation(true);
             default:
@@ -1218,15 +1230,17 @@ private:
         {
             switch (action->openMWActionCode())
             {
-            case A_Use:
-                mInputBinder->getChannel(A_Use)->setValue(0.f);
+            case MWInput::A_Use:
+                mBindingsManager->ics().getChannel(MWInput::A_Use)->setValue(0.f);
                 if (mActivationIndication || MWBase::Environment::get().getWindowManager()->isGuiMode())
                     pointActivation(false);
                 break;
-            case A_Sneak:
-                if (mSneakToggles)
-                    toggleSneaking();
+            case MWInput::A_Sneak:
+                if (isToggleSneak)
+                    mActionManager->toggleSneaking();
                 break;
+            case MWInput::A_Inventory:
+                injectMousePress(SDL_BUTTON_RIGHT, false);
             default:
                 break;
             }
@@ -1235,11 +1249,9 @@ private:
 
     void OpenXRInputManager::updateHead()
     {
-        if (!mPlayer)
-            return;
-
         MWBase::World* world = MWBase::Environment::get().getWorld();
-        auto player = mPlayer->getPlayer();
+        auto& player = world->getPlayer();
+        auto playerPtr = player.getPlayer();
 
         auto* xr = Environment::get().getManager();
         auto* session = Environment::get().getSession();
@@ -1272,9 +1284,9 @@ private:
             mVrAngles[1] = roll;
             mVrAngles[2] = yaw;
 
-            if (!mPlayer->isDisabled())
+            if (!player.isDisabled())
             {
-                world->rotateObject(player, mVrAngles[0], mVrAngles[1], mVrAngles[2], MWBase::RotationFlag_none);
+                world->rotateObject(playerPtr, mVrAngles[0], mVrAngles[1], mVrAngles[2], MWBase::RotationFlag_none);
             }
             else {
                 // Update the camera directly to avoid rotating the disabled player

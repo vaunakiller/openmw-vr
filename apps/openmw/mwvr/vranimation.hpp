@@ -54,6 +54,7 @@ public:
 
     /// Overrides finger animations to point forward
     void setPointForward(bool enabled);
+    bool isPointingForward(void) const { return mIsPointingForward; }
 
     bool canPlaceObject();
     ///< @return true if it is possible to place on object where the player is currently pointing
@@ -78,6 +79,8 @@ public:
     osg::ref_ptr<HandController> mHandControllers[2];
     osg::ref_ptr<FingerController> mIndexFingerControllers[2];
     osg::ref_ptr<osg::MatrixTransform> mModelOffset;
+
+    bool mIsPointingForward{ false };
     osg::ref_ptr<osg::Geometry> mPointerGeometry{ nullptr };
     osg::ref_ptr<osg::MatrixTransform> mPointerRescale{ nullptr };
     osg::ref_ptr<osg::MatrixTransform> mPointerTransform{ nullptr };

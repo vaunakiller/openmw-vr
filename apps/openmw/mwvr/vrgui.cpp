@@ -18,6 +18,7 @@
 #include "../mwrender/renderbin.hpp"
 #include "../mwrender/renderingmanager.hpp"
 #include "../mwrender/camera.hpp"
+#include "../mwrender/vismask.hpp"
 #include "../mwbase/world.hpp"
 #include "../mwbase/environment.hpp"
 #include "../mwbase/windowmanager.hpp"
@@ -63,8 +64,8 @@ public:
         setComputeNearFarMode(osg::CullSettings::DO_NOT_COMPUTE_NEAR_FAR);
         setName("GUICamera");
 
-        setCullMask(SceneUtil::Mask_GUI);
-        setNodeMask(SceneUtil::Mask_RenderToTexture);
+        setCullMask(MWRender::Mask_GUI);
+        setNodeMask(MWRender::Mask_RenderToTexture);
 
         setViewport(0, 0, width, height);
 
@@ -637,7 +638,7 @@ void VRGUIManager::removeWidget(MWGui::Layout* widget)
     auto it = mLayers.find(name);
     if (it == mLayers.end())
     {
-        Log(Debug::Warning) << "Tried to remove widget from nonexistent layer " << name;
+        //Log(Debug::Warning) << "Tried to remove widget from nonexistent layer " << name;
         return;
     }
 
@@ -653,7 +654,7 @@ void VRGUIManager::setVisible(MWGui::Layout* widget, bool visible)
     auto* layer = widget->mMainWidget->getLayer();
     auto name = layer->getName();
 
-    Log(Debug::Verbose) << "setVisible (" << name << "): " << visible;
+    //Log(Debug::Verbose) << "setVisible (" << name << "): " << visible;
     if (layerBlacklist.find(name) != layerBlacklist.end())
     {
         Log(Debug::Verbose) << "Blacklisted";

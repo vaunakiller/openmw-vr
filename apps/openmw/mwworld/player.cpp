@@ -279,16 +279,6 @@ namespace MWWorld
         return mJumping;
     }
 
-    void Player::setPointing(bool pointing)
-    {
-        mPointing = pointing;
-    }
-
-    bool Player::getPointing() const
-    {
-        return mPointing;
-    }
-
     bool Player::isInCombat() {
         return MWBase::Environment::get().getMechanicsManager()->getActorsFighting(getPlayer()).size() != 0;
     }

@@ -6,6 +6,11 @@
 
 #include <components/sdlutil/events.hpp>
 
+namespace ICS
+{
+class InputControlSystem;
+}
+
 namespace MWInput
 {
     class BindingsListener;
@@ -58,6 +63,8 @@ namespace MWInput
         SDL_Scancode getKeyBinding(int actionId);
 
         void actionValueChanged(int action, float currentValue, float previousValue);
+
+        ICS::InputControlSystem& ics();
 
     private:
         void setupSDLKeyMappings();

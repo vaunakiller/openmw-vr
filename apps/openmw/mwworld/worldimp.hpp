@@ -752,8 +752,6 @@ namespace MWWorld
 
             /// @Return ESM::Weapon::Type enum describing the type of weapon currently drawn by the player.
             int getActiveWeaponType(void) override;
-
-            void toggleWaterRTT(bool enable) override;
 			
             bool isAreaOccupiedByOtherActor(const osg::Vec3f& position, const float radius, const MWWorld::ConstPtr& ignore) const override;
     };

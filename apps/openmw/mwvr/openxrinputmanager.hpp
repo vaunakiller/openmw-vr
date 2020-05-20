@@ -48,6 +48,7 @@ namespace MWVR
         void pointActivation(bool onPress);
 
         void injectMousePress(int sdlButton, bool onPress);
+        void injectChannelValue(MWInput::Actions action, float value);
 
         void applyHapticsLeftHand(float intensity) override;
         void applyHapticsRightHand(float intensity) override;

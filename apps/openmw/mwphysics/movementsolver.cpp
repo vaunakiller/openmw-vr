@@ -19,6 +19,12 @@
 #include "../mwworld/player.hpp"
 #include "../mwworld/refdata.hpp"
 
+#ifdef USE_OPENXR
+#include "../mwvr/openxrsession.hpp"
+#include "../mwvr/openxrinputmanager.hpp"
+#include "../mwvr/vrenvironment.hpp"
+#endif
+
 #include "actor.hpp"
 #include "collisiontype.hpp"
 #include "constants.hpp"
@@ -82,11 +88,31 @@ namespace MWPhysics
                                            bool isFlying, float waterlevel, float slowFall, const btCollisionWorld* collisionWorld,
                                            std::map<MWWorld::Ptr, MWWorld::Ptr>& standingCollisionTracker)
     {
-        const ESM::Position& refpos = ptr.getRefData().getPosition();
+        ESM::Position refpos = ptr.getRefData().getPosition();
         // Early-out for totally static creatures
         // (Not sure if gravity should still apply?)
         if (!ptr.getClass().isMobile(ptr))
             return position;
+
+        const bool isPlayer = (ptr == MWMechanics::getPlayer());
+        auto* world = MWBase::Environment::get().getWorld();
+
+        // In VR, player should move according to current direction of
+        // a selected limb, rather than current orientation of camera.
+#ifdef USE_OPENXR
+        if (isPlayer)
+        {
+            auto* session = MWVR::Environment::get().getSession();
+            if (session)
+            {
+                float pitch = 0.f;
+                float yaw = 0.f;
+                session->movementAngles(yaw, pitch);
+                refpos.rot[0] += pitch;
+                refpos.rot[2] += yaw;
+            }
+        }
+#endif
 
         // Reset per-frame data
         physicActor->setWalkingOnWater(false);
@@ -107,7 +133,7 @@ namespace MWPhysics
         // While this is strictly speaking wrong, it's needed for MW compatibility.
         position.z() += halfExtents.z();
 
-        static const float fSwimHeightScale = MWBase::Environment::get().getWorld()->getStore().get<ESM::GameSetting>().find("fSwimHeightScale")->mValue.getFloat();
+        static const float fSwimHeightScale = world->getStore().get<ESM::GameSetting>().find("fSwimHeightScale")->mValue.getFloat();
         float swimlevel = waterlevel + halfExtents.z() - (physicActor->getRenderingHalfExtents().z() * 2 * fSwimHeightScale);
 
         ActorTracer tracer;
@@ -136,18 +162,17 @@ namespace MWPhysics
 
         if (ptr.getClass().getMovementSettings(ptr).mPosition[2])
         {
-            const bool isPlayer = (ptr == MWMechanics::getPlayer());
             // Advance acrobatics and set flag for GetPCJumping
             if (isPlayer)
             {
                 ptr.getClass().skillUsageSucceeded(ptr, ESM::Skill::Acrobatics, 0);
-                MWBase::Environment::get().getWorld()->getPlayer().setJumping(true);
+                world->getPlayer().setJumping(true);
             }
 
             // Decrease fatigue
-            if (!isPlayer || !MWBase::Environment::get().getWorld()->getGodModeState())
+            if (!isPlayer || !world->getGodModeState())
             {
-                const MWWorld::Store<ESM::GameSetting> &gmst = MWBase::Environment::get().getWorld()->getStore().get<ESM::GameSetting>();
+                const MWWorld::Store<ESM::GameSetting> &gmst = world->getStore().get<ESM::GameSetting>();
                 const float fFatigueJumpBase = gmst.find("fFatigueJumpBase")->mValue.getFloat();
                 const float fFatigueJumpMult = gmst.find("fFatigueJumpMult")->mValue.getFloat();
                 const float normalizedEncumbrance = std::min(1.f, ptr.getClass().getNormalizedEncumbrance(ptr));
@@ -160,17 +185,91 @@ namespace MWPhysics
         }
 
         // Now that we have the effective movement vector, apply wind forces to it
-        if (MWBase::Environment::get().getWorld()->isInStorm())
+        if (world->isInStorm())
         {
-            osg::Vec3f stormDirection = MWBase::Environment::get().getWorld()->getStormDirection();
+            osg::Vec3f stormDirection = world->getStormDirection();
             float angleDegrees = osg::RadiansToDegrees(std::acos(stormDirection * velocity / (stormDirection.length() * velocity.length())));
-            static const float fStromWalkMult = MWBase::Environment::get().getWorld()->getStore().get<ESM::GameSetting>().find("fStromWalkMult")->mValue.getFloat();
+            static const float fStromWalkMult = world->getStore().get<ESM::GameSetting>().find("fStromWalkMult")->mValue.getFloat();
             velocity *= 1.f-(fStromWalkMult * (angleDegrees/180.f));
         }
 
         Stepper stepper(collisionWorld, colobj);
         osg::Vec3f origVelocity = velocity;
         osg::Vec3f newPosition = position;
+
+#ifdef USE_OPENXR
+        // TODO: For now this is just a (partial) duplication of the loop below
+        // Could/should probably be refactored into its own function.
+        if (isPlayer && !world->getPlayer().isDisabled())
+        {
+
+            auto* inputManager = MWVR::Environment::get().getInputManager();
+
+            osg::Vec3 trackingOffset = inputManager->mHeadOffset;
+            // Player's tracking height should not affect character position
+            trackingOffset.z() = 0;
+
+            float remainingTime = time;
+            float remainder = 1.f;
+
+            for (int iterations = 0; iterations < sMaxIterations && remainingTime > 0.01f && remainder > 0.01; ++iterations)
+            {
+                osg::Vec3 toMove = trackingOffset * remainder;
+                osg::Vec3 nextpos = newPosition + toMove;
+
+                if ((newPosition - nextpos).length2() > 0.0001)
+                {
+                    // trace to where character would go if there were no obstructions
+                    tracer.doTrace(colobj, newPosition, nextpos, collisionWorld);
+
+                    // check for obstructions
+                    if (tracer.mFraction >= 1.0f)
+                    {
+                        newPosition = tracer.mEndPos; // ok to move, so set newPosition
+                        remainder = 0.f;
+                        break;
+                    }
+                }
+                else
+                {
+                    // The current position and next position are nearly the same, so just exit.
+                    // Note: Bullet can trigger an assert in debug modes if the positions
+                    // are the same, since that causes it to attempt to normalize a zero
+                    // length vector (which can also happen with nearly identical vectors, since
+                    // precision can be lost due to any math Bullet does internally). Since we
+                    // aren't performing any collision detection, we want to reject the next
+                    // position, so that we don't slowly move inside another object.
+                    remainder = 0.f;
+                    break;
+                }
+                // We are touching something.
+                if (tracer.mFraction < 1E-9f)
+                {
+                    // Try to separate by backing off slighly to unstuck the solver
+                    osg::Vec3f backOff = (newPosition - tracer.mHitPoint) * 1E-2f;
+                    newPosition += backOff;
+                }
+
+                // We hit something. Check if we can step up.
+                float hitHeight = tracer.mHitPoint.z() - tracer.mEndPos.z() + halfExtents.z();
+                osg::Vec3f oldPosition = newPosition;
+                bool result = false;
+                if (hitHeight < sStepSizeUp && !isActor(tracer.mHitObject))
+                {
+                    // Try to step up onto it.
+                    // NOTE: stepMove does not allow stepping over, modifies newPosition if successful
+                    result = stepper.step(newPosition, toMove, remainingTime);
+                    remainder = remainingTime / time;
+                }
+            }
+
+            // Try not to lose any tracking
+            osg::Vec3 moved = newPosition - position;
+            inputManager->mHeadOffset.x() -= moved.x();
+            inputManager->mHeadOffset.y() -= moved.y();
+        }
+#endif
+
         /*
          * A loop to find newPosition using tracer, if successful different from the starting position.
          * nextpos is the local variable used to find potential newPosition, using velocity and remainingTime

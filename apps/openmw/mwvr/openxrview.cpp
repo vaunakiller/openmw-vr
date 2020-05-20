@@ -70,11 +70,6 @@ namespace MWVR {
     {
         auto name = renderInfo.getCurrentCamera()->getName();
         mTimer.checkpoint("Postrender");
-        // Water RTT happens before the initial draw callback,
-        // so i have to disable it in postrender of the first eye, and then re-enable it
-        auto world = MWBase::Environment::get().getWorld();
-        if (world)
-            world->toggleWaterRTT(name == "RightEye");
     }
 
     void OpenXRView::swapBuffers(osg::GraphicsContext* gc)

@@ -4080,11 +4080,6 @@ namespace MWWorld
         }
         return ESM::Weapon::Type::None;
     }
-
-    void World::toggleWaterRTT(bool enable)
-    {
-        mRendering->toggleWaterRTT(enable);
-	}
 	
     bool World::isAreaOccupiedByOtherActor(const osg::Vec3f& position, const float radius, const MWWorld::ConstPtr& ignore) const
     {

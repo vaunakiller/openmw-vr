@@ -24,7 +24,6 @@
 #include <components/sceneutil/attach.hpp>
 #include <components/sceneutil/clone.hpp>
 #include <components/sceneutil/visitor.hpp>
-#include <components/sceneutil/vismask.hpp>
 #include <components/sceneutil/skeleton.hpp>
 #include <components/sceneutil/riggeometry.hpp>
 #include <components/sceneutil/positionattitudetransform.hpp>
@@ -547,6 +546,8 @@ void VRAnimation::setPointForward(bool enabled)
     {
         mPointerTarget = MWRender::RayResult{};
     }
+
+    mIsPointingForward = enabled;
 }
 
 osg::ref_ptr<osg::Geometry> VRAnimation::createPointerGeometry(void)
@@ -670,12 +671,12 @@ void VRAnimation::addControllers()
         mModelOffset->addChild(mObjectRoot);
     }
 
-    auto wb = mNodeMap.find("weapon bone");
-    if (wb != mNodeMap.end())
-    {
-        wb->second->removeChild(mWeaponPointerTransform);
-        wb->second->addChild(mWeaponPointerTransform);
-    }
+    //auto wb = mNodeMap.find("weapon bone");
+    //if (wb != mNodeMap.end())
+    //{
+    //    wb->second->removeChild(mWeaponPointerTransform);
+    //    wb->second->addChild(mWeaponPointerTransform);
+    //}
 }
 void VRAnimation::enableHeadAnimation(bool)
 {

@@ -6,8 +6,6 @@
 #include "openxrinputmanager.hpp"
 
 #include <components/debug/debuglog.hpp>
-#include <components/sdlutil/sdlgraphicswindow.hpp>
-#include <components/sceneutil/vismask.hpp>
 
 #include <Windows.h>
 
