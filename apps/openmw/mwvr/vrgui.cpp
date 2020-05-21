@@ -172,8 +172,7 @@ VRGUILayer::VRGUILayer(
     (*normals)[0].set(0.0f, -1.0f, 0.0f);
     mGeometry->setNormalArray(normals, osg::Array::BIND_OVERALL);
     mGeometry->addPrimitiveSet(new osg::DrawArrays(GL_QUADS, 0, 4));
-    mGeometry->setDataVariance(osg::Object::DYNAMIC);
-    mGeometry->setSupportsDisplayList(false);
+    mGeometry->setDataVariance(osg::Object::STATIC);
     mGeometry->setName("VRGUILayer");
 
     // Create the camera that will render the menu texture
@@ -183,8 +182,6 @@ VRGUILayer::VRGUILayer(
     mGUICamera = new GUICamera(config.pixelResolution.x(), config.pixelResolution.y(), config.backgroundColor);
     osgMyGUI::RenderManager& renderManager = static_cast<osgMyGUI::RenderManager&>(MyGUI::RenderManager::getInstance());
     mMyGUICamera = renderManager.createGUICamera(osg::Camera::NESTED_RENDER, filter);
-    //myGUICamera->setViewport(0, 0, 256, 256);
-    //mMyGUICamera->setProjectionMatrixAsOrtho2D(-1, 1, -1, 1);
     mGUICamera->setScene(mMyGUICamera);
 
     // Define state set that allows rendering with transparency

@@ -603,9 +603,7 @@ osg::ref_ptr<osg::Geometry> VRAnimation::createPointerGeometry(void)
     geometry->setVertexArray(vertexArray);
     geometry->setColorArray(colorArray, osg::Array::BIND_PER_VERTEX);
     geometry->addPrimitiveSet(new osg::DrawArrays(osg::PrimitiveSet::TRIANGLES, 0, numVertices));
-    geometry->setDataVariance(osg::Object::DYNAMIC);
-    geometry->setSupportsDisplayList(false);
-    geometry->setCullingActive(false);
+    geometry->setDataVariance(osg::Object::STATIC);
 
     auto stateset = geometry->getOrCreateStateSet();
     stateset->setMode(GL_LIGHTING, osg::StateAttribute::OFF);

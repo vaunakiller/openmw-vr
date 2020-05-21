@@ -64,6 +64,9 @@ public:
     int mPredictionFrame{ 1 };
     int mPredictedFrames{ 0 };
 
+    long long mPredrawPredictedDisplayTime{ 0 };
+    long long mDrawPredictedDisplayTime{ 0 };
+
     bool mIsRunning{ false };
     bool mShouldRender{ false };
 };
