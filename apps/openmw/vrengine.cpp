@@ -1,7 +1,7 @@
 #include "engine.hpp"
 #include "mwvr/openxrmanager.hpp"
-#include "mwvr/openxrsession.hpp"
-#include "mwvr/openxrviewer.hpp"
+#include "mwvr/vrsession.hpp"
+#include "mwvr/vrviewer.hpp"
 #include "mwvr/vrgui.hpp"
 
 #ifndef USE_OPENXR
@@ -20,6 +20,6 @@ void OMW::Engine::initVr()
     float yardsPerMeter = 0.9144f;
     float unitsPerMeter = unitsPerYard / yardsPerMeter;
     mXrEnvironment.setUnitsPerMeter(unitsPerMeter);
-    mXrEnvironment.setSession(new MWVR::OpenXRSession());
-    mXrEnvironment.setViewer(new MWVR::OpenXRViewer(mViewer));
+    mXrEnvironment.setSession(new MWVR::VRSession());
+    mXrEnvironment.setViewer(new MWVR::VRViewer(mViewer));
 }

@@ -20,7 +20,7 @@
 #include "../mwworld/refdata.hpp"
 
 #ifdef USE_OPENXR
-#include "../mwvr/openxrsession.hpp"
+#include "../mwvr/vrsession.hpp"
 #include "../mwvr/openxrinputmanager.hpp"
 #include "../mwvr/vrenvironment.hpp"
 #endif

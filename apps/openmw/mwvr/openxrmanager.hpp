@@ -15,7 +15,7 @@
 
 
 struct XrSwapchainSubImage;
-
+struct XrCompositionLayerBaseHeader;
 
 namespace MWVR
 {
@@ -45,17 +45,36 @@ namespace MWVR
         //! Speed of movement in VR space, expressed in meters per second
         osg::Vec3 velocity{ 0,0,0 };
 
+        //! Add one pose to another
         Pose operator+(const Pose& rhs);
         const Pose& operator+=(const Pose& rhs);
+
+        //! Scale a pose (does not affect orientation)
+        Pose operator*(float scalar);
+        const Pose& operator*=(float scalar);
     };
 
-    using PoseSet = std::array<Pose, 2>;
+    struct FieldOfView {
+        float    angleLeft;
+        float    angleRight;
+        float    angleUp;
+        float    angleDown;
 
-    struct PoseSets
+        osg::Matrix perspectiveMatrix(float near, float far);
+    };
+
+    struct View
     {
-        PoseSet eye[2]{};
-        PoseSet hands[2]{};
-        PoseSet head{};
+        Pose pose;
+        FieldOfView fov;
+    };
+
+    struct PoseSet
+    {
+        View view[2]{};
+        Pose eye[2]{};
+        Pose hands[2]{};
+        Pose head{};
     };
 
     //! Describes what limb to track.
@@ -117,9 +136,8 @@ namespace MWVR
         void handleEvents();
         void waitFrame();
         void beginFrame();
-        void endFrame(int64_t displayTime, class OpenXRLayerStack* layerStack);
+        void endFrame(int64_t displayTime, int layerCount, XrCompositionLayerBaseHeader** layerStack);
         void updateControls();
-        void playerScale(MWVR::Pose& stagePose);
 
         void realize(osg::GraphicsContext* gc);
 

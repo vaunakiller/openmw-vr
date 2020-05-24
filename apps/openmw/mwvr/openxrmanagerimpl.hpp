@@ -2,7 +2,6 @@
 #define OPENXR_MANAGER_IMPL_HPP
 
 #include "openxrmanager.hpp"
-#include "openxrlayer.hpp"
 #include "../mwinput/inputmanagerimp.hpp"
 
 #include <components/debug/debuglog.hpp>
@@ -42,6 +41,8 @@ namespace MWVR
     XrResult CheckXrResult(XrResult res, const char* originator = nullptr, const char* sourceLocation = nullptr);
     MWVR::Pose fromXR(XrPosef pose);
     XrPosef toXR(MWVR::Pose pose);
+    MWVR::FieldOfView fromXR(XrFovf fov);
+    XrFovf toXR(MWVR::FieldOfView fov);
 
     struct OpenXRManagerImpl
     {
@@ -55,7 +56,7 @@ namespace MWVR
         const XrEventDataBaseHeader* nextEvent();
         void waitFrame();
         void beginFrame();
-        void endFrame(int64_t displayTime, class OpenXRLayerStack* layerStack);
+        void endFrame(int64_t displayTime, int layerCount, XrCompositionLayerBaseHeader** layerStack);
         std::array<XrView, 2> getPredictedViews(int64_t predictedDisplayTime, TrackedSpace mSpace);
         MWVR::Pose getPredictedLimbPose(int64_t predictedDisplayTime, TrackedLimb limb, TrackedSpace space);
         int eyes();
@@ -63,7 +64,7 @@ namespace MWVR
         void updateControls();
         void HandleSessionStateChanged(const XrEventDataSessionStateChanged& stateChangedEvent);
         XrFrameState frameState();
-        void playerScale(MWVR::Pose& stagePose);
+        XrSpace getReferenceSpace(TrackedSpace space);
 
         bool initialized = false;
         long long mFrameIndex = 0;

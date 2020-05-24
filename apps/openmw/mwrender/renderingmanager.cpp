@@ -73,7 +73,7 @@
 
 #ifdef USE_OPENXR
 #include "../mwvr/vranimation.hpp"
-#include "../mwvr/openxrviewer.hpp"
+#include "../mwvr/vrviewer.hpp"
 #include "../mwvr/vrenvironment.hpp"
 #endif
 
@@ -1015,8 +1015,11 @@ namespace MWRender
         osg::Camera* camera = mViewer->getCamera();
 #ifdef USE_OPENXR
         // In VR mode, the main camera is disabled.
-        auto& slave = mViewer->getSlave(1);
-        camera = slave._camera;
+        if (mViewer->getNumSlaves() > 0)
+        {
+            auto& slave = mViewer->getSlave(mViewer->getNumSlaves()-1);
+            camera = slave._camera;
+        }
 #endif
         osg::ref_ptr<osg::Drawable> tempDrw = new osg::Drawable;
         tempDrw->setDrawCallback(new ReadImageFromFramebufferCallback(image, w, h));

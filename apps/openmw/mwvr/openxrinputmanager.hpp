@@ -1,7 +1,7 @@
 #ifndef OPENXR_INPUT_MANAGER_HPP
 #define OPENXR_INPUT_MANAGER_HPP
 
-#include "openxrviewer.hpp"
+#include "vrviewer.hpp"
 #include "realisticcombat.hpp"
 #include "../mwinput/inputmanagerimp.hpp"
 
@@ -42,7 +42,7 @@ namespace MWVR
 
         void processAction(const class Action* action);
 
-        PoseSet getHandPoses(int64_t time, TrackedSpace space);
+        Pose getHandPose(int64_t time, TrackedSpace space, Side side);
 
         void updateActivationIndication(void);
         void pointActivation(bool onPress);
@@ -55,7 +55,7 @@ namespace MWVR
 
         std::unique_ptr<OpenXRInput> mXRInput;
         std::unique_ptr<RealisticCombat::StateMachine> mRealisticCombat;
-        Pose mPreviousHeadPose{};
+        Pose mHeadPose{};
         osg::Vec3 mHeadOffset{ 0,0,0 };
         bool mRecenter{ true };
         bool mActivationIndication{ false };

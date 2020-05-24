@@ -31,7 +31,6 @@ namespace MWVR
 
     static void statsThreadRun()
     {
-        return;
         while (statsThreadRunning)
         {
             std::stringstream ss;
@@ -156,10 +155,10 @@ namespace MWVR
             return impl().beginFrame();
     }
 
-    void OpenXRManager::endFrame(int64_t displayTime, class OpenXRLayerStack* layerStack)
+    void OpenXRManager::endFrame(int64_t displayTime, int layerCount, XrCompositionLayerBaseHeader** layerStack)
     {
         if (realized())
-            return impl().endFrame(displayTime, layerStack);
+            return impl().endFrame(displayTime, layerCount, layerStack);
     }
 
     void OpenXRManager::updateControls()
@@ -217,11 +216,6 @@ namespace MWVR
 
     }
 
-    void OpenXRManager::playerScale(MWVR::Pose& stagePose)
-    {
-        if (mPrivate)
-            mPrivate->playerScale(stagePose);
-    }
     Pose Pose::operator+(const Pose& rhs)
     {
         Pose pose = *this;
@@ -229,10 +223,71 @@ namespace MWVR
         pose.orientation = rhs.orientation * this->orientation;
         return pose;
     }
+
     const Pose& Pose::operator+=(const Pose& rhs)
     {
         *this = *this + rhs;
         return *this;
+    }
+
+    Pose Pose::operator*(float scalar)
+    {
+        Pose pose = *this;
+        pose.position *= scalar;
+        pose.velocity *= scalar;
+        return pose;
+    }
+
+    const Pose& Pose::operator*=(float scalar)
+    {
+        *this = *this * scalar;
+        return *this;
+    }
+
+    // near and far named with an underscore because of galaxy brain defines in included windows headers.
+    osg::Matrix FieldOfView::perspectiveMatrix(float near_, float far_)
+    {
+        const float tanLeft = tanf(angleLeft);
+        const float tanRight = tanf(angleRight);
+        const float tanDown = tanf(angleDown);
+        const float tanUp = tanf(angleUp);
+
+        const float tanWidth = tanRight - tanLeft;
+        const float tanHeight = tanUp - tanDown;
+
+        const float offset = near_;
+
+        float matrix[16] = {};
+
+        matrix[0] = 2 / tanWidth;
+        matrix[4] = 0;
+        matrix[8] = (tanRight + tanLeft) / tanWidth;
+        matrix[12] = 0;
+
+        matrix[1] = 0;
+        matrix[5] = 2 / tanHeight;
+        matrix[9] = (tanUp + tanDown) / tanHeight;
+        matrix[13] = 0;
+
+        if (far_ <= near_) {
+            matrix[2] = 0;
+            matrix[6] = 0;
+            matrix[10] = -1;
+            matrix[14] = -(near_ + offset);
+        }
+        else {
+            matrix[2] = 0;
+            matrix[6] = 0;
+            matrix[10] = -(far_ + offset) / (far_ - near_);
+            matrix[14] = -(far_ * (near_ + offset)) / (far_ - near_);
+        }
+
+        matrix[3] = 0;
+        matrix[7] = 0;
+        matrix[11] = -1;
+        matrix[15] = 0;
+
+        return osg::Matrix(matrix);
     }
 }
 

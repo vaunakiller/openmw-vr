@@ -295,34 +295,17 @@ namespace MWVR
     }
 
     void
-        OpenXRManagerImpl::endFrame(int64_t displayTime, OpenXRLayerStack* layerStack)
+        OpenXRManagerImpl::endFrame(int64_t displayTime, int layerCount, XrCompositionLayerBaseHeader** layerStack)
     {
         Timer timer("endFrame()");
         if (!mSessionRunning)
             return;
 
-        OpenXRLayerStack::LayerHeaders headers;
-
         XrFrameEndInfo frameEndInfo{ XR_TYPE_FRAME_END_INFO };
         frameEndInfo.displayTime = displayTime;
         frameEndInfo.environmentBlendMode = mEnvironmentBlendMode;
-        if (layerStack)
-        {
-            headers = layerStack->layerHeaders();
-            frameEndInfo.layerCount = headers.size();
-            frameEndInfo.layers = headers.data();
-        }
-        else {
-            frameEndInfo.layerCount = 0;
-            frameEndInfo.layers = nullptr;
-        }
-        //Log(Debug::Verbose) << "LayerStack<" << frameEndInfo.layerCount << ", " << frameEndInfo.layers << ">";
-
-        static std::chrono::steady_clock::time_point last = std::chrono::steady_clock::now();
-
-        auto now = std::chrono::steady_clock::now();
-        auto elapsed = now -last;
-        last = now;
+        frameEndInfo.layerCount = layerCount;
+        frameEndInfo.layers = layerStack;
 
         CHECK_XRCMD(xrEndFrame(mSession, &frameEndInfo));
     }
@@ -498,26 +481,24 @@ namespace MWVR
         return XrPosef{ osg::toXR(pose.orientation), osg::toXR(pose.position) };
     }
 
-
-    void OpenXRManagerImpl::playerScale(MWVR::Pose& stagePose)
+    MWVR::FieldOfView fromXR(XrFovf fov)
     {
-        auto worldPtr = MWBase::Environment::get().getWorld();
-        if (worldPtr)
-        {
-            auto playerPtr = MWMechanics::getPlayer();
-            const MWWorld::LiveCellRef<ESM::NPC>* ref = playerPtr.get<ESM::NPC>();
-            const ESM::Race* race =
-                MWBase::Environment::get().getWorld()->getStore().get<ESM::Race>().find(ref->mBase->mRace);
-            bool isMale = ref->mBase->isMale();
-            float charHeightFactor = isMale ? race->mData.mHeight.mMale : race->mData.mHeight.mFemale;
-            float charHeightBase = 1.8f;
-            float charHeight = charHeightBase * charHeightFactor;
-            // TODO: Player height should be configurable
-            // For now i'm just using my own
-            float sizeFactor = 1.85f / charHeight;
-            stagePose.position /= sizeFactor;
-            stagePose.velocity /= sizeFactor;
-        }
+        return MWVR::FieldOfView{ fov.angleLeft, fov.angleRight, fov.angleUp, fov.angleDown };
+    }
+
+    XrFovf toXR(MWVR::FieldOfView fov)
+    {
+        return XrFovf{ fov.angleLeft, fov.angleRight, fov.angleUp, fov.angleDown };
+    }
+
+    XrSpace OpenXRManagerImpl::getReferenceSpace(TrackedSpace space)
+    {
+        XrSpace referenceSpace = XR_NULL_HANDLE;
+        if (space == TrackedSpace::STAGE)
+            referenceSpace = mReferenceSpaceStage;
+        if (space == TrackedSpace::VIEW)
+            referenceSpace = mReferenceSpaceView;
+        return referenceSpace;
     }
 }
 

@@ -1,6 +1,6 @@
 #include "vrgui.hpp"
 #include "vrenvironment.hpp"
-#include "openxrsession.hpp"
+#include "vrsession.hpp"
 #include "openxrmanagerimpl.hpp"
 #include "openxrinputmanager.hpp"
 #include "vranimation.hpp"
@@ -182,6 +182,8 @@ VRGUILayer::VRGUILayer(
     mGUICamera = new GUICamera(config.pixelResolution.x(), config.pixelResolution.y(), config.backgroundColor);
     osgMyGUI::RenderManager& renderManager = static_cast<osgMyGUI::RenderManager&>(MyGUI::RenderManager::getInstance());
     mMyGUICamera = renderManager.createGUICamera(osg::Camera::NESTED_RENDER, filter);
+    //myGUICamera->setViewport(0, 0, 256, 256);
+    //mMyGUICamera->setProjectionMatrixAsOrtho2D(-1, 1, -1, 1);
     mGUICamera->setScene(mMyGUICamera);
 
     // Define state set that allows rendering with transparency
@@ -543,7 +545,7 @@ void VRGUIManager::updateSideBySideLayers()
     float span = sSideBySideAzimuthInterval * (n - 1); // zero index, places lone layers straight ahead
     float low = -span / 2;
 
-    for (int i = 0; i < mSideBySideLayers.size(); i++)
+    for (unsigned i = 0; i < mSideBySideLayers.size(); i++)
         mSideBySideLayers[i]->setAngle(low + static_cast<float>(i) * sSideBySideAzimuthInterval);
 }
 

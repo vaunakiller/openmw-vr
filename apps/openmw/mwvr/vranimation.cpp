@@ -59,7 +59,7 @@
 #include "../mwphysics/physicssystem.hpp"
 
 #include "vrenvironment.hpp"
-#include "openxrviewer.hpp"
+#include "vrviewer.hpp"
 #include "openxrinputmanager.hpp"
 
 namespace MWVR
@@ -102,11 +102,8 @@ void ForearmController::operator()(osg::Node* node, osg::NodeVisitor* nv)
 
     osg::MatrixTransform* transform = static_cast<osg::MatrixTransform*>(node);
 
-    auto* xr = Environment::get().getManager();
     auto* session = Environment::get().getSession();
     auto* xrViewer = Environment::get().getViewer();
-    auto& poses = session->predictedPoses(OpenXRSession::PredictionSlice::Predraw);
-    auto handPosesStage = poses.hands[(int)TrackedSpace::STAGE];
     int side = (int)Side::RIGHT_HAND;
     if (node->getName().find_first_of("L") != std::string::npos)
     {
@@ -117,10 +114,8 @@ void ForearmController::operator()(osg::Node* node, osg::NodeVisitor* nv)
         MWBase::Environment::get().getWorld()->getRenderingManager().getCamera()->updateCamera();
     }
 
-    MWVR::Pose handStage = handPosesStage[side];
-    MWVR::Pose headStage = poses.head[(int)TrackedSpace::STAGE];
-    xr->playerScale(handStage);
-    xr->playerScale(headStage);
+    MWVR::Pose handStage = session->predictedPoses(VRSession::FramePhase::Predraw).hands[side];
+    MWVR::Pose headStage = session->predictedPoses(VRSession::FramePhase::Predraw).head;
 
     auto orientation = handStage.orientation;
 
@@ -426,7 +421,7 @@ void WeaponPointerController::operator()(osg::Node* node, osg::NodeVisitor* nv)
 
 VRAnimation::VRAnimation(
     const MWWorld::Ptr& ptr, osg::ref_ptr<osg::Group> parentNode, Resource::ResourceSystem* resourceSystem,
-    bool disableSounds, std::shared_ptr<OpenXRSession> xrSession)
+    bool disableSounds, std::shared_ptr<VRSession> xrSession)
     // Note that i let it construct as 3rd person and then later update it to VM_VRHeadless
     // when the character controller updates
     : MWRender::NpcAnimation(ptr, parentNode, resourceSystem, disableSounds, VM_Normal, 55.f)
@@ -516,6 +511,20 @@ void VRAnimation::updateParts()
         removeIndividualPart(ESM::PartReferenceType::PRT_RForearm);
         removeIndividualPart(ESM::PartReferenceType::PRT_RWrist);
     }
+
+
+    auto playerPtr = MWMechanics::getPlayer();
+    const MWWorld::LiveCellRef<ESM::NPC>* ref = playerPtr.get<ESM::NPC>();
+    const ESM::Race* race =
+        MWBase::Environment::get().getWorld()->getStore().get<ESM::Race>().find(ref->mBase->mRace);
+    bool isMale = ref->mBase->isMale();
+    float charHeightFactor = isMale ? race->mData.mHeight.mMale : race->mData.mHeight.mFemale;
+    float charHeightBase = 1.8f;
+    float charHeight = charHeightBase * charHeightFactor;
+    // TODO: Player height should be configurable
+    // For now i'm just using my own
+    float sizeFactor = 1.85f / charHeight;
+    Environment::get().getSession()->setPlayerScale(sizeFactor);
 }
 
 void VRAnimation::setPointForward(bool enabled)

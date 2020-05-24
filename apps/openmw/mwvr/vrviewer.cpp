@@ -1,5 +1,5 @@
-#include "openxrviewer.hpp"
-#include "openxrsession.hpp"
+#include "vrviewer.hpp"
+#include "vrsession.hpp"
 #include "openxrmanagerimpl.hpp"
 #include "openxrinputmanager.hpp"
 #include "vrenvironment.hpp"
@@ -17,70 +17,47 @@
 namespace MWVR
 {
 
-    OpenXRViewer::OpenXRViewer(
+    VRViewer::VRViewer(
         osg::ref_ptr<osgViewer::Viewer> viewer)
-        : osg::Group()
-        , mCompositionLayerProjectionViews(2, {XR_TYPE_COMPOSITION_LAYER_PROJECTION_VIEW})
-        , mRealizeOperation(new RealizeOperation())
+        : mRealizeOperation(new RealizeOperation())
         , mViewer(viewer)
         , mPreDraw(new PredrawCallback(this))
         , mPostDraw(new PostdrawCallback(this))
         , mConfigured(false)
     {
         mViewer->setRealizeOperation(mRealizeOperation);
-        mCompositionLayerProjectionViews[0].pose.orientation.w = 1;
-        mCompositionLayerProjectionViews[1].pose.orientation.w = 1;
-        this->setName("OpenXRRoot");
+        //this->setName("OpenXRRoot");
     }
 
-    OpenXRViewer::~OpenXRViewer(void)
+    VRViewer::~VRViewer(void)
     {
     }
 
-    void 
-        OpenXRViewer::traverse(
-            osg::NodeVisitor& visitor)
-    {
-        if (mRealizeOperation->realized())
-            osg::Group::traverse(visitor);
-    }
-
-    const XrCompositionLayerBaseHeader*
-        OpenXRViewer::layer()
-    {
-        // Does not check for visible, since this should always render
-        return reinterpret_cast<XrCompositionLayerBaseHeader*>(mLayer.get());
-    }
-
-    void OpenXRViewer::traversals()
+    void VRViewer::traversals()
     {
         mViewer->updateTraversal();
         mViewer->renderingTraversals();
     }
 
-    void OpenXRViewer::realize(osg::GraphicsContext* context)
+    void VRViewer::realize(osg::GraphicsContext* context)
     {
         std::unique_lock<std::mutex> lock(mMutex);
-
+        
         if (mConfigured)
+        {
             return;
+        }
 
         if (!context->isCurrent())
         if (!context->makeCurrent())
         {
-            throw std::logic_error("OpenXRViewer::configure() failed to make graphics context current.");
+            throw std::logic_error("VRViewer::configure() failed to make graphics context current.");
             return;
         }
 
-        
-
         auto mainCamera = mCameras["MainCamera"] = mViewer->getCamera();
         mainCamera->setName("Main");
-        mainCamera->setInitialDrawCallback(new OpenXRView::InitialDrawCallback());
-
-        // Use the main camera to render any GUI to the OpenXR GUI quad's swapchain.
-        // (When swapping the window buffer we'll blit the mirror texture to it instead.)
-        mainCamera->setCullMask(MWRender::Mask_GUI);
+        mainCamera->setInitialDrawCallback(new VRView::InitialDrawCallback());
 
         osg::Vec4 clearColor = mainCamera->getClearColor();
 
@@ -88,7 +65,7 @@ namespace MWVR
         if (!xr->realized())
             xr->realize(context);
 
-        auto* session = Environment::get().getSession();
+        xr->handleEvents();
 
         OpenXRSwapchain::Config leftConfig;
         leftConfig.width = xr->impl().mConfigViews[(int)Side::LEFT_HAND].recommendedImageRectWidth;
@@ -99,8 +76,8 @@ namespace MWVR
         rightConfig.height = xr->impl().mConfigViews[(int)Side::RIGHT_HAND].recommendedImageRectHeight;
         rightConfig.samples = xr->impl().mConfigViews[(int)Side::RIGHT_HAND].recommendedSwapchainSampleCount;
 
-        auto leftView = new OpenXRWorldView(xr, "LeftEye", context->getState(), leftConfig);
-        auto rightView = new OpenXRWorldView(xr, "RightEye", context->getState(), rightConfig);
+        auto leftView = new VRView("LeftEye", leftConfig, context->getState());
+        auto rightView = new VRView("RightEye", rightConfig, context->getState());
 
         mViews["LeftEye"] = leftView;
         mViews["RightEye"] = rightView;
@@ -111,27 +88,35 @@ namespace MWVR
         leftCamera->setPreDrawCallback(mPreDraw);
         rightCamera->setPreDrawCallback(mPreDraw);
 
-        //leftCamera->setPostDrawCallback(mPostDraw);
-        //rightCamera->setPostDrawCallback(mPostDraw);
         leftCamera->setFinalDrawCallback(mPostDraw);
         rightCamera->setFinalDrawCallback(mPostDraw);
 
-        // Stereo cameras should only draw the scene (AR layers should later add minimap, health, etc.)
-        leftCamera->setCullMask(~MWRender::Mask_GUI);
-        rightCamera->setCullMask(~MWRender::Mask_GUI);
+        // Stereo cameras should only draw the scene
+        leftCamera->setCullMask(~MWRender::Mask_GUI & ~MWRender::Mask_SimpleWater & ~MWRender::Mask_UpdateVisitor);
+        rightCamera->setCullMask(~MWRender::Mask_GUI & ~MWRender::Mask_SimpleWater & ~MWRender::Mask_UpdateVisitor);
 
         leftCamera->setName("LeftEye");
         rightCamera->setName("RightEye");
 
-        mViewer->addSlave(leftCamera, leftView->projectionMatrix(), leftView->viewMatrix(), true);
-        mViewer->addSlave(rightCamera, rightView->projectionMatrix(), rightView->viewMatrix(), true);
 
+        osg::Camera::CullingMode cullingMode = osg::Camera::DEFAULT_CULLING|osg::Camera::FAR_PLANE_CULLING;
 
-        mViewer->setLightingMode(osg::View::SKY_LIGHT);
+        if (!Settings::Manager::getBool("small feature culling", "Camera"))
+            cullingMode &= ~(osg::CullStack::SMALL_FEATURE_CULLING);
+        else
+        {
+            auto smallFeatureCullingPixelSize = Settings::Manager::getFloat("small feature culling pixel size", "Camera");
+            leftCamera->setSmallFeatureCullingPixelSize(smallFeatureCullingPixelSize);
+            rightCamera->setSmallFeatureCullingPixelSize(smallFeatureCullingPixelSize);
+            cullingMode |= osg::CullStack::SMALL_FEATURE_CULLING;
+        }
+        leftCamera->setCullingMode(cullingMode);
+        rightCamera->setCullingMode(cullingMode);
+
+        mViewer->addSlave(leftCamera, true);
+        mViewer->addSlave(rightCamera, true);
+
         mViewer->setReleaseContextAtEndOfFrameHint(false);
-
-        mCompositionLayerProjectionViews[0].subImage = leftView->swapchain().subImage();
-        mCompositionLayerProjectionViews[1].subImage = rightView->swapchain().subImage();
 
 
         OpenXRSwapchain::Config config;
@@ -140,32 +125,31 @@ namespace MWVR
         config.samples = 1;
 
         // Mirror texture doesn't have to be an OpenXR swapchain.
-        // It's just convenient.
-        mMirrorTextureSwapchain.reset(new OpenXRSwapchain(xr, context->getState(), config));
+        // It was just convenient at the time.
+        mMirrorTextureSwapchain.reset(new OpenXRSwapchain(context->getState(), config));
 
-        //mViewer->addSlave(menuCamera, true);
-        mViewer->getSlave(0)._updateSlaveCallback = new OpenXRWorldView::UpdateSlaveCallback(xr, session, leftView, context);
-        mViewer->getSlave(1)._updateSlaveCallback = new OpenXRWorldView::UpdateSlaveCallback(xr, session, rightView, context);
+        mViewer->getSlave(0)._updateSlaveCallback = new VRView::UpdateSlaveCallback(leftView, context);
+        mViewer->getSlave(1)._updateSlaveCallback = new VRView::UpdateSlaveCallback(rightView, context);
 
         mMainCameraGC = mainCamera->getGraphicsContext();
-        mMainCameraGC->setSwapCallback(new OpenXRViewer::SwapBuffersCallback(this));
+        mMainCameraGC->setSwapCallback(new VRViewer::SwapBuffersCallback(this));
         mainCamera->setGraphicsContext(nullptr);
-        session->setLayer(OpenXRLayerStack::WORLD_VIEW_LAYER, this);
         mConfigured = true;
 
+        Log(Debug::Verbose) << "Realized";
     }
 
-    void OpenXRViewer::enableMainCamera(void)
+    void VRViewer::enableMainCamera(void)
     {
         mCameras["MainCamera"]->setGraphicsContext(mMainCameraGC);
     }
 
-    void OpenXRViewer::disableMainCamera(void)
+    void VRViewer::disableMainCamera(void)
     {
         mCameras["MainCamera"]->setGraphicsContext(nullptr);
     }
 
-    void OpenXRViewer::blitEyesToMirrorTexture(osg::GraphicsContext* gc)
+    void VRViewer::blitEyesToMirrorTexture(osg::GraphicsContext* gc)
     {
         //includeMenu = false;
         mMirrorTextureSwapchain->beginFrame(gc);
@@ -189,52 +173,25 @@ namespace MWVR
     }
 
     void
-        OpenXRViewer::SwapBuffersCallback::swapBuffersImplementation(
+        VRViewer::SwapBuffersCallback::swapBuffersImplementation(
             osg::GraphicsContext* gc)
     {
         auto* session = Environment::get().getSession();
-        session->swapBuffers(gc);
+        session->swapBuffers(gc, *mViewer);
+        gc->swapBuffersImplementation();
     }
 
-    void OpenXRViewer::swapBuffers(osg::GraphicsContext* gc)
+    void VRViewer::swapBuffers(osg::GraphicsContext* gc)
     {
         if (!mConfigured)
             return;
 
-        auto* session = Environment::get().getSession();
-        auto* xr = Environment::get().getManager();
+        Timer timer("VRViewer::SwapBuffers");
 
-        Timer timer("OpenXRViewer::SwapBuffers");
+        for (auto& view : mViews)
+            view.second->swapBuffers(gc);
 
-        auto leftView = mViews["LeftEye"];
-        auto rightView = mViews["RightEye"];
-
-        leftView->swapBuffers(gc);
-        rightView->swapBuffers(gc);
         timer.checkpoint("Views");
-
-        auto& drawPoses = session->predictedPoses(OpenXRSession::PredictionSlice::Draw);
-
-        mCompositionLayerProjectionViews[0].pose = toXR(drawPoses.eye[(int)TrackedSpace::STAGE][(int)Side::LEFT_HAND]);
-        mCompositionLayerProjectionViews[1].pose = toXR(drawPoses.eye[(int)TrackedSpace::STAGE][(int)Side::RIGHT_HAND]);
-
-        timer.checkpoint("Poses");
-
-        // TODO: Keep track of these in the session too.
-        auto stageViews = xr->impl().getPredictedViews(xr->impl().frameState().predictedDisplayTime, TrackedSpace::STAGE);
-        mCompositionLayerProjectionViews[0].fov = stageViews[0].fov;
-        mCompositionLayerProjectionViews[1].fov = stageViews[1].fov;
-        timer.checkpoint("Fovs");
-
-
-        if (!mLayer)
-        {
-            mLayer.reset(new XrCompositionLayerProjection);
-            mLayer->type = XR_TYPE_COMPOSITION_LAYER_PROJECTION;
-            mLayer->space = xr->impl().mReferenceSpaceStage;
-            mLayer->viewCount = 2;
-            mLayer->views = mCompositionLayerProjectionViews.data();
-        }
 
         blitEyesToMirrorTexture(gc);
 
@@ -242,7 +199,7 @@ namespace MWVR
     }
 
     void
-        OpenXRViewer::RealizeOperation::operator()(
+        VRViewer::RealizeOperation::operator()(
             osg::GraphicsContext* gc)
     {
         OpenXRManager::RealizeOperation::operator()(gc);
@@ -251,24 +208,24 @@ namespace MWVR
     }
 
     bool
-        OpenXRViewer::RealizeOperation::realized()
+        VRViewer::RealizeOperation::realized()
     {
         return Environment::get().getViewer()->realized();
     }
 
-    void OpenXRViewer::preDrawCallback(osg::RenderInfo& info)
+    void VRViewer::preDrawCallback(osg::RenderInfo& info)
     {
         auto* camera = info.getCurrentCamera();
         auto name = camera->getName();
         auto& view = mViews[name];
 
         if (name == "LeftEye")
-            Environment::get().getSession()->advanceFrame();
+            Environment::get().getSession()->advanceFramePhase();
 
         view->prerenderCallback(info);
     }
 
-    void OpenXRViewer::postDrawCallback(osg::RenderInfo& info)
+    void VRViewer::postDrawCallback(osg::RenderInfo& info)
     {
         auto* camera = info.getCurrentCamera();
         auto name = camera->getName();
@@ -282,5 +239,8 @@ namespace MWVR
             camera->setPreDrawCallback(mPreDraw);
             Log(Debug::Warning) << ("osg overwrote predraw");
         }
+
+        //if(mDelay && name == "RightEye")
+        //    std::this_thread::sleep_for(std::chrono::milliseconds(25));
     }
 }

@@ -5,9 +5,9 @@ namespace MWVR
 {
     class VRAnimation;
     class OpenXRInputManager;
-    class OpenXRSession;
+    class VRSession;
     class VRGUIManager;
-    class OpenXRViewer;
+    class VRViewer;
     class OpenXRManager;
 
     /// \brief Central hub for mw openxr subsystems
@@ -51,11 +51,11 @@ namespace MWVR
         MWVR::VRAnimation* getPlayerAnimation() const;
         void setPlayerAnimation(MWVR::VRAnimation* xrAnimation);
 
-        MWVR::OpenXRSession* getSession() const;
-        void setSession(MWVR::OpenXRSession* xrSession);
+        MWVR::VRSession* getSession() const;
+        void setSession(MWVR::VRSession* xrSession);
 
-        MWVR::OpenXRViewer* getViewer() const;
-        void setViewer(MWVR::OpenXRViewer* xrViewer);
+        MWVR::VRViewer* getViewer() const;
+        void setViewer(MWVR::VRViewer* xrViewer);
 
         MWVR::OpenXRManager* getManager() const;
         void setManager(MWVR::OpenXRManager* xrManager);
@@ -64,10 +64,10 @@ namespace MWVR
         void setUnitsPerMeter(float unitsPerMeter);
 
     private:
-        MWVR::OpenXRSession* mSession{ nullptr };
+        MWVR::VRSession* mSession{ nullptr };
         MWVR::VRGUIManager* mGUIManager{ nullptr };
         MWVR::VRAnimation* mPlayerAnimation{ nullptr };
-        MWVR::OpenXRViewer* mViewer{ nullptr };
+        MWVR::VRViewer* mViewer{ nullptr };
         MWVR::OpenXRManager* mOpenXRManager{ nullptr };
         float mUnitsPerMeter{ 1.f };
     };

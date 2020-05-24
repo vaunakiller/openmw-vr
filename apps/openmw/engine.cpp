@@ -61,7 +61,7 @@
 
 #ifdef USE_OPENXR
 #include "mwvr/openxrinputmanager.hpp"
-#include "mwvr/openxrviewer.hpp"
+#include "mwvr/vrviewer.hpp"
 #endif
 
 namespace
@@ -502,6 +502,7 @@ void OMW::Engine::prepareEngine (Settings::Manager & settings)
     );
 
     int numThreads = Settings::Manager::getInt("preload num threads", "Cells");
+    Log(Debug::Verbose) << "Num threads: " << numThreads;
     if (numThreads <= 0)
         throw std::runtime_error("Invalid setting: 'preload num threads' must be >0");
     mWorkQueue = new SceneUtil::WorkQueue(numThreads);
@@ -733,10 +734,6 @@ void OMW::Engine::go()
     mViewer->addEventHandler(resourceshandler);
 
 #ifdef USE_OPENXR
-    auto* root = mViewer->getSceneData();
-    auto* xrViewer = MWVR::Environment::get().getViewer();
-    xrViewer->addChild(root);
-    mViewer->setSceneData(xrViewer);
     mXrEnvironment.setGUIManager(new MWVR::VRGUIManager(mViewer));
 #endif
 
@@ -764,8 +761,6 @@ void OMW::Engine::go()
         mEnvironment.getWindowManager()->executeInConsole(mStartupScript);
     }
 
-
-
     // Start the main rendering loop
     osg::Timer frameTimer;
     double simulationTime = 0.0;
@@ -789,13 +784,8 @@ void OMW::Engine::go()
 
             mEnvironment.getWorld()->updateWindowManager();
 
-#ifdef USE_OPENXR
-            xrViewer->traversals();
-#else
             mViewer->updateTraversal();
-
             mViewer->renderingTraversals();
-#endif
 
             bool guiActive = mEnvironment.getWindowManager()->isGuiMode();
             if (!guiActive)

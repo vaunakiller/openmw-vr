@@ -4,7 +4,7 @@
 
 #include "vranimation.hpp"
 #include "openxrinputmanager.hpp"
-#include "openxrsession.hpp"
+#include "vrsession.hpp"
 #include "vrgui.hpp"
 
 #include "../mwbase/environment.hpp"
@@ -55,12 +55,12 @@ MWVR::OpenXRInputManager* MWVR::Environment::getInputManager() const
     return xrInputManager;
 }
 
-MWVR::OpenXRSession* MWVR::Environment::getSession() const
+MWVR::VRSession* MWVR::Environment::getSession() const
 {
     return mSession;
 }
 
-void MWVR::Environment::setSession(MWVR::OpenXRSession* xrSession)
+void MWVR::Environment::setSession(MWVR::VRSession* xrSession)
 {
     mSession = xrSession;
 }
@@ -86,12 +86,12 @@ void MWVR::Environment::setPlayerAnimation(MWVR::VRAnimation* xrAnimation)
 }
 
 
-MWVR::OpenXRViewer* MWVR::Environment::getViewer() const
+MWVR::VRViewer* MWVR::Environment::getViewer() const
 {
     return mViewer;
 }
 
-void MWVR::Environment::setViewer(MWVR::OpenXRViewer* xrViewer)
+void MWVR::Environment::setViewer(MWVR::VRViewer* xrViewer)
 {
     mViewer = xrViewer;
 }

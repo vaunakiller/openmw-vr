@@ -8,7 +8,7 @@
 #include "../mwworld/class.hpp"
 
 #include "vrenvironment.hpp"
-#include "openxrsession.hpp"
+#include "vrsession.hpp"
 
 namespace MWVR { namespace RealisticCombat {
 enum SwingState

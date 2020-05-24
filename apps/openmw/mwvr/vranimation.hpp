@@ -4,7 +4,7 @@
 #include "../mwrender/npcanimation.hpp"
 #include "../mwrender/renderingmanager.hpp"
 #include "openxrmanager.hpp"
-#include "openxrsession.hpp"
+#include "vrsession.hpp"
 
 namespace MWVR
 {
@@ -30,7 +30,7 @@ public:
      * @param xrSession        The XR session that shall be used to track limbs
      */
     VRAnimation(const MWWorld::Ptr& ptr, osg::ref_ptr<osg::Group> parentNode, Resource::ResourceSystem* resourceSystem,
-                 bool disableSounds, std::shared_ptr<OpenXRSession> xrSession );
+                 bool disableSounds, std::shared_ptr<VRSession> xrSession );
     virtual ~VRAnimation();
 
     /// Overridden to always be false
@@ -74,7 +74,7 @@ protected:
     float getVelocity(const std::string& groupname) const override;
 
 public:
-    std::shared_ptr<OpenXRSession> mSession;
+    std::shared_ptr<VRSession> mSession;
     osg::ref_ptr<ForearmController> mForearmControllers[2];
     osg::ref_ptr<HandController> mHandControllers[2];
     osg::ref_ptr<FingerController> mIndexFingerControllers[2];

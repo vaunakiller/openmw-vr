@@ -10,7 +10,7 @@ struct XrSwapchainSubImage;
 namespace MWVR
 {
 
-    class OpenXRView : public osg::Referenced
+    class VRView : public osg::Referenced
     {
     public:
 
@@ -19,15 +19,25 @@ namespace MWVR
         public:
             virtual void operator()(osg::RenderInfo& renderInfo) const;
         };
-        class FinalDrawCallback : public osg::Camera::DrawCallback
+
+        class UpdateSlaveCallback : public osg::View::Slave::UpdateSlaveCallback
         {
         public:
-            virtual void operator()(osg::RenderInfo& renderInfo) const;
+            UpdateSlaveCallback(osg::ref_ptr<VRView> view, osg::GraphicsContext* gc)
+                : mView(view), mGC(gc)
+            {}
+
+            void updateSlave(osg::View& view, osg::View::Slave& slave) override;
+
+        private:
+            osg::ref_ptr<OpenXRManager> mXR;
+            osg::ref_ptr<VRView> mView;
+            osg::ref_ptr<osg::GraphicsContext> mGC;
         };
 
-    protected:
-        OpenXRView(osg::ref_ptr<OpenXRManager> XR, std::string name, OpenXRSwapchain::Config config, osg::ref_ptr<osg::State> state);
-        virtual ~OpenXRView();
+    public:
+        VRView(std::string name, OpenXRSwapchain::Config config, osg::ref_ptr<osg::State> state);
+        virtual ~VRView();
 
     public:
         //! Prepare for render (set FBO)
@@ -41,18 +51,12 @@ namespace MWVR
 
         void swapBuffers(osg::GraphicsContext* gc);
 
-        void  setPredictedPose(const Pose& pose);
-        Pose& predictedPose() { return mPredictedPose; };
-
     public:
-        osg::ref_ptr<OpenXRManager> mXR;
         OpenXRSwapchain::Config mSwapchainConfig;
         std::unique_ptr<OpenXRSwapchain> mSwapchain;
         std::string mName{};
         bool mRendering{ false };
         Timer mTimer;
-
-        Pose mPredictedPose{ {}, {0,0,0,1}, {} };
     };
 }
 

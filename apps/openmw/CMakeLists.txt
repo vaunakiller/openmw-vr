@@ -124,32 +124,28 @@ if(BUILD_VR_OPENXR)
         vrengine.cpp
         mwvr/openxrinputmanager.hpp
         mwvr/openxrinputmanager.cpp
-        mwvr/openxrlayer.hpp
-        mwvr/openxrlayer.cpp
         mwvr/openxrmanager.hpp
         mwvr/openxrmanager.cpp
         mwvr/openxrmanagerimpl.hpp 
         mwvr/openxrmanagerimpl.cpp
-        mwvr/vrgui.hpp
-        mwvr/vrgui.cpp
-        mwvr/openxrsession.hpp
-        mwvr/openxrsession.cpp
         mwvr/openxrswapchain.hpp
         mwvr/openxrswapchain.cpp
-        mwvr/vrtexture.hpp
-        mwvr/vrtexture.cpp
-        mwvr/openxrview.hpp
-        mwvr/openxrview.cpp 
-        mwvr/openxrviewer.hpp
-        mwvr/openxrviewer.cpp
-        mwvr/openxrworldview.hpp
-        mwvr/openxrworldview.cpp 
         mwvr/realisticcombat.hpp
         mwvr/realisticcombat.cpp
         mwvr/vranimation.hpp
         mwvr/vranimation.cpp
         mwvr/vrenvironment.hpp
         mwvr/vrenvironment.cpp
+        mwvr/vrgui.hpp
+        mwvr/vrgui.cpp
+        mwvr/vrsession.hpp
+        mwvr/vrsession.cpp
+        mwvr/vrtexture.hpp
+        mwvr/vrtexture.cpp
+        mwvr/vrview.hpp
+        mwvr/vrview.cpp 
+        mwvr/vrviewer.hpp
+        mwvr/vrviewer.cpp
    )
 
     openmw_add_executable(openmw_vr

@@ -1,4 +1,4 @@
-#include "openxrviewer.hpp"
+#include "vrviewer.hpp"
 #include "vrtexture.hpp"
 #include <osg/Texture2D>
 #include <osgViewer/Renderer>

@@ -103,8 +103,8 @@ void StateMachine::update(float dt, bool enabled)
 {
     auto* session = Environment::get().getSession();
     auto* world = MWBase::Environment::get().getWorld();
-    auto& predictedPoses = session->predictedPoses(OpenXRSession::PredictionSlice::Predraw);
-    auto& handPose = predictedPoses.hands[(int)MWVR::TrackedSpace::STAGE][(int)MWVR::Side::RIGHT_HAND];
+    auto& predictedPoses = session->predictedPoses(VRSession::FramePhase::Predraw);
+    auto& handPose = predictedPoses.hands[(int)MWVR::Side::RIGHT_HAND];
     auto weaponType = world->getActiveWeaponType();
 
     enabled = enabled && isMeleeWeapon(weaponType);

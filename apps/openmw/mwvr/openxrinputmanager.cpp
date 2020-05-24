@@ -330,7 +330,7 @@ struct OpenXRInput
 
     void updateControls();
     const Action* nextAction();
-    PoseSet getHandPoses(int64_t time, TrackedSpace space);
+    Pose getHandPose(int64_t time, TrackedSpace space, Side side);
 
     void applyHaptics(SubAction subAction, float intensity)
     {
@@ -798,15 +798,6 @@ OpenXRInput::updateControls()
     mAutoMove->updateAndQueue(mActionQueue);
     mToggleHUD->updateAndQueue(mActionQueue);
     mToggleDebug->updateAndQueue(mActionQueue);
-
-    //if (mActivateTouch->isActive())
-    //{
-    //    mHapticsAction.applyHaptics(mSubactionPath[RIGHT_HAND], 0.5);
-    //}
-    //if (mSneak->isActive())
-    //{
-    //    mHapticsAction.applyHaptics(mSubactionPath[LEFT_HAND], 0.5);
-    //}
 }
 
 XrPath OpenXRInput::generateXrPath(const std::string& path)
@@ -828,53 +819,35 @@ const Action* OpenXRInput::nextAction()
 
 }
 
-PoseSet
-OpenXRInput::getHandPoses(
+Pose
+OpenXRInput::getHandPose(
     int64_t time,
-    TrackedSpace space)
+    TrackedSpace space,
+    Side side)
 {
     auto* xr = Environment::get().getManager();
-    PoseSet handPoses{};
-    XrSpace referenceSpace = XR_NULL_HANDLE;
-    if (space == TrackedSpace::STAGE)
-        referenceSpace = xr->impl().mReferenceSpaceStage;
-    if (space == TrackedSpace::VIEW)
-        referenceSpace = xr->impl().mReferenceSpaceView;
+    XrSpace referenceSpace = xr->impl().getReferenceSpace(space);
 
     XrSpaceLocation location{ XR_TYPE_SPACE_LOCATION };
     XrSpaceVelocity velocity{ XR_TYPE_SPACE_VELOCITY };
     location.next = &velocity;
-    CHECK_XRCMD(xrLocateSpace(mHandSpace[(int)Side::LEFT_HAND], referenceSpace, time, &location));
+    CHECK_XRCMD(xrLocateSpace(mHandSpace[(int)side], referenceSpace, time, &location));
     if (!location.locationFlags & XR_SPACE_LOCATION_ORIENTATION_VALID_BIT)
         // Quat must have a magnitude of 1 but openxr sets it to 0 when tracking is unavailable.
         // I want a no-track pose to still be a valid quat so osg won't throw errors
         location.pose.orientation.w = 1;
 
-    handPoses[(int)Side::LEFT_HAND] = MWVR::Pose{
+    return MWVR::Pose{
         osg::fromXR(location.pose.position),
         osg::fromXR(location.pose.orientation),
         osg::fromXR(velocity.linearVelocity)
     };
-
-    CHECK_XRCMD(xrLocateSpace(mHandSpace[(int)Side::RIGHT_HAND], referenceSpace, time, &location));
-    if (!location.locationFlags & XR_SPACE_LOCATION_ORIENTATION_VALID_BIT)
-        // Quat must have a magnitude of 1 but openxr sets it to 0 when tracking is unavailable.
-        // I want a no-track pose to still be a valid quat so osg won't throw errors
-        location.pose.orientation.w = 1;
-    
-    handPoses[(int)Side::RIGHT_HAND] = MWVR::Pose{
-        osg::fromXR(location.pose.position),
-        osg::fromXR(location.pose.orientation),
-        osg::fromXR(velocity.linearVelocity)
-    };
-
-    return handPoses;
 }
 
 
-PoseSet OpenXRInputManager::getHandPoses(int64_t time, TrackedSpace space)
+Pose OpenXRInputManager::getHandPose(int64_t time, TrackedSpace space, Side side)
 {
-    return mXRInput->getHandPoses(time, space);
+    return mXRInput->getHandPose(time, space, side);
 }
 
 void OpenXRInputManager::updateActivationIndication(void)
@@ -1030,12 +1003,9 @@ private:
         bool disableControls,
         bool disableEvents)
     {
+        auto begin = std::chrono::steady_clock::now();
         mXRInput->updateControls();
 
-        // Annoyingly, this is called at least once before the World object has been instantiated.
-        auto* world = MWBase::Environment::get().getWorld();
-        if (!world)
-            return;
 
         auto* vrGuiManager = Environment::get().getGUIManager();
         bool vrHasFocus = vrGuiManager->updateFocus();
@@ -1054,20 +1024,32 @@ private:
 
         MWInput::InputManager::update(dt, disableControls, disableEvents);
 
+        // The rest of this code assumes the game is running
+        if (MWBase::Environment::get().getStateManager()->getState() != MWBase::StateManager::State_Running)
+            return;
+
         bool guiMode = MWBase::Environment::get().getWindowManager()->isGuiMode();
 
         // OpenMW assumes all input will come via SDL which i often violate.
         // This keeps player controls correctly enabled for my purposes.
         mBindingsManager->setPlayerControlsEnabled(!guiMode);
 
-        auto& player = world->getPlayer();
-        auto playerPtr = player.getPlayer();
-        if (!mRealisticCombat || mRealisticCombat->ptr != playerPtr)
-            mRealisticCombat.reset(new RealisticCombat::StateMachine(playerPtr));
-        bool enabled = !guiMode && player.getDrawState() == MWMechanics::DrawState_Weapon && !player.isDisabled();
-        mRealisticCombat->update(dt, enabled);
-
         updateHead();
+
+        if (!guiMode)
+        {
+            auto* world = MWBase::Environment::get().getWorld();
+
+            auto& player = world->getPlayer();
+            auto playerPtr = world->getPlayerPtr();
+            if (!mRealisticCombat || mRealisticCombat->ptr != playerPtr)
+                mRealisticCombat.reset(new RealisticCombat::StateMachine(playerPtr));
+            bool enabled = !guiMode && player.getDrawState() == MWMechanics::DrawState_Weapon && !player.isDisabled();
+            mRealisticCombat->update(dt, enabled);
+        }
+        else if(mRealisticCombat)
+            mRealisticCombat->update(dt, false);
+
 
         // Update tracking every frame if player is not currently in GUI mode.
         // This ensures certain widgets like Notifications will be visible.
@@ -1075,6 +1057,9 @@ private:
         {
             vrGuiManager->updateTracking();
         }
+        auto end = std::chrono::steady_clock::now();
+
+        auto elapsed = std::chrono::duration_cast<std::chrono::microseconds>(end - begin);
     }
 
     void OpenXRInputManager::processAction(const Action* action)
@@ -1249,34 +1234,31 @@ private:
 
     void OpenXRInputManager::updateHead()
     {
-        MWBase::World* world = MWBase::Environment::get().getWorld();
-        auto& player = world->getPlayer();
-        auto playerPtr = player.getPlayer();
-
-        auto* xr = Environment::get().getManager();
         auto* session = Environment::get().getSession();
-        auto currentHeadPose = session->predictedPoses(OpenXRSession::PredictionSlice::Predraw).head[(int)TrackedSpace::STAGE];
-        xr->playerScale(currentHeadPose);
+        auto currentHeadPose = session->predictedPoses(VRSession::FramePhase::Predraw).head;
         currentHeadPose.position *= Environment::get().unitsPerMeter();
-        osg::Vec3 vrMovement = currentHeadPose.position - mPreviousHeadPose.position;
-        mPreviousHeadPose = currentHeadPose;
+        osg::Vec3 vrMovement = currentHeadPose.position - mHeadPose.position;
+        mHeadPose = currentHeadPose;
+        osg::Quat gameworldYaw = osg::Quat(mYaw, osg::Vec3(0, 0, -1));
+        mHeadOffset += gameworldYaw * vrMovement;
 
         if (mRecenter)
         {
             mHeadOffset = osg::Vec3(0, 0, 0);
             // Z should not be affected
-            mHeadOffset.z() = currentHeadPose.position.z();
+            mHeadOffset.z() = mHeadPose.position.z();
             mRecenter = false;
         }
         else
         {
-            osg::Quat gameworldYaw = osg::Quat(mYaw, osg::Vec3(0, 0, -1));
-            mHeadOffset += gameworldYaw * vrMovement;
+            MWBase::World* world = MWBase::Environment::get().getWorld();
+            auto& player = world->getPlayer();
+            auto playerPtr = player.getPlayer();
 
             float yaw = 0.f;
             float pitch = 0.f;
             float roll = 0.f;
-            getEulerAngles(currentHeadPose.orientation, yaw, pitch, roll);
+            getEulerAngles(mHeadPose.orientation, yaw, pitch, roll);
 
             yaw += mYaw;
 

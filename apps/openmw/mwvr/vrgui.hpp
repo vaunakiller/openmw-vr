@@ -12,8 +12,8 @@
 #include <osg/Camera>
 #include <osg/PositionAttitudeTransform>
 
-#include "openxrview.hpp"
-#include "openxrlayer.hpp"
+#include "vrview.hpp"
+#include "openxrmanager.hpp"
 
 namespace MyGUI
 {
