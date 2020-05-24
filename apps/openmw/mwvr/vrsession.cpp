@@ -118,6 +118,9 @@ void VRSession::swapBuffers(osg::GraphicsContext* gc, VRViewer& viewer)
 
     xr->endFrame(mPostdrawFrame->mPredictedDisplayTime, 1, &layerStack);
     mLastRenderedFrame = mPostdrawFrame->mFrameNo;
+    auto now = std::chrono::steady_clock::now();
+    mLastFrameInterval = std::chrono::duration_cast<std::chrono::nanoseconds>(now - mLastRenderedFrameTimestamp);
+    mLastRenderedFrameTimestamp = now;
 }
 
 void VRSession::advanceFramePhase(void)
@@ -148,7 +151,7 @@ void VRSession::startFrame()
     }
     else if (mFrames > mLastRenderedFrame)
     {
-        predictedDisplayTime = frameState.predictedDisplayTime + frameState.predictedDisplayPeriod;
+        predictedDisplayTime = frameState.predictedDisplayTime + mLastFrameInterval.count() * (mFrames - mLastRenderedFrame);
     }
 
     if (mFrames == 0 || predictedDisplayTime == 0)
