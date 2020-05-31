@@ -72,7 +72,8 @@ public:
 
     long long mFrames{ 0 };
     long long mLastRenderedFrame{ 0 };
-
+    long long mLastPredictedDisplayTime{ 0 };
+    long long mLastPredictedDisplayPeriod{ 0 };
     std::chrono::nanoseconds mLastFrameInterval{};
     std::chrono::steady_clock::time_point mLastRenderedFrameTimestamp{std::chrono::steady_clock::now()};
 

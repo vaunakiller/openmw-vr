@@ -145,19 +145,18 @@ void VRSession::startFrame()
     // we make our own (bad) prediction and let openxr wait
     auto frameState = xr->impl().frameState();
     long long predictedDisplayTime = 0;
-    if (mFrames == mLastRenderedFrame)
+    mFrames++;
+    if (mLastPredictedDisplayTime == 0)
     {
-        predictedDisplayTime = frameState.predictedDisplayTime;
+        // First time, need to invent a frame time since openxr won't help us without calling waitframe.
+        predictedDisplayTime = std::chrono::duration_cast<std::chrono::nanoseconds>(std::chrono::steady_clock::now().time_since_epoch()).count();
     }
     else if (mFrames > mLastRenderedFrame)
     {
-        predictedDisplayTime = frameState.predictedDisplayTime + mLastFrameInterval.count() * (mFrames - mLastRenderedFrame);
-    }
-
-    if (mFrames == 0 || predictedDisplayTime == 0)
-    {
-        // First time, need to populate the frame state struct
-        predictedDisplayTime = std::chrono::duration_cast<std::chrono::nanoseconds>(std::chrono::steady_clock::now().time_since_epoch()).count();
+        //predictedDisplayTime = mLastPredictedDisplayTime + mLastFrameInterval.count() * (mFrames - mLastRenderedFrame);
+        float intervalsf = static_cast<double>(mLastFrameInterval.count()) / static_cast<double>(frameState.predictedDisplayPeriod);
+        int intervals = (int)std::roundf(intervalsf);
+        predictedDisplayTime = mLastPredictedDisplayTime + intervals * (mFrames - mLastRenderedFrame) * frameState.predictedDisplayPeriod;
     }
 
     PoseSet predictedPoses{};
@@ -182,7 +181,6 @@ void VRSession::startFrame()
             predictedPoses = mPostdrawFrame->mPredictedPoses;
     }
 
-    mFrames++;
 
     mPredrawFrame.reset(new VRFrame);
     mPredrawFrame->mPredictedDisplayTime = predictedDisplayTime;

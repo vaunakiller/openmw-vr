@@ -31,25 +31,23 @@ namespace MWVR
 
     static void statsThreadRun()
     {
-        while (statsThreadRunning)
-        {
-            std::stringstream ss;
-            for (auto& context : stats)
-            {
-                for (auto& measurement : *context.second)
-                {
-                    double ms = static_cast<double>(measurement.second) / 1000000.;
-                    Log(Debug::Verbose) << context.first << "." << measurement.first << ": " << ms << "ms";
-                }
-            }
+        //while (statsThreadRunning)
+        //{
+        //    std::stringstream ss;
+        //    for (auto& context : stats)
+        //    {
+        //        for (auto& measurement : *context.second)
+        //        {
+        //            double ms = static_cast<double>(measurement.second) / 1000000.;
+        //            Log(Debug::Verbose) << context.first << "." << measurement.first << ": " << ms << "ms";
+        //        }
+        //    }
 
-            //Log(Debug::Verbose) << ss.str();
+        //    Log(Debug::Verbose) << ss.str();
 
-            std::this_thread::sleep_for(std::chrono::seconds(1));
-        }
+        //    std::this_thread::sleep_for(std::chrono::seconds(1));
+        //}
     }
-
-
 
     Timer::Timer(const char* name) : mName(name)
     {
@@ -69,11 +67,11 @@ namespace MWVR
             stats.emplace_back(MeasurementContext(mName, mContext));
         }
 
-        if (!statsThreadRunning)
-        {
-            statsThreadRunning = true;
-            statsThread = std::thread([] { statsThreadRun(); });
-        }
+        //if (!statsThreadRunning)
+        //{
+        //    statsThreadRunning = true;
+        //    statsThread = std::thread([] { statsThreadRun(); });
+        //}
     }
     Timer::~Timer()
     {
