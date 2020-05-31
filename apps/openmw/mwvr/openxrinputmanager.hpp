@@ -57,7 +57,7 @@ namespace MWVR
         std::unique_ptr<RealisticCombat::StateMachine> mRealisticCombat;
         Pose mHeadPose{};
         osg::Vec3 mHeadOffset{ 0,0,0 };
-        bool mRecenter{ true };
+        bool mShouldRecenter{ true };
         bool mActivationIndication{ false };
         float mYaw{ 0.f };
 

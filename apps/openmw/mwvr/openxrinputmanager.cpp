@@ -292,7 +292,7 @@ struct OpenXRInput
     {
         A_XrFirst = MWInput::A_Last,
         A_ActivateTouch,
-        A_RepositionMenu,
+        A_Recenter,
         A_XrLast
     };
 
@@ -550,7 +550,7 @@ OpenXRInput::OpenXRInput()
     , mBPath(generateControllerActionPaths("/input/b/click"))
     , mTriggerValuePath(generateControllerActionPaths("/input/trigger/value"))
     , mGameMenu(std::move(createMWAction<ButtonPressAction>(MWInput::A_GameMenu, "game_menu", "Game Menu", { })))
-    , mRepositionMenu(std::move(createMWAction<ButtonLongPressAction>(A_RepositionMenu, "reposition_menu", "Reposition Menu", { })))
+    , mRepositionMenu(std::move(createMWAction<ButtonLongPressAction>(A_Recenter, "reposition_menu", "Reposition Menu", { })))
     , mInventory(std::move(createMWAction<ButtonPressAction>(MWInput::A_Inventory, "inventory", "Inventory", { })))
     , mActivate(std::move(createMWAction<ButtonPressAction>(MWInput::A_Activate, "activate", "Activate", { })))
     , mUse(std::move(createMWAction<ButtonHoldAction>(MWInput::A_Use, "use", "Use", { })))
@@ -652,8 +652,8 @@ OpenXRInput::OpenXRInput()
                 Long: Journal
 
             Menu:
-                Press: GameMenun
-                Long: Reposition GUI
+                Press: GameMenu
+                Long: Recenter on player and reset GUI
 
         */
 
@@ -1199,8 +1199,10 @@ private:
             case MWInput::A_Jump:
                 mActionManager->setAttemptJump(true);
                 break;
-            case OpenXRInput::A_RepositionMenu:
+            case OpenXRInput::A_Recenter:
                 xrGUIManager->updateTracking();
+                if(!MWBase::Environment::get().getWindowManager()->isGuiMode())
+                    mShouldRecenter = true;
                 break;
             case MWInput::A_Use:
                 if (mActivationIndication || MWBase::Environment::get().getWindowManager()->isGuiMode())
@@ -1242,12 +1244,12 @@ private:
         osg::Quat gameworldYaw = osg::Quat(mYaw, osg::Vec3(0, 0, -1));
         mHeadOffset += gameworldYaw * vrMovement;
 
-        if (mRecenter)
+        if (mShouldRecenter)
         {
             mHeadOffset = osg::Vec3(0, 0, 0);
             // Z should not be affected
             mHeadOffset.z() = mHeadPose.position.z();
-            mRecenter = false;
+            mShouldRecenter = false;
         }
         else
         {
