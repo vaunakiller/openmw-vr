@@ -173,6 +173,7 @@ VRGUILayer::VRGUILayer(
     mGeometry->setNormalArray(normals, osg::Array::BIND_OVERALL);
     mGeometry->addPrimitiveSet(new osg::DrawArrays(GL_QUADS, 0, 4));
     mGeometry->setDataVariance(osg::Object::STATIC);
+    mGeometry->setSupportsDisplayList(false);
     mGeometry->setName("VRGUILayer");
 
     // Create the camera that will render the menu texture
@@ -369,12 +370,14 @@ void VRGUILayer::update()
         mTransform->setScale(osg::Vec3(w / res, 1.f, h / res));
     }
 
-    osg::ref_ptr<osg::Vec2Array> texCoords{ new osg::Vec2Array(4) };
-    (*texCoords)[0].set(mRealRect.left, 1.f - mRealRect.top);
-    (*texCoords)[1].set(mRealRect.left, 1.f - mRealRect.bottom);
-    (*texCoords)[2].set(mRealRect.right, 1.f - mRealRect.bottom);
-    (*texCoords)[3].set(mRealRect.right, 1.f - mRealRect.top);
-    mGeometry->setTexCoordArray(0, texCoords);
+    // Convert from [0,1] range to [-1,1]
+    float menuLeft = mRealRect.left * 2. - 1.;
+    float menuRight = mRealRect.right * 2. - 1.;
+    // Opposite convention 
+    float menuBottom = (1.f - mRealRect.bottom) * 2. - 1.;
+    float menuTop = (1.f - mRealRect.top) * 2.f - 1.;
+
+    mMyGUICamera->setProjectionMatrixAsOrtho2D(menuLeft, menuRight, menuBottom, menuTop);
 }
 
 void 

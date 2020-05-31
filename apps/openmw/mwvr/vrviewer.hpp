@@ -71,8 +71,6 @@ namespace MWVR
 
         ~VRViewer(void);
 
-        //virtual void traverse(osg::NodeVisitor& visitor) override;
-
         const XrCompositionLayerBaseHeader* layer();
 
         void traversals();
