@@ -1017,7 +1017,7 @@ private:
 
         while (auto* action = mXRInput->nextAction())
         {
-            processAction(action);
+            processAction(action, dt);
         }
 
         updateActivationIndication();
@@ -1062,7 +1062,7 @@ private:
         auto elapsed = std::chrono::duration_cast<std::chrono::microseconds>(end - begin);
     }
 
-    void OpenXRInputManager::processAction(const Action* action)
+    void OpenXRInputManager::processAction(const Action* action, float dt)
     {
         static const bool isToggleSneak = Settings::Manager::getBool("toggle sneak", "Input");
         auto* xrGUIManager = Environment::get().getGUIManager();
@@ -1075,7 +1075,7 @@ private:
             mActivationIndication = action->isActive();
             break;
         case MWInput::A_LookLeftRight:
-            mYaw += osg::DegreesToRadians(action->value()) * 2.f;
+            mYaw += osg::DegreesToRadians(action->value()) * 200.f * dt;
             break;
         case MWInput::A_MoveLeftRight:
             mBindingsManager->ics().getChannel(MWInput::A_MoveLeftRight)->setValue(action->value() / 2.f + 0.5f);

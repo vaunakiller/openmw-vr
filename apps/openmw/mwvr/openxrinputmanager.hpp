@@ -40,7 +40,7 @@ namespace MWVR
 
         void updateHead();
 
-        void processAction(const class Action* action);
+        void processAction(const class Action* action, float dt);
 
         Pose getHandPose(int64_t time, TrackedSpace space, Side side);
 
