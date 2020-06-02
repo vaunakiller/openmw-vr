@@ -52,6 +52,8 @@ namespace MWVR
         //! Scale a pose (does not affect orientation)
         Pose operator*(float scalar);
         const Pose& operator*=(float scalar);
+
+        bool operator==(const Pose& rhs) const;
     };
 
     struct FieldOfView {
@@ -60,6 +62,8 @@ namespace MWVR
         float    angleUp;
         float    angleDown;
 
+        bool operator==(const FieldOfView& rhs) const;
+
         osg::Matrix perspectiveMatrix(float near, float far);
     };
 
@@ -67,6 +71,7 @@ namespace MWVR
     {
         Pose pose;
         FieldOfView fov;
+        bool operator==(const View& rhs) const;
     };
 
     struct PoseSet
@@ -75,6 +80,8 @@ namespace MWVR
         Pose eye[2]{};
         Pose hands[2]{};
         Pose head{};
+
+        bool operator==(const PoseSet& rhs) const;
     };
 
     //! Describes what limb to track.

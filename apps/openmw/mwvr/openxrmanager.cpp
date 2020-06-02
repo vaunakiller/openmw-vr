@@ -242,6 +242,19 @@ namespace MWVR
         return *this;
     }
 
+    bool Pose::operator==(const Pose& rhs) const
+    {
+      return position == rhs.position && orientation == rhs.orientation && velocity == rhs.velocity;
+    }
+
+    bool FieldOfView::operator==(const FieldOfView& rhs) const
+    {
+        return angleDown == rhs.angleDown
+            && angleUp == rhs.angleUp
+            && angleLeft == rhs.angleLeft
+            && angleRight == rhs.angleRight;
+    }
+
     // near and far named with an underscore because of galaxy brain defines in included windows headers.
     osg::Matrix FieldOfView::perspectiveMatrix(float near_, float far_)
     {
@@ -286,6 +299,21 @@ namespace MWVR
         matrix[15] = 0;
 
         return osg::Matrix(matrix);
+    }
+    bool PoseSet::operator==(const PoseSet& rhs) const
+    {
+        return  eye[0] == rhs.eye[0]
+            && eye[1] == rhs.eye[1]
+            && hands[0] == rhs.hands[0]
+            && hands[1] == rhs.hands[1]
+            && view[0] == rhs.view[0]
+            && view[1] == rhs.view[1]
+            && head == rhs.head;
+
+    }
+    bool View::operator==(const View& rhs) const
+    {
+        return pose == rhs.pose && fov == rhs.fov;
     }
 }
 
