@@ -28,17 +28,25 @@ namespace MWVR
         //! Prepare for render (set FBO)
         void beginFrame(osg::GraphicsContext* gc);
         //! Finalize render
-        int endFrame(osg::GraphicsContext* gc);
+        void endFrame(osg::GraphicsContext* gc);
+        //! Prepare for render
+        void acquire(osg::GraphicsContext* gc);
+        //! Finalize render
+        void release(osg::GraphicsContext* gc);
         //! Get the view surface
         const XrSwapchainSubImage& subImage(void) const;
+        //! Currently acquired image
+        uint32_t acquiredImage() const;
+        //! Whether subchain is currently acquired (true) or released (false)
+        bool isAcquired() const;
         //! Width of the view surface
-        int width();
+        int width() const;
         //! Height of the view surface
-        int height();
+        int height() const;
         //! Samples of the view surface
-        int samples();
+        int samples() const;
         //! Get the current texture
-        VRTexture* renderBuffer();
+        VRTexture* renderBuffer() const;
         //! Get the private implementation
         OpenXRSwapchainImpl& impl() { return *mPrivate; }
         //! Get the private implementation

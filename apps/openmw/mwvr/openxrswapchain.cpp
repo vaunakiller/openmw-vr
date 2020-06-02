@@ -28,7 +28,15 @@ namespace MWVR {
         ~OpenXRSwapchainImpl();
 
         void beginFrame(osg::GraphicsContext* gc);
-        int endFrame(osg::GraphicsContext* gc);
+        void endFrame(osg::GraphicsContext* gc);
+        void acquire(osg::GraphicsContext* gc);
+        void release(osg::GraphicsContext* gc);
+
+        VRTexture* renderBuffer() const;
+
+        uint32_t acquiredImage() const;
+
+        bool isAcquired() const;
 
         XrSwapchain mSwapchain = XR_NULL_HANDLE;
         std::vector<XrSwapchainImageOpenGLKHR> mSwapchainImageBuffers{};
@@ -39,7 +47,10 @@ namespace MWVR {
         int32_t mSamples = -1;
         int64_t mSwapchainColorFormat = -1;
         uint32_t mFBO = 0;
-        VRTexture* mRenderBuffer = nullptr;
+        std::vector<std::unique_ptr<VRTexture> > mRenderBuffers{};
+        int mRenderBuffer{ 0 };
+        uint32_t mAcquiredImageIndex{ 0 };
+        bool mIsAcquired{ false };
     };
 
     OpenXRSwapchainImpl::OpenXRSwapchainImpl(osg::ref_ptr<osg::State> state, OpenXRSwapchain::Config config)
@@ -98,7 +109,8 @@ namespace MWVR {
         CHECK_XRCMD(xrEnumerateSwapchainImages(mSwapchain, imageCount, &imageCount, reinterpret_cast<XrSwapchainImageBaseHeader*>(mSwapchainImageBuffers.data())));
         //for (const auto& swapchainImage : mSwapchainImageBuffers)
         //    mTextureBuffers.push_back(new VRTexture(state, swapchainImage.image, mWidth, mHeight, 0));
-        mRenderBuffer = new VRTexture(state, mWidth, mHeight, 0);
+        for (unsigned i = 0; i < imageCount; i++)
+            mRenderBuffers.emplace_back(new VRTexture(state, mWidth, mHeight, 0));
 
         mSubImage.swapchain = mSwapchain;
         mSubImage.imageRect.offset = { 0, 0 };
@@ -111,31 +123,58 @@ namespace MWVR {
             CHECK_XRCMD(xrDestroySwapchain(mSwapchain));
     }
 
+    VRTexture* OpenXRSwapchainImpl::renderBuffer() const
+    {
+        return mRenderBuffers[mRenderBuffer].get();
+    }
+
+    uint32_t OpenXRSwapchainImpl::acquiredImage() const
+    {
+        if(isAcquired())
+            return mSwapchainImageBuffers[mAcquiredImageIndex].image;
+        throw std::logic_error("Swapbuffer not acquired before use");
+    }
+
+    bool OpenXRSwapchainImpl::isAcquired() const
+    {
+        return mIsAcquired;
+    }
+
     void OpenXRSwapchainImpl::beginFrame(osg::GraphicsContext* gc)
     {
-        mRenderBuffer->beginFrame(gc);
+        mRenderBuffer = (mRenderBuffer + 1) % mRenderBuffers.size();
+        renderBuffer()->beginFrame(gc);
     }
 
     int swapCount = 0;
 
-    int OpenXRSwapchainImpl::endFrame(osg::GraphicsContext* gc)
+    void OpenXRSwapchainImpl::endFrame(osg::GraphicsContext* gc)
     {
         Timer timer("Swapchain::endFrame");
         // Blit frame to swapchain
+        acquire(gc);
+        renderBuffer()->endFrame(gc, acquiredImage());
+        release(gc);
+    }
 
+    void OpenXRSwapchainImpl::acquire(osg::GraphicsContext* gc)
+    {
         XrSwapchainImageAcquireInfo acquireInfo{ XR_TYPE_SWAPCHAIN_IMAGE_ACQUIRE_INFO };
-        uint32_t swapchainImageIndex = 0;
-        CHECK_XRCMD(xrAcquireSwapchainImage(mSwapchain, &acquireInfo, &swapchainImageIndex));
+        CHECK_XRCMD(xrAcquireSwapchainImage(mSwapchain, &acquireInfo, &mAcquiredImageIndex));
 
         XrSwapchainImageWaitInfo waitInfo{ XR_TYPE_SWAPCHAIN_IMAGE_WAIT_INFO };
         waitInfo.timeout = XR_INFINITE_DURATION;
         CHECK_XRCMD(xrWaitSwapchainImage(mSwapchain, &waitInfo));
 
-        mRenderBuffer->endFrame(gc, mSwapchainImageBuffers[swapchainImageIndex].image);
+        mIsAcquired = true;
+    }
+
+    void OpenXRSwapchainImpl::release(osg::GraphicsContext* gc)
+    {
+        mIsAcquired = false;
 
         XrSwapchainImageReleaseInfo releaseInfo{ XR_TYPE_SWAPCHAIN_IMAGE_RELEASE_INFO };
         CHECK_XRCMD(xrReleaseSwapchainImage(mSwapchain, &releaseInfo));
-        return swapchainImageIndex;
     }
 
     OpenXRSwapchain::OpenXRSwapchain(osg::ref_ptr<osg::State> state, OpenXRSwapchain::Config config)
@@ -149,12 +188,22 @@ namespace MWVR {
 
     void OpenXRSwapchain::beginFrame(osg::GraphicsContext* gc)
     {
-        impl().beginFrame(gc);
+        return impl().beginFrame(gc);
     }
 
-    int OpenXRSwapchain::endFrame(osg::GraphicsContext* gc)
+    void OpenXRSwapchain::endFrame(osg::GraphicsContext* gc)
     {
         return impl().endFrame(gc);
+    }
+
+    void OpenXRSwapchain::acquire(osg::GraphicsContext* gc)
+    {
+        return impl().acquire(gc);
+    }
+
+    void OpenXRSwapchain::release(osg::GraphicsContext* gc)
+    {
+        return impl().release(gc);
     }
 
     const XrSwapchainSubImage& 
@@ -163,23 +212,33 @@ namespace MWVR {
         return impl().mSubImage;
     }
 
-    int OpenXRSwapchain::width()
+    uint32_t OpenXRSwapchain::acquiredImage() const
+    {
+        return impl().acquiredImage();
+    }
+
+    int OpenXRSwapchain::width() const
     {
         return impl().mWidth;
     }
 
-    int OpenXRSwapchain::height()
+    int OpenXRSwapchain::height() const
     {
         return impl().mHeight;
     }
 
-    int OpenXRSwapchain::samples()
+    int OpenXRSwapchain::samples() const
     {
         return impl().mSamples;
     }
 
-    VRTexture* OpenXRSwapchain::renderBuffer()
+    bool OpenXRSwapchain::isAcquired() const
     {
-        return impl().mRenderBuffer;
+        return impl().isAcquired();
+    }
+
+    VRTexture* OpenXRSwapchain::renderBuffer() const
+    {
+        return impl().renderBuffer();
     }
 }
