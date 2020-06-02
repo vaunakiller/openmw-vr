@@ -65,8 +65,11 @@ namespace MWVR
         void HandleSessionStateChanged(const XrEventDataSessionStateChanged& stateChangedEvent);
         XrFrameState frameState();
         XrSpace getReferenceSpace(TrackedSpace space);
+        void enablePredictions();
+        void disablePredictions();
 
         bool initialized = false;
+        bool mPredictionsEnabled = false;
         long long mFrameIndex = 0;
         XrInstance mInstance = XR_NULL_HANDLE;
         XrSession mSession = XR_NULL_HANDLE;

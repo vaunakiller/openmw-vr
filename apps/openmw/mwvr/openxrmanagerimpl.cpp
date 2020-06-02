@@ -93,10 +93,16 @@ namespace MWVR
 
         { // Create Session
             // TODO: Platform dependent
+            auto DC = wglGetCurrentDC();
+            auto GLRC = wglGetCurrentContext();
+            auto XRGLRC = wglCreateContext(DC);
+            wglShareLists(GLRC, XRGLRC);
+            wglMakeCurrent(DC, XRGLRC);
+
             mGraphicsBinding.type = XR_TYPE_GRAPHICS_BINDING_OPENGL_WIN32_KHR;
             mGraphicsBinding.next = nullptr;
-            mGraphicsBinding.hDC = wglGetCurrentDC();
-            mGraphicsBinding.hGLRC = wglGetCurrentContext();
+            mGraphicsBinding.hDC = DC;
+            mGraphicsBinding.hGLRC = XRGLRC;
 
             if (!mGraphicsBinding.hDC)
                 std::cout << "Missing DC" << std::endl;
@@ -108,6 +114,7 @@ namespace MWVR
             createInfo.systemId = mSystemId;
             CHECK_XRCMD(xrCreateSession(mInstance, &createInfo, &mSession));
             assert(mSession);
+            wglMakeCurrent(DC, GLRC);
         }
 
         LogLayersAndExtensions();
@@ -315,7 +322,11 @@ namespace MWVR
             int64_t predictedDisplayTime,
             TrackedSpace space)
     {
-
+        if (!mPredictionsEnabled)
+        {
+            Log(Debug::Error) << "Prediction out of order";
+            throw std::logic_error("Prediction out of order");
+        }
         std::array<XrView, 2> views{ {{XR_TYPE_VIEW}, {XR_TYPE_VIEW}} };
         XrViewState viewState{ XR_TYPE_VIEW_STATE };
         uint32_t viewCount = 2;
@@ -339,6 +350,11 @@ namespace MWVR
 
     MWVR::Pose OpenXRManagerImpl::getPredictedLimbPose(int64_t predictedDisplayTime, TrackedLimb limb, TrackedSpace space)
     {
+        if (!mPredictionsEnabled)
+        {
+            Log(Debug::Error) << "Prediction out of order";
+            throw std::logic_error("Prediction out of order");
+        }
         XrSpaceLocation location{ XR_TYPE_SPACE_LOCATION };
         XrSpaceVelocity velocity{ XR_TYPE_SPACE_VELOCITY };
         location.next = &velocity;
@@ -499,6 +515,14 @@ namespace MWVR
         if (space == TrackedSpace::VIEW)
             referenceSpace = mReferenceSpaceView;
         return referenceSpace;
+    }
+    void OpenXRManagerImpl::enablePredictions()
+    {
+        mPredictionsEnabled = true;
+    }
+    void OpenXRManagerImpl::disablePredictions()
+    {
+        mPredictionsEnabled = false;
     }
 }
 
