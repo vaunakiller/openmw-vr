@@ -114,8 +114,8 @@ void ForearmController::operator()(osg::Node* node, osg::NodeVisitor* nv)
         MWBase::Environment::get().getWorld()->getRenderingManager().getCamera()->updateCamera();
     }
 
-    MWVR::Pose handStage = session->predictedPoses(VRSession::FramePhase::Predraw).hands[side];
-    MWVR::Pose headStage = session->predictedPoses(VRSession::FramePhase::Predraw).head;
+    MWVR::Pose handStage = session->predictedPoses(VRSession::FramePhase::Update).hands[side];
+    MWVR::Pose headStage = session->predictedPoses(VRSession::FramePhase::Update).head;
 
     auto orientation = handStage.orientation;
 

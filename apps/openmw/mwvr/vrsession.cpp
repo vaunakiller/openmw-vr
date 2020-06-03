@@ -24,6 +24,7 @@
 #include "vrsession.hpp"
 #include "vrgui.hpp"
 #include <time.h>
+#include <thread>
 
 namespace MWVR
 {
@@ -38,7 +39,7 @@ VRSession::~VRSession()
 osg::Matrix VRSession::projectionMatrix(FramePhase phase, Side side)
 {
     assert(((int)side) < 2);
-    auto fov = predictedPoses(VRSession::FramePhase::Predraw).view[(int)side].fov;
+    auto fov = predictedPoses(VRSession::FramePhase::Update).view[(int)side].fov;
     float near_ = Settings::Manager::getFloat("near clip", "Camera");
     float far_ = Settings::Manager::getFloat("viewing distance", "Camera");
     return fov.perspectiveMatrix(near_, far_);
@@ -46,7 +47,7 @@ osg::Matrix VRSession::projectionMatrix(FramePhase phase, Side side)
 
 osg::Matrix VRSession::viewMatrix(FramePhase phase, Side side)
 {
-    MWVR::Pose pose = predictedPoses(VRSession::FramePhase::Predraw).view[(int)side].pose;
+    MWVR::Pose pose = predictedPoses(phase).view[(int)side].pose;
     osg::Vec3 position = pose.position * Environment::get().unitsPerMeter();
     osg::Quat orientation = pose.orientation;
 
@@ -77,72 +78,120 @@ void VRSession::swapBuffers(osg::GraphicsContext* gc, VRViewer& viewer)
     Timer timer("VRSession::SwapBuffers");
     auto* xr = Environment::get().getManager();
 
+    beginPhase(FramePhase::Swap);
+
+    if (getFrame(FramePhase::Swap)->mShouldRender)
     {
-        std::unique_lock<std::mutex> lock(mMutex); 
+        auto leftView = viewer.mViews["LeftEye"];
+        auto rightView = viewer.mViews["RightEye"];
 
-        xr->handleEvents();
+        viewer.blitEyesToMirrorTexture(gc);
+        gc->swapBuffersImplementation();
+        leftView->swapBuffers(gc);
+        rightView->swapBuffers(gc);
 
-        mPostdrawFrame = std::move(mDrawFrame);
-        assert(mPostdrawFrame);
+        std::array<XrCompositionLayerProjectionView, 2> compositionLayerProjectionViews{};
+        compositionLayerProjectionViews[0].type = XR_TYPE_COMPOSITION_LAYER_PROJECTION_VIEW;
+        compositionLayerProjectionViews[1].type = XR_TYPE_COMPOSITION_LAYER_PROJECTION_VIEW;
+        compositionLayerProjectionViews[0].subImage = leftView->swapchain().subImage();
+        compositionLayerProjectionViews[1].subImage = rightView->swapchain().subImage();
+        compositionLayerProjectionViews[0].pose = toXR(getFrame(FramePhase::Swap)->mPredictedPoses.eye[(int)Side::LEFT_HAND]);
+        compositionLayerProjectionViews[1].pose = toXR(getFrame(FramePhase::Swap)->mPredictedPoses.eye[(int)Side::RIGHT_HAND]);
+        compositionLayerProjectionViews[0].fov = toXR(getFrame(FramePhase::Swap)->mPredictedPoses.view[(int)Side::LEFT_HAND].fov);
+        compositionLayerProjectionViews[1].fov = toXR(getFrame(FramePhase::Swap)->mPredictedPoses.view[(int)Side::RIGHT_HAND].fov);
+        XrCompositionLayerProjection layer{};
+        layer.type = XR_TYPE_COMPOSITION_LAYER_PROJECTION;
+        layer.space = xr->impl().getReferenceSpace(TrackedSpace::STAGE);
+        layer.viewCount = 2;
+        layer.views = compositionLayerProjectionViews.data();
+        auto* layerStack = reinterpret_cast<XrCompositionLayerBaseHeader*>(&layer);
+
+        Log(Debug::Debug) << getFrame(FramePhase::Swap)->mFrameNo << ": EndFrame";
+        xr->endFrame(getFrame(FramePhase::Swap)->mPredictedDisplayTime, 1, &layerStack);
     }
 
-    // TODO: Should blit mirror texture regardless
-    if (!isRunning())
-        return;
-
-    xr->waitFrame();
-    xr->beginFrame();
-    viewer.swapBuffers(gc);
-
-    auto leftView = viewer.mViews["LeftEye"];
-    auto rightView = viewer.mViews["RightEye"];
-
-    leftView->swapBuffers(gc);
-    rightView->swapBuffers(gc);
-
-    std::array<XrCompositionLayerProjectionView, 2> compositionLayerProjectionViews{};
-    compositionLayerProjectionViews[0].type = XR_TYPE_COMPOSITION_LAYER_PROJECTION_VIEW;
-    compositionLayerProjectionViews[1].type = XR_TYPE_COMPOSITION_LAYER_PROJECTION_VIEW;
-    compositionLayerProjectionViews[0].subImage = leftView->swapchain().subImage();
-    compositionLayerProjectionViews[1].subImage = rightView->swapchain().subImage();
-    compositionLayerProjectionViews[0].pose = toXR(mPostdrawFrame->mPredictedPoses.eye[(int)Side::LEFT_HAND]);
-    compositionLayerProjectionViews[1].pose = toXR(mPostdrawFrame->mPredictedPoses.eye[(int)Side::RIGHT_HAND]);
-    compositionLayerProjectionViews[0].fov = toXR(mPostdrawFrame->mPredictedPoses.view[(int)Side::LEFT_HAND].fov);
-    compositionLayerProjectionViews[1].fov = toXR(mPostdrawFrame->mPredictedPoses.view[(int)Side::RIGHT_HAND].fov);
-    XrCompositionLayerProjection layer{};
-    layer.type = XR_TYPE_COMPOSITION_LAYER_PROJECTION;
-    layer.space = xr->impl().getReferenceSpace(TrackedSpace::STAGE);
-    layer.viewCount = 2;
-    layer.views = compositionLayerProjectionViews.data();
-    auto* layerStack = reinterpret_cast<XrCompositionLayerBaseHeader*>(&layer);
-
-    xr->endFrame(mPostdrawFrame->mPredictedDisplayTime, 1, &layerStack);
-    mLastRenderedFrame = mPostdrawFrame->mFrameNo;
+    std::unique_lock<std::mutex> lock(mMutex);
+    auto xrPredictionChange = xr->impl().frameState().predictedDisplayTime - mLastPredictedDisplayTime;
+    mLastPredictedDisplayTime = xr->impl().frameState().predictedDisplayTime;
+    mLastPredictedDisplayPeriod = xr->impl().frameState().predictedDisplayPeriod;
     auto now = std::chrono::steady_clock::now();
     mLastFrameInterval = std::chrono::duration_cast<std::chrono::nanoseconds>(now - mLastRenderedFrameTimestamp);
     mLastRenderedFrameTimestamp = now;
+    mLastRenderedFrame = getFrame(FramePhase::Swap)->mFrameNo;
+
+    //Log(Debug::Verbose) << getFrame(FramePhase::Swap)->mFrameNo << ": xrPrediction=" << xr->impl().frameState().predictedDisplayTime << ", ourPrediction=" << getFrame(FramePhase::Swap)->mPredictedDisplayTime << ", miss=" << miss << "ms";
+    Log(Debug::Debug) << "xrPredictionChange=" << (xrPredictionChange / 1000000) << "ms";
+    auto seconds = std::chrono::duration_cast<std::chrono::duration<double>>(now - mStart).count();
+    static int sBaseFrames = 0;
+    if (seconds > 10.f)
+    {
+        Log(Debug::Verbose) << "Fps: " << (static_cast<double>(mLastRenderedFrame - sBaseFrames) / seconds);
+        mStart = now;
+        sBaseFrames = mLastRenderedFrame;
+    }
+
+    getFrame(FramePhase::Swap) = nullptr;
+    mCondition.notify_one();
 }
 
-void VRSession::advanceFramePhase(void)
+void VRSession::beginPhase(FramePhase phase)
 {
-    std::unique_lock<std::mutex> lock(mMutex);
     Timer timer("VRSession::advanceFrame");
+    Log(Debug::Debug) << "beginPhase(" << ((int)phase) << ")";
 
-    assert(!mDrawFrame);
-    mDrawFrame = std::move(mPredrawFrame);
+    if (phase != FramePhase::Update)
+    {
+        std::unique_lock<std::mutex> lock(mMutex);
+        FramePhase previousPhase = static_cast<FramePhase>((int)phase - 1);
+
+        if (getFrame(phase))
+            throw std::logic_error("advanceFramePhase called with a frame alreay in the target phase");
+        if (!getFrame(previousPhase))
+            throw std::logic_error("advanceFramePhase called without a frame in the predraw phase");
+        getFrame(phase) = std::move(getFrame(previousPhase));
+    }
+    else
+        prepareFrame();
+
+    if (phase == FramePhase::Cull && getFrame(phase)->mShouldRender)
+    {
+        auto* xr = Environment::get().getManager();
+        // Since i am forced to do xr->beginFrame() before cull instead of draw
+        // i have to explicitly wait for xr->endFrame() to finish to avoid an
+        // out-of-order error from openxr.
+        // If i don't wait, we might hit beginFrame() before the previous frame
+        // reaches endFrame() in which case openxr will cancel the previous frame
+        // and we will get an out-of-order error due to two back-to-back calls to endFrame()
+        while (getFrame(phase)->mFrameNo != (mLastRenderedFrame + 1))
+        {
+            std::unique_lock<std::mutex> lock(mMutex);
+            mCondition.wait(lock);
+        }
+        Log(Debug::Debug) << getFrame(phase)->mFrameNo << ": WaitFrame";
+        xr->waitFrame();
+        Log(Debug::Debug) << getFrame(phase)->mFrameNo << ": BeginFrame";
+        xr->beginFrame();
+    }
 }
 
-void VRSession::startFrame()
+std::unique_ptr<VRSession::VRFrame>& VRSession::getFrame(FramePhase phase)
+{
+    if ((unsigned int)phase >= mFrame.size())
+        throw std::logic_error("Invalid frame phase");
+    return mFrame[(int)phase];
+}
+
+void VRSession::prepareFrame()
 {
     std::unique_lock<std::mutex> lock(mMutex);
     assert(!mPredrawFrame);
 
     Timer timer("VRSession::startFrame");
     auto* xr = Environment::get().getManager();
-    auto* input = Environment::get().getInputManager();
+    xr->handleEvents();
 
     // Until OpenXR allows us to get a prediction without waiting
-    // we make our own (bad) prediction and let openxr wait
+    // we make our own (bad) prediction and call xrWaitFrame when it is more convenient
     auto frameState = xr->impl().frameState();
     long long predictedDisplayTime = 0;
     mFrames++;
@@ -154,17 +203,19 @@ void VRSession::startFrame()
     else if (mFrames > mLastRenderedFrame)
     {
         //predictedDisplayTime = mLastPredictedDisplayTime + mLastFrameInterval.count() * (mFrames - mLastRenderedFrame);
-        float intervalsf = static_cast<double>(mLastFrameInterval.count()) / static_cast<double>(frameState.predictedDisplayPeriod);
-        int intervals = (int)std::roundf(intervalsf);
-        predictedDisplayTime = mLastPredictedDisplayTime + intervals * (mFrames - mLastRenderedFrame) * frameState.predictedDisplayPeriod;
+        float intervalsf = static_cast<double>(mLastFrameInterval.count()) / static_cast<double>(mLastPredictedDisplayPeriod);
+#ifdef max
+#undef max
+#endif
+        int intervals = std::max((int)std::roundf(intervalsf), 1);
+        predictedDisplayTime = mLastPredictedDisplayTime + intervals * (mFrames - mLastRenderedFrame) * mLastPredictedDisplayPeriod;
     }
 
     PoseSet predictedPoses{};
     if (isRunning())
     {
+        xr->impl().enablePredictions();
         predictedPoses.head = xr->impl().getPredictedLimbPose(predictedDisplayTime, TrackedLimb::HEAD, TrackedSpace::STAGE) * mPlayerScale;
-        predictedPoses.hands[(int)Side::LEFT_HAND] = input->getHandPose(predictedDisplayTime, TrackedSpace::STAGE, Side::LEFT_HAND) * mPlayerScale;
-        predictedPoses.hands[(int)Side::RIGHT_HAND] = input->getHandPose(predictedDisplayTime, TrackedSpace::STAGE, Side::RIGHT_HAND) * mPlayerScale;
         auto hmdViews = xr->impl().getPredictedViews(predictedDisplayTime, TrackedSpace::VIEW);
         predictedPoses.view[(int)Side::LEFT_HAND].pose = fromXR(hmdViews[(int)Side::LEFT_HAND].pose) * mPlayerScale;
         predictedPoses.view[(int)Side::RIGHT_HAND].pose = fromXR(hmdViews[(int)Side::RIGHT_HAND].pose) * mPlayerScale;
@@ -173,43 +224,34 @@ void VRSession::startFrame()
         auto stageViews = xr->impl().getPredictedViews(predictedDisplayTime, TrackedSpace::STAGE);
         predictedPoses.eye[(int)Side::LEFT_HAND] = fromXR(stageViews[(int)Side::LEFT_HAND].pose) * mPlayerScale;
         predictedPoses.eye[(int)Side::RIGHT_HAND] = fromXR(stageViews[(int)Side::RIGHT_HAND].pose) * mPlayerScale;
-    }
-    else
-    {
-        // If session is not running, copy poses from the last frame
-        if (mPostdrawFrame)
-            predictedPoses = mPostdrawFrame->mPredictedPoses;
+
+        auto* input = Environment::get().getInputManager();
+        if (input)
+        {
+            predictedPoses.hands[(int)Side::LEFT_HAND] = input->getHandPose(predictedDisplayTime, TrackedSpace::STAGE, Side::LEFT_HAND) * mPlayerScale;
+            predictedPoses.hands[(int)Side::RIGHT_HAND] = input->getHandPose(predictedDisplayTime, TrackedSpace::STAGE, Side::RIGHT_HAND) * mPlayerScale;
+        }
+        xr->impl().disablePredictions();
     }
 
-
-    mPredrawFrame.reset(new VRFrame);
-    mPredrawFrame->mPredictedDisplayTime = predictedDisplayTime;
-    mPredrawFrame->mFrameNo = mFrames;
-    mPredrawFrame->mPredictedPoses = predictedPoses;
+    auto& frame = getFrame(FramePhase::Update);
+    frame.reset(new VRFrame);
+    frame->mPredictedDisplayTime = predictedDisplayTime;
+    frame->mFrameNo = mFrames;
+    frame->mPredictedPoses = predictedPoses;
+    frame->mShouldRender = isRunning();
 }
 
 const PoseSet& VRSession::predictedPoses(FramePhase phase)
 {
-    
-    switch (phase)
-    {
-    case FramePhase::Predraw:
-        if (!mPredrawFrame)
-            startFrame();
-        assert(mPredrawFrame);
-        return mPredrawFrame->mPredictedPoses;
+    auto& frame = getFrame(phase);
 
-    case FramePhase::Draw:
-        assert(mDrawFrame);
-        return mDrawFrame->mPredictedPoses;
+    if (phase == FramePhase::Update && !frame)
+        beginPhase(FramePhase::Update);
 
-    case FramePhase::Postdraw:
-        assert(mPostdrawFrame);
-        return mPostdrawFrame->mPredictedPoses;
-    }
-
-    assert(0);
-    return mPredrawFrame->mPredictedPoses;
+    if (!frame)
+        throw std::logic_error("Attempted to get poses from a phase with no current pose");
+    return frame->mPredictedPoses;
 }
 
 // OSG doesn't provide API to extract euler angles from a quat, but i need it.
@@ -253,8 +295,11 @@ void VRSession::movementAngles(float& yaw, float& pitch)
 {
     assert(mPredrawFrame);
     auto* input = Environment::get().getInputManager();
-    auto lhandquat = input->getHandPose(mPredrawFrame->mPredictedDisplayTime, TrackedSpace::VIEW, Side::LEFT_HAND).orientation;
-        //predictedPoses(FramePhase::Predraw).hands[(int)TrackedSpace::VIEW][(int)MWVR::Side::LEFT_HAND].orientation;
+    // TODO: This strictly speaking violates the rule of not making predictions outside of prepareFrame()
+    // I should either add VIEW hands to the predicted pose set, or compute this using STAGE poses
+    // It would likely suffice to compute euler angles for STAGE head and hand and return the difference?
+    auto lhandquat = input->getHandPose(getFrame(FramePhase::Update)->mPredictedDisplayTime, TrackedSpace::VIEW, Side::LEFT_HAND).orientation;
+    //predictedPoses(FramePhase::Predraw).hands[(int)TrackedSpace::VIEW][(int)MWVR::Side::LEFT_HAND].orientation;
     float roll = 0.f;
     getEulerAngles(lhandquat, yaw, pitch, roll);
 

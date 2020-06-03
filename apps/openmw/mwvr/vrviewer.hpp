@@ -77,7 +77,6 @@ namespace MWVR
         void preDrawCallback(osg::RenderInfo& info);
         void postDrawCallback(osg::RenderInfo& info);
         void blitEyesToMirrorTexture(osg::GraphicsContext* gc);
-        void swapBuffers(osg::GraphicsContext* gc);
         void realize(osg::GraphicsContext* gc);
         bool realized() { return mConfigured; }
 

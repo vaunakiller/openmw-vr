@@ -27,9 +27,11 @@ public:
 
     enum class FramePhase
     {
-        Predraw = 0, //!< Get poses predicted for the next frame to be drawn
-        Draw = 1, //!< Get poses predicted for the current rendering frame
-        Postdraw = 2, //!< Get poses predicted for the last rendered frame
+        Update = 0, //!< The frame currently in update traversals
+        Cull, //!< The frame currently in cull
+        Draw, //!< The frame currently in draw
+        Swap, //!< The frame being swapped
+        NumPhases
     };
 
     struct VRFrame
@@ -37,6 +39,8 @@ public:
         long long   mFrameNo{ 0 };
         long long   mPredictedDisplayTime{ 0 };
         PoseSet     mPredictedPoses{};
+        bool        mShouldRender{ false };
+        bool        mHasWaited{ false };
     };
 
 public:
@@ -48,12 +52,13 @@ public:
     const PoseSet& predictedPoses(FramePhase phase);
 
     //! Starts a new frame
-    void startFrame();
+    void prepareFrame();
 
     //! Angles to be used for overriding movement direction
     void movementAngles(float& yaw, float& pitch);
 
-    void advanceFramePhase(void);
+    void beginPhase(FramePhase phase);
+    std::unique_ptr<VRFrame>& getFrame(FramePhase phase);
 
     bool isRunning() const;
 
@@ -63,9 +68,7 @@ public:
     osg::Matrix viewMatrix(FramePhase phase, Side side);
     osg::Matrix projectionMatrix(FramePhase phase, Side side);
 
-    std::unique_ptr<VRFrame> mPredrawFrame{ nullptr };
-    std::unique_ptr<VRFrame> mDrawFrame{ nullptr };
-    std::unique_ptr<VRFrame> mPostdrawFrame{ nullptr };
+    std::array<std::unique_ptr<VRFrame>, (int)FramePhase::NumPhases> mFrame{ nullptr };
 
     std::mutex mMutex{};
     std::condition_variable mCondition{};
@@ -74,6 +77,7 @@ public:
     long long mLastRenderedFrame{ 0 };
     long long mLastPredictedDisplayTime{ 0 };
     long long mLastPredictedDisplayPeriod{ 0 };
+    std::chrono::steady_clock::time_point mStart{ std::chrono::steady_clock::now() };
     std::chrono::nanoseconds mLastFrameInterval{};
     std::chrono::steady_clock::time_point mLastRenderedFrameTimestamp{std::chrono::steady_clock::now()};
 

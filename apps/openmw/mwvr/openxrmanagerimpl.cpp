@@ -277,44 +277,58 @@ namespace MWVR
     void
         OpenXRManagerImpl::waitFrame()
     {
+
+        auto DC = wglGetCurrentDC();
+        auto GLRC = wglGetCurrentContext();
+        auto XRDC = mGraphicsBinding.hDC;
+        auto XRGLRC = mGraphicsBinding.hGLRC;
+        wglMakeCurrent(XRDC, XRGLRC);
+
         Timer timer("waitFrame()");
-
-        static std::mutex waitFrameMutex;
-
-        if (!mSessionRunning)
-            return;
 
         XrFrameWaitInfo frameWaitInfo{ XR_TYPE_FRAME_WAIT_INFO };
         XrFrameState frameState{ XR_TYPE_FRAME_STATE };
 
         CHECK_XRCMD(xrWaitFrame(mSession, &frameWaitInfo, &frameState));
-
-        std::unique_lock<std::mutex> lock(mFrameStateMutex);
         mFrameState = frameState;
+
+        wglMakeCurrent(DC, GLRC);
     }
 
     void
         OpenXRManagerImpl::beginFrame()
     {
+        auto DC = wglGetCurrentDC();
+        auto GLRC = wglGetCurrentContext();
+        auto XRDC = mGraphicsBinding.hDC;
+        auto XRGLRC = mGraphicsBinding.hGLRC;
+        wglMakeCurrent(XRDC, XRGLRC);
+
         Timer timer("beginFrame");
         XrFrameBeginInfo frameBeginInfo{ XR_TYPE_FRAME_BEGIN_INFO };
         CHECK_XRCMD(xrBeginFrame(mSession, &frameBeginInfo));
+
+        wglMakeCurrent(DC, GLRC);
     }
 
     void
         OpenXRManagerImpl::endFrame(int64_t displayTime, int layerCount, XrCompositionLayerBaseHeader** layerStack)
     {
-        Timer timer("endFrame()");
-        if (!mSessionRunning)
-            return;
+        auto DC = wglGetCurrentDC();
+        auto GLRC = wglGetCurrentContext();
+        auto XRDC = mGraphicsBinding.hDC;
+        auto XRGLRC = mGraphicsBinding.hGLRC;
+        wglMakeCurrent(XRDC, XRGLRC);
 
+        Timer timer("endFrame()");
         XrFrameEndInfo frameEndInfo{ XR_TYPE_FRAME_END_INFO };
         frameEndInfo.displayTime = displayTime;
         frameEndInfo.environmentBlendMode = mEnvironmentBlendMode;
         frameEndInfo.layerCount = layerCount;
         frameEndInfo.layers = layerStack;
-
         CHECK_XRCMD(xrEndFrame(mSession, &frameEndInfo));
+
+        wglMakeCurrent(DC, GLRC);
     }
 
     std::array<XrView, 2> 

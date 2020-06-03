@@ -39,6 +39,17 @@ namespace MWVR {
     {
     }
 
+    class CullCallback : public osg::NodeCallback
+    {
+        void operator()(osg::Node* node, osg::NodeVisitor* nv)
+        {
+            const auto& name = node->getName();
+            if (name == "LeftEye")
+                Environment::get().getSession()->beginPhase(VRSession::FramePhase::Cull);
+            traverse(node, nv);
+        }
+    };
+
     osg::Camera* VRView::createCamera(int eye, const osg::Vec4& clearColor, osg::GraphicsContext* gc)
     {
         osg::ref_ptr<osg::Camera> camera = new osg::Camera();
@@ -53,6 +64,7 @@ namespace MWVR {
         camera->setGraphicsContext(gc);
 
         camera->setInitialDrawCallback(new VRView::InitialDrawCallback());
+        camera->setCullCallback(new CullCallback);
 
         return camera.release();
     }
@@ -69,6 +81,10 @@ namespace MWVR {
 
     void VRView::InitialDrawCallback::operator()(osg::RenderInfo& renderInfo) const
     {
+        const auto& name = renderInfo.getCurrentCamera()->getName();
+        if (name == "LeftEye")
+            Environment::get().getSession()->beginPhase(VRSession::FramePhase::Draw);
+
         osg::GraphicsOperation* graphicsOperation = renderInfo.getCurrentCamera()->getRenderer();
         osgViewer::Renderer* renderer = dynamic_cast<osgViewer::Renderer*>(graphicsOperation);
         if (renderer != nullptr)
@@ -76,7 +92,6 @@ namespace MWVR {
             // Disable normal OSG FBO camera setup
             renderer->setCameraRequiresSetUp(false);
         }
-        auto name = renderInfo.getCurrentCamera()->getName();
     }
     void VRView::UpdateSlaveCallback::updateSlave(
             osg::View& view,
@@ -93,8 +108,9 @@ namespace MWVR {
 
         auto* session = Environment::get().getSession();
         auto viewMatrix = view.getCamera()->getViewMatrix();
-        auto modifiedViewMatrix = viewMatrix * session->viewMatrix(VRSession::FramePhase::Predraw, side);
-        auto projectionMatrix = session->projectionMatrix(VRSession::FramePhase::Predraw, side);
+
+        auto modifiedViewMatrix = viewMatrix * session->viewMatrix(VRSession::FramePhase::Update, side);
+        auto projectionMatrix = session->projectionMatrix(VRSession::FramePhase::Update, side);
 
         camera->setViewMatrix(modifiedViewMatrix);
         camera->setProjectionMatrix(projectionMatrix);
@@ -109,6 +125,6 @@ namespace MWVR {
 
     void VRView::swapBuffers(osg::GraphicsContext* gc)
     {
-        swapchain().endFrame(gc);
+        mSwapchain->endFrame(gc);
     }
 }

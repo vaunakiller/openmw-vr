@@ -1008,11 +1008,14 @@ private:
 
 
         auto* vrGuiManager = Environment::get().getGUIManager();
-        bool vrHasFocus = vrGuiManager->updateFocus();
-        auto guiCursor = vrGuiManager->guiCursor();
-        if (vrHasFocus)
+        if (vrGuiManager)
         {
-            mMouseManager->setMousePosition(guiCursor.x(), guiCursor.y());
+            bool vrHasFocus = vrGuiManager->updateFocus();
+            auto guiCursor = vrGuiManager->guiCursor();
+            if (vrHasFocus)
+            {
+                mMouseManager->setMousePosition(guiCursor.x(), guiCursor.y());
+            }
         }
 
         while (auto* action = mXRInput->nextAction())
@@ -1237,7 +1240,7 @@ private:
     void OpenXRInputManager::updateHead()
     {
         auto* session = Environment::get().getSession();
-        auto currentHeadPose = session->predictedPoses(VRSession::FramePhase::Predraw).head;
+        auto currentHeadPose = session->predictedPoses(VRSession::FramePhase::Update).head;
         currentHeadPose.position *= Environment::get().unitsPerMeter();
         osg::Vec3 vrMovement = currentHeadPose.position - mHeadPose.position;
         mHeadPose = currentHeadPose;

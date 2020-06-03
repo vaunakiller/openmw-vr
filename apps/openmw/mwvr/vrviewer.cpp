@@ -151,22 +151,16 @@ namespace MWVR
 
     void VRViewer::blitEyesToMirrorTexture(osg::GraphicsContext* gc)
     {
-        //includeMenu = false;
-        mMirrorTextureSwapchain->beginFrame(gc);
-
         int mirror_width = mMirrorTextureSwapchain->width() / 2;
-
+        mMirrorTextureSwapchain->beginFrame(gc);
 
         mViews["RightEye"]->swapchain().renderBuffer()->blit(gc, 0, 0, mirror_width, mMirrorTextureSwapchain->height());
         mViews["LeftEye"]->swapchain().renderBuffer()->blit(gc, mirror_width, 0, 2 * mirror_width, mMirrorTextureSwapchain->height());
 
-        auto* state = gc->getState();
-        auto* gl = osg::GLExtensions::Get(state->getContextID(), false);
-
         mMirrorTextureSwapchain->endFrame(gc);
 
-
-
+        auto* state = gc->getState();
+        auto* gl = osg::GLExtensions::Get(state->getContextID(), false);
         gl->glBindFramebuffer(GL_FRAMEBUFFER_EXT, 0);
         mMirrorTextureSwapchain->renderBuffer()->blit(gc, 0, 0, mMirrorTextureSwapchain->width(), mMirrorTextureSwapchain->height());
 
@@ -178,24 +172,6 @@ namespace MWVR
     {
         auto* session = Environment::get().getSession();
         session->swapBuffers(gc, *mViewer);
-        gc->swapBuffersImplementation();
-    }
-
-    void VRViewer::swapBuffers(osg::GraphicsContext* gc)
-    {
-        if (!mConfigured)
-            return;
-
-        Timer timer("VRViewer::SwapBuffers");
-
-        for (auto& view : mViews)
-            view.second->swapBuffers(gc);
-
-        timer.checkpoint("Views");
-
-        blitEyesToMirrorTexture(gc);
-
-        gc->swapBuffersImplementation();
     }
 
     void
@@ -217,12 +193,7 @@ namespace MWVR
     {
         auto* camera = info.getCurrentCamera();
         auto name = camera->getName();
-        auto& view = mViews[name];
-
-        if (name == "LeftEye")
-            Environment::get().getSession()->advanceFramePhase();
-
-        view->prerenderCallback(info);
+        mViews[name]->prerenderCallback(info);
     }
 
     void VRViewer::postDrawCallback(osg::RenderInfo& info)
@@ -239,8 +210,5 @@ namespace MWVR
             camera->setPreDrawCallback(mPreDraw);
             Log(Debug::Warning) << ("osg overwrote predraw");
         }
-
-        //if(mDelay && name == "RightEye")
-        //    std::this_thread::sleep_for(std::chrono::milliseconds(25));
     }
 }
