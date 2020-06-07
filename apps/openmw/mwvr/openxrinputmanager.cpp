@@ -57,9 +57,9 @@
 namespace MWVR
 {
 
-// TODO: Make part of settings (is there already a setting like this?)
-//! Delay before a long-press action is activated
-static std::chrono::milliseconds gActionTime{ 1000 };
+//! Delay before a long-press action is activated (and regular press is discarded)
+//! TODO: Make this configurable?
+static std::chrono::milliseconds gActionTime{ 666 };
 //! Magnitude above which an axis action is considered active
 static float gAxisEpsilon{ 0.01f };
 
@@ -568,7 +568,7 @@ OpenXRInput::OpenXRInput()
     , mMoveLeftRight(std::move(createMWAction<AxisAction>(MWInput::A_MoveLeftRight, "move_left_right", "Move Left Right", { })))
     , mJournal(std::move(createMWAction<ButtonLongPressAction>(MWInput::A_Journal, "journal_book", "Journal Book", { })))
     , mQuickSave(std::move(createMWAction<ButtonLongPressAction>(MWInput::A_QuickSave, "quick_save", "Quick Save", { })))
-    , mRest(std::move(createMWAction<ButtonLongPressAction>(MWInput::A_Rest, "rest", "Rest", { })))
+    , mRest(std::move(createMWAction<ButtonPressAction>(MWInput::A_Rest, "rest", "Rest", { })))
     , mActivateTouch(std::move(createMWAction<AxisAction>(A_ActivateTouch, "activate_touched", "Activate Touch", { RIGHT_HAND })))
     , mAlwaysRun(std::move(createMWAction<ButtonPressAction>(MWInput::A_AlwaysRun, "always_run", "Always Run", { })))
     , mAutoMove(std::move(createMWAction<ButtonPressAction>(MWInput::A_AutoMove, "auto_move", "Auto Move", { })))
@@ -1027,9 +1027,16 @@ private:
 
         MWInput::InputManager::update(dt, disableControls, disableEvents);
 
+        // Start next frame phase
+        auto* session = Environment::get().getSession();
+        if (session)
+            session->beginPhase(VRSession::FramePhase::Update);
+
         // The rest of this code assumes the game is running
-        if (MWBase::Environment::get().getStateManager()->getState() != MWBase::StateManager::State_Running)
+        if (MWBase::Environment::get().getStateManager()->getState() == MWBase::StateManager::State_NoGame)
+        {
             return;
+        }
 
         bool guiMode = MWBase::Environment::get().getWindowManager()->isGuiMode();
 

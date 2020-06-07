@@ -25,5 +25,6 @@
     <Layer name="LoadingScreen" overlapped="false" pick="true"/>
     <Layer name="MessageBox" overlapped="false" pick="true"/>
     <Layer name="InputBlocker" overlapped="false" pick="true"/>
+    <Layer name="VideoPlayer" overlapped="false" pick="true"/>
     <Layer name="Pointer" overlapped="false" pick="false"/>
 </MyGUI>

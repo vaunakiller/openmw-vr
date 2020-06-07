@@ -607,6 +607,7 @@ namespace MWWorld
 
     void World::useDeathCamera()
     {
+#ifndef USE_OPENXR
         if(mRendering->getCamera()->isVanityOrPreviewModeEnabled() )
         {
             mRendering->getCamera()->togglePreviewMode(false);
@@ -614,6 +615,7 @@ namespace MWWorld
         }
         if(mRendering->getCamera()->isFirstPerson())
             mRendering->getCamera()->toggleViewMode(true);
+#endif
     }
 
     MWWorld::Player& World::getPlayer()

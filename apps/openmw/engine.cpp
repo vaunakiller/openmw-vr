@@ -564,6 +564,12 @@ void OMW::Engine::prepareEngine (Settings::Manager & settings)
     // Create sound system
     mEnvironment.setSoundManager (new MWSound::SoundManager(mVFS.get(), mUseSound));
 
+
+#ifdef USE_OPENXR
+    mXrEnvironment.setGUIManager(new MWVR::VRGUIManager(mViewer));
+    //mViewer->setThreadingModel(osgViewer::ViewerBase::SingleThreaded);
+#endif
+
     if (!mSkipMenu)
     {
         const std::string& logo = Fallback::Map::getString("Movies_Company_Logo");
@@ -728,11 +734,6 @@ void OMW::Engine::go()
 
     osg::ref_ptr<Resource::StatsHandler> resourceshandler = new Resource::StatsHandler;
     mViewer->addEventHandler(resourceshandler);
-
-#ifdef USE_OPENXR
-    mXrEnvironment.setGUIManager(new MWVR::VRGUIManager(mViewer));
-    //mViewer->setThreadingModel(osgViewer::ViewerBase::SingleThreaded);
-#endif
 
     // Start the game
     if (!mSaveGameFile.empty())

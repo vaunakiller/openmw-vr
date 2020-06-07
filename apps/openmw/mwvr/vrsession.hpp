@@ -54,6 +54,9 @@ public:
     //! Starts a new frame
     void prepareFrame();
 
+    //! Synchronize with openxr
+    void doFrameSync();
+
     //! Angles to be used for overriding movement direction
     void movementAngles(float& yaw, float& pitch);
 
@@ -68,6 +71,7 @@ public:
     osg::Matrix viewMatrix(FramePhase phase, Side side);
     osg::Matrix projectionMatrix(FramePhase phase, Side side);
 
+    int mFramesInFlight{ 0 };
     std::array<std::unique_ptr<VRFrame>, (int)FramePhase::NumPhases> mFrame{ nullptr };
 
     std::mutex mMutex{};

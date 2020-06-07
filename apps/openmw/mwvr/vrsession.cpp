@@ -5,6 +5,7 @@
 #include "openxrswapchain.hpp"
 #include "../mwinput/inputmanagerimp.hpp"
 #include "../mwbase/environment.hpp"
+#include "../mwbase/statemanager.hpp"
 
 #include <components/debug/debuglog.hpp>
 #include <components/sdlutil/sdlgraphicswindow.hpp>
@@ -25,6 +26,14 @@
 #include "vrgui.hpp"
 #include <time.h>
 #include <thread>
+
+#ifdef max
+#undef max
+#endif
+
+#ifdef min
+#undef min
+#endif
 
 namespace MWVR
 {
@@ -47,7 +56,23 @@ osg::Matrix VRSession::projectionMatrix(FramePhase phase, Side side)
 
 osg::Matrix VRSession::viewMatrix(FramePhase phase, Side side)
 {
-    MWVR::Pose pose = predictedPoses(phase).view[(int)side].pose;
+    MWVR::Pose pose{};
+    pose = predictedPoses(phase).view[(int)side].pose;
+
+
+    if (MWBase::Environment::get().getStateManager()->getState() == MWBase::StateManager::State_NoGame)
+    {
+        pose = predictedPoses(phase).eye[(int)side];
+        osg::Vec3 position = pose.position * Environment::get().unitsPerMeter();
+        osg::Quat orientation = pose.orientation;
+        osg::Vec3d forward = orientation * osg::Vec3d(0, 1, 0);
+        osg::Vec3d up = orientation * osg::Vec3d(0, 0, 1);
+        osg::Matrix viewMatrix;
+        viewMatrix.makeLookAt(position, position + forward, up);
+
+        return viewMatrix;
+    }
+
     osg::Vec3 position = pose.position * Environment::get().unitsPerMeter();
     osg::Quat orientation = pose.orientation;
 
@@ -106,72 +131,92 @@ void VRSession::swapBuffers(osg::GraphicsContext* gc, VRViewer& viewer)
         layer.views = compositionLayerProjectionViews.data();
         auto* layerStack = reinterpret_cast<XrCompositionLayerBaseHeader*>(&layer);
 
-        Log(Debug::Debug) << getFrame(FramePhase::Swap)->mFrameNo << ": EndFrame";
+        Log(Debug::Debug) << getFrame(FramePhase::Swap)->mFrameNo << ": EndFrame " <<std::this_thread::get_id();
         xr->endFrame(getFrame(FramePhase::Swap)->mPredictedDisplayTime, 1, &layerStack);
     }
 
-    std::unique_lock<std::mutex> lock(mMutex);
-    auto xrPredictionChange = xr->impl().frameState().predictedDisplayTime - mLastPredictedDisplayTime;
-    mLastPredictedDisplayTime = xr->impl().frameState().predictedDisplayTime;
-    mLastPredictedDisplayPeriod = xr->impl().frameState().predictedDisplayPeriod;
-    auto now = std::chrono::steady_clock::now();
-    mLastFrameInterval = std::chrono::duration_cast<std::chrono::nanoseconds>(now - mLastRenderedFrameTimestamp);
-    mLastRenderedFrameTimestamp = now;
-    mLastRenderedFrame = getFrame(FramePhase::Swap)->mFrameNo;
-
-    //Log(Debug::Verbose) << getFrame(FramePhase::Swap)->mFrameNo << ": xrPrediction=" << xr->impl().frameState().predictedDisplayTime << ", ourPrediction=" << getFrame(FramePhase::Swap)->mPredictedDisplayTime << ", miss=" << miss << "ms";
-    Log(Debug::Debug) << "xrPredictionChange=" << (xrPredictionChange / 1000000) << "ms";
-    auto seconds = std::chrono::duration_cast<std::chrono::duration<double>>(now - mStart).count();
-    static int sBaseFrames = 0;
-    if (seconds > 10.f)
     {
-        Log(Debug::Verbose) << "Fps: " << (static_cast<double>(mLastRenderedFrame - sBaseFrames) / seconds);
-        mStart = now;
-        sBaseFrames = mLastRenderedFrame;
-    }
+        std::unique_lock<std::mutex> lock(mMutex);
 
-    getFrame(FramePhase::Swap) = nullptr;
+        // Some of these values are useless until the prediction time bug is resolved by oculus.
+        //auto xrPredictionChange = xr->impl().frameState().predictedDisplayTime - mLastPredictedDisplayTime;
+        mLastPredictedDisplayTime = xr->impl().frameState().predictedDisplayTime;
+        mLastPredictedDisplayPeriod = xr->impl().frameState().predictedDisplayPeriod;
+        auto now = std::chrono::steady_clock::now();
+        mLastFrameInterval = std::chrono::duration_cast<std::chrono::nanoseconds>(now - mLastRenderedFrameTimestamp);
+        mLastRenderedFrameTimestamp = now;
+        mLastRenderedFrame = getFrame(FramePhase::Swap)->mFrameNo;
+
+        //Log(Debug::Debug) << getFrame(FramePhase::Swap)->mFrameNo << ": xrPrediction=" << xr->impl().frameState().predictedDisplayTime << ", ourPrediction=" << getFrame(FramePhase::Swap)->mPredictedDisplayTime << ", miss=" << miss << "ms";
+        //Log(Debug::Debug) << "xrPredictionChange=" << (xrPredictionChange / 1000000) << "ms";
+        //Log(Debug::Debug) << "xrPredictionPeriod=" << (mLastPredictedDisplayPeriod / 1000000) << "ms";
+        // Just a quick averaging fps over some time rather than just the instantaneous.
+        auto seconds = std::chrono::duration_cast<std::chrono::duration<double>>(now - mStart).count();
+        static int sBaseFrames = 0;
+        if (seconds > 10.f)
+        {
+            Log(Debug::Debug) << "Fps: " << (static_cast<double>(mLastRenderedFrame - sBaseFrames) / seconds);
+            mStart = now;
+            sBaseFrames = mLastRenderedFrame;
+        }
+
+        getFrame(FramePhase::Swap) = nullptr;
+        mFramesInFlight--;
+    }
     mCondition.notify_one();
 }
 
 void VRSession::beginPhase(FramePhase phase)
 {
     Timer timer("VRSession::advanceFrame");
-    Log(Debug::Debug) << "beginPhase(" << ((int)phase) << ")";
+    Log(Debug::Debug) << "beginPhase(" << ((int)phase) << ") " << std::this_thread::get_id();
 
-    if (phase != FramePhase::Update)
+    if (getFrame(phase))
+    {
+        Log(Debug::Warning) << "advanceFramePhase called with a frame alreay in the target phase";
+        return;
+    }
+
+
+    if (phase == FramePhase::Update)
+    {
+        prepareFrame();
+    }
+    else
     {
         std::unique_lock<std::mutex> lock(mMutex);
         FramePhase previousPhase = static_cast<FramePhase>((int)phase - 1);
-
-        if (getFrame(phase))
-            throw std::logic_error("advanceFramePhase called with a frame alreay in the target phase");
         if (!getFrame(previousPhase))
-            throw std::logic_error("advanceFramePhase called without a frame in the predraw phase");
+            throw std::logic_error("beginPhase called without a frame");
         getFrame(phase) = std::move(getFrame(previousPhase));
     }
-    else
-        prepareFrame();
 
-    if (phase == FramePhase::Cull && getFrame(phase)->mShouldRender)
+
+    // TODO: Invokation should depend on earliest render rather than necessarily phase.
+    // Specifically. Without shadows this is fine because nothing is being rendered
+    // during cull or earlier.
+    // Thought: Add an Shadowmapping phase and invoke it from the shadow code
+    // But with shadows rendering occurs during cull and we must do frame sync before those calls.
+    // If you want to pay the FPS toll and play with shadows, change FramePhase::Draw to FramePhase::Cull or enjoy your eyes getting torn apart by jitters.
+    if (phase == FramePhase::Draw && getFrame(phase)->mShouldRender)
+        doFrameSync();
+}
+
+void VRSession::doFrameSync()
+{
     {
-        auto* xr = Environment::get().getManager();
-        // Since i am forced to do xr->beginFrame() before cull instead of draw
-        // i have to explicitly wait for xr->endFrame() to finish to avoid an
-        // out-of-order error from openxr.
-        // If i don't wait, we might hit beginFrame() before the previous frame
-        // reaches endFrame() in which case openxr will cancel the previous frame
-        // and we will get an out-of-order error due to two back-to-back calls to endFrame()
-        while (getFrame(phase)->mFrameNo != (mLastRenderedFrame + 1))
+        std::unique_lock<std::mutex> lock(mMutex);
+        while (mLastRenderedFrame != mFrames - 1)
         {
-            std::unique_lock<std::mutex> lock(mMutex);
             mCondition.wait(lock);
         }
-        Log(Debug::Debug) << getFrame(phase)->mFrameNo << ": WaitFrame";
-        xr->waitFrame();
-        Log(Debug::Debug) << getFrame(phase)->mFrameNo << ": BeginFrame";
-        xr->beginFrame();
     }
+
+    auto* xr = Environment::get().getManager();
+    Log(Debug::Debug) << mFrames << ": WaitFrame " << std::this_thread::get_id();
+    xr->waitFrame();
+    Log(Debug::Debug) << mFrames << ": BeginFrame " << std::this_thread::get_id();
+    xr->beginFrame();
 }
 
 std::unique_ptr<VRSession::VRFrame>& VRSession::getFrame(FramePhase phase)
@@ -183,56 +228,65 @@ std::unique_ptr<VRSession::VRFrame>& VRSession::getFrame(FramePhase phase)
 
 void VRSession::prepareFrame()
 {
+
     std::unique_lock<std::mutex> lock(mMutex);
+    mFrames++;
     assert(!mPredrawFrame);
 
     Timer timer("VRSession::startFrame");
     auto* xr = Environment::get().getManager();
     xr->handleEvents();
+    
 
-    // Until OpenXR allows us to get a prediction without waiting
-    // we make our own (bad) prediction and call xrWaitFrame when it is more convenient
     auto frameState = xr->impl().frameState();
-    long long predictedDisplayTime = 0;
-    mFrames++;
-    if (mLastPredictedDisplayTime == 0)
+//    auto predictedDisplayTime = frameState.predictedDisplayTime;
+//    if (predictedDisplayTime == 0)
+//    {
+//        // First time, need to invent a frame time since openxr won't help us without calling waitframe.
+//        predictedDisplayTime = std::chrono::duration_cast<std::chrono::nanoseconds>(std::chrono::steady_clock::now().time_since_epoch()).count();
+//    }
+//    else
+//    {
+//        // Predict display time based on real framerate
+//        float intervalsf = static_cast<double>(mLastFrameInterval.count()) / static_cast<double>(mLastPredictedDisplayPeriod);
+//        int intervals = std::max((int)std::roundf(intervalsf), 1);
+//        predictedDisplayTime = mLastPredictedDisplayTime + intervals * (mFrames - mLastRenderedFrame) * mLastPredictedDisplayPeriod;
+//    }
+// TODO:
+//////////////////////// OCULUS BUG
+    //////////////////// Oculus will suddenly start monotonically increasing their predicted display time by precisely 1 second
+    //////////////////// regardless of real time passed, causing predictions to go crazy due to the time difference.
+    //////////////////// Therefore, for the time being, i ignore oculus' predicted display time altogether.
+    long long predictedDisplayTime = std::chrono::duration_cast<std::chrono::nanoseconds>(std::chrono::steady_clock::now().time_since_epoch()).count();
+    if (mFrames > 1)
     {
-        // First time, need to invent a frame time since openxr won't help us without calling waitframe.
-        predictedDisplayTime = std::chrono::duration_cast<std::chrono::nanoseconds>(std::chrono::steady_clock::now().time_since_epoch()).count();
+                float intervalsf = static_cast<double>(mLastFrameInterval.count()) / static_cast<double>(frameState.predictedDisplayPeriod);
+                int intervals = std::max((int)std::roundf(intervalsf), 1);
+                predictedDisplayTime = predictedDisplayTime + intervals * (mFrames - mLastRenderedFrame) * frameState.predictedDisplayPeriod;
     }
-    else if (mFrames > mLastRenderedFrame)
-    {
-        //predictedDisplayTime = mLastPredictedDisplayTime + mLastFrameInterval.count() * (mFrames - mLastRenderedFrame);
-        float intervalsf = static_cast<double>(mLastFrameInterval.count()) / static_cast<double>(mLastPredictedDisplayPeriod);
-#ifdef max
-#undef max
-#endif
-        int intervals = std::max((int)std::roundf(intervalsf), 1);
-        predictedDisplayTime = mLastPredictedDisplayTime + intervals * (mFrames - mLastRenderedFrame) * mLastPredictedDisplayPeriod;
-    }
+
+
 
     PoseSet predictedPoses{};
-    if (isRunning())
-    {
-        xr->impl().enablePredictions();
-        predictedPoses.head = xr->impl().getPredictedLimbPose(predictedDisplayTime, TrackedLimb::HEAD, TrackedSpace::STAGE) * mPlayerScale;
-        auto hmdViews = xr->impl().getPredictedViews(predictedDisplayTime, TrackedSpace::VIEW);
-        predictedPoses.view[(int)Side::LEFT_HAND].pose = fromXR(hmdViews[(int)Side::LEFT_HAND].pose) * mPlayerScale;
-        predictedPoses.view[(int)Side::RIGHT_HAND].pose = fromXR(hmdViews[(int)Side::RIGHT_HAND].pose) * mPlayerScale;
-        predictedPoses.view[(int)Side::LEFT_HAND].fov = fromXR(hmdViews[(int)Side::LEFT_HAND].fov);
-        predictedPoses.view[(int)Side::RIGHT_HAND].fov = fromXR(hmdViews[(int)Side::RIGHT_HAND].fov);
-        auto stageViews = xr->impl().getPredictedViews(predictedDisplayTime, TrackedSpace::STAGE);
-        predictedPoses.eye[(int)Side::LEFT_HAND] = fromXR(stageViews[(int)Side::LEFT_HAND].pose) * mPlayerScale;
-        predictedPoses.eye[(int)Side::RIGHT_HAND] = fromXR(stageViews[(int)Side::RIGHT_HAND].pose) * mPlayerScale;
 
-        auto* input = Environment::get().getInputManager();
-        if (input)
-        {
-            predictedPoses.hands[(int)Side::LEFT_HAND] = input->getHandPose(predictedDisplayTime, TrackedSpace::STAGE, Side::LEFT_HAND) * mPlayerScale;
-            predictedPoses.hands[(int)Side::RIGHT_HAND] = input->getHandPose(predictedDisplayTime, TrackedSpace::STAGE, Side::RIGHT_HAND) * mPlayerScale;
-        }
-        xr->impl().disablePredictions();
+    xr->impl().enablePredictions();
+    predictedPoses.head = xr->impl().getPredictedLimbPose(predictedDisplayTime, TrackedLimb::HEAD, TrackedSpace::STAGE) * mPlayerScale;
+    auto hmdViews = xr->impl().getPredictedViews(predictedDisplayTime, TrackedSpace::VIEW);
+    predictedPoses.view[(int)Side::LEFT_HAND].pose = fromXR(hmdViews[(int)Side::LEFT_HAND].pose) * mPlayerScale;
+    predictedPoses.view[(int)Side::RIGHT_HAND].pose = fromXR(hmdViews[(int)Side::RIGHT_HAND].pose) * mPlayerScale;
+    predictedPoses.view[(int)Side::LEFT_HAND].fov = fromXR(hmdViews[(int)Side::LEFT_HAND].fov);
+    predictedPoses.view[(int)Side::RIGHT_HAND].fov = fromXR(hmdViews[(int)Side::RIGHT_HAND].fov);
+    auto stageViews = xr->impl().getPredictedViews(predictedDisplayTime, TrackedSpace::STAGE);
+    predictedPoses.eye[(int)Side::LEFT_HAND] = fromXR(stageViews[(int)Side::LEFT_HAND].pose) * mPlayerScale;
+    predictedPoses.eye[(int)Side::RIGHT_HAND] = fromXR(stageViews[(int)Side::RIGHT_HAND].pose) * mPlayerScale;
+
+    auto* input = Environment::get().getInputManager();
+    if (input)
+    {
+        predictedPoses.hands[(int)Side::LEFT_HAND] = input->getHandPose(predictedDisplayTime, TrackedSpace::STAGE, Side::LEFT_HAND) * mPlayerScale;
+        predictedPoses.hands[(int)Side::RIGHT_HAND] = input->getHandPose(predictedDisplayTime, TrackedSpace::STAGE, Side::RIGHT_HAND) * mPlayerScale;
     }
+    xr->impl().disablePredictions();
 
     auto& frame = getFrame(FramePhase::Update);
     frame.reset(new VRFrame);
@@ -240,6 +294,7 @@ void VRSession::prepareFrame()
     frame->mFrameNo = mFrames;
     frame->mPredictedPoses = predictedPoses;
     frame->mShouldRender = isRunning();
+    mFramesInFlight++;
 }
 
 const PoseSet& VRSession::predictedPoses(FramePhase phase)
@@ -298,8 +353,9 @@ void VRSession::movementAngles(float& yaw, float& pitch)
     // TODO: This strictly speaking violates the rule of not making predictions outside of prepareFrame()
     // I should either add VIEW hands to the predicted pose set, or compute this using STAGE poses
     // It would likely suffice to compute euler angles for STAGE head and hand and return the difference?
+    if (!getFrame(FramePhase::Update))
+        beginPhase(FramePhase::Update);
     auto lhandquat = input->getHandPose(getFrame(FramePhase::Update)->mPredictedDisplayTime, TrackedSpace::VIEW, Side::LEFT_HAND).orientation;
-    //predictedPoses(FramePhase::Predraw).hands[(int)TrackedSpace::VIEW][(int)MWVR::Side::LEFT_HAND].orientation;
     float roll = 0.f;
     getEulerAngles(lhandquat, yaw, pitch, roll);
 

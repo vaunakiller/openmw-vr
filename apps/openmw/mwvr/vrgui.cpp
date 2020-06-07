@@ -23,6 +23,7 @@
 #include "../mwbase/environment.hpp"
 #include "../mwbase/windowmanager.hpp"
 #include "../mwgui/windowbase.hpp"
+#include "../mwbase/statemanager.hpp"
 
 #include <MyGUI_Widget.h>
 #include <MyGUI_ILayer.h>
@@ -408,20 +409,11 @@ VRGUIManager::VRGUIManager(
     osg::ref_ptr<osgViewer::Viewer> viewer)
     : mOsgViewer(viewer)
 {
-    mGUIGeometriesRoot->setName("XR GUI Geometry Root");
-    mGUICamerasRoot->setName("XR GUI Cameras Root");
+    mGUIGeometriesRoot->setName("VR GUI Geometry Root");
+    mGUICamerasRoot->setName("VR GUI Cameras Root");
     auto* root = viewer->getSceneData();
-
-    SceneUtil::FindByNameVisitor findSceneVisitor("Scene Root");
-    root->accept(findSceneVisitor);
-    if(!findSceneVisitor.mFoundNode)
-    {
-        Log(Debug::Error) << "Scene Root doesn't exist";
-        return;
-    }
-
-    findSceneVisitor.mFoundNode->addChild(mGUIGeometriesRoot);
     root->asGroup()->addChild(mGUICamerasRoot);
+    root->asGroup()->addChild(mGUIGeometriesRoot);
         
 }
 
@@ -447,10 +439,12 @@ static const LayerConfig createDefaultConfig(int priority, bool background = tru
     };
 }
 LayerConfig gDefaultConfig = createDefaultConfig(1);
+LayerConfig gVideoPlayerConfig = createDefaultConfig(1, true, SizingMode::Fixed);
+LayerConfig gLoadingScreenConfig = createDefaultConfig(1, true, SizingMode::Fixed);
 LayerConfig gJournalBooksConfig = createDefaultConfig(2, false, SizingMode::Fixed);
 LayerConfig gDefaultWindowsConfig = createDefaultConfig(3, true);
 LayerConfig gMessageBoxConfig = createDefaultConfig(6, false, SizingMode::Auto);;
-LayerConfig gNotificationConfig = createDefaultConfig(7, false, SizingMode::Fixed);;
+LayerConfig gNotificationConfig = createDefaultConfig(7, false, SizingMode::Fixed);
 
 static const float sSideBySideRadius = 1.f;
 static const float sSideBySideAzimuthInterval = -osg::PI_4;
@@ -527,6 +521,8 @@ static std::map<std::string, LayerConfig&> gLayerConfigs =
     {"MessageBox", gMessageBoxConfig},
     {"Windows", gDefaultWindowsConfig},
     {"Notification", gNotificationConfig},
+    {"VideoPlayer", gVideoPlayerConfig},
+    {"LoadingScreen", gLoadingScreenConfig},
 };
 
 static std::set<std::string> layerBlacklist =
@@ -673,21 +669,41 @@ void VRGUIManager::setVisible(MWGui::Layout* widget, bool visible)
 
 void VRGUIManager::updateTracking(void)
 {
-    // Get head pose by reading the camera view matrix to place the GUI in the world.
-    osg::Vec3 eye{};
-    osg::Vec3 center{};
-    osg::Vec3 up{};
-    Pose headPose{};
     auto* world = MWBase::Environment::get().getWorld();
     if (!world)
         return;
     auto* camera = world->getRenderingManager().getCamera()->getOsgCamera();
     if (!camera)
         return;
-    camera->getViewMatrixAsLookAt(eye, center, up);
-    headPose.position = eye;
-    headPose.orientation = camera->getViewMatrix().getRotate();
-    headPose.orientation = headPose.orientation.inverse();
+    updateTracking(camera);
+}
+
+void VRGUIManager::updateTracking(osg::Camera* camera)
+{
+    // Get head pose by reading the camera view matrix to place the GUI in the world.
+    osg::Vec3 eye{};
+    osg::Vec3 center{};
+    osg::Vec3 up{};
+    Pose headPose{};
+
+    if (MWBase::Environment::get().getStateManager()->getState() == MWBase::StateManager::State_NoGame)
+    {
+        // If App is not running, tracking will not be propagated to camera.
+        // So we adopt stage space.
+        auto pose  = MWVR::Environment::get().getSession()->predictedPoses(MWVR::VRSession::FramePhase::Update).head;
+        osg::Vec3 position = pose.position * Environment::get().unitsPerMeter();
+        osg::Quat orientation = pose.orientation;
+        headPose.position = position;
+        headPose.orientation = orientation;
+    }
+    else
+    {
+        auto viewMatrix = camera->getViewMatrix();
+        viewMatrix.getLookAt(eye, center, up);
+        headPose.position = eye;
+        headPose.orientation = viewMatrix.getRotate();
+        headPose.orientation = headPose.orientation.inverse();
+    }
 
     mHeadPose = headPose;
 

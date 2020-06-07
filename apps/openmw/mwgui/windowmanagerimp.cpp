@@ -288,13 +288,13 @@ namespace MWGui
         MyGUI::PointerManager::getInstance().setVisible(false);
 
         mVideoBackground = MyGUI::Gui::getInstance().createWidgetReal<MyGUI::ImageBox>("ImageBox", 0,0,1,1,
-            MyGUI::Align::Default, "InputBlocker");
+            MyGUI::Align::Default, "VideoPlayer");
         mVideoBackground->setImageTexture("black");
         mVideoBackground->setVisible(false);
         mVideoBackground->setNeedMouseFocus(true);
         mVideoBackground->setNeedKeyFocus(true);
 
-        mVideoWidget = mVideoBackground->createWidgetReal<VideoWidget>("ImageBox", 0,0,1,1, MyGUI::Align::Default);
+        mVideoWidget = mVideoBackground->createWidgetReal<VideoWidget>("ImageBox", 0,0,1,1, MyGUI::Align::Default, "VideoPlayer");
         mVideoWidget->setNeedMouseFocus(true);
         mVideoWidget->setNeedKeyFocus(true);
         mVideoWidget->setVFS(resourceSystem->getVFS());
@@ -1969,6 +1969,7 @@ namespace MWGui
 
     void WindowManager::playVideo(const std::string &name, bool allowSkipping)
     {
+        auto* vrGuiManager = MWVR::Environment::get().getGUIManager();
         mVideoEnabled = true;
         mVideoWidget->playVideo("video\\" + name);
 
@@ -1989,6 +1990,9 @@ namespace MWGui
         setKeyFocusWidget(mVideoWidget);
 
         mVideoBackground->setVisible(true);
+
+        vrGuiManager->updateTracking(mViewer->getCamera());
+        vrGuiManager->insertLayer(mVideoBackground->getLayer()->getName());
 
         bool cursorWasVisible = mCursorVisible;
         setCursorVisible(false);
@@ -2019,6 +2023,7 @@ namespace MWGui
 
                 mViewer->eventTraversal();
                 mViewer->updateTraversal();
+                //vrGuiManager->updateTracking(mViewer->getCamera());
                 mViewer->renderingTraversals();
             }
             // at the time this function is called we are in the middle of a frame,
@@ -2039,6 +2044,7 @@ namespace MWGui
         // Restore normal rendering
         updateVisible();
 
+        vrGuiManager->removeLayer(mVideoBackground->getLayer()->getName());
         mVideoBackground->setVisible(false);
         mVideoEnabled = false;
     }

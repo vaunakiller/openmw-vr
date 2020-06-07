@@ -137,6 +137,7 @@ namespace MWVR
         void removeWidget(MWGui::Layout* widget);
 
         void updateTracking(void);
+        void updateTracking(osg::Camera* camera);
 
         bool updateFocus();
 

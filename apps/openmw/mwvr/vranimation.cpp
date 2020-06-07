@@ -274,10 +274,11 @@ void HandController::operator()(osg::Node* node, osg::NodeVisitor* nv)
     osg::Quat rotate{ 0,0,0,1 };
     auto* world = MWBase::Environment::get().getWorld();
     auto windowManager = MWBase::Environment::get().getWindowManager();
+    auto animation = MWVR::Environment::get().getPlayerAnimation();
     auto weaponType = world->getActiveWeaponType();
     // Morrowind models do not hold most weapons at a natural angle, so i rotate the hand
     // to more natural angles on weapons to allow more comfortable combat.
-    if (!windowManager->isGuiMode())
+    if (!windowManager->isGuiMode() && !animation->isPointingForward())
     {
 
         switch (weaponType)
@@ -407,10 +408,8 @@ void WeaponPointerController::operator()(osg::Node* node, osg::NodeVisitor* nv)
     }
     else
     {
-        // Hide the pointer
         matrixTransform->setMatrix(
             osg::Matrix::scale(1.f, 64.f, 1.f)
-            //osg::Matrix::scale(0.f, 0.f, 0.f)
         );
     }
 
