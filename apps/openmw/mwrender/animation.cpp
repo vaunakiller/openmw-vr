@@ -909,7 +909,7 @@ namespace MWRender
 
         if (isPlayer)
         {
-            Log(Debug::Debug) << "groupname=" << groupname << ", start=" << start << ", stop=" << stop << ", accumRoot=" << mAccumRoot->getName();
+            Log(Debug::Verbose) << "groupname=" << groupname << ", start=" << start << ", stop=" << stop << ", accumRoot=" << mAccumRoot->getName();
         }
 
         AnimStateMap::iterator stateiter = mStates.begin();
@@ -1074,12 +1074,11 @@ namespace MWRender
     {
 #ifdef USE_OPENXR
         // TODO: It's difficult to design a good override system when
-        // I don't have a good understanding of the animation code. So  for
-        // now i just block adding updates for nodes that should not be animated in VR.
+        // I don't have a good understanding of the animation code. So for
+        // now i just hardcode blocking of updaters for nodes that should not be animated in VR.
 
         // TODO: Some overrides cause NaN during cull.
-        // I believe this happens if an override causes a bone to never receive
-        // a valid matrix, but i'm not totally sure.
+        // I aassume this happens if an override causes a bone to never receive a valid matrix
         
         // Add any bone+groupname pair that is messing with Vr comfort here.
         using Overrides = std::set<std::string>;
@@ -1094,6 +1093,12 @@ namespace MWRender
             },
             {
                 "throwweapon",
+                {
+                    "weapon bone"
+                }
+            },
+            {
+                "bowandarrow",
                 {
                     "weapon bone"
                 }

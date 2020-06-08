@@ -105,7 +105,7 @@ void VRSession::swapBuffers(osg::GraphicsContext* gc, VRViewer& viewer)
 
     beginPhase(FramePhase::Swap);
 
-    if (getFrame(FramePhase::Swap)->mShouldRender)
+    if (getFrame(FramePhase::Swap)->mShouldRender && isRunning())
     {
         auto leftView = viewer.mViews["LeftEye"];
         auto rightView = viewer.mViews["RightEye"];

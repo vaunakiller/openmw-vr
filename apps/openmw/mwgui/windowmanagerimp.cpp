@@ -1969,7 +1969,6 @@ namespace MWGui
 
     void WindowManager::playVideo(const std::string &name, bool allowSkipping)
     {
-        auto* vrGuiManager = MWVR::Environment::get().getGUIManager();
         mVideoEnabled = true;
         mVideoWidget->playVideo("video\\" + name);
 
@@ -1991,8 +1990,11 @@ namespace MWGui
 
         mVideoBackground->setVisible(true);
 
+#ifdef USE_OPENXR
+        auto* vrGuiManager = MWVR::Environment::get().getGUIManager();
         vrGuiManager->updateTracking(mViewer->getCamera());
         vrGuiManager->insertLayer(mVideoBackground->getLayer()->getName());
+#endif
 
         bool cursorWasVisible = mCursorVisible;
         setCursorVisible(false);
@@ -2023,7 +2025,6 @@ namespace MWGui
 
                 mViewer->eventTraversal();
                 mViewer->updateTraversal();
-                //vrGuiManager->updateTracking(mViewer->getCamera());
                 mViewer->renderingTraversals();
             }
             // at the time this function is called we are in the middle of a frame,
@@ -2044,7 +2045,9 @@ namespace MWGui
         // Restore normal rendering
         updateVisible();
 
+#ifdef USE_OPENXR
         vrGuiManager->removeLayer(mVideoBackground->getLayer()->getName());
+#endif
         mVideoBackground->setVisible(false);
         mVideoEnabled = false;
     }
