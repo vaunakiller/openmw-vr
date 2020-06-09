@@ -959,6 +959,11 @@ private:
         mXRInput->applyHaptics(OpenXRInput::RIGHT_HAND, intensity);
     }
 
+    void OpenXRInputManager::requestRecenter()
+    {
+        mShouldRecenter = true;
+    }
+
     OpenXRInputManager::OpenXRInputManager(
         SDL_Window* window,
         osg::ref_ptr<osgViewer::Viewer> viewer, 
@@ -1212,7 +1217,7 @@ private:
             case OpenXRInput::A_Recenter:
                 xrGUIManager->updateTracking();
                 if(!MWBase::Environment::get().getWindowManager()->isGuiMode())
-                    mShouldRecenter = true;
+                    requestRecenter();
                 break;
             case MWInput::A_Use:
                 if (mActivationIndication || MWBase::Environment::get().getWindowManager()->isGuiMode())
@@ -1256,10 +1261,20 @@ private:
 
         if (mShouldRecenter)
         {
-            mHeadOffset = osg::Vec3(0, 0, 0);
+            // Move position of head to center of character 
             // Z should not be affected
+            mHeadOffset = osg::Vec3(0, 0, 0);
             mHeadOffset.z() = mHeadPose.position.z();
+
+            // Adjust orientation to zero yaw
+            float yaw = 0.f;
+            float pitch = 0.f;
+            float roll = 0.f;
+            getEulerAngles(mHeadPose.orientation, yaw, pitch, roll);
+            mYaw = -yaw;
+
             mShouldRecenter = false;
+            Log(Debug::Verbose) << "Recentered (" << mYaw << ")";
         }
         else
         {

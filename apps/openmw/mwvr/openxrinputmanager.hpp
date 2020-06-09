@@ -53,6 +53,8 @@ namespace MWVR
         void applyHapticsLeftHand(float intensity) override;
         void applyHapticsRightHand(float intensity) override;
 
+        void requestRecenter();
+
         std::unique_ptr<OpenXRInput> mXRInput;
         std::unique_ptr<RealisticCombat::StateMachine> mRealisticCombat;
         Pose mHeadPose{};

@@ -76,6 +76,7 @@
 #ifdef USE_OPENXR
 #include "../mwvr/vrenvironment.hpp"
 #include "../mwvr/vranimation.hpp"
+#include "../mwvr/openxrinputmanager.hpp"
 #endif
 
 namespace
@@ -1066,6 +1067,12 @@ namespace MWWorld
         removeContainerScripts(getPlayerPtr());
         mWorldScene->changeToInteriorCell(cellName, position, adjustPlayerPos, changeEvent);
         addContainerScripts(getPlayerPtr(), getPlayerPtr().getCell());
+
+#ifdef USE_OPENXR
+        auto* xrInput = MWVR::Environment::get().getInputManager();
+        if (xrInput)
+            xrInput->requestRecenter();
+#endif
     }
 
     void World::changeToExteriorCell (const ESM::Position& position, bool adjustPlayerPos, bool changeEvent)
@@ -1081,6 +1088,12 @@ namespace MWWorld
         removeContainerScripts(getPlayerPtr());
         mWorldScene->changeToExteriorCell(position, adjustPlayerPos, changeEvent);
         addContainerScripts(getPlayerPtr(), getPlayerPtr().getCell());
+
+#ifdef USE_OPENXR
+        auto* xrInput = MWVR::Environment::get().getInputManager();
+        if (xrInput)
+            xrInput->requestRecenter();
+#endif
     }
 
     void World::changeToCell (const ESM::CellId& cellId, const ESM::Position& position, bool adjustPlayerPos, bool changeEvent)
