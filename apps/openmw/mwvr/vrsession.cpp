@@ -198,7 +198,7 @@ void VRSession::beginPhase(FramePhase phase)
     // Thought: Add an Shadowmapping phase and invoke it from the shadow code
     // But with shadows rendering occurs during cull and we must do frame sync before those calls.
     // If you want to pay the FPS toll and play with shadows, change FramePhase::Draw to FramePhase::Cull or enjoy your eyes getting torn apart by jitters.
-    if (phase == FramePhase::Draw && getFrame(phase)->mShouldRender)
+    if (phase == FramePhase::Cull && getFrame(phase)->mShouldRender)
         doFrameSync();
 }
 
