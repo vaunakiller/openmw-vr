@@ -22,86 +22,6 @@
 
 namespace MWVR
 {
-    
-
-    static std::vector<Timer::MeasurementContext> stats;
-    static std::mutex statsMutex;
-    static std::thread statsThread;
-    static bool statsThreadRunning = false;
-
-    static void statsThreadRun()
-    {
-        //while (statsThreadRunning)
-        //{
-        //    std::stringstream ss;
-        //    for (auto& context : stats)
-        //    {
-        //        for (auto& measurement : *context.second)
-        //        {
-        //            double ms = static_cast<double>(measurement.second) / 1000000.;
-        //            Log(Debug::Verbose) << context.first << "." << measurement.first << ": " << ms << "ms";
-        //        }
-        //    }
-
-        //    Log(Debug::Verbose) << ss.str();
-
-        //    std::this_thread::sleep_for(std::chrono::seconds(1));
-        //}
-    }
-
-    Timer::Timer(const char* name) : mName(name)
-    {
-        mLastCheckpoint = mBegin = std::chrono::steady_clock::now();
-
-        std::unique_lock<std::mutex> lock(statsMutex);
-        for (auto& m : stats)
-        {
-            if (m.first == mName)
-                mContext = m.second;
-        }
-
-        if (mContext == nullptr)
-        {
-            mContext = new Measures();
-            mContext->reserve(32);
-            stats.emplace_back(MeasurementContext(mName, mContext));
-        }
-
-        //if (!statsThreadRunning)
-        //{
-        //    statsThreadRunning = true;
-        //    statsThread = std::thread([] { statsThreadRun(); });
-        //}
-    }
-    Timer::~Timer()
-    {
-        //statsThreadRunning = false;
-        checkpoint("~");
-    }
-
-    void Timer::checkpoint(const char* name)
-    {
-        auto now = std::chrono::steady_clock::now();
-        auto elapsed = std::chrono::duration_cast<std::chrono::nanoseconds>(now - mLastCheckpoint);
-        mLastCheckpoint = now;
-
-        Measure* measure = nullptr;
-        for (auto& m : *mContext)
-        {
-            if (m.first == name)
-            {
-                measure = &m;
-            }
-        }
-        if (!measure)
-        {
-            mContext->push_back(Measure(name, elapsed.count()));
-        }
-        else {
-            measure->second = measure->second * 0.95 + elapsed.count() * 0.05;
-        }
-    }
-
     OpenXRManager::OpenXRManager()
         : mPrivate(nullptr)
         , mMutex()
@@ -118,14 +38,6 @@ namespace MWVR
         OpenXRManager::realized()
     {
         return !!mPrivate;
-    }
-
-    long long
-        OpenXRManager::frameIndex()
-    {
-        if (realized())
-            return impl().mFrameIndex;
-        return -1;
     }
 
     bool OpenXRManager::sessionRunning()
@@ -153,7 +65,7 @@ namespace MWVR
             return impl().beginFrame();
     }
 
-    void OpenXRManager::endFrame(int64_t displayTime, int layerCount, XrCompositionLayerBaseHeader** layerStack)
+    void OpenXRManager::endFrame(int64_t displayTime, int layerCount, const std::array<CompositionLayerProjectionView, 2>& layerStack)
     {
         if (realized())
             return impl().endFrame(displayTime, layerCount, layerStack);
@@ -192,6 +104,31 @@ namespace MWVR
         return 0;
     }
 
+    void OpenXRManager::enablePredictions()
+    {
+        return impl().enablePredictions();
+    }
+
+    void OpenXRManager::disablePredictions()
+    {
+        return impl().disablePredictions();
+    }
+
+    std::array<View, 2> OpenXRManager::getPredictedViews(int64_t predictedDisplayTime, TrackedSpace space)
+    {
+        return impl().getPredictedViews(predictedDisplayTime, space);
+    }
+
+    MWVR::Pose OpenXRManager::getPredictedHeadPose(int64_t predictedDisplayTime, TrackedSpace space)
+    {
+        return impl().getPredictedHeadPose(predictedDisplayTime, space);
+    }
+
+    long long OpenXRManager::getLastPredictedDisplayPeriod()
+    {
+        return impl().getLastPredictedDisplayPeriod();
+    }
+
     void
         OpenXRManager::RealizeOperation::operator()(
             osg::GraphicsContext* gc)
@@ -213,115 +150,5 @@ namespace MWVR
     {
 
     }
-
-    Pose Pose::operator+(const Pose& rhs)
-    {
-        Pose pose = *this;
-        pose.position += this->orientation * rhs.position;
-        pose.orientation = rhs.orientation * this->orientation;
-        return pose;
-    }
-
-    const Pose& Pose::operator+=(const Pose& rhs)
-    {
-        *this = *this + rhs;
-        return *this;
-    }
-
-    Pose Pose::operator*(float scalar)
-    {
-        Pose pose = *this;
-        pose.position *= scalar;
-        pose.velocity *= scalar;
-        return pose;
-    }
-
-    const Pose& Pose::operator*=(float scalar)
-    {
-        *this = *this * scalar;
-        return *this;
-    }
-
-    bool Pose::operator==(const Pose& rhs) const
-    {
-      return position == rhs.position && orientation == rhs.orientation && velocity == rhs.velocity;
-    }
-
-    bool FieldOfView::operator==(const FieldOfView& rhs) const
-    {
-        return angleDown == rhs.angleDown
-            && angleUp == rhs.angleUp
-            && angleLeft == rhs.angleLeft
-            && angleRight == rhs.angleRight;
-    }
-
-    // near and far named with an underscore because of galaxy brain defines in included windows headers.
-    osg::Matrix FieldOfView::perspectiveMatrix(float near_, float far_)
-    {
-        const float tanLeft = tanf(angleLeft);
-        const float tanRight = tanf(angleRight);
-        const float tanDown = tanf(angleDown);
-        const float tanUp = tanf(angleUp);
-
-        const float tanWidth = tanRight - tanLeft;
-        const float tanHeight = tanUp - tanDown;
-
-        const float offset = near_;
-
-        float matrix[16] = {};
-
-        matrix[0] = 2 / tanWidth;
-        matrix[4] = 0;
-        matrix[8] = (tanRight + tanLeft) / tanWidth;
-        matrix[12] = 0;
-
-        matrix[1] = 0;
-        matrix[5] = 2 / tanHeight;
-        matrix[9] = (tanUp + tanDown) / tanHeight;
-        matrix[13] = 0;
-
-        if (far_ <= near_) {
-            matrix[2] = 0;
-            matrix[6] = 0;
-            matrix[10] = -1;
-            matrix[14] = -(near_ + offset);
-        }
-        else {
-            matrix[2] = 0;
-            matrix[6] = 0;
-            matrix[10] = -(far_ + offset) / (far_ - near_);
-            matrix[14] = -(far_ * (near_ + offset)) / (far_ - near_);
-        }
-
-        matrix[3] = 0;
-        matrix[7] = 0;
-        matrix[11] = -1;
-        matrix[15] = 0;
-
-        return osg::Matrix(matrix);
-    }
-    bool PoseSet::operator==(const PoseSet& rhs) const
-    {
-        return  eye[0] == rhs.eye[0]
-            && eye[1] == rhs.eye[1]
-            && hands[0] == rhs.hands[0]
-            && hands[1] == rhs.hands[1]
-            && view[0] == rhs.view[0]
-            && view[1] == rhs.view[1]
-            && head == rhs.head;
-
-    }
-    bool View::operator==(const View& rhs) const
-    {
-        return pose == rhs.pose && fov == rhs.fov;
-    }
-}
-
-std::ostream& operator <<(
-    std::ostream& os,
-    const MWVR::Pose& pose)
-{
-    os << "position=" << pose.position << " orientation=" << pose.orientation << " velocity=" << pose.velocity;
-    return os;
 }
 

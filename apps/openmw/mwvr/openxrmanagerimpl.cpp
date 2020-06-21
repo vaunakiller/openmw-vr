@@ -1,4 +1,5 @@
 #include "openxrmanagerimpl.hpp"
+#include "openxrswapchain.hpp"
 #include "vrtexture.hpp"
 
 #include <components/debug/debuglog.hpp>
@@ -72,18 +73,11 @@ namespace MWVR
         }
 
         { // Initialize OpenGL device
-
-          // This doesn't appear to be intended to do anything of consequence, only return requirements to me. But xrCreateSession fails if xrGetOpenGLGraphicsRequirementsKHR is not called.
-          // Oculus Bug?
+            // Despite its name, xrGetOpenGLGraphicsRequirementsKHR is a required function call that sets up an opengl instance.
             PFN_xrGetOpenGLGraphicsRequirementsKHR p_getRequirements = nullptr;
             xrGetInstanceProcAddr(mInstance, "xrGetOpenGLGraphicsRequirementsKHR", reinterpret_cast<PFN_xrVoidFunction*>(&p_getRequirements));
             XrGraphicsRequirementsOpenGLKHR requirements{ XR_TYPE_GRAPHICS_REQUIREMENTS_OPENGL_KHR };
             CHECK_XRCMD(p_getRequirements(mInstance, mSystemId, &requirements));
-
-            //GLint major = 0;
-            //GLint minor = 0;
-            //glGetIntegerv(GL_MAJOR_VERSION, &major);
-            //glGetIntegerv(GL_MINOR_VERSION, &minor);
 
             const XrVersion desiredApiVersion = XR_MAKE_VERSION(4, 6, 0);
             if (requirements.minApiVersionSupported > desiredApiVersion) {
@@ -246,10 +240,7 @@ namespace MWVR
 
         XrInstanceProperties instanceProperties{ XR_TYPE_INSTANCE_PROPERTIES };
         xrGetInstanceProperties(mInstance, &instanceProperties);
-
-        std::stringstream ss;
-        ss << "Instance RuntimeName=" << instanceProperties.runtimeName << " RuntimeVersion=" << instanceProperties.runtimeVersion;
-        Log(Debug::Verbose) << ss.str();
+        Log(Debug::Verbose) << "Instance RuntimeName=" << instanceProperties.runtimeName << " RuntimeVersion=" << instanceProperties.runtimeVersion;
     }
 
     void
@@ -277,22 +268,11 @@ namespace MWVR
     void
         OpenXRManagerImpl::waitFrame()
     {
-
-        auto DC = wglGetCurrentDC();
-        auto GLRC = wglGetCurrentContext();
-        auto XRDC = mGraphicsBinding.hDC;
-        auto XRGLRC = mGraphicsBinding.hGLRC;
-        wglMakeCurrent(XRDC, XRGLRC);
-
-        Timer timer("waitFrame()");
-
         XrFrameWaitInfo frameWaitInfo{ XR_TYPE_FRAME_WAIT_INFO };
         XrFrameState frameState{ XR_TYPE_FRAME_STATE };
 
         CHECK_XRCMD(xrWaitFrame(mSession, &frameWaitInfo, &frameState));
         mFrameState = frameState;
-
-        wglMakeCurrent(DC, GLRC);
     }
 
     void
@@ -304,15 +284,26 @@ namespace MWVR
         auto XRGLRC = mGraphicsBinding.hGLRC;
         wglMakeCurrent(XRDC, XRGLRC);
 
-        Timer timer("beginFrame");
         XrFrameBeginInfo frameBeginInfo{ XR_TYPE_FRAME_BEGIN_INFO };
         CHECK_XRCMD(xrBeginFrame(mSession, &frameBeginInfo));
 
         wglMakeCurrent(DC, GLRC);
     }
 
+    XrCompositionLayerProjectionView toXR(MWVR::CompositionLayerProjectionView layer)
+    {
+        XrCompositionLayerProjectionView xrLayer;
+        xrLayer.type = XR_TYPE_COMPOSITION_LAYER_PROJECTION_VIEW;
+        xrLayer.subImage = layer.swapchain->subImage();
+        xrLayer.pose = toXR(layer.pose);
+        xrLayer.fov = toXR(layer.fov);
+        xrLayer.next = nullptr;
+        
+        return xrLayer;
+    }
+
     void
-        OpenXRManagerImpl::endFrame(int64_t displayTime, int layerCount, XrCompositionLayerBaseHeader** layerStack)
+        OpenXRManagerImpl::endFrame(int64_t displayTime, int layerCount, const std::array<CompositionLayerProjectionView, 2>& layerStack)
     {
         auto DC = wglGetCurrentDC();
         auto GLRC = wglGetCurrentContext();
@@ -320,18 +311,27 @@ namespace MWVR
         auto XRGLRC = mGraphicsBinding.hGLRC;
         wglMakeCurrent(XRDC, XRGLRC);
 
-        Timer timer("endFrame()");
+        std::array<XrCompositionLayerProjectionView, 2> compositionLayerProjectionViews{};
+        compositionLayerProjectionViews[(int)Side::LEFT_SIDE] = toXR(layerStack[(int)Side::LEFT_SIDE]);
+        compositionLayerProjectionViews[(int)Side::RIGHT_SIDE] = toXR(layerStack[(int)Side::RIGHT_SIDE]);
+        XrCompositionLayerProjection layer{};
+        layer.type = XR_TYPE_COMPOSITION_LAYER_PROJECTION;
+        layer.space = getReferenceSpace(TrackedSpace::STAGE);
+        layer.viewCount = 2;
+        layer.views = compositionLayerProjectionViews.data();
+        auto* xrLayerStack = reinterpret_cast<XrCompositionLayerBaseHeader*>(&layer);
+
         XrFrameEndInfo frameEndInfo{ XR_TYPE_FRAME_END_INFO };
         frameEndInfo.displayTime = displayTime;
         frameEndInfo.environmentBlendMode = mEnvironmentBlendMode;
         frameEndInfo.layerCount = layerCount;
-        frameEndInfo.layers = layerStack;
+        frameEndInfo.layers = &xrLayerStack;
         CHECK_XRCMD(xrEndFrame(mSession, &frameEndInfo));
 
         wglMakeCurrent(DC, GLRC);
     }
 
-    std::array<XrView, 2> 
+    std::array<View, 2> 
         OpenXRManagerImpl::getPredictedViews(
             int64_t predictedDisplayTime,
             TrackedSpace space)
@@ -341,7 +341,7 @@ namespace MWVR
             Log(Debug::Error) << "Prediction out of order";
             throw std::logic_error("Prediction out of order");
         }
-        std::array<XrView, 2> views{ {{XR_TYPE_VIEW}, {XR_TYPE_VIEW}} };
+        std::array<XrView, 2> xrViews{ {{XR_TYPE_VIEW}, {XR_TYPE_VIEW}} };
         XrViewState viewState{ XR_TYPE_VIEW_STATE };
         uint32_t viewCount = 2;
 
@@ -357,12 +357,19 @@ namespace MWVR
             viewLocateInfo.space = mReferenceSpaceView;
             break;
         }
-        CHECK_XRCMD(xrLocateViews(mSession, &viewLocateInfo, &viewState, viewCount, &viewCount, views.data()));
+        CHECK_XRCMD(xrLocateViews(mSession, &viewLocateInfo, &viewState, viewCount, &viewCount, xrViews.data()));
 
-        return views;
+        std::array<View, 2> vrViews{};
+        vrViews[(int)Side::LEFT_SIDE].pose = fromXR(xrViews[(int)Side::LEFT_SIDE].pose);
+        vrViews[(int)Side::RIGHT_SIDE].pose = fromXR(xrViews[(int)Side::RIGHT_SIDE].pose);
+        vrViews[(int)Side::LEFT_SIDE].fov = fromXR(xrViews[(int)Side::LEFT_SIDE].fov);
+        vrViews[(int)Side::RIGHT_SIDE].fov = fromXR(xrViews[(int)Side::RIGHT_SIDE].fov);
+        return vrViews;
     }
 
-    MWVR::Pose OpenXRManagerImpl::getPredictedLimbPose(int64_t predictedDisplayTime, TrackedLimb limb, TrackedSpace space)
+    MWVR::Pose OpenXRManagerImpl::getPredictedHeadPose(
+        int64_t predictedDisplayTime,
+        TrackedSpace space)
     {
         if (!mPredictionsEnabled)
         {
@@ -370,22 +377,9 @@ namespace MWVR
             throw std::logic_error("Prediction out of order");
         }
         XrSpaceLocation location{ XR_TYPE_SPACE_LOCATION };
-        XrSpaceVelocity velocity{ XR_TYPE_SPACE_VELOCITY };
-        location.next = &velocity;
-        XrSpace limbSpace = XR_NULL_HANDLE;
+        XrSpace limbSpace = mReferenceSpaceView;
         XrSpace referenceSpace = XR_NULL_HANDLE;
-        switch (limb)
-        {
-        case TrackedLimb::HEAD:
-            limbSpace = mReferenceSpaceView;
-            break;
-        case TrackedLimb::LEFT_HAND:
-            limbSpace = mReferenceSpaceView;
-            break;
-        case TrackedLimb::RIGHT_HAND:
-            limbSpace = mReferenceSpaceView;
-            break;
-        }
+
         switch (space)
         {
         case TrackedSpace::STAGE:
@@ -396,8 +390,7 @@ namespace MWVR
             break;
         }
         CHECK_XRCMD(xrLocateSpace(limbSpace, referenceSpace, predictedDisplayTime, &location));
-        //if (!(velocity.velocityFlags & XR_SPACE_VELOCITY_LINEAR_VALID_BIT))
-        //    Log(Debug::Warning) << "Unable to acquire linear velocity";
+
         if (!location.locationFlags & XR_SPACE_LOCATION_ORIENTATION_VALID_BIT)
         {
             // Quat must have a magnitude of 1 but openxr sets it to 0 when tracking is unavailable.
@@ -406,8 +399,7 @@ namespace MWVR
         }
         return MWVR::Pose{
             osg::fromXR(location.pose.position),
-            osg::fromXR(location.pose.orientation),
-            osg::fromXR(velocity.linearVelocity)
+            osg::fromXR(location.pose.orientation)
         };
     }
 
@@ -530,13 +522,20 @@ namespace MWVR
             referenceSpace = mReferenceSpaceView;
         return referenceSpace;
     }
+
     void OpenXRManagerImpl::enablePredictions()
     {
         mPredictionsEnabled = true;
     }
+
     void OpenXRManagerImpl::disablePredictions()
     {
         mPredictionsEnabled = false;
+    }
+
+    long long OpenXRManagerImpl::getLastPredictedDisplayPeriod()
+    {
+        return mFrameState.predictedDisplayPeriod;
     }
 }
 

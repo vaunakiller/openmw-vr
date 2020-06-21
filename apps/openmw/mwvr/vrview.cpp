@@ -31,7 +31,6 @@ namespace MWVR {
         : mSwapchainConfig{ config }
         , mSwapchain(new OpenXRSwapchain(state, mSwapchainConfig))
         , mName(name)
-        , mTimer(mName.c_str())
     {
     }
 
@@ -75,7 +74,6 @@ namespace MWVR {
         {
             mSwapchain->beginFrame(renderInfo.getState()->getGraphicsContext());
         }
-        mTimer.checkpoint("Prerender");
 
     }
 
@@ -97,14 +95,12 @@ namespace MWVR {
             osg::View& view,
             osg::View::Slave& slave)
     {
-        mView->mTimer.checkpoint("UpdateSlave");
-
         auto* camera = slave._camera.get();
         auto name = camera->getName();
 
-        Side side = Side::RIGHT_HAND;
+        Side side = Side::RIGHT_SIDE;
         if (name == "LeftEye")
-            side = Side::LEFT_HAND;
+            side = Side::LEFT_SIDE;
 
         auto* session = Environment::get().getSession();
         auto viewMatrix = view.getCamera()->getViewMatrix();
@@ -120,7 +116,6 @@ namespace MWVR {
     void VRView::postrenderCallback(osg::RenderInfo& renderInfo)
     {
         auto name = renderInfo.getCurrentCamera()->getName();
-        mTimer.checkpoint("Postrender");
     }
 
     void VRView::swapBuffers(osg::GraphicsContext* gc)

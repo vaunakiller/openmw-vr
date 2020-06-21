@@ -25,6 +25,10 @@ public:
     using clock = std::chrono::steady_clock;
     using time_point = clock::time_point;
 
+    //! Describes different phases of updating/rendering each frame.
+    //! While two phases suffice for disambiguating current and next frame,
+    //! greater granularity allows better control of synchronization
+    //! with the VR runtime.
     enum class FramePhase
     {
         Update = 0, //!< The frame currently in update traversals
@@ -34,13 +38,12 @@ public:
         NumPhases
     };
 
-    struct VRFrame
+    struct VRFrameMeta
     {
         long long   mFrameNo{ 0 };
         long long   mPredictedDisplayTime{ 0 };
         PoseSet     mPredictedPoses{};
         bool        mShouldRender{ false };
-        bool        mHasWaited{ false };
     };
 
 public:
@@ -61,7 +64,7 @@ public:
     void movementAngles(float& yaw, float& pitch);
 
     void beginPhase(FramePhase phase);
-    std::unique_ptr<VRFrame>& getFrame(FramePhase phase);
+    std::unique_ptr<VRFrameMeta>& getFrame(FramePhase phase);
 
     bool isRunning() const;
 
@@ -72,7 +75,7 @@ public:
     osg::Matrix projectionMatrix(FramePhase phase, Side side);
 
     int mFramesInFlight{ 0 };
-    std::array<std::unique_ptr<VRFrame>, (int)FramePhase::NumPhases> mFrame{ nullptr };
+    std::array<std::unique_ptr<VRFrameMeta>, (int)FramePhase::NumPhases> mFrame{ nullptr };
 
     std::mutex mMutex{};
     std::condition_variable mCondition{};

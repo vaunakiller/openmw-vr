@@ -12,6 +12,7 @@
 #include <components/settings/settings.hpp>
 #include <osg/Camera>
 #include <osgViewer/Viewer>
+#include "vrtypes.hpp"
 
 
 struct XrSwapchainSubImage;
@@ -19,92 +20,6 @@ struct XrCompositionLayerBaseHeader;
 
 namespace MWVR
 {
-    struct Timer
-    {
-        using Measure = std::pair < const char*, int64_t >;
-        using Measures = std::vector < Measure >;
-        using MeasurementContext = std::pair < const char*, Measures* >;
-
-        Timer(const char* name);
-        ~Timer();
-        void checkpoint(const char* name);
-
-        std::chrono::steady_clock::time_point mBegin;
-        std::chrono::steady_clock::time_point mLastCheckpoint;
-        const char* mName = nullptr;
-        Measures* mContext = nullptr;
-    };
-
-    //! Represents the pose of a limb in VR space.
-    struct Pose
-    {
-        //! Position in VR space
-        osg::Vec3 position{ 0,0,0 };
-        //! Orientation in VR space.
-        osg::Quat orientation{ 0,0,0,1 };
-        //! Speed of movement in VR space, expressed in meters per second
-        osg::Vec3 velocity{ 0,0,0 };
-
-        //! Add one pose to another
-        Pose operator+(const Pose& rhs);
-        const Pose& operator+=(const Pose& rhs);
-
-        //! Scale a pose (does not affect orientation)
-        Pose operator*(float scalar);
-        const Pose& operator*=(float scalar);
-
-        bool operator==(const Pose& rhs) const;
-    };
-
-    struct FieldOfView {
-        float    angleLeft;
-        float    angleRight;
-        float    angleUp;
-        float    angleDown;
-
-        bool operator==(const FieldOfView& rhs) const;
-
-        osg::Matrix perspectiveMatrix(float near, float far);
-    };
-
-    struct View
-    {
-        Pose pose;
-        FieldOfView fov;
-        bool operator==(const View& rhs) const;
-    };
-
-    struct PoseSet
-    {
-        View view[2]{};
-        Pose eye[2]{};
-        Pose hands[2]{};
-        Pose head{};
-
-        bool operator==(const PoseSet& rhs) const;
-    };
-
-    //! Describes what limb to track.
-    enum class TrackedLimb
-    {
-        LEFT_HAND,
-        RIGHT_HAND,
-        HEAD
-    };
-
-    //! Describes what space to track the limb in
-    enum class TrackedSpace
-    {
-        STAGE=0, //!< Track limb in the VR stage space. Meaning a space with a floor level origin and fixed horizontal orientation.
-        VIEW=1 //!< Track limb in the VR view space. Meaning a space with the head as origin and orientation.
-    };
-
-    enum class Side
-    {
-        LEFT_HAND = 0,
-        RIGHT_HAND = 1
-    };
-
     // Use the pimpl pattern to avoid cluttering the namespace with openxr dependencies.
     class OpenXRManagerImpl;
 
@@ -130,6 +45,7 @@ namespace MWVR
         private:
         };
 
+
     public:
         OpenXRManager();
 
@@ -143,12 +59,18 @@ namespace MWVR
         void handleEvents();
         void waitFrame();
         void beginFrame();
-        void endFrame(int64_t displayTime, int layerCount, XrCompositionLayerBaseHeader** layerStack);
+        void endFrame(int64_t displayTime, int layerCount, const std::array<CompositionLayerProjectionView, 2>& layerStack);
         void updateControls();
 
         void realize(osg::GraphicsContext* gc);
 
         int eyes();
+
+        void enablePredictions();
+        void disablePredictions();
+        std::array<View, 2> getPredictedViews(int64_t predictedDisplayTime, TrackedSpace space);
+        MWVR::Pose getPredictedHeadPose(int64_t predictedDisplayTime, TrackedSpace space);
+        long long getLastPredictedDisplayPeriod();
 
         OpenXRManagerImpl& impl() { return *mPrivate; }
 

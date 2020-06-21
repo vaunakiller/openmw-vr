@@ -56,7 +56,6 @@ namespace MWVR
         std::unique_ptr<OpenXRSwapchain> mSwapchain;
         std::string mName{};
         bool mRendering{ false };
-        Timer mTimer;
     };
 }
 

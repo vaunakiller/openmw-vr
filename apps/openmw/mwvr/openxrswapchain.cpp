@@ -150,7 +150,6 @@ namespace MWVR {
 
     void OpenXRSwapchainImpl::endFrame(osg::GraphicsContext* gc)
     {
-        Timer timer("Swapchain::endFrame");
         // Blit frame to swapchain
         acquire(gc);
         renderBuffer()->endFrame(gc, acquiredImage());

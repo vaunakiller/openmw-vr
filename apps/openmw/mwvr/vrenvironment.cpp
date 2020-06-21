@@ -3,7 +3,7 @@
 #include <cassert>
 
 #include "vranimation.hpp"
-#include "openxrinputmanager.hpp"
+#include "vrinputmanager.hpp"
 #include "vrsession.hpp"
 #include "vrgui.hpp"
 

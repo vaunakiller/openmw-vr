@@ -122,8 +122,10 @@ endif ()
 if(BUILD_VR_OPENXR)
     set(OPENMW_VR_FILES
         vrengine.cpp
-        mwvr/openxrinputmanager.hpp
-        mwvr/openxrinputmanager.cpp
+        mwvr/openxraction.hpp
+        mwvr/openxraction.cpp
+        mwvr/openxrinput.hpp
+        mwvr/openxrinput.cpp
         mwvr/openxrmanager.hpp
         mwvr/openxrmanager.cpp
         mwvr/openxrmanagerimpl.hpp 
@@ -138,10 +140,16 @@ if(BUILD_VR_OPENXR)
         mwvr/vrenvironment.cpp
         mwvr/vrgui.hpp
         mwvr/vrgui.cpp
+        mwvr/vrinputmanager.hpp
+        mwvr/vrinputmanager.cpp
+        mwvr/vrinput.hpp
+        mwvr/vrinput.cpp
         mwvr/vrsession.hpp
         mwvr/vrsession.cpp
         mwvr/vrtexture.hpp
         mwvr/vrtexture.cpp
+        mwvr/vrtypes.hpp
+        mwvr/vrtypes.cpp 
         mwvr/vrview.hpp
         mwvr/vrview.cpp 
         mwvr/vrviewer.hpp
@@ -155,12 +163,7 @@ if(BUILD_VR_OPENXR)
         ${APPLE_BUNDLE_RESOURCES}
     )
 
-    # Preprocessor variable used to control code paths in engine.hpp/engine.cpp
-    # to enable VR output and controls.
-
-    # Bizarrely, this doesn't do anything.
-    # target_compile_definitions(openmw_vr PUBLIC USE_OPENXR XR_USE_GRAPHICS_API_OPENGL XR_USE_PLATFORM_WIN32)
-
+    # Preprocessor variable used to control code paths between the vr port and non-vr.
     target_compile_options(openmw_vr PUBLIC -DUSE_OPENXR -DXR_USE_GRAPHICS_API_OPENGL -DXR_USE_PLATFORM_WIN32)
 endif()
 

@@ -2,7 +2,7 @@
 #include "vrenvironment.hpp"
 #include "vrsession.hpp"
 #include "openxrmanagerimpl.hpp"
-#include "openxrinputmanager.hpp"
+#include "openxrinput.hpp"
 #include "vranimation.hpp"
 #include <openxr/openxr.h>
 #include <osg/Texture2D>
@@ -652,7 +652,7 @@ void VRGUIManager::setVisible(MWGui::Layout* widget, bool visible)
     auto* layer = widget->mMainWidget->getLayer();
     auto name = layer->getName();
 
-    //Log(Debug::Verbose) << "setVisible (" << name << "): " << visible;
+    Log(Debug::Verbose) << "setVisible (" << name << "): " << visible;
     if (layerBlacklist.find(name) != layerBlacklist.end())
     {
         Log(Debug::Verbose) << "Blacklisted";

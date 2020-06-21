@@ -44,6 +44,8 @@ namespace MWVR
     MWVR::FieldOfView fromXR(XrFovf fov);
     XrFovf toXR(MWVR::FieldOfView fov);
 
+    XrCompositionLayerProjectionView toXR(MWVR::CompositionLayerProjectionView layer);
+
     struct OpenXRManagerImpl
     {
         OpenXRManagerImpl(void);
@@ -56,9 +58,9 @@ namespace MWVR
         const XrEventDataBaseHeader* nextEvent();
         void waitFrame();
         void beginFrame();
-        void endFrame(int64_t displayTime, int layerCount, XrCompositionLayerBaseHeader** layerStack);
-        std::array<XrView, 2> getPredictedViews(int64_t predictedDisplayTime, TrackedSpace mSpace);
-        MWVR::Pose getPredictedLimbPose(int64_t predictedDisplayTime, TrackedLimb limb, TrackedSpace space);
+        void endFrame(int64_t displayTime, int layerCount, const std::array<CompositionLayerProjectionView, 2>& layerStack);
+        std::array<View, 2> getPredictedViews(int64_t predictedDisplayTime, TrackedSpace space);
+        MWVR::Pose getPredictedHeadPose(int64_t predictedDisplayTime, TrackedSpace space);
         int eyes();
         void handleEvents();
         void updateControls();
@@ -67,10 +69,10 @@ namespace MWVR
         XrSpace getReferenceSpace(TrackedSpace space);
         void enablePredictions();
         void disablePredictions();
+        long long getLastPredictedDisplayPeriod();
 
         bool initialized = false;
         bool mPredictionsEnabled = false;
-        long long mFrameIndex = 0;
         XrInstance mInstance = XR_NULL_HANDLE;
         XrSession mSession = XR_NULL_HANDLE;
         XrSpace mSpace = XR_NULL_HANDLE;

@@ -1,6 +1,9 @@
 #include "vranimation.hpp"
 
-#include <osg/UserDataContainer>
+#include "vrenvironment.hpp"
+#include "vrviewer.hpp"
+#include "vrinputmanager.hpp"
+
 #include <osg/MatrixTransform>
 #include <osg/PositionAttitudeTransform>
 #include <osg/Depth>
@@ -8,36 +11,14 @@
 #include <osg/Object>
 #include <osg/BlendFunc>
 
-#include <osgUtil/RenderBin>
-#include <osgUtil/CullVisitor>
-
-
 #include <components/debug/debuglog.hpp>
 
-#include <components/misc/rng.hpp>
-
-#include <components/misc/resourcehelpers.hpp>
-
-#include <components/resource/resourcesystem.hpp>
-#include <components/resource/scenemanager.hpp>
 #include <components/sceneutil/actorutil.hpp>
-#include <components/sceneutil/attach.hpp>
-#include <components/sceneutil/clone.hpp>
-#include <components/sceneutil/visitor.hpp>
-#include <components/sceneutil/skeleton.hpp>
-#include <components/sceneutil/riggeometry.hpp>
 #include <components/sceneutil/positionattitudetransform.hpp>
 
 #include <components/settings/settings.hpp>
 
-#include <components/nifosg/nifloader.hpp> // TextKeyMapHolder
-
-#include <components/vfs/manager.hpp>
-
 #include "../mwworld/esmstore.hpp"
-#include "../mwworld/inventorystore.hpp"
-#include "../mwworld/class.hpp"
-#include "../mwworld/player.hpp"
 
 #include "../mwmechanics/npcstats.hpp"
 #include "../mwmechanics/actorutil.hpp"
@@ -45,22 +26,10 @@
 
 #include "../mwbase/environment.hpp"
 #include "../mwbase/world.hpp"
-#include "../mwbase/mechanicsmanager.hpp"
-#include "../mwbase/soundmanager.hpp"
 #include "../mwbase/windowmanager.hpp"
 
 #include "../mwrender/camera.hpp"
-#include "../mwrender/rotatecontroller.hpp"
-#include "../mwrender/renderbin.hpp"
 #include "../mwrender/renderingmanager.hpp"
-#include "../mwrender/objects.hpp"
-
-#include "../mwphysics/collisiontype.hpp"
-#include "../mwphysics/physicssystem.hpp"
-
-#include "vrenvironment.hpp"
-#include "vrviewer.hpp"
-#include "openxrinputmanager.hpp"
 
 namespace MWVR
 {
@@ -104,10 +73,10 @@ void ForearmController::operator()(osg::Node* node, osg::NodeVisitor* nv)
 
     auto* session = Environment::get().getSession();
     auto* xrViewer = Environment::get().getViewer();
-    int side = (int)Side::RIGHT_HAND;
+    int side = (int)Side::RIGHT_SIDE;
     if (node->getName().find_first_of("L") != std::string::npos)
     {
-        side = (int)Side::LEFT_HAND;
+        side = (int)Side::LEFT_SIDE;
         // We base ourselves on the world position of the camera
         // Ensure it is updated before placing the hands
         // I'm sure this can be achieved properly by managing the scene graph better.
@@ -130,9 +99,9 @@ void ForearmController::operator()(osg::Node* node, osg::NodeVisitor* nv)
     auto* inputManager = Environment::get().getInputManager();
     if (inputManager)
     {
-        auto playerYaw = osg::Quat(-inputManager->mYaw, osg::Vec3d(0, 0, 1));
-        position = playerYaw * position;
-        orientation = orientation * playerYaw;
+        auto stageRotation = inputManager->stageRotation();
+        position = stageRotation * position;
+        orientation = orientation * stageRotation;
     }
 
     // Add camera offset
@@ -150,7 +119,7 @@ void ForearmController::operator()(osg::Node* node, osg::NodeVisitor* nv)
     static osg::Quat pitch(2.f * VRbias, osg::Vec3f(0, 1, 0));
     static osg::Quat roll(2 * VRbias, osg::Vec3f(1, 0, 0));
     orientation = yaw * orientation;
-    if (side == (int)Side::LEFT_HAND)
+    if (side == (int)Side::LEFT_SIDE)
         orientation = roll * orientation;
 
     // Undo the wrist translate

@@ -21,7 +21,7 @@
 
 #ifdef USE_OPENXR
 #include "../mwvr/vrsession.hpp"
-#include "../mwvr/openxrinputmanager.hpp"
+#include "../mwvr/vrinputmanager.hpp"
 #include "../mwvr/vrenvironment.hpp"
 #endif
 
@@ -100,6 +100,20 @@ namespace MWPhysics
         // In VR, player should move according to current direction of
         // a selected limb, rather than current orientation of camera.
 #ifdef USE_OPENXR
+        // Regarding this and the duplicate movement solver later in this method:
+        // As my two edits in this code are obviously hacks, I could use feedback on how i could implement
+        // VR movement mechanics as not-a-hack. This hack, for instance, does not trigger movement animations
+        // and will obviously be a poor fit for a future merge with tes3mp.
+
+        // The exact mechanics are: 
+        // 1. When moving with the controller, the player moves in the direction he is currently pointing his left controller.
+        // 2. The game should seek to eliminate all distance between the player character and the player's position within VR,
+        //    without teleporting the player or ignoring collisions.
+
+        // I assume (1.) is easily solved, i just haven't taken the effort to study openmw's code enough.
+        // But 2. is not so obvious. I guess it's doable if i compute the direction between current position and the player's
+        // position in the VR stage, and just let it catch up at the character's own move speed, but it still needs to reach the position as exactly as possible.
+
         if (isPlayer)
         {
             auto* session = MWVR::Environment::get().getSession();
@@ -198,14 +212,16 @@ namespace MWPhysics
         osg::Vec3f newPosition = position;
 
 #ifdef USE_OPENXR
-        // TODO: For now this is just a (partial) duplication of the loop below
-        // Could/should probably be refactored into its own function.
+        // Catch the player character up to the real world position of the player.
+        // TODO: For now this is just a partial duplication of the loop below
+        // Could probably be refactored into its own function.
         if (isPlayer && !world->getPlayer().isDisabled())
         {
 
             auto* inputManager = MWVR::Environment::get().getInputManager();
 
-            osg::Vec3 trackingOffset = inputManager->mHeadOffset;
+            osg::Vec3 headOffset = inputManager->headOffset();
+            osg::Vec3 trackingOffset = headOffset;
             // Player's tracking height should not affect character position
             trackingOffset.z() = 0;
 
@@ -265,8 +281,9 @@ namespace MWPhysics
 
             // Try not to lose any tracking
             osg::Vec3 moved = newPosition - position;
-            inputManager->mHeadOffset.x() -= moved.x();
-            inputManager->mHeadOffset.y() -= moved.y();
+            headOffset.x() -= moved.x();
+            headOffset.y() -= moved.y();
+            inputManager->setHeadOffset(headOffset);
         }
 #endif
 

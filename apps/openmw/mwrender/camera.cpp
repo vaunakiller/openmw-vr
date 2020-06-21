@@ -12,7 +12,7 @@
 #include "../mwworld/refdata.hpp"
 
 #ifdef USE_OPENXR
-#include "../mwvr/openxrinputmanager.hpp"
+#include "../mwvr/vrinputmanager.hpp"
 #include "../mwvr/vrenvironment.hpp"
 #endif
 
@@ -135,7 +135,7 @@ namespace MWRender
         auto* inputManager = MWVR::Environment::get().getInputManager();
         if (inputManager)
         {
-            position += inputManager->mHeadOffset;
+            position += inputManager->headOffset();
         }
 #else
         osg::Vec3d offset = orient * osg::Vec3d(0, isFirstPerson() ? 0 : -mCameraDistance, 0);

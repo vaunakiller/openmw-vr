@@ -1,7 +1,36 @@
+/////////////////////////////////////////////////
+//
+//  State machine for "realistic" combat in openmw vr
+//
+//  Initial state: Ready.
+//
+//  State Ready: Ready to initiate a new attack.
+//  State Launch: Player has begun swinging his weapon.
+//  State Swing: Currently swinging weapon.
+//  State Impact: Contact made, weapon still swinging.
+//  State Cooldown: Swing completed, wait a minimum period before next.
+//
+//  Transition rules:
+//    Ready     -> Launch:      When the minimum velocity of swing is achieved.
+//    Launch    -> Ready:       When the minimum velocity of swing is lost before minimum distance was swung.
+//    Launch    -> Swing:       When minimum distance is swung.
+//                                  - Play Swish sound
+//    Swing     -> Impact:      When minimum velocity is lost, or when a hit is detected.
+//                                  - Register hit based on max velocity observed in swing state
+//    Impact    -> Cooldown:    When velocity returns below minimum.
+//    Cooldown  -> Ready:       When the minimum period has passed since entering Cooldown state
+//
+
+
 #include "realisticcombat.hpp"
+
 #include "../mwbase/environment.hpp"
 #include "../mwbase/soundmanager.hpp"
+
 #include "../mwmechanics/weapontype.hpp"
+
+#include <components/debug/debuglog.hpp>
+
 #include <iomanip>
 
 namespace MWVR { namespace RealisticCombat {
@@ -10,15 +39,18 @@ static const char* stateToString(SwingState florida)
 {
     switch (florida)
     {
-    case SwingState_Idle:
-        return "Idle";
+    case SwingState_Cooldown:
+        return "Cooldown";
     case SwingState_Impact:
         return "Impact";
     case SwingState_Ready:
         return "Ready";
-    case SwingState_Swinging:
-        return "Swinging";
+    case SwingState_Swing:
+        return "Swing";
+    case SwingState_Launch:
+        return "Launch";
     }
+    return "Error, invalid enum";
 }
 static const char* swingTypeToString(int type)
 {
@@ -52,6 +84,7 @@ bool StateMachine::canSwing()
 void StateMachine::transition(
     SwingState newState)
 {
+    Log(Debug::Verbose) << "Transition:" << stateToString(state) << "->" << stateToString(newState);
     maxSwingVelocity = 0.f;
     timeSinceEnteredState = 0.f;
     movementSinceEnteredState = 0.f;
@@ -104,7 +137,7 @@ void StateMachine::update(float dt, bool enabled)
     auto* session = Environment::get().getSession();
     auto* world = MWBase::Environment::get().getWorld();
     auto& predictedPoses = session->predictedPoses(VRSession::FramePhase::Update);
-    auto& handPose = predictedPoses.hands[(int)MWVR::Side::RIGHT_HAND];
+    auto& handPose = predictedPoses.hands[(int)MWVR::Side::RIGHT_SIDE];
     auto weaponType = world->getActiveWeaponType();
 
     enabled = enabled && isMeleeWeapon(weaponType);
@@ -215,24 +248,28 @@ void StateMachine::update(float dt, bool enabled)
 
     switch (state)
     {
-    case SwingState_Idle:
-        return update_idleState();
+    case SwingState_Cooldown:
+        return update_cooldownState();
     case SwingState_Ready:
         return update_readyState();
-    case SwingState_Swinging:
-        return update_swingingState();
+    case SwingState_Swing:
+        return update_swingState();
     case SwingState_Impact:
         return update_impactState();
+    case SwingState_Launch:
+        return update_launchState();
+    default:
+        throw std::logic_error(std::string("You forgot to implement state ") + stateToString(state) + " ya dingus");
     }
 }
 
-void StateMachine::update_idleState()
+void StateMachine::update_cooldownState()
 {
     if (timeSinceEnteredState >= minimumPeriod)
-        transition_idleToReady();
+        transition_cooldownToReady();
 }
 
-void StateMachine::transition_idleToReady()
+void StateMachine::transition_cooldownToReady()
 {
     transition(SwingState_Ready);
 }
@@ -240,85 +277,80 @@ void StateMachine::transition_idleToReady()
 void StateMachine::update_readyState()
 {
     if (canSwing())
-        return transition_readyToSwinging();
+        return transition_readyToLaunch();
 }
 
-void StateMachine::transition_readyToSwinging()
+void StateMachine::transition_readyToLaunch()
 {
-    shouldSwish = true;
-    transition(SwingState_Swinging);
-
-    // As a special case, update the new state immediately to allow
-    // same-frame impacts. This is important if the player is moving
-    // at a velocity close to the minimum velocity.
-    update_swingingState();
+    transition(SwingState_Launch);
 }
 
 void StateMachine::playSwish()
 {
-    if (shouldSwish)
-    {
-        MWBase::SoundManager* sndMgr = MWBase::Environment::get().getSoundManager();
+    MWBase::SoundManager* sndMgr = MWBase::Environment::get().getSoundManager();
 
-        std::string sound = "Weapon Swish";
-        if (strength < 0.5f)
-            sndMgr->playSound3D(ptr, sound, 1.0f, 0.8f); //Weak attack
-        if (strength < 1.0f)
-            sndMgr->playSound3D(ptr, sound, 1.0f, 1.0f); //Medium attack
-        else
-            sndMgr->playSound3D(ptr, sound, 1.0f, 1.2f); //Strong attack
-        shouldSwish = false;
+    std::string sound = "Weapon Swish";
+    if (strength < 0.5f)
+        sndMgr->playSound3D(ptr, sound, 1.0f, 0.8f); //Weak attack
+    if (strength < 1.0f)
+        sndMgr->playSound3D(ptr, sound, 1.0f, 1.0f); //Medium attack
+    else
+        sndMgr->playSound3D(ptr, sound, 1.0f, 1.2f); //Strong attack
 
-        Log(Debug::Verbose) << "Swing: " << swingTypeToString(swingType);
-    }
+    Log(Debug::Verbose) << "Swing: " << swingTypeToString(swingType);
 }
 
-void StateMachine::update_swingingState()
+void StateMachine::update_launchState()
+{
+    if (movementSinceEnteredState > minimumPeriod)
+        transition_launchToSwing();
+    if (!canSwing())
+        return transition_launchToReady();
+}
+
+void StateMachine::transition_launchToReady()
+{
+    transition(SwingState_Ready);
+}
+
+void StateMachine::transition_launchToSwing()
+{
+    playSwish();
+    transition(SwingState_Swing);
+
+    // As a special case, update the new state immediately to allow
+    // same-frame impacts.
+    update_swingState();
+}
+
+void StateMachine::update_swingState()
 {
     maxSwingVelocity = std::max(velocity, maxSwingVelocity);
     strength = std::min(1.f, (maxSwingVelocity - minVelocity) / maxVelocity);
 
-    // Require a minimum movement of the hand before a hit can be made
-    // This is to prevent microswings
-    if (movementSinceEnteredState > minimumPeriod)
-    {
-        playSwish();
-        if (// When velocity falls below minimum, register the miss
-            !canSwing() 
-            // Call hit with simulated=true to check for hit
-            || ptr.getClass().hit(ptr, strength, swingType, true)
-            )
-            return transition_swingingToImpact();
-    }
-
-    // If velocity drops below minimum before minimum movement was achieved,
-    // drop back to ready
+    // When velocity falls below minimum, transition to register the miss
     if (!canSwing())
-        return transition_swingingToReady();
-}
-
-void StateMachine::transition_swingingToReady()
-{
-    transition(SwingState_Ready);
+        return transition_swingingToImpact();
+    // Call hit with simulated=true to check for hit without actually causing an impact
+    if(ptr.getClass().hit(ptr, strength, swingType, true))
+        return transition_swingingToImpact();
 }
 
 void StateMachine::transition_swingingToImpact()
 {
     ptr.getClass().hit(ptr, strength, swingType, false);
     transition(SwingState_Impact);
-    std::cout << "Transition: Swing -> Impact" << std::endl;
 }
 
 void StateMachine::update_impactState()
 {
     if (velocity < minVelocity)
-        return transition_impactToIdle();
+        return transition_impactToCooldown();
 }
 
-void StateMachine::transition_impactToIdle()
+void StateMachine::transition_impactToCooldown()
 {
-    transition(SwingState_Idle);
-    std::cout << "Transition: Impact -> Ready" << std::endl;
+    transition(SwingState_Cooldown);
 }
 
 }}

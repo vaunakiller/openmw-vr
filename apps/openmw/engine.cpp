@@ -60,7 +60,7 @@
 #include "mwstate/statemanagerimp.hpp"
 
 #ifdef USE_OPENXR
-#include "mwvr/openxrinputmanager.hpp"
+#include "mwvr/vrinputmanager.hpp"
 #include "mwvr/vrviewer.hpp"
 #endif
 

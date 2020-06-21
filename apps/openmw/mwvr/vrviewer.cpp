@@ -1,7 +1,7 @@
 #include "vrviewer.hpp"
 #include "vrsession.hpp"
 #include "openxrmanagerimpl.hpp"
-#include "openxrinputmanager.hpp"
+#include "openxrinput.hpp"
 #include "vrenvironment.hpp"
 #include "Windows.h"
 #include "../mwmechanics/actorutil.hpp"
@@ -68,13 +68,13 @@ namespace MWVR
         xr->handleEvents();
 
         OpenXRSwapchain::Config leftConfig;
-        leftConfig.width = xr->impl().mConfigViews[(int)Side::LEFT_HAND].recommendedImageRectWidth;
-        leftConfig.height = xr->impl().mConfigViews[(int)Side::LEFT_HAND].recommendedImageRectHeight;
-        leftConfig.samples = xr->impl().mConfigViews[(int)Side::LEFT_HAND].recommendedSwapchainSampleCount;
+        leftConfig.width = xr->impl().mConfigViews[(int)Side::LEFT_SIDE].recommendedImageRectWidth;
+        leftConfig.height = xr->impl().mConfigViews[(int)Side::LEFT_SIDE].recommendedImageRectHeight;
+        leftConfig.samples = xr->impl().mConfigViews[(int)Side::LEFT_SIDE].recommendedSwapchainSampleCount;
         OpenXRSwapchain::Config rightConfig;
-        rightConfig.width = xr->impl().mConfigViews[(int)Side::RIGHT_HAND].recommendedImageRectWidth;
-        rightConfig.height = xr->impl().mConfigViews[(int)Side::RIGHT_HAND].recommendedImageRectHeight;
-        rightConfig.samples = xr->impl().mConfigViews[(int)Side::RIGHT_HAND].recommendedSwapchainSampleCount;
+        rightConfig.width = xr->impl().mConfigViews[(int)Side::RIGHT_SIDE].recommendedImageRectWidth;
+        rightConfig.height = xr->impl().mConfigViews[(int)Side::RIGHT_SIDE].recommendedImageRectHeight;
+        rightConfig.samples = xr->impl().mConfigViews[(int)Side::RIGHT_SIDE].recommendedSwapchainSampleCount;
 
         auto leftView = new VRView("LeftEye", leftConfig, context->getState());
         auto rightView = new VRView("RightEye", rightConfig, context->getState());

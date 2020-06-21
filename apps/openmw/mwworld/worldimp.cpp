@@ -76,7 +76,7 @@
 #ifdef USE_OPENXR
 #include "../mwvr/vrenvironment.hpp"
 #include "../mwvr/vranimation.hpp"
-#include "../mwvr/openxrinputmanager.hpp"
+#include "../mwvr/vrinputmanager.hpp"
 #endif
 
 namespace
