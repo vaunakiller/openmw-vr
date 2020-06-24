@@ -132,6 +132,8 @@ if(BUILD_VR_OPENXR)
         mwvr/openxrmanagerimpl.cpp
         mwvr/openxrswapchain.hpp
         mwvr/openxrswapchain.cpp
+        mwvr/openxrswapchainimpl.hpp
+        mwvr/openxrswapchainimpl.cpp
         mwvr/realisticcombat.hpp
         mwvr/realisticcombat.cpp
         mwvr/vranimation.hpp

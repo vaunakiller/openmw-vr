@@ -112,6 +112,14 @@ namespace MWVR
         mViewer->setReleaseContextAtEndOfFrameHint(false);
 
         mMirrorTexture.reset(new VRTexture(context->getState(), mainCamera->getViewport()->width(), mainCamera->getViewport()->height(), 0));
+        mMsaaResolveMirrorTexture[(int)Side::LEFT_SIDE].reset(new VRTexture(context->getState(),
+            leftView->swapchain().width(), 
+            leftView->swapchain().height(), 
+            0));
+        mMsaaResolveMirrorTexture[(int)Side::RIGHT_SIDE].reset(new VRTexture(context->getState(),
+            rightView->swapchain().width(), 
+            rightView->swapchain().height(), 
+            0));
 
         mViewer->getSlave(0)._updateSlaveCallback = new VRView::UpdateSlaveCallback(leftView, context);
         mViewer->getSlave(1)._updateSlaveCallback = new VRView::UpdateSlaveCallback(rightView, context);
@@ -138,15 +146,26 @@ namespace MWVR
     {
         auto* state = gc->getState();
         auto* gl = osg::GLExtensions::Get(state->getContextID(), false);
-        int mirror_width = mMirrorTexture->width() / 2;
-        mMirrorTexture->beginFrame(gc);
 
-        mViews["RightEye"]->swapchain().renderBuffer()->blit(gc, 0, 0, mirror_width, mMirrorTexture->height());
-        mViews["LeftEye"]->swapchain().renderBuffer()->blit(gc, mirror_width, 0, 2 * mirror_width, mMirrorTexture->height());
+        int screenWidth = mCameras["MainCamera"]->getViewport()->width();
+        int mirrorWidth = screenWidth / 2;
+        int screenHeight = mCameras["MainCamera"]->getViewport()->height();
+        const char* viewNames[] = {
+            "RightEye",
+            "LeftEye"
+        };
+
+        for (int i = 0; i < 2; i++)
+        {
+            auto& resolveTexture = *mMsaaResolveMirrorTexture[i];
+            resolveTexture.beginFrame(gc);
+            mViews[viewNames[i]]->swapchain().renderBuffer()->blit(gc, 0, 0, resolveTexture.width(), resolveTexture.height());
+            mMirrorTexture->beginFrame(gc);
+            resolveTexture.blit(gc, i * mirrorWidth, 0, (i + 1) * mirrorWidth, screenHeight);
+        }
 
         gl->glBindFramebuffer(GL_FRAMEBUFFER_EXT, 0);
-        mMirrorTexture->blit(gc, 0, 0, mMirrorTexture->width(), mMirrorTexture->height());
-
+        mMirrorTexture->blit(gc, 0, 0, screenWidth, screenHeight);
     }
 
     void

@@ -33,8 +33,6 @@ namespace MWVR
         void acquire(osg::GraphicsContext* gc);
         //! Finalize render
         void release(osg::GraphicsContext* gc);
-        //! Get the view surface
-        const XrSwapchainSubImage& subImage(void) const;
         //! Currently acquired image
         uint32_t acquiredImage() const;
         //! Whether subchain is currently acquired (true) or released (false)

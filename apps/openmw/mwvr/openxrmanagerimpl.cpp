@@ -1,4 +1,5 @@
 #include "openxrmanagerimpl.hpp"
+#include "openxrswapchain.hpp"
 #include "openxrswapchainimpl.hpp"
 #include "vrtexture.hpp"
 
