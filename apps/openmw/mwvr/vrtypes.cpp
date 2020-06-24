@@ -172,13 +172,13 @@ std::ostream& operator <<(
 
 std::ostream& operator <<(
     std::ostream& os,
-    TrackedSpace limb)
+    ReferenceSpace limb)
 {
     switch (limb)
     {
-    case TrackedSpace::STAGE:
+    case ReferenceSpace::STAGE:
         os << "STAGE"; break;
-    case TrackedSpace::VIEW:
+    case ReferenceSpace::VIEW:
         os << "VIEW"; break;
     }
     return os;

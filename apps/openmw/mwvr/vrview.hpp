@@ -36,7 +36,7 @@ namespace MWVR
         };
 
     public:
-        VRView(std::string name, OpenXRSwapchain::Config config, osg::ref_ptr<osg::State> state);
+        VRView(std::string name, SwapchainConfig config, osg::ref_ptr<osg::State> state);
         virtual ~VRView();
 
     public:
@@ -52,7 +52,7 @@ namespace MWVR
         void swapBuffers(osg::GraphicsContext* gc);
 
     public:
-        OpenXRSwapchain::Config mSwapchainConfig;
+        SwapchainConfig mSwapchainConfig;
         std::unique_ptr<OpenXRSwapchain> mSwapchain;
         std::string mName{};
         bool mRendering{ false };

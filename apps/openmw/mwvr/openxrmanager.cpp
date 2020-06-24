@@ -40,10 +40,10 @@ namespace MWVR
         return !!mPrivate;
     }
 
-    bool OpenXRManager::sessionRunning()
+    bool OpenXRManager::xrSessionRunning()
     {
         if (realized())
-            return impl().mSessionRunning;
+            return impl().xrSessionRunning();
         return false;
     }
 
@@ -71,12 +71,6 @@ namespace MWVR
             return impl().endFrame(displayTime, layerCount, layerStack);
     }
 
-    void OpenXRManager::updateControls()
-    {
-        if (realized())
-            return impl().updateControls();
-    }
-
     void
         OpenXRManager::realize(
             osg::GraphicsContext* gc)
@@ -97,13 +91,6 @@ namespace MWVR
         }
     }
 
-    int OpenXRManager::eyes()
-    {
-        if (realized())
-            return impl().eyes();
-        return 0;
-    }
-
     void OpenXRManager::enablePredictions()
     {
         return impl().enablePredictions();
@@ -114,19 +101,29 @@ namespace MWVR
         return impl().disablePredictions();
     }
 
-    std::array<View, 2> OpenXRManager::getPredictedViews(int64_t predictedDisplayTime, TrackedSpace space)
+    std::array<View, 2> OpenXRManager::getPredictedViews(int64_t predictedDisplayTime, ReferenceSpace space)
     {
         return impl().getPredictedViews(predictedDisplayTime, space);
     }
 
-    MWVR::Pose OpenXRManager::getPredictedHeadPose(int64_t predictedDisplayTime, TrackedSpace space)
+    MWVR::Pose OpenXRManager::getPredictedHeadPose(int64_t predictedDisplayTime, ReferenceSpace space)
     {
         return impl().getPredictedHeadPose(predictedDisplayTime, space);
+    }
+
+    long long OpenXRManager::getLastPredictedDisplayTime()
+    {
+        return impl().getLastPredictedDisplayTime();
     }
 
     long long OpenXRManager::getLastPredictedDisplayPeriod()
     {
         return impl().getLastPredictedDisplayPeriod();
+    }
+
+    std::array<SwapchainConfig, 2> OpenXRManager::getRecommendedSwapchainConfig() const
+    {
+        return impl().getRecommendedSwapchainConfig();
     }
 
     void

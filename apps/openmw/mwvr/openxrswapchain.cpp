@@ -24,7 +24,7 @@ namespace MWVR {
             SUBVIEW_MAX = RIGHT_VIEW, //!< Used to size subview arrays. Not a valid input.
         };
 
-        OpenXRSwapchainImpl(osg::ref_ptr<osg::State> state, OpenXRSwapchain::Config config);
+        OpenXRSwapchainImpl(osg::ref_ptr<osg::State> state, SwapchainConfig config);
         ~OpenXRSwapchainImpl();
 
         void beginFrame(osg::GraphicsContext* gc);
@@ -53,10 +53,10 @@ namespace MWVR {
         bool mIsAcquired{ false };
     };
 
-    OpenXRSwapchainImpl::OpenXRSwapchainImpl(osg::ref_ptr<osg::State> state, OpenXRSwapchain::Config config)
-        : mWidth(config.width)
-        , mHeight(config.height)
-        , mSamples(config.samples)
+    OpenXRSwapchainImpl::OpenXRSwapchainImpl(osg::ref_ptr<osg::State> state, SwapchainConfig config)
+        : mWidth(config.recommendedWidth)
+        , mHeight(config.recommendedHeight)
+        , mSamples(config.recommendedSamples)
     {
         if (mWidth <= 0)
             throw std::invalid_argument("Width must be a positive integer");
@@ -69,9 +69,9 @@ namespace MWVR {
 
         // Select a swapchain format.
         uint32_t swapchainFormatCount;
-        CHECK_XRCMD(xrEnumerateSwapchainFormats(xr->impl().mSession, 0, &swapchainFormatCount, nullptr));
+        CHECK_XRCMD(xrEnumerateSwapchainFormats(xr->impl().xrSession(), 0, &swapchainFormatCount, nullptr));
         std::vector<int64_t> swapchainFormats(swapchainFormatCount);
-        CHECK_XRCMD(xrEnumerateSwapchainFormats(xr->impl().mSession, (uint32_t)swapchainFormats.size(), &swapchainFormatCount, swapchainFormats.data()));
+        CHECK_XRCMD(xrEnumerateSwapchainFormats(xr->impl().xrSession(), (uint32_t)swapchainFormats.size(), &swapchainFormatCount, swapchainFormats.data()));
 
         // List of supported color swapchain formats.
         constexpr int64_t SupportedColorSwapchainFormats[] = {
@@ -100,7 +100,7 @@ namespace MWVR {
         swapchainCreateInfo.faceCount = 1;
         swapchainCreateInfo.sampleCount = mSamples;
         swapchainCreateInfo.usageFlags = XR_SWAPCHAIN_USAGE_SAMPLED_BIT | XR_SWAPCHAIN_USAGE_COLOR_ATTACHMENT_BIT;
-        CHECK_XRCMD(xrCreateSwapchain(xr->impl().mSession, &swapchainCreateInfo, &mSwapchain));
+        CHECK_XRCMD(xrCreateSwapchain(xr->impl().xrSession(), &swapchainCreateInfo, &mSwapchain));
 
         uint32_t imageCount = 0;
         CHECK_XRCMD(xrEnumerateSwapchainImages(mSwapchain, 0, &imageCount, nullptr));
@@ -176,7 +176,7 @@ namespace MWVR {
         CHECK_XRCMD(xrReleaseSwapchainImage(mSwapchain, &releaseInfo));
     }
 
-    OpenXRSwapchain::OpenXRSwapchain(osg::ref_ptr<osg::State> state, OpenXRSwapchain::Config config)
+    OpenXRSwapchain::OpenXRSwapchain(osg::ref_ptr<osg::State> state, SwapchainConfig config)
         : mPrivate(new OpenXRSwapchainImpl(state, config))
     {
     }

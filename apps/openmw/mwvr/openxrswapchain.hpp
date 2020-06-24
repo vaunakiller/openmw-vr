@@ -21,7 +21,7 @@ namespace MWVR
         };
 
     public:
-        OpenXRSwapchain(osg::ref_ptr<osg::State> state, Config config);
+        OpenXRSwapchain(osg::ref_ptr<osg::State> state, SwapchainConfig config);
         ~OpenXRSwapchain();
 
     public:

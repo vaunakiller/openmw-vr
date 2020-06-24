@@ -32,7 +32,7 @@ bool OpenXRAction::getFloat(XrPath subactionPath, float& value)
     getInfo.subactionPath = subactionPath;
 
     XrActionStateFloat xrValue{ XR_TYPE_ACTION_STATE_FLOAT };
-    CHECK_XRCMD(xrGetActionStateFloat(xr->impl().mSession, &getInfo, &xrValue));
+    CHECK_XRCMD(xrGetActionStateFloat(xr->impl().xrSession(), &getInfo, &xrValue));
 
     if (xrValue.isActive)
         value = xrValue.currentState;
@@ -47,7 +47,7 @@ bool OpenXRAction::getBool(XrPath subactionPath, bool& value)
     getInfo.subactionPath = subactionPath;
 
     XrActionStateBoolean xrValue{ XR_TYPE_ACTION_STATE_BOOLEAN };
-    CHECK_XRCMD(xrGetActionStateBoolean(xr->impl().mSession, &getInfo, &xrValue));
+    CHECK_XRCMD(xrGetActionStateBoolean(xr->impl().xrSession(), &getInfo, &xrValue));
 
     if (xrValue.isActive)
         value = xrValue.currentState;
@@ -63,7 +63,7 @@ bool OpenXRAction::getPoseIsActive(XrPath subactionPath)
     getInfo.subactionPath = subactionPath;
 
     XrActionStatePose xrValue{ XR_TYPE_ACTION_STATE_POSE };
-    CHECK_XRCMD(xrGetActionStatePose(xr->impl().mSession, &getInfo, &xrValue));
+    CHECK_XRCMD(xrGetActionStatePose(xr->impl().xrSession(), &getInfo, &xrValue));
 
     return xrValue.isActive;
 }
@@ -81,7 +81,7 @@ bool OpenXRAction::applyHaptics(XrPath subactionPath, float amplitude)
     XrHapticActionInfo hapticActionInfo{ XR_TYPE_HAPTIC_ACTION_INFO };
     hapticActionInfo.action = mAction;
     hapticActionInfo.subactionPath = subactionPath;
-    CHECK_XRCMD(xrApplyHapticFeedback(xr->impl().mSession, &hapticActionInfo, (XrHapticBaseHeader*)&vibration));
+    CHECK_XRCMD(xrApplyHapticFeedback(xr->impl().xrSession(), &hapticActionInfo, (XrHapticBaseHeader*)&vibration));
     return true;
 }
 }

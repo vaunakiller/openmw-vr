@@ -13,7 +13,7 @@ namespace MWVR
     class VRTexture : public osg::Referenced
     {
     public:
-        VRTexture(osg::ref_ptr<osg::State> state, std::size_t width, std::size_t height, uint32_t msaaSamples);
+        VRTexture(osg::ref_ptr<osg::State> state, std::size_t width, std::size_t height, uint32_t msaaSamples, uint32_t colorBuffer = 0, uint32_t depthBuffer = 0);
         ~VRTexture();
 
         void destroy(osg::State* state);

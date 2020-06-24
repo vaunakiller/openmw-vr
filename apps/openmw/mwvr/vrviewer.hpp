@@ -91,8 +91,7 @@ namespace MWVR
         osg::ref_ptr<PredrawCallback> mPreDraw{ nullptr };
         osg::ref_ptr<PostdrawCallback> mPostDraw{ nullptr };
         osg::GraphicsContext* mMainCameraGC{ nullptr };
-
-        std::unique_ptr<OpenXRSwapchain> mMirrorTextureSwapchain{ nullptr };
+        std::unique_ptr<VRTexture> mMirrorTexture{ nullptr };
 
         std::mutex mMutex;
 

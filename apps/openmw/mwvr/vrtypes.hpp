@@ -24,7 +24,7 @@ enum class TrackedLimb
 };
 
 //! Describes what space to track the limb in
-enum class TrackedSpace
+enum class ReferenceSpace
 {
     STAGE = 0, //!< Track limb in the VR stage space. Meaning a space with a floor level origin and fixed horizontal orientation.
     VIEW = 1 //!< Track limb in the VR view space. Meaning a space with the head as origin and orientation.
@@ -58,7 +58,7 @@ struct Pose
     bool operator==(const Pose& rhs) const;
 };
 
-//! Represents the field of view of an eye
+//! Fov of a single eye
 struct FieldOfView {
     float    angleLeft;
     float    angleRight;
@@ -97,13 +97,23 @@ struct CompositionLayerProjectionView
     FieldOfView fov;
 };
 
+struct SwapchainConfig
+{
+    uint32_t recommendedWidth = -1;
+    uint32_t maxWidth = -1;
+    uint32_t recommendedHeight = -1;
+    uint32_t maxHeight = -1;
+    uint32_t recommendedSamples = -1;
+    uint32_t maxSamples = -1;
+};
+
 // Serialization methods for VR types.
 std::ostream& operator <<(std::ostream& os, const Pose& pose);
 std::ostream& operator <<(std::ostream& os, const FieldOfView& fov);
 std::ostream& operator <<(std::ostream& os, const View& view);
 std::ostream& operator <<(std::ostream& os, const PoseSet& poseSet);
 std::ostream& operator <<(std::ostream& os, TrackedLimb limb);
-std::ostream& operator <<(std::ostream& os, TrackedSpace space);
+std::ostream& operator <<(std::ostream& os, ReferenceSpace space);
 std::ostream& operator <<(std::ostream& os, Side side);
 
 }

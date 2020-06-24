@@ -26,7 +26,7 @@ namespace MWVR {
 
     VRView::VRView(
         std::string name,
-        OpenXRSwapchain::Config config,
+        SwapchainConfig config,
         osg::ref_ptr<osg::State> state)
         : mSwapchainConfig{ config }
         , mSwapchain(new OpenXRSwapchain(state, mSwapchainConfig))

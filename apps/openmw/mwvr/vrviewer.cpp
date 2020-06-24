@@ -67,17 +67,10 @@ namespace MWVR
 
         xr->handleEvents();
 
-        OpenXRSwapchain::Config leftConfig;
-        leftConfig.width = xr->impl().mConfigViews[(int)Side::LEFT_SIDE].recommendedImageRectWidth;
-        leftConfig.height = xr->impl().mConfigViews[(int)Side::LEFT_SIDE].recommendedImageRectHeight;
-        leftConfig.samples = xr->impl().mConfigViews[(int)Side::LEFT_SIDE].recommendedSwapchainSampleCount;
-        OpenXRSwapchain::Config rightConfig;
-        rightConfig.width = xr->impl().mConfigViews[(int)Side::RIGHT_SIDE].recommendedImageRectWidth;
-        rightConfig.height = xr->impl().mConfigViews[(int)Side::RIGHT_SIDE].recommendedImageRectHeight;
-        rightConfig.samples = xr->impl().mConfigViews[(int)Side::RIGHT_SIDE].recommendedSwapchainSampleCount;
+        auto config = xr->getRecommendedSwapchainConfig();
 
-        auto leftView = new VRView("LeftEye", leftConfig, context->getState());
-        auto rightView = new VRView("RightEye", rightConfig, context->getState());
+        auto leftView = new VRView("LeftEye", config[(int)Side::LEFT_SIDE], context->getState());
+        auto rightView = new VRView("RightEye", config[(int)Side::RIGHT_SIDE], context->getState());
 
         mViews["LeftEye"] = leftView;
         mViews["RightEye"] = rightView;
@@ -118,15 +111,7 @@ namespace MWVR
 
         mViewer->setReleaseContextAtEndOfFrameHint(false);
 
-
-        OpenXRSwapchain::Config config;
-        config.width = mainCamera->getViewport()->width();
-        config.height = mainCamera->getViewport()->height();
-        config.samples = 1;
-
-        // Mirror texture doesn't have to be an OpenXR swapchain.
-        // It was just convenient at the time.
-        mMirrorTextureSwapchain.reset(new OpenXRSwapchain(context->getState(), config));
+        mMirrorTexture.reset(new VRTexture(context->getState(), mainCamera->getViewport()->width(), mainCamera->getViewport()->height(), 0));
 
         mViewer->getSlave(0)._updateSlaveCallback = new VRView::UpdateSlaveCallback(leftView, context);
         mViewer->getSlave(1)._updateSlaveCallback = new VRView::UpdateSlaveCallback(rightView, context);
@@ -151,18 +136,16 @@ namespace MWVR
 
     void VRViewer::blitEyesToMirrorTexture(osg::GraphicsContext* gc)
     {
-        int mirror_width = mMirrorTextureSwapchain->width() / 2;
-        mMirrorTextureSwapchain->beginFrame(gc);
-
-        mViews["RightEye"]->swapchain().renderBuffer()->blit(gc, 0, 0, mirror_width, mMirrorTextureSwapchain->height());
-        mViews["LeftEye"]->swapchain().renderBuffer()->blit(gc, mirror_width, 0, 2 * mirror_width, mMirrorTextureSwapchain->height());
-
-        mMirrorTextureSwapchain->endFrame(gc);
-
         auto* state = gc->getState();
         auto* gl = osg::GLExtensions::Get(state->getContextID(), false);
+        int mirror_width = mMirrorTexture->width() / 2;
+        mMirrorTexture->beginFrame(gc);
+
+        mViews["RightEye"]->swapchain().renderBuffer()->blit(gc, 0, 0, mirror_width, mMirrorTexture->height());
+        mViews["LeftEye"]->swapchain().renderBuffer()->blit(gc, mirror_width, 0, 2 * mirror_width, mMirrorTexture->height());
+
         gl->glBindFramebuffer(GL_FRAMEBUFFER_EXT, 0);
-        mMirrorTextureSwapchain->renderBuffer()->blit(gc, 0, 0, mMirrorTextureSwapchain->width(), mMirrorTextureSwapchain->height());
+        mMirrorTexture->blit(gc, 0, 0, mMirrorTexture->width(), mMirrorTexture->height());
 
     }
 

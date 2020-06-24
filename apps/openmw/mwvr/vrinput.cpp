@@ -31,7 +31,7 @@ PoseAction::PoseAction(std::unique_ptr<OpenXRAction> xrAction)
     createInfo.action = *mXRAction;
     createInfo.poseInActionSpace.orientation.w = 1.f;
     createInfo.subactionPath = XR_NULL_PATH;
-    CHECK_XRCMD(xrCreateActionSpace(xr->impl().mSession, &createInfo, &mXRSpace));
+    CHECK_XRCMD(xrCreateActionSpace(xr->impl().xrSession(), &createInfo, &mXRSpace));
 }
 
 void PoseAction::update(long long time)
@@ -39,7 +39,7 @@ void PoseAction::update(long long time)
     mPrevious = mValue;
 
     auto* xr = Environment::get().getManager();
-    XrSpace referenceSpace = xr->impl().getReferenceSpace(TrackedSpace::STAGE);
+    XrSpace referenceSpace = xr->impl().getReferenceSpace(ReferenceSpace::STAGE);
 
     XrSpaceLocation location{ XR_TYPE_SPACE_LOCATION };
     XrSpaceVelocity velocity{ XR_TYPE_SPACE_VELOCITY };
@@ -51,8 +51,8 @@ void PoseAction::update(long long time)
         location.pose.orientation.w = 1;
 
     mValue = Pose{
-        osg::fromXR(location.pose.position),
-        osg::fromXR(location.pose.orientation)
+        fromXR(location.pose.position),
+        fromXR(location.pose.orientation)
     };
 }
 

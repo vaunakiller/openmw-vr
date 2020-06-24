@@ -17,6 +17,8 @@ namespace MWVR
 
 extern void getEulerAngles(const osg::Quat& quat, float& yaw, float& pitch, float& roll);
 
+//! Manages VR logic, such as managing frames, predicting their poses, and handling frame synchronization.
+//! Should not be confused with the openxr session object.
 class VRSession
 {
 public:

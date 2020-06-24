@@ -103,7 +103,7 @@ OpenXRInput::OpenXRInput(const std::vector<SuggestedBindings>& suggestedBindings
         XrSessionActionSetsAttachInfo attachInfo{ XR_TYPE_SESSION_ACTION_SETS_ATTACH_INFO };
         attachInfo.countActionSets = 1;
         attachInfo.actionSets = &mActionSet;
-        CHECK_XRCMD(xrAttachSessionActionSets(xr->impl().mSession, &attachInfo));
+        CHECK_XRCMD(xrAttachSessionActionSets(xr->impl().xrSession(), &attachInfo));
     }
 };
 
@@ -144,7 +144,7 @@ OpenXRInput::createActionSet()
     strcpy_s(createInfo.actionSetName, "gameplay");
     strcpy_s(createInfo.localizedActionSetName, "Gameplay");
     createInfo.priority = 0;
-    CHECK_XRCMD(xrCreateActionSet(xr->impl().mInstance, &createInfo, &actionSet));
+    CHECK_XRCMD(xrCreateActionSet(xr->impl().xrInstance(), &createInfo, &actionSet));
     return actionSet;
 }
 
@@ -153,7 +153,7 @@ void OpenXRInput::suggestBindings(const SuggestedBindings& mwSuggestedBindings)
     auto* xr = Environment::get().getManager();
     XrPath oculusTouchInteractionProfilePath;
     CHECK_XRCMD(
-        xrStringToPath(xr->impl().mInstance, mwSuggestedBindings.controllerPath.c_str(), &oculusTouchInteractionProfilePath));
+        xrStringToPath(xr->impl().xrInstance(), mwSuggestedBindings.controllerPath.c_str(), &oculusTouchInteractionProfilePath));
 
     std::vector<XrActionSuggestedBinding> suggestedBindings =
     {
@@ -178,7 +178,7 @@ void OpenXRInput::suggestBindings(const SuggestedBindings& mwSuggestedBindings)
     xrSuggestedBindings.interactionProfile = oculusTouchInteractionProfilePath;
     xrSuggestedBindings.suggestedBindings = suggestedBindings.data();
     xrSuggestedBindings.countSuggestedBindings = (uint32_t)suggestedBindings.size();
-    CHECK_XRCMD(xrSuggestInteractionProfileBindings(xr->impl().mInstance, &xrSuggestedBindings));
+    CHECK_XRCMD(xrSuggestInteractionProfileBindings(xr->impl().xrInstance(), &xrSuggestedBindings));
 }
 
 void
@@ -192,8 +192,8 @@ OpenXRInput::generateControllerActionPaths(
     std::string left = std::string("/user/hand/left") + controllerAction;
     std::string right = std::string("/user/hand/right") + controllerAction;
 
-    CHECK_XRCMD(xrStringToPath(xr->impl().mInstance, left.c_str(), &actionPaths[(int)Side::LEFT_SIDE]));
-    CHECK_XRCMD(xrStringToPath(xr->impl().mInstance, right.c_str(), &actionPaths[(int)Side::RIGHT_SIDE]));
+    CHECK_XRCMD(xrStringToPath(xr->impl().xrInstance(), left.c_str(), &actionPaths[(int)Side::LEFT_SIDE]));
+    CHECK_XRCMD(xrStringToPath(xr->impl().xrInstance(), right.c_str(), &actionPaths[(int)Side::RIGHT_SIDE]));
 
     mPathMap[actionPath] = actionPaths;
 }
@@ -221,7 +221,7 @@ void
 OpenXRInput::updateControls()
 {
     auto* xr = Environment::get().getManager();
-    if (!xr->impl().mSessionRunning)
+    if (!xr->impl().xrSessionRunning())
         return;
 
 
@@ -229,7 +229,7 @@ OpenXRInput::updateControls()
     XrActionsSyncInfo syncInfo{ XR_TYPE_ACTIONS_SYNC_INFO };
     syncInfo.countActiveActionSets = 1;
     syncInfo.activeActionSets = &activeActionSet;
-    CHECK_XRCMD(xrSyncActions(xr->impl().mSession, &syncInfo));
+    CHECK_XRCMD(xrSyncActions(xr->impl().xrSession(), &syncInfo));
 
 
     // Note on update order: 
@@ -246,7 +246,7 @@ XrPath OpenXRInput::generateXrPath(const std::string& path)
 {
     auto* xr = Environment::get().getManager();
     XrPath xrpath = 0;
-    CHECK_XRCMD(xrStringToPath(xr->impl().mInstance, path.c_str(), &xrpath));
+    CHECK_XRCMD(xrStringToPath(xr->impl().xrInstance(), path.c_str(), &xrpath));
     return xrpath;
 }
 

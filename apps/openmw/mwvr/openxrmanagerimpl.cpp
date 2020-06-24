@@ -1,5 +1,5 @@
 #include "openxrmanagerimpl.hpp"
-#include "openxrswapchain.hpp"
+#include "openxrswapchainimpl.hpp"
 #include "vrtexture.hpp"
 
 #include <components/debug/debuglog.hpp>
@@ -173,6 +173,11 @@ namespace MWVR
         return res;
     }
 
+    std::string XrResultString(XrResult res)
+    {
+        return to_string(res);
+    }
+
     OpenXRManagerImpl::~OpenXRManagerImpl()
     {
 
@@ -259,12 +264,6 @@ namespace MWVR
         Log(Debug::Verbose) << ss.str();
     }
 
-    XrFrameState OpenXRManagerImpl::frameState()
-    {
-        std::unique_lock<std::mutex> lock(mFrameStateMutex);
-        return mFrameState;
-    }
-
     void
         OpenXRManagerImpl::waitFrame()
     {
@@ -294,7 +293,7 @@ namespace MWVR
     {
         XrCompositionLayerProjectionView xrLayer;
         xrLayer.type = XR_TYPE_COMPOSITION_LAYER_PROJECTION_VIEW;
-        xrLayer.subImage = layer.swapchain->subImage();
+        xrLayer.subImage = layer.swapchain->impl().xrSubImage();
         xrLayer.pose = toXR(layer.pose);
         xrLayer.fov = toXR(layer.fov);
         xrLayer.next = nullptr;
@@ -316,7 +315,7 @@ namespace MWVR
         compositionLayerProjectionViews[(int)Side::RIGHT_SIDE] = toXR(layerStack[(int)Side::RIGHT_SIDE]);
         XrCompositionLayerProjection layer{};
         layer.type = XR_TYPE_COMPOSITION_LAYER_PROJECTION;
-        layer.space = getReferenceSpace(TrackedSpace::STAGE);
+        layer.space = getReferenceSpace(ReferenceSpace::STAGE);
         layer.viewCount = 2;
         layer.views = compositionLayerProjectionViews.data();
         auto* xrLayerStack = reinterpret_cast<XrCompositionLayerBaseHeader*>(&layer);
@@ -334,7 +333,7 @@ namespace MWVR
     std::array<View, 2> 
         OpenXRManagerImpl::getPredictedViews(
             int64_t predictedDisplayTime,
-            TrackedSpace space)
+            ReferenceSpace space)
     {
         if (!mPredictionsEnabled)
         {
@@ -350,10 +349,10 @@ namespace MWVR
         viewLocateInfo.displayTime = predictedDisplayTime;
         switch (space)
         {
-        case TrackedSpace::STAGE:
+        case ReferenceSpace::STAGE:
             viewLocateInfo.space = mReferenceSpaceStage;
             break;
-        case TrackedSpace::VIEW:
+        case ReferenceSpace::VIEW:
             viewLocateInfo.space = mReferenceSpaceView;
             break;
         }
@@ -369,7 +368,7 @@ namespace MWVR
 
     MWVR::Pose OpenXRManagerImpl::getPredictedHeadPose(
         int64_t predictedDisplayTime,
-        TrackedSpace space)
+        ReferenceSpace space)
     {
         if (!mPredictionsEnabled)
         {
@@ -382,10 +381,10 @@ namespace MWVR
 
         switch (space)
         {
-        case TrackedSpace::STAGE:
+        case ReferenceSpace::STAGE:
             referenceSpace = mReferenceSpaceStage;
             break;
-        case TrackedSpace::VIEW:
+        case ReferenceSpace::VIEW:
             referenceSpace = mReferenceSpaceView;
             break;
         }
@@ -398,14 +397,9 @@ namespace MWVR
             location.pose.orientation.w = 1;
         }
         return MWVR::Pose{
-            osg::fromXR(location.pose.position),
-            osg::fromXR(location.pose.orientation)
+            fromXR(location.pose.position),
+            fromXR(location.pose.orientation)
         };
-    }
-
-    int OpenXRManagerImpl::eyes()
-    {
-        return mConfigViews.size();
     }
 
     void OpenXRManagerImpl::handleEvents()
@@ -435,9 +429,6 @@ namespace MWVR
         }
     }
 
-    void OpenXRManagerImpl::updateControls()
-    {
-    }
     void
         OpenXRManagerImpl::HandleSessionStateChanged(
             const XrEventDataSessionStateChanged& stateChangedEvent)
@@ -495,12 +486,12 @@ namespace MWVR
 
     MWVR::Pose fromXR(XrPosef pose)
     {
-        return MWVR::Pose{ osg::fromXR(pose.position), osg::fromXR(pose.orientation) };
+        return MWVR::Pose{ fromXR(pose.position), fromXR(pose.orientation) };
     }
 
     XrPosef toXR(MWVR::Pose pose)
     {
-        return XrPosef{ osg::toXR(pose.orientation), osg::toXR(pose.position) };
+        return XrPosef{ toXR(pose.orientation), toXR(pose.position) };
     }
 
     MWVR::FieldOfView fromXR(XrFovf fov)
@@ -513,12 +504,12 @@ namespace MWVR
         return XrFovf{ fov.angleLeft, fov.angleRight, fov.angleUp, fov.angleDown };
     }
 
-    XrSpace OpenXRManagerImpl::getReferenceSpace(TrackedSpace space)
+    XrSpace OpenXRManagerImpl::getReferenceSpace(ReferenceSpace space)
     {
         XrSpace referenceSpace = XR_NULL_HANDLE;
-        if (space == TrackedSpace::STAGE)
+        if (space == ReferenceSpace::STAGE)
             referenceSpace = mReferenceSpaceStage;
-        if (space == TrackedSpace::VIEW)
+        if (space == ReferenceSpace::VIEW)
             referenceSpace = mReferenceSpaceView;
         return referenceSpace;
     }
@@ -533,32 +524,48 @@ namespace MWVR
         mPredictionsEnabled = false;
     }
 
+    long long OpenXRManagerImpl::getLastPredictedDisplayTime()
+    {
+        return mFrameState.predictedDisplayTime;
+    }
+
     long long OpenXRManagerImpl::getLastPredictedDisplayPeriod()
     {
         return mFrameState.predictedDisplayPeriod;
     }
-}
-
-namespace osg
-{
-
-    Vec3 fromXR(XrVector3f v)
+    std::array<SwapchainConfig, 2> OpenXRManagerImpl::getRecommendedSwapchainConfig() const
     {
-        return Vec3{ v.x, -v.z, v.y };
+        std::array<SwapchainConfig, 2> config{};
+        for (uint32_t i = 0; i < 2; i++)
+            config[i] = SwapchainConfig{
+                mConfigViews[i].recommendedImageRectWidth,
+                mConfigViews[i].maxImageRectWidth,
+                mConfigViews[i].recommendedImageRectHeight,
+                mConfigViews[i].maxImageRectHeight,
+                mConfigViews[i].recommendedSwapchainSampleCount,
+                mConfigViews[i].recommendedSwapchainSampleCount,
+        };
+        return config;
     }
 
-    Quat fromXR(XrQuaternionf quat)
+    osg::Vec3 fromXR(XrVector3f v)
     {
-        return Quat{ quat.x, -quat.z, quat.y, quat.w };
+        return osg::Vec3{ v.x, -v.z, v.y };
     }
 
-    XrVector3f toXR(Vec3 v)
+    osg::Quat fromXR(XrQuaternionf quat)
+    {
+        return osg::Quat{ quat.x, -quat.z, quat.y, quat.w };
+    }
+
+    XrVector3f toXR(osg::Vec3 v)
     {
         return XrVector3f{ v.x(), v.z(), -v.y() };
     }
 
-    XrQuaternionf toXR(Quat quat)
+    XrQuaternionf toXR(osg::Quat quat)
     {
         return XrQuaternionf{ quat.x(), quat.z(), -quat.y(), quat.w() };
     }
 }
+

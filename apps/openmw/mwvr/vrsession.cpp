@@ -94,7 +94,7 @@ osg::Matrix VRSession::viewMatrix(FramePhase phase, Side side)
 
 bool VRSession::isRunning() const {
     auto* xr = Environment::get().getManager();
-    return xr->sessionRunning();
+    return xr->xrSessionRunning();
 }
 
 void VRSession::swapBuffers(osg::GraphicsContext* gc, VRViewer& viewer)
@@ -254,13 +254,13 @@ void VRSession::prepareFrame()
     PoseSet predictedPoses{};
 
     xr->enablePredictions();
-    predictedPoses.head = xr->getPredictedHeadPose(predictedDisplayTime, TrackedSpace::STAGE) * mPlayerScale;
-    auto hmdViews = xr->getPredictedViews(predictedDisplayTime, TrackedSpace::VIEW);
+    predictedPoses.head = xr->getPredictedHeadPose(predictedDisplayTime, ReferenceSpace::STAGE) * mPlayerScale;
+    auto hmdViews = xr->getPredictedViews(predictedDisplayTime, ReferenceSpace::VIEW);
     predictedPoses.view[(int)Side::LEFT_SIDE].pose = hmdViews[(int)Side::LEFT_SIDE].pose * mPlayerScale;
     predictedPoses.view[(int)Side::RIGHT_SIDE].pose = hmdViews[(int)Side::RIGHT_SIDE].pose * mPlayerScale;
     predictedPoses.view[(int)Side::LEFT_SIDE].fov = hmdViews[(int)Side::LEFT_SIDE].fov;
     predictedPoses.view[(int)Side::RIGHT_SIDE].fov = hmdViews[(int)Side::RIGHT_SIDE].fov;
-    auto stageViews = xr->getPredictedViews(predictedDisplayTime, TrackedSpace::STAGE);
+    auto stageViews = xr->getPredictedViews(predictedDisplayTime, ReferenceSpace::STAGE);
     predictedPoses.eye[(int)Side::LEFT_SIDE] = stageViews[(int)Side::LEFT_SIDE].pose * mPlayerScale;
     predictedPoses.eye[(int)Side::RIGHT_SIDE] = stageViews[(int)Side::RIGHT_SIDE].pose * mPlayerScale;
 
