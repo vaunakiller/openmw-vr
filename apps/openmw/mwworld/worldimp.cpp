@@ -1127,8 +1127,8 @@ namespace MWWorld
         // TODO: Rename this method to getTargetObject?
         // "getFacedObject" doesn't make sense with finger pointing.
         auto* anim = MWVR::Environment::get().getPlayerAnimation();
-        if (anim && anim->mPointerTarget.mHit)
-            return anim->mPointerTarget.mHitObject;
+        if (anim && anim->getPointerTarget().mHit)
+            return anim->getPointerTarget().mHitObject;
         else
             return MWWorld::Ptr();
 #endif

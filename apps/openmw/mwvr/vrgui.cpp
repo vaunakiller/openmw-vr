@@ -714,10 +714,10 @@ void VRGUIManager::updateTracking(osg::Camera* camera)
 bool VRGUIManager::updateFocus()
 {
     auto* anim = MWVR::Environment::get().getPlayerAnimation();
-    if (anim && anim->mPointerTarget.mHit)
+    if (anim && anim->getPointerTarget().mHit)
     {
         std::shared_ptr<VRGUILayer> newFocusLayer = nullptr;
-        auto* node = anim->mPointerTarget.mHitNode;
+        auto* node = anim->getPointerTarget().mHitNode;
         if (node->getName() == "VRGUILayer")
         {
             VRGUILayerUserData* userData = static_cast<VRGUILayerUserData*>(node->getUserData());
@@ -727,7 +727,7 @@ bool VRGUIManager::updateFocus()
         if (newFocusLayer && newFocusLayer->mLayerName != "Notification")
         {
             setFocusLayer(newFocusLayer.get());
-            computeGuiCursor(anim->mPointerTarget.mHitPointLocal);
+            computeGuiCursor(anim->getPointerTarget().mHitPointLocal);
             return true;
         }
     }

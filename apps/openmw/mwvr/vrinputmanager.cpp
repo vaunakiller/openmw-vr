@@ -48,8 +48,7 @@ void OpenXRInputManager::updateActivationIndication(void)
     bool show = guiMode | mActivationIndication;
     auto* playerAnimation = Environment::get().getPlayerAnimation();
     if (playerAnimation)
-        if (show != playerAnimation->isPointingForward())
-            playerAnimation->setPointForward(show);
+        playerAnimation->setFingerPointingMode(show);
 }
 
 
@@ -91,10 +90,10 @@ void OpenXRInputManager::pointActivation(bool onPress)
 {
     auto* world = MWBase::Environment::get().getWorld();
     auto* anim = MWVR::Environment::get().getPlayerAnimation();
-    if (world && anim && anim->mPointerTarget.mHit)
+    if (world && anim && anim->getPointerTarget().mHit)
     {
-        auto* node = anim->mPointerTarget.mHitNode;
-        MWWorld::Ptr ptr = anim->mPointerTarget.mHitObject;
+        auto* node = anim->getPointerTarget().mHitNode;
+        MWWorld::Ptr ptr = anim->getPointerTarget().mHitObject;
         auto& dnd = MWBase::Environment::get().getWindowManager()->getDragAndDrop();
 
         if (node && node->getName() == "VRGUILayer")

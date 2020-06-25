@@ -247,7 +247,7 @@ void HandController::operator()(osg::Node* node, osg::NodeVisitor* nv)
     auto weaponType = world->getActiveWeaponType();
     // Morrowind models do not hold most weapons at a natural angle, so i rotate the hand
     // to more natural angles on weapons to allow more comfortable combat.
-    if (!windowManager->isGuiMode() && !animation->isPointingForward())
+    if (!windowManager->isGuiMode() && !animation->fingerPointingMode())
     {
 
         switch (weaponType)
@@ -495,8 +495,11 @@ void VRAnimation::updateParts()
     Environment::get().getSession()->setPlayerScale(sizeFactor);
 }
 
-void VRAnimation::setPointForward(bool enabled)
+void VRAnimation::setFingerPointingMode(bool enabled)
 {
+    if (enabled == mFingerPointingMode)
+        return;
+
     auto finger = mNodeMap.find("bip01 r finger1");
     if (finger != mNodeMap.end())
     {
@@ -524,7 +527,7 @@ void VRAnimation::setPointForward(bool enabled)
         mPointerTarget = MWRender::RayResult{};
     }
 
-    mIsPointingForward = enabled;
+    mFingerPointingMode = enabled;
 }
 
 osg::ref_ptr<osg::Geometry> VRAnimation::createPointerGeometry(void)

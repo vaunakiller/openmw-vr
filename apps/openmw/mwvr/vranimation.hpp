@@ -53,8 +53,8 @@ public:
     virtual void updateParts();
 
     /// Overrides finger animations to point forward
-    void setPointForward(bool enabled);
-    bool isPointingForward(void) const { return mIsPointingForward; }
+    void setFingerPointingMode(bool enabled);
+    bool fingerPointingMode() const { return mFingerPointingMode; }
 
     bool canPlaceObject();
     ///< @return true if it is possible to place on object where the player is currently pointing
@@ -73,14 +73,14 @@ protected:
 
     float getVelocity(const std::string& groupname) const override;
 
-public:
+protected:
     std::shared_ptr<VRSession> mSession;
     osg::ref_ptr<ForearmController> mForearmControllers[2];
     osg::ref_ptr<HandController> mHandControllers[2];
     osg::ref_ptr<FingerController> mIndexFingerControllers[2];
     osg::ref_ptr<osg::MatrixTransform> mModelOffset;
 
-    bool mIsPointingForward{ false };
+    bool mFingerPointingMode{ false };
     osg::ref_ptr<osg::Geometry> mPointerGeometry{ nullptr };
     osg::ref_ptr<osg::MatrixTransform> mPointerRescale{ nullptr };
     osg::ref_ptr<osg::MatrixTransform> mPointerTransform{ nullptr };
