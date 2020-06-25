@@ -13,14 +13,6 @@ namespace MWVR
     class OpenXRSwapchain
     {
     public:
-        struct Config
-        {
-            int width = -1;
-            int height = -1;
-            int samples = -1;
-        };
-
-    public:
         OpenXRSwapchain(osg::ref_ptr<osg::State> state, SwapchainConfig config);
         ~OpenXRSwapchain();
 
