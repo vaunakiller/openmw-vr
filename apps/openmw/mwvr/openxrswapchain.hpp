@@ -10,6 +10,7 @@ namespace MWVR
 {
     class OpenXRSwapchainImpl;
 
+    /// \brief Creation and management of openxr swapchains
     class OpenXRSwapchain
     {
     public:

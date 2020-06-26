@@ -1076,10 +1076,6 @@ namespace MWRender
         // TODO: It's difficult to design a good override system when
         // I don't have a good understanding of the animation code. So for
         // now i just hardcode blocking of updaters for nodes that should not be animated in VR.
-
-        // TODO: Some overrides cause NaN during cull.
-        // I aassume this happens if an override causes a bone to never receive a valid matrix
-        
         // Add any bone+groupname pair that is messing with Vr comfort here.
         using Overrides = std::set<std::string>;
         using GroupOverrides = std::map<std::string, Overrides>;

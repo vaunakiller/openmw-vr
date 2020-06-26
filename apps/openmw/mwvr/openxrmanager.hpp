@@ -20,16 +20,16 @@ struct XrCompositionLayerBaseHeader;
 
 namespace MWVR
 {
-    // Use the pimpl pattern to avoid cluttering the namespace with openxr dependencies.
     class OpenXRManagerImpl;
 
+    /// \brief Manage the openxr runtime and session
     class OpenXRManager : public osg::Referenced
     {
     public:
         class RealizeOperation : public osg::GraphicsOperation
         {
         public:
-            RealizeOperation() : osg::GraphicsOperation("OpenXRRealizeOperation", false){};
+            RealizeOperation() : osg::GraphicsOperation("OpenXRRealizeOperation", false) {};
             void operator()(osg::GraphicsContext* gc) override;
             virtual bool realized();
 

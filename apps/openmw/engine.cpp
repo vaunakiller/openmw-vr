@@ -555,7 +555,7 @@ void OMW::Engine::prepareEngine (Settings::Manager & settings)
 
     MWInput::InputManager* input =
 #ifdef USE_OPENXR
-        new MWVR::OpenXRInputManager(mWindow, mViewer, mScreenCaptureHandler, mScreenCaptureOperation, keybinderUser, keybinderUserExists, userGameControllerdb, gameControllerdb, mGrab);
+        new MWVR::VRInputManager(mWindow, mViewer, mScreenCaptureHandler, mScreenCaptureOperation, keybinderUser, keybinderUserExists, userGameControllerdb, gameControllerdb, mGrab);
 #else
         new MWInput::InputManager (mWindow, mViewer, mScreenCaptureHandler, mScreenCaptureOperation, keybinderUser, keybinderUserExists, userGameControllerdb, gameControllerdb, mGrab);
 #endif

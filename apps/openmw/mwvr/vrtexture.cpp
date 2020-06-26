@@ -1,11 +1,8 @@
-#include "vrviewer.hpp"
 #include "vrtexture.hpp"
+
 #include <osg/Texture2D>
-#include <osgViewer/Renderer>
+
 #include <components/debug/debuglog.hpp>
-#include <osgDB/Registry>
-#include <sstream>
-#include <fstream>
 
 #ifndef GL_TEXTURE_MAX_LEVEL
 #define GL_TEXTURE_MAX_LEVEL 0x813D
@@ -18,9 +15,9 @@ namespace MWVR
         : mState(state)
         , mWidth(width)
         , mHeight(height)
-        , mSamples(msaaSamples)
-        , mColorBuffer(colorBuffer)
         , mDepthBuffer(depthBuffer)
+        , mColorBuffer(colorBuffer)
+        , mSamples(msaaSamples)
     {
         auto* gl = osg::GLExtensions::Get(state->getContextID(), false);
 
@@ -94,10 +91,10 @@ namespace MWVR
             if (mFBO)
                 gl->glDeleteFramebuffers(1, &mFBO);
         }
-        else if(mFBO)
+        else if (mFBO)
             // Without access to opengl methods, i'll just let the FBOs leak.
             Log(Debug::Warning) << "destroy() called without a State. Leaking FBO";
-            
+
         if (mDepthBuffer)
             glDeleteTextures(1, &mDepthBuffer);
         if (mColorBuffer)

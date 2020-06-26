@@ -9,12 +9,12 @@
 
 #include "../mwbase/environment.hpp"
 
-MWVR::Environment *MWVR::Environment::sThis = 0;
+MWVR::Environment* MWVR::Environment::sThis = 0;
 
 MWVR::Environment::Environment()
-: mSession(nullptr)
+    : mSession(nullptr)
 {
-    assert (!sThis);
+    assert(!sThis);
     sThis = this;
 }
 
@@ -42,15 +42,15 @@ void MWVR::Environment::cleanup()
 
 MWVR::Environment& MWVR::Environment::get()
 {
-    assert (sThis);
+    assert(sThis);
     return *sThis;
 }
 
-MWVR::OpenXRInputManager* MWVR::Environment::getInputManager() const
+MWVR::VRInputManager* MWVR::Environment::getInputManager() const
 {
     auto* inputManager = MWBase::Environment::get().getInputManager();
     assert(inputManager);
-    auto xrInputManager = dynamic_cast<MWVR::OpenXRInputManager*>(inputManager);
+    auto xrInputManager = dynamic_cast<MWVR::VRInputManager*>(inputManager);
     assert(xrInputManager);
     return xrInputManager;
 }

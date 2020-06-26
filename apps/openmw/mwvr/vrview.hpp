@@ -9,7 +9,7 @@ struct XrSwapchainSubImage;
 
 namespace MWVR
 {
-
+    /// \brief Manipulates a slave camera by replacing its framebuffer with one destined for openxr
     class VRView : public osg::Referenced
     {
     public:
@@ -48,7 +48,7 @@ namespace MWVR
         osg::Camera* createCamera(int order, const osg::Vec4& clearColor, osg::GraphicsContext* gc);
         //! Get the view surface
         OpenXRSwapchain& swapchain(void) { return *mSwapchain; }
-
+        //! Present to the openxr swapchain
         void swapBuffers(osg::GraphicsContext* gc);
 
     public:

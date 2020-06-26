@@ -4,15 +4,15 @@
 namespace MWVR
 {
     class VRAnimation;
-    class OpenXRInputManager;
+    class VRInputManager;
     class VRSession;
     class VRGUIManager;
     class VRViewer;
     class OpenXRManager;
 
-    /// \brief Central hub for mw openxr subsystems
+    /// \brief Central hub for mw vr/openxr subsystems
     ///
-    /// This class allows each mw openxr subsystem to access any others subsystem's top-level manager class.
+    /// This class allows each mw subsystem to access any vr subsystem's top-level manager class.
     ///
     /// \attention Environment takes ownership of the manager class instances it is handed over in
     /// the set* functions.
@@ -39,7 +39,7 @@ namespace MWVR
         static Environment& get();
         ///< Return instance of this class.
 
-        MWVR::OpenXRInputManager* getInputManager() const;
+        MWVR::VRInputManager* getInputManager() const;
 
         // The OpenXRInputManager supplants the regular input manager
         // which is stored in MWBase::Environment

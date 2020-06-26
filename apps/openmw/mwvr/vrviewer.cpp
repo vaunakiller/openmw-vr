@@ -1,21 +1,18 @@
 #include "vrviewer.hpp"
-#include "vrsession.hpp"
+
 #include "openxrmanagerimpl.hpp"
-#include "openxrinput.hpp"
 #include "vrenvironment.hpp"
-#include "Windows.h"
-#include "../mwmechanics/actorutil.hpp"
-#include "../mwbase/world.hpp"
-#include "../mwbase/environment.hpp"
-#include "../mwworld/class.hpp"
-#include "../mwworld/player.hpp"
-#include "../mwworld/esmstore.hpp"
+#include "vrsession.hpp"
+
 #include "../mwrender/vismask.hpp"
-#include <components/esm/loadrace.hpp>
-#include <osg/MatrixTransform>
 
 namespace MWVR
 {
+
+    const std::array<const char*, 2> VRViewer::sViewNames = {
+            "LeftEye",
+            "RightEye"
+    };
 
     VRViewer::VRViewer(
         osg::ref_ptr<osgViewer::Viewer> viewer)
@@ -42,87 +39,62 @@ namespace MWVR
     void VRViewer::realize(osg::GraphicsContext* context)
     {
         std::unique_lock<std::mutex> lock(mMutex);
-        
+
         if (mConfigured)
         {
             return;
         }
 
-        if (!context->isCurrent())
-        if (!context->makeCurrent())
-        {
-            throw std::logic_error("VRViewer::configure() failed to make graphics context current.");
-            return;
-        }
-
+        // Give the main camera an initial draw callback that disables camera setup (we don't want it)
         auto mainCamera = mCameras["MainCamera"] = mViewer->getCamera();
         mainCamera->setName("Main");
         mainCamera->setInitialDrawCallback(new VRView::InitialDrawCallback());
-
-        osg::Vec4 clearColor = mainCamera->getClearColor();
 
         auto* xr = Environment::get().getManager();
         if (!xr->realized())
             xr->realize(context);
 
+        // Run through initial events to start session
+        // For the rest of runtime this is handled by vrsession
         xr->handleEvents();
 
+        // Small feature culling
+        bool smallFeatureCulling = Settings::Manager::getBool("small feature culling", "Camera");
+        auto smallFeatureCullingPixelSize = Settings::Manager::getFloat("small feature culling pixel size", "Camera");
+        osg::Camera::CullingMode cullingMode = osg::Camera::DEFAULT_CULLING | osg::Camera::FAR_PLANE_CULLING;
+        if (!smallFeatureCulling)
+            cullingMode &= ~osg::CullStack::SMALL_FEATURE_CULLING;
+        else
+            cullingMode |= osg::CullStack::SMALL_FEATURE_CULLING;
+
+        // Configure eyes, their cameras, and their enslavement.
+        osg::Vec4 clearColor = mainCamera->getClearColor();
         auto config = xr->getRecommendedSwapchainConfig();
 
-        auto leftView = new VRView("LeftEye", config[(int)Side::LEFT_SIDE], context->getState());
-        auto rightView = new VRView("RightEye", config[(int)Side::RIGHT_SIDE], context->getState());
-
-        mViews["LeftEye"] = leftView;
-        mViews["RightEye"] = rightView;
-
-        auto leftCamera = mCameras["LeftEye"] = leftView->createCamera(0, clearColor, context);
-        auto rightCamera = mCameras["RightEye"] = rightView->createCamera(1, clearColor, context);
-
-        leftCamera->setPreDrawCallback(mPreDraw);
-        rightCamera->setPreDrawCallback(mPreDraw);
-
-        leftCamera->setFinalDrawCallback(mPostDraw);
-        rightCamera->setFinalDrawCallback(mPostDraw);
-
-        // Stereo cameras should only draw the scene
-        leftCamera->setCullMask(~MWRender::Mask_GUI & ~MWRender::Mask_SimpleWater & ~MWRender::Mask_UpdateVisitor);
-        rightCamera->setCullMask(~MWRender::Mask_GUI & ~MWRender::Mask_SimpleWater & ~MWRender::Mask_UpdateVisitor);
-
-        leftCamera->setName("LeftEye");
-        rightCamera->setName("RightEye");
-
-
-        osg::Camera::CullingMode cullingMode = osg::Camera::DEFAULT_CULLING|osg::Camera::FAR_PLANE_CULLING;
-
-        if (!Settings::Manager::getBool("small feature culling", "Camera"))
-            cullingMode &= ~(osg::CullStack::SMALL_FEATURE_CULLING);
-        else
+        for (unsigned i = 0; i < sViewNames.size(); i++)
         {
-            auto smallFeatureCullingPixelSize = Settings::Manager::getFloat("small feature culling pixel size", "Camera");
-            leftCamera->setSmallFeatureCullingPixelSize(smallFeatureCullingPixelSize);
-            rightCamera->setSmallFeatureCullingPixelSize(smallFeatureCullingPixelSize);
-            cullingMode |= osg::CullStack::SMALL_FEATURE_CULLING;
+            auto view = new VRView(sViewNames[i], config[i], context->getState());
+            mViews[sViewNames[i]] = view;
+            auto camera = mCameras[sViewNames[i]] = view->createCamera(i, clearColor, context);
+            camera->setPreDrawCallback(mPreDraw);
+            camera->setFinalDrawCallback(mPostDraw);
+            camera->setCullMask(~MWRender::Mask_GUI & ~MWRender::Mask_SimpleWater & ~MWRender::Mask_UpdateVisitor);
+            camera->setName(sViewNames[i]);
+            if (smallFeatureCulling)
+                camera->setSmallFeatureCullingPixelSize(smallFeatureCullingPixelSize);
+            camera->setCullingMode(cullingMode);
+            mViewer->addSlave(camera, true);
+            mViewer->getSlave(i)._updateSlaveCallback = new VRView::UpdateSlaveCallback(view, context);
+
+            mMsaaResolveMirrorTexture[i].reset(new VRTexture(context->getState(),
+                view->swapchain().width(),
+                view->swapchain().height(),
+                0));
         }
-        leftCamera->setCullingMode(cullingMode);
-        rightCamera->setCullingMode(cullingMode);
 
-        mViewer->addSlave(leftCamera, true);
-        mViewer->addSlave(rightCamera, true);
-
-        mViewer->setReleaseContextAtEndOfFrameHint(false);
 
         mMirrorTexture.reset(new VRTexture(context->getState(), mainCamera->getViewport()->width(), mainCamera->getViewport()->height(), 0));
-        mMsaaResolveMirrorTexture[(int)Side::LEFT_SIDE].reset(new VRTexture(context->getState(),
-            leftView->swapchain().width(), 
-            leftView->swapchain().height(), 
-            0));
-        mMsaaResolveMirrorTexture[(int)Side::RIGHT_SIDE].reset(new VRTexture(context->getState(),
-            rightView->swapchain().width(), 
-            rightView->swapchain().height(), 
-            0));
-
-        mViewer->getSlave(0)._updateSlaveCallback = new VRView::UpdateSlaveCallback(leftView, context);
-        mViewer->getSlave(1)._updateSlaveCallback = new VRView::UpdateSlaveCallback(rightView, context);
+        mViewer->setReleaseContextAtEndOfFrameHint(false);
 
         mMainCameraGC = mainCamera->getGraphicsContext();
         mMainCameraGC->setSwapCallback(new VRViewer::SwapBuffersCallback(this));
@@ -130,6 +102,14 @@ namespace MWVR
         mConfigured = true;
 
         Log(Debug::Verbose) << "Realized";
+    }
+
+    VRView* VRViewer::getView(std::string name)
+    {
+        auto it = mViews.find(name);
+        if (it != mViews.end())
+            return it->second.get();
+        return nullptr;
     }
 
     void VRViewer::enableMainCamera(void)
@@ -150,18 +130,16 @@ namespace MWVR
         int screenWidth = mCameras["MainCamera"]->getViewport()->width();
         int mirrorWidth = screenWidth / 2;
         int screenHeight = mCameras["MainCamera"]->getViewport()->height();
-        const char* viewNames[] = {
-            "RightEye",
-            "LeftEye"
-        };
 
-        for (int i = 0; i < 2; i++)
+        for (unsigned i = 0; i < sViewNames.size(); i++)
         {
             auto& resolveTexture = *mMsaaResolveMirrorTexture[i];
             resolveTexture.beginFrame(gc);
-            mViews[viewNames[i]]->swapchain().renderBuffer()->blit(gc, 0, 0, resolveTexture.width(), resolveTexture.height());
+            mViews[sViewNames[i]]->swapchain().renderBuffer()->blit(gc, 0, 0, resolveTexture.width(), resolveTexture.height());
             mMirrorTexture->beginFrame(gc);
-            resolveTexture.blit(gc, i * mirrorWidth, 0, (i + 1) * mirrorWidth, screenHeight);
+            // Mirror the index when rendering to the mirror texture to allow cross eye mirror textures.
+            unsigned mirrorIndex = sViewNames.size() - 1 - i;
+            resolveTexture.blit(gc, mirrorIndex * mirrorWidth, 0, (mirrorIndex + 1) * mirrorWidth, screenHeight);
         }
 
         gl->glBindFramebuffer(GL_FRAMEBUFFER_EXT, 0);
@@ -206,7 +184,8 @@ namespace MWVR
 
         view->postrenderCallback(info);
 
-        // OSG will sometimes overwrite the predraw callback.
+        // This happens sometimes, i've not been able to catch it when as happens
+        // to see why and how i can stop it.
         if (camera->getPreDrawCallback() != mPreDraw)
         {
             camera->setPreDrawCallback(mPreDraw);

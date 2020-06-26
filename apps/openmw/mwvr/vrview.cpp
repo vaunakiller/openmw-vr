@@ -1,24 +1,11 @@
 #include "vrview.hpp"
-#include "vrsession.hpp"
+
 #include "openxrmanager.hpp"
 #include "openxrmanagerimpl.hpp"
-#include "../mwinput/inputmanagerimp.hpp"
-#include "../mwbase/environment.hpp"
-#include "../mwbase/world.hpp"
-#include "../mwrender/renderingmanager.hpp"
-#include "../mwrender/water.hpp"
+#include "vrsession.hpp"
 #include "vrenvironment.hpp"
 
-
 #include <components/debug/debuglog.hpp>
-#include <components/sdlutil/sdlgraphicswindow.hpp>
-
-#include <Windows.h>
-
-#include <openxr/openxr.h>
-#include <openxr/openxr_platform.h>
-#include <openxr/openxr_platform_defines.h>
-#include <openxr/openxr_reflection.h>
 
 #include <osgViewer/Renderer>
 
@@ -92,8 +79,8 @@ namespace MWVR {
         }
     }
     void VRView::UpdateSlaveCallback::updateSlave(
-            osg::View& view,
-            osg::View::Slave& slave)
+        osg::View& view,
+        osg::View::Slave& slave)
     {
         auto* camera = slave._camera.get();
         auto name = camera->getName();

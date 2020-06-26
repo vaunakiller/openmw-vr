@@ -1,24 +1,9 @@
-#include "vrenvironment.hpp"
 #include "openxrmanager.hpp"
+#include "vrenvironment.hpp"
 #include "openxrmanagerimpl.hpp"
 #include "../mwinput/inputmanagerimp.hpp"
 
 #include <components/debug/debuglog.hpp>
-#include <components/sdlutil/sdlgraphicswindow.hpp>
-
-#include <Windows.h>
-
-#include <openxr/openxr.h>
-#include <openxr/openxr_platform.h>
-#include <openxr/openxr_platform_defines.h>
-#include <openxr/openxr_reflection.h>
-
-#include <osg/Camera>
-
-#include <vector>
-#include <array>
-#include <map>
-#include <iostream>
 
 namespace MWVR
 {
@@ -82,7 +67,7 @@ namespace MWVR
             try {
                 mPrivate = std::make_shared<OpenXRManagerImpl>();
             }
-            catch (std::exception & e)
+            catch (std::exception& e)
             {
                 Log(Debug::Error) << "Exception thrown by OpenXR: " << e.what();
                 osg::ref_ptr<osg::State> state = gc->getState();

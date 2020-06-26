@@ -8,6 +8,7 @@
 
 namespace MWVR
 {
+    /// \brief C++ wrapper for the XrAction type
     struct OpenXRAction
     {
     private:

@@ -120,6 +120,10 @@ else ()
 endif ()
 
 if(BUILD_VR_OPENXR)
+# TODO: Move this into something akin to add_openmw_dir instead of breaking pattern.
+# Later, openmw and openmw_vr should preferrably share game code as a static or shared library
+# instead of being compiled separately, though for now that's not possible as i depend on
+# USE_OPENXR preprocessor switches.
     set(OPENMW_VR_FILES
         vrengine.cpp
         mwvr/openxraction.hpp
@@ -165,7 +169,7 @@ if(BUILD_VR_OPENXR)
         ${APPLE_BUNDLE_RESOURCES}
     )
 
-    # Preprocessor variable used to control code paths between the vr port and non-vr.
+    # Preprocessor variable used to control code paths to vr code
     target_compile_options(openmw_vr PUBLIC -DUSE_OPENXR -DXR_USE_GRAPHICS_API_OPENGL -DXR_USE_PLATFORM_WIN32)
 endif()
 

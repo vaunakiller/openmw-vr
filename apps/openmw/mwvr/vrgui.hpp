@@ -17,14 +17,14 @@
 
 namespace MyGUI
 {
-class Widget;
-class Window;
+    class Widget;
+    class Window;
 }
 
 namespace MWGui
 {
-class Layout;
-class WindowBase;
+    class Layout;
+    class WindowBase;
 }
 
 struct XrCompositionLayerQuad;

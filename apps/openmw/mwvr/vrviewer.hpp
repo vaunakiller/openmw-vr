@@ -14,6 +14,10 @@
 
 namespace MWVR
 {
+    /// \brief Manages stereo rendering and mirror texturing.
+    ///
+    /// Manipulates the osgViewer by disabling main camera rendering, and instead rendering to
+    /// two slave cameras, each connected to and manipulated by a VRView class.
     class VRViewer
     {
     public:
@@ -65,13 +69,14 @@ namespace MWVR
             VRViewer* mViewer;
         };
 
+
+        static const std::array<const char*, 2> sViewNames;
+
     public:
         VRViewer(
             osg::ref_ptr<osgViewer::Viewer> viewer);
 
         ~VRViewer(void);
-
-        const XrCompositionLayerBaseHeader* layer();
 
         void traversals();
         void preDrawCallback(osg::RenderInfo& info);
@@ -79,11 +84,12 @@ namespace MWVR
         void blitEyesToMirrorTexture(osg::GraphicsContext* gc);
         void realize(osg::GraphicsContext* gc);
         bool realized() { return mConfigured; }
+        VRView* getView(std::string name);
 
         void enableMainCamera(void);
         void disableMainCamera(void);
 
-    public:
+    private:
         osg::ref_ptr<OpenXRManager::RealizeOperation> mRealizeOperation = nullptr;
         osg::ref_ptr<osgViewer::Viewer> mViewer = nullptr;
         std::map<std::string, osg::ref_ptr<VRView> > mViews{};
@@ -91,7 +97,6 @@ namespace MWVR
         osg::ref_ptr<PredrawCallback> mPreDraw{ nullptr };
         osg::ref_ptr<PostdrawCallback> mPostDraw{ nullptr };
         osg::GraphicsContext* mMainCameraGC{ nullptr };
-        //std::unique_ptr<VRTexture> mMirrorTexture{ nullptr };
         std::unique_ptr<VRTexture> mMsaaResolveMirrorTexture[2]{ };
         std::unique_ptr<VRTexture> mMirrorTexture{ nullptr };
 

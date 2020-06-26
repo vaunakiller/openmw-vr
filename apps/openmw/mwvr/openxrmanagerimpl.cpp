@@ -1,4 +1,5 @@
 #include "openxrmanagerimpl.hpp"
+
 #include "openxrswapchain.hpp"
 #include "openxrswapchainimpl.hpp"
 #include "vrtexture.hpp"
@@ -298,7 +299,7 @@ namespace MWVR
         xrLayer.pose = toXR(layer.pose);
         xrLayer.fov = toXR(layer.fov);
         xrLayer.next = nullptr;
-        
+
         return xrLayer;
     }
 
@@ -331,7 +332,7 @@ namespace MWVR
         wglMakeCurrent(DC, GLRC);
     }
 
-    std::array<View, 2> 
+    std::array<View, 2>
         OpenXRManagerImpl::getPredictedViews(
             int64_t predictedDisplayTime,
             ReferenceSpace space)
@@ -444,7 +445,7 @@ namespace MWVR
         switch (newState)
         {
         case XR_SESSION_STATE_READY:
-        //case XR_SESSION_STATE_IDLE:
+            //case XR_SESSION_STATE_IDLE:
         {
             XrSessionBeginInfo beginInfo{ XR_TYPE_SESSION_BEGIN_INFO };
             beginInfo.primaryViewConfigurationType = mViewConfigType;
