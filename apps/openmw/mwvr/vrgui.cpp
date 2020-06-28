@@ -527,7 +527,7 @@ namespace MWVR
         {"MessageBox", gMessageBoxConfig},
         {"Windows", gDefaultWindowsConfig},
         {"Notification", gNotificationConfig},
-        {"VideoPlayer", gVideoPlayerConfig},
+        {"InputBlocker", gVideoPlayerConfig},
         {"LoadingScreen", gLoadingScreenConfig},
     };
 
