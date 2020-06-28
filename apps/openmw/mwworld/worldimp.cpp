@@ -4011,11 +4011,6 @@ namespace MWWorld
         return dropped;
     }
 	
-    MWPhysics::PhysicsSystem* World::getPhysicsSystem(void)
-    {
-        return mPhysics.get();
-    }
-	
     int World::getActiveWeaponType(void)
     {
         if (mPlayer)

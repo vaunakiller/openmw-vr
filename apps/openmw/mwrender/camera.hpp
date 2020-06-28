@@ -96,7 +96,6 @@ namespace MWRender
         void setYaw(float angle);
 
         float getRoll();
-        float getPitch() const;
         void setRoll(float angle);
 
         float getPitch() const;

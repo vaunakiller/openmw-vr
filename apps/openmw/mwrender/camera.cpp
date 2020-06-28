@@ -174,7 +174,6 @@ namespace MWRender
         osg::Vec3d focal, position;
         getPosition(focal, position);
 
-        osg::Vec3d position = getFocalPoint();
 #ifdef USE_OPENXR
         auto* inputManager = MWVR::Environment::get().getInputManager();
         if (inputManager)

@@ -735,15 +735,11 @@ namespace MWWorld
             float getTargetObject(MWRender::RayResult& result, osg::Transform* pointer) override;
             float getTargetObject(MWRender::RayResult& result, osg::Transform* pointer, float maxDistance, bool ignorePlayer) override;
 
-
             MWWorld::Ptr placeObject(const MWWorld::ConstPtr& object, const MWRender::RayResult& ray, int amount) override;
             ///< copy and place an object into the gameworld based on the given intersection
             /// @param object
             /// @param world position to place object
             /// @param number of objects to place
-
-
-            MWPhysics::PhysicsSystem* getPhysicsSystem(void) override;
 
             /// @Return ESM::Weapon::Type enum describing the type of weapon currently drawn by the player.
             int getActiveWeaponType(void) override;
