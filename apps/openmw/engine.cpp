@@ -486,7 +486,6 @@ void OMW::Engine::prepareEngine (Settings::Manager & settings)
     createWindow(settings);
 
     osg::ref_ptr<osg::Group> rootNode (new osg::Group);
-
     mViewer->setSceneData(rootNode);
 
     mVFS.reset(new VFS::Manager(mFSStrict));
@@ -503,7 +502,6 @@ void OMW::Engine::prepareEngine (Settings::Manager & settings)
     );
 
     int numThreads = Settings::Manager::getInt("preload num threads", "Cells");
-    Log(Debug::Verbose) << "Num threads: " << numThreads;
     if (numThreads <= 0)
         throw std::runtime_error("Invalid setting: 'preload num threads' must be >0");
     mWorkQueue = new SceneUtil::WorkQueue(numThreads);
@@ -780,10 +778,10 @@ void OMW::Engine::go()
         {
 
             mViewer->eventTraversal();
+            mViewer->updateTraversal();
 
             mEnvironment.getWorld()->updateWindowManager();
 
-            mViewer->updateTraversal();
             mViewer->renderingTraversals();
 
             bool guiActive = mEnvironment.getWindowManager()->isGuiMode();
