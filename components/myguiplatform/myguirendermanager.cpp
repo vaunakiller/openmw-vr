@@ -590,11 +590,6 @@ void RenderManager::setViewSize(int width, int height)
     if(width < 1) width = 1;
     if(height < 1) height = 1;
 
-////#ifdef USE_OPENXR
-//    width = 1024;
-//    height = 1024;
-////#endif
-
     mViewSize.set(width * mInvScalingFactor, height * mInvScalingFactor);
 
     for (auto* camera : mGuiCameras)

@@ -58,7 +58,6 @@ namespace MWWorld
 
         bool mAttackingOrSpell;
         bool mJumping;
-        bool mPointing;
 
     public:
 
