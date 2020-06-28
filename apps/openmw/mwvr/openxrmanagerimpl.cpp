@@ -2,7 +2,6 @@
 
 #include "openxrswapchain.hpp"
 #include "openxrswapchainimpl.hpp"
-#include "vrtexture.hpp"
 
 #include <components/debug/debuglog.hpp>
 #include <components/sdlutil/sdlgraphicswindow.hpp>
@@ -445,13 +444,11 @@ namespace MWVR
         switch (newState)
         {
         case XR_SESSION_STATE_READY:
-            //case XR_SESSION_STATE_IDLE:
         {
             XrSessionBeginInfo beginInfo{ XR_TYPE_SESSION_BEGIN_INFO };
             beginInfo.primaryViewConfigurationType = mViewConfigType;
             CHECK_XRCMD(xrBeginSession(mSession, &beginInfo));
             mSessionRunning = true;
-            //waitFrame();
             break;
         }
         case XR_SESSION_STATE_STOPPING:

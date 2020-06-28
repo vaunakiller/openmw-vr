@@ -459,11 +459,10 @@ namespace MWVR
             MWBase::Environment::get().getWorld()->getStore().get<ESM::Race>().find(ref->mBase->mRace);
         bool isMale = ref->mBase->isMale();
         float charHeightFactor = isMale ? race->mData.mHeight.mMale : race->mData.mHeight.mFemale;
-        float charHeightBase = 1.8f;
+        float charHeightBase = 1.8f; // Is this ~ the right value?
         float charHeight = charHeightBase * charHeightFactor;
-        // TODO: Player height should be configurable
-        // For now i'm just using my own
-        float sizeFactor = 1.85f / charHeight;
+        float realHeight = Settings::Manager::getFloat("real height", "VR");
+        float sizeFactor = charHeight / realHeight;
         Environment::get().getSession()->setPlayerScale(sizeFactor);
     }
 

@@ -33,19 +33,14 @@ namespace MWVR {
         return impl().endFrame(gc);
     }
 
-    void OpenXRSwapchain::acquire(osg::GraphicsContext* gc)
+    uint32_t OpenXRSwapchain::acquiredColorTexture() const
     {
-        return impl().acquire(gc);
+        return impl().acquiredColorTexture();
     }
 
-    void OpenXRSwapchain::release(osg::GraphicsContext* gc)
+    uint32_t OpenXRSwapchain::acquiredDepthTexture() const
     {
-        return impl().release(gc);
-    }
-
-    uint32_t OpenXRSwapchain::acquiredImage() const
-    {
-        return impl().acquiredImage();
+        return impl().acquiredDepthTexture();
     }
 
     int OpenXRSwapchain::width() const
@@ -68,7 +63,7 @@ namespace MWVR {
         return impl().isAcquired();
     }
 
-    VRTexture* OpenXRSwapchain::renderBuffer() const
+    VRFramebuffer* OpenXRSwapchain::renderBuffer() const
     {
         return impl().renderBuffer();
     }

@@ -1,4 +1,4 @@
-#include "vrtexture.hpp"
+#include "vrframebuffer.hpp"
 
 #include <osg/Texture2D>
 
@@ -11,7 +11,7 @@
 namespace MWVR
 {
 
-    VRTexture::VRTexture(osg::ref_ptr<osg::State> state, std::size_t width, std::size_t height, uint32_t msaaSamples, uint32_t colorBuffer, uint32_t depthBuffer)
+    VRFramebuffer::VRFramebuffer(osg::ref_ptr<osg::State> state, std::size_t width, std::size_t height, uint32_t msaaSamples, uint32_t colorBuffer, uint32_t depthBuffer)
         : mState(state)
         , mWidth(width)
         , mHeight(height)
@@ -72,12 +72,12 @@ namespace MWVR
         gl->glBindFramebuffer(GL_FRAMEBUFFER_EXT, 0);
     }
 
-    VRTexture::~VRTexture()
+    VRFramebuffer::~VRFramebuffer()
     {
         destroy(nullptr);
     }
 
-    void VRTexture::destroy(osg::State* state)
+    void VRFramebuffer::destroy(osg::State* state)
     {
         if (!state)
         {
@@ -92,7 +92,7 @@ namespace MWVR
                 gl->glDeleteFramebuffers(1, &mFBO);
         }
         else if (mFBO)
-            // Without access to opengl methods, i'll just let the FBOs leak.
+            // Without access to glDeleteFramebuffers, i'll have to leak FBOs.
             Log(Debug::Warning) << "destroy() called without a State. Leaking FBO";
 
         if (mDepthBuffer)
@@ -100,48 +100,22 @@ namespace MWVR
         if (mColorBuffer)
             glDeleteTextures(1, &mColorBuffer);
 
-        mFBO = mDepthBuffer = mColorBuffer;
+        mFBO = mDepthBuffer = mColorBuffer = 0;
     }
 
-    void VRTexture::beginFrame(osg::GraphicsContext* gc)
+    void VRFramebuffer::bindFramebuffer(osg::GraphicsContext* gc, uint32_t target)
     {
         auto state = gc->getState();
         auto* gl = osg::GLExtensions::Get(state->getContextID(), false);
-        gl->glBindFramebuffer(GL_FRAMEBUFFER_EXT, mFBO);
+        gl->glBindFramebuffer(target, mFBO);
     }
 
-    void VRTexture::endFrame(osg::GraphicsContext* gc, uint32_t blitTarget)
-    {
-        auto* state = gc->getState();
-        auto* gl = osg::GLExtensions::Get(state->getContextID(), false);
-        gl->glBindFramebuffer(GL_DRAW_FRAMEBUFFER_EXT, mBlitFBO);
-        gl->glBindFramebuffer(GL_READ_FRAMEBUFFER_EXT, mFBO);
-        gl->glFramebufferTexture2D(GL_DRAW_FRAMEBUFFER_EXT, GL_COLOR_ATTACHMENT0_EXT, GL_TEXTURE_2D, blitTarget, 0);
-        gl->glBlitFramebuffer(0, 0, mWidth, mHeight, 0, 0, mWidth, mHeight, GL_COLOR_BUFFER_BIT, GL_NEAREST);
-        gl->glFramebufferTexture2D(GL_DRAW_FRAMEBUFFER_EXT, GL_COLOR_ATTACHMENT0_EXT, GL_TEXTURE_2D, 0, 0);
-        gl->glBindFramebuffer(GL_DRAW_FRAMEBUFFER_EXT, 0);
-        gl->glBindFramebuffer(GL_READ_FRAMEBUFFER_EXT, 0);
-    }
-
-    void VRTexture::blit(osg::GraphicsContext* gc, int x, int y, int w, int h)
+    void VRFramebuffer::blit(osg::GraphicsContext* gc, int x, int y, int w, int h)
     {
         auto* state = gc->getState();
         auto* gl = osg::GLExtensions::Get(state->getContextID(), false);
         gl->glBindFramebuffer(GL_READ_FRAMEBUFFER_EXT, mFBO);
         gl->glBlitFramebuffer(0, 0, mWidth, mHeight, x, y, w, h, GL_COLOR_BUFFER_BIT, GL_LINEAR);
-        gl->glBindFramebuffer(GL_READ_FRAMEBUFFER_EXT, 0);
-    }
-
-    void VRTexture::blit(osg::GraphicsContext* gc, int x, int y, int w, int h, int blitTarget)
-    {
-        auto* state = gc->getState();
-        auto* gl = osg::GLExtensions::Get(state->getContextID(), false);
-        gl->glBindFramebuffer(GL_DRAW_FRAMEBUFFER_EXT, mBlitFBO);
-        gl->glBindFramebuffer(GL_READ_FRAMEBUFFER_EXT, mFBO);
-        gl->glFramebufferTexture2D(GL_DRAW_FRAMEBUFFER_EXT, GL_COLOR_ATTACHMENT0_EXT, GL_TEXTURE_2D, blitTarget, 0);
-        gl->glBlitFramebuffer(0, 0, mWidth, mHeight, x, y, w, h, GL_COLOR_BUFFER_BIT, GL_LINEAR);
-        gl->glFramebufferTexture2D(GL_DRAW_FRAMEBUFFER_EXT, GL_COLOR_ATTACHMENT0_EXT, GL_TEXTURE_2D, 0, 0);
-        gl->glBindFramebuffer(GL_DRAW_FRAMEBUFFER_EXT, 0);
         gl->glBindFramebuffer(GL_READ_FRAMEBUFFER_EXT, 0);
     }
 }

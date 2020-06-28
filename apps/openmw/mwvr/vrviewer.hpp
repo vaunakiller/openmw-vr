@@ -4,16 +4,20 @@
 #include <memory>
 #include <array>
 #include <map>
+
 #include <osg/Group>
 #include <osg/Camera>
 #include <osgViewer/Viewer>
 
 #include "openxrmanager.hpp"
-#include "vrgui.hpp"
+
 #include <components/sceneutil/positionattitudetransform.hpp>
 
 namespace MWVR
 {
+    class VRFramebuffer;
+    class VRView;
+
     /// \brief Manages stereo rendering and mirror texturing.
     ///
     /// Manipulates the osgViewer by disabling main camera rendering, and instead rendering to
@@ -21,16 +25,6 @@ namespace MWVR
     class VRViewer
     {
     public:
-        class RealizeOperation : public OpenXRManager::RealizeOperation
-        {
-        public:
-            RealizeOperation() {};
-            void operator()(osg::GraphicsContext* gc) override;
-            bool realized() override;
-
-        private:
-        };
-
         class SwapBuffersCallback : public osg::GraphicsContext::SwapCallback
         {
         public:
@@ -90,15 +84,14 @@ namespace MWVR
         void disableMainCamera(void);
 
     private:
-        osg::ref_ptr<OpenXRManager::RealizeOperation> mRealizeOperation = nullptr;
         osg::ref_ptr<osgViewer::Viewer> mViewer = nullptr;
         std::map<std::string, osg::ref_ptr<VRView> > mViews{};
         std::map<std::string, osg::ref_ptr<osg::Camera> > mCameras{};
         osg::ref_ptr<PredrawCallback> mPreDraw{ nullptr };
         osg::ref_ptr<PostdrawCallback> mPostDraw{ nullptr };
         osg::GraphicsContext* mMainCameraGC{ nullptr };
-        std::unique_ptr<VRTexture> mMsaaResolveMirrorTexture[2]{ };
-        std::unique_ptr<VRTexture> mMirrorTexture{ nullptr };
+        std::unique_ptr<VRFramebuffer> mMsaaResolveMirrorTexture[2]{ };
+        std::unique_ptr<VRFramebuffer> mMirrorTexture{ nullptr };
 
         std::mutex mMutex;
 

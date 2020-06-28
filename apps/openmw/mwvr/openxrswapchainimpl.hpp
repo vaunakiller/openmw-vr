@@ -17,12 +17,10 @@ namespace MWVR
 
         void beginFrame(osg::GraphicsContext* gc);
         void endFrame(osg::GraphicsContext* gc);
-        void acquire(osg::GraphicsContext* gc);
-        void release(osg::GraphicsContext* gc);
 
-        VRTexture* renderBuffer() const;
-
-        uint32_t acquiredImage() const;
+        VRFramebuffer* renderBuffer() const;
+        uint32_t acquiredColorTexture() const;
+        uint32_t acquiredDepthTexture() const;
 
         bool isAcquired() const;
         XrSwapchain xrSwapchain(void) const { return mSwapchain; };
@@ -31,6 +29,15 @@ namespace MWVR
         int height() const { return mHeight; };
         int samples() const { return mSamples; };
 
+    protected:
+        OpenXRSwapchainImpl(const OpenXRSwapchainImpl&) = delete;
+        void operator=(const OpenXRSwapchainImpl&) = delete;
+
+        void acquire(osg::GraphicsContext* gc);
+        void release(osg::GraphicsContext* gc);
+        void checkAcquired() const;
+
+    private:
         XrSwapchain mSwapchain = XR_NULL_HANDLE;
         XrSwapchain mDepthSwapchain = XR_NULL_HANDLE;
         std::vector<XrSwapchainImageOpenGLKHR> mSwapchainImageBuffers{};
@@ -42,7 +49,7 @@ namespace MWVR
         int64_t mSwapchainColorFormat = -1;
         int64_t mSwapchainDepthFormat = -1;
         uint32_t mFBO = 0;
-        std::vector<std::unique_ptr<VRTexture> > mRenderBuffers{};
+        std::vector<std::unique_ptr<VRFramebuffer> > mRenderBuffers{};
         int mRenderBuffer{ 0 };
         uint32_t mAcquiredImageIndex{ 0 };
         bool mIsAcquired{ false };

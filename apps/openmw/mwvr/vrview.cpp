@@ -57,7 +57,8 @@ namespace MWVR {
 
     void VRView::prerenderCallback(osg::RenderInfo& renderInfo)
     {
-        if (mSwapchain)
+
+        if (Environment::get().getManager()->xrSessionRunning())
         {
             mSwapchain->beginFrame(renderInfo.getState()->getGraphicsContext());
         }

@@ -13,7 +13,7 @@ namespace MWVR
     class FingerController;
     class ForearmController;
 
-    /// Subclassing NpcAnimation to override behaviours not compatible with VR
+    /// Subclassing NpcAnimation to implement VR related behaviour
     class VRAnimation : public MWRender::NpcAnimation
     {
     protected:

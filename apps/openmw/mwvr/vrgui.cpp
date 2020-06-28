@@ -327,8 +327,7 @@ namespace MWVR
         if (mLayerName == "Notification")
         {
             // The latest widget for notification is always the top one
-            // So we just have to stretch the rectangle to the bottom
-            // TODO: This might get deprecated with this new system?
+            // So i just stretch the rectangle to the bottom.
             mRealRect.bottom = 1.f;
         }
     }

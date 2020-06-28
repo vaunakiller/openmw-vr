@@ -82,6 +82,7 @@ namespace MWVR
     private:
         std::mutex mMutex{};
         std::condition_variable mCondition{};
+        FramePhase mXrSyncPhase{ FramePhase::Cull };
 
         long long mFrames{ 0 };
         long long mLastRenderedFrame{ 0 };

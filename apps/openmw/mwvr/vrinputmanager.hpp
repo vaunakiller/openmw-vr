@@ -1,8 +1,8 @@
 #ifndef VR_INPUT_MANAGER_HPP
 #define VR_INPUT_MANAGER_HPP
 
-#include "vrviewer.hpp"
-#include "realisticcombat.hpp"
+#include "vrtypes.hpp"
+
 #include "../mwinput/inputmanagerimp.hpp"
 
 #include <vector>
@@ -15,8 +15,11 @@ namespace MWVR
 {
     struct OpenXRInput;
 
-    /// As far as I can tell, SDL does not support VR controllers.
-    /// So I subclass the input manager and insert VR controls.
+    namespace RealisticCombat {
+        class StateMachine;
+    }
+
+    /// Extension of the input manager to include VR inputs
     class VRInputManager : public MWInput::InputManager
     {
     public:
@@ -72,6 +75,7 @@ namespace MWVR
         osg::Vec3 mHeadOffset{ 0,0,0 };
         bool mShouldRecenter{ true };
         bool mActivationIndication{ false };
+        bool mHapticsEnabled{ true };
         float mYaw{ 0.f };
 
         float mVrAngles[3]{ 0.f,0.f,0.f };

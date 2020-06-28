@@ -48,10 +48,11 @@ namespace MWVR
         Fixed
     };
 
+    /// Configuration of a VRGUILayer
     struct LayerConfig
     {
-        int priority; //!< Higher priority shows over lower priority windows.
-        bool sideBySide; //!< Resize layer window to occupy full quad
+        int priority; //!< Higher priority shows over lower priority windows by moving higher priority layers slightly closer to the player.
+        bool sideBySide; //!< All layers with this config will show up side by side in a partial circle around the player, and will all be resized to a predefined size.
         osg::Vec4 backgroundColor; //!< Background color of layer
         osg::Vec3 offset; //!< Offset from tracked node in meters
         osg::Vec2 center; //!< Model space centerpoint of menu geometry. All menu geometries have model space lengths of 1 in each dimension. Use this to affect how geometries grow with changing size.
@@ -66,6 +67,11 @@ namespace MWVR
         bool operator<(const LayerConfig& rhs) const { return priority < rhs.priority; }
     };
 
+    /// \brief A single VR GUI Quad.
+    ///
+    /// In VR menus are shown as quads within the game world.
+    /// The behaviour of that quad is defined by the MWVR::LayerConfig struct
+    /// Each instance of VRGUILayer is used to show one MYGUI layer.
     class VRGUILayer
     {
     public:
@@ -77,20 +83,19 @@ namespace MWVR
             VRGUIManager* parent);
         ~VRGUILayer();
 
+        void update();
+
+    protected:
+        friend class VRGUIManager;
         osg::Camera* camera();
-
         osg::ref_ptr<osg::Texture2D> menuTexture();
-
         void setAngle(float angle);
         void updateTracking(const Pose& headPose = {});
         void updatePose();
         void updateRect();
-        void update();
-
         void insertWidget(MWGui::Layout* widget);
         void removeWidget(MWGui::Layout* widget);
         int  widgetCount() { return mWidgets.size(); }
-
         bool operator<(const VRGUILayer& rhs) const { return mConfig.priority < rhs.mConfig.priority; }
 
     public:
@@ -108,6 +113,7 @@ namespace MWVR
         osg::Quat mRotation{ 0,0,0,1 };
     };
 
+    /// \brief osg user data used to refer back to VRGUILayer objects when intersecting with the scene graph.
     class VRGUILayerUserData : public osg::Referenced
     {
     public:
@@ -116,6 +122,11 @@ namespace MWVR
         std::weak_ptr<VRGUILayer> mLayer;
     };
 
+    /// \brief Manager of VRGUILayer objects.
+    ///
+    /// Constructs and destructs VRGUILayer objects in response to MWGui::Layout::setVisible calls.
+    /// Layers can also be made visible directly by calling insertLayer() directly, e.g. to show
+    /// the video player.
     class VRGUIManager
     {
     public:
@@ -124,29 +135,33 @@ namespace MWVR
 
         ~VRGUIManager(void);
 
+        /// Set visibility of the layer this layout is on
         void setVisible(MWGui::Layout*, bool visible);
-
-        void updateSideBySideLayers();
-
+        
+        /// Insert the given layer quad if it isn't already
         void insertLayer(const std::string& name);
 
-        void insertWidget(MWGui::Layout* widget);
-
+        /// Remove the given layer quad
         void removeLayer(const std::string& name);
 
-        void removeWidget(MWGui::Layout* widget);
-
+        /// Update layer quads based on player camera
         void updateTracking(void);
+
+        /// Update layer quads based on the given camera
         void updateTracking(osg::Camera* camera);
 
+        /// Check current pointer target and update focus layer
         bool updateFocus();
 
-        void setFocusLayer(VRGUILayer* layer);
-
+        /// Gui cursor coordinates to use to simulate a mouse press/move if the player is currently pointing at a vr gui layer
         osg::Vec2i guiCursor() { return mGuiCursor; };
 
     private:
         void computeGuiCursor(osg::Vec3 hitPoint);
+        void updateSideBySideLayers();
+        void insertWidget(MWGui::Layout* widget);
+        void removeWidget(MWGui::Layout* widget);
+        void setFocusLayer(VRGUILayer* layer);
 
         osg::ref_ptr<osgViewer::Viewer> mOsgViewer{ nullptr };
 

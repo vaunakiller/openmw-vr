@@ -1,11 +1,14 @@
 #include "vrinputmanager.hpp"
 
+#include "vrviewer.hpp"
+#include "vrgui.hpp"
 #include "vranimation.hpp"
 #include "openxrinput.hpp"
 #include "vrenvironment.hpp"
 #include "openxrmanager.hpp"
 #include "openxrmanagerimpl.hpp"
 #include "openxraction.hpp"
+#include "realisticcombat.hpp"
 
 #include <components/debug/debuglog.hpp>
 
@@ -139,15 +142,16 @@ namespace MWVR
         channel->setEnabled(true);
     }
 
-    // TODO: Configurable haptics: on/off + max intensity
     void VRInputManager::applyHapticsLeftHand(float intensity)
     {
-        mXRInput->applyHaptics(TrackedLimb::LEFT_HAND, intensity);
+        if (mHapticsEnabled)
+            mXRInput->applyHaptics(TrackedLimb::LEFT_HAND, intensity);
     }
 
     void VRInputManager::applyHapticsRightHand(float intensity)
     {
-        mXRInput->applyHaptics(TrackedLimb::RIGHT_HAND, intensity);
+        if (mHapticsEnabled)
+            mXRInput->applyHaptics(TrackedLimb::RIGHT_HAND, intensity);
     }
 
     void VRInputManager::requestRecenter()
@@ -176,6 +180,7 @@ namespace MWVR
             controllerBindingsFile,
             grab)
         , mXRInput(nullptr)
+        , mHapticsEnabled{Settings::Manager::getBool("haptics enabled", "VR")}
     {
         std::vector<SuggestedBindings> suggestedBindings;
         // Set up default bindings for the oculus
@@ -337,7 +342,7 @@ namespace MWVR
 
             auto& player = world->getPlayer();
             auto playerPtr = world->getPlayerPtr();
-            if (!mRealisticCombat || mRealisticCombat->ptr != playerPtr)
+            if (!mRealisticCombat || mRealisticCombat->ptr() != playerPtr)
                 mRealisticCombat.reset(new RealisticCombat::StateMachine(playerPtr));
             bool enabled = !guiMode && player.getDrawState() == MWMechanics::DrawState_Weapon && !player.isDisabled();
             mRealisticCombat->update(dt, enabled);
@@ -360,7 +365,7 @@ namespace MWVR
     void VRInputManager::processAction(const Action* action, float dt, bool disableControls)
     {
         static const bool isToggleSneak = Settings::Manager::getBool("toggle sneak", "Input");
-        auto* xrGUIManager = Environment::get().getGUIManager();
+        auto* vrGuiManager = Environment::get().getGUIManager();
 
 
         // OpenMW does not currently provide any way to directly request skipping a video.
@@ -425,7 +430,7 @@ namespace MWVR
                     mActionManager->screenshot();
                     break;
                 case A_Recenter:
-                    xrGUIManager->updateTracking();
+                    vrGuiManager->updateTracking();
                     requestRecenter();
                     break;
                 case A_MenuSelect:
@@ -601,7 +606,7 @@ namespace MWVR
                     mActionManager->setAttemptJump(true);
                     break;
                 case A_Recenter:
-                    xrGUIManager->updateTracking();
+                    vrGuiManager->updateTracking();
                     if (!MWBase::Environment::get().getWindowManager()->isGuiMode())
                         requestRecenter();
                     break;

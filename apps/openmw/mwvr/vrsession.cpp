@@ -8,6 +8,7 @@
 
 #include <components/debug/debuglog.hpp>
 #include <components/sdlutil/sdlgraphicswindow.hpp>
+#include <components/misc/stringops.hpp>
 
 #include <Windows.h>
 
@@ -37,7 +38,24 @@
 namespace MWVR
 {
     VRSession::VRSession()
+        : mXrSyncPhase{FramePhase::Cull}
     {
+        auto syncPhase = Settings::Manager::getString("openxr sync phase", "VR");
+        syncPhase = Misc::StringUtils::lowerCase(syncPhase);
+        if (syncPhase == "update")
+            mXrSyncPhase = FramePhase::Update;
+        else if (syncPhase == "cull")
+            mXrSyncPhase = FramePhase::Cull;
+        else if (syncPhase == "draw")
+            mXrSyncPhase = FramePhase::Draw;
+        else if (syncPhase == "swap")
+            mXrSyncPhase = FramePhase::Swap;
+        else
+        {
+            Log(Debug::Verbose) << "Invalid openxr sync phase " << syncPhase << ", defaulting to cull";
+            return;
+        }
+        Log(Debug::Verbose) << "Using openxr sync phase " << syncPhase;
     }
 
     VRSession::~VRSession()
@@ -177,13 +195,10 @@ namespace MWVR
         }
 
 
-        // TODO: Invokation should depend on earliest render rather than necessarily phase.
-        // Specifically. Without shadows this is fine because nothing is being rendered
-        // during cull or earlier.
-        // Thought: Add an Shadowmapping phase and invoke it from the shadow code
-        // But with shadows rendering occurs during cull and we must do frame sync before those calls.
-        // If you want to pay the FPS toll and play with shadows, change FramePhase::Draw to FramePhase::Cull or enjoy your eyes getting torn apart by jitters.
-        if (phase == FramePhase::Cull && getFrame(phase)->mShouldRender)
+        // TODO: Invokation could depend on earliest actual render rather than necessarily any specific phase.
+        // For example, shadows do some draw calls during cull an as such phase should be "Cull" or earlier with shadows enabled.
+        // But may be "Draw" without shadows.
+        if (phase == mXrSyncPhase && getFrame(phase)->mShouldRender)
             doFrameSync();
     }
 

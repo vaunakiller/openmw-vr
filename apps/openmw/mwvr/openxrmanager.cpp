@@ -112,25 +112,10 @@ namespace MWVR
     }
 
     void
-        OpenXRManager::RealizeOperation::operator()(
-            osg::GraphicsContext* gc)
-    {
-        auto* xr = Environment::get().getManager();
-        xr->realize(gc);
-    }
-
-    bool
-        OpenXRManager::RealizeOperation::realized()
-    {
-        auto* xr = Environment::get().getManager();
-        return xr->realized();
-    }
-
-    void
         OpenXRManager::CleanupOperation::operator()(
             osg::GraphicsContext* gc)
     {
-
+        // TODO: Use this to make proper cleanup such as cleaning up VRFramebuffers.
     }
 }
 

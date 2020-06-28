@@ -62,6 +62,7 @@
 #ifdef USE_OPENXR
 #include "mwvr/vrinputmanager.hpp"
 #include "mwvr/vrviewer.hpp"
+#include "mwvr/vrgui.hpp"
 #endif
 
 namespace

@@ -3,6 +3,8 @@
 #include "openxrmanagerimpl.hpp"
 #include "vrenvironment.hpp"
 #include "vrsession.hpp"
+#include "vrframebuffer.hpp"
+#include "vrview.hpp"
 
 #include "../mwrender/vismask.hpp"
 
@@ -14,16 +16,25 @@ namespace MWVR
             "RightEye"
     };
 
+    // Callback to do construction with a graphics context
+    class RealizeOperation : public osg::GraphicsOperation
+    {
+    public:
+        RealizeOperation() : osg::GraphicsOperation("VRRealizeOperation", false) {};
+        void operator()(osg::GraphicsContext* gc) override;
+        bool realized();
+
+    private:
+    };
+
     VRViewer::VRViewer(
         osg::ref_ptr<osgViewer::Viewer> viewer)
-        : mRealizeOperation(new RealizeOperation())
-        , mViewer(viewer)
+        : mViewer(viewer)
         , mPreDraw(new PredrawCallback(this))
         , mPostDraw(new PostdrawCallback(this))
         , mConfigured(false)
     {
-        mViewer->setRealizeOperation(mRealizeOperation);
-        //this->setName("OpenXRRoot");
+        mViewer->setRealizeOperation(new RealizeOperation());
     }
 
     VRViewer::~VRViewer(void)
@@ -51,8 +62,7 @@ namespace MWVR
         mainCamera->setInitialDrawCallback(new VRView::InitialDrawCallback());
 
         auto* xr = Environment::get().getManager();
-        if (!xr->realized())
-            xr->realize(context);
+        xr->realize(context);
 
         // Run through initial events to start session
         // For the rest of runtime this is handled by vrsession
@@ -70,6 +80,9 @@ namespace MWVR
         // Configure eyes, their cameras, and their enslavement.
         osg::Vec4 clearColor = mainCamera->getClearColor();
         auto config = xr->getRecommendedSwapchainConfig();
+        bool mirror = Settings::Manager::getBool("mirror texture", "VR");
+        // TODO: If mirror is false either hide the window or paste something meaningful into it.
+        // E.g. Fanart of Dagoth UR wearing a VR headset
 
         for (unsigned i = 0; i < sViewNames.size(); i++)
         {
@@ -86,14 +99,15 @@ namespace MWVR
             mViewer->addSlave(camera, true);
             mViewer->getSlave(i)._updateSlaveCallback = new VRView::UpdateSlaveCallback(view, context);
 
-            mMsaaResolveMirrorTexture[i].reset(new VRTexture(context->getState(),
-                view->swapchain().width(),
-                view->swapchain().height(),
-                0));
+            if (mirror)
+                mMsaaResolveMirrorTexture[i].reset(new VRFramebuffer(context->getState(),
+                    view->swapchain().width(),
+                    view->swapchain().height(),
+                    0));
         }
 
-
-        mMirrorTexture.reset(new VRTexture(context->getState(), mainCamera->getViewport()->width(), mainCamera->getViewport()->height(), 0));
+        if (mirror)
+            mMirrorTexture.reset(new VRFramebuffer(context->getState(), mainCamera->getViewport()->width(), mainCamera->getViewport()->height(), 0));
         mViewer->setReleaseContextAtEndOfFrameHint(false);
 
         mMainCameraGC = mainCamera->getGraphicsContext();
@@ -124,6 +138,9 @@ namespace MWVR
 
     void VRViewer::blitEyesToMirrorTexture(osg::GraphicsContext* gc)
     {
+        if (!mMirrorTexture)
+            return;
+
         auto* state = gc->getState();
         auto* gl = osg::GLExtensions::Get(state->getContextID(), false);
 
@@ -131,12 +148,14 @@ namespace MWVR
         int mirrorWidth = screenWidth / 2;
         int screenHeight = mCameras["MainCamera"]->getViewport()->height();
 
+        // Since OpenXR does not include native support for mirror textures, we have to generate them ourselves
+        // which means resolving msaa twice. If this is a performance concern, add an option to disable the mirror texture.
         for (unsigned i = 0; i < sViewNames.size(); i++)
         {
             auto& resolveTexture = *mMsaaResolveMirrorTexture[i];
-            resolveTexture.beginFrame(gc);
+            resolveTexture.bindFramebuffer(gc, GL_FRAMEBUFFER_EXT);
             mViews[sViewNames[i]]->swapchain().renderBuffer()->blit(gc, 0, 0, resolveTexture.width(), resolveTexture.height());
-            mMirrorTexture->beginFrame(gc);
+            mMirrorTexture->bindFramebuffer(gc, GL_FRAMEBUFFER_EXT);
             // Mirror the index when rendering to the mirror texture to allow cross eye mirror textures.
             unsigned mirrorIndex = sViewNames.size() - 1 - i;
             resolveTexture.blit(gc, mirrorIndex * mirrorWidth, 0, (mirrorIndex + 1) * mirrorWidth, screenHeight);
@@ -155,16 +174,14 @@ namespace MWVR
     }
 
     void
-        VRViewer::RealizeOperation::operator()(
+        RealizeOperation::operator()(
             osg::GraphicsContext* gc)
     {
-        OpenXRManager::RealizeOperation::operator()(gc);
-
-        Environment::get().getViewer()->realize(gc);
+        return Environment::get().getViewer()->realize(gc);
     }
 
     bool
-        VRViewer::RealizeOperation::realized()
+        RealizeOperation::realized()
     {
         return Environment::get().getViewer()->realized();
     }

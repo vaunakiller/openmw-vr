@@ -26,16 +26,6 @@ namespace MWVR
     class OpenXRManager : public osg::Referenced
     {
     public:
-        class RealizeOperation : public osg::GraphicsOperation
-        {
-        public:
-            RealizeOperation() : osg::GraphicsOperation("OpenXRRealizeOperation", false) {};
-            void operator()(osg::GraphicsContext* gc) override;
-            virtual bool realized();
-
-        private:
-        };
-
         class CleanupOperation : public osg::GraphicsOperation
         {
         public:
@@ -51,6 +41,7 @@ namespace MWVR
 
         ~OpenXRManager();
 
+        /// Manager has been initialized.
         bool realized();
 
         //! Forward call to xrWaitFrame()
