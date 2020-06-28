@@ -15,17 +15,13 @@ set(GAME_HEADER
     engine.hpp
 )
 
-if (BULLET_USE_DOUBLES)
-    add_definitions(-DBT_USE_DOUBLE_PRECISION)
-endif()
-
 source_group(game FILES ${GAME} ${GAME_HEADER})
 
 add_openmw_dir (mwrender
     actors objects renderingmanager animation rotatecontroller sky npcanimation vismask
     creatureanimation effectmanager util renderinginterface pathgrid rendermode weaponanimation
     bulletdebugdraw globalmap characterpreview camera localmap water terrainstorage ripplesimulation
-    renderbin actoranimation landmanager navmesh actorspaths recastmesh
+    renderbin actoranimation landmanager navmesh actorspaths recastmesh fogmanager objectpaging
     )
 
 add_openmw_dir (mwinput
@@ -45,7 +41,7 @@ add_openmw_dir (mwgui
     itemmodel containeritemmodel inventoryitemmodel sortfilteritemmodel itemview
     tradeitemmodel companionitemmodel pickpocketitemmodel controllers savegamedialog
     recharge mode videowidget backgroundimage itemwidget screenfader debugwindow spellmodel spellview
-    draganddrop timeadvancer jailscreen itemchargeview keyboardnavigation
+    draganddrop timeadvancer jailscreen itemchargeview keyboardnavigation textcolours
     )
 
 add_openmw_dir (mwdialogue
@@ -71,7 +67,7 @@ add_openmw_dir (mwworld
     actionequip timestamp actionalchemy cellstore actionapply actioneat
     store esmstore recordcmp fallback actionrepair actionsoulgem livecellref actiondoor
     contentloader esmloader actiontrap cellreflist cellref physicssystem weather projectilemanager
-    cellpreloader
+    cellpreloader datetimemanager
     )
 
 add_openmw_dir (mwphysics
@@ -90,7 +86,7 @@ add_openmw_dir (mwmechanics
     drawstate spells activespells npcstats aipackage aisequence aipursue alchemy aiwander aitravel aifollow aiavoiddoor aibreathe
     aicast aiescort aiface aiactivate aicombat recharge repair enchanting pathfinding pathgrid security spellcasting spellresistance
     disease pickpocket levelledlist combat steering obstacle autocalcspell difficultyscaling aicombataction actor summoning
-    character actors objects aistate coordinateconverter trading weaponpriority spellpriority weapontype spellutil tickableeffects
+    character actors objects aistate trading weaponpriority spellpriority weapontype spellutil tickableeffects
     spellabsorption linkedeffects
     )
 

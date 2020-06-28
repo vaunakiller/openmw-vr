@@ -42,6 +42,7 @@ namespace osgViewer
 namespace ESM
 {
     struct Cell;
+    struct RefNum;
 }
 
 namespace Terrain
@@ -73,6 +74,7 @@ namespace MWRender
     class StateUpdater;
 
     class EffectManager;
+    class FogManager;
     class SkyManager;
     class NpcAnimation;
     class Pathgrid;
@@ -83,6 +85,7 @@ namespace MWRender
     class NavMesh;
     class ActorsPaths;
     class RecastMesh;
+    class ObjectPaging;
 
     // Result data of ray cast methods.
     // Needs to be declared outside the RenderingManager class to be forward declarable
@@ -94,6 +97,8 @@ namespace MWRender
         osg::Vec3f mHitPointLocal;
         MWWorld::Ptr mHitObject;
         osg::Node* mHitNode;
+        /// Cast a ray between two points
+        ESM::RefNum mHitRefnum;
         float mRatio;
     };
 
@@ -161,7 +166,6 @@ namespace MWRender
         void screenshotFramebuffer(osg::Image* image, int w, int h); // copy directly from framebuffer and scale to given size
         bool screenshot360(osg::Image* image, std::string settingStr);
 
-        /// Cast a ray between two points
         RayResult castRay(const osg::Vec3f& origin, const osg::Vec3f& dest, bool ignorePlayer, bool ignoreActors=false);
         
         /// Cast a ray from a node in the scene graph
@@ -172,7 +176,7 @@ namespace MWRender
         RayResult castCameraToViewportRay(const float nX, const float nY, float maxDistance, bool ignorePlayer, bool ignoreActors=false);
 
         /// Get the bounding box of the given object in screen coordinates as (minX, minY, maxX, maxY), with (0,0) being the top left corner.
-        osg::Vec4f getScreenBounds(const MWWorld::Ptr& ptr);
+        osg::Vec4f getScreenBounds(const osg::BoundingBox &worldbb);
 
         void setSkyEnabled(bool enabled);
 
@@ -244,11 +248,19 @@ namespace MWRender
 
         void setNavMeshNumber(const std::size_t value);
 
+        void setActiveGrid(const osg::Vec4i &grid);
+
+        bool pagingEnableObject(int type, const MWWorld::ConstPtr& ptr, bool enabled);
+        void pagingBlacklistObject(int type, const MWWorld::ConstPtr &ptr);
+        bool pagingUnlockCache();
+        void getPagedRefnums(const osg::Vec4i &activeGrid, std::set<ESM::RefNum> &out);
+
     private:
         void updateProjectionMatrix();
         void updateTextureFiltering();
         void updateAmbient();
         void setFogColor(const osg::Vec4f& color);
+        void updateThirdPersonViewMode();
 
         void reportStats() const;
 
@@ -282,7 +294,9 @@ namespace MWRender
         std::unique_ptr<Water> mWater;
         std::unique_ptr<Terrain::World> mTerrain;
         TerrainStorage* mTerrainStorage;
+        std::unique_ptr<ObjectPaging> mObjectPaging;
         std::unique_ptr<SkyManager> mSky;
+        std::unique_ptr<FogManager> mFog;
         std::unique_ptr<EffectManager> mEffectManager;
         std::unique_ptr<SceneUtil::ShadowManager> mShadowManager;
         osg::ref_ptr<NpcAnimation> mPlayerAnimation;
@@ -292,27 +306,15 @@ namespace MWRender
 
         osg::ref_ptr<StateUpdater> mStateUpdater;
 
-        float mLandFogStart;
-        float mLandFogEnd;
-        float mUnderwaterFogStart;
-        float mUnderwaterFogEnd;
-        osg::Vec4f mUnderwaterColor;
-        float mUnderwaterWeight;
-        float mUnderwaterIndoorFog;
-        osg::Vec4f mFogColor;
-
         osg::Vec4f mAmbientColor;
         float mNightEyeFactor;
 
         float mNearClip;
         float mViewDistance;
-        bool mDistantFog : 1;
-        bool mDistantTerrain : 1;
-        bool mFieldOfViewOverridden : 1;
+        bool mFieldOfViewOverridden;
         float mFieldOfViewOverride;
         float mFieldOfView;
         float mFirstPersonFieldOfView;
-        bool mBorders;
 
         void operator = (const RenderingManager&);
         RenderingManager(const RenderingManager&);

@@ -1,6 +1,11 @@
 #ifndef GAME_BASE_ENVIRONMENT_H
 #define GAME_BASE_ENVIRONMENT_H
 
+namespace osg
+{
+    class Stats;
+}
+
 namespace MWBase
 {
     class World;
@@ -21,85 +26,84 @@ namespace MWBase
     /// the set* functions.
     class Environment
     {
+            static Environment *sThis;
 
-        static Environment *sThis;
+            World *mWorld;
+            SoundManager *mSoundManager;
+            ScriptManager *mScriptManager;
+            WindowManager *mWindowManager;
+            MechanicsManager *mMechanicsManager;
+            DialogueManager *mDialogueManager;
+            Journal *mJournal;
+            InputManager *mInputManager;
+            StateManager *mStateManager;
+            float mFrameDuration;
+            float mFrameRateLimit;
 
-        World *mWorld;
-        SoundManager *mSoundManager;
-        ScriptManager *mScriptManager;
-        WindowManager *mWindowManager;
-        MechanicsManager *mMechanicsManager;
-        DialogueManager *mDialogueManager;
-        Journal *mJournal;
-        InputManager *mInputManager;
-        StateManager *mStateManager;
-        float mFrameDuration;
-        float mFrameRateLimit;
+            Environment (const Environment&);
+            ///< not implemented
 
-        Environment (const Environment&);
-        ///< not implemented
+            Environment& operator= (const Environment&);
+            ///< not implemented
 
-        Environment& operator= (const Environment&);
-        ///< not implemented
+        public:
 
-    public:
+            Environment();
 
-        Environment();
+            ~Environment();
 
-        ~Environment();
+            void setWorld (World *world);
 
-        void setWorld (World *world);
+            void setSoundManager (SoundManager *soundManager);
 
-        void setSoundManager (SoundManager *soundManager);
+            void setScriptManager (MWBase::ScriptManager *scriptManager);
 
-        void setScriptManager (MWBase::ScriptManager *scriptManager);
+            void setWindowManager (WindowManager *windowManager);
 
-        void setWindowManager (WindowManager *windowManager);
+            void setMechanicsManager (MechanicsManager *mechanicsManager);
 
-        void setMechanicsManager (MechanicsManager *mechanicsManager);
+            void setDialogueManager (DialogueManager *dialogueManager);
 
-        void setDialogueManager (DialogueManager *dialogueManager);
+            void setJournal (Journal *journal);
 
-        void setJournal (Journal *journal);
+            void setInputManager (InputManager *inputManager);
 
-        void setInputManager (InputManager *inputManager);
+            void setStateManager (StateManager *stateManager);
 
-        void setStateManager (StateManager *stateManager);
+            void setFrameDuration (float duration);
+            ///< Set length of current frame in seconds.
 
-        void setFrameDuration (float duration);
-        ///< Set length of current frame in seconds.
+            void setFrameRateLimit(float frameRateLimit);
+            float getFrameRateLimit() const;
+            void limitFrameRate(double dt) const;
 
-        void setFrameRateLimit(float frameRateLimit);
-        float getFrameRateLimit() const;
-        void limitFrameRate(double dt) const;
+            World *getWorld() const;
 
-        World *getWorld() const;
+            SoundManager *getSoundManager() const;
 
-        SoundManager *getSoundManager() const;
+            ScriptManager *getScriptManager() const;
 
-        ScriptManager *getScriptManager() const;
+            WindowManager *getWindowManager() const;
 
-        WindowManager *getWindowManager() const;
+            MechanicsManager *getMechanicsManager() const;
 
-        MechanicsManager *getMechanicsManager() const;
+            DialogueManager *getDialogueManager() const;
 
-        DialogueManager *getDialogueManager() const;
+            Journal *getJournal() const;
 
-        Journal *getJournal() const;
+            InputManager *getInputManager() const;
 
-        InputManager* getInputManager() const;
+            StateManager *getStateManager() const;
 
+            float getFrameDuration() const;
 
-        StateManager *getStateManager() const;
+            void cleanup();
+            ///< Delete all mw*-subsystems.
 
-        float getFrameDuration() const;
+            static const Environment& get();
+            ///< Return instance of this class.
 
-        void cleanup();
-        ///< Delete all mw*-subsystems.
-
-        static const Environment& get();
-        ///< Return instance of this class.
-
+            void reportStats(unsigned int frameNumber, osg::Stats& stats) const;
     };
 }
 

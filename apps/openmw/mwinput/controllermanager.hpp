@@ -23,7 +23,7 @@ namespace MWInput
 
         virtual ~ControllerManager() = default;
 
-        bool update(float dt, bool disableControls);
+        bool update(float dt);
 
         virtual void buttonPressed(int deviceID, const SDL_ControllerButtonEvent &arg);
         virtual void buttonReleased(int deviceID, const SDL_ControllerButtonEvent &arg);
@@ -56,9 +56,8 @@ namespace MWInput
         float mSneakToggleShortcutTimer;
         float mGamepadZoom;
         bool mGamepadGuiCursorEnabled;
-        bool mControlsDisabled;
-        bool mJoystickLastUsed;
         bool mGuiCursorEnabled;
+        bool mJoystickLastUsed;
         bool mSneakGamepadShortcut;
         bool mGamepadPreviewMode;
     };

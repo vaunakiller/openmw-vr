@@ -20,7 +20,8 @@ namespace MWInput
 
         virtual ~MouseManager() = default;
 
-        void update(float dt, bool disableControls);
+        void updateCursorMode();
+        void update(float dt);
 
         virtual void mouseMoved(const SDLUtil::MouseMotionEvent &arg);
         virtual void mousePressed(const SDL_MouseButtonEvent &arg, Uint8 id);
@@ -44,6 +45,7 @@ namespace MWInput
     private:
         bool mInvertX;
         bool mInvertY;
+        bool mGrabCursor;
         float mCameraSensitivity;
         float mCameraYMultiplier;
 
@@ -55,7 +57,6 @@ namespace MWInput
         float mGuiCursorY;
         int mMouseWheel;
         bool mMouseLookEnabled;
-        bool mControlsDisabled;
         bool mGuiCursorEnabled;
     };
 }

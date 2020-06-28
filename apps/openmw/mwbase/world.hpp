@@ -23,6 +23,7 @@ namespace osg
     class Quat;
     class Image;
     class Node;
+    class Stats;
     class Transform;
 }
 
@@ -38,6 +39,7 @@ namespace ESM
     struct Position;
     struct Cell;
     struct Class;
+    struct Creature;
     struct Potion;
     struct Spell;
     struct NPC;
@@ -49,6 +51,7 @@ namespace ESM
     struct EffectList;
     struct CreatureLevList;
     struct ItemLevList;
+    struct TimeStamp;
 }
 
 namespace MWRender
@@ -78,11 +81,6 @@ namespace MWWorld
     class RefData;
 
     typedef std::vector<std::pair<MWWorld::Ptr,MWMechanics::Movement> > PtrMovementList;
-}
-
-namespace MWPhysics
-{
-    class PhysicsSystem;
 }
 
 namespace MWBase
@@ -214,24 +212,14 @@ namespace MWBase
             virtual void advanceTime (double hours, bool incremental = false) = 0;
             ///< Advance in-game time.
 
-            virtual void setHour (double hour) = 0;
-            ///< Set in-game time hour.
-
-            virtual void setMonth (int month) = 0;
-            ///< Set in-game time month.
-
-            virtual void setDay (int day) = 0;
-            ///< Set in-game time day.
-
-            virtual int getDay() const = 0;
-            virtual int getMonth() const = 0;
-            virtual int getYear() const = 0;
-
             virtual std::string getMonthName (int month = -1) const = 0;
             ///< Return name of month (-1: current month)
 
             virtual MWWorld::TimeStamp getTimeStamp() const = 0;
-            ///< Return current in-game time stamp.
+            ///< Return current in-game time and number of day since new game start.
+
+            virtual ESM::EpochTimeStamp getEpochTimeStamp() const = 0;
+            ///< Return current in-game date and time.
 
             virtual bool toggleSky() = 0;
             ///< \return Resulting mode
@@ -386,6 +374,14 @@ namespace MWBase
             /// \return pointer to created record
 
             virtual const ESM::ItemLevList *createOverrideRecord (const ESM::ItemLevList& record) = 0;
+            ///< Write this record to the ESM store, allowing it to override a pre-existing record with the same ID.
+            /// \return pointer to created record
+
+            virtual const ESM::Creature *createOverrideRecord (const ESM::Creature& record) = 0;
+            ///< Write this record to the ESM store, allowing it to override a pre-existing record with the same ID.
+            /// \return pointer to created record
+
+            virtual const ESM::NPC *createOverrideRecord (const ESM::NPC& record) = 0;
             ///< Write this record to the ESM store, allowing it to override a pre-existing record with the same ID.
             /// \return pointer to created record
 
@@ -653,10 +649,10 @@ namespace MWBase
 
             /// @Return ESM::Weapon::Type enum describing the type of weapon currently drawn by the player.
             virtual int getActiveWeaponType(void) = 0;
-
-            virtual MWPhysics::PhysicsSystem* getPhysicsSystem(void) = 0;
 			
             virtual bool isAreaOccupiedByOtherActor(const osg::Vec3f& position, const float radius, const MWWorld::ConstPtr& ignore) const = 0;
+
+            virtual void reportStats(unsigned int frameNumber, osg::Stats& stats) const = 0;
     };
 }
 

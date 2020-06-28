@@ -257,8 +257,10 @@ namespace MWScript
                     Interpreter::Type_Integer value = runtime[0].mInteger;
                     runtime.pop();
 
-                    ptr.getClass().getCreatureStats (ptr).setAiSetting (mIndex,
-                        ptr.getClass().getCreatureStats (ptr).getAiSetting (mIndex).getBase() + value);
+                    int modified = ptr.getClass().getCreatureStats (ptr).getAiSetting (mIndex).getBase() + value;
+
+                    ptr.getClass().getCreatureStats (ptr).setAiSetting (mIndex, modified);
+                    ptr.getClass().setBaseAISetting(ptr.getCellRef().getRefId(), mIndex, modified);
                 }
         };
         template<class R>
@@ -277,6 +279,7 @@ namespace MWScript
                     MWMechanics::Stat<int> stat = ptr.getClass().getCreatureStats(ptr).getAiSetting(mIndex);
                     stat.setModified(value, 0);
                     ptr.getClass().getCreatureStats(ptr).setAiSetting(mIndex, stat);
+                    ptr.getClass().setBaseAISetting(ptr.getCellRef().getRefId(), mIndex, value);
                 }
         };
 
@@ -359,7 +362,7 @@ namespace MWScript
                 {
                     MWWorld::Ptr ptr = R()(runtime);
 
-                    Interpreter::Type_Integer value = ptr.getClass().getCreatureStats (ptr).getAiSequence().getLastRunTypeId();
+                    const auto value = static_cast<Interpreter::Type_Integer>(ptr.getClass().getCreatureStats (ptr).getAiSequence().getLastRunTypeId());
 
                     runtime.push (value);
                 }
@@ -430,13 +433,12 @@ namespace MWScript
                         if (!targetPtr.isEmpty() && targetPtr.getCellRef().getRefId() == testedTargetId)
                             targetsAreEqual = true;
                     }
-                    else
+                    else if (testedTargetId == "player") // Currently the player ID is hardcoded
                     {
-                        bool turningToPlayer = creatureStats.isTurningToPlayer();
-                        bool greeting = creatureStats.getGreetingState() == MWMechanics::Greet_InProgress;
+                        MWBase::MechanicsManager* mechMgr = MWBase::Environment::get().getMechanicsManager();
+                        bool greeting = mechMgr->getGreetingState(actor) == MWMechanics::Greet_InProgress;
                         bool sayActive = MWBase::Environment::get().getSoundManager()->sayActive(actor);
-                        if (turningToPlayer || (greeting && sayActive))
-                            targetsAreEqual = (testedTargetId == "player"); // Currently the player ID is hardcoded
+                        targetsAreEqual = (greeting && sayActive) || mechMgr->isTurningToPlayer(actor);
                     }
                     runtime.push(int(targetsAreEqual));
                 }

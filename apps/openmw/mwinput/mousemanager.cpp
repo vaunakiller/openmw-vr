@@ -24,8 +24,9 @@ namespace MWInput
     MouseManager::MouseManager(BindingsManager* bindingsManager, SDLUtil::InputWrapper* inputWrapper, SDL_Window* window)
         : mInvertX(Settings::Manager::getBool("invert x axis", "Input"))
         , mInvertY(Settings::Manager::getBool("invert y axis", "Input"))
-        , mCameraSensitivity (Settings::Manager::getFloat("camera sensitivity", "Input"))
-        , mCameraYMultiplier (Settings::Manager::getFloat("camera y multiplier", "Input"))
+        , mGrabCursor(Settings::Manager::getBool("grab cursor", "Input"))
+        , mCameraSensitivity(Settings::Manager::getFloat("camera sensitivity", "Input"))
+        , mCameraYMultiplier(Settings::Manager::getFloat("camera y multiplier", "Input"))
         , mBindingsManager(bindingsManager)
         , mInputWrapper(inputWrapper)
         , mInvUiScalingFactor(1.f)
@@ -33,7 +34,6 @@ namespace MWInput
         , mGuiCursorY(0)
         , mMouseWheel(0)
         , mMouseLookEnabled(false)
-        , mControlsDisabled(false)
         , mGuiCursorEnabled(true)
     {
         float uiScale = Settings::Manager::getFloat("scaling factor", "GUI");
@@ -59,6 +59,9 @@ namespace MWInput
 
             if (setting.first == "Input" && setting.second == "camera sensitivity")
                 mCameraSensitivity = Settings::Manager::getFloat("camera sensitivity", "Input");
+
+            if (setting.first == "Input" && setting.second == "grab cursor")
+                mGrabCursor = Settings::Manager::getBool("grab cursor", "Input");
         }
     }
 
@@ -88,7 +91,7 @@ namespace MWInput
             MWBase::Environment::get().getWindowManager()->setCursorActive(true);
         }
 
-        if (mMouseLookEnabled && !mControlsDisabled)
+        if (mMouseLookEnabled && !input->controlsDisabled())
         {
             float x = arg.xrel * mCameraSensitivity * (mInvertX ? -1 : 1) / 256.f;
             float y = arg.yrel * mCameraSensitivity * (mInvertY ? -1 : 1) * mCameraYMultiplier / 256.f;
@@ -136,10 +139,11 @@ namespace MWInput
 
     void MouseManager::mouseWheelMoved(const SDL_MouseWheelEvent &arg)
     {
-        if (mBindingsManager->isDetectingBindingState() || !mControlsDisabled)
+        MWBase::InputManager* input = MWBase::Environment::get().getInputManager();
+        if (mBindingsManager->isDetectingBindingState() || !input->controlsDisabled())
             mBindingsManager->mouseWheelMoved(arg);
 
-        MWBase::Environment::get().getInputManager()->setJoystickLastUsed(false);
+        input->setJoystickLastUsed(false);
     }
 
     void MouseManager::mousePressed(const SDL_MouseButtonEvent &arg, Uint8 id)
@@ -169,10 +173,31 @@ namespace MWInput
             mBindingsManager->mousePressed(arg, id);
     }
 
-    void MouseManager::update(float dt, bool disableControls)
+    void MouseManager::updateCursorMode()
     {
-        mControlsDisabled = disableControls;
+        bool grab = !MWBase::Environment::get().getWindowManager()->containsMode(MWGui::GM_MainMenu)
+             && !MWBase::Environment::get().getWindowManager()->isConsoleMode();
 
+        bool wasRelative = mInputWrapper->getMouseRelative();
+        bool isRelative = !MWBase::Environment::get().getWindowManager()->isGuiMode();
+
+        // don't keep the pointer away from the window edge in gui mode
+        // stop using raw mouse motions and switch to system cursor movements
+        mInputWrapper->setMouseRelative(isRelative);
+
+        //we let the mouse escape in the main menu
+        mInputWrapper->setGrabPointer(grab && (mGrabCursor || isRelative));
+
+        //we switched to non-relative mode, move our cursor to where the in-game
+        //cursor is
+        if (!isRelative && wasRelative != isRelative)
+        {
+            warpMouse();
+        }
+    }
+
+    void MouseManager::update(float dt)
+    {
         if (!mMouseLookEnabled)
             return;
 

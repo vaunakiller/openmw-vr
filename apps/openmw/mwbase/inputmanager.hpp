@@ -78,6 +78,8 @@ namespace MWBase
             virtual void resetIdleTime() = 0;
 
             virtual void executeAction(int action) = 0;
+
+            virtual bool controlsDisabled() = 0;
     };
 }
 

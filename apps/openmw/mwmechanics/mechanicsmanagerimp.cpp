@@ -1,9 +1,13 @@
 #include "mechanicsmanagerimp.hpp"
 
+#include <osg/Stats>
+
 #include <components/misc/rng.hpp>
 
 #include <components/esm/esmwriter.hpp>
 #include <components/esm/stolenitems.hpp>
+
+#include <components/detournavigator/navigator.hpp>
 
 #include <components/sceneutil/positionattitudetransform.hpp>
 
@@ -285,6 +289,24 @@ namespace MWMechanics
     void MechanicsManager::watchActor(const MWWorld::Ptr& ptr)
     {
         mWatched = ptr;
+    }
+
+    void MechanicsManager::restoreStatsAfterCorprus(const MWWorld::Ptr& actor, const std::string& sourceId)
+    {
+        auto& stats = actor.getClass().getCreatureStats (actor);
+        auto& corprusSpells = stats.getCorprusSpells();
+
+        auto corprusIt = corprusSpells.find(sourceId);
+
+        if (corprusIt != corprusSpells.end())
+        {
+            for (int i = 0; i < ESM::Attribute::Length; ++i)
+            {
+                MWMechanics::AttributeValue attr = stats.getAttribute(i);
+                attr.restore(corprusIt->second.mWorsenings[i]);
+                actor.getClass().getCreatureStats(actor).setAttribute(i, attr);
+            }
+        }
     }
 
     void MechanicsManager::update(float duration, bool paused)
@@ -657,7 +679,9 @@ namespace MWMechanics
 
     int MechanicsManager::getBarterOffer(const MWWorld::Ptr& ptr,int basePrice, bool buying)
     {
-        if (ptr.getTypeName() == typeid(ESM::Creature).name())
+        // Make sure zero base price items/services can't be bought/sold for 1 gold
+        // and return the intended base price for creature merchants
+        if (basePrice == 0 || ptr.getTypeName() == typeid(ESM::Creature).name())
             return basePrice;
 
         const MWMechanics::NpcStats &sellerStats = ptr.getClass().getNpcStats(ptr);
@@ -668,10 +692,10 @@ namespace MWMechanics
         // I suppose the temporary disposition change (second param to getDerivedDisposition()) _has_ to be considered here,
         // otherwise one would get different prices when exiting and re-entering the dialogue window...
         int clampedDisposition = getDerivedDisposition(ptr);
-        float a = static_cast<float>(std::min(playerPtr.getClass().getSkill(playerPtr, ESM::Skill::Mercantile), 100));
+        float a = std::min(playerPtr.getClass().getSkill(playerPtr, ESM::Skill::Mercantile), 100.f);
         float b = std::min(0.1f * playerStats.getAttribute(ESM::Attribute::Luck).getModified(), 10.f);
         float c = std::min(0.2f * playerStats.getAttribute(ESM::Attribute::Personality).getModified(), 10.f);
-        float d = static_cast<float>(std::min(ptr.getClass().getSkill(ptr, ESM::Skill::Mercantile), 100));
+        float d = std::min(ptr.getClass().getSkill(ptr, ESM::Skill::Mercantile), 100.f);
         float e = std::min(0.1f * sellerStats.getAttribute(ESM::Attribute::Luck).getModified(), 10.f);
         float f = std::min(0.2f * sellerStats.getAttribute(ESM::Attribute::Personality).getModified(), 10.f);
         float pcTerm = (clampedDisposition - 50 + a + b + c) * playerStats.getFatigueTerm();
@@ -762,8 +786,11 @@ namespace MWMechanics
             {
                 if (std::abs(c) < iPerMinChange)
                 {
-                    x = 0;
-                    y = -iPerMinChange;
+                    // Deviating from Morrowind here: it doesn't increase disposition on marginal wins,
+                    // which seems to be a bug (MCP fixes it too).
+                    // Original logic: x = 0, y = -iPerMinChange
+                    x = -iPerMinChange;
+                    y = x; // This goes unused.
                 }
                 else
                 {
@@ -880,6 +907,12 @@ namespace MWMechanics
     bool MechanicsManager::toggleAI()
     {
         mAI = !mAI;
+
+        MWBase::World* world = MWBase::Environment::get().getWorld();
+        world->getNavigator()->setUpdatesEnabled(mAI);
+        if (mAI)
+           world->getNavigator()->update(world->getPlayerPtr().getRefData().getPosition().asVec3());
+
         return mAI;
     }
 
@@ -1197,7 +1230,7 @@ namespace MWMechanics
 
         if (!Misc::StringUtils::ciEqual(item.getCellRef().getRefId(), MWWorld::ContainerStore::sGoldId))
         {
-            if (victim.isEmpty() || (victim.getClass().isActor() && !victim.getClass().getCreatureStats(victim).isDead()))
+            if (victim.isEmpty() || (victim.getClass().isActor() && victim.getRefData().getCount() > 0 && !victim.getClass().getCreatureStats(victim).isDead()))
                 mStolenItems[Misc::StringUtils::lowerCase(item.getCellRef().getRefId())][owner] += count;
         }
         if (alarm)
@@ -1257,7 +1290,7 @@ namespace MWMechanics
         {
             bool reported = false;
             if (victim.getClass().isClass(victim, "guard")
-                && !victim.getClass().getCreatureStats(victim).getAiSequence().hasPackage(AiPackage::TypeIdPursue))
+                && !victim.getClass().getCreatureStats(victim).getAiSequence().hasPackage(AiPackageTypeId::Pursue))
                 reported = reportCrime(player, victim, type, std::string(), arg);
 
             if (!reported)
@@ -1280,7 +1313,7 @@ namespace MWMechanics
             return false;
 
         // Player's followers should not attack player, or try to arrest him
-        if (actor.getClass().getCreatureStats(actor).getAiSequence().hasPackage(AiPackage::TypeIdFollow))
+        if (actor.getClass().getCreatureStats(actor).getAiSequence().hasPackage(AiPackageTypeId::Follow))
         {
             if (playerFollowers.find(actor) != playerFollowers.end())
                 return false;
@@ -1397,7 +1430,7 @@ namespace MWMechanics
                 // once the bounty has been paid.
                 actor.getClass().getNpcStats(actor).setCrimeId(id);
 
-                if (!actor.getClass().getCreatureStats(actor).getAiSequence().hasPackage(AiPackage::TypeIdPursue))
+                if (!actor.getClass().getCreatureStats(actor).getAiSequence().hasPackage(AiPackageTypeId::Pursue))
                 {
                     actor.getClass().getCreatureStats(actor).getAiSequence().stack(AiPursue(player), actor);
                 }
@@ -1475,7 +1508,7 @@ namespace MWMechanics
             {
                 // Attacker is in combat with us, but we are not in combat with the attacker yet. Time to fight back.
                 // Note: accidental or collateral damage attacks are ignored.
-                if (!victim.getClass().getCreatureStats(victim).getAiSequence().hasPackage(AiPackage::TypeIdPursue))
+                if (!victim.getClass().getCreatureStats(victim).getAiSequence().hasPackage(AiPackageTypeId::Pursue))
                     startCombat(victim, player);
 
                 // Set the crime ID, which we will use to calm down participants
@@ -1521,7 +1554,7 @@ namespace MWMechanics
         {
             // Attacker is in combat with us, but we are not in combat with the attacker yet. Time to fight back.
             // Note: accidental or collateral damage attacks are ignored.
-            if (!target.getClass().getCreatureStats(target).getAiSequence().hasPackage(AiPackage::TypeIdPursue))
+            if (!target.getClass().getCreatureStats(target).getAiSequence().hasPackage(AiPackageTypeId::Pursue))
             {
                 // If an actor has OnPCHitMe declared in his script, his Fight = 0 and the attacker is player,
                 // he will attack the player only if we will force him (e.g. via StartCombat console command)
@@ -1546,7 +1579,7 @@ namespace MWMechanics
         const MWMechanics::AiSequence& seq = target.getClass().getCreatureStats(target).getAiSequence();
         return target.getClass().isNpc() && !attacker.isEmpty() && !seq.isInCombat(attacker)
                 && !isAggressive(target, attacker) && !seq.isEngagedWithActor()
-                && !target.getClass().getCreatureStats(target).getAiSequence().hasPackage(AiPackage::TypeIdPursue);
+                && !target.getClass().getCreatureStats(target).getAiSequence().hasPackage(AiPackageTypeId::Pursue);
     }
 
     void MechanicsManager::actorKilled(const MWWorld::Ptr &victim, const MWWorld::Ptr &attacker)
@@ -1601,8 +1634,8 @@ namespace MWMechanics
             static float fSneakSkillMult = store.find("fSneakSkillMult")->mValue.getFloat();
             static float fSneakBootMult = store.find("fSneakBootMult")->mValue.getFloat();
             float sneak = static_cast<float>(ptr.getClass().getSkill(ptr, ESM::Skill::Sneak));
-            int agility = stats.getAttribute(ESM::Attribute::Agility).getModified();
-            int luck = stats.getAttribute(ESM::Attribute::Luck).getModified();
+            float agility = stats.getAttribute(ESM::Attribute::Agility).getModified();
+            float luck = stats.getAttribute(ESM::Attribute::Luck).getModified();
             float bootWeight = 0;
             if (ptr.getClass().isNpc() && MWBase::Environment::get().getWorld()->isOnGround(ptr))
             {
@@ -1625,10 +1658,10 @@ namespace MWMechanics
         float x = sneakTerm * distTerm * stats.getFatigueTerm() + chameleon + invisibility;
 
         CreatureStats& observerStats = observer.getClass().getCreatureStats(observer);
-        int obsAgility = observerStats.getAttribute(ESM::Attribute::Agility).getModified();
-        int obsLuck = observerStats.getAttribute(ESM::Attribute::Luck).getModified();
+        float obsAgility = observerStats.getAttribute(ESM::Attribute::Agility).getModified();
+        float obsLuck = observerStats.getAttribute(ESM::Attribute::Luck).getModified();
         float obsBlind = observerStats.getMagicEffects().get(ESM::MagicEffect::Blind).getMagnitude();
-        int obsSneak = observer.getClass().getSkill(observer, ESM::Skill::Sneak);
+        float obsSneak = observer.getClass().getSkill(observer, ESM::Skill::Sneak);
 
         float obsTerm = obsSneak + 0.2f * obsAgility + 0.1f * obsLuck - obsBlind;
 
@@ -1682,7 +1715,7 @@ namespace MWMechanics
                     if (iter->first.getClass().isClass(iter->first, "Guard"))
                     {
                         MWMechanics::AiSequence& aiSeq = iter->first.getClass().getCreatureStats(iter->first).getAiSequence();
-                        if (aiSeq.getTypeId() == MWMechanics::AiPackage::TypeIdPursue)
+                        if (aiSeq.getTypeId() == MWMechanics::AiPackageTypeId::Pursue)
                         {
                             aiSeq.stopPursuit();
                             aiSeq.stack(MWMechanics::AiCombat(target), ptr);
@@ -1944,4 +1977,29 @@ namespace MWMechanics
         mActors.cleanupSummonedCreature(caster.getClass().getCreatureStats(caster), creatureActorId);
     }
 
+    void MechanicsManager::reportStats(unsigned int frameNumber, osg::Stats& stats) const
+    {
+        stats.setAttribute(frameNumber, "Mechanics Actors", mActors.size());
+        stats.setAttribute(frameNumber, "Mechanics Objects", mObjects.size());
+    }
+
+    int MechanicsManager::getGreetingTimer(const MWWorld::Ptr &ptr) const
+    {
+        return mActors.getGreetingTimer(ptr);
+    }
+
+    float MechanicsManager::getAngleToPlayer(const MWWorld::Ptr &ptr) const
+    {
+        return mActors.getAngleToPlayer(ptr);
+    }
+
+    GreetingState MechanicsManager::getGreetingState(const MWWorld::Ptr &ptr) const
+    {
+        return mActors.getGreetingState(ptr);
+    }
+
+    bool MechanicsManager::isTurningToPlayer(const MWWorld::Ptr &ptr) const
+    {
+        return mActors.isTurningToPlayer(ptr);
+    }
 }

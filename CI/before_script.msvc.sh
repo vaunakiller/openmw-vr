@@ -13,7 +13,16 @@ MISSINGTOOLS=0
 
 command -v 7z >/dev/null 2>&1 || { echo "Error: 7z (7zip) is not on the path."; MISSINGTOOLS=1; }
 command -v cmake >/dev/null 2>&1 || { echo "Error: cmake (CMake) is not on the path."; MISSINGTOOLS=1; }
-command -v python >/dev/null 2>&1 || { echo "Warning: Python is not on the path, automatic Qt installation impossible."; }
+
+MISSINGPYTHON=0
+if ! command -v python >/dev/null 2>&1; then
+	echo "Warning: Python is not on the path, automatic Qt installation impossible."
+	MISSINGPYTHON=1
+elif ! python --version >/dev/null 2>&1; then
+	echo "Warning: Python is (probably) fake stub Python that comes bundled with newer versions of Windows, automatic Qt installation impossible."
+	echo "If you think you have Python installed, try changing the order of your PATH environment variable in Advanced System Settings."
+	MISSINGPYTHON=1
+fi
 
 if [ $MISSINGTOOLS -ne 0 ]; then
 	wrappedExit 1
@@ -152,7 +161,7 @@ Options:
 		Build unit tests / Google test
 	-u
 		Configure for unity builds.
-	-v <2013/2015/2017/2019>
+	-v <2017/2019>
 		Choose the Visual Studio version to use.
 	-n
 		Produce NMake makefiles instead of a Visual Studio solution. Cannout be used with -N.
@@ -204,8 +213,8 @@ run_cmd() {
 	shift
 
 	if [ -z $VERBOSE ]; then
-		eval $CMD $@ > output.log 2>&1
-		RET=$?
+		RET=0
+		eval $CMD $@ > output.log 2>&1 || RET=$?
 
 		if [ $RET -ne 0 ]; then
 			if [ -z $APPVEYOR ]; then
@@ -221,8 +230,9 @@ run_cmd() {
 
 		return $RET
 	else
-		eval $CMD $@
-		return $?
+		RET=0
+		eval $CMD $@ || RET=$?
+		return $RET
 	fi
 }
 
@@ -247,15 +257,16 @@ download() {
 			printf "  Downloading $FILE... "
 
 			if [ -z $VERBOSE ]; then
-				curl --silent --retry 10 -kLy 5 -o $FILE $URL
-				RET=$?
+				RET=0
+				curl --silent --retry 10 -kLy 5 -o $FILE $URL || RET=$?
 			else
-				curl --retry 10 -kLy 5 -o $FILE $URL
-				RET=$?
+				RET=0
+				curl --retry 10 -kLy 5 -o $FILE $URL || RET=$?
 			fi
 
 			if [ $RET -ne 0 ]; then
 				echo "Failed!"
+				wrappedExit $RET
 			else
 				echo "Done."
 			fi
@@ -337,21 +348,13 @@ case $VS_VERSION in
 		;;
 
 	14|14.0|2015 )
-		GENERATOR="Visual Studio 14 2015"
-		TOOLSET="vc140"
-		MSVC_REAL_VER="14"
-		MSVC_VER="14.0"
-		MSVC_YEAR="2015"
-		MSVC_REAL_YEAR="2015"
-		MSVC_DISPLAY_YEAR="2015"
-		BOOST_VER="1.67.0"
-		BOOST_VER_URL="1_67_0"
-		BOOST_VER_SDK="106700"
+		echo "Visual Studio 2015 is no longer supported"
+		wrappedExit 1
 		;;
 
 	12|12.0|2013 )
 		echo "Visual Studio 2013 is no longer supported"
-		exit 1
+		wrappedExit 1
 		;;
 esac
 
@@ -494,18 +497,6 @@ if [ -z $SKIP_DOWNLOAD ]; then
 			"OSG-3.6.5-msvc${MSVC_REAL_YEAR}-win${BITS}-sym.7z"
 	fi
 
-	# Qt
-	if [ -z $APPVEYOR ]; then
-		if [ "${MSVC_REAL_YEAR}" = "2015" ] && [ "${BITS}" = "32" ]; then
-			echo "Qt no longer provides MSVC2015 Win32 packages, switch to 64-bit or a newer Visual Studio. Sorry."
-			exit 1
-		fi
-
-		download "AQt installer" \
-			"https://files.pythonhosted.org/packages/f3/bb/aee972f08deecca31bfc46b5aedfad1ce6c7f3aaf1288d685e4a914b53ac/aqtinstall-0.8-py2.py3-none-any.whl" \
-			"aqtinstall-0.8-py2.py3-none-any.whl"
-	fi
-
 	# SDL2
 	download "SDL 2.0.12" \
 		"https://www.libsdl.org/release/SDL2-devel-2.0.12-VC.zip" \
@@ -513,11 +504,11 @@ if [ -z $SKIP_DOWNLOAD ]; then
 
 	# Google test and mock
 	if [ ! -z $TEST_FRAMEWORK ]; then
-		echo "Google test 1.8.1..."
+		echo "Google test 1.10.0..."
 		if [ -d googletest ]; then
 			printf "  Google test exists, skipping."
 		else
-			git clone -b release-1.8.1 https://github.com/google/googletest.git
+			git clone -b release-1.10.0 https://github.com/google/googletest.git
 		fi
 	fi
 fi
@@ -595,14 +586,8 @@ fi
 		# Appveyor has all the boost we need already
 		BOOST_SDK="c:/Libraries/boost_${BOOST_VER_URL}"
 
-		if [ $MSVC_REAL_VER -ge 15 ]; then
-			LIB_SUFFIX="1"
-		else
-			LIB_SUFFIX="0"
-		fi
-
 		add_cmake_opts -DBOOST_ROOT="$BOOST_SDK" \
-			-DBOOST_LIBRARYDIR="${BOOST_SDK}/lib${BITS}-msvc-${MSVC_VER}.${LIB_SUFFIX}"
+			-DBOOST_LIBRARYDIR="${BOOST_SDK}/lib${BITS}-msvc-${MSVC_VER}.1"
 		add_cmake_opts -DBoost_COMPILER="-${TOOLSET}"
 
 		echo Done.
@@ -740,28 +725,40 @@ fi
 	fi
 	if [ -z $APPVEYOR ]; then
 		cd $DEPS_INSTALL
-		QT_SDK="$(real_pwd)/Qt/5.15.0/msvc${MSVC_REAL_YEAR}${SUFFIX}"
 
-		if [ -d 'Qt/5.15.0' ]; then
+		qt_version="5.15.0"
+		if [ "win${BITS}_msvc${MSVC_REAL_YEAR}${SUFFIX}" == "win64_msvc2017_64" ]; then
+			echo "This combination of options is known not to work. Falling back to Qt 5.14.2."
+			qt_version="5.14.2"
+		fi
+
+		QT_SDK="$(real_pwd)/Qt/${qt_version}/msvc${MSVC_REAL_YEAR}${SUFFIX}"
+
+		if [ -d "Qt/${qt_version}" ]; then
 			printf "Exists. "
 		elif [ -z $SKIP_EXTRACT ]; then
+			if [ $MISSINGPYTHON -ne 0 ]; then
+				echo "Can't be automatically installed without Python."
+				wrappedExit 1
+			fi
+
 			pushd "$DEPS" > /dev/null
 			if ! [ -d 'aqt-venv' ]; then
 				echo "  Creating Virtualenv for aqt..."
-				eval python -m venv aqt-venv $STRIP
+				run_cmd python -m venv aqt-venv
 			fi
 			if [ -d 'aqt-venv/bin' ]; then
 				VENV_BIN_DIR='bin'
 			elif [ -d 'aqt-venv/Scripts' ]; then
 				VENV_BIN_DIR='Scripts'
 			else
-				echo "Error: Failed to create virtualenv."
-				exit 1
+				echo "Error: Failed to create virtualenv in expected location."
+				wrappedExit 1
 			fi
 
 			if ! [ -e "aqt-venv/${VENV_BIN_DIR}/aqt" ]; then
 				echo "  Installing aqt wheel into virtualenv..."
-				eval "aqt-venv/${VENV_BIN_DIR}/pip" install aqtinstall-0.8-py2.py3-none-any.whl $STRIP
+				run_cmd "aqt-venv/${VENV_BIN_DIR}/pip" install aqtinstall==0.9.2
 			fi
 			popd > /dev/null
 
@@ -770,7 +767,7 @@ fi
 			mkdir Qt
 			cd Qt
 
-			eval "${DEPS}/aqt-venv/${VENV_BIN_DIR}/aqt" install 5.15.0 windows desktop "win${BITS}_msvc${MSVC_REAL_YEAR}${SUFFIX}" $STRIP
+			run_cmd "${DEPS}/aqt-venv/${VENV_BIN_DIR}/aqt" install $qt_version windows desktop "win${BITS}_msvc${MSVC_REAL_YEAR}${SUFFIX}"
 
 			printf "  Cleaning up extraneous data... "
 			rm -rf Qt/{aqtinstall.log,Tools}
@@ -779,8 +776,7 @@ fi
 		fi
 
 		cd $QT_SDK
-		add_cmake_opts -DDESIRED_QT_VERSION=5 \
-			-DQT_QMAKE_EXECUTABLE="${QT_SDK}/bin/qmake.exe" \
+		add_cmake_opts -DQT_QMAKE_EXECUTABLE="${QT_SDK}/bin/qmake.exe" \
 			-DCMAKE_PREFIX_PATH="$QT_SDK"
 		if [ $CONFIGURATION == "Debug" ]; then
 			SUFFIX="d"
@@ -792,8 +788,7 @@ fi
 		echo Done.
 	else
 		QT_SDK="C:/Qt/5.13/msvc2017${SUFFIX}"
-		add_cmake_opts -DDESIRED_QT_VERSION=5 \
-			-DQT_QMAKE_EXECUTABLE="${QT_SDK}/bin/qmake.exe" \
+		add_cmake_opts -DQT_QMAKE_EXECUTABLE="${QT_SDK}/bin/qmake.exe" \
 			-DCMAKE_PREFIX_PATH="$QT_SDK"
 		if [ $CONFIGURATION == "Debug" ]; then
 			SUFFIX="d"
@@ -825,7 +820,7 @@ cd $DEPS
 echo
 # Google Test and Google Mock
 if [ ! -z $TEST_FRAMEWORK ]; then
-	printf "Google test 1.8.1 ..."
+	printf "Google test 1.10.0 ..."
 
 	cd googletest
 	if [ ! -d build ]; then
@@ -943,29 +938,17 @@ fi
 	echo
 #fi
 
-if ! [ -z $ACTIVATE_MSVC ]; then
+if [ -n "$ACTIVATE_MSVC" ]; then
 	echo -n "- Activating MSVC in the current shell... "
 	command -v vswhere >/dev/null 2>&1 || { echo "Error: vswhere is not on the path."; wrappedExit 1; }
 
-	MSVC_INSTALLATION_PATH=$(vswhere -legacy -version "[$MSVC_VER,$(awk "BEGIN { print $MSVC_REAL_VER + 1; exit }"))" -property installationPath)
-	if [ $MSVC_REAL_VER -ge 15 ]; then
-		echo "@\"${MSVC_INSTALLATION_PATH}\Common7\Tools\VsDevCmd.bat\" -no_logo -arch=$([ $BITS -eq 64 ] && echo "amd64" || echo "x86") -host_arch=$([ $(uname -m) == 'x86_64' ] && echo "amd64" || echo "x86")" > ActivateMSVC.bat
-	else
-		if [ $(uname -m) == 'x86_64' ]; then
-			if [ $BITS -eq 64 ]; then
-				compiler=amd64
-			else
-				compiler=amd64_x86
-			fi
-		else
-			if [ $BITS -eq 64 ]; then
-				compiler=x86_amd64
-			else
-				compiler=x86
-			fi
-		fi
-		echo "@\"${MSVC_INSTALLATION_PATH}\VC\vcvarsall.bat\" $compiler" > ActivateMSVC.bat
+	MSVC_INSTALLATION_PATH=$(vswhere -legacy -products '*' -version "[$MSVC_VER,$(awk "BEGIN { print $MSVC_REAL_VER + 1; exit }"))" -property installationPath)
+	if [ -z "$MSVC_INSTALLATION_PATH" ]; then
+		echo "vswhere was unable to find MSVC $MSVC_DISPLAY_YEAR"
+		wrappedExit 1
 	fi
+	
+	echo "@\"${MSVC_INSTALLATION_PATH}\Common7\Tools\VsDevCmd.bat\" -no_logo -arch=$([ $BITS -eq 64 ] && echo "amd64" || echo "x86") -host_arch=$([ $(uname -m) == 'x86_64' ] && echo "amd64" || echo "x86")" > ActivateMSVC.bat
 	
 	cp "../CI/activate_msvc.sh" .
 	sed -i "s/\$MSVC_DISPLAY_YEAR/$MSVC_DISPLAY_YEAR/g" activate_msvc.sh
@@ -983,39 +966,47 @@ if [ -z $VERBOSE ]; then
 else
 	echo "- cmake .. $CMAKE_OPTS"
 fi
-run_cmd cmake .. $CMAKE_OPTS
-RET=$?
+RET=0
+run_cmd cmake .. $CMAKE_OPTS || RET=$?
 if [ -z $VERBOSE ]; then
 	if [ $RET -eq 0 ]; then
 		echo Done.
-		if [ -n $ACTIVATE_MSVC ]; then
-			echo
-			echo "Note: you must manually activate MSVC for the shell in which you want to do the build."
-			echo
-			echo "Some scripts have been created in the build directory to do so in an existing shell."
-			echo "Bash: source activate_msvc.sh"
-			echo "CMD: ActivateMSVC.bat"
-			echo "PowerShell: ActivateMSVC.ps1"
-			echo
-			echo "You may find options to launch a Development/Native Tools/Cross Tools shell in your start menu or Visual Studio."
-			echo
-			if [ $(uname -m) == 'x86_64' ]; then
-				if [ $BITS -eq 64 ]; then
-					inheritEnvironments=msvc_x64_x64
-				else
-					inheritEnvironments=msvc_x64
-				fi
-			else
-				if [ $BITS -eq 64 ]; then
-					inheritEnvironments=msvc_x86_x64
-				else
-					inheritEnvironments=msvc_x86
-				fi
-			fi
-			echo "In Visual Studio 15.3 (2017 Update 3) or later, try setting '\"inheritEnvironments\": [ \"$inheritEnvironments\" ]' in CMakeSettings.json to build in the IDE."
-		fi
 	else
 		echo Failed.
 	fi
 fi
+if [ $RET -ne 0 ]; then
+	wrappedExit $RET
+fi
+
+echo "Script completed successfully."
+echo "You now have an OpenMW build system at $(unixPathAsWindows "$(pwd)")"
+
+if [ -n "$ACTIVATE_MSVC" ]; then
+	echo
+	echo "Note: you must manually activate MSVC for the shell in which you want to do the build."
+	echo
+	echo "Some scripts have been created in the build directory to do so in an existing shell."
+	echo "Bash: source activate_msvc.sh"
+	echo "CMD: ActivateMSVC.bat"
+	echo "PowerShell: ActivateMSVC.ps1"
+	echo
+	echo "You may find options to launch a Development/Native Tools/Cross Tools shell in your start menu or Visual Studio."
+	echo
+	if [ $(uname -m) == 'x86_64' ]; then
+		if [ $BITS -eq 64 ]; then
+			inheritEnvironments=msvc_x64_x64
+		else
+			inheritEnvironments=msvc_x64
+		fi
+	else
+		if [ $BITS -eq 64 ]; then
+			inheritEnvironments=msvc_x86_x64
+		else
+			inheritEnvironments=msvc_x86
+		fi
+	fi
+	echo "In Visual Studio 15.3 (2017 Update 3) or later, try setting '\"inheritEnvironments\": [ \"$inheritEnvironments\" ]' in CMakeSettings.json to build in the IDE."
+fi
+
 wrappedExit $RET

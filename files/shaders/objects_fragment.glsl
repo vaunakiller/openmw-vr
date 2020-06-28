@@ -49,7 +49,7 @@ uniform vec2 envMapLumaBias;
 uniform mat2 bumpMapMatrix;
 #endif
 
-uniform bool simpleWater = false;
+uniform bool simpleWater;
 
 varying float euclideanDepth;
 varying float linearDepth;
@@ -83,7 +83,9 @@ void main()
     mat3 tbnTranspose = mat3(normalizedTangent, binormal, normalizedNormal);
 
     vec3 viewNormal = gl_NormalMatrix * normalize(tbnTranspose * (normalTex.xyz * 2.0 - 1.0));
-#else
+#endif
+
+#if (!@normalMap && (@parallax || @forcePPL))
     vec3 viewNormal = gl_NormalMatrix * normalize(passNormal);
 #endif
 
@@ -176,17 +178,27 @@ void main()
     vec3 matSpec = specTex.xyz;
 #else
     float shininess = gl_FrontMaterial.shininess;
-    vec3 matSpec = gl_FrontMaterial.specular.xyz;
+    vec3 matSpec;
     if (colorMode == ColorMode_Specular)
         matSpec = passColor.xyz;
+    else
+        matSpec = gl_FrontMaterial.specular.xyz;
 #endif
 
-    gl_FragData[0].xyz += getSpecular(normalize(viewNormal), normalize(passViewPos.xyz), shininess, matSpec) * shadowing;
+    if (matSpec != vec3(0.0))
+    {
+#if (!@normalMap && !@parallax && !@forcePPL)
+        vec3 viewNormal = gl_NormalMatrix * normalize(passNormal);
+#endif
+        gl_FragData[0].xyz += getSpecular(normalize(viewNormal), normalize(passViewPos.xyz), shininess, matSpec) * shadowing;
+    }
 #if @radialFog
-    float depth = euclideanDepth;
+    float depth;
     // For the less detailed mesh of simple water we need to recalculate depth on per-pixel basis
     if (simpleWater)
         depth = length(passViewPos);
+    else
+        depth = euclideanDepth;
     float fogValue = clamp((depth - gl_Fog.start) * gl_Fog.scale, 0.0, 1.0);
 #else
     float fogValue = clamp((linearDepth - gl_Fog.start) * gl_Fog.scale, 0.0, 1.0);

@@ -435,12 +435,10 @@ void NpcAnimation::setRenderBin()
             osgUtil::RenderBin::addRenderBinPrototype("DepthClear", depthClearBin);
             prototypeAdded = true;
         }
-
-        osg::StateSet* stateset = mObjectRoot->getOrCreateStateSet();
-        stateset->setRenderBinDetails(RenderBin_FirstPerson, "DepthClear", osg::StateSet::OVERRIDE_RENDERBIN_DETAILS);
+        mObjectRoot->getOrCreateStateSet()->setRenderBinDetails(RenderBin_FirstPerson, "DepthClear", osg::StateSet::OVERRIDE_RENDERBIN_DETAILS);
     }
-    else
-        Animation::setRenderBin();
+    else if (osg::StateSet* stateset = mObjectRoot->getStateSet())
+        stateset->setRenderBinToInherit();
 }
 
 void NpcAnimation::rebuild()
@@ -956,7 +954,7 @@ void NpcAnimation::addControllers()
             osg::MatrixTransform* node = found->second.get();
             mFirstPersonNeckController = new NeckController(mObjectRoot.get());
             node->addUpdateCallback(mFirstPersonNeckController);
-            mActiveControllers.emplace(node, mFirstPersonNeckController);
+            mActiveControllers.emplace_back(node, mFirstPersonNeckController);
         }
     }
     else if (mViewMode != VM_HeadOnly)

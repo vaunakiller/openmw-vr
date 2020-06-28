@@ -96,13 +96,14 @@ namespace MWInput
 
         void applyHapticsLeftHand(float intensity) override {};
         void applyHapticsRightHand(float intensity) override {};
+        
+        virtual bool controlsDisabled() { return mControlsDisabled; }
+
 
     protected:
         void convertMousePosForMyGUI(int& x, int& y);
 
         void handleGuiArrowKey(int action);
-
-        void updateCursorMode();
 
         //void quickKey(int index);
         //void showQuickKeysMenu();
@@ -112,7 +113,7 @@ namespace MWInput
 
         SDLUtil::InputWrapper* mInputWrapper;
 
-        bool mGrabCursor;
+        bool mControlsDisabled;
 
         ControlSwitch* mControlSwitch;
 

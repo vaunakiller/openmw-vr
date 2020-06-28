@@ -16,7 +16,7 @@
 static const int MAX_DIRECTIONS = 4;
 
 MWMechanics::AiAvoidDoor::AiAvoidDoor(const MWWorld::ConstPtr& doorPtr)
-: AiPackage(), mDuration(1), mDoorPtr(doorPtr), mDirection(0)
+: mDuration(1), mDoorPtr(doorPtr), mDirection(0)
 {
 
 }
@@ -63,28 +63,13 @@ bool MWMechanics::AiAvoidDoor::execute (const MWWorld::Ptr& actor, CharacterCont
     for(std::vector<MWWorld::Ptr>::iterator it = actors.begin(); it != actors.end(); ++it) {
         if(*it != getPlayer()) { //Not the player
             MWMechanics::AiSequence& seq = it->getClass().getCreatureStats(*it).getAiSequence();
-            if(seq.getTypeId() != MWMechanics::AiPackage::TypeIdAvoidDoor) { //Only add it once
+            if(seq.getTypeId() != MWMechanics::AiPackageTypeId::AvoidDoor) { //Only add it once
                 seq.stack(MWMechanics::AiAvoidDoor(mDoorPtr),*it);
             }
         }
     }
 
     return false;
-}
-
-MWMechanics::AiAvoidDoor *MWMechanics::AiAvoidDoor::clone() const
-{
-    return new AiAvoidDoor(*this);
-}
-
-int MWMechanics::AiAvoidDoor::getTypeId() const
-{
-    return TypeIdAvoidDoor;
-}
-
-unsigned int MWMechanics::AiAvoidDoor::getPriority() const
-{
- return 2;
 }
 
 bool MWMechanics::AiAvoidDoor::isStuck(const osg::Vec3f& actorPos) const

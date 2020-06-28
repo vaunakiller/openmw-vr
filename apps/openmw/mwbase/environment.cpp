@@ -14,7 +14,6 @@
 #include "windowmanager.hpp"
 #include "statemanager.hpp"
 
-
 MWBase::Environment *MWBase::Environment::sThis = 0;
 
 MWBase::Environment::Environment()
@@ -200,3 +199,8 @@ const MWBase::Environment& MWBase::Environment::get()
     return *sThis;
 }
 
+void MWBase::Environment::reportStats(unsigned int frameNumber, osg::Stats& stats) const
+{
+    mMechanicsManager->reportStats(frameNumber, stats);
+    mWorld->reportStats(frameNumber, stats);
+}

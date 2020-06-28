@@ -1,13 +1,9 @@
 #include "graphicspage.hpp"
 
-#include <csignal>
 #include <QDesktopWidget>
 #include <QMessageBox>
 #include <QDir>
-
-#if QT_VERSION >= QT_VERSION_CHECK(5,0,0)
 #include <QScreen>
-#endif
 
 #ifdef MAC_OS_X_VERSION_MIN_REQUIRED
 #undef MAC_OS_X_VERSION_MIN_REQUIRED
@@ -55,13 +51,11 @@ Launcher::GraphicsPage::GraphicsPage(Files::ConfigurationManager &cfg, Settings:
 
 bool Launcher::GraphicsPage::setupSDL()
 {
-#if QT_VERSION >= QT_VERSION_CHECK(5,0,0)
     bool sdlConnectSuccessful = initSDL();
     if (!sdlConnectSuccessful)
     {
         return false;
     }
-#endif
 
     int displays = SDL_GetNumVideoDisplays();
 
@@ -82,10 +76,8 @@ bool Launcher::GraphicsPage::setupSDL()
         screenComboBox->addItem(QString(tr("Screen ")) + QString::number(i + 1));
     }
 
-#if QT_VERSION >= QT_VERSION_CHECK(5,0,0)
     // Disconnect from SDL processes
     quitSDL();
-#endif
 
     return true;
 }
@@ -144,6 +136,10 @@ bool Launcher::GraphicsPage::loadSettings()
         objectShadowsCheckBox->setCheckState(Qt::Checked);
     if (mEngineSettings.getBool("enable indoor shadows", "Shadows"))
         indoorShadowsCheckBox->setCheckState(Qt::Checked);
+
+    shadowComputeSceneBoundsComboBox->setCurrentIndex(
+        shadowComputeSceneBoundsComboBox->findText(
+            QString(tr(mEngineSettings.getString("compute scene bounds", "Shadows").c_str()))));
 
     int shadowDistLimit = mEngineSettings.getInt("maximum shadow map distance", "Shadows");
     if (shadowDistLimit > 0)
@@ -231,7 +227,7 @@ void Launcher::GraphicsPage::saveSettings()
     bool cPlayerShadows = playerShadowsCheckBox->checkState();
     if (cActorShadows || cObjectShadows || cTerrainShadows || cPlayerShadows)
     {
-        if (mEngineSettings.getBool("enable shadows", "Shadows") != true)
+        if (!mEngineSettings.getBool("enable shadows", "Shadows"))
             mEngineSettings.setBool("enable shadows", "Shadows", true);
         if (mEngineSettings.getBool("actor shadows", "Shadows") != cActorShadows)
             mEngineSettings.setBool("actor shadows", "Shadows", cActorShadows);
@@ -263,6 +259,10 @@ void Launcher::GraphicsPage::saveSettings()
     int cShadowRes = shadowResolutionComboBox->currentText().toInt();
     if (cShadowRes != mEngineSettings.getInt("shadow map resolution", "Shadows"))
         mEngineSettings.setInt("shadow map resolution", "Shadows", cShadowRes);
+
+    auto cComputeSceneBounds = shadowComputeSceneBoundsComboBox->currentText().toStdString();
+    if (cComputeSceneBounds != mEngineSettings.getString("compute scene bounds", "Shadows"))
+        mEngineSettings.setString("compute scene bounds", "Shadows", cComputeSceneBounds);
 }
 
 QStringList Launcher::GraphicsPage::getAvailableResolutions(int screen)
@@ -316,7 +316,6 @@ QRect Launcher::GraphicsPage::getMaximumResolution()
 {
     QRect max;
 
-#if QT_VERSION >= QT_VERSION_CHECK(5,0,0)
     for (QScreen* screen : QGuiApplication::screens())
     {
         QRect res = screen->geometry();
@@ -325,17 +324,6 @@ QRect Launcher::GraphicsPage::getMaximumResolution()
         if (res.height() > max.height())
             max.setHeight(res.height());
     }
-#else
-    int screens = QApplication::desktop()->screenCount();
-    for (int i = 0; i < screens; ++i)
-    {
-        QRect res = QApplication::desktop()->screenGeometry(i);
-        if (res.width() > max.width())
-            max.setWidth(res.width());
-        if (res.height() > max.height())
-            max.setHeight(res.height());
-    }
-#endif
     return max;
 }
 
