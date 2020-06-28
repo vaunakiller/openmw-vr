@@ -431,7 +431,6 @@ namespace MWVR
                     break;
                 case A_Recenter:
                     vrGuiManager->updateTracking();
-                    requestRecenter();
                     break;
                 case A_MenuSelect:
                     if (!MWBase::Environment::get().getWindowManager()->injectKeyPress(MyGUI::KeyCode::Space, 0, 0))
