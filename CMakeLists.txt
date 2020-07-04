@@ -230,9 +230,6 @@ if (WIN32)
 
     # Get rid of useless crud from windows.h
     add_definitions(-DNOMINMAX -DWIN32_LEAN_AND_MEAN)
-
-    # Get rid of the pointless warning "enum type is unscoped"
-    set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} /wd26812") 
 endif()
 
 if (NOT WIN32 AND BUILD_WIZARD) # windows users can just run the morrowind installer
