@@ -167,7 +167,7 @@ namespace MWRender
         bool screenshot360(osg::Image* image, std::string settingStr);
 
         RayResult castRay(const osg::Vec3f& origin, const osg::Vec3f& dest, bool ignorePlayer, bool ignoreActors=false);
-        
+
         /// Cast a ray from a node in the scene graph
         RayResult castRay(const osg::Transform* source, float maxDistance, bool ignorePlayer, bool ignoreActors=false);
 
