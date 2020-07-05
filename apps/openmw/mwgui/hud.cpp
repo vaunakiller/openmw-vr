@@ -593,9 +593,8 @@ namespace MWGui
         mSpellBox->setPosition(mSpellBoxBaseLeft - spellDx, mSpellBox->getTop());
         mSneakBox->setPosition(mSneakBoxBaseLeft - sneakDx, mSneakBox->getTop());
 
-        const MyGUI::IntSize& viewSize = MyGUI::RenderManager::getInstance().getViewSize();
-
 #ifndef USE_OPENXR
+        const MyGUI::IntSize& viewSize = MyGUI::RenderManager::getInstance().getViewSize();
         // effect box can have variable width -> variable left coordinate
         int effectsDx = 0;
         if (!mMinimapBox->getVisible ())
