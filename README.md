@@ -139,3 +139,20 @@ You may also need to compile [the openxr sdk](https://github.com/KhronosGroup/Op
 Building
 --------
 The fork should build with the same instructions as building openmw, but you will also need to grab [the openxr sdk](https://github.com/KhronosGroup/OpenXR-SDK) and then point cmake to the correct folders using the cmake gui.
+
+Oculus Touch controls
+---------------------
+[Here](https://imgur.com/a/PNgfLGz) is a simple graphic showing the default bindings for the oculus touch controllers.
+
+Ambiguous buttons souch as Y and B fire the alternative action when you hold instead of tap.
+
+The R-Trigger by default uses the readied tool/spell, but activates objects and actors instead when Pointer mode is active.
+
+While in menus the A and B keys, and the thumbsticks change behaviour to navigate menus. But past the main menu you can navigate using point and click.
+
+Known Issues
+------------
+- The loading screen does not show any backgrounds
+- Movies play upside down
+- Cannot point and click in the main menu, you must use the right hand controller as explained above
+- Performance is shite, you will likely have to play without fancy shadows or water shaders.
