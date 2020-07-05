@@ -111,6 +111,7 @@ VR
 ======
 
 This fork is a VR port of openmw using the openxr VR standard.
+You can grab the latest binaries/sources under [Releases](https://gitlab.com/madsbuvi/openmw/-/releases)
 
 Current Status
 --------------
@@ -134,3 +135,7 @@ If openxr fails to load, it's nonetheless possible your VR headset offers a prev
 [This article](https://uploadvr.com/oculus-rift-basic-openxr-support/) from uploadvr explains how to enable the oculus preview on windows.
 Note that although the article states you need to opt into public test channels, this is no longer necessary. And you no longer need to write your own json file, you can point to the one present in the oculus' runtime's directory.
 You may also need to compile [the openxr sdk](https://github.com/KhronosGroup/OpenXR-SDK) from source and copy openxr_loader.dll into your openmw vr install directory.
+
+Building
+--------
+The fork should build with the same instructions as building openmw, but you will also need to grab [the openxr sdk](https://github.com/KhronosGroup/OpenXR-SDK) and then point cmake to the correct folders using the cmake gui.
