@@ -897,14 +897,6 @@ namespace MWRender
             return;
         }
 
-
-        const bool isPlayer = (mPtr == MWMechanics::getPlayer());
-
-        if (isPlayer)
-        {
-            Log(Debug::Verbose) << "groupname=" << groupname << ", start=" << start << ", stop=" << stop << ", accumRoot=" << mAccumRoot->getName();
-        }
-
         AnimStateMap::iterator stateiter = mStates.begin();
         while(stateiter != mStates.end())
         {

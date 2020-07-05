@@ -110,7 +110,6 @@ namespace MWRender
         osg::NodePathList nodepaths = trackNode->getParentalNodePaths();
         if (nodepaths.empty())
             return osg::Vec3d();
-
         osg::Matrix worldMat = osg::computeLocalToWorld(nodepaths[0]);
 
         osg::Vec3d position = worldMat.getTrans();
@@ -131,7 +130,6 @@ namespace MWRender
     {
         return mCamera;
     }
-
 
     void Camera::updateCamera()
     {

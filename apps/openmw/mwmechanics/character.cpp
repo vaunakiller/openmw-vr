@@ -1679,7 +1679,6 @@ bool CharacterController::updateWeaponState(CharacterState& idle)
         animPlaying = mAnimation->getInfo(mCurrentWeapon, &complete);
         if(mUpperBodyState == UpperCharState_MinAttackToMaxAttack && !isKnockedDown())
             mAttackStrength = complete;
-
     }
     else
     {

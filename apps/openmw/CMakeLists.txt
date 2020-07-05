@@ -169,8 +169,6 @@ if(BUILD_VR_OPENXR)
     target_compile_options(openmw_vr PUBLIC -DUSE_OPENXR -DXR_USE_GRAPHICS_API_OPENGL -DXR_USE_PLATFORM_WIN32)
 endif()
 
-
-
 # Sound stuff - here so CMake doesn't stupidly recompile EVERYTHING
 # when we change the backend.
 include_directories(

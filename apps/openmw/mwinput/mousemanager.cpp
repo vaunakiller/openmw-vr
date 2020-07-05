@@ -249,6 +249,7 @@ namespace MWInput
     {
         mInputWrapper->warpMouse(static_cast<int>(mGuiCursorX / mInvUiScalingFactor), static_cast<int>(mGuiCursorY / mInvUiScalingFactor));
     }
+
     void MouseManager::setMousePosition(int x, int y)
     {
         mGuiCursorX = x * mInvUiScalingFactor;

@@ -3086,7 +3086,6 @@ namespace MWWorld
                 float distance = getMaxActivationDistance();
                 osg::Vec3f dest = origin + direction * distance;
 
-
                 MWRender::RayResult result2 = mRendering->castRay(origin, dest, true, true);
 
                 float dist1 = std::numeric_limits<float>::max();

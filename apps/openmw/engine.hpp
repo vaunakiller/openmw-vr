@@ -67,7 +67,6 @@ namespace osgViewer
     class ScreenCaptureHandler;
 }
 
-
 struct SDL_Window;
 
 namespace OMW

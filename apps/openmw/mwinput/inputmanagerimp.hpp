@@ -99,7 +99,6 @@ namespace MWInput
         
         virtual bool controlsDisabled() { return mControlsDisabled; }
 
-
     protected:
         void convertMousePosForMyGUI(int& x, int& y);
 

@@ -544,6 +544,7 @@ void OMW::Engine::prepareEngine (Settings::Manager & settings)
         gameControllerdb = globaldefault;
     else
         gameControllerdb = ""; //if it doesn't exist, pass in an empty string
+
     std::string myguiResources = (mResDir / "mygui").string();
     osg::ref_ptr<osg::Group> guiRoot = new osg::Group;
     guiRoot->setName("GUI Root");
@@ -787,7 +788,6 @@ void OMW::Engine::go()
         }
         else
         {
-
             mViewer->eventTraversal();
             mViewer->updateTraversal();
 

@@ -70,7 +70,6 @@ MipmapCallback::~MipmapCallback()
 
 }
 
-
 void MipmapCallback::operator()(osg::RenderInfo& renderInfo) const
 {
     auto* gl = renderInfo.getState()->get<osg::GLExtensions>();
