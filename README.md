@@ -106,3 +106,31 @@ Command line options
                                             image and XML file in current directory
       --activate-dist arg (=-1)             activation distance override
       --random-seed arg (=<impl defined>)   seed value for random number generator
+
+VR
+======
+
+This fork is a VR port of openmw using the openxr VR standard.
+
+Current Status
+--------------
+
+The VR fork was written on windows with access only to the Oculus Rift headset. Consequentially the current state of the port may have any number of Oculus specific idiosyncrasies, only has default bindings for the Oculus Touch controllers, and will not compile on linux.
+Users with the vive, the index, or any other openxr supporting VR headsets are encourage to suggest or contribute bindings for their respective headsets.
+
+Compatibility with general mods should be high, but this has not been thoroughly tested. Shaders have not been tested at all and may spawn spiders inside your headset.
+
+Installation (openmw vr)
+------------------------
+
+Installing the VR port is similar to openmw, but you should manually edit settings.cfg or settings-default.cfg to input your real life height under the VR section so the game can correctly scale you.
+Reference VR settings exist in settings-default.cfg.
+
+Installation (OpenXR)
+---------------------
+No openxr binaries are distributed as part of a release. OpenXR binaries and runtimes are expected to be distributed as part of your VR runtime.
+
+If openxr fails to load, it's nonetheless possible your VR headset offers a preview release of openxr.
+[This article](https://uploadvr.com/oculus-rift-basic-openxr-support/) from uploadvr explains how to enable the oculus preview on windows.
+Note that although the article states you need to opt into public test channels, this is no longer necessary. And you no longer need to write your own json file, you can point to the one present in the oculus' runtime's directory.
+You may also need to compile [the openxr sdk](https://github.com/KhronosGroup/OpenXR-SDK) from source and copy openxr_loader.dll into your openmw vr install directory.
