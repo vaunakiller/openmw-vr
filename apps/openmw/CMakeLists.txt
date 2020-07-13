@@ -115,6 +115,29 @@ else ()
     )
 endif ()
 
+set(OPENMW_LINK_TARGETS 
+    ${OSG_LIBRARIES}
+    ${OPENTHREADS_LIBRARIES}
+    ${OSGPARTICLE_LIBRARIES}
+    ${OSGUTIL_LIBRARIES}
+    ${OSGDB_LIBRARIES}
+    ${OSGVIEWER_LIBRARIES}
+    ${OSGGA_LIBRARIES}
+    ${OSGSHADOW_LIBRARIES}
+    ${Boost_SYSTEM_LIBRARY}
+    ${Boost_THREAD_LIBRARY}
+    ${Boost_FILESYSTEM_LIBRARY}
+    ${Boost_PROGRAM_OPTIONS_LIBRARY}
+    ${OPENAL_LIBRARY}
+    ${FFmpeg_LIBRARIES}
+    ${MyGUI_LIBRARIES}
+    ${SDL2_LIBRARY}
+    ${RecastNavigation_LIBRARIES}
+    "osg-ffmpeg-videoplayer"
+    "oics"
+    components
+)
+
 if(BUILD_VR_OPENXR)
 # TODO: Move this into something akin to add_openmw_dir instead of breaking pattern.
 # Later, openmw and openmw_vr should preferrably share game code as a static or shared library
@@ -167,6 +190,7 @@ if(BUILD_VR_OPENXR)
 
     # Preprocessor variable used to control code paths to vr code
     target_compile_options(openmw_vr PUBLIC -DUSE_OPENXR -DXR_USE_GRAPHICS_API_OPENGL -DXR_USE_PLATFORM_WIN32)
+    target_link_libraries(openmw_vr ${OPENMW_LINK_TARGETS} ${OPENXR_LIBRARY})
 endif()
 
 # Sound stuff - here so CMake doesn't stupidly recompile EVERYTHING
@@ -175,31 +199,7 @@ include_directories(
     ${FFmpeg_INCLUDE_DIRS}
 )
 
-set(OPENMW_LINK_TARGETS 
-    ${OSG_LIBRARIES}
-    ${OPENTHREADS_LIBRARIES}
-    ${OSGPARTICLE_LIBRARIES}
-    ${OSGUTIL_LIBRARIES}
-    ${OSGDB_LIBRARIES}
-    ${OSGVIEWER_LIBRARIES}
-    ${OSGGA_LIBRARIES}
-    ${OSGSHADOW_LIBRARIES}
-    ${Boost_SYSTEM_LIBRARY}
-    ${Boost_THREAD_LIBRARY}
-    ${Boost_FILESYSTEM_LIBRARY}
-    ${Boost_PROGRAM_OPTIONS_LIBRARY}
-    ${OPENAL_LIBRARY}
-    ${FFmpeg_LIBRARIES}
-    ${MyGUI_LIBRARIES}
-    ${SDL2_LIBRARY}
-    ${RecastNavigation_LIBRARIES}
-    "osg-ffmpeg-videoplayer"
-    "oics"
-    components
-)
-
 target_link_libraries(openmw ${OPENMW_LINK_TARGETS})
-target_link_libraries(openmw_vr ${OPENMW_LINK_TARGETS} ${OpenXR_LIBRARIES})
 
 if (ANDROID)
     set (OSG_PLUGINS
@@ -228,18 +228,24 @@ endif (ANDROID)
 
 if (USE_SYSTEM_TINYXML)
     target_link_libraries(openmw ${TinyXML_LIBRARIES})
-    target_link_libraries(openmw_vr  ${TinyXML_LIBRARIES})
+    if(BUILD_VR_OPENXR)
+        target_link_libraries(openmw_vr  ${TinyXML_LIBRARIES})
+    endif()
 endif()
 
 if (NOT UNIX)
-target_link_libraries(openmw ${SDL2MAIN_LIBRARY})
-target_link_libraries(openmw_vr ${SDL2MAIN_LIBRARY})
+    target_link_libraries(openmw ${SDL2MAIN_LIBRARY})
+    if(BUILD_VR_OPENXR)
+        target_link_libraries(openmw_vr ${SDL2MAIN_LIBRARY})
+    endif()
 endif()
 
 # Fix for not visible pthreads functions for linker with glibc 2.15
 if (UNIX AND NOT APPLE)
-target_link_libraries(openmw ${CMAKE_THREAD_LIBS_INIT})
-target_link_libraries(openmw_vr ${CMAKE_THREAD_LIBS_INIT})
+    target_link_libraries(openmw ${CMAKE_THREAD_LIBS_INIT})
+    if(BUILD_VR_OPENXR)
+        target_link_libraries(openmw_vr ${CMAKE_THREAD_LIBS_INIT})
+    endif()
 endif()
 
 if(APPLE)
@@ -258,27 +264,35 @@ if(APPLE)
         POST_BUILD
         COMMAND cp "${OpenMW_BINARY_DIR}/resources/version" "${BUNDLE_RESOURCES_DIR}/resources")
 
-    add_custom_command(TARGET openmw_vr
-        POST_BUILD
-        COMMAND cp "${OpenMW_BINARY_DIR}/resources/version" "${BUNDLE_RESOURCES_DIR}/resources")
+    if(BUILD_VR_OPENXR)
+        add_custom_command(TARGET openmw_vr
+            POST_BUILD
+            COMMAND cp "${OpenMW_BINARY_DIR}/resources/version" "${BUNDLE_RESOURCES_DIR}/resources")
+        endif()
 
     find_library(COCOA_FRAMEWORK Cocoa)
     find_library(IOKIT_FRAMEWORK IOKit)
     target_link_libraries(openmw ${COCOA_FRAMEWORK} ${IOKIT_FRAMEWORK})
-    target_link_libraries(openmw_vr ${COCOA_FRAMEWORK} ${IOKIT_FRAMEWORK})
+    if(BUILD_VR_OPENXR)
+        target_link_libraries(openmw_vr ${COCOA_FRAMEWORK} ${IOKIT_FRAMEWORK})
+    endif()
 
     if (FFmpeg_FOUND)
         find_library(COREVIDEO_FRAMEWORK CoreVideo)
         find_library(VDA_FRAMEWORK VideoDecodeAcceleration)
         target_link_libraries(openmw z ${COREVIDEO_FRAMEWORK} ${VDA_FRAMEWORK})
-        target_link_libraries(openmw_vr z ${COREVIDEO_FRAMEWORK} ${VDA_FRAMEWORK})
+        if(BUILD_VR_OPENXR)
+            target_link_libraries(openmw_vr z ${COREVIDEO_FRAMEWORK} ${VDA_FRAMEWORK})
+        endif()
     endif()
 endif(APPLE)
 
 if (BUILD_WITH_CODE_COVERAGE)
-  add_definitions (--coverage)
-  target_link_libraries(openmw gcov)
-  target_link_libraries(openmw_vr gcov)
+    add_definitions (--coverage)
+    target_link_libraries(openmw gcov)
+    if(BUILD_VR_OPENXR)
+        target_link_libraries(openmw_vr gcov)
+    endif()
 endif()
 
 if (MSVC)
@@ -290,5 +304,7 @@ endif (MSVC)
 
 if (WIN32)
     INSTALL(TARGETS openmw RUNTIME DESTINATION ".")
-    INSTALL(TARGETS openmw_vr RUNTIME DESTINATION ".")
+    if(BUILD_VR_OPENXR)
+        INSTALL(TARGETS openmw_vr RUNTIME DESTINATION ".")
+    endif()
 endif (WIN32)

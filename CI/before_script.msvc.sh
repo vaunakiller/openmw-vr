@@ -76,6 +76,8 @@ INSTALL_PREFIX="."
 BULLET_DOUBLE=""
 BULLET_DBL=""
 BULLET_DBL_DISPLAY="Single precision"
+SKIP_VR=""
+OPENXR_INSTALL_ROOT=""
 
 ACTIVATE_MSVC=""
 SINGLE_CONFIG=""
@@ -95,6 +97,9 @@ while [ $# -gt 0 ]; do
 		case $ARG in
 			V )
 				VERBOSE=true ;;
+                
+            nVR )
+                SKIP_VR=true ;;
 
 			d )
 				SKIP_DOWNLOAD=true ;;
@@ -511,6 +516,16 @@ if [ -z $SKIP_DOWNLOAD ]; then
 			git clone -b release-1.10.0 https://github.com/google/googletest.git
 		fi
 	fi
+    
+    # OpenXR
+    if [ -z $SKIP_VR]; then
+		echo "OpenXR SDK 1.0.9..."
+		if [ -d OpenXR-SDK ]; then
+			printf "OpenXR SDK exists, skipping."
+		else
+			git clone -b release-1.0.9 https://github.com/KhronosGroup/OpenXR-SDK.git
+		fi
+    fi
 fi
 
 cd .. #/..
@@ -818,6 +833,13 @@ printf "SDL 2.0.12... "
 }
 cd $DEPS
 echo
+
+if [ $CONFIGURATION == "Debug" ]; then
+        DEBUG_SUFFIX="d"
+    else
+        DEBUG_SUFFIX=""
+fi
+
 # Google Test and Google Mock
 if [ ! -z $TEST_FRAMEWORK ]; then
 	printf "Google test 1.10.0 ..."
@@ -830,11 +852,6 @@ if [ ! -z $TEST_FRAMEWORK ]; then
 	cd build
 
 	GOOGLE_INSTALL_ROOT="${DEPS_INSTALL}/GoogleTest"
-	if [ $CONFIGURATION == "Debug" ]; then
-			DEBUG_SUFFIX="d"
-		else
-			DEBUG_SUFFIX=""
-	fi
 
 	if [ ! -d $GOOGLE_INSTALL_ROOT ]; then
 
@@ -860,6 +877,31 @@ if [ ! -z $TEST_FRAMEWORK ]; then
 	add_cmake_opts -DGTEST_LINKED_AS_SHARED_LIBRARY=True
 	echo Done.
 
+fi
+
+# OpenXR SDK
+if [ -Z $SKIP_VR ]; then
+	printf "OpenXR SDK 1.0.9 ..."
+    
+    cd OpenXR-SDK
+    if [ ! -d build ]; then
+        mkdir -p build
+    fi
+    
+    cd build
+    OPENXR_INSTALL_ROOT="${DEPS_INSTALL}/OpenXR-SDK"
+	if [ ! -d $OPENXR_INSTALL_ROOT ]; then
+
+		cmake .. -DCMAKE_BUILD_TYPE=Release -DCMAKE_INSTALL_PREFIX="${OPENXR_INSTALL_ROOT}" -G "${GENERATOR}" -DDYNAMIC_LOADER=ON
+		cmake --build . --config Release
+		cmake --build . --target install --config Release
+	fi
+    
+    add_runtime_dlls "${OPENXR_INSTALL_ROOT}\bin\openxr_loader.dll"
+        
+	add_cmake_opts -DBUILD_VR_OPENXR=on
+    add_cmake_opts -DOPENXR_ROOT="${OPENXR_INSTALL_ROOT}"
+    add_cmake_opts -DOPENXR_LIBRARY="${OPENXR_INSTALL_ROOT}/lib/openxr_loader.lib"
 fi
 
 echo
