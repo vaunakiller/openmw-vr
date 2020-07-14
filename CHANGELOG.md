@@ -19,6 +19,7 @@
     Bug #5369: Spawnpoint in the Grazelands doesn't produce oversized creatures
     Bug #5370: Opening an unlocked but trapped door uses the key
     Bug #5384: openmw-cs: deleting an instance requires reload of scene window to show in editor
+    Bug #5387: Move/MoveWorld don't update the object's cell properly
     Bug #5397: NPC greeting does not reset if you leave + reenter area
     Bug #5400: Editor: Verifier checks race of non-skin bodyparts
     Bug #5403: Enchantment effect doesn't show on an enemy during death animation
@@ -46,6 +47,7 @@
     Feature #5445: Handle NiLines
     Feature #5457: Realistic diagonal movement
     Feature #5486: Fixes trainers to choose their training skills based on their base skill points
+    Feature #5524: Resume failed script execution after reload
     Task #5480: Drop Qt4 support
 
 0.46.0
