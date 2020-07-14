@@ -1,7 +1,5 @@
 #include "myguirendermanager.hpp"
 
-#include <regex>
-
 #include <MyGUI_Gui.h>
 #include <MyGUI_Timer.h>
 #include <MyGUI_LayerManager.h>
