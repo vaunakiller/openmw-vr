@@ -24,7 +24,9 @@ namespace MWVR
 
         bool isAcquired() const;
         XrSwapchain xrSwapchain(void) const { return mSwapchain; };
+        XrSwapchain xrSwapchainDepth(void) const { return mSwapchainDepth; };
         XrSwapchainSubImage xrSubImage(void) const { return mSubImage; };
+        XrSwapchainSubImage xrSubImageDepth(void) const { return mSubImageDepth; };
         int width() const { return mWidth; };
         int height() const { return mHeight; };
         int samples() const { return mSamples; };
@@ -39,10 +41,11 @@ namespace MWVR
 
     private:
         XrSwapchain mSwapchain = XR_NULL_HANDLE;
-        XrSwapchain mDepthSwapchain = XR_NULL_HANDLE;
-        std::vector<XrSwapchainImageOpenGLKHR> mSwapchainImageBuffers{};
-        std::vector<XrSwapchainImageOpenGLKHR> mDepthSwapchainImageBuffers{};
+        XrSwapchain mSwapchainDepth = XR_NULL_HANDLE;
+        std::vector<XrSwapchainImageOpenGLKHR> mSwapchainColorBuffers{};
+        std::vector<XrSwapchainImageOpenGLKHR> mSwapchainDepthBuffers{};
         XrSwapchainSubImage mSubImage{};
+        XrSwapchainSubImage mSubImageDepth{};
         int32_t mWidth = -1;
         int32_t mHeight = -1;
         int32_t mSamples = -1;

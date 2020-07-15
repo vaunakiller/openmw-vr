@@ -5,13 +5,16 @@
 
 #include <components/debug/debuglog.hpp>
 #include <components/sdlutil/sdlgraphicswindow.hpp>
+#include <components/esm/loadrace.hpp>
+
 #include "../mwmechanics/actorutil.hpp"
+
 #include "../mwbase/world.hpp"
 #include "../mwbase/environment.hpp"
+
 #include "../mwworld/class.hpp"
 #include "../mwworld/player.hpp"
 #include "../mwworld/esmstore.hpp"
-#include <components/esm/loadrace.hpp>
 
 // The OpenXR SDK assumes we've included Windows.h
 #include <Windows.h>
@@ -45,13 +48,18 @@ MAKE_TO_STRING_FUNC(XrResult);
 MAKE_TO_STRING_FUNC(XrFormFactor);
 MAKE_TO_STRING_FUNC(XrStructureType);
 
+#if !XR_KHR_composition_layer_depth || !XR_KHR_opengl_enable
+#error "OpenXR extensions missing. Please upgrade your copy of the OpenXR SDK"
+#endif
 
 namespace MWVR
 {
     OpenXRManagerImpl::OpenXRManagerImpl()
     {
+        
         std::vector<const char*> extensions = {
-          XR_KHR_OPENGL_ENABLE_EXTENSION_NAME
+            XR_KHR_OPENGL_ENABLE_EXTENSION_NAME,
+            XR_KHR_COMPOSITION_LAYER_DEPTH_EXTENSION_NAME,
         };
 
         { // Create Instance
@@ -59,11 +67,55 @@ namespace MWVR
             createInfo.next = nullptr;
             createInfo.enabledExtensionCount = extensions.size();
             createInfo.enabledExtensionNames = extensions.data();
-
             strcpy(createInfo.applicationInfo.applicationName, "openmw_vr");
             createInfo.applicationInfo.apiVersion = XR_CURRENT_API_VERSION;
-            CHECK_XRCMD(xrCreateInstance(&createInfo, &mInstance));
+            // Iteratively strip extensions until instance creation succeeds.
+            XrResult result = xrCreateInstance(&createInfo, &mInstance);
+            while (result == XR_ERROR_EXTENSION_NOT_PRESENT)
+            {
+                createInfo.enabledExtensionCount--;
+                result = xrCreateInstance(&createInfo, &mInstance);
+            }
+
+            mEnabledExtensions.insert(extensions.begin(), extensions.end() + createInfo.enabledExtensionCount);
+
+            if (!xrExtensionIsEnabled(XR_KHR_OPENGL_ENABLE_EXTENSION_NAME))
+                throw std::runtime_error(std::string("Required OpenXR extension ") + XR_KHR_OPENGL_ENABLE_EXTENSION_NAME + " not supported");
+
+            Log(Debug::Verbose) << "OpenXR Extension status:";
+            for (auto* ext : extensions)
+            {
+                if (!xrExtensionIsEnabled(ext))
+                {
+                    Log(Debug::Verbose) << "  " << ext << ": disabled (not supported)";
+                }
+                else
+                {
+                    Log(Debug::Verbose) << "  " << ext << ": enabled";
+                }
+            }
+
+
             assert(mInstance);
+        }
+
+        {
+            // Layer depth is enabled, cache the invariant values
+            if (xrExtensionIsEnabled(XR_KHR_COMPOSITION_LAYER_DEPTH_EXTENSION_NAME))
+            {
+                GLfloat depthRange[2] = { 0.f, 1.f };
+                glGetFloatv(GL_DEPTH_RANGE, depthRange);
+                auto nearClip = Settings::Manager::getFloat("near clip", "Camera");
+
+                for (auto& layer : mLayerDepth)
+                {
+                    layer.type = XR_TYPE_COMPOSITION_LAYER_DEPTH_INFO_KHR;
+                    layer.next = nullptr;
+                    layer.minDepth = depthRange[0];
+                    layer.maxDepth = depthRange[1];
+                    layer.nearZ = nearClip;
+                }
+            }
         }
 
         { // Get system ID
@@ -321,6 +373,18 @@ namespace MWVR
         layer.views = compositionLayerProjectionViews.data();
         auto* xrLayerStack = reinterpret_cast<XrCompositionLayerBaseHeader*>(&layer);
 
+        std::array<XrCompositionLayerDepthInfoKHR, 2> compositionLayerDepth = mLayerDepth;
+        if (xrExtensionIsEnabled(XR_KHR_COMPOSITION_LAYER_DEPTH_EXTENSION_NAME))
+        {
+            auto farClip = Settings::Manager::getFloat("viewing distance", "Camera");
+            compositionLayerDepth[(int)Side::LEFT_SIDE].farZ = farClip;
+            compositionLayerDepth[(int)Side::RIGHT_SIDE].farZ = farClip;
+            compositionLayerDepth[(int)Side::LEFT_SIDE].subImage = layerStack[(int)Side::LEFT_SIDE].swapchain->impl().xrSubImageDepth();
+            compositionLayerDepth[(int)Side::RIGHT_SIDE].subImage = layerStack[(int)Side::RIGHT_SIDE].swapchain->impl().xrSubImageDepth();
+            compositionLayerProjectionViews[(int)Side::LEFT_SIDE].next = &compositionLayerDepth[(int)Side::LEFT_SIDE];
+            compositionLayerProjectionViews[(int)Side::RIGHT_SIDE].next = &compositionLayerDepth[(int)Side::RIGHT_SIDE];
+        }
+
         XrFrameEndInfo frameEndInfo{ XR_TYPE_FRAME_END_INFO };
         frameEndInfo.displayTime = displayTime;
         frameEndInfo.environmentBlendMode = mEnvironmentBlendMode;
@@ -511,6 +575,11 @@ namespace MWVR
         if (space == ReferenceSpace::VIEW)
             referenceSpace = mReferenceSpaceView;
         return referenceSpace;
+    }
+
+    bool OpenXRManagerImpl::xrExtensionIsEnabled(const char* extensionName) const
+    {
+        return mEnabledExtensions.count(extensionName) != 0;
     }
 
     void OpenXRManagerImpl::enablePredictions()

@@ -69,6 +69,7 @@ namespace MWVR
         XrSpace getReferenceSpace(ReferenceSpace space);
         XrSession xrSession() const { return mSession; };
         XrInstance xrInstance() const { return mInstance; };
+        bool xrExtensionIsEnabled(const char* extensionName) const;
 
     protected:
         void LogLayersAndExtensions();
@@ -78,6 +79,7 @@ namespace MWVR
         void HandleSessionStateChanged(const XrEventDataSessionStateChanged& stateChangedEvent);
 
     private:
+
         bool initialized = false;
         bool mPredictionsEnabled = false;
         XrInstance mInstance = XR_NULL_HANDLE;
@@ -98,6 +100,9 @@ namespace MWVR
         bool mSessionRunning = false;
         std::mutex mFrameStateMutex{};
         std::mutex mEventMutex{};
+        std::set<const char*> mEnabledExtensions;
+
+        std::array<XrCompositionLayerDepthInfoKHR, 2> mLayerDepth;
     };
 }
 

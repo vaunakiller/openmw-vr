@@ -111,6 +111,11 @@ namespace MWVR
         return impl().getRecommendedSwapchainConfig();
     }
 
+    bool OpenXRManager::xrExtensionIsEnabled(const char* extensionName) const
+    {
+        return impl().xrExtensionIsEnabled(extensionName);
+    }
+
     void
         OpenXRManager::CleanupOperation::operator()(
             osg::GraphicsContext* gc)

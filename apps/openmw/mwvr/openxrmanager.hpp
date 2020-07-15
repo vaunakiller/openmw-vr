@@ -83,6 +83,9 @@ namespace MWVR
         //! Configuration hints for instantiating swapchains, queried from openxr.
         std::array<SwapchainConfig, 2> getRecommendedSwapchainConfig() const;
 
+        //! Check whether a given openxr extension is enabled or not
+        bool xrExtensionIsEnabled(const char* extensionName) const;
+
         OpenXRManagerImpl& impl() { return *mPrivate; }
         const OpenXRManagerImpl& impl() const { return *mPrivate; }
 
