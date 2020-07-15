@@ -77,7 +77,7 @@ namespace MWVR
                 result = xrCreateInstance(&createInfo, &mInstance);
             }
 
-            mEnabledExtensions.insert(extensions.begin(), extensions.end() + createInfo.enabledExtensionCount);
+            mEnabledExtensions.insert(extensions.begin(), extensions.begin() + createInfo.enabledExtensionCount);
 
             if (!xrExtensionIsEnabled(XR_KHR_OPENGL_ENABLE_EXTENSION_NAME))
                 throw std::runtime_error(std::string("Required OpenXR extension ") + XR_KHR_OPENGL_ENABLE_EXTENSION_NAME + " not supported");
