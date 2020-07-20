@@ -36,13 +36,13 @@ namespace MWVR {
         }
     };
 
-    osg::Camera* VRView::createCamera(int eye, const osg::Vec4& clearColor, osg::GraphicsContext* gc)
+    osg::Camera* VRView::createCamera(int order, const osg::Vec4& clearColor, osg::GraphicsContext* gc)
     {
         osg::ref_ptr<osg::Camera> camera = new osg::Camera();
         camera->setClearColor(clearColor);
         camera->setClearMask(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
         camera->setRenderTargetImplementation(osg::Camera::FRAME_BUFFER_OBJECT);
-        camera->setRenderOrder(osg::Camera::PRE_RENDER, eye + 2);
+        camera->setRenderOrder(osg::Camera::PRE_RENDER, order);
         camera->setComputeNearFarMode(osg::CullSettings::DO_NOT_COMPUTE_NEAR_FAR);
         camera->setAllowEventFocus(false);
         camera->setReferenceFrame(osg::Transform::ABSOLUTE_RF);

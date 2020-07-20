@@ -1,5 +1,5 @@
-#ifndef MWVR_OPENRXVIEWER_H
-#define MWVR_OPENRXVIEWER_H
+#ifndef MWVR_VRVIEWER_H
+#define MWVR_VRVIEWER_H
 
 #include <memory>
 #include <array>
@@ -10,6 +10,7 @@
 #include <osgViewer/Viewer>
 
 #include "openxrmanager.hpp"
+#include "vrshadow.hpp"
 
 #include <components/sceneutil/positionattitudetransform.hpp>
 
@@ -92,10 +93,12 @@ namespace MWVR
         osg::GraphicsContext* mMainCameraGC{ nullptr };
         std::unique_ptr<VRFramebuffer> mMsaaResolveMirrorTexture[2]{ };
         std::unique_ptr<VRFramebuffer> mMirrorTexture{ nullptr };
+        VrShadow    mVrShadow;
 
-        std::mutex mMutex;
+        std::mutex mMutex{};
 
         bool mConfigured{ false };
+        bool mFlipMirrorTextureOrder{ false };
     };
 }
 

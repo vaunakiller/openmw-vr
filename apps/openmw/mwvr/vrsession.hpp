@@ -73,6 +73,7 @@ namespace MWVR
         float playerScale() const { return mPlayerScale; }
         float setPlayerScale(float scale) { return mPlayerScale = scale; }
 
+        osg::Matrix viewMatrix(osg::Vec3 position, osg::Quat orientation);
         osg::Matrix viewMatrix(FramePhase phase, Side side);
         osg::Matrix projectionMatrix(FramePhase phase, Side side);
 

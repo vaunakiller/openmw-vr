@@ -100,7 +100,7 @@ namespace MWVR
         bool mSessionRunning = false;
         std::mutex mFrameStateMutex{};
         std::mutex mEventMutex{};
-        std::set<const char*> mEnabledExtensions;
+        std::set<std::string> mEnabledExtensions;
 
         std::array<XrCompositionLayerDepthInfoKHR, 2> mLayerDepth;
     };

@@ -1,5 +1,5 @@
-#ifndef OPENXR_VIEW_HPP
-#define OPENXR_VIEW_HPP
+#ifndef MWVR_VRVIEW_H
+#define MWVR_VRVIEW_H
 
 #include <cassert>
 #include "openxrmanager.hpp"
