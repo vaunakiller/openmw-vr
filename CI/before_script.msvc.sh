@@ -929,6 +929,14 @@ if [ ! -z $CI ]; then
 				-DBUILD_OPENCS=no \
 				-DBUILD_WIZARD=no
 			;;
+		vr )
+			echo "  Building subproject: OpenMW-VR."
+			add_cmake_opts -DBUILD_ESSIMPORTER=no \
+				-DBUILD_OPENCS=no \
+				-DBUILD_BSATOOL=no \
+				-DBUILD_OPENMW=no \
+				-DBUILD_ESMTOOL=no 
+			;;
 		opencs )
 			echo "  Building subproject: OpenCS."
 			add_cmake_opts -DBUILD_ESSIMPORTER=no \

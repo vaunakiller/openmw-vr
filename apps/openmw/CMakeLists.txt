@@ -101,20 +101,6 @@ add_openmw_dir (mwbase
 
 # Main executable
 
-if (NOT ANDROID)
-    openmw_add_executable(openmw
-        ${OPENMW_FILES}
-        ${GAME} ${GAME_HEADER}
-        ${APPLE_BUNDLE_RESOURCES}
-    )
-else ()
-    add_library(openmw
-        SHARED
-        ${OPENMW_FILES}
-        ${GAME} ${GAME_HEADER}
-    )
-endif ()
-
 set(OPENMW_LINK_TARGETS 
     ${OSG_LIBRARIES}
     ${OPENTHREADS_LIBRARIES}
@@ -138,70 +124,15 @@ set(OPENMW_LINK_TARGETS
     components
 )
 
-if(BUILD_VR_OPENXR)
-# TODO: Move this into something akin to add_openmw_dir instead of breaking pattern.
-# Later, openmw and openmw_vr should preferrably share game code as a static or shared library
-# instead of being compiled separately, though for now that's not possible as i depend on
-# USE_OPENXR preprocessor switches.
-    set(OPENMW_VR_FILES
-        vrengine.cpp
-        mwvr/openxraction.hpp
-        mwvr/openxraction.cpp
-        mwvr/openxrinput.hpp
-        mwvr/openxrinput.cpp
-        mwvr/openxrmanager.hpp
-        mwvr/openxrmanager.cpp
-        mwvr/openxrmanagerimpl.hpp 
-        mwvr/openxrmanagerimpl.cpp
-        mwvr/openxrswapchain.hpp
-        mwvr/openxrswapchain.cpp
-        mwvr/openxrswapchainimpl.hpp
-        mwvr/openxrswapchainimpl.cpp
-        mwvr/realisticcombat.hpp
-        mwvr/realisticcombat.cpp
-        mwvr/vranimation.hpp
-        mwvr/vranimation.cpp
-        mwvr/vrenvironment.hpp
-        mwvr/vrenvironment.cpp
-        mwvr/vrgui.hpp
-        mwvr/vrgui.cpp
-        mwvr/vrinputmanager.hpp
-        mwvr/vrinputmanager.cpp
-        mwvr/vrinput.hpp
-        mwvr/vrinput.cpp
-        mwvr/vrsession.hpp
-        mwvr/vrsession.cpp
-        mwvr/vrframebuffer.hpp
-        mwvr/vrframebuffer.cpp
-        mwvr/vrshadow.hpp
-        mwvr/vrshadow.cpp 
-        mwvr/vrtypes.hpp
-        mwvr/vrtypes.cpp 
-        mwvr/vrview.hpp
-        mwvr/vrview.cpp 
-        mwvr/vrviewer.hpp
-        mwvr/vrviewer.cpp
-   )
-
-    openmw_add_executable(openmw_vr
-        ${OPENMW_FILES}
-        ${OPENMW_VR_FILES}
-        ${GAME} ${GAME_HEADER}
-        ${APPLE_BUNDLE_RESOURCES}
-    )
-
-    # Preprocessor variable used to control code paths to vr code
-    target_compile_options(openmw_vr PUBLIC -DUSE_OPENXR -DXR_USE_GRAPHICS_API_OPENGL -DXR_USE_PLATFORM_WIN32)
-    target_link_libraries(openmw_vr ${OPENMW_LINK_TARGETS} ${OPENXR_LIBRARY})
+if (USE_SYSTEM_TINYXML)
+    set(OPENMW_LINK_TARGETS ${OPENMW_LINK_TARGETS}
+        ${TinyXML_LIBRARIES})
 endif()
-
-# Sound stuff - here so CMake doesn't stupidly recompile EVERYTHING
-# when we change the backend.
-include_directories(
-    ${FFmpeg_INCLUDE_DIRS}
-)
-
-target_link_libraries(openmw ${OPENMW_LINK_TARGETS})
+    
+if (NOT UNIX)
+    set(OPENMW_LINK_TARGETS ${OPENMW_LINK_TARGETS}
+        ${SDL2MAIN_LIBRARY})
+endif()
 
 if (ANDROID)
     set (OSG_PLUGINS
@@ -214,8 +145,7 @@ if (ANDROID)
     set (OSG_PLUGINS
         ${OSG_PLUGINS} -Wl,--no-whole-archive
     )
-
-    target_link_libraries(openmw
+    set(OPENMW_LINK_TARGETS ${OPENMW_LINK_TARGETS}
         EGL
         android
         log
@@ -224,30 +154,14 @@ if (ANDROID)
         ${OPENSCENEGRAPH_LIBRARIES}
         freetype
         jpeg
-    	png
+        png
     )
 endif (ANDROID)
 
-if (USE_SYSTEM_TINYXML)
-    target_link_libraries(openmw ${TinyXML_LIBRARIES})
-    if(BUILD_VR_OPENXR)
-        target_link_libraries(openmw_vr  ${TinyXML_LIBRARIES})
-    endif()
-endif()
-
-if (NOT UNIX)
-    target_link_libraries(openmw ${SDL2MAIN_LIBRARY})
-    if(BUILD_VR_OPENXR)
-        target_link_libraries(openmw_vr ${SDL2MAIN_LIBRARY})
-    endif()
-endif()
-
 # Fix for not visible pthreads functions for linker with glibc 2.15
 if (UNIX AND NOT APPLE)
-    target_link_libraries(openmw ${CMAKE_THREAD_LIBS_INIT})
-    if(BUILD_VR_OPENXR)
-        target_link_libraries(openmw_vr ${CMAKE_THREAD_LIBS_INIT})
-    endif()
+    set(OPENMW_LINK_TARGETS ${OPENMW_LINK_TARGETS}
+        ${CMAKE_THREAD_LIBS_INIT})
 endif()
 
 if(APPLE)
@@ -262,39 +176,28 @@ if(APPLE)
     configure_file("${OpenMW_BINARY_DIR}/openmw.cfg" ${BUNDLE_RESOURCES_DIR} COPYONLY)
     configure_file("${OpenMW_BINARY_DIR}/gamecontrollerdb.txt" ${BUNDLE_RESOURCES_DIR} COPYONLY)
 
-    add_custom_command(TARGET openmw
-        POST_BUILD
-        COMMAND cp "${OpenMW_BINARY_DIR}/resources/version" "${BUNDLE_RESOURCES_DIR}/resources")
-
-    if(BUILD_VR_OPENXR)
-        add_custom_command(TARGET openmw_vr
-            POST_BUILD
-            COMMAND cp "${OpenMW_BINARY_DIR}/resources/version" "${BUNDLE_RESOURCES_DIR}/resources")
-        endif()
-
     find_library(COCOA_FRAMEWORK Cocoa)
     find_library(IOKIT_FRAMEWORK IOKit)
-    target_link_libraries(openmw ${COCOA_FRAMEWORK} ${IOKIT_FRAMEWORK})
-    if(BUILD_VR_OPENXR)
-        target_link_libraries(openmw_vr ${COCOA_FRAMEWORK} ${IOKIT_FRAMEWORK})
-    endif()
+
+    set(OPENMW_LINK_TARGETS ${OPENMW_LINK_TARGETS}
+        ${COCOA_FRAMEWORK}
+        ${IOKIT_FRAMEWORK})
 
     if (FFmpeg_FOUND)
         find_library(COREVIDEO_FRAMEWORK CoreVideo)
         find_library(VDA_FRAMEWORK VideoDecodeAcceleration)
-        target_link_libraries(openmw z ${COREVIDEO_FRAMEWORK} ${VDA_FRAMEWORK})
-        if(BUILD_VR_OPENXR)
-            target_link_libraries(openmw_vr z ${COREVIDEO_FRAMEWORK} ${VDA_FRAMEWORK})
-        endif()
+        set(OPENMW_LINK_TARGETS ${OPENMW_LINK_TARGETS}
+            z
+            ${COREVIDEO_FRAMEWORK}
+            ${VDA_FRAMEWORK})
     endif()
 endif(APPLE)
 
 if (BUILD_WITH_CODE_COVERAGE)
     add_definitions (--coverage)
     target_link_libraries(openmw gcov)
-    if(BUILD_VR_OPENXR)
-        target_link_libraries(openmw_vr gcov)
-    endif()
+    set(OPENMW_LINK_TARGETS ${OPENMW_LINK_TARGETS}
+        gcov)
 endif()
 
 if (MSVC)
@@ -303,10 +206,73 @@ if (MSVC)
         set (CMAKE_CXX_FLAGS_DEBUG "${CMAKE_CXX_FLAGS_DEBUG} /bigobj")
     endif (CMAKE_CL_64)
 endif (MSVC)
+    
+if(BUILD_OPENMW)
 
-if (WIN32)
-    INSTALL(TARGETS openmw RUNTIME DESTINATION ".")
-    if(BUILD_VR_OPENXR)
+    if (NOT ANDROID)
+        openmw_add_executable(openmw
+            ${OPENMW_FILES}
+            ${GAME} ${GAME_HEADER}
+            ${APPLE_BUNDLE_RESOURCES}
+        )
+    else ()
+        add_library(openmw
+            SHARED
+            ${OPENMW_FILES}
+            ${GAME} ${GAME_HEADER}
+        )
+    endif ()
+
+    target_link_libraries(openmw ${OPENMW_LINK_TARGETS})
+    
+    if(APPLE)
+        add_custom_command(TARGET openmw
+            POST_BUILD
+            COMMAND cp "${OpenMW_BINARY_DIR}/resources/version" "${BUNDLE_RESOURCES_DIR}/resources")
+    endif(APPLE)
+
+    if (WIN32)
+        INSTALL(TARGETS openmw RUNTIME DESTINATION ".")
+    endif (WIN32)
+endif()
+
+if(BUILD_VR_OPENXR)
+# TODO: Move this into something akin to add_openmw_dir instead of breaking pattern.
+# Later, openmw and openmw_vr should preferrably share game code as a static or shared library
+# instead of being compiled separately, though for now that's not possible as i depend on
+# USE_OPENXR preprocessor switches.
+    set(OPENMW_VR_FILES
+        vrengine.cpp
+   )
+    add_openmw_dir (mwvr
+         openxraction openxrinput openxrmanager openxrmanagerimpl openxrswapchain openxrswapchainimpl
+         realisticcombat 
+         vranimation vrenvironment vrgui vrinputmanager vrinput vrsession vrframebuffer vrshadow vrtypes vrview vrviewer
+        )
+
+    openmw_add_executable(openmw_vr
+        ${OPENMW_FILES}
+        ${OPENMW_VR_FILES}
+        ${GAME} ${GAME_HEADER}
+        ${APPLE_BUNDLE_RESOURCES}
+    )
+
+    # Preprocessor variable used to control code paths to vr code
+    target_compile_options(openmw_vr PUBLIC -DUSE_OPENXR -DXR_USE_GRAPHICS_API_OPENGL -DXR_USE_PLATFORM_WIN32)
+    target_link_libraries(openmw_vr ${OPENMW_LINK_TARGETS} ${OPENXR_LIBRARY})
+    if(APPLE)
+        add_custom_command(TARGET openmw_vr
+            POST_BUILD
+            COMMAND cp "${OpenMW_BINARY_DIR}/resources/version" "${BUNDLE_RESOURCES_DIR}/resources")
+    endif(APPLE)
+
+    if (WIN32)
         INSTALL(TARGETS openmw_vr RUNTIME DESTINATION ".")
-    endif()
-endif (WIN32)
+    endif (WIN32)
+endif()
+
+# Sound stuff - here so CMake doesn't stupidly recompile EVERYTHING
+# when we change the backend.
+include_directories(
+    ${FFmpeg_INCLUDE_DIRS}
+)

@@ -587,7 +587,7 @@ add_subdirectory (components)
 target_compile_definitions(components PRIVATE OPENMW_DOC_BASEURL="${OPENMW_DOC_BASEURL}")
 
 # Apps and tools
-if (BUILD_OPENMW)
+if (BUILD_OPENMW OR BUILD_VR_OPENXR)
     add_subdirectory( apps/openmw )
 endif()
 
