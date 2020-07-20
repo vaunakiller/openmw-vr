@@ -173,6 +173,8 @@ if(BUILD_VR_OPENXR)
         mwvr/vrsession.cpp
         mwvr/vrframebuffer.hpp
         mwvr/vrframebuffer.cpp
+        mwvr/vrshadow.hpp
+        mwvr/vrshadow.cpp 
         mwvr/vrtypes.hpp
         mwvr/vrtypes.cpp 
         mwvr/vrview.hpp

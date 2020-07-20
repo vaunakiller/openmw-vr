@@ -139,6 +139,17 @@ namespace SceneUtil {
         // forward declare
         class ViewDependentData;
 
+        /// Configuration of shadow maps shared by multiple views
+        struct SharedShadowMapConfig : public osg::Referenced
+        {
+            virtual ~SharedShadowMapConfig() {}
+
+            /// String identifier of the shared shadow map
+            std::string _id;
+
+            bool _master;
+        };
+
         struct LightData : public osg::Referenced
         {
             LightData(ViewDependentData* vdd);
@@ -193,7 +204,12 @@ namespace SceneUtil {
 
             virtual void releaseGLObjects(osg::State* = 0) const;
 
+            unsigned int numValidShadows(void) const { return _numValidShadows; }
+
+            void setNumValidShadows(unsigned int numValidShadows) { _numValidShadows = numValidShadows; }
+
         protected:
+            friend class MWShadowTechnique;
             virtual ~ViewDependentData() {}
 
             MWShadowTechnique*          _viewDependentShadowMap;
@@ -202,11 +218,16 @@ namespace SceneUtil {
 
             LightDataList               _lightDataList;
             ShadowDataList              _shadowDataList;
+
+            unsigned int _numValidShadows;
         };
 
         virtual ViewDependentData* createViewDependentData(osgUtil::CullVisitor* cv);
 
         ViewDependentData* getViewDependentData(osgUtil::CullVisitor* cv);
+        ViewDependentData* getSharedVdd(const SharedShadowMapConfig& config);
+        void addSharedVdd(const SharedShadowMapConfig& config, ViewDependentData* vdd);
+        void shareShadowMap(osgUtil::CullVisitor& cv, ViewDependentData* lhs, ViewDependentData* rhs);
 
 
 
@@ -234,8 +255,10 @@ namespace SceneUtil {
         virtual ~MWShadowTechnique();
 
         typedef std::map< osgUtil::CullVisitor*, osg::ref_ptr<ViewDependentData> >  ViewDependentDataMap;
+        typedef std::map< std::string, osg::ref_ptr<ViewDependentData> >            ViewDependentDataShareMap;
         mutable OpenThreads::Mutex              _viewDependentDataMapMutex;
         ViewDependentDataMap                    _viewDependentDataMap;
+        ViewDependentDataShareMap               _viewDependentDataShareMap;
 
         osg::ref_ptr<osg::StateSet>             _shadowRecievingPlaceholderStateSet;
 

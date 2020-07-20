@@ -71,27 +71,9 @@ namespace MWVR
         return fov.perspectiveMatrix(near_, far_);
     }
 
-    osg::Matrix VRSession::viewMatrix(FramePhase phase, Side side)
+    osg::Matrix VRSession::viewMatrix(osg::Vec3 position, osg::Quat orientation)
     {
-        MWVR::Pose pose{};
-        pose = predictedPoses(phase).view[(int)side].pose;
-
-
-        if (MWBase::Environment::get().getStateManager()->getState() == MWBase::StateManager::State_NoGame)
-        {
-            pose = predictedPoses(phase).eye[(int)side];
-            osg::Vec3 position = pose.position * Environment::get().unitsPerMeter();
-            osg::Quat orientation = pose.orientation;
-            osg::Vec3d forward = orientation * osg::Vec3d(0, 1, 0);
-            osg::Vec3d up = orientation * osg::Vec3d(0, 0, 1);
-            osg::Matrix viewMatrix;
-            viewMatrix.makeLookAt(position, position + forward, up);
-
-            return viewMatrix;
-        }
-
-        osg::Vec3 position = pose.position * Environment::get().unitsPerMeter();
-        osg::Quat orientation = pose.orientation;
+        position = position * Environment::get().unitsPerMeter();
 
         float y = position.y();
         float z = position.z();
@@ -106,8 +88,28 @@ namespace MWVR
         osg::Matrix viewMatrix;
         viewMatrix.setTrans(-position);
         viewMatrix.postMultRotate(orientation.conj());
-
         return viewMatrix;
+    }
+
+    osg::Matrix VRSession::viewMatrix(FramePhase phase, Side side)
+    {
+        MWVR::Pose pose{};
+        pose = predictedPoses(phase).view[(int)side].pose;
+
+        if (MWBase::Environment::get().getStateManager()->getState() == MWBase::StateManager::State_NoGame)
+        {
+            pose = predictedPoses(phase).eye[(int)side];
+            osg::Vec3 position = pose.position * Environment::get().unitsPerMeter();
+            osg::Quat orientation = pose.orientation;
+            osg::Vec3d forward = orientation * osg::Vec3d(0, 1, 0);
+            osg::Vec3d up = orientation * osg::Vec3d(0, 0, 1);
+            osg::Matrix viewMatrix;
+            viewMatrix.makeLookAt(position, position + forward, up);
+
+            return viewMatrix;
+        }
+        
+        return viewMatrix(pose.position, pose.orientation);
     }
 
     bool VRSession::isRunning() const {
@@ -228,10 +230,8 @@ namespace MWVR
 
     void VRSession::prepareFrame()
     {
-
         std::unique_lock<std::mutex> lock(mMutex);
         mFrames++;
-        assert(!mPredrawFrame);
 
         auto* xr = Environment::get().getManager();
         xr->handleEvents();
@@ -347,7 +347,6 @@ namespace MWVR
 
     void VRSession::movementAngles(float& yaw, float& pitch)
     {
-        assert(mPredrawFrame);
         if (!getFrame(FramePhase::Update))
             beginPhase(FramePhase::Update);
         auto frameMeta = getFrame(FramePhase::Update).get();
@@ -363,8 +362,6 @@ namespace MWVR
         getEulerAngles(frameMeta->mPredictedPoses.head.orientation, headYaw, headPitch, headsWillRoll);
         getEulerAngles(frameMeta->mPredictedPoses.hands[(int)Side::LEFT_SIDE].orientation, handYaw, handPitch, handRoll);
 
-        //Log(Debug::Verbose) << "lhandViewYaw=" << yaw << ", headYaw=" << headYaw << ", handYaw=" << handYaw << ", diff=" << (handYaw - headYaw);
-        //Log(Debug::Verbose) << "lhandViewPitch=" << pitch << ", headPitch=" << headPitch << ", handPitch=" << handPitch << ", diff=" << (handPitch - headPitch);
         yaw = handYaw - headYaw;
         pitch = handPitch - headPitch;
     }

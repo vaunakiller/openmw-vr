@@ -8,6 +8,10 @@
 
 #include "../mwrender/vismask.hpp"
 
+#include <osgViewer/Renderer>
+
+#include <components/sceneutil/mwshadowtechnique.hpp>
+
 namespace MWVR
 {
 
@@ -32,6 +36,7 @@ namespace MWVR
         : mViewer(viewer)
         , mPreDraw(new PredrawCallback(this))
         , mPostDraw(new PostdrawCallback(this))
+        , mVrShadow(viewer, 1)
         , mConfigured(false)
     {
         mViewer->setRealizeOperation(new RealizeOperation());
@@ -81,14 +86,17 @@ namespace MWVR
         osg::Vec4 clearColor = mainCamera->getClearColor();
         auto config = xr->getRecommendedSwapchainConfig();
         bool mirror = Settings::Manager::getBool("mirror texture", "VR");
+        mFlipMirrorTextureOrder = Settings::Manager::getBool("flip mirror texture order", "VR");
         // TODO: If mirror is false either hide the window or paste something meaningful into it.
         // E.g. Fanart of Dagoth UR wearing a VR headset
+
+        mVrShadow.configureShadows(Settings::Manager::getBool("enable shadows", "Shadows"));
 
         for (unsigned i = 0; i < sViewNames.size(); i++)
         {
             auto view = new VRView(sViewNames[i], config[i], context->getState());
             mViews[sViewNames[i]] = view;
-            auto camera = mCameras[sViewNames[i]] = view->createCamera(i, clearColor, context);
+            auto camera = mCameras[sViewNames[i]] = view->createCamera(i + 2, clearColor, context);
             camera->setPreDrawCallback(mPreDraw);
             camera->setFinalDrawCallback(mPostDraw);
             camera->setCullMask(~MWRender::Mask_GUI & ~MWRender::Mask_SimpleWater & ~MWRender::Mask_UpdateVisitor);
@@ -97,13 +105,17 @@ namespace MWVR
                 camera->setSmallFeatureCullingPixelSize(smallFeatureCullingPixelSize);
             camera->setCullingMode(cullingMode);
             mViewer->addSlave(camera, true);
-            mViewer->getSlave(i)._updateSlaveCallback = new VRView::UpdateSlaveCallback(view, context);
+            auto* slave = mViewer->findSlaveForCamera(camera);
+            assert(slave);
+            slave->_updateSlaveCallback = new VRView::UpdateSlaveCallback(view, context);
 
             if (mirror)
                 mMsaaResolveMirrorTexture[i].reset(new VRFramebuffer(context->getState(),
                     view->swapchain().width(),
                     view->swapchain().height(),
                     0));
+
+            mVrShadow.configureShadowsForCamera(camera);
         }
 
         if (mirror)
@@ -156,8 +168,10 @@ namespace MWVR
             resolveTexture.bindFramebuffer(gc, GL_FRAMEBUFFER_EXT);
             mViews[sViewNames[i]]->swapchain().renderBuffer()->blit(gc, 0, 0, resolveTexture.width(), resolveTexture.height());
             mMirrorTexture->bindFramebuffer(gc, GL_FRAMEBUFFER_EXT);
-            // Mirror the index when rendering to the mirror texture to allow cross eye mirror textures.
-            unsigned mirrorIndex = sViewNames.size() - 1 - i;
+
+            unsigned mirrorIndex = i;
+            if (mFlipMirrorTextureOrder)
+                mirrorIndex = sViewNames.size() - 1 - i;
             resolveTexture.blit(gc, mirrorIndex * mirrorWidth, 0, (mirrorIndex + 1) * mirrorWidth, screenHeight);
         }
 
