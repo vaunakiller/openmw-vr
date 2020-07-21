@@ -235,9 +235,8 @@ if(BUILD_OPENMW)
     endif (WIN32)
 endif()
 
-if(BUILD_VR_OPENXR)
-# TODO: Move this into something akin to add_openmw_dir instead of breaking pattern.
-# Later, openmw and openmw_vr should preferrably share game code as a static or shared library
+if(BUILD_OPENMW_VR)
+# TODO: Openmw and openmw_vr should preferrably share game code as a static or shared library
 # instead of being compiled separately, though for now that's not possible as i depend on
 # USE_OPENXR preprocessor switches.
     set(OPENMW_VR_FILES
@@ -255,10 +254,21 @@ if(BUILD_VR_OPENXR)
         ${GAME} ${GAME_HEADER}
         ${APPLE_BUNDLE_RESOURCES}
     )
+    
+    # Import the OpenXR SDK
+    include(FetchContent)
+    FetchContent_Declare( 
+        OpenXR 
+        GIT_REPOSITORY https://github.com/KhronosGroup/OpenXR-SDK.git
+        GIT_TAG release-1.0.9
+    )
+    FetchContent_MakeAvailable(OpenXR)
+    target_link_libraries(openmw_vr openxr_loader)
+    target_include_directories(openmw_vr PRIVATE ${openxr_SOURCE_DIR}/include)
 
     # Preprocessor variable used to control code paths to vr code
     target_compile_options(openmw_vr PUBLIC -DUSE_OPENXR -DXR_USE_GRAPHICS_API_OPENGL -DXR_USE_PLATFORM_WIN32)
-    target_link_libraries(openmw_vr ${OPENMW_LINK_TARGETS} ${OPENXR_LIBRARY})
+    target_link_libraries(openmw_vr ${OPENMW_LINK_TARGETS})
     if(APPLE)
         add_custom_command(TARGET openmw_vr
             POST_BUILD

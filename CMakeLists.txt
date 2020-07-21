@@ -9,7 +9,7 @@ option(BUILD_BSATOOL            "Build BSA extractor" ON)
 option(BUILD_ESMTOOL            "Build ESM inspector" ON)
 option(BUILD_NIFTEST            "Build nif file tester" ON)
 option(BUILD_DOCS               "Build documentation." OFF )
-option(BUILD_VR_OPENXR          "Build VR support using OpenXR" OFF)
+option(BUILD_OPENMW_VR          "Build VR support using OpenXR" ON)
 option(BUILD_WITH_CODE_COVERAGE "Enable code coverage with gconv" OFF)
 option(BUILD_UNITTESTS          "Enable Unittests with Google C++ Unittest" OFF)
 option(BULLET_USE_DOUBLES       "Use double precision for Bullet" OFF)
@@ -21,7 +21,7 @@ else()
 endif()
 
 # set the minimum required version across the board
-cmake_minimum_required(VERSION 3.1.0)
+cmake_minimum_required(VERSION 3.14)
 
 project(OpenMW)
 
@@ -315,11 +315,6 @@ include_directories("."
     ${BULLET_INCLUDE_DIRS}
 )
 
-if(BUILD_VR_OPENXR)
-  include_directories(${OPENXR_ROOT}/include)
-  link_directories(${OPENXR_ROOT}/lib)
-endif(BUILD_VR_OPENXR)
-
 link_directories(${SDL2_LIBRARY_DIRS} ${Boost_LIBRARY_DIRS})
 
 if(MYGUI_STATIC)
@@ -587,7 +582,7 @@ add_subdirectory (components)
 target_compile_definitions(components PRIVATE OPENMW_DOC_BASEURL="${OPENMW_DOC_BASEURL}")
 
 # Apps and tools
-if (BUILD_OPENMW OR BUILD_VR_OPENXR)
+if (BUILD_OPENMW OR BUILD_OPENMW_VR)
     add_subdirectory( apps/openmw )
 endif()
 
@@ -657,17 +652,17 @@ if (WIN32)
     endif()
 
     # TODO: properties and link targets should be copied from openmw to openmw_vr instead of duplicating every line
-    if (USE_DEBUG_CONSOLE AND BUILD_VR_OPENXR)
+    if (USE_DEBUG_CONSOLE AND BUILD_OPENMW_VR)
       set_target_properties(openmw_vr PROPERTIES LINK_FLAGS_DEBUG "/SUBSYSTEM:CONSOLE")
       set_target_properties(openmw_vr PROPERTIES LINK_FLAGS_RELWITHDEBINFO "/SUBSYSTEM:CONSOLE")
       set_target_properties(openmw_vr PROPERTIES COMPILE_DEFINITIONS $<$<CONFIG:Debug>:_CONSOLE>)
-    elseif (BUILD_VR_OPENXR)
+    elseif (BUILD_OPENMW_VR)
       # Turn off debug console, debug output will be written to visual studio output instead
       set_target_properties(openmw_vr PROPERTIES LINK_FLAGS_DEBUG "/SUBSYSTEM:WINDOWS")
       set_target_properties(openmw_vr PROPERTIES LINK_FLAGS_RELWITHDEBINFO "/SUBSYSTEM:WINDOWS")
     endif()
 
-    if (BUILD_VR_OPENXR)
+    if (BUILD_OPENMW_VR)
         # Release builds don't use the debug console
         set_target_properties(openmw_vr PROPERTIES LINK_FLAGS_RELEASE "/SUBSYSTEM:WINDOWS")
         set_target_properties(openmw_vr PROPERTIES LINK_FLAGS_MINSIZEREL "/SUBSYSTEM:WINDOWS")
@@ -773,7 +768,7 @@ if (WIN32)
         endif()
     endif()
 
-    if (BUILD_VR_OPENXR)
+    if (BUILD_OPENMW_VR)
         if (OPENMW_UNITY_BUILD)
             set_target_properties(openmw_vr PROPERTIES COMPILE_FLAGS "${WARNINGS} ${MT_BUILD} /bigobj")
         else()
