@@ -112,6 +112,7 @@ VR
 
 This fork is a VR port of openmw using the openxr VR standard.
 You can grab the latest binaries/sources under [Releases](https://gitlab.com/madsbuvi/openmw/-/releases)
+Or grab a development build from [Appveyor](https://ci.appveyor.com/project/madsbuvi/openmw-vr) (Click on any build in the jobs table, and look at the artifacts tab)
 
 Current Status
 --------------
@@ -124,21 +125,18 @@ Compatibility with general mods should be high, but this has not been thoroughly
 Installation (openmw vr)
 ------------------------
 
-Installing the VR port is similar to openmw, but you should manually edit settings.cfg or settings-default.cfg to input your real life height under the VR section so the game can correctly scale you.
+Installing the VR port is similar to openmw, but you should manually edit settings.cfg under my games/openmw to input your real life height under the VR section so the game can correctly scale you.
 Reference VR settings exist in settings-default.cfg.
 
 Installation (OpenXR)
 ---------------------
-No openxr binaries are distributed as part of a release. OpenXR binaries and runtimes are expected to be distributed as part of your VR runtime.
-
 If openxr fails to load, it's nonetheless possible your VR headset offers a preview release of openxr.
 [This article](https://uploadvr.com/oculus-rift-basic-openxr-support/) from uploadvr explains how to enable the oculus preview on windows.
 Note that although the article states you need to opt into public test channels, this is no longer necessary. And you no longer need to write your own json file, you can point to the one present in the oculus' runtime's directory.
-You may also need to compile [the openxr sdk](https://github.com/KhronosGroup/OpenXR-SDK) from source and copy openxr_loader.dll into your openmw vr install directory.
 
 Building
 --------
-The fork should build with the same instructions as building openmw, but you will also need to grab [the openxr sdk](https://github.com/KhronosGroup/OpenXR-SDK) and then point cmake to the correct folders using the cmake gui.
+The fork should build with the same instructions as building openmw.
 
 Oculus Touch controls
 ---------------------
