@@ -19,6 +19,7 @@
 
 #include <osg/Camera>
 
+#include <algorithm>
 #include <vector>
 #include <array>
 #include <iostream>
@@ -56,6 +57,10 @@ namespace MWVR
             return;
         }
         Log(Debug::Verbose) << "Using openxr sync phase " << syncPhase;
+
+        mUseSteadyClock = Settings::Manager::getBool("use steady clock", "VR");
+        if (mUseSteadyClock)
+            Log(Debug::Verbose) << "Using chrono::steady_clock instead of openxr predicted display times.";
     }
 
     VRSession::~VRSession()
@@ -236,32 +241,22 @@ namespace MWVR
         auto* xr = Environment::get().getManager();
         xr->handleEvents();
 
-        //auto frameState = xr->impl().frameState();
-    //    auto predictedDisplayTime = frameState.predictedDisplayTime;
-    //    if (predictedDisplayTime == 0)
-    //    {
-    //        // First time, need to invent a frame time since openxr won't help us without a call to waitframe.
-    //        predictedDisplayTime = std::chrono::duration_cast<std::chrono::nanoseconds>(std::chrono::steady_clock::now().time_since_epoch()).count();
-    //    }
-    //    else
-    //    {
-    //        // Predict display time based on real framerate
-    //        float intervalsf = static_cast<double>(mLastFrameInterval.count()) / static_cast<double>(mLastPredictedDisplayPeriod);
-    //        int intervals = std::max((int)std::roundf(intervalsf), 1);
-    //        predictedDisplayTime = mLastPredictedDisplayTime + intervals * (mFrames - mLastRenderedFrame) * mLastPredictedDisplayPeriod;
-    //    }
+        auto epochTime = std::chrono::duration_cast<std::chrono::nanoseconds>(std::chrono::steady_clock::now().time_since_epoch()).count();
+        auto predictedDisplayTime = std::max(xr->getLastPredictedDisplayTime(), epochTime);
+        auto predictedDisplayPeriod = std::max(xr->getLastPredictedDisplayPeriod(), (long long)1000000);
+        float intervalsf = static_cast<double>(mLastFrameInterval.count()) / static_cast<double>(predictedDisplayPeriod);
 
     //////////////////////// OCULUS BUG
-        //////////////////// Oculus will suddenly start monotonically increasing their predicted display time by precisely 1 second
+        //////////////////// Oculus will suddenly start increasing their predicted display time by precisely 1 second per frame
         //////////////////// regardless of real time passed, causing predictions to go crazy due to the time difference.
         //////////////////// Therefore, for the time being, i ignore oculus' predicted display time altogether.
-        long long predictedDisplayTime = std::chrono::duration_cast<std::chrono::nanoseconds>(std::chrono::steady_clock::now().time_since_epoch()).count();
+        if(mUseSteadyClock)
+            predictedDisplayTime = epochTime;
+
         if (mFrames > 1)
         {
-            auto framePeriod = xr->getLastPredictedDisplayPeriod();
-            float intervalsf = static_cast<double>(mLastFrameInterval.count()) / static_cast<double>(framePeriod);
             int intervals = std::max((int)std::roundf(intervalsf), 1);
-            predictedDisplayTime = predictedDisplayTime + intervals * (mFrames - mLastRenderedFrame) * framePeriod;
+            predictedDisplayTime = predictedDisplayTime + intervals * (mFrames - mLastRenderedFrame) * predictedDisplayPeriod;
         }
 
 
