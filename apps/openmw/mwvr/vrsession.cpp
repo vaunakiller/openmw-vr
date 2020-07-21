@@ -113,6 +113,7 @@ namespace MWVR
     }
 
     bool VRSession::isRunning() const {
+        return true;
         auto* xr = Environment::get().getManager();
         return xr->xrSessionRunning();
     }
@@ -124,12 +125,11 @@ namespace MWVR
         beginPhase(FramePhase::Swap);
 
         auto* frameMeta = getFrame(FramePhase::Swap).get();
+        auto leftView = viewer.getView("LeftEye");
+        auto rightView = viewer.getView("RightEye");
 
-        if (frameMeta->mShouldRender && isRunning())
+        if (frameMeta->mShouldRender)
         {
-            auto leftView = viewer.getView("LeftEye");
-            auto rightView = viewer.getView("RightEye");
-
             viewer.blitEyesToMirrorTexture(gc);
             gc->swapBuffersImplementation();
             leftView->swapBuffers(gc);
@@ -145,6 +145,7 @@ namespace MWVR
 
             Log(Debug::Debug) << frameMeta->mFrameNo << ": EndFrame " << std::this_thread::get_id();
             xr->endFrame(frameMeta->mPredictedDisplayTime, 1, layerStack);
+            xr->xrResourceReleased();
         }
 
         {
@@ -167,7 +168,6 @@ namespace MWVR
             }
 
             getFrame(FramePhase::Swap) = nullptr;
-            mFramesInFlight--;
         }
         mCondition.notify_one();
     }
@@ -292,8 +292,9 @@ namespace MWVR
         frame->mPredictedDisplayTime = predictedDisplayTime;
         frame->mFrameNo = mFrames;
         frame->mPredictedPoses = predictedPoses;
-        frame->mShouldRender = isRunning();
-        mFramesInFlight++;
+        frame->mShouldRender = xr->frameShouldRender();
+        if (frame->mShouldRender)
+            xr->xrResourceAcquired();
     }
 
     const PoseSet& VRSession::predictedPoses(FramePhase phase)

@@ -57,12 +57,8 @@ namespace MWVR {
 
     void VRView::prerenderCallback(osg::RenderInfo& renderInfo)
     {
-
-        if (Environment::get().getManager()->xrSessionRunning())
-        {
+        if(Environment::get().getSession()->getFrame(VRSession::FramePhase::Draw)->mShouldRender)
             mSwapchain->beginFrame(renderInfo.getState()->getGraphicsContext());
-        }
-
     }
 
     void VRView::InitialDrawCallback::operator()(osg::RenderInfo& renderInfo) const
@@ -86,18 +82,33 @@ namespace MWVR {
         auto* camera = slave._camera.get();
         auto name = camera->getName();
 
-        Side side = Side::RIGHT_SIDE;
-        if (name == "LeftEye")
-            side = Side::LEFT_SIDE;
+        // Update current cached cull mask of camera if it is active
+        auto mask = camera->getCullMask();
+        if (mask == 0)
+            camera->setCullMask(mCullMask);
+        else
+            mCullMask = mask;
 
-        auto* session = Environment::get().getSession();
-        auto viewMatrix = view.getCamera()->getViewMatrix();
+        if (Environment::get().getSession()->getFrame(VRSession::FramePhase::Update)->mShouldRender)
+        {
+            Side side = Side::RIGHT_SIDE;
+            if (name == "LeftEye")
+                side = Side::LEFT_SIDE;
 
-        auto modifiedViewMatrix = viewMatrix * session->viewMatrix(VRSession::FramePhase::Update, side);
-        auto projectionMatrix = session->projectionMatrix(VRSession::FramePhase::Update, side);
+            auto* session = Environment::get().getSession();
+            auto viewMatrix = view.getCamera()->getViewMatrix();
 
-        camera->setViewMatrix(modifiedViewMatrix);
-        camera->setProjectionMatrix(projectionMatrix);
+            auto modifiedViewMatrix = viewMatrix * session->viewMatrix(VRSession::FramePhase::Update, side);
+            auto projectionMatrix = session->projectionMatrix(VRSession::FramePhase::Update, side);
+
+            camera->setViewMatrix(modifiedViewMatrix);
+            camera->setProjectionMatrix(projectionMatrix);
+        }
+        else
+        {
+            // If the session is not active, we do not want to waste resources rendering frames.
+            camera->setCullMask(0);
+        }
         slave.updateSlaveImplementation(view);
     }
 

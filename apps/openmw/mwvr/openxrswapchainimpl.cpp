@@ -165,6 +165,7 @@ namespace MWVR {
 
     void OpenXRSwapchainImpl::acquire(osg::GraphicsContext*)
     {
+        auto xr = Environment::get().getManager();
         XrSwapchainImageAcquireInfo acquireInfo{ XR_TYPE_SWAPCHAIN_IMAGE_ACQUIRE_INFO };
         // I am trusting that the openxr runtime won't diverge these indices so long as these are always called together.
         // If some dumb ass implementation decides to violate this we'll just have to work around that if it actually happens.
@@ -177,18 +178,23 @@ namespace MWVR {
         XrSwapchainImageWaitInfo waitInfo{ XR_TYPE_SWAPCHAIN_IMAGE_WAIT_INFO };
         waitInfo.timeout = XR_INFINITE_DURATION;
         CHECK_XRCMD(xrWaitSwapchainImage(mSwapchain, &waitInfo));
+        xr->xrResourceAcquired();
         CHECK_XRCMD(xrWaitSwapchainImage(mSwapchainDepth, &waitInfo));
+        xr->xrResourceAcquired();
 
         mIsAcquired = true;
     }
 
     void OpenXRSwapchainImpl::release(osg::GraphicsContext*)
     {
+        auto xr = Environment::get().getManager();
         mIsAcquired = false;
 
         XrSwapchainImageReleaseInfo releaseInfo{ XR_TYPE_SWAPCHAIN_IMAGE_RELEASE_INFO };
         CHECK_XRCMD(xrReleaseSwapchainImage(mSwapchain, &releaseInfo));
+        xr->xrResourceReleased();
         CHECK_XRCMD(xrReleaseSwapchainImage(mSwapchainDepth, &releaseInfo));
+        xr->xrResourceReleased();
     }
     void OpenXRSwapchainImpl::checkAcquired() const
     {

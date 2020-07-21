@@ -107,7 +107,7 @@ namespace MWVR
             mViewer->addSlave(camera, true);
             auto* slave = mViewer->findSlaveForCamera(camera);
             assert(slave);
-            slave->_updateSlaveCallback = new VRView::UpdateSlaveCallback(view, context);
+            slave->_updateSlaveCallback = new VRView::UpdateSlaveCallback();
 
             if (mirror)
                 mMsaaResolveMirrorTexture[i].reset(new VRFramebuffer(context->getState(),

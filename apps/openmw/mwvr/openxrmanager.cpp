@@ -32,6 +32,13 @@ namespace MWVR
         return false;
     }
 
+    bool OpenXRManager::frameShouldRender()
+    {
+        if (realized())
+            return impl().frameShouldRender();
+        return false;
+    }
+
     void OpenXRManager::handleEvents()
     {
         if (realized())
@@ -84,6 +91,16 @@ namespace MWVR
     void OpenXRManager::disablePredictions()
     {
         return impl().disablePredictions();
+    }
+
+    void OpenXRManager::xrResourceAcquired()
+    {
+        return impl().xrResourceAcquired();
+    }
+
+    void OpenXRManager::xrResourceReleased()
+    {
+        return impl().xrResourceReleased();
     }
 
     std::array<View, 2> OpenXRManager::getPredictedViews(int64_t predictedDisplayTime, ReferenceSpace space)

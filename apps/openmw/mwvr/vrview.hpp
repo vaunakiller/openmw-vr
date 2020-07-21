@@ -23,16 +23,11 @@ namespace MWVR
         class UpdateSlaveCallback : public osg::View::Slave::UpdateSlaveCallback
         {
         public:
-            UpdateSlaveCallback(osg::ref_ptr<VRView> view, osg::GraphicsContext* gc)
-                : mView(view), mGC(gc)
-            {}
-
             void updateSlave(osg::View& view, osg::View::Slave& slave) override;
 
         private:
-            osg::ref_ptr<OpenXRManager> mXR;
             osg::ref_ptr<VRView> mView;
-            osg::ref_ptr<osg::GraphicsContext> mGC;
+            osg::Node::NodeMask mCullMask;
         };
 
     public:

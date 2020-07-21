@@ -56,6 +56,9 @@ namespace MWVR
         //! Whether the openxr session is currently in a running state
         bool xrSessionRunning();
 
+        //! Whether frames should be rendered in the current state
+        bool frameShouldRender();
+
         //! Process all openxr events
         void handleEvents();
 
@@ -67,6 +70,12 @@ namespace MWVR
 
         //! Disable pose predictions.
         void disablePredictions();
+
+        //! Must be called every time an openxr resource is acquired to keep track
+        void xrResourceAcquired();
+
+        //! Must be called every time an openxr resource is released to keep track
+        void xrResourceReleased();
 
         //! Get poses and fov of both eyes at the predicted time, relative to the given reference space. \note Will throw if predictions are disabled.
         std::array<View, 2> getPredictedViews(int64_t predictedDisplayTime, ReferenceSpace space);

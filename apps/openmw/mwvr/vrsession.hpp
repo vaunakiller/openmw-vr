@@ -77,7 +77,6 @@ namespace MWVR
         osg::Matrix viewMatrix(FramePhase phase, Side side);
         osg::Matrix projectionMatrix(FramePhase phase, Side side);
 
-        int mFramesInFlight{ 0 };
         std::array<std::unique_ptr<VRFrameMeta>, (int)FramePhase::NumPhases> mFrame{ nullptr };
 
     private:

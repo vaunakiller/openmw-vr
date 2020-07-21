@@ -214,7 +214,7 @@ namespace MWVR
     inline XrResult CheckXrResult(XrResult res, const char* originator, const char* sourceLocation) {
         if (XR_FAILED(res)) {
             std::stringstream ss;
-            ss << sourceLocation << ": OpenXR[" << to_string(res) << "]: " << originator;
+            ss << sourceLocation << ": OpenXR[Error: " << to_string(res) << "][Thread: " << std::this_thread::get_id() << "][DC: " << wglGetCurrentDC() << "][GLRC: " << wglGetCurrentContext() << "]: " << originator;
             Log(Debug::Error) << ss.str();
             throw std::runtime_error(ss.str().c_str());
         }
@@ -471,39 +471,58 @@ namespace MWVR
     {
         std::unique_lock<std::mutex> lock(mEventMutex);
 
-        // React to events
+        xrQueueEvents();
+
         while (auto* event = nextEvent())
         {
-            Log(Debug::Verbose) << "OpenXR: Event received: " << to_string(event->type);
-            switch (event->type)
+            if (!processEvent(event))
             {
-            case XR_TYPE_EVENT_DATA_SESSION_STATE_CHANGED:
-            {
-                const auto* stateChangeEvent = reinterpret_cast<const XrEventDataSessionStateChanged*>(event);
-                HandleSessionStateChanged(*stateChangeEvent);
-                break;
+                // Do not consider processing an event optional.
+                // Retry once per frame until every event has been successfully processed
+                return;
             }
-            case XR_TYPE_EVENT_DATA_INSTANCE_LOSS_PENDING:
-            case XR_TYPE_EVENT_DATA_INTERACTION_PROFILE_CHANGED:
-            case XR_TYPE_EVENT_DATA_REFERENCE_SPACE_CHANGE_PENDING:
-            default: {
-                Log(Debug::Verbose) << "OpenXR: Event ignored";
-                break;
-            }
-            }
+            popEvent();
         }
     }
 
-    void
-        OpenXRManagerImpl::HandleSessionStateChanged(
+    const XrEventDataBaseHeader* OpenXRManagerImpl::nextEvent()
+    {
+        if (mEventQueue.size() > 0)
+            return reinterpret_cast<XrEventDataBaseHeader*> (&mEventQueue.front());
+        return nullptr;
+    }
+
+    bool OpenXRManagerImpl::processEvent(const XrEventDataBaseHeader* header)
+    {
+        Log(Debug::Verbose) << "OpenXR: Event received: " << to_string(header->type);
+        switch (header->type)
+        {
+        case XR_TYPE_EVENT_DATA_SESSION_STATE_CHANGED:
+        {
+            const auto* stateChangeEvent = reinterpret_cast<const XrEventDataSessionStateChanged*>(header);
+            return handleSessionStateChanged(*stateChangeEvent);
+            break;
+        }
+        case XR_TYPE_EVENT_DATA_INSTANCE_LOSS_PENDING:
+        case XR_TYPE_EVENT_DATA_INTERACTION_PROFILE_CHANGED:
+        case XR_TYPE_EVENT_DATA_REFERENCE_SPACE_CHANGE_PENDING:
+        default:
+        {
+            Log(Debug::Verbose) << "OpenXR: Event ignored";
+            break;
+        }
+        }
+        return true;
+    }
+
+    bool
+        OpenXRManagerImpl::handleSessionStateChanged(
             const XrEventDataSessionStateChanged& stateChangedEvent)
     {
         auto oldState = mSessionState;
         auto newState = stateChangedEvent.state;
-        mSessionState = newState;
-
         Log(Debug::Verbose) << "XrEventDataSessionStateChanged: state " << to_string(oldState) << "->" << to_string(newState);
-
+        bool success = true;
 
         switch (newState)
         {
@@ -517,21 +536,45 @@ namespace MWVR
         }
         case XR_SESSION_STATE_STOPPING:
         {
-            mSessionRunning = false;
-            CHECK_XRCMD(xrEndSession(mSession));
+            if (checkStopCondition())
+            {
+                CHECK_XRCMD(xrEndSession(mSession));
+                mSessionStopRequested = false;
+                mSessionRunning = false;
+            }
+            else
+            {
+                mSessionStopRequested = true;
+                success = false;
+            }
             break;
         }
         default:
-            Log(Debug::Verbose) << "XrEventDataSessionStateChanged: Ignoring new strate " << to_string(newState);
+            Log(Debug::Verbose) << "XrEventDataSessionStateChanged: Ignoring new state " << to_string(newState);
         }
+
+        if (success)
+        {
+            mSessionState = newState;
+        }
+        else
+        {
+            Log(Debug::Verbose) << "XrEventDataSessionStateChanged: Conditions for state " << to_string(newState) << " not met, retrying next frame";
+        }
+
+        return success;
     }
 
-    const XrEventDataBaseHeader*
-        OpenXRManagerImpl::nextEvent()
+    bool OpenXRManagerImpl::checkStopCondition()
     {
-        XrEventDataBaseHeader* baseHeader = reinterpret_cast<XrEventDataBaseHeader*>(&mEventDataBuffer);
+        return mAcquiredResources == 0;
+    }
+
+    bool OpenXRManagerImpl::xrNextEvent(XrEventDataBuffer& eventBuffer)
+    {
+        XrEventDataBaseHeader* baseHeader = reinterpret_cast<XrEventDataBaseHeader*>(&eventBuffer);
         *baseHeader = { XR_TYPE_EVENT_DATA_BUFFER };
-        const XrResult result = xrPollEvent(mInstance, &mEventDataBuffer);
+        const XrResult result = xrPollEvent(mInstance, &eventBuffer);
         if (result == XR_SUCCESS)
         {
             if (baseHeader->type == XR_TYPE_EVENT_DATA_EVENTS_LOST) {
@@ -545,6 +588,22 @@ namespace MWVR
         if (result != XR_EVENT_UNAVAILABLE)
             CHECK_XRRESULT(result, "xrPollEvent");
         return nullptr;
+    }
+
+    void OpenXRManagerImpl::popEvent()
+    {
+        if (mEventQueue.size() > 0)
+            mEventQueue.pop();
+    }
+
+    void
+        OpenXRManagerImpl::xrQueueEvents()
+    {
+        XrEventDataBuffer eventBuffer;
+        while (xrNextEvent(eventBuffer))
+        {
+            mEventQueue.push(eventBuffer);
+        }
     }
 
     MWVR::Pose fromXR(XrPosef pose)
@@ -580,6 +639,26 @@ namespace MWVR
     bool OpenXRManagerImpl::xrExtensionIsEnabled(const char* extensionName) const
     {
         return mEnabledExtensions.count(extensionName) != 0;
+    }
+
+    bool OpenXRManagerImpl::frameShouldRender()
+    {
+        return xrSessionRunning() && !xrSessionStopRequested();
+    }
+
+    void OpenXRManagerImpl::xrResourceAcquired()
+    {
+        mAcquiredResources++;
+    }
+
+    void OpenXRManagerImpl::xrResourceReleased()
+    {
+        mAcquiredResources--;
+    }
+
+    bool OpenXRManagerImpl::xrSessionStopRequested()
+    {
+        return mSessionStopRequested;
     }
 
     void OpenXRManagerImpl::enablePredictions()

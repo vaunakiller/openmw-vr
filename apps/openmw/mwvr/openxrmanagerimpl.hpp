@@ -21,6 +21,7 @@
 #include <iostream>
 #include <thread>
 #include <chrono>
+#include <queue>
 
 namespace MWVR
 {
@@ -70,13 +71,22 @@ namespace MWVR
         XrSession xrSession() const { return mSession; };
         XrInstance xrInstance() const { return mInstance; };
         bool xrExtensionIsEnabled(const char* extensionName) const;
+        bool xrSessionStopRequested();
+        bool frameShouldRender();
+        void xrResourceAcquired();
+        void xrResourceReleased();
 
     protected:
         void LogLayersAndExtensions();
         void LogInstanceInfo();
         void LogReferenceSpaces();
+        bool xrNextEvent(XrEventDataBuffer& eventBuffer);
+        void xrQueueEvents();
         const XrEventDataBaseHeader* nextEvent();
-        void HandleSessionStateChanged(const XrEventDataSessionStateChanged& stateChangedEvent);
+        bool processEvent(const XrEventDataBaseHeader* header);
+        void popEvent();
+        bool handleSessionStateChanged(const XrEventDataSessionStateChanged& stateChangedEvent);
+        bool checkStopCondition();
 
     private:
 
@@ -94,13 +104,15 @@ namespace MWVR
         std::array<XrViewConfigurationView, 2> mConfigViews{ { {XR_TYPE_VIEW_CONFIGURATION_VIEW}, {XR_TYPE_VIEW_CONFIGURATION_VIEW} } };
         XrSpace mReferenceSpaceView = XR_NULL_HANDLE;
         XrSpace mReferenceSpaceStage = XR_NULL_HANDLE;
-        XrEventDataBuffer mEventDataBuffer{ XR_TYPE_EVENT_DATA_BUFFER };
         XrFrameState mFrameState{};
         XrSessionState mSessionState = XR_SESSION_STATE_UNKNOWN;
+        bool mSessionStopRequested = false;
         bool mSessionRunning = false;
+        uint32_t mAcquiredResources = 0;
         std::mutex mFrameStateMutex{};
         std::mutex mEventMutex{};
         std::set<std::string> mEnabledExtensions;
+        std::queue<XrEventDataBuffer> mEventQueue;
 
         std::array<XrCompositionLayerDepthInfoKHR, 2> mLayerDepth;
     };
