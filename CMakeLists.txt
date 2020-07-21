@@ -312,7 +312,7 @@ include_directories("."
     ${Boost_INCLUDE_DIR}
     ${MyGUI_INCLUDE_DIRS}
     ${OPENAL_INCLUDE_DIR}
-    ${Bullet_INCLUDE_DIRS}
+    ${BULLET_INCLUDE_DIRS}
 )
 
 if(BUILD_VR_OPENXR)
