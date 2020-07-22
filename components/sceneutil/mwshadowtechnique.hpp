@@ -141,6 +141,28 @@ namespace SceneUtil {
         // forward declare
         class ViewDependentData;
 
+        /// Configuration of shadow maps shared by multiple views
+        struct SharedShadowMapConfig : public osg::Referenced
+        {
+            virtual ~SharedShadowMapConfig() {}
+
+            /// String identifier of the shared shadow map
+            std::string     _id{ "" };
+
+            /// If true, this camera will generate the shadow map
+            bool            _master{ false };
+
+            /// If set, will override projection matrix of camera when generating shadow map.
+            osg::ref_ptr<osg::RefMatrix> _projection{ nullptr };
+
+            /// If set, will override model view matrix of camera when generating shadow map.
+            osg::ref_ptr<osg::RefMatrix> _modelView{ nullptr };
+
+            /// Reference frame of the view matrix
+            osg::Transform::ReferenceFrame
+                            _referenceFrame{ osg::Transform::ABSOLUTE_RF };
+        };
+
         struct LightData : public osg::Referenced
         {
             LightData(ViewDependentData* vdd);
@@ -195,7 +217,12 @@ namespace SceneUtil {
 
             virtual void releaseGLObjects(osg::State* = 0) const;
 
+            unsigned int numValidShadows(void) const { return _numValidShadows; }
+
+            void setNumValidShadows(unsigned int numValidShadows) { _numValidShadows = numValidShadows; }
+
         protected:
+            friend class MWShadowTechnique;
             virtual ~ViewDependentData() {}
 
             MWShadowTechnique*          _viewDependentShadowMap;
@@ -204,13 +231,29 @@ namespace SceneUtil {
 
             LightDataList               _lightDataList;
             ShadowDataList              _shadowDataList;
+
+            unsigned int _numValidShadows;
         };
 
         virtual ViewDependentData* createViewDependentData(osgUtil::CullVisitor* cv);
 
         ViewDependentData* getViewDependentData(osgUtil::CullVisitor* cv);
 
+        ViewDependentData* getSharedVdd(const SharedShadowMapConfig& config);
 
+        void addSharedVdd(const SharedShadowMapConfig& config, ViewDependentData* vdd);
+
+        void shareShadowMap(osgUtil::CullVisitor& cv, ViewDependentData* lhs, ViewDependentData* rhs);
+
+        bool trySharedShadowMap(osgUtil::CullVisitor& cv, ViewDependentData* vdd);
+
+        void endSharedShadowMap(osgUtil::CullVisitor& cv);
+
+        void castShadows(osgUtil::CullVisitor& cv, ViewDependentData* vdd);
+
+        void assignTexGenSettings(osgUtil::CullVisitor& cv, ViewDependentData* vdd);
+
+        void computeProjectionNearFar(osgUtil::CullVisitor& cv, bool orthographicViewFrustum, double& znear, double& zfar);
 
         virtual void createShaders();
 
@@ -226,7 +269,7 @@ namespace SceneUtil {
 
         virtual bool assignTexGenSettings(osgUtil::CullVisitor* cv, osg::Camera* camera, unsigned int textureUnit, osg::TexGen* texgen);
 
-        virtual void cullShadowReceivingScene(osgUtil::CullVisitor* cv) const;
+        virtual osg::ref_ptr<osgUtil::StateGraph> cullShadowReceivingScene(osgUtil::CullVisitor* cv) const;
 
         virtual void cullShadowCastingScene(osgUtil::CullVisitor* cv, osg::Camera* camera) const;
 
@@ -237,7 +280,9 @@ namespace SceneUtil {
 
         typedef std::map< osgUtil::CullVisitor*, osg::ref_ptr<ViewDependentData> >  ViewDependentDataMap;
         mutable std::mutex                      _viewDependentDataMapMutex;
+        typedef std::map< std::string, osg::ref_ptr<ViewDependentData> >            ViewDependentDataShareMap;
         ViewDependentDataMap                    _viewDependentDataMap;
+        ViewDependentDataShareMap               _viewDependentDataShareMap;
 
         osg::ref_ptr<osg::StateSet>             _shadowRecievingPlaceholderStateSet;
 
