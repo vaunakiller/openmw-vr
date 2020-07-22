@@ -954,7 +954,7 @@ namespace MWWorld
         removeContainerScripts(getPlayerPtr());
         mWorldScene->changeToInteriorCell(cellName, position, adjustPlayerPos, changeEvent);
         addContainerScripts(getPlayerPtr(), getPlayerPtr().getCell());
-        mRendering->getCamera()->skipFocalPointTransition();
+        mRendering->getCamera()->instantTransition();
 
 #ifdef USE_OPENXR
         auto* xrInput = MWVR::Environment::get().getInputManager();
@@ -976,7 +976,7 @@ namespace MWWorld
         removeContainerScripts(getPlayerPtr());
         mWorldScene->changeToExteriorCell(position, adjustPlayerPos, changeEvent);
         addContainerScripts(getPlayerPtr(), getPlayerPtr().getCell());
-        mRendering->getCamera()->skipFocalPointTransition();
+        mRendering->getCamera()->instantTransition();
 
 #ifdef USE_OPENXR
         auto* xrInput = MWVR::Environment::get().getInputManager();
@@ -2444,6 +2444,16 @@ namespace MWWorld
     bool World::toggleVanityMode(bool enable)
     {
         return mRendering->toggleVanityMode(enable);
+    }
+
+    void World::disableDeferredPreviewRotation()
+    {
+        mRendering->getCamera()->disableDeferredPreviewRotation();
+    }
+
+    void World::applyDeferredPreviewRotationToPlayer(float dt)
+    {
+        mRendering->getCamera()->applyDeferredPreviewRotationToPlayer(dt);
     }
 
     void World::allowVanityMode(bool allow)

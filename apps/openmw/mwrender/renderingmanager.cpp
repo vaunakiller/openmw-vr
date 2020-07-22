@@ -660,7 +660,7 @@ namespace MWRender
         if(ptr == mCamera->getTrackingPtr() &&
            !mCamera->isVanityOrPreviewModeEnabled())
         {
-            mCamera->rotateCamera(-ptr.getRefData().getPosition().rot[0], -ptr.getRefData().getPosition().rot[1], -ptr.getRefData().getPosition().rot[2], false);
+            mCamera->rotateCameraToTrackingPtr();
         }
 
         ptr.getRefData().getBaseNode()->setAttitude(rot);
