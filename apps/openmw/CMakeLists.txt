@@ -207,7 +207,6 @@ if (MSVC)
 endif (MSVC)
     
 if(BUILD_OPENMW)
-
     if (NOT ANDROID)
         openmw_add_executable(openmw
             ${OPENMW_FILES}
@@ -236,12 +235,17 @@ if(BUILD_OPENMW)
 endif()
 
 if(BUILD_OPENMW_VR)
+# Use of FetchContent to include the OpenXR SDK requires CMake 3.11
+    if(${CMAKE_VERSION} VERSION_LESS "3.11") 
+        message(FATAL_ERROR "Building openmw_vr requires CMake version 3.11 or later.")
+    endif()
+
 # TODO: Openmw and openmw_vr should preferrably share game code as a static or shared library
 # instead of being compiled separately, though for now that's not possible as i depend on
 # USE_OPENXR preprocessor switches.
     set(OPENMW_VR_FILES
         vrengine.cpp
-   )
+    )
     add_openmw_dir (mwvr
          openxraction openxrinput openxrmanager openxrmanagerimpl openxrswapchain openxrswapchainimpl
          realisticcombat 
@@ -263,7 +267,10 @@ if(BUILD_OPENMW_VR)
         GIT_TAG release-1.0.9
     )
     FetchContent_MakeAvailable(OpenXR)
+
     target_link_libraries(openmw_vr openxr_loader)
+    # openxr makes include directories private
+    # Delete this line when the issue is solved: https://github.com/KhronosGroup/OpenXR-SDK-Source/issues/195
     target_include_directories(openmw_vr PRIVATE ${openxr_SOURCE_DIR}/include)
 
     # Preprocessor variable used to control code paths to vr code
