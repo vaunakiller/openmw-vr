@@ -74,7 +74,7 @@ namespace MWVR
         float setPlayerScale(float scale) { return mPlayerScale = scale; }
 
         osg::Matrix viewMatrix(osg::Vec3 position, osg::Quat orientation);
-        osg::Matrix viewMatrix(FramePhase phase, Side side);
+        osg::Matrix viewMatrix(FramePhase phase, Side side, bool offset);
         osg::Matrix projectionMatrix(FramePhase phase, Side side);
 
         std::array<std::unique_ptr<VRFrameMeta>, (int)FramePhase::NumPhases> mFrame{ nullptr };

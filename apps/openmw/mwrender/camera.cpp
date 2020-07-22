@@ -69,6 +69,9 @@ namespace MWRender
       mIsNearest(false),
       mHeight(124.f),
       mBaseCameraDistance(Settings::Manager::getFloat("third person camera distance", "Camera")),
+      mPitch(0.f),
+      mYaw(0.f),
+      mRoll(0.f),
       mVanityToggleQueued(false),
       mVanityToggleQueuedValue(false),
       mViewModeToggleQueued(false),
@@ -156,7 +159,12 @@ namespace MWRender
 
     void Camera::updateCamera(osg::Camera *cam)
     {
-        osg::Quat orient = osg::Quat(getPitch(), osg::Vec3d(1,0,0)) * osg::Quat(getRoll(), osg::Vec3d(0, 1, 0)) * osg::Quat(getYaw(), osg::Vec3d(0,0,1));
+        osg::Quat orient = 
+              osg::Quat(getPitch(), osg::Vec3d(1,0,0)) 
+#ifdef USE_OPENXR
+            * osg::Quat(getRoll(),  osg::Vec3d(0,1,0)) 
+#endif
+            * osg::Quat(getYaw(),   osg::Vec3d(0,0,1));
         osg::Vec3d focal, position;
         getPosition(focal, position);
 
@@ -400,7 +408,6 @@ namespace MWRender
 
     void Camera::setRoll(float angle)
     {
-#ifdef USE_OPENXR
         if (angle > osg::PI) {
             angle -= osg::PI * 2;
         }
@@ -408,11 +415,6 @@ namespace MWRender
             angle += osg::PI * 2;
         }
         mRoll = angle;
-#else
-        // It seems OpenMW saves roll data, causing the camera to get tilted
-        // when loading a VR save in non-VR.
-        mRoll = 0.f;
-#endif
     }
 
     void Camera::setPitch(float angle)
@@ -553,6 +555,7 @@ namespace MWRender
     {
         setPitch(-mTrackingPtr.getRefData().getPosition().rot[0] - mDeferredRotation.x());
         setYaw(-mTrackingPtr.getRefData().getPosition().rot[2] - mDeferredRotation.z());
+        setRoll(-mTrackingPtr.getRefData().getPosition().rot[1] - mDeferredRotation.y());
     }
 
     void Camera::instantTransition()

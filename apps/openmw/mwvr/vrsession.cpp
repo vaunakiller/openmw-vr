@@ -96,14 +96,16 @@ namespace MWVR
         return viewMatrix;
     }
 
-    osg::Matrix VRSession::viewMatrix(FramePhase phase, Side side)
+    osg::Matrix VRSession::viewMatrix(FramePhase phase, Side side, bool offset)
     {
-        MWVR::Pose pose{};
-        pose = predictedPoses(phase).view[(int)side].pose;
-
-        if (MWBase::Environment::get().getStateManager()->getState() == MWBase::StateManager::State_NoGame)
+        if (offset)
         {
-            pose = predictedPoses(phase).eye[(int)side];
+            MWVR::Pose pose = predictedPoses(phase).view[(int)side].pose;
+            return viewMatrix(pose.position, pose.orientation);
+        }
+        else
+        {
+            MWVR::Pose pose = predictedPoses(phase).eye[(int)side];
             osg::Vec3 position = pose.position * Environment::get().unitsPerMeter();
             osg::Quat orientation = pose.orientation;
             osg::Vec3d forward = orientation * osg::Vec3d(0, 1, 0);
@@ -113,8 +115,6 @@ namespace MWVR
 
             return viewMatrix;
         }
-        
-        return viewMatrix(pose.position, pose.orientation);
     }
 
     bool VRSession::isRunning() const {
@@ -211,6 +211,7 @@ namespace MWVR
 
     void VRSession::doFrameSync()
     {
+        auto begin = std::chrono::steady_clock::now();
         {
             std::unique_lock<std::mutex> lock(mMutex);
             while (mLastRenderedFrame != mFrames - 1)
@@ -218,12 +219,18 @@ namespace MWVR
                 mCondition.wait(lock);
             }
         }
-
+        auto condEnd = std::chrono::steady_clock::now();
         auto* xr = Environment::get().getManager();
         Log(Debug::Debug) << mFrames << ": WaitFrame " << std::this_thread::get_id();
         xr->waitFrame();
         Log(Debug::Debug) << mFrames << ": BeginFrame " << std::this_thread::get_id();
         xr->beginFrame();
+        auto xrSyncEnd = std::chrono::steady_clock::now();
+
+        auto condTime = std::chrono::duration_cast<std::chrono::milliseconds>(condEnd - begin);
+        auto xrSyncTime = std::chrono::duration_cast<std::chrono::milliseconds>(xrSyncEnd - condEnd);
+        Log(Debug::Debug) << "condTime: " << condTime.count() << ", xrSyncTime: " << xrSyncTime.count();
+
     }
 
     std::unique_ptr<VRSession::VRFrameMeta>& VRSession::getFrame(FramePhase phase)

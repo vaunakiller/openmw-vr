@@ -98,10 +98,19 @@ namespace MWVR {
             auto* session = Environment::get().getSession();
             auto viewMatrix = view.getCamera()->getViewMatrix();
 
-            auto modifiedViewMatrix = viewMatrix * session->viewMatrix(VRSession::FramePhase::Update, side);
-            auto projectionMatrix = session->projectionMatrix(VRSession::FramePhase::Update, side);
+            bool haveView = viewMatrix.getTrans().length() > 0.01;
 
-            camera->setViewMatrix(modifiedViewMatrix);
+            if (haveView)
+            {
+                viewMatrix = viewMatrix * session->viewMatrix(VRSession::FramePhase::Update, side, true);
+            }
+            else
+            {
+                viewMatrix = session->viewMatrix(VRSession::FramePhase::Update, side, false);
+            }
+            camera->setViewMatrix(viewMatrix);
+
+            auto projectionMatrix = session->projectionMatrix(VRSession::FramePhase::Update, side);
             camera->setProjectionMatrix(projectionMatrix);
         }
         else
