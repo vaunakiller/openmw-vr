@@ -900,6 +900,75 @@ MWShadowTechnique::ViewDependentData* MWShadowTechnique::getViewDependentData(os
     return vdd.release();
 }
 
+MWShadowTechnique::ViewDependentData* MWShadowTechnique::getSharedVdd(const SharedShadowMapConfig& config)
+{
+    auto it = _viewDependentDataShareMap.find(config._id);
+    if (it != _viewDependentDataShareMap.end())
+        return it->second;
+
+    return nullptr;
+}
+
+void MWShadowTechnique::addSharedVdd(const SharedShadowMapConfig& config, ViewDependentData* vdd)
+{
+    _viewDependentDataShareMap[config._id] = vdd;
+}
+
+void SceneUtil::MWShadowTechnique::shareShadowMap(osgUtil::CullVisitor& cv, ViewDependentData* lhs, ViewDependentData* rhs)
+{
+    // Prepare for rendering shadows using the shadow map owned by rhs.
+
+    // To achieve this i first copy all data that is not specific to this cv's camera and thus read-only,
+    // trusting openmw and osg won't overwrite that data before this frame is done rendering.
+    // This works due to the double buffering of CullVisitors by osg, but also requires that cull passes are serialized (relative to one another).
+    // Then initialize new copies of the data that will be written with view-specific data 
+    // (the stateset and the texgens).
+
+    lhs->_viewDependentShadowMap = rhs->_viewDependentShadowMap;
+    lhs->_stateset->clear();
+    lhs->_lightDataList = rhs->_lightDataList;
+    lhs->_numValidShadows = rhs->_numValidShadows;
+
+    ShadowDataList& sdl = lhs->getShadowDataList();
+    ShadowDataList previous_sdl;
+    previous_sdl.swap(sdl);
+    for (auto rhs_sd : rhs->getShadowDataList())
+    {
+        osg::ref_ptr<ShadowData> lhs_sd;
+
+        if (previous_sdl.empty())
+        {
+            OSG_INFO << "Create new ShadowData" << std::endl;
+            lhs_sd = new ShadowData(lhs);
+        }
+        else
+        {
+            OSG_INFO << "Taking ShadowData from from of previous_sdl" << std::endl;
+            lhs_sd = previous_sdl.front();
+            previous_sdl.erase(previous_sdl.begin());
+        }
+        lhs_sd->_camera = rhs_sd->_camera;
+        lhs_sd->_textureUnit = rhs_sd->_textureUnit;
+        lhs_sd->_texture = rhs_sd->_texture;
+        sdl.push_back(lhs_sd);
+    }
+
+
+    cv.pushStateSet(_shadowRecievingPlaceholderStateSet.get());
+    osg::ref_ptr<osgUtil::StateGraph> decoratorStateGraph = cv.getCurrentStateGraph();
+    cullShadowReceivingScene(&cv);
+    cv.popStateSet();
+
+    for (auto sd : sdl)
+    {
+        assignTexGenSettings(&cv, sd->_camera, sd->_textureUnit, sd->_texgen.get());
+    }
+    if (lhs->numValidShadows() > 0)
+    {
+        decoratorStateGraph->setStateSet(selectStateSetForRenderingShadow(*lhs));
+    }
+}
+
 void MWShadowTechnique::update(osg::NodeVisitor& nv)
 {
     OSG_INFO<<"MWShadowTechnique::update(osg::NodeVisitor& "<<&nv<<")"<<std::endl;
@@ -924,6 +993,29 @@ void MWShadowTechnique::cull(osgUtil::CullVisitor& cv)
     }
 
     ViewDependentData* vdd = getViewDependentData(&cv);
+
+    // Use shared shadow map if applicable
+    auto* sharedConfig = dynamic_cast<SharedShadowMapConfig*>(cv.getCurrentCamera()->getUserData());
+    if (sharedConfig)
+    {
+        if (sharedConfig->_master)
+        {
+            addSharedVdd(*sharedConfig, vdd);
+        }
+        else
+        {
+            auto* sharedVdd = getSharedVdd(*sharedConfig);
+            if (sharedVdd)
+            {
+                OSG_INFO << "Using shared shadow map" << std::endl;
+                return shareShadowMap(cv, vdd, sharedVdd);
+            }
+            else
+            {
+                OSG_INFO << "Warning, view configured to reuse shared shadow map but no shadow map has been shared. Shadows will be generated instead." << std::endl;
+            }
+        }
+    }
 
     if (!vdd)
     {
@@ -1397,6 +1489,7 @@ void MWShadowTechnique::cull(osgUtil::CullVisitor& cv)
                 _debugHud->draw(sd->_texture, sm_i, camera->getViewMatrix() * camera->getProjectionMatrix(), cv);
         }
     }
+    vdd->setNumValidShadows(numValidShadows);
 
     if (numValidShadows>0)
     {
