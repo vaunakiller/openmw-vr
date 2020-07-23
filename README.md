@@ -112,7 +112,7 @@ VR
 
 This fork is a VR port of openmw using the openxr VR standard.
 You can grab the latest binaries/sources under [Releases](https://gitlab.com/madsbuvi/openmw/-/releases)
-Or grab a development build from [Appveyor](https://ci.appveyor.com/project/madsbuvi/openmw-vr) (Click on any build in the jobs table, and look at the artifacts tab)
+Or grab a development build from the artifacts of any pipeline of the openxr_vr build on the gitlab.
 
 Current Status
 --------------
