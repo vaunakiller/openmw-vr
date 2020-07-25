@@ -969,6 +969,37 @@ void SceneUtil::MWShadowTechnique::shareShadowMap(osgUtil::CullVisitor& cv, View
     }
 }
 
+bool MWShadowTechnique::trySharedShadowMap(osgUtil::CullVisitor& cv, ViewDependentData* vdd)
+{
+    auto* sharedConfig = dynamic_cast<SharedShadowMapConfig*>(cv.getCurrentCamera()->getUserData());
+    if (!sharedConfig)
+    {
+        return false;
+    }
+
+    if (sharedConfig->_master)
+    {
+        addSharedVdd(*sharedConfig, vdd);
+        return false;
+    }
+    else
+    {
+        auto* sharedVdd = getSharedVdd(*sharedConfig);
+        if (sharedVdd)
+        {
+            OSG_INFO << "Using shared shadow map" << std::endl;
+            shareShadowMap(cv, vdd, sharedVdd);
+            return true;
+        }
+        else
+        {
+            OSG_WARN << "Warning, view configured to reuse shared shadow map but no shadow map has been shared. Shadows will be generated instead." << std::endl;
+        }
+    }
+
+    return false;
+}
+
 void MWShadowTechnique::update(osg::NodeVisitor& nv)
 {
     OSG_INFO<<"MWShadowTechnique::update(osg::NodeVisitor& "<<&nv<<")"<<std::endl;
@@ -994,33 +1025,15 @@ void MWShadowTechnique::cull(osgUtil::CullVisitor& cv)
 
     ViewDependentData* vdd = getViewDependentData(&cv);
 
-    // Use shared shadow map if applicable
-    auto* sharedConfig = dynamic_cast<SharedShadowMapConfig*>(cv.getCurrentCamera()->getUserData());
-    if (sharedConfig)
-    {
-        if (sharedConfig->_master)
-        {
-            addSharedVdd(*sharedConfig, vdd);
-        }
-        else
-        {
-            auto* sharedVdd = getSharedVdd(*sharedConfig);
-            if (sharedVdd)
-            {
-                OSG_INFO << "Using shared shadow map" << std::endl;
-                return shareShadowMap(cv, vdd, sharedVdd);
-            }
-            else
-            {
-                OSG_INFO << "Warning, view configured to reuse shared shadow map but no shadow map has been shared. Shadows will be generated instead." << std::endl;
-            }
-        }
-    }
-
     if (!vdd)
     {
         OSG_INFO<<"Warning, now ViewDependentData created, unable to create shadows."<<std::endl;
         _shadowedScene->osg::Group::traverse(cv);
+        return;
+    }
+
+    if (trySharedShadowMap(cv, vdd))
+    {
         return;
     }
 

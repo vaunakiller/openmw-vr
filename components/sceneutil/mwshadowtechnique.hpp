@@ -227,11 +227,14 @@ namespace SceneUtil {
         virtual ViewDependentData* createViewDependentData(osgUtil::CullVisitor* cv);
 
         ViewDependentData* getViewDependentData(osgUtil::CullVisitor* cv);
+
         ViewDependentData* getSharedVdd(const SharedShadowMapConfig& config);
+
         void addSharedVdd(const SharedShadowMapConfig& config, ViewDependentData* vdd);
+
         void shareShadowMap(osgUtil::CullVisitor& cv, ViewDependentData* lhs, ViewDependentData* rhs);
 
-
+        bool trySharedShadowMap(osgUtil::CullVisitor& cv, ViewDependentData* vdd);
 
         virtual void createShaders();
 
