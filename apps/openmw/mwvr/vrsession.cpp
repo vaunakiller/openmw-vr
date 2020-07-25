@@ -149,7 +149,7 @@ namespace MWVR
             layerStack[(int)Side::RIGHT_SIDE].fov = frameMeta->mPredictedPoses.view[(int)Side::RIGHT_SIDE].fov;
 
             Log(Debug::Debug) << frameMeta->mFrameNo << ": EndFrame " << std::this_thread::get_id();
-            xr->endFrame(frameMeta->mPredictedDisplayTime, 1, layerStack);
+            xr->endFrame(frameMeta->mXrPredictedDisplayTime, 1, layerStack);
             xr->xrResourceReleased();
         }
 
@@ -161,6 +161,8 @@ namespace MWVR
             mLastFrameInterval = std::chrono::duration_cast<std::chrono::nanoseconds>(now - mLastRenderedFrameTimestamp);
             mLastRenderedFrameTimestamp = now;
             mLastRenderedFrame = getFrame(FramePhase::Swap)->mFrameNo;
+            mLastPredictedDisplayTime = getFrame(FramePhase::Swap)->mXrPredictedDisplayTime;
+            mLastPredictedDisplayPeriod = xr->getLastPredictedDisplayPeriod();;
 
             // Using this to track framerate over the course of gameplay, rather than just seeing the instantaneous
             auto seconds = std::chrono::duration_cast<std::chrono::duration<double>>(now - mStart).count();
@@ -206,10 +208,12 @@ namespace MWVR
         // For example, shadows do some draw calls during cull an as such phase should be "Cull" or earlier with shadows enabled.
         // But may be "Draw" without shadows.
         if (phase == mXrSyncPhase && getFrame(phase)->mShouldRender)
-            doFrameSync();
+        {
+            getFrame(phase)->mXrPredictedDisplayTime = doFrameSync();
+        }
     }
 
-    void VRSession::doFrameSync()
+    long long VRSession::doFrameSync()
     {
         auto begin = std::chrono::steady_clock::now();
         {
@@ -222,7 +226,7 @@ namespace MWVR
         auto condEnd = std::chrono::steady_clock::now();
         auto* xr = Environment::get().getManager();
         Log(Debug::Debug) << mFrames << ": WaitFrame " << std::this_thread::get_id();
-        xr->waitFrame();
+        auto predictedDisplayTime = xr->waitFrame();
         Log(Debug::Debug) << mFrames << ": BeginFrame " << std::this_thread::get_id();
         xr->beginFrame();
         auto xrSyncEnd = std::chrono::steady_clock::now();
@@ -231,6 +235,7 @@ namespace MWVR
         auto xrSyncTime = std::chrono::duration_cast<std::chrono::milliseconds>(xrSyncEnd - condEnd);
         Log(Debug::Debug) << "condTime: " << condTime.count() << ", xrSyncTime: " << xrSyncTime.count();
 
+        return predictedDisplayTime;
     }
 
     std::unique_ptr<VRSession::VRFrameMeta>& VRSession::getFrame(FramePhase phase)
@@ -249,24 +254,26 @@ namespace MWVR
         xr->handleEvents();
 
         auto epochTime = std::chrono::duration_cast<std::chrono::nanoseconds>(std::chrono::steady_clock::now().time_since_epoch()).count();
-        auto predictedDisplayTime = std::max(xr->getLastPredictedDisplayTime(), epochTime);
-        auto predictedDisplayPeriod = std::max(xr->getLastPredictedDisplayPeriod(), (long long)1000000);
-        float intervalsf = static_cast<double>(mLastFrameInterval.count()) / static_cast<double>(predictedDisplayPeriod);
+        auto predictedDisplayTime = mLastPredictedDisplayTime;
+        auto predictedDisplayPeriod = mLastPredictedDisplayPeriod;
+        double intervalsf = static_cast<double>(mLastFrameInterval.count()) / static_cast<double>(predictedDisplayPeriod);
+        int intervals = std::max((int)std::roundf(intervalsf), 1);
+
+        if (predictedDisplayTime == 0)
+            predictedDisplayTime = epochTime;
 
     //////////////////////// OCULUS BUG
         //////////////////// Oculus will suddenly start increasing their predicted display time by precisely 1 second per frame
         //////////////////// regardless of real time passed, causing predictions to go crazy due to the time difference.
         //////////////////// Therefore, for the time being, i ignore oculus' predicted display time altogether.
-        if(mUseSteadyClock)
-            predictedDisplayTime = epochTime;
-
-        if (mFrames > 1)
+        if (mUseSteadyClock)
         {
-            int intervals = std::max((int)std::roundf(intervalsf), 1);
+            predictedDisplayTime = epochTime + intervals * predictedDisplayPeriod;
+        }
+        else
+        {
             predictedDisplayTime = predictedDisplayTime + intervals * (mFrames - mLastRenderedFrame) * predictedDisplayPeriod;
         }
-
-
 
         PoseSet predictedPoses{};
 

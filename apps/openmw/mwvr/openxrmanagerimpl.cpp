@@ -317,7 +317,7 @@ namespace MWVR
         Log(Debug::Verbose) << ss.str();
     }
 
-    void
+    long long
         OpenXRManagerImpl::waitFrame()
     {
         XrFrameWaitInfo frameWaitInfo{ XR_TYPE_FRAME_WAIT_INFO };
@@ -325,6 +325,7 @@ namespace MWVR
 
         CHECK_XRCMD(xrWaitFrame(mSession, &frameWaitInfo, &frameState));
         mFrameState = frameState;
+        return frameState.predictedDisplayTime;
     }
 
     void

@@ -45,10 +45,11 @@ namespace MWVR
             return impl().handleEvents();
     }
 
-    void OpenXRManager::waitFrame()
+    long long OpenXRManager::waitFrame()
     {
         if (realized())
             return impl().waitFrame();
+        return 0;
     }
 
     void OpenXRManager::beginFrame()

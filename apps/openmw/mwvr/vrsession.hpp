@@ -44,6 +44,7 @@ namespace MWVR
         {
             long long   mFrameNo{ 0 };
             long long   mPredictedDisplayTime{ 0 };
+            long long   mXrPredictedDisplayTime{ 0 };
             PoseSet     mPredictedPoses{};
             bool        mShouldRender{ false };
         };
@@ -60,7 +61,7 @@ namespace MWVR
         void prepareFrame();
 
         //! Synchronize with openxr
-        void doFrameSync();
+        long long doFrameSync();
 
         //! Angles to be used for overriding movement direction
         void movementAngles(float& yaw, float& pitch);

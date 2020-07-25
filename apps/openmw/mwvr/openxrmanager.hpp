@@ -45,7 +45,7 @@ namespace MWVR
         bool realized();
 
         //! Forward call to xrWaitFrame()
-        void waitFrame();
+        long long waitFrame();
 
         //! Forward call to xrBeginFrame()
         void beginFrame();

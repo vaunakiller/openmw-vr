@@ -55,7 +55,7 @@ namespace MWVR
         OpenXRManagerImpl(void);
         ~OpenXRManagerImpl(void);
 
-        void waitFrame();
+        long long waitFrame();
         void beginFrame();
         void endFrame(int64_t displayTime, int layerCount, const std::array<CompositionLayerProjectionView, 2>& layerStack);
         bool xrSessionRunning() const { return mSessionRunning; }
