@@ -19,17 +19,13 @@ namespace MWVR
     {
         using SharedShadowMapConfig = SceneUtil::MWShadowTechnique::SharedShadowMapConfig;
     public:
-        VrShadow(osgViewer::Viewer* viewer, int renderOrder = 0);
+        VrShadow();
 
-        void configureShadowsForCamera(osg::Camera* camera);
+        void configureShadowsForCamera(osg::Camera* camera, bool master);
 
-        void configureShadows(bool enabled);
+        void updateShadowConfig(osg::View& view);
 
     private:
-        osgViewer::Viewer* mViewer;
-        int mRenderOrder;
-        osg::ref_ptr<osg::Camera> mShadowMapCamera;
-        osg::ref_ptr< UpdateShadowMapSlaveCallback > mUpdateCallback;
         osg::ref_ptr<SharedShadowMapConfig> mMasterConfig;
         osg::ref_ptr<SharedShadowMapConfig> mSlaveConfig;
     };

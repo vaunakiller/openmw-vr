@@ -9,6 +9,8 @@ struct XrSwapchainSubImage;
 
 namespace MWVR
 {
+    class VRViewer;
+
     /// \brief Manipulates a slave camera by replacing its framebuffer with one destined for openxr
     class VRView : public osg::Referenced
     {
@@ -23,11 +25,11 @@ namespace MWVR
         class UpdateSlaveCallback : public osg::View::Slave::UpdateSlaveCallback
         {
         public:
+            UpdateSlaveCallback(osg::ref_ptr<VRView> view) : mView(view) {}
             void updateSlave(osg::View& view, osg::View::Slave& slave) override;
 
         private:
             osg::ref_ptr<VRView> mView;
-            osg::Node::NodeMask mCullMask;
         };
 
     public:
@@ -37,19 +39,25 @@ namespace MWVR
     public:
         //! Prepare for render (set FBO)
         virtual void prerenderCallback(osg::RenderInfo& renderInfo);
+
         //! Finalize render
         virtual void postrenderCallback(osg::RenderInfo& renderInfo);
+
         //! Create camera for this view
         osg::Camera* createCamera(int order, const osg::Vec4& clearColor, osg::GraphicsContext* gc);
+
         //! Get the view surface
         OpenXRSwapchain& swapchain(void) { return *mSwapchain; }
+
         //! Present to the openxr swapchain
         void swapBuffers(osg::GraphicsContext* gc);
 
+        void updateSlave(osg::View& view, osg::View::Slave& slave);
     public:
         SwapchainConfig mSwapchainConfig;
         std::unique_ptr<OpenXRSwapchain> mSwapchain;
         std::string mName{};
+        osg::Node::NodeMask mCullMask;
         bool mRendering{ false };
     };
 }

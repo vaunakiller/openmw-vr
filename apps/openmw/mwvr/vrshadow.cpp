@@ -10,12 +10,8 @@
 
 namespace MWVR
 {
-    VrShadow::VrShadow(osgViewer::Viewer* viewer, int renderOrder)
-        : mViewer(viewer)
-        , mRenderOrder(renderOrder)
-        , mShadowMapCamera(nullptr)
-        , mUpdateCallback(new UpdateShadowMapSlaveCallback)
-        , mMasterConfig(new SharedShadowMapConfig)
+    VrShadow::VrShadow()
+        : mMasterConfig(new SharedShadowMapConfig)
         , mSlaveConfig(new SharedShadowMapConfig)
     {
         mMasterConfig->_id = "VR";
@@ -24,51 +20,16 @@ namespace MWVR
         mSlaveConfig->_master = false;
     }
 
-    void VrShadow::configureShadowsForCamera(osg::Camera* camera)
+    void VrShadow::configureShadowsForCamera(osg::Camera* camera, bool master)
     {
-        camera->setUserData(mSlaveConfig);
-        if (camera->getRenderOrderNum() < mRenderOrder)
-            camera->setRenderOrder(camera->getRenderOrder(), mRenderOrder + 1);
-    }
-
-    void VrShadow::configureShadows(bool enabled)
-    {
-        if (enabled)
-        {
-            if (!mShadowMapCamera)
-            {
-                mShadowMapCamera = new osg::Camera();
-                mShadowMapCamera->setName("ShadowMap");
-                mShadowMapCamera->setClearMask(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
-                mShadowMapCamera->setRenderTargetImplementation(osg::Camera::FRAME_BUFFER_OBJECT);
-                mShadowMapCamera->setRenderOrder(osg::Camera::PRE_RENDER, mRenderOrder);
-                mShadowMapCamera->setComputeNearFarMode(osg::CullSettings::DO_NOT_COMPUTE_NEAR_FAR);
-                mShadowMapCamera->setAllowEventFocus(false);
-                mShadowMapCamera->setReferenceFrame(osg::Transform::ABSOLUTE_RF);
-                mShadowMapCamera->setViewport(0, 0, 640, 360);
-                mShadowMapCamera->setGraphicsContext(mViewer->getCamera()->getGraphicsContext());
-                mShadowMapCamera->setCullMask(0);
-                mShadowMapCamera->setUserData(mMasterConfig);
-                mViewer->addSlave(mShadowMapCamera, true);
-                auto* slave = mViewer->findSlaveForCamera(mShadowMapCamera);
-                assert(slave);
-                slave->_updateSlaveCallback = mUpdateCallback;
-            }
-
-        }
+        if(master)
+            camera->setUserData(mMasterConfig);
         else
-        {
-            if (mShadowMapCamera)
-            {
-                mViewer->removeSlave(mViewer->findSlaveIndexForCamera(mShadowMapCamera));
-                mShadowMapCamera = nullptr;
-            }
-        }
+            camera->setUserData(mSlaveConfig);
     }
 
-    void UpdateShadowMapSlaveCallback::updateSlave(osg::View& view, osg::View::Slave& slave)
+    void VrShadow::updateShadowConfig(osg::View& view)
     {
-        auto* camera = slave._camera.get();
         auto* session = Environment::get().getSession();
         auto viewMatrix = view.getCamera()->getViewMatrix();
 
@@ -104,8 +65,12 @@ namespace MWVR
         auto modifiedViewMatrix = viewMatrix * session->viewMatrix(P, osg::Quat(0, 0, 0, 1));
         auto projectionMatrix = fov.perspectiveMatrix(near_, far_);
 
-        camera->setViewMatrix(modifiedViewMatrix);
-        camera->setProjectionMatrix(projectionMatrix);
-        slave.updateSlaveImplementation(view);
+        if (mMasterConfig->_projection == nullptr)
+            mMasterConfig->_projection = new osg::RefMatrix;
+        if (mMasterConfig->_modelView == nullptr)
+            mMasterConfig->_modelView = new osg::RefMatrix;
+        mMasterConfig->_referenceFrame = view.getCamera()->getReferenceFrame();
+        mMasterConfig->_modelView->set(modifiedViewMatrix);
+        mMasterConfig->_projection->set(projectionMatrix);
     }
 }

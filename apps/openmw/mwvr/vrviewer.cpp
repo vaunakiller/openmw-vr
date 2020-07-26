@@ -36,7 +36,7 @@ namespace MWVR
         : mViewer(viewer)
         , mPreDraw(new PredrawCallback(this))
         , mPostDraw(new PostdrawCallback(this))
-        , mVrShadow(viewer, 1)
+        , mVrShadow()
         , mConfigured(false)
     {
         mViewer->setRealizeOperation(new RealizeOperation());
@@ -90,8 +90,6 @@ namespace MWVR
         // TODO: If mirror is false either hide the window or paste something meaningful into it.
         // E.g. Fanart of Dagoth UR wearing a VR headset
 
-        mVrShadow.configureShadows(Settings::Manager::getBool("enable shadows", "Shadows"));
-
         for (unsigned i = 0; i < sViewNames.size(); i++)
         {
             auto view = new VRView(sViewNames[i], config[i], context->getState());
@@ -106,8 +104,7 @@ namespace MWVR
             camera->setCullingMode(cullingMode);
             mViewer->addSlave(camera, true);
             auto* slave = mViewer->findSlaveForCamera(camera);
-            assert(slave);
-            slave->_updateSlaveCallback = new VRView::UpdateSlaveCallback();
+            slave->_updateSlaveCallback = new VRView::UpdateSlaveCallback(view);
 
             if (mirror)
                 mMsaaResolveMirrorTexture[i].reset(new VRFramebuffer(context->getState(),
@@ -115,7 +112,7 @@ namespace MWVR
                     view->swapchain().height(),
                     0));
 
-            mVrShadow.configureShadowsForCamera(camera);
+            mVrShadow.configureShadowsForCamera(camera, i == 0);
         }
 
         if (mirror)

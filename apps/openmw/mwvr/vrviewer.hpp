@@ -80,6 +80,7 @@ namespace MWVR
         void realize(osg::GraphicsContext* gc);
         bool realized() { return mConfigured; }
         VRView* getView(std::string name);
+        VrShadow& vrShadow() { return mVrShadow; }
 
         void enableMainCamera(void);
         void disableMainCamera(void);

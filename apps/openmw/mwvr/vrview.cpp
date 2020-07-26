@@ -79,8 +79,21 @@ namespace MWVR {
         osg::View& view,
         osg::View::Slave& slave)
     {
+        mView->updateSlave(view, slave);
+    }
+
+    void VRView::postrenderCallback(osg::RenderInfo& renderInfo)
+    {
+        auto name = renderInfo.getCurrentCamera()->getName();
+    }
+
+    void VRView::swapBuffers(osg::GraphicsContext* gc)
+    {
+        mSwapchain->endFrame(gc);
+    }
+    void VRView::updateSlave(osg::View& view, osg::View::Slave& slave)
+    {
         auto* camera = slave._camera.get();
-        auto name = camera->getName();
 
         // Update current cached cull mask of camera if it is active
         auto mask = camera->getCullMask();
@@ -89,17 +102,23 @@ namespace MWVR {
         else
             mCullMask = mask;
 
+        // If the session is not active, we do not want to waste resources rendering frames.
         if (Environment::get().getSession()->getFrame(VRSession::FramePhase::Update)->mShouldRender)
         {
             Side side = Side::RIGHT_SIDE;
-            if (name == "LeftEye")
+            if (mName == "LeftEye")
+            {
+
+                Environment::get().getViewer()->vrShadow().updateShadowConfig(view);
                 side = Side::LEFT_SIDE;
+            }
 
             auto* session = Environment::get().getSession();
             auto viewMatrix = view.getCamera()->getViewMatrix();
-
             bool haveView = viewMatrix.getTrans().length() > 0.01;
 
+            // During main menu the view matrix will not be set,
+            // in that case we use the vr stage directly instead.
             if (haveView)
             {
                 viewMatrix = viewMatrix * session->viewMatrix(VRSession::FramePhase::Update, side, true);
@@ -115,19 +134,8 @@ namespace MWVR {
         }
         else
         {
-            // If the session is not active, we do not want to waste resources rendering frames.
             camera->setCullMask(0);
         }
         slave.updateSlaveImplementation(view);
-    }
-
-    void VRView::postrenderCallback(osg::RenderInfo& renderInfo)
-    {
-        auto name = renderInfo.getCurrentCamera()->getName();
-    }
-
-    void VRView::swapBuffers(osg::GraphicsContext* gc)
-    {
-        mSwapchain->endFrame(gc);
     }
 }
