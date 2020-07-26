@@ -654,6 +654,8 @@ namespace MWVR
 
     void OpenXRManagerImpl::xrResourceReleased()
     {
+        if (mAcquiredResources == 0)
+            throw std::logic_error("Releasing a nonexistent resource");
         mAcquiredResources--;
     }
 

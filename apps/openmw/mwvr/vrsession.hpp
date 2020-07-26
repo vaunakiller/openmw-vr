@@ -6,6 +6,7 @@
 #include <array>
 #include <chrono>
 #include <queue>
+#include <thread>
 #include <components/debug/debuglog.hpp>
 #include <components/sdlutil/sdlgraphicswindow.hpp>
 #include <components/settings/settings.hpp>
@@ -47,6 +48,7 @@ namespace MWVR
             long long   mXrPredictedDisplayTime{ 0 };
             PoseSet     mPredictedPoses{};
             bool        mShouldRender{ false };
+            std::thread mXrWaitThread{};
         };
 
     public:

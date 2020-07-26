@@ -209,6 +209,8 @@ namespace MWVR
         // But may be "Draw" without shadows.
         if (phase == mXrSyncPhase && getFrame(phase)->mShouldRender)
         {
+            if (getFrame(phase)->mXrWaitThread.joinable())
+                getFrame(phase)->mXrWaitThread.join();
             getFrame(phase)->mXrPredictedDisplayTime = doFrameSync();
         }
     }
@@ -226,7 +228,7 @@ namespace MWVR
         auto condEnd = std::chrono::steady_clock::now();
         auto* xr = Environment::get().getManager();
         Log(Debug::Debug) << mFrames << ": WaitFrame " << std::this_thread::get_id();
-        auto predictedDisplayTime = xr->waitFrame();
+        auto predictedDisplayTime = xr->getLastPredictedDisplayTime();
         Log(Debug::Debug) << mFrames << ": BeginFrame " << std::this_thread::get_id();
         xr->beginFrame();
         auto xrSyncEnd = std::chrono::steady_clock::now();
@@ -303,7 +305,13 @@ namespace MWVR
         frame->mPredictedPoses = predictedPoses;
         frame->mShouldRender = xr->frameShouldRender();
         if (frame->mShouldRender)
+        {
+            // XrWaitThread is best invoked immediately to help the runtime make more accurate predictions
+            // but it forces a wait which is cancer for performance so delegate it to another thread
+            // and join before rendering.
+            frame->mXrWaitThread = std::thread{ [=] {xr->waitFrame(); } };
             xr->xrResourceAcquired();
+        }
     }
 
     const PoseSet& VRSession::predictedPoses(FramePhase phase)
