@@ -147,9 +147,20 @@ namespace SceneUtil {
             virtual ~SharedShadowMapConfig() {}
 
             /// String identifier of the shared shadow map
-            std::string _id;
+            std::string     _id{ "" };
 
-            bool _master;
+            /// If true, this camera will generate the shadow map
+            bool            _master{ false };
+
+            /// If set, will override projection matrix of camera when generating shadow map.
+            osg::ref_ptr<osg::RefMatrix> _projection{ nullptr };
+
+            /// If set, will override model view matrix of camera when generating shadow map.
+            osg::ref_ptr<osg::RefMatrix> _modelView{ nullptr };
+
+            /// Reference frame of the view matrix
+            osg::Transform::ReferenceFrame
+                            _referenceFrame{ osg::Transform::ABSOLUTE_RF };
         };
 
         struct LightData : public osg::Referenced
@@ -236,6 +247,14 @@ namespace SceneUtil {
 
         bool trySharedShadowMap(osgUtil::CullVisitor& cv, ViewDependentData* vdd);
 
+        void endSharedShadowMap(osgUtil::CullVisitor& cv);
+
+        void castShadows(osgUtil::CullVisitor& cv, ViewDependentData* vdd);
+
+        void assignTexGenSettings(osgUtil::CullVisitor& cv, ViewDependentData* vdd);
+
+        void computeProjectionNearFar(osgUtil::CullVisitor& cv, bool orthographicViewFrustum, double& znear, double& zfar);
+
         virtual void createShaders();
 
         virtual bool selectActiveLights(osgUtil::CullVisitor* cv, ViewDependentData* vdd) const;
@@ -250,7 +269,7 @@ namespace SceneUtil {
 
         virtual bool assignTexGenSettings(osgUtil::CullVisitor* cv, osg::Camera* camera, unsigned int textureUnit, osg::TexGen* texgen);
 
-        virtual void cullShadowReceivingScene(osgUtil::CullVisitor* cv) const;
+        virtual osg::ref_ptr<osgUtil::StateGraph> cullShadowReceivingScene(osgUtil::CullVisitor* cv) const;
 
         virtual void cullShadowCastingScene(osgUtil::CullVisitor* cv, osg::Camera* camera) const;
 

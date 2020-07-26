@@ -952,21 +952,6 @@ void SceneUtil::MWShadowTechnique::shareShadowMap(osgUtil::CullVisitor& cv, View
         lhs_sd->_texture = rhs_sd->_texture;
         sdl.push_back(lhs_sd);
     }
-
-
-    cv.pushStateSet(_shadowRecievingPlaceholderStateSet.get());
-    osg::ref_ptr<osgUtil::StateGraph> decoratorStateGraph = cv.getCurrentStateGraph();
-    cullShadowReceivingScene(&cv);
-    cv.popStateSet();
-
-    for (auto sd : sdl)
-    {
-        assignTexGenSettings(&cv, sd->_camera, sd->_textureUnit, sd->_texgen.get());
-    }
-    if (lhs->numValidShadows() > 0)
-    {
-        decoratorStateGraph->setStateSet(selectStateSetForRenderingShadow(*lhs));
-    }
 }
 
 bool MWShadowTechnique::trySharedShadowMap(osgUtil::CullVisitor& cv, ViewDependentData* vdd)
@@ -980,6 +965,10 @@ bool MWShadowTechnique::trySharedShadowMap(osgUtil::CullVisitor& cv, ViewDepende
     if (sharedConfig->_master)
     {
         addSharedVdd(*sharedConfig, vdd);
+        if(sharedConfig->_projection)
+            cv.pushProjectionMatrix(sharedConfig->_projection);
+        if(sharedConfig->_modelView)
+            cv.pushModelViewMatrix(sharedConfig->_modelView, sharedConfig->_referenceFrame);
         return false;
     }
     else
@@ -993,56 +982,33 @@ bool MWShadowTechnique::trySharedShadowMap(osgUtil::CullVisitor& cv, ViewDepende
         }
         else
         {
-            OSG_INFO << "Warning, view configured to reuse shared shadow map but no shadow map has been shared. Shadows will be generated instead." << std::endl;
+            OSG_WARN << "Warning, view configured to reuse shared shadow map but no shadow map has been shared. Shadows will be generated instead." << std::endl;
         }
     }
 
     return false;
 }
 
-void MWShadowTechnique::update(osg::NodeVisitor& nv)
+void SceneUtil::MWShadowTechnique::endSharedShadowMap(osgUtil::CullVisitor& cv)
 {
-    OSG_INFO<<"MWShadowTechnique::update(osg::NodeVisitor& "<<&nv<<")"<<std::endl;
-    _shadowedScene->osg::Group::traverse(nv);
+    auto* sharedConfig = dynamic_cast<SharedShadowMapConfig*>(cv.getCurrentCamera()->getUserData());
+    if (!sharedConfig)
+    {
+        return;
+    }
+
+    if (sharedConfig->_master)
+    {
+        if (sharedConfig->_projection)
+            cv.popProjectionMatrix();
+        if (sharedConfig->_modelView)
+            cv.popModelViewMatrix();
+    }
 }
 
-void MWShadowTechnique::cull(osgUtil::CullVisitor& cv)
+void SceneUtil::MWShadowTechnique::castShadows(osgUtil::CullVisitor& cv, ViewDependentData* vdd)
 {
-    if (!_enableShadows)
-    {
-        _shadowedScene->osg::Group::traverse(cv);
-        return;
-    }
-
-    OSG_INFO<<std::endl<<std::endl<<"MWShadowTechnique::cull(osg::CullVisitor&"<<&cv<<")"<<std::endl;
-
-    if (!_shadowCastingStateSet)
-    {
-        OSG_INFO<<"Warning, init() has not yet been called so ShadowCastingStateSet has not been setup yet, unable to create shadows."<<std::endl;
-        _shadowedScene->osg::Group::traverse(cv);
-        return;
-    }
-
-    ViewDependentData* vdd = getViewDependentData(&cv);
-
-    if (!vdd)
-    {
-        OSG_INFO<<"Warning, now ViewDependentData created, unable to create shadows."<<std::endl;
-        _shadowedScene->osg::Group::traverse(cv);
-        return;
-    }
-
-    if (trySharedShadowMap(cv, vdd))
-    {
-        return;
-    }
-
     ShadowSettings* settings = getShadowedScene()->getShadowSettings();
-
-    OSG_INFO<<"cv->getProjectionMatrix()="<<*cv.getProjectionMatrix()<<std::endl;
-
-    osg::CullSettings::ComputeNearFarMode cachedNearFarMode = cv.getComputeNearFarMode();
-
     osg::RefMatrix& viewProjectionMatrix = *cv.getProjectionMatrix();
 
     // check whether this main views projection is perspective or orthographic
@@ -1050,64 +1016,17 @@ void MWShadowTechnique::cull(osgUtil::CullVisitor& cv)
                                    viewProjectionMatrix(1,3)==0.0 &&
                                    viewProjectionMatrix(2,3)==0.0;
 
+    // Compute near/far of the camera's projection matrix
     double minZNear = 0.0;
     double maxZFar = dbl_max;
-
-    if (cachedNearFarMode==osg::CullSettings::DO_NOT_COMPUTE_NEAR_FAR)
-    {
-        double left, right, top, bottom;
-        if (orthographicViewFrustum)
-        {
-            viewProjectionMatrix.getOrtho(left, right, bottom, top, minZNear, maxZFar);
-        }
-        else
-        {
-            viewProjectionMatrix.getFrustum(left, right, bottom, top, minZNear, maxZFar);
-        }
-        OSG_INFO<<"minZNear="<<minZNear<<", maxZFar="<<maxZFar<<std::endl;
-    }
-
-    // set the compute near/far mode to the highest quality setting to ensure we push the near plan out as far as possible
-    if (settings->getComputeNearFarModeOverride()!=osg::CullSettings::DO_NOT_COMPUTE_NEAR_FAR)
-    {
-        cv.setComputeNearFarMode(settings->getComputeNearFarModeOverride());
-    }
-
-    // 1. Traverse main scene graph
-    cv.pushStateSet( _shadowRecievingPlaceholderStateSet.get() );
-
-    osg::ref_ptr<osgUtil::StateGraph> decoratorStateGraph = cv.getCurrentStateGraph();
-
-    cullShadowReceivingScene(&cv);
-
-    cv.popStateSet();
-
-    if (cv.getComputeNearFarMode()!=osg::CullSettings::DO_NOT_COMPUTE_NEAR_FAR)
-    {
-        OSG_INFO<<"Just done main subgraph traversak"<<std::endl;
-        // make sure that the near plane is computed correctly so that any projection matrix computations
-        // are all done correctly.
-        cv.computeNearPlane();
-    }
-
-    // clamp the minZNear and maxZFar to those provided by ShadowSettings
-    maxZFar = osg::minimum(settings->getMaximumShadowMapDistance(),maxZFar);
-    if (minZNear>maxZFar) minZNear = maxZFar*settings->getMinimumShadowMapNearFarRatio();
-
+    computeProjectionNearFar(cv, orthographicViewFrustum, minZNear, maxZFar);
     //OSG_NOTICE<<"maxZFar "<<maxZFar<<std::endl;
 
     // Workaround for absurdly huge viewing distances where OSG would otherwise push the near plane out.
+    double cachedNearFarRatio = cv.getNearFarRatio();
     cv.setNearFarRatio(minZNear / maxZFar);
 
-    Frustum frustum(&cv, minZNear, maxZFar);
-    if (_debugHud)
-    {
-        osg::ref_ptr<osg::Vec3Array> vertexArray = new osg::Vec3Array();
-        for (osg::Vec3d &vertex : frustum.corners)
-            vertexArray->push_back((osg::Vec3)vertex);
-        _debugHud->setFrustumVertices(vertexArray, cv.getTraversalNumber());
-    }
-
+    // Reduce near/far as much as possible
     double reducedNear, reducedFar;
     if (cv.getComputeNearFarMode() != osg::CullSettings::DO_NOT_COMPUTE_NEAR_FAR)
     {
@@ -1120,8 +1039,14 @@ void MWShadowTechnique::cull(osgUtil::CullVisitor& cv)
         reducedFar = maxZFar;
     }
 
-    // return compute near far mode back to it's original settings
-    cv.setComputeNearFarMode(cachedNearFarMode);
+    Frustum frustum(&cv, minZNear, maxZFar);
+    if (_debugHud)
+    {
+        osg::ref_ptr<osg::Vec3Array> vertexArray = new osg::Vec3Array();
+        for (osg::Vec3d& vertex : frustum.corners)
+            vertexArray->push_back((osg::Vec3)vertex);
+        _debugHud->setFrustumVertices(vertexArray, cv.getTraversalNumber());
+    }
 
     OSG_INFO<<"frustum.eye="<<frustum.eye<<", frustum.centerNearPlane, "<<frustum.centerNearPlane<<" distance = "<<(frustum.eye-frustum.centerNearPlane).length()<<std::endl;
 
@@ -1475,10 +1400,6 @@ void MWShadowTechnique::cull(osgUtil::CullVisitor& cv)
                 }
             }
 
-            // 4.4 compute main scene graph TexGen + uniform settings + setup state
-            //
-            assignTexGenSettings(&cv, camera.get(), textureUnit, sd->_texgen.get());
-
             // mark the light as one that has active shadows and requires shaders
             pl.textureUnits.push_back(textureUnit);
 
@@ -1503,8 +1424,116 @@ void MWShadowTechnique::cull(osgUtil::CullVisitor& cv)
         }
     }
     vdd->setNumValidShadows(numValidShadows);
+    cv.setNearFarRatio(cachedNearFarRatio);
+}
 
-    if (numValidShadows>0)
+void SceneUtil::MWShadowTechnique::assignTexGenSettings(osgUtil::CullVisitor& cv, ViewDependentData* vdd)
+{
+    for (auto& sd : vdd->getShadowDataList())
+    {
+        assignTexGenSettings(&cv, sd->_camera, sd->_textureUnit, sd->_texgen);
+    }
+}
+
+void SceneUtil::MWShadowTechnique::computeProjectionNearFar(osgUtil::CullVisitor& cv, bool orthographicViewFrustum, double& znear, double& zfar)
+{
+    ShadowSettings* settings = getShadowedScene()->getShadowSettings();
+
+    osg::RefMatrix& viewProjectionMatrix = *cv.getProjectionMatrix();
+
+    znear = 0.0;
+    zfar = dbl_max;
+
+    if (cv.getComputeNearFarMode() == osg::CullSettings::DO_NOT_COMPUTE_NEAR_FAR)
+    {
+        double left, right, top, bottom;
+        if (orthographicViewFrustum)
+        {
+            viewProjectionMatrix.getOrtho(left, right, bottom, top, znear, zfar);
+        }
+        else
+        {
+            viewProjectionMatrix.getFrustum(left, right, bottom, top, znear, zfar);
+        }
+        OSG_INFO << "minZNear=" << znear << ", maxZFar=" << zfar << std::endl;
+    }
+
+    // clamp the minZNear and maxZFar to those provided by ShadowSettings
+    zfar = osg::minimum(settings->getMaximumShadowMapDistance(), zfar);
+    if (znear > zfar) znear = zfar * settings->getMinimumShadowMapNearFarRatio();
+}
+
+void MWShadowTechnique::update(osg::NodeVisitor& nv)
+{
+    OSG_INFO<<"MWShadowTechnique::update(osg::NodeVisitor& "<<&nv<<")"<<std::endl;
+    _shadowedScene->osg::Group::traverse(nv);
+}
+
+void MWShadowTechnique::cull(osgUtil::CullVisitor& cv)
+{
+    if (!_enableShadows)
+    {
+        _shadowedScene->osg::Group::traverse(cv);
+        return;
+    }
+
+    OSG_INFO<<std::endl<<std::endl<<"MWShadowTechnique::cull(osg::CullVisitor&"<<&cv<<")"<<std::endl;
+
+    if (!_shadowCastingStateSet)
+    {
+        OSG_INFO<<"Warning, init() has not yet been called so ShadowCastingStateSet has not been setup yet, unable to create shadows."<<std::endl;
+        _shadowedScene->osg::Group::traverse(cv);
+        return;
+    }
+
+    ViewDependentData* vdd = getViewDependentData(&cv);
+
+    if (!vdd)
+    {
+        OSG_INFO<<"Warning, now ViewDependentData created, unable to create shadows."<<std::endl;
+        _shadowedScene->osg::Group::traverse(cv);
+        return;
+    }
+
+    ShadowSettings* settings = getShadowedScene()->getShadowSettings();
+    osg::CullSettings::ComputeNearFarMode cachedNearFarMode = cv.getComputeNearFarMode();
+
+    OSG_INFO<<"cv->getProjectionMatrix()="<<*cv.getProjectionMatrix()<<std::endl;
+
+    // set the compute near/far mode to the highest quality setting to ensure we push the near plan out as far as possible
+    if (settings->getComputeNearFarModeOverride()!=osg::CullSettings::DO_NOT_COMPUTE_NEAR_FAR)
+    {
+        cv.setComputeNearFarMode(settings->getComputeNearFarModeOverride());
+    }
+
+    // 1. Traverse main scene graph
+    osg::ref_ptr<osgUtil::StateGraph> decoratorStateGraph = cullShadowReceivingScene(&cv);
+
+    if (cv.getComputeNearFarMode()!=osg::CullSettings::DO_NOT_COMPUTE_NEAR_FAR)
+    {
+        OSG_INFO<<"Just done main subgraph traversak"<<std::endl;
+        // make sure that the near plane is computed correctly so that any projection matrix computations
+        // are all done correctly.
+        cv.computeNearPlane();
+    }
+
+    // return compute near far mode back to it's original settings
+    cv.setComputeNearFarMode(cachedNearFarMode);
+
+    bool doCastShadow = !trySharedShadowMap(cv, vdd);
+
+    if (doCastShadow)
+    {
+        castShadows(cv, vdd);
+    }
+
+    endSharedShadowMap(cv);
+
+    // 4.4 compute main scene graph TexGen + uniform settings + setup state
+    //
+    assignTexGenSettings(cv, vdd);
+
+    if (vdd->_numValidShadows>0)
     {
         decoratorStateGraph->setStateSet(selectStateSetForRenderingShadow(*vdd));
     }
@@ -3041,27 +3070,31 @@ bool MWShadowTechnique::assignTexGenSettings(osgUtil::CullVisitor* cv, osg::Came
 
     // Place texgen with modelview which removes big offsets (making it float friendly)
     osg::ref_ptr<osg::RefMatrix> refMatrix =
-        new osg::RefMatrix( camera->getInverseViewMatrix() * (*(cv->getModelViewMatrix())) );
+        new osg::RefMatrix( camera->getInverseViewMatrix() * (*cv->getModelViewMatrix()) );
 
     osgUtil::RenderStage* currentStage = cv->getCurrentRenderBin()->getStage();
     currentStage->getPositionalStateContainer()->addPositionedTextureAttribute( textureUnit, refMatrix.get(), texgen );
     return true;
 }
 
-void MWShadowTechnique::cullShadowReceivingScene(osgUtil::CullVisitor* cv) const
+osg::ref_ptr<osgUtil::StateGraph> MWShadowTechnique::cullShadowReceivingScene(osgUtil::CullVisitor* cv) const
 {
     OSG_INFO<<"cullShadowReceivingScene()"<<std::endl;
 
     // record the traversal mask on entry so we can reapply it later.
     unsigned int traversalMask = cv->getTraversalMask();
 
+
+    cv->pushStateSet(_shadowRecievingPlaceholderStateSet.get());
+    osg::ref_ptr<osgUtil::StateGraph> decoratorStateGraph = cv->getCurrentStateGraph();
     cv->setTraversalMask( traversalMask & _shadowedScene->getShadowSettings()->getReceivesShadowTraversalMask() );
 
     _shadowedScene->osg::Group::traverse(*cv);
 
     cv->setTraversalMask( traversalMask );
+    cv->popStateSet();
 
-    return;
+    return decoratorStateGraph;
 }
 
 void MWShadowTechnique::cullShadowCastingScene(osgUtil::CullVisitor* cv, osg::Camera* camera) const
