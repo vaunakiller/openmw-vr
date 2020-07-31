@@ -47,7 +47,7 @@ MacOS:
       - build/OpenMW-*.dmg
 
 variables: &engine-targets
-  targets: "openmw,openmw-essimporter,openmw-iniimporter,openmw-launcher,openmw-wizard"
+  targets: "openmw_vr,openmw-essimporter,openmw-iniimporter,openmw-launcher,openmw-wizard"
 
 variables: &cs-targets
   targets: "openmw-cs,bsatool,esmtool,niftest"
