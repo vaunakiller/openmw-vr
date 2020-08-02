@@ -45,19 +45,19 @@ namespace MWVR
         bool realized();
 
         //! Forward call to xrWaitFrame()
-        long long waitFrame();
+        FrameInfo waitFrame();
 
         //! Forward call to xrBeginFrame()
         void beginFrame();
 
         //! Forward call to xrEndFrame()
-        void endFrame(int64_t displayTime, int layerCount, const std::array<CompositionLayerProjectionView, 2>& layerStack);
+        void endFrame(FrameInfo frameInfo, int layerCount, const std::array<CompositionLayerProjectionView, 2>& layerStack);
 
         //! Whether the openxr session is currently in a running state
         bool xrSessionRunning();
 
-        //! Whether frames should be rendered in the current state
-        bool frameShouldRender();
+        //! Whether frames can be rendered in the current state
+        bool xrSessionCanRender();
 
         //! Process all openxr events
         void handleEvents();

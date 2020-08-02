@@ -56,7 +56,6 @@ namespace MWVR
 {
     OpenXRManagerImpl::OpenXRManagerImpl()
     {
-        
         std::vector<const char*> extensions = {
             XR_KHR_OPENGL_ENABLE_EXTENSION_NAME,
             XR_KHR_COMPOSITION_LAYER_DEPTH_EXTENSION_NAME,
@@ -143,30 +142,35 @@ namespace MWVR
             auto DC = wglGetCurrentDC();
             auto GLRC = wglGetCurrentContext();
             auto XRGLRC = wglCreateContext(DC);
+            auto USERGLRC = wglCreateContext(DC);
             wglShareLists(GLRC, XRGLRC);
-            wglMakeCurrent(DC, XRGLRC);
+            wglShareLists(GLRC, USERGLRC);
 
-            mGraphicsBinding.type = XR_TYPE_GRAPHICS_BINDING_OPENGL_WIN32_KHR;
-            mGraphicsBinding.next = nullptr;
-            mGraphicsBinding.hDC = DC;
-            mGraphicsBinding.hGLRC = XRGLRC;
+            mGraphicsBindingXr.type = XR_TYPE_GRAPHICS_BINDING_OPENGL_WIN32_KHR;
+            mGraphicsBindingXr.next = nullptr;
+            mGraphicsBindingXr.hDC = DC;
+            mGraphicsBindingXr.hGLRC = XRGLRC;
+            mGraphicsBindingUser.type = XR_TYPE_GRAPHICS_BINDING_OPENGL_WIN32_KHR;
+            mGraphicsBindingUser.next = nullptr;
+            mGraphicsBindingUser.hDC = DC;
+            mGraphicsBindingUser.hGLRC = USERGLRC;
 
-            if (!mGraphicsBinding.hDC)
-                std::cout << "Missing DC" << std::endl;
-            if (!mGraphicsBinding.hGLRC)
-                std::cout << "Missing GLRC" << std::endl;
+            if (!mGraphicsBindingXr.hDC)
+                Log(Debug::Warning) << "Missing DC";
+            if (!mGraphicsBindingXr.hGLRC)
+                Log(Debug::Warning) << "Missing GLRC";
 
             XrSessionCreateInfo createInfo{ XR_TYPE_SESSION_CREATE_INFO };
-            createInfo.next = &mGraphicsBinding;
+            createInfo.next = &mGraphicsBindingXr;
             createInfo.systemId = mSystemId;
             CHECK_XRCMD(xrCreateSession(mInstance, &createInfo, &mSession));
             assert(mSession);
-            wglMakeCurrent(DC, GLRC);
         }
 
         LogLayersAndExtensions();
         LogInstanceInfo();
         LogReferenceSpaces();
+        LogSwapchainFormats();
 
         { // Set up reference space
             XrReferenceSpaceCreateInfo createInfo{ XR_TYPE_REFERENCE_SPACE_CREATE_INFO };
@@ -212,15 +216,28 @@ namespace MWVR
     }
 
     inline XrResult CheckXrResult(XrResult res, const char* originator, const char* sourceLocation) {
+        static bool initialized = false;
+        static bool sLogAllXrCalls = false;
+        static bool sContinueOnErrors = false;
+        if (!initialized)
+        {
+            initialized = true;
+            sLogAllXrCalls = Settings::Manager::getBool("log all openxr calls", "VR");
+            sContinueOnErrors = Settings::Manager::getBool("continue on errors", "VR");
+        }
+
         if (XR_FAILED(res)) {
             std::stringstream ss;
             ss << sourceLocation << ": OpenXR[Error: " << to_string(res) << "][Thread: " << std::this_thread::get_id() << "][DC: " << wglGetCurrentDC() << "][GLRC: " << wglGetCurrentContext() << "]: " << originator;
             Log(Debug::Error) << ss.str();
-            throw std::runtime_error(ss.str().c_str());
+            if (res == XR_ERROR_TIME_INVALID)
+                Log(Debug::Error) << "Breakpoint";
+            if (!sContinueOnErrors)
+                throw std::runtime_error(ss.str().c_str());
         }
-        else
+        else if (res != XR_SUCCESS || sLogAllXrCalls)
         {
-            // Log(Debug::Verbose) << sourceLocation << ": OpenXR[" << to_string(res) << "][" << std::this_thread::get_id() << "][" << wglGetCurrentDC() << "][" << wglGetCurrentContext() << "]: " << originator;
+            Log(Debug::Verbose) << sourceLocation << ": OpenXR[" << to_string(res) << "][" << std::this_thread::get_id() << "][" << wglGetCurrentDC() << "][" << wglGetCurrentContext() << "]: " << originator;
         }
 
         return res;
@@ -317,7 +334,25 @@ namespace MWVR
         Log(Debug::Verbose) << ss.str();
     }
 
-    long long
+    void OpenXRManagerImpl::LogSwapchainFormats()
+    {
+        uint32_t swapchainFormatCount;
+        CHECK_XRCMD(xrEnumerateSwapchainFormats(xrSession(), 0, &swapchainFormatCount, nullptr));
+        std::vector<int64_t> swapchainFormats(swapchainFormatCount);
+        CHECK_XRCMD(xrEnumerateSwapchainFormats(xrSession(), (uint32_t)swapchainFormats.size(), &swapchainFormatCount, swapchainFormats.data()));
+
+        std::stringstream ss;
+        ss << "Available Swapchain formats: (" << swapchainFormatCount << ")" << std::endl;
+
+        for (auto format : swapchainFormats)
+        {
+            ss << "  Enum=" << std::dec << format << " (0x=" << std::hex << format << ")" << std::endl;
+        }
+
+        Log(Debug::Verbose) << ss.str();
+    }
+
+    FrameInfo
         OpenXRManagerImpl::waitFrame()
     {
         XrFrameWaitInfo frameWaitInfo{ XR_TYPE_FRAME_WAIT_INFO };
@@ -325,7 +360,23 @@ namespace MWVR
 
         CHECK_XRCMD(xrWaitFrame(mSession, &frameWaitInfo, &frameState));
         mFrameState = frameState;
-        return frameState.predictedDisplayTime;
+
+        FrameInfo frameInfo;
+
+        frameInfo.runtimePredictedDisplayTime = mFrameState.predictedDisplayTime;
+        frameInfo.runtimePredictedDisplayPeriod = mFrameState.predictedDisplayPeriod;
+        frameInfo.runtimeRequestsRender = !!mFrameState.shouldRender;
+
+        return frameInfo;
+    }
+
+    static void clearGlErrors()
+    {
+        auto error = glGetError();
+        while (error != GL_NO_ERROR)
+        {
+            Log(Debug::Warning) << "glGetError: " << std::dec << error << " (0x" << std::hex << error << ")";
+        }
     }
 
     void
@@ -333,11 +384,10 @@ namespace MWVR
     {
         auto DC = wglGetCurrentDC();
         auto GLRC = wglGetCurrentContext();
-        auto XRDC = mGraphicsBinding.hDC;
-        auto XRGLRC = mGraphicsBinding.hGLRC;
-        wglMakeCurrent(XRDC, XRGLRC);
-
+        wglMakeCurrent(mGraphicsBindingUser.hDC, mGraphicsBindingUser.hGLRC);
+        clearGlErrors();
         XrFrameBeginInfo frameBeginInfo{ XR_TYPE_FRAME_BEGIN_INFO };
+
         CHECK_XRCMD(xrBeginFrame(mSession, &frameBeginInfo));
 
         wglMakeCurrent(DC, GLRC);
@@ -356,13 +406,12 @@ namespace MWVR
     }
 
     void
-        OpenXRManagerImpl::endFrame(int64_t displayTime, int layerCount, const std::array<CompositionLayerProjectionView, 2>& layerStack)
+        OpenXRManagerImpl::endFrame(FrameInfo frameInfo, int layerCount, const std::array<CompositionLayerProjectionView, 2>& layerStack)
     {
         auto DC = wglGetCurrentDC();
         auto GLRC = wglGetCurrentContext();
-        auto XRDC = mGraphicsBinding.hDC;
-        auto XRGLRC = mGraphicsBinding.hGLRC;
-        wglMakeCurrent(XRDC, XRGLRC);
+        wglMakeCurrent(mGraphicsBindingUser.hDC, mGraphicsBindingUser.hGLRC);
+        clearGlErrors();
 
         std::array<XrCompositionLayerProjectionView, 2> compositionLayerProjectionViews{};
         compositionLayerProjectionViews[(int)Side::LEFT_SIDE] = toXR(layerStack[(int)Side::LEFT_SIDE]);
@@ -378,19 +427,27 @@ namespace MWVR
         if (xrExtensionIsEnabled(XR_KHR_COMPOSITION_LAYER_DEPTH_EXTENSION_NAME))
         {
             auto farClip = Settings::Manager::getFloat("viewing distance", "Camera");
+            // All values not set here are set previously as they are constant
             compositionLayerDepth[(int)Side::LEFT_SIDE].farZ = farClip;
             compositionLayerDepth[(int)Side::RIGHT_SIDE].farZ = farClip;
             compositionLayerDepth[(int)Side::LEFT_SIDE].subImage = layerStack[(int)Side::LEFT_SIDE].swapchain->impl().xrSubImageDepth();
             compositionLayerDepth[(int)Side::RIGHT_SIDE].subImage = layerStack[(int)Side::RIGHT_SIDE].swapchain->impl().xrSubImageDepth();
-            compositionLayerProjectionViews[(int)Side::LEFT_SIDE].next = &compositionLayerDepth[(int)Side::LEFT_SIDE];
-            compositionLayerProjectionViews[(int)Side::RIGHT_SIDE].next = &compositionLayerDepth[(int)Side::RIGHT_SIDE];
+            if (compositionLayerDepth[(int)Side::LEFT_SIDE].subImage.swapchain != XR_NULL_HANDLE
+                && compositionLayerDepth[(int)Side::RIGHT_SIDE].subImage.swapchain != XR_NULL_HANDLE)
+            {
+                compositionLayerProjectionViews[(int)Side::LEFT_SIDE].next = &compositionLayerDepth[(int)Side::LEFT_SIDE];
+                compositionLayerProjectionViews[(int)Side::RIGHT_SIDE].next = &compositionLayerDepth[(int)Side::RIGHT_SIDE];
+            }
         }
 
         XrFrameEndInfo frameEndInfo{ XR_TYPE_FRAME_END_INFO };
-        frameEndInfo.displayTime = displayTime;
+        frameEndInfo.displayTime = frameInfo.runtimePredictedDisplayTime;
         frameEndInfo.environmentBlendMode = mEnvironmentBlendMode;
-        frameEndInfo.layerCount = layerCount;
-        frameEndInfo.layers = &xrLayerStack;
+        //if (frameInfo.runtimeRequestsRender)
+        {
+            frameEndInfo.layerCount = layerCount;
+            frameEndInfo.layers = &xrLayerStack;
+        }
         CHECK_XRCMD(xrEndFrame(mSession, &frameEndInfo));
 
         wglMakeCurrent(DC, GLRC);
@@ -642,7 +699,7 @@ namespace MWVR
         return mEnabledExtensions.count(extensionName) != 0;
     }
 
-    bool OpenXRManagerImpl::frameShouldRender()
+    bool OpenXRManagerImpl::xrSessionCanRender()
     {
         return xrSessionRunning() && !xrSessionStopRequested();
     }

@@ -32,10 +32,10 @@ namespace MWVR
         return false;
     }
 
-    bool OpenXRManager::frameShouldRender()
+    bool OpenXRManager::xrSessionCanRender()
     {
         if (realized())
-            return impl().frameShouldRender();
+            return impl().xrSessionCanRender();
         return false;
     }
 
@@ -45,23 +45,19 @@ namespace MWVR
             return impl().handleEvents();
     }
 
-    long long OpenXRManager::waitFrame()
+    FrameInfo OpenXRManager::waitFrame()
     {
-        if (realized())
-            return impl().waitFrame();
-        return 0;
+        return impl().waitFrame();
     }
 
     void OpenXRManager::beginFrame()
     {
-        if (realized())
-            return impl().beginFrame();
+        return impl().beginFrame();
     }
 
-    void OpenXRManager::endFrame(int64_t displayTime, int layerCount, const std::array<CompositionLayerProjectionView, 2>& layerStack)
+    void OpenXRManager::endFrame(FrameInfo frameInfo, int layerCount, const std::array<CompositionLayerProjectionView, 2>& layerStack)
     {
-        if (realized())
-            return impl().endFrame(displayTime, layerCount, layerStack);
+        return impl().endFrame(frameInfo, layerCount, layerStack);
     }
 
     void

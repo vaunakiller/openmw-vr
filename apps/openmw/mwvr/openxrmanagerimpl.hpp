@@ -55,9 +55,9 @@ namespace MWVR
         OpenXRManagerImpl(void);
         ~OpenXRManagerImpl(void);
 
-        long long waitFrame();
+        FrameInfo waitFrame();
         void beginFrame();
-        void endFrame(int64_t displayTime, int layerCount, const std::array<CompositionLayerProjectionView, 2>& layerStack);
+        void endFrame(FrameInfo frameInfo, int layerCount, const std::array<CompositionLayerProjectionView, 2>& layerStack);
         bool xrSessionRunning() const { return mSessionRunning; }
         std::array<View, 2> getPredictedViews(int64_t predictedDisplayTime, ReferenceSpace space);
         MWVR::Pose getPredictedHeadPose(int64_t predictedDisplayTime, ReferenceSpace space);
@@ -72,7 +72,7 @@ namespace MWVR
         XrInstance xrInstance() const { return mInstance; };
         bool xrExtensionIsEnabled(const char* extensionName) const;
         bool xrSessionStopRequested();
-        bool frameShouldRender();
+        bool xrSessionCanRender();
         void xrResourceAcquired();
         void xrResourceReleased();
 
@@ -80,6 +80,7 @@ namespace MWVR
         void LogLayersAndExtensions();
         void LogInstanceInfo();
         void LogReferenceSpaces();
+        void LogSwapchainFormats();
         bool xrNextEvent(XrEventDataBuffer& eventBuffer);
         void xrQueueEvents();
         const XrEventDataBaseHeader* nextEvent();
@@ -99,7 +100,8 @@ namespace MWVR
         XrViewConfigurationType mViewConfigType = XR_VIEW_CONFIGURATION_TYPE_PRIMARY_STEREO;
         XrEnvironmentBlendMode mEnvironmentBlendMode = XR_ENVIRONMENT_BLEND_MODE_OPAQUE;
         XrSystemId mSystemId = XR_NULL_SYSTEM_ID;
-        XrGraphicsBindingOpenGLWin32KHR mGraphicsBinding{ XR_TYPE_GRAPHICS_BINDING_OPENGL_WIN32_KHR };
+        XrGraphicsBindingOpenGLWin32KHR mGraphicsBindingXr{ XR_TYPE_GRAPHICS_BINDING_OPENGL_WIN32_KHR };
+        XrGraphicsBindingOpenGLWin32KHR mGraphicsBindingUser{ XR_TYPE_GRAPHICS_BINDING_OPENGL_WIN32_KHR };
         XrSystemProperties mSystemProperties{ XR_TYPE_SYSTEM_PROPERTIES };
         std::array<XrViewConfigurationView, 2> mConfigViews{ { {XR_TYPE_VIEW_CONFIGURATION_VIEW}, {XR_TYPE_VIEW_CONFIGURATION_VIEW} } };
         XrSpace mReferenceSpaceView = XR_NULL_HANDLE;

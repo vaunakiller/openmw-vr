@@ -45,10 +45,9 @@ namespace MWVR
         {
             long long   mFrameNo{ 0 };
             long long   mPredictedDisplayTime{ 0 };
-            long long   mXrPredictedDisplayTime{ 0 };
             PoseSet     mPredictedPoses{};
             bool        mShouldRender{ false };
-            std::thread mXrWaitThread{};
+            FrameInfo   mFrameInfo{};
         };
 
     public:
@@ -61,9 +60,6 @@ namespace MWVR
 
         //! Starts a new frame
         void prepareFrame();
-
-        //! Synchronize with openxr
-        long long doFrameSync();
 
         //! Angles to be used for overriding movement direction
         void movementAngles(float& yaw, float& pitch);

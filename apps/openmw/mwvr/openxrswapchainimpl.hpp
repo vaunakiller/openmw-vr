@@ -51,6 +51,7 @@ namespace MWVR
         int32_t mSamples = -1;
         int64_t mSwapchainColorFormat = -1;
         int64_t mSwapchainDepthFormat = -1;
+        bool mHaveDepthSwapchain = false;
         uint32_t mFBO = 0;
         std::vector<std::unique_ptr<VRFramebuffer> > mRenderBuffers{};
         int mRenderBuffer{ 0 };

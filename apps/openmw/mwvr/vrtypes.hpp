@@ -107,6 +107,13 @@ namespace MWVR
         uint32_t maxSamples = -1;
     };
 
+    struct FrameInfo
+    {
+        long long   runtimePredictedDisplayTime;
+        long long   runtimePredictedDisplayPeriod;
+        bool        runtimeRequestsRender;
+    };
+
     // Serialization methods for VR types.
     std::ostream& operator <<(std::ostream& os, const Pose& pose);
     std::ostream& operator <<(std::ostream& os, const FieldOfView& fov);
