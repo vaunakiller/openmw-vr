@@ -259,7 +259,9 @@ if(BUILD_OPENMW_VR)
         ${APPLE_BUNDLE_RESOURCES}
     )
     
-    # Import the OpenXR SDK
+    ########### Import the OpenXR SDK
+    # Force the openxr-sdk to use its bundled jsoncpp to avoid problems from system jsoncpp if present
+    set(BUILD_WITH_SYSTEM_JSONCPP off) 
     include(FetchContent)
     FetchContent_Declare( 
         OpenXR 
