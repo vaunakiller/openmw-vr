@@ -108,6 +108,8 @@ namespace MWRender
 
         osg::Uniform* mUniformNear;
         osg::Uniform* mUniformFar;
+        osg::Uniform* mUniformStereoViewOffsets;
+        osg::Uniform* mUniformStereoProjections;
 
         void preloadCommonAssets();
 

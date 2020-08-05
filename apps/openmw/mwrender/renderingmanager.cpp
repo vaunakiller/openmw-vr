@@ -15,6 +15,7 @@
 #include <osg/ComputeBoundsVisitor>
 #include <osg/ShapeDrawable>
 #include <osg/TextureCubeMap>
+#include <osg/ViewportIndexed>
 
 #include <osgUtil/LineSegmentIntersector>
 
@@ -207,8 +208,9 @@ namespace MWRender
         resourceSystem->getSceneManager()->setParticleSystemMask(MWRender::Mask_ParticleSystem);
         resourceSystem->getSceneManager()->setShaderPath(resourcePath + "/shaders");
         // Shadows and radial fog have problems with fixed-function mode
-        bool forceShaders = Settings::Manager::getBool("radial fog", "Shaders") || Settings::Manager::getBool("force shaders", "Shaders") || Settings::Manager::getBool("enable shadows", "Shadows");
-        resourceSystem->getSceneManager()->setForceShaders(forceShaders);
+        //bool forceShaders = Settings::Manager::getBool("radial fog", "Shaders") || Settings::Manager::getBool("force shaders", "Shaders") || Settings::Manager::getBool("enable shadows", "Shadows");
+        //resourceSystem->getSceneManager()->setForceShaders(forceShaders);
+        resourceSystem->getSceneManager()->setForceShaders(true);
         // FIXME: calling dummy method because terrain needs to know whether lighting is clamped
         resourceSystem->getSceneManager()->setClampLighting(Settings::Manager::getBool("clamp lighting", "Shaders"));
         resourceSystem->getSceneManager()->setAutoUseNormalMaps(Settings::Manager::getBool("auto use object normal maps", "Shaders"));
@@ -370,11 +372,27 @@ namespace MWRender
         mFirstPersonFieldOfView = std::min(std::max(1.f, firstPersonFov), 179.f);
         mStateUpdater->setFogEnd(mViewDistance);
 
+        ////// Indexed viewports and related uniforms
+        sceneRoot->getOrCreateStateSet()->addUniform(new osg::Uniform(osg::Uniform::FLOAT_MAT4, "stereoViewOffsets", 2));
+        sceneRoot->getOrCreateStateSet()->addUniform(new osg::Uniform(osg::Uniform::FLOAT_MAT4, "stereoProjections", 2));
+        mUniformStereoViewOffsets = sceneRoot->getOrCreateStateSet()->getUniform("stereoViewOffsets");
+        mUniformStereoProjections = sceneRoot->getOrCreateStateSet()->getUniform("stereoProjections");
+        mUniformStereoViewOffsets->setElement(0, osg::Matrix::identity());
+        mUniformStereoViewOffsets->setElement(1, osg::Matrix::identity());
+
+        auto width = mViewer->getCamera()->getViewport()->width();
+        auto height = mViewer->getCamera()->getViewport()->height();
+
+        sceneRoot->getOrCreateStateSet()->setAttribute(new osg::ViewportIndexed(0, 0, 0, width / 2, height));
+        sceneRoot->getOrCreateStateSet()->setAttribute(new osg::ViewportIndexed(1, width / 2, 0, width / 2, height));
+
+        ////// Near far uniforms
         mRootNode->getOrCreateStateSet()->addUniform(new osg::Uniform("near", mNearClip));
         mRootNode->getOrCreateStateSet()->addUniform(new osg::Uniform("far", mViewDistance));
 
         mUniformNear = mRootNode->getOrCreateStateSet()->getUniform("near");
         mUniformFar = mRootNode->getOrCreateStateSet()->getUniform("far");
+
         updateProjectionMatrix();
     }
 
@@ -1224,6 +1242,9 @@ namespace MWRender
         if (mFieldOfViewOverridden)
             fov = mFieldOfViewOverride;
         mViewer->getCamera()->setProjectionMatrixAsPerspective(fov, aspect, mNearClip, mViewDistance);
+
+        mUniformStereoProjections->setElement(0, mViewer->getCamera()->getProjectionMatrix());
+        mUniformStereoProjections->setElement(1, mViewer->getCamera()->getProjectionMatrix());
 
         mUniformNear->set(mNearClip);
         mUniformFar->set(mViewDistance);
