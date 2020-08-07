@@ -12,6 +12,8 @@
 
 #include <components/sceneutil/mwshadowtechnique.hpp>
 
+#include <components/misc/stringops.hpp>
+
 namespace MWVR
 {
 
@@ -52,6 +54,28 @@ namespace MWVR
         mViewer->renderingTraversals();
     }
 
+    int parseResolution(std::string conf, int recommended, int max)
+    {
+        if (Misc::StringUtils::isNumber(conf))
+        {
+            int res = std::atoi(conf.c_str());
+            if (res <= 0)
+                return recommended;
+            if (res > max)
+                return max;
+            return res;
+        }
+        conf = Misc::StringUtils::lowerCase(conf);
+        if (conf == "auto" || conf == "recommended")
+        {
+            return recommended;
+        }
+        if (conf == "max")
+        {
+            return max;
+        }
+    }
+
     void VRViewer::realize(osg::GraphicsContext* context)
     {
         std::unique_lock<std::mutex> lock(mMutex);
@@ -86,19 +110,49 @@ namespace MWVR
         osg::Vec4 clearColor = mainCamera->getClearColor();
         auto config = xr->getRecommendedSwapchainConfig();
         bool mirror = Settings::Manager::getBool("mirror texture", "VR");
-        mFlipMirrorTextureOrder = Settings::Manager::getBool("flip mirror texture order", "VR");
+        std::string mirrorTextureEyeString = Settings::Manager::getString("mirror texture eye", "VR");
+        mirrorTextureEyeString = Misc::StringUtils::lowerCase(mirrorTextureEyeString);
+        if (mirrorTextureEyeString == "left" || mirrorTextureEyeString == "both")
+            mMirrorTextureViews.push_back(sViewNames[(int)Side::LEFT_SIDE]);
+        if (mirrorTextureEyeString == "right" || mirrorTextureEyeString == "both")
+            mMirrorTextureViews.push_back(sViewNames[(int)Side::RIGHT_SIDE]);
+        if (Settings::Manager::getBool("flip mirror texture order", "VR"))
+            std::reverse(mMirrorTextureViews.begin(), mMirrorTextureViews.end());
         // TODO: If mirror is false either hide the window or paste something meaningful into it.
         // E.g. Fanart of Dagoth UR wearing a VR headset
 
+        std::array<std::string, 2> xConfString;
+        std::array<std::string, 2> yConfString;
+        xConfString[0] = Settings::Manager::getString("left eye resolution x", "VR");
+        yConfString[0] = Settings::Manager::getString("left eye resolution y", "VR");
+
+        xConfString[1] = Settings::Manager::getString("right eye resolution x", "VR");
+        yConfString[1] = Settings::Manager::getString("right eye resolution y", "VR");
+
         for (unsigned i = 0; i < sViewNames.size(); i++)
         {
-            auto view = new VRView(sViewNames[i], config[i], context->getState());
-            mViews[sViewNames[i]] = view;
-            auto camera = mCameras[sViewNames[i]] = view->createCamera(i + 2, clearColor, context);
+            auto name = sViewNames[i];
+
+            config[i].selectedWidth = parseResolution(xConfString[i], config[i].recommendedWidth, config[i].maxWidth);
+            config[i].selectedHeight = parseResolution(yConfString[i], config[i].recommendedHeight, config[i].maxHeight);
+
+            config[i].selectedSamples = Settings::Manager::getInt("antialiasing", "Video");
+            // OpenXR requires a non-zero value
+            if (config[i].selectedSamples < 1)
+                config[i].selectedSamples = 1;
+
+            Log(Debug::Verbose) << name << " resolution: Recommended x=" << config[i].recommendedWidth << ", y=" << config[i].recommendedHeight;
+            Log(Debug::Verbose) << name << " resolution: Max x=" << config[i].maxWidth << ", y=" << config[i].maxHeight;
+            Log(Debug::Verbose) << name << " resolution: Selected x=" << config[i].selectedWidth << ", y=" << config[i].selectedHeight;
+
+
+            auto view = new VRView(name, config[i], context->getState());
+            mViews[name] = view;
+            auto camera = mCameras[name] = view->createCamera(i + 2, clearColor, context);
             camera->setPreDrawCallback(mPreDraw);
             camera->setFinalDrawCallback(mPostDraw);
             camera->setCullMask(~MWRender::Mask_GUI & ~MWRender::Mask_SimpleWater & ~MWRender::Mask_UpdateVisitor);
-            camera->setName(sViewNames[i]);
+            camera->setName(name);
             if (smallFeatureCulling)
                 camera->setSmallFeatureCullingPixelSize(smallFeatureCullingPixelSize);
             camera->setCullingMode(cullingMode);
@@ -154,22 +208,18 @@ namespace MWVR
         auto* gl = osg::GLExtensions::Get(state->getContextID(), false);
 
         int screenWidth = mCameras["MainCamera"]->getViewport()->width();
-        int mirrorWidth = screenWidth / 2;
+        int mirrorWidth = screenWidth / mMirrorTextureViews.size();
         int screenHeight = mCameras["MainCamera"]->getViewport()->height();
 
         // Since OpenXR does not include native support for mirror textures, we have to generate them ourselves
-        // which means resolving msaa twice. If this is a performance concern, add an option to disable the mirror texture.
-        for (unsigned i = 0; i < sViewNames.size(); i++)
+        // which means resolving msaa twice.
+        for (unsigned i = 0; i < mMirrorTextureViews.size(); i++)
         {
             auto& resolveTexture = *mMsaaResolveMirrorTexture[i];
             resolveTexture.bindFramebuffer(gc, GL_FRAMEBUFFER_EXT);
-            mViews[sViewNames[i]]->swapchain().renderBuffer()->blit(gc, 0, 0, resolveTexture.width(), resolveTexture.height());
+            mViews[mMirrorTextureViews[i]]->swapchain().renderBuffer()->blit(gc, 0, 0, resolveTexture.width(), resolveTexture.height());
             mMirrorTexture->bindFramebuffer(gc, GL_FRAMEBUFFER_EXT);
-
-            unsigned mirrorIndex = i;
-            if (mFlipMirrorTextureOrder)
-                mirrorIndex = sViewNames.size() - 1 - i;
-            resolveTexture.blit(gc, mirrorIndex * mirrorWidth, 0, (mirrorIndex + 1) * mirrorWidth, screenHeight);
+            resolveTexture.blit(gc, i * mirrorWidth, 0, (i + 1) * mirrorWidth, screenHeight);
         }
 
         gl->glBindFramebuffer(GL_FRAMEBUFFER_EXT, 0);

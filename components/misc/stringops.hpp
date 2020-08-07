@@ -164,6 +164,19 @@ public:
         return out;
     }
 
+    /// true if the string is a number
+    static bool isNumber(const std::string& in)
+    {
+        for (auto c : in)
+        {
+            if (!std::isdigit(c))
+            {
+                return false;
+            }
+        }
+        return true;
+    }
+
     struct CiComp
     {
         bool operator()(const std::string& left, const std::string& right) const

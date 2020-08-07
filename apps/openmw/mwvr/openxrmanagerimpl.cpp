@@ -346,7 +346,7 @@ namespace MWVR
 
         for (auto format : swapchainFormats)
         {
-            ss << "  Enum=" << std::dec << format << " (0x=" << std::hex << format << ")" << std::endl;
+            ss << "  Enum=" << std::dec << format << " (0x=" << std::hex << format << ")" << std::dec << std::endl;
         }
 
         Log(Debug::Verbose) << ss.str();
@@ -375,7 +375,7 @@ namespace MWVR
         auto error = glGetError();
         while (error != GL_NO_ERROR)
         {
-            Log(Debug::Warning) << "glGetError: " << std::dec << error << " (0x" << std::hex << error << ")";
+            Log(Debug::Warning) << "glGetError: " << std::dec << error << " (0x" << std::hex << error << ")" << std::dec;
         }
     }
 
@@ -745,12 +745,12 @@ namespace MWVR
         std::array<SwapchainConfig, 2> config{};
         for (uint32_t i = 0; i < 2; i++)
             config[i] = SwapchainConfig{
-                mConfigViews[i].recommendedImageRectWidth,
-                mConfigViews[i].maxImageRectWidth,
-                mConfigViews[i].recommendedImageRectHeight,
-                mConfigViews[i].maxImageRectHeight,
-                mConfigViews[i].recommendedSwapchainSampleCount,
-                mConfigViews[i].recommendedSwapchainSampleCount,
+                (int)mConfigViews[i].recommendedImageRectWidth,
+                (int)mConfigViews[i].recommendedImageRectHeight,
+                (int)mConfigViews[i].recommendedSwapchainSampleCount,
+                (int)mConfigViews[i].maxImageRectWidth,
+                (int)mConfigViews[i].maxImageRectHeight,
+                (int)mConfigViews[i].maxSwapchainSampleCount,
         };
         return config;
     }

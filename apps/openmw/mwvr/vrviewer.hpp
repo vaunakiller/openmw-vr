@@ -99,7 +99,7 @@ namespace MWVR
         std::mutex mMutex{};
 
         bool mConfigured{ false };
-        bool mFlipMirrorTextureOrder{ false };
+        std::vector<std::string> mMirrorTextureViews;
     };
 }
 

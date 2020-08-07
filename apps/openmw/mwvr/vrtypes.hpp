@@ -99,12 +99,15 @@ namespace MWVR
 
     struct SwapchainConfig
     {
-        uint32_t recommendedWidth = -1;
-        uint32_t maxWidth = -1;
-        uint32_t recommendedHeight = -1;
-        uint32_t maxHeight = -1;
-        uint32_t recommendedSamples = -1;
-        uint32_t maxSamples = -1;
+        int recommendedWidth = -1;
+        int recommendedHeight = -1;
+        int recommendedSamples = -1;
+        int maxWidth = -1;
+        int maxHeight = -1;
+        int maxSamples = -1;
+        int selectedWidth = -1;
+        int selectedHeight = -1;
+        int selectedSamples = -1;
     };
 
     struct FrameInfo

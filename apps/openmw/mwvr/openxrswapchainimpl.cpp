@@ -13,9 +13,9 @@
 
 namespace MWVR {
     OpenXRSwapchainImpl::OpenXRSwapchainImpl(osg::ref_ptr<osg::State> state, SwapchainConfig config)
-        : mWidth((int)config.recommendedWidth)
-        , mHeight((int)config.recommendedHeight)
-        , mSamples((int)config.recommendedSamples)
+        : mWidth(config.selectedWidth)
+        , mHeight(config.selectedHeight)
+        , mSamples(config.selectedSamples)
     {
         if (mWidth <= 0)
             throw std::invalid_argument("Width must be a positive integer");
@@ -48,7 +48,7 @@ namespace MWVR {
             throw std::runtime_error("Swapchain color format not supported");
         }
         mSwapchainColorFormat = *swapchainFormatIt;
-        Log(Debug::Verbose) << "Selected color format: " << std::dec << mSwapchainColorFormat << " (" << std::hex << mSwapchainColorFormat << ")";
+        Log(Debug::Verbose) << "Selected color format: " << std::dec << mSwapchainColorFormat << " (" << std::hex << mSwapchainColorFormat << ")" << std::dec;
 
         if (xr->xrExtensionIsEnabled(XR_KHR_COMPOSITION_LAYER_DEPTH_EXTENSION_NAME))
         {
@@ -69,15 +69,9 @@ namespace MWVR {
             {
                 mSwapchainDepthFormat = *swapchainFormatIt;
                 mHaveDepthSwapchain = true;
-                Log(Debug::Verbose) << "Selected depth format: " << std::dec << mSwapchainDepthFormat << " (" << std::hex << mSwapchainDepthFormat << ")";
+                Log(Debug::Verbose) << "Selected depth format: " << std::dec << mSwapchainDepthFormat << " (" << std::hex << mSwapchainDepthFormat << ")" << std::dec;
             }
         }
-
-        mSamples = Settings::Manager::getInt("antialiasing", "Video");
-        // OpenXR requires a non-zero value
-        if (mSamples < 1)
-            mSamples = 1;
-
 
         XrSwapchainCreateInfo swapchainCreateInfo{ XR_TYPE_SWAPCHAIN_CREATE_INFO };
         swapchainCreateInfo.arraySize = 1;
