@@ -48,7 +48,7 @@ namespace MWVR {
             throw std::runtime_error("Swapchain color format not supported");
         }
         mSwapchainColorFormat = *swapchainFormatIt;
-        Log(Debug::Verbose) << "Selected depth format: " << std::dec << mSwapchainColorFormat << " (" << std::hex << mSwapchainColorFormat << ")";
+        Log(Debug::Verbose) << "Selected color format: " << std::dec << mSwapchainColorFormat << " (" << std::hex << mSwapchainColorFormat << ")";
 
         if (xr->xrExtensionIsEnabled(XR_KHR_COMPOSITION_LAYER_DEPTH_EXTENSION_NAME))
         {
