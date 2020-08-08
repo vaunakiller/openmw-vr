@@ -41,6 +41,7 @@ namespace MWVR
     VRSession::VRSession()
         : mXrSyncPhase{FramePhase::Cull}
     {
+        mHandDirectedMovement = Settings::Manager::getBool("hand directed movement", "VR");
         auto syncPhase = Settings::Manager::getString("openxr sync phase", "VR");
         syncPhase = Misc::StringUtils::lowerCase(syncPhase);
         if (syncPhase == "update")
@@ -306,21 +307,24 @@ namespace MWVR
     {
         if (!getFrame(FramePhase::Update))
             beginPhase(FramePhase::Update);
-        auto frameMeta = getFrame(FramePhase::Update).get();
+        if (mHandDirectedMovement)
+        {
+            auto frameMeta = getFrame(FramePhase::Update).get();
 
-        float headYaw = 0.f;
-        float headPitch = 0.f;
-        float headsWillRoll = 0.f;
+            float headYaw = 0.f;
+            float headPitch = 0.f;
+            float headsWillRoll = 0.f;
 
-        float handYaw = 0.f;
-        float handPitch = 0.f;
-        float handRoll = 0.f;
+            float handYaw = 0.f;
+            float handPitch = 0.f;
+            float handRoll = 0.f;
 
-        getEulerAngles(frameMeta->mPredictedPoses.head.orientation, headYaw, headPitch, headsWillRoll);
-        getEulerAngles(frameMeta->mPredictedPoses.hands[(int)Side::LEFT_SIDE].orientation, handYaw, handPitch, handRoll);
+            getEulerAngles(frameMeta->mPredictedPoses.head.orientation, headYaw, headPitch, headsWillRoll);
+            getEulerAngles(frameMeta->mPredictedPoses.hands[(int)Side::LEFT_SIDE].orientation, handYaw, handPitch, handRoll);
 
-        yaw = handYaw - headYaw;
-        pitch = handPitch - headPitch;
+            yaw = handYaw - headYaw;
+            pitch = handPitch - headPitch;
+        }
     }
 
 }

@@ -83,6 +83,7 @@ namespace MWVR
         std::condition_variable mCondition{};
         FramePhase mXrSyncPhase{ FramePhase::Cull };
 
+        bool mHandDirectedMovement{ false };
         bool mUseSteadyClock{ false };
         long long mFrames{ 0 };
         long long mLastRenderedFrame{ 0 };
