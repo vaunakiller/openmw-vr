@@ -247,7 +247,7 @@ if(BUILD_OPENMW_VR)
         vrengine.cpp
     )
     add_openmw_dir (mwvr
-         openxraction openxrinput openxrmanager openxrmanagerimpl openxrswapchain openxrswapchainimpl
+         openxraction openxractionset openxrinput openxrmanager openxrmanagerimpl openxrswapchain openxrswapchainimpl
          realisticcombat 
          vranimation vrenvironment vrgui vrinputmanager vrinput vrsession vrframebuffer vrshadow vrtypes vrview vrviewer
         )

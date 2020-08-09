@@ -1,0 +1,57 @@
+#ifndef OPENXR_ACTIONSET_HPP
+#define OPENXR_ACTIONSET_HPP
+
+#include "vrinput.hpp"
+
+#include <vector>
+#include <array>
+
+namespace MWVR
+{
+    /// \brief Generates and manages an OpenXR ActionSet and associated actions.
+    class OpenXRActionSet
+    {
+    public:
+        using Actions = MWInput::Actions;
+        using ControllerActionPaths = std::array<XrPath, 2>;
+
+        OpenXRActionSet(const std::string& actionSetName);
+
+        //! Update all controls and queue any actions
+        void updateControls();
+
+        //! Get next action from queue (repeat until null is returned)
+        const Action* nextAction();
+
+        //! Get current pose of limb in space.
+        Pose getLimbPose(int64_t time, TrackedLimb limb);
+
+        //! Apply haptics of the given intensity to the given limb
+        void applyHaptics(TrackedLimb limb, float intensity);
+
+        XrActionSet xrActionSet() { return mActionSet; };
+        void suggestBindings(std::vector<XrActionSuggestedBinding>& xrSuggestedBindings, const SuggestedBindings& mwSuggestedBindings);
+
+    protected:
+        template<typename A, XrActionType AT = A::ActionType>
+        void createMWAction(int openMWAction, const std::string& actionName, const std::string& localName);
+        void createPoseAction(TrackedLimb limb, const std::string& actionName, const std::string& localName);
+        void createHapticsAction(TrackedLimb limb, const std::string& actionName, const std::string& localName);
+        std::unique_ptr<OpenXRAction> createXRAction(XrActionType actionType, const std::string& actionName, const std::string& localName);
+        XrPath generateXrPath(const std::string& path);
+        void generateControllerActionPaths(ActionPath actionPath, const std::string& controllerAction);
+        XrActionSet createActionSet(const std::string& name);
+        XrPath getXrPath(ActionPath actionPath, Side side);
+
+        XrActionSet mActionSet{ nullptr };
+        std::string mLocalizedName{};
+        std::string mInternalName{};
+        std::map<ActionPath, ControllerActionPaths> mPathMap;
+        std::map<int, std::unique_ptr<Action>> mActionMap;
+        std::map<TrackedLimb, std::unique_ptr<PoseAction>> mTrackerMap;
+        std::map<TrackedLimb, std::unique_ptr<HapticsAction>> mHapticsMap;
+        std::deque<const Action*> mActionQueue{};
+    };
+}
+
+#endif

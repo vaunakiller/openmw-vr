@@ -7,293 +7,59 @@
 
 #include <openxr/openxr.h>
 
+#include <components/misc/stringops.hpp>
+
 #include <iostream>
 
 namespace MWVR
 {
 
-    OpenXRInput::OpenXRInput(const std::vector<SuggestedBindings>& suggestedBindings)
-        : mActionSet(createActionSet())
+    OpenXRInput::OpenXRInput()
     {
-        // When starting to account for more devices than oculus touch, this section may need some expansion/redesign.
-
-        // Currently the set of action paths was determined using the oculus touch (i know nothing about the vive and the index).
-        // The set of action paths may therefore need expansion. E.g. /click vs /value may vary with controllers.
-
-        // To fit more actions onto controllers i created a system of short and long press actions. Allowing one action to activate
-        // on a short press, and another on long. Here, what actions are short press and what actions are long press is simply
-        // hardcoded at init, rather than interpreted from bindings. That's bad, and should be fixed, but that's hard to do
-        // while staying true to openxr's binding system, so if the system i wrote for the oculus touch isn't a good fit for
-        // the vive/index, we might want to rewrite this to handle bindings ourselves.
-        generateControllerActionPaths(ActionPath::Select, "/input/select/click");
-        generateControllerActionPaths(ActionPath::Squeeze, "/input/squeeze/value");
-        generateControllerActionPaths(ActionPath::Pose, "/input/aim/pose");
-        generateControllerActionPaths(ActionPath::Haptic, "/output/haptic");
-        generateControllerActionPaths(ActionPath::Menu, "/input/menu/click");
-        generateControllerActionPaths(ActionPath::ThumbstickX, "/input/thumbstick/x");
-        generateControllerActionPaths(ActionPath::ThumbstickY, "/input/thumbstick/y");
-        generateControllerActionPaths(ActionPath::ThumbstickClick, "/input/thumbstick/click");
-        generateControllerActionPaths(ActionPath::X, "/input/x/click");
-        generateControllerActionPaths(ActionPath::Y, "/input/y/click");
-        generateControllerActionPaths(ActionPath::A, "/input/a/click");
-        generateControllerActionPaths(ActionPath::B, "/input/b/click");
-        generateControllerActionPaths(ActionPath::Trigger, "/input/trigger/value");
-
-        /*
-            // Applicable actions not (yet) included
-            A_QuickKey1,
-            A_QuickKey2,
-            A_QuickKey3,
-            A_QuickKey4,
-            A_QuickKey5,
-            A_QuickKey6,
-            A_QuickKey7,
-            A_QuickKey8,
-            A_QuickKey9,
-            A_QuickKey10,
-            A_QuickKeysMenu,
-            A_QuickLoad,
-            A_CycleSpellLeft,
-            A_CycleSpellRight,
-            A_CycleWeaponLeft,
-            A_CycleWeaponRight,
-            A_Screenshot, // Generate a VR screenshot?
-            A_Console,    // Currently awkward due to a lack of virtual keyboard, but should be included when that's in place
-        */
-        createMWAction<ButtonPressAction>(MWInput::A_GameMenu, "game_menu", "Game Menu");
-        createMWAction<ButtonLongPressAction>(A_Recenter, "reposition_menu", "Reposition Menu");
-        createMWAction<ButtonPressAction>(MWInput::A_Inventory, "inventory", "Inventory");
-        createMWAction<ButtonPressAction>(MWInput::A_Activate, "activate", "Activate");
-        createMWAction<ButtonHoldAction>(MWInput::A_Use, "use", "Use");
-        createMWAction<ButtonPressAction>(MWInput::A_Jump, "jump", "Jump");
-        createMWAction<ButtonPressAction>(MWInput::A_ToggleWeapon, "weapon", "Weapon");
-        createMWAction<ButtonPressAction>(MWInput::A_ToggleSpell, "spell", "Spell");
-        createMWAction<ButtonPressAction>(MWInput::A_CycleSpellLeft, "cycle_spell_left", "Cycle Spell Left");
-        createMWAction<ButtonPressAction>(MWInput::A_CycleSpellRight, "cycle_spell_right", "Cycle Spell Right");
-        createMWAction<ButtonPressAction>(MWInput::A_CycleWeaponLeft, "cycle_weapon_left", "Cycle Weapon Left");
-        createMWAction<ButtonPressAction>(MWInput::A_CycleWeaponRight, "cycle_weapon_right", "Cycle Weapon Right");
-        createMWAction<ButtonHoldAction>(MWInput::A_Sneak, "sneak", "Sneak");
-        createMWAction<ButtonPressAction>(MWInput::A_QuickMenu, "quick_menu", "Quick Menu");
-        createMWAction<AxisAction>(MWInput::A_LookLeftRight, "look_left_right", "Look Left Right");
-        createMWAction<AxisAction>(MWInput::A_MoveForwardBackward, "move_forward_backward", "Move Forward Backward");
-        createMWAction<AxisAction>(MWInput::A_MoveLeftRight, "move_left_right", "Move Left Right");
-        createMWAction<ButtonLongPressAction>(MWInput::A_Journal, "journal_book", "Journal Book");
-        createMWAction<ButtonLongPressAction>(MWInput::A_QuickSave, "quick_save", "Quick Save");
-        createMWAction<ButtonPressAction>(MWInput::A_Rest, "rest", "Rest");
-        createMWAction<AxisAction>(A_ActivateTouch, "activate_touched", "Activate Touch");
-        createMWAction<ButtonPressAction>(MWInput::A_AlwaysRun, "always_run", "Always Run");
-        createMWAction<ButtonPressAction>(MWInput::A_AutoMove, "auto_move", "Auto Move");
-        createMWAction<ButtonLongPressAction>(MWInput::A_ToggleHUD, "toggle_hud", "Toggle HUD");
-        createMWAction<ButtonLongPressAction>(MWInput::A_ToggleDebug, "toggle_debug", "Toggle DEBUG");
-        createMWAction<AxisAction>(A_MenuUpDown, "menu_up_down", "Menu Up Down");
-        createMWAction<AxisAction>(A_MenuLeftRight, "menu_left_right", "Menu Left Right");
-        createMWAction<ButtonPressAction>(A_MenuSelect, "menu_select", "Menu Select");
-        createMWAction<ButtonPressAction>(A_MenuBack, "menu_back", "Menu Back");
-        createPoseAction(TrackedLimb::LEFT_HAND, "left_hand_pose", "Left Hand Pose");
-        createPoseAction(TrackedLimb::RIGHT_HAND, "right_hand_pose", "Right Hand Pose");
-        createHapticsAction(TrackedLimb::RIGHT_HAND, "right_hand_haptics", "Right Hand Haptics");
-        createHapticsAction(TrackedLimb::LEFT_HAND, "left_hand_haptics", "Left Hand Haptics");
-
-
-        for (auto& sb : suggestedBindings)
-            suggestBindings(sb);
-
-        auto* xr = Environment::get().getManager();
-        { // Set up the action set
-            XrSessionActionSetsAttachInfo attachInfo{ XR_TYPE_SESSION_ACTION_SETS_ATTACH_INFO };
-            attachInfo.countActionSets = 1;
-            attachInfo.actionSets = &mActionSet;
-            CHECK_XRCMD(xrAttachSessionActionSets(xr->impl().xrSession(), &attachInfo));
-        }
+        mActionSets.emplace(ActionSet::Gameplay, "Gameplay");
+        mActionSets.emplace(ActionSet::GUI, "GUI");
     };
 
-    void
-        OpenXRInput::createPoseAction(
-            TrackedLimb limb,
-            const std::string& actionName,
-            const std::string& localName)
+    OpenXRActionSet& OpenXRInput::getActionSet(ActionSet actionSet)
     {
-        mTrackerMap.emplace(limb, new PoseAction(std::move(createXRAction(XR_ACTION_TYPE_POSE_INPUT, actionName, localName))));
+        auto it = mActionSets.find(actionSet);
+        if (it == mActionSets.end())
+            throw std::logic_error("No such action set");
+        return it->second;
     }
 
-    void
-        OpenXRInput::createHapticsAction(
-            TrackedLimb limb,
-            const std::string& actionName,
-            const std::string& localName)
+    void OpenXRInput::suggestBindings(ActionSet actionSet, std::string profile, const SuggestedBindings& mwSuggestedBindings)
     {
-        mHapticsMap.emplace(limb, new HapticsAction(std::move(createXRAction(XR_ACTION_TYPE_VIBRATION_OUTPUT, actionName, localName))));
+        getActionSet(actionSet).suggestBindings(mSuggestedBindings[profile], mwSuggestedBindings);
     }
 
-    template<typename A, XrActionType AT>
-    void
-        OpenXRInput::createMWAction(
-            int openMWAction,
-            const std::string& actionName,
-            const std::string& localName)
-    {
-        mActionMap.emplace(openMWAction, new A(openMWAction, std::move(createXRAction(AT, actionName, localName))));
-    }
-
-    XrActionSet
-        OpenXRInput::createActionSet()
+    void OpenXRInput::attachActionSets()
     {
         auto* xr = Environment::get().getManager();
-        XrActionSet actionSet = XR_NULL_HANDLE;
-        XrActionSetCreateInfo createInfo{ XR_TYPE_ACTION_SET_CREATE_INFO };
-        strcpy_s(createInfo.actionSetName, "gameplay");
-        strcpy_s(createInfo.localizedActionSetName, "Gameplay");
-        createInfo.priority = 0;
-        CHECK_XRCMD(xrCreateActionSet(xr->impl().xrInstance(), &createInfo, &actionSet));
-        return actionSet;
-    }
 
-    void OpenXRInput::suggestBindings(const SuggestedBindings& mwSuggestedBindings)
-    {
-        auto* xr = Environment::get().getManager();
-        XrPath oculusTouchInteractionProfilePath;
-        CHECK_XRCMD(
-            xrStringToPath(xr->impl().xrInstance(), mwSuggestedBindings.controllerPath.c_str(), &oculusTouchInteractionProfilePath));
-
-        std::vector<XrActionSuggestedBinding> suggestedBindings =
+        // Suggest bindings before attaching
+        for (auto& profile : mSuggestedBindings)
         {
-            {*mTrackerMap[TrackedLimb::LEFT_HAND], getXrPath(ActionPath::Pose, Side::LEFT_SIDE)},
-            {*mTrackerMap[TrackedLimb::RIGHT_HAND], getXrPath(ActionPath::Pose, Side::RIGHT_SIDE)},
-            {*mHapticsMap[TrackedLimb::LEFT_HAND], getXrPath(ActionPath::Haptic, Side::LEFT_SIDE)},
-            {*mHapticsMap[TrackedLimb::RIGHT_HAND], getXrPath(ActionPath::Haptic, Side::RIGHT_SIDE)},
-        };
-
-        for (auto& mwSuggestedBinding : mwSuggestedBindings.bindings)
-        {
-            auto xrAction = mActionMap.find(mwSuggestedBinding.action);
-            if (xrAction == mActionMap.end())
-            {
-                Log(Debug::Error) << "OpenXRInput: Unknown action " << mwSuggestedBinding.action;
-                continue;
-            }
-            suggestedBindings.push_back({ *xrAction->second, getXrPath(mwSuggestedBinding.path, mwSuggestedBinding.side) });
+            XrPath profilePath;
+            CHECK_XRCMD(
+                xrStringToPath(xr->impl().xrInstance(), profile.first.c_str(), &profilePath));
+            XrInteractionProfileSuggestedBinding xrProfileSuggestedBindings{ XR_TYPE_INTERACTION_PROFILE_SUGGESTED_BINDING };
+            xrProfileSuggestedBindings.interactionProfile = profilePath;
+            xrProfileSuggestedBindings.suggestedBindings = profile.second.data();
+            xrProfileSuggestedBindings.countSuggestedBindings = (uint32_t)profile.second.size();
+            CHECK_XRCMD(xrSuggestInteractionProfileBindings(xr->impl().xrInstance(), &xrProfileSuggestedBindings));
         }
 
-        XrInteractionProfileSuggestedBinding xrSuggestedBindings{ XR_TYPE_INTERACTION_PROFILE_SUGGESTED_BINDING };
-        xrSuggestedBindings.interactionProfile = oculusTouchInteractionProfilePath;
-        xrSuggestedBindings.suggestedBindings = suggestedBindings.data();
-        xrSuggestedBindings.countSuggestedBindings = (uint32_t)suggestedBindings.size();
-        CHECK_XRCMD(xrSuggestInteractionProfileBindings(xr->impl().xrInstance(), &xrSuggestedBindings));
-    }
+        // OpenXR requires that xrAttachSessionActionSets be called at most once per session.
+        // So collect all action sets
+        std::vector<XrActionSet> actionSets;
+        for (auto& actionSet : mActionSets)
+            actionSets.push_back(actionSet.second.xrActionSet());
 
-    void
-        OpenXRInput::generateControllerActionPaths(
-            ActionPath actionPath,
-            const std::string& controllerAction)
-    {
-        auto* xr = Environment::get().getManager();
-        ControllerActionPaths actionPaths;
-
-        std::string left = std::string("/user/hand/left") + controllerAction;
-        std::string right = std::string("/user/hand/right") + controllerAction;
-
-        CHECK_XRCMD(xrStringToPath(xr->impl().xrInstance(), left.c_str(), &actionPaths[(int)Side::LEFT_SIDE]));
-        CHECK_XRCMD(xrStringToPath(xr->impl().xrInstance(), right.c_str(), &actionPaths[(int)Side::RIGHT_SIDE]));
-
-        mPathMap[actionPath] = actionPaths;
-    }
-
-
-    std::unique_ptr<OpenXRAction>
-        OpenXRInput::createXRAction(
-            XrActionType actionType,
-            const std::string& actionName,
-            const std::string& localName)
-    {
-        std::vector<XrPath> subactionPaths;
-        XrActionCreateInfo createInfo{ XR_TYPE_ACTION_CREATE_INFO };
-        createInfo.actionType = actionType;
-        strcpy_s(createInfo.actionName, actionName.c_str());
-        strcpy_s(createInfo.localizedActionName, localName.c_str());
-
-        XrAction action = XR_NULL_HANDLE;
-        CHECK_XRCMD(xrCreateAction(mActionSet, &createInfo, &action));
-        return std::unique_ptr<OpenXRAction>{new OpenXRAction{ action, actionType, actionName, localName }};
-    }
-
-    void
-        OpenXRInput::updateControls()
-    {
-        auto* xr = Environment::get().getManager();
-        if (!xr->impl().xrSessionRunning())
-            return;
-
-
-        const XrActiveActionSet activeActionSet{ mActionSet, XR_NULL_PATH };
-        XrActionsSyncInfo syncInfo{ XR_TYPE_ACTIONS_SYNC_INFO };
-        syncInfo.countActiveActionSets = 1;
-        syncInfo.activeActionSets = &activeActionSet;
-        CHECK_XRCMD(xrSyncActions(xr->impl().xrSession(), &syncInfo));
-
-
-        // Note on update order: 
-        // Actions are queued FIFO.
-        // For most actions this does not matter.
-        // However mMenuBack may end GuiMode. If it shares a key with a non-gui-mode action
-        // and were processed before that action, they would both be activated which is
-        // clearly not desired.
-        for (auto& action : mActionMap)
-            action.second->updateAndQueue(mActionQueue);
-    }
-
-    XrPath OpenXRInput::generateXrPath(const std::string& path)
-    {
-        auto* xr = Environment::get().getManager();
-        XrPath xrpath = 0;
-        CHECK_XRCMD(xrStringToPath(xr->impl().xrInstance(), path.c_str(), &xrpath));
-        return xrpath;
-    }
-
-    const Action* OpenXRInput::nextAction()
-    {
-        if (mActionQueue.empty())
-            return nullptr;
-
-        const auto* action = mActionQueue.front();
-        mActionQueue.pop_front();
-        return action;
-
-    }
-
-    Pose
-        OpenXRInput::getLimbPose(
-            int64_t time,
-            TrackedLimb limb)
-    {
-        auto it = mTrackerMap.find(limb);
-        if (it == mTrackerMap.end())
-        {
-            Log(Debug::Error) << "OpenXRInput: No such tracker: " << limb;
-            return Pose{};
-        }
-
-        it->second->update(time);
-        return it->second->value();
-    }
-
-    void OpenXRInput::applyHaptics(TrackedLimb limb, float intensity)
-    {
-        auto it = mHapticsMap.find(limb);
-        if (it == mHapticsMap.end())
-        {
-            Log(Debug::Error) << "OpenXRInput: No such tracker: " << limb;
-            return;
-        }
-
-        it->second->apply(intensity);
-    }
-    XrPath OpenXRInput::getXrPath(ActionPath actionPath, Side side)
-    {
-        auto it = mPathMap.find(actionPath);
-        if (it == mPathMap.end())
-        {
-            Log(Debug::Error) << "OpenXRInput: No such path: " << (int)actionPath;
-        }
-        return it->second[(int)side];
+        // Attach
+        XrSessionActionSetsAttachInfo attachInfo{ XR_TYPE_SESSION_ACTION_SETS_ATTACH_INFO };
+        attachInfo.countActionSets = actionSets.size();
+        attachInfo.actionSets = actionSets.data();
+        CHECK_XRCMD(xrAttachSessionActionSets(xr->impl().xrSession(), &attachInfo));
     }
 }

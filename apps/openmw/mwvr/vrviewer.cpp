@@ -74,6 +74,7 @@ namespace MWVR
         {
             return max;
         }
+        return recommended;
     }
 
     void VRViewer::realize(osg::GraphicsContext* context)

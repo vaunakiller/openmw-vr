@@ -42,7 +42,18 @@ namespace MWVR
 
     Pose VRInputManager::getLimbPose(int64_t time, TrackedLimb limb)
     {
-        return mXRInput->getLimbPose(time, limb);
+        return activeActionSet().getLimbPose(time, limb);
+    }
+
+    OpenXRActionSet& VRInputManager::activeActionSet()
+    {
+        bool guiMode = MWBase::Environment::get().getWindowManager()->isGuiMode();
+        guiMode = guiMode || (MWBase::Environment::get().getStateManager()->getState() == MWBase::StateManager::State_NoGame);
+        if (guiMode)
+        {
+            return mXRInput->getActionSet(ActionSet::GUI);
+        }
+        return mXRInput->getActionSet(ActionSet::Gameplay);
     }
 
     void VRInputManager::updateActivationIndication(void)
@@ -51,7 +62,9 @@ namespace MWVR
         bool show = guiMode | mActivationIndication;
         auto* playerAnimation = Environment::get().getPlayerAnimation();
         if (playerAnimation)
+        {
             playerAnimation->setFingerPointingMode(show);
+        }
     }
 
 
@@ -145,13 +158,13 @@ namespace MWVR
     void VRInputManager::applyHapticsLeftHand(float intensity)
     {
         if (mHapticsEnabled)
-            mXRInput->applyHaptics(TrackedLimb::LEFT_HAND, intensity);
+            activeActionSet().applyHaptics(TrackedLimb::LEFT_HAND, intensity);
     }
 
     void VRInputManager::applyHapticsRightHand(float intensity)
     {
         if (mHapticsEnabled)
-            mXRInput->applyHaptics(TrackedLimb::RIGHT_HAND, intensity);
+            activeActionSet().applyHaptics(TrackedLimb::RIGHT_HAND, intensity);
     }
 
     void VRInputManager::requestRecenter()
@@ -179,10 +192,10 @@ namespace MWVR
             userControllerBindingsFile,
             controllerBindingsFile,
             grab)
-        , mXRInput(nullptr)
+        , mXRInput(new OpenXRInput)
         , mHapticsEnabled{Settings::Manager::getBool("haptics enabled", "VR")}
     {
-        std::vector<SuggestedBindings> suggestedBindings;
+        std::string oculusTouchProfilePath = "/interaction_profiles/oculus/touch_controller";
         // Set up default bindings for the oculus
 
         /*
@@ -236,43 +249,52 @@ namespace MWVR
                 Long: Recenter on player and reset GUI
 
         */
-        SuggestedBindings oculusTouchBindings{
-            "/interaction_profiles/oculus/touch_controller",
-            {
-                {A_MenuUpDown, ActionPath::ThumbstickY, Side::RIGHT_SIDE},
-                {A_MenuLeftRight, ActionPath::ThumbstickX, Side::RIGHT_SIDE},
-                {A_MenuSelect, ActionPath::A, Side::RIGHT_SIDE},
-                {A_MenuBack, ActionPath::B, Side::RIGHT_SIDE},
-                {MWInput::A_LookLeftRight, ActionPath::ThumbstickX, Side::RIGHT_SIDE},
-                {MWInput::A_MoveLeftRight, ActionPath::ThumbstickX, Side::LEFT_SIDE},
-                {MWInput::A_MoveForwardBackward, ActionPath::ThumbstickY, Side::LEFT_SIDE},
-                {MWInput::A_Activate, ActionPath::Squeeze, Side::RIGHT_SIDE},
-                {MWInput::A_Use, ActionPath::Trigger, Side::RIGHT_SIDE},
-                {MWInput::A_Jump, ActionPath::Trigger, Side::LEFT_SIDE},
-                {MWInput::A_ToggleWeapon, ActionPath::A, Side::RIGHT_SIDE},
-                {MWInput::A_ToggleSpell, ActionPath::X, Side::LEFT_SIDE},
-                //{*mCycleSpellLeft, mThumbstickClickPath, Side::LEFT_SIDE},
-                //{*mCycleSpellRight, mThumbstickClickPath, Side::RIGHT_SIDE},
-                //{*mCycleWeaponLeft, mThumbstickClickPath, Side::LEFT_SIDE},
-                //{*mCycleWeaponRight, mThumbstickClickPath, Side::RIGHT_SIDE},
-                {MWInput::A_AlwaysRun, ActionPath::ThumbstickClick, Side::LEFT_SIDE},
-                {MWInput::A_AutoMove, ActionPath::ThumbstickClick, Side::RIGHT_SIDE},
-                {MWInput::A_ToggleHUD, ActionPath::ThumbstickClick, Side::LEFT_SIDE},
-                {MWInput::A_ToggleDebug, ActionPath::ThumbstickClick, Side::RIGHT_SIDE},
-                {MWInput::A_Sneak, ActionPath::Squeeze, Side::LEFT_SIDE},
-                {MWInput::A_Inventory, ActionPath::B, Side::RIGHT_SIDE},
-                {MWInput::A_Rest, ActionPath::Y, Side::LEFT_SIDE},
-                {MWInput::A_Journal, ActionPath::B, Side::RIGHT_SIDE},
-                {MWInput::A_QuickSave, ActionPath::Y, Side::LEFT_SIDE},
-                {MWInput::A_GameMenu, ActionPath::Menu, Side::LEFT_SIDE},
-                {A_Recenter, ActionPath::Menu, Side::LEFT_SIDE},
-                {A_ActivateTouch, ActionPath::Squeeze, Side::RIGHT_SIDE},
-            }
-        };
+        {
+            // In-game character controls
+            SuggestedBindings oculusTouchGameplayBindings{
+                    {MWInput::A_LookLeftRight, ActionPath::ThumbstickX, Side::RIGHT_SIDE},
+                    {MWInput::A_MoveLeftRight, ActionPath::ThumbstickX, Side::LEFT_SIDE},
+                    {MWInput::A_MoveForwardBackward, ActionPath::ThumbstickY, Side::LEFT_SIDE},
+                    {MWInput::A_Activate, ActionPath::Squeeze, Side::RIGHT_SIDE},
+                    {MWInput::A_Use, ActionPath::Trigger, Side::RIGHT_SIDE},
+                    {MWInput::A_Jump, ActionPath::Trigger, Side::LEFT_SIDE},
+                    {MWInput::A_ToggleWeapon, ActionPath::A, Side::RIGHT_SIDE},
+                    {MWInput::A_ToggleSpell, ActionPath::X, Side::LEFT_SIDE},
+                    //{*mCycleSpellLeft, mThumbstickClickPath, Side::LEFT_SIDE},
+                    //{*mCycleSpellRight, mThumbstickClickPath, Side::RIGHT_SIDE},
+                    //{*mCycleWeaponLeft, mThumbstickClickPath, Side::LEFT_SIDE},
+                    //{*mCycleWeaponRight, mThumbstickClickPath, Side::RIGHT_SIDE},
+                    {MWInput::A_AlwaysRun, ActionPath::ThumbstickClick, Side::LEFT_SIDE},
+                    {MWInput::A_AutoMove, ActionPath::ThumbstickClick, Side::RIGHT_SIDE},
+                    {MWInput::A_ToggleHUD, ActionPath::ThumbstickClick, Side::LEFT_SIDE},
+                    {MWInput::A_ToggleDebug, ActionPath::ThumbstickClick, Side::RIGHT_SIDE},
+                    {MWInput::A_Sneak, ActionPath::Squeeze, Side::LEFT_SIDE},
+                    {MWInput::A_Inventory, ActionPath::B, Side::RIGHT_SIDE},
+                    {MWInput::A_Rest, ActionPath::Y, Side::LEFT_SIDE},
+                    {MWInput::A_Journal, ActionPath::B, Side::RIGHT_SIDE},
+                    {MWInput::A_QuickSave, ActionPath::Y, Side::LEFT_SIDE},
+                    {MWInput::A_GameMenu, ActionPath::Menu, Side::LEFT_SIDE},
+                    {A_Recenter, ActionPath::Menu, Side::LEFT_SIDE},
+                    {A_ActivateTouch, ActionPath::Squeeze, Side::RIGHT_SIDE},
+            };
 
-        suggestedBindings.push_back(oculusTouchBindings);
+            mXRInput->suggestBindings(ActionSet::Gameplay, oculusTouchProfilePath, oculusTouchGameplayBindings);
 
-        mXRInput.reset(new OpenXRInput(suggestedBindings));
+            // GUI controls
+            SuggestedBindings oculusTouchGUIBindings{
+                    {A_MenuUpDown, ActionPath::ThumbstickY, Side::RIGHT_SIDE},
+                    {A_MenuLeftRight, ActionPath::ThumbstickX, Side::RIGHT_SIDE},
+                    {A_MenuSelect, ActionPath::A, Side::RIGHT_SIDE},
+                    {A_MenuBack, ActionPath::B, Side::RIGHT_SIDE},
+                    {MWInput::A_GameMenu, ActionPath::Menu, Side::LEFT_SIDE},
+                    {MWInput::A_Use, ActionPath::Trigger, Side::RIGHT_SIDE},
+                    {A_Recenter, ActionPath::Menu, Side::LEFT_SIDE},
+            };
+
+            mXRInput->suggestBindings(ActionSet::GUI, oculusTouchProfilePath, oculusTouchGUIBindings);
+        }
+
+        mXRInput->attachActionSets();
     }
 
     VRInputManager::~VRInputManager()
@@ -294,8 +316,8 @@ namespace MWVR
         bool disableEvents)
     {
         auto begin = std::chrono::steady_clock::now();
-        mXRInput->updateControls();
-
+        auto& actionSet = activeActionSet();
+        actionSet.updateControls();
 
         auto* vrGuiManager = Environment::get().getGUIManager();
         if (vrGuiManager)
@@ -308,7 +330,7 @@ namespace MWVR
             }
         }
 
-        while (auto* action = mXRInput->nextAction())
+        while (auto* action = actionSet.nextAction())
         {
             processAction(action, dt, disableControls);
         }
@@ -316,7 +338,6 @@ namespace MWVR
         updateActivationIndication();
 
         MWInput::InputManager::update(dt, disableControls, disableEvents);
-
         // This is the first update that needs openxr tracking, so i begin the next frame here.
         auto* session = Environment::get().getSession();
         if (session)
@@ -514,8 +535,9 @@ namespace MWVR
                     mActionManager->screenshot();
                     break;
                 case MWInput::A_Inventory:
-                    //mActionManager->toggleInventory();
-                    injectMousePress(SDL_BUTTON_RIGHT, true);
+                    mActionManager->toggleInventory();
+                    //injectMousePress(SDL_BUTTON_RIGHT, true);
+                    //mBindingsManager->ics().getChannel(MWInput::A_Inventory)->setValue(0.f);
                     break;
                 case MWInput::A_Console:
                     mActionManager->toggleConsole();
@@ -632,7 +654,8 @@ namespace MWVR
                         mActionManager->toggleSneaking();
                     break;
                 case MWInput::A_Inventory:
-                    injectMousePress(SDL_BUTTON_RIGHT, false);
+                    //injectMousePress(SDL_BUTTON_RIGHT, false);
+                    //mBindingsManager->ics().getChannel(MWInput::A_Inventory)->setValue(0.f);
                 default:
                     break;
                 }

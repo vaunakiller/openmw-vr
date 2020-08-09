@@ -2,6 +2,7 @@
 #define OPENXR_INPUT_HPP
 
 #include "vrinput.hpp"
+#include "openxractionset.hpp"
 
 #include <vector>
 #include <array>
@@ -12,43 +13,25 @@ namespace MWVR
     class OpenXRInput
     {
     public:
-        using Actions = MWInput::Actions;
-        using ControllerActionPaths = std::array<XrPath, 2>;
+        using XrSuggestedBindings = std::vector<XrActionSuggestedBinding>;
+        using XrProfileSuggestedBindings = std::map<std::string, XrSuggestedBindings>;
 
-        OpenXRInput(const std::vector<SuggestedBindings>& suggestedBindings);
+        //! Default constructor, creates two ActionSets: Gameplay and GUI
+        OpenXRInput();
 
-        //! Update all controls and queue any actions
-        void updateControls();
+        //! Get the specified actionSet.
+        OpenXRActionSet& getActionSet(ActionSet actionSet);
 
-        //! Get next action from queue (repeat until null is returned)
-        const Action* nextAction();
+        //! Suggest bindings for the specific actionSet and profile pair. Call things after calling attachActionSets is an error.
+        void suggestBindings(ActionSet actionSet, std::string profile, const SuggestedBindings& mwSuggestedBindings);
 
-        //! Get current pose of limb in space.
-        Pose getLimbPose(int64_t time, TrackedLimb limb);
-
-        //! Apply haptics of the given intensity to the given limb
-        void applyHaptics(TrackedLimb limb, float intensity);
+        //! Set bindings and attach actionSets to the session.
+        void attachActionSets();
 
     protected:
-        template<typename A, XrActionType AT = A::ActionType>
-        void createMWAction(int openMWAction, const std::string& actionName, const std::string& localName);
-        void createPoseAction(TrackedLimb limb, const std::string& actionName, const std::string& localName);
-        void createHapticsAction(TrackedLimb limb, const std::string& actionName, const std::string& localName);
-        std::unique_ptr<OpenXRAction> createXRAction(XrActionType actionType, const std::string& actionName, const std::string& localName);
-        XrPath generateXrPath(const std::string& path);
-        void generateControllerActionPaths(ActionPath actionPath, const std::string& controllerAction);
-        XrActionSet createActionSet(void);
-        void suggestBindings(const SuggestedBindings& suggestedBindings);
-        XrPath getXrPath(ActionPath actionPath, Side side);
-
-        XrActionSet mActionSet{ nullptr };
-
-        std::map<ActionPath, ControllerActionPaths> mPathMap;
-        std::map<int, std::unique_ptr<Action>> mActionMap;
-        std::map<TrackedLimb, std::unique_ptr<PoseAction>> mTrackerMap;
-        std::map<TrackedLimb, std::unique_ptr<HapticsAction>> mHapticsMap;
-
-        std::deque<const Action*> mActionQueue{};
+        std::map<ActionSet, OpenXRActionSet> mActionSets{};
+        XrProfileSuggestedBindings mSuggestedBindings{};
+        bool mAttached = false;
     };
 }
 

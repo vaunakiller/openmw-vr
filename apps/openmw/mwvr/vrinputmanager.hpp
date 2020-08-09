@@ -14,6 +14,7 @@
 namespace MWVR
 {
     struct OpenXRInput;
+    struct OpenXRActionSet;
 
     namespace RealisticCombat {
         class StateMachine;
@@ -54,6 +55,9 @@ namespace MWVR
 
         /// Tracking pose of the given limb at the given predicted time
         Pose getLimbPose(int64_t time, TrackedLimb limb);
+
+        /// Currently active action set
+        OpenXRActionSet& activeActionSet();
 
     protected:
         void updateHead();

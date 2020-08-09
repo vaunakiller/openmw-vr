@@ -50,17 +50,20 @@ namespace MWVR
     };
 
     /// \brief Suggest a binding by binding an action to a path on a given hand (left or right).
-    struct SuggestedBindings
+    struct SuggestedBinding
     {
-        struct Binding
-        {
-            int         action;
-            ActionPath  path;
-            Side        side;
-        };
+        int         action;
+        ActionPath  path;
+        Side        side;
+    };
 
-        std::string controllerPath;
-        std::vector<Binding> bindings;
+    using SuggestedBindings = std::vector<SuggestedBinding>;
+
+    /// \brief Enumeration of action sets
+    enum class ActionSet
+    {
+        GUI = 0,
+        Gameplay = 1,
     };
 
     /// \brief Action for applying haptics
