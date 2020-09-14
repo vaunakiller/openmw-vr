@@ -37,7 +37,7 @@ namespace Shader
 
     }
 
-    ShaderVisitor::ShaderVisitor(ShaderManager& shaderManager, Resource::ImageManager& imageManager, const std::string &defaultVsTemplate, const std::string &defaultFsTemplate, const std::string& defaultGsTemplate)
+    ShaderVisitor::ShaderVisitor(ShaderManager& shaderManager, Resource::ImageManager& imageManager, const std::string &defaultVsTemplate, const std::string &defaultFsTemplate)
         : osg::NodeVisitor(TRAVERSE_ALL_CHILDREN)
         , mForceShaders(false)
         , mAllowedToModifyStateSets(true)
@@ -47,7 +47,6 @@ namespace Shader
         , mImageManager(imageManager)
         , mDefaultVsTemplate(defaultVsTemplate)
         , mDefaultFsTemplate(defaultFsTemplate)
-        , mDefaultGsTemplate(defaultGsTemplate)
     {
         mRequirements.push_back(ShaderRequirements());
     }
@@ -345,17 +344,16 @@ namespace Shader
         }
 
         defineMap["parallax"] = reqs.mNormalHeight ? "1" : "0";
+        defineMap["geometryShader"] = "1";
 
         writableStateSet->addUniform(new osg::Uniform("colorMode", reqs.mColorMode));
 
         osg::ref_ptr<osg::Shader> vertexShader (mShaderManager.getShader(mDefaultVsTemplate, defineMap, osg::Shader::VERTEX));
         osg::ref_ptr<osg::Shader> fragmentShader (mShaderManager.getShader(mDefaultFsTemplate, defineMap, osg::Shader::FRAGMENT));
-        osg::ref_ptr<osg::Shader> geometryShader (mShaderManager.getShader(mDefaultGsTemplate, defineMap, osg::Shader::GEOMETRY));
-        //osg::ref_ptr<osg::Shader> geometryShader = nullptr;
 
         if (vertexShader && fragmentShader)
         {
-            writableStateSet->setAttributeAndModes(mShaderManager.getProgram(vertexShader, fragmentShader, geometryShader), osg::StateAttribute::ON);
+            writableStateSet->setAttributeAndModes(mShaderManager.getProgram(vertexShader, fragmentShader), osg::StateAttribute::ON);
 
             for (std::map<int, std::string>::const_iterator texIt = reqs.mTextures.begin(); texIt != reqs.mTextures.end(); ++texIt)
             {

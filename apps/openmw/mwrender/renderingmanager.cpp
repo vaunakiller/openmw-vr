@@ -372,20 +372,6 @@ namespace MWRender
         mFirstPersonFieldOfView = std::min(std::max(1.f, firstPersonFov), 179.f);
         mStateUpdater->setFogEnd(mViewDistance);
 
-        ////// Indexed viewports and related uniforms
-        sceneRoot->getOrCreateStateSet()->addUniform(new osg::Uniform(osg::Uniform::FLOAT_MAT4, "stereoViewOffsets", 2));
-        sceneRoot->getOrCreateStateSet()->addUniform(new osg::Uniform(osg::Uniform::FLOAT_MAT4, "stereoProjections", 2));
-        mUniformStereoViewOffsets = sceneRoot->getOrCreateStateSet()->getUniform("stereoViewOffsets");
-        mUniformStereoProjections = sceneRoot->getOrCreateStateSet()->getUniform("stereoProjections");
-        mUniformStereoViewOffsets->setElement(0, osg::Matrix::identity());
-        mUniformStereoViewOffsets->setElement(1, osg::Matrix::identity());
-
-        auto width = mViewer->getCamera()->getViewport()->width();
-        auto height = mViewer->getCamera()->getViewport()->height();
-
-        sceneRoot->getOrCreateStateSet()->setAttribute(new osg::ViewportIndexed(0, 0, 0, width / 2, height));
-        sceneRoot->getOrCreateStateSet()->setAttribute(new osg::ViewportIndexed(1, width / 2, 0, width / 2, height));
-
         ////// Near far uniforms
         mRootNode->getOrCreateStateSet()->addUniform(new osg::Uniform("near", mNearClip));
         mRootNode->getOrCreateStateSet()->addUniform(new osg::Uniform("far", mViewDistance));
@@ -1242,9 +1228,6 @@ namespace MWRender
         if (mFieldOfViewOverridden)
             fov = mFieldOfViewOverride;
         mViewer->getCamera()->setProjectionMatrixAsPerspective(fov, aspect, mNearClip, mViewDistance);
-
-        mUniformStereoProjections->setElement(0, mViewer->getCamera()->getProjectionMatrix());
-        mUniformStereoProjections->setElement(1, mViewer->getCamera()->getProjectionMatrix());
 
         mUniformNear->set(mNearClip);
         mUniformFar->set(mViewDistance);

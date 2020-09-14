@@ -110,6 +110,4 @@ void main()
     gl_FragData[0].xyz = mix(gl_FragData[0].xyz, gl_Fog.color.xyz, fogValue);
 
     applyShadowDebugOverlay();
-    
-    //gl_FragData[0] = vec4(passNormal,1);
 }

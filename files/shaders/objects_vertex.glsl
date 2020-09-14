@@ -1,7 +1,5 @@
 #version 120
 
-#include "interface_util.glsl"
-
 #if @diffuseMap
 varying vec2 diffuseMapUV;
 #endif

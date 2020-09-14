@@ -382,18 +382,30 @@ namespace Resource
                 return false;
 
             static std::vector<std::string> reservedNames;
-            if (reservedNames.empty())
+            static std::mutex reservedNamesMutex;
             {
-                const char* reserved[] = {"Head", "Neck", "Chest", "Groin", "Right Hand", "Left Hand", "Right Wrist", "Left Wrist", "Shield Bone", "Right Forearm", "Left Forearm", "Right Upper Arm",
-                                          "Left Upper Arm", "Right Foot", "Left Foot", "Right Ankle", "Left Ankle", "Right Knee", "Left Knee", "Right Upper Leg", "Left Upper Leg", "Right Clavicle",
-                                          "Left Clavicle", "Weapon Bone", "Tail", "Bip01", "Root Bone", "BoneOffset", "AttachLight", "Arrow", "Camera"};
+                std::lock_guard<std::mutex> lock(reservedNamesMutex);
+                if (reservedNames.empty())
+                {
+                    // This keeps somehow accessing garbage so i rewrote it using safer types.
+                    //const char* reserved[] = {"Head", "Neck", "Chest", "Groin", "Right Hand", "Left Hand", "Right Wrist", "Left Wrist", "Shield Bone", "Right Forearm", "Left Forearm", "Right Upper Arm",
+                    //                          "Left Upper Arm", "Right Foot", "Left Foot", "Right Ankle", "Left Ankle", "Right Knee", "Left Knee", "Right Upper Leg", "Left Upper Leg", "Right Clavicle",
+                    //                          "Left Clavicle", "Weapon Bone", "Tail", "Bip01", "Root Bone", "BoneOffset", "AttachLight", "Arrow", "Camera"};
 
-                reservedNames = std::vector<std::string>(reserved, reserved + sizeof(reserved)/sizeof(reserved[0]));
+                    //reservedNames = std::vector<std::string>(reserved, reserved + sizeof(reserved)/sizeof(const char*));
 
-                for (unsigned int i=0; i<sizeof(reserved)/sizeof(reserved[0]); ++i)
-                    reservedNames.push_back(std::string("Tri ") + reserved[i]);
+                    //for (unsigned int i=0; i<sizeof(reserved)/sizeof(const char*); ++i)
+                    //    reservedNames.push_back(std::string("Tri ") + reserved[i]);
 
-                std::sort(reservedNames.begin(), reservedNames.end(), Misc::StringUtils::ciLess);
+                    std::vector<std::string> r = { "Head", "Neck", "Chest", "Groin", "Right Hand", "Left Hand", "Right Wrist", "Left Wrist", "Shield Bone", "Right Forearm", "Left Forearm", "Right Upper Arm",
+                                              "Left Upper Arm", "Right Foot", "Left Foot", "Right Ankle", "Left Ankle", "Right Knee", "Left Knee", "Right Upper Leg", "Left Upper Leg", "Right Clavicle",
+                                              "Left Clavicle", "Weapon Bone", "Tail", "Bip01", "Root Bone", "BoneOffset", "AttachLight", "Arrow", "Camera" };
+                    reservedNames = std::vector<std::string>(r.begin(), r.end());
+                    for (auto& reservedName : r)
+                        reservedNames.emplace_back(std::string("Tri ") + reservedName);
+
+                    std::sort(reservedNames.begin(), reservedNames.end(), Misc::StringUtils::ciLess);
+                }
             }
 
             std::vector<std::string>::iterator it = Misc::StringUtils::partialBinarySearch(reservedNames.begin(), reservedNames.end(), name);
@@ -763,7 +775,7 @@ namespace Resource
 
     Shader::ShaderVisitor *SceneManager::createShaderVisitor()
     {
-        Shader::ShaderVisitor* shaderVisitor = new Shader::ShaderVisitor(*mShaderManager.get(), *mImageManager, "objects_vertex.glsl", "objects_fragment.glsl", "objects_geometry.glsl");
+        Shader::ShaderVisitor* shaderVisitor = new Shader::ShaderVisitor(*mShaderManager.get(), *mImageManager, "objects_vertex.glsl", "objects_fragment.glsl");
         shaderVisitor->setForceShaders(mForceShaders);
         shaderVisitor->setAutoUseNormalMaps(mAutoUseNormalMaps);
         shaderVisitor->setNormalMapPattern(mNormalMapPattern);

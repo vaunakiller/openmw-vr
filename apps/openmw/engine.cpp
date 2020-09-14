@@ -23,11 +23,15 @@
 #include <components/sdlutil/sdlgraphicswindow.hpp>
 #include <components/sdlutil/imagetosurface.hpp>
 
+#include <components/shader/shadermanager.hpp>
+
 #include <components/resource/resourcesystem.hpp>
 #include <components/resource/scenemanager.hpp>
 #include <components/resource/stats.hpp>
 
 #include <components/compiler/extensions0.hpp>
+
+#include <components/misc/stereo.hpp>
 
 #include <components/sceneutil/workqueue.hpp>
 
@@ -692,11 +696,30 @@ void OMW::Engine::prepareEngine (Settings::Manager & settings)
             window->playVideo(logo, true);
     }
 
+    mStereoEnabled = true; //!< TODO: TEMP
+
+    // geometry shader must be enabled before the RenderingManager sets up any shaders
+    // therefore this part is separate from the rest of stereo setup.
+    if (mStereoEnabled)
+    {
+        mResourceSystem->getSceneManager()->getShaderManager().enableGeometryShader(true);
+    }
+
     // Create the world
     mEnvironment.setWorld( new MWWorld::World (mViewer, rootNode, mResourceSystem.get(), mWorkQueue.get(),
         mFileCollections, mContentFiles, mEncoder, mActivationDistanceOverride, mCellName,
         mStartupScript, mResDir.string(), mCfgMgr.getUserDataPath().string()));
     mEnvironment.getWorld()->setupPlayer();
+
+    // Set up stereo
+    if (mStereoEnabled)
+    {
+        // Mask in everything that does not currently use shaders.
+        // Remove that altogether when the sky finally uses them.
+        auto noShaderMask = MWRender::VisMask::Mask_Sky | MWRender::VisMask::Mask_Sun | MWRender::VisMask::Mask_WeatherParticles;
+        auto geometryShaderMask = mViewer->getCamera()->getCullMask() & ~noShaderMask;
+        mStereoView.reset(new Misc::StereoView(mViewer, geometryShaderMask, noShaderMask | MWRender::VisMask::Mask_Scene));
+    }
 
     window->setStore(mEnvironment.getWorld()->getStore());
     window->initUI();

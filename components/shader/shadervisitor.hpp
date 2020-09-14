@@ -17,7 +17,7 @@ namespace Shader
     class ShaderVisitor : public osg::NodeVisitor
     {
     public:
-        ShaderVisitor(ShaderManager& shaderManager, Resource::ImageManager& imageManager, const std::string& defaultVsTemplate, const std::string& defaultFsTemplate, const std::string& defaultGsTemplate);
+        ShaderVisitor(ShaderManager& shaderManager, Resource::ImageManager& imageManager, const std::string& defaultVsTemplate, const std::string& defaultFsTemplate);
 
         /// By default, only bump mapped objects will have a shader added to them.
         /// Setting force = true will cause all objects to render using shaders, regardless of having a bump map.
@@ -89,7 +89,6 @@ namespace Shader
 
         std::string mDefaultVsTemplate;
         std::string mDefaultFsTemplate;
-        std::string mDefaultGsTemplate;
 
         void createProgram(const ShaderRequirements& reqs);
         bool adjustGeometry(osg::Geometry& sourceGeometry, const ShaderRequirements& reqs);

@@ -232,10 +232,9 @@ namespace Terrain
                 defineMap["blendMap"] = (!blendmaps.empty()) ? "1" : "0";
                 defineMap["specularMap"] = it->mSpecular ? "1" : "0";
                 defineMap["parallax"] = (it->mNormalMap && it->mParallax) ? "1" : "0";
+                defineMap["geometryShader"] = "1";
 
                 osg::ref_ptr<osg::Shader> vertexShader = shaderManager->getShader("terrain_vertex.glsl", defineMap, osg::Shader::VERTEX);
-                osg::ref_ptr<osg::Shader> geometryShader = shaderManager->getShader("terrain_geometry.glsl", defineMap, osg::Shader::GEOMETRY);
-                //osg::ref_ptr<osg::Shader> geometryShader = nullptr;
                 osg::ref_ptr<osg::Shader> fragmentShader = shaderManager->getShader("terrain_fragment.glsl", defineMap, osg::Shader::FRAGMENT);
                 if (!vertexShader || !fragmentShader)
                 {
@@ -243,7 +242,7 @@ namespace Terrain
                     return createPasses(false, shaderManager, layers, blendmaps, blendmapScale, layerTileSize);
                 }
 
-                stateset->setAttributeAndModes(shaderManager->getProgram(vertexShader, fragmentShader, geometryShader));
+                stateset->setAttributeAndModes(shaderManager->getProgram(vertexShader, fragmentShader));
                 stateset->addUniform(new osg::Uniform("colorMode", 2));
             }
             else

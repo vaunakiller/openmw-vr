@@ -18,6 +18,8 @@
 
 #include "mwshadowtechnique.hpp"
 
+#include <components/misc/stereo.hpp>
+
 #include <osgShadow/ShadowedScene>
 #include <osg/CullFace>
 #include <osg/Geometry>
@@ -574,6 +576,9 @@ MWShadowTechnique::ShadowData::ShadowData(MWShadowTechnique::ViewDependentData* 
 
     // set viewport
     _camera->setViewport(0,0,textureSize.x(),textureSize.y());
+
+    // Shadow casting should not obey indexed viewports
+    Misc::disableStereoForCamera(_camera);
 
 
     if (debug)
