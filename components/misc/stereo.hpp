@@ -86,7 +86,8 @@ namespace Misc
 
         //! Updates uniforms with the view and projection matrices of each stereo view, and replaces the camera's view and projection matrix
         //! with a view and projection that closely envelopes the frustums of the two eyes.
-        void update(osg::StateSet* stateset);
+        void update();
+        void updateStateset(osg::StateSet* stateset);
 
         //! Callback that updates stereo configuration during the update pass
         void setUpdateViewCallback(std::shared_ptr<UpdateViewCallback> cb);

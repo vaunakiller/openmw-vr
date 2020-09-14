@@ -176,40 +176,27 @@ namespace Misc
         return os;
     }
 
-    /// Why are you like this
-    class TestCullCallback : public osg::NodeCallback
-    {
-    public:
-        TestCullCallback() {}
-
-        virtual void operator()(osg::Node* node, osg::NodeVisitor* nv)
-        {
-            //Log(Debug::Verbose) << "Cull: " << node->getName();
-            osgUtil::CullVisitor* cv = static_cast<osgUtil::CullVisitor*>(nv);
-            traverse(node, nv);
-        }
-    };
-
+    // Update stereo view/projection during update
     class StereoUpdateCallback : public osg::Callback
     {
     public:
-        StereoUpdateCallback(StereoView* node) : mNode(node) {}
+        StereoUpdateCallback(StereoView* stereoView) : stereoView(stereoView) {}
 
         bool run(osg::Object* object, osg::Object* data) override
         {
-            //Log(Debug::Verbose) << "StereoUpdateCallback";
             auto b = traverse(object, data);
-            //mNode->update();
+            stereoView->update();
             return b;
         }
 
-        StereoView* mNode;
+        StereoView* stereoView;
     };
 
-    class StereoUpdater : public SceneUtil::StateSetUpdater
+    // Update states during cull
+    class StereoStatesetUpdateCallback : public SceneUtil::StateSetUpdater
     {
     public:
-        StereoUpdater(StereoView* view)
+        StereoStatesetUpdateCallback(StereoView* view)
             : stereoView(view)
         {
         }
@@ -227,7 +214,7 @@ namespace Misc
 
         virtual void apply(osg::StateSet* stateset, osg::NodeVisitor* /*nv*/)
         {
-            stereoView->update(stateset);
+            stereoView->updateStateset(stateset);
         }
 
     private:
@@ -281,14 +268,21 @@ namespace Misc
         mStereoBruteForceRoot->addChild(mRightCamera);
         mRightCamera->addChild(mScene);
         viewer->setSceneData(this);
-        addCullCallback(new StereoUpdater(this));
 
-        // Do a blank double buffering of camera statesets on update. StereoView::Update() apply actual changes during cull;
+        // Do a blank double buffering of camera statesets on update. Actual stateset updates are performed in StereoView::Update()
         mLeftCamera->setUpdateCallback(new SceneUtil::StateSetUpdater());
         mRightCamera->setUpdateCallback(new SceneUtil::StateSetUpdater());
+
+        // Update stereo statesets/matrices, but after the main camera updates.
+        auto mainCameraCB = mMainCamera->getUpdateCallback();
+        mMainCamera->removeUpdateCallback(mainCameraCB);
+        mMainCamera->addUpdateCallback(new StereoUpdateCallback(this));
+        mMainCamera->addUpdateCallback(mainCameraCB);
+
+        addCullCallback(new StereoStatesetUpdateCallback(this));
     }
 
-    void StereoView::update(osg::StateSet* stateset)
+    void StereoView::update()
     {
         auto viewMatrix = mViewer->getCamera()->getViewMatrix();
         auto projectionMatrix = mViewer->getCamera()->getProjectionMatrix();
@@ -315,18 +309,10 @@ namespace Misc
         osg::Matrix leftProjectionMatrix = left.fov.perspectiveMatrix(near, far);
         osg::Matrix rightProjectionMatrix = right.fov.perspectiveMatrix(near, far);
 
-        mRightCamera->setViewMatrix(leftViewMatrix);
-        mLeftCamera->setViewMatrix(rightViewMatrix);
-        mRightCamera->setProjectionMatrix(leftProjectionMatrix);
-        mLeftCamera->setProjectionMatrix(rightProjectionMatrix);
-
-        // Manage viewports in update to automatically catch window/resolution changes.
-        auto width = mMainCamera->getViewport()->width();
-        auto height = mMainCamera->getViewport()->height();
-        mLeftCamera->getOrCreateStateSet()->setAttribute(new osg::ViewportIndexed(0, 0, 0, width / 2, height), osg::StateAttribute::OVERRIDE);
-        mRightCamera->getOrCreateStateSet()->setAttribute(new osg::ViewportIndexed(0, width / 2, 0, width / 2, height), osg::StateAttribute::OVERRIDE);
-        stateset->setAttribute(new osg::ViewportIndexed(0, 0, 0, width / 2, height));
-        stateset->setAttribute(new osg::ViewportIndexed(1, width / 2, 0, width / 2, height));
+        mRightCamera->setViewMatrix(rightViewMatrix);
+        mLeftCamera->setViewMatrix(leftViewMatrix);
+        mRightCamera->setProjectionMatrix(rightProjectionMatrix);
+        mLeftCamera->setProjectionMatrix(leftProjectionMatrix);
 
         // The persepctive frustum will be computed from a position P slightly behind the eyes L and R
         // where it creates the minimum frustum encompassing both eyes' frustums.
@@ -374,6 +360,7 @@ namespace Misc
         osg::Vec3d directionLP = osg::Vec3(std::cos(-angleLeft), std::sin(-angleLeft), 0);
         osg::Vec3d LP = directionLP * lengthLP;
         frustumView.pose.position = leftEye + LP;
+        //frustumView.pose.position.x() += 1000;
 
         // Base view position is 0.0, by definition.
         // The length of the vector P is therefore the required offset to near/far.
@@ -382,23 +369,35 @@ namespace Misc
         // Generate the frustum matrices
         auto frustumViewMatrix = viewMatrix * frustumView.pose.viewMatrix(true);
         auto frustumProjectionMatrix = frustumView.fov.perspectiveMatrix(near + nearFarOffset, far + nearFarOffset);
-        auto frustumViewMatrixInverse = osg::Matrix::inverse(projectionMatrix) * osg::Matrix::inverse(viewMatrix);
 
         // Update camera with frustum matrices
         mMainCamera->setViewMatrix(frustumViewMatrix);
         mMainCamera->setProjectionMatrix(frustumProjectionMatrix);
 
-        mStereoGeometryShaderRoot->setStateSet(stateset);
+        auto width = mMainCamera->getViewport()->width();
+        auto height = mMainCamera->getViewport()->height();
+        mLeftCamera->getOrCreateStateSet()->setAttribute(new osg::ViewportIndexed(0, 0, 0, width / 2, height), osg::StateAttribute::OVERRIDE);
+        mRightCamera->getOrCreateStateSet()->setAttribute(new osg::ViewportIndexed(0, width / 2, 0, width / 2, height), osg::StateAttribute::OVERRIDE);
+    }
 
+    void StereoView::updateStateset(osg::StateSet * stateset)
+    {
+        // Manage viewports in update to automatically catch window/resolution changes.
+        auto width = mMainCamera->getViewport()->width();
+        auto height = mMainCamera->getViewport()->height();
+        stateset->setAttribute(new osg::ViewportIndexed(0, 0, 0, width / 2, height));
+        stateset->setAttribute(new osg::ViewportIndexed(1, width / 2, 0, width / 2, height));
 
-        // Create and/or update stereo uniforms
+        // Update stereo uniforms
+        auto frustumViewMatrixInverse = osg::Matrix::inverse(mMainCamera->getViewMatrix());
+        //auto frustumViewProjectionMatrixInverse = osg::Matrix::inverse(mMainCamera->getProjectionMatrix()) * osg::Matrix::inverse(mMainCamera->getViewMatrix());
         auto* stereoViewMatrixUniform = stateset->getUniform("stereoViewMatrices");
         auto* stereoViewProjectionsUniform = stateset->getUniform("stereoViewProjections");
 
-        stereoViewMatrixUniform->setElement(1, frustumViewMatrixInverse * leftViewMatrix);
-        stereoViewMatrixUniform->setElement(0, frustumViewMatrixInverse * rightViewMatrix);
-        stereoViewProjectionsUniform->setElement(1, frustumViewMatrixInverse * rightViewMatrix * leftProjectionMatrix);
-        stereoViewProjectionsUniform->setElement(0, frustumViewMatrixInverse * rightViewMatrix * rightProjectionMatrix);
+        stereoViewMatrixUniform->setElement(0, frustumViewMatrixInverse * mLeftCamera->getViewMatrix());
+        stereoViewMatrixUniform->setElement(1, frustumViewMatrixInverse * mRightCamera->getViewMatrix());
+        stereoViewProjectionsUniform->setElement(0, frustumViewMatrixInverse * mLeftCamera->getViewMatrix() * mLeftCamera->getProjectionMatrix());
+        stereoViewProjectionsUniform->setElement(1, frustumViewMatrixInverse * mRightCamera->getViewMatrix() * mRightCamera->getProjectionMatrix());
     }
 
     void StereoView::setUpdateViewCallback(std::shared_ptr<UpdateViewCallback> cb)

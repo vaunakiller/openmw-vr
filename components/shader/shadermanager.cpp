@@ -205,15 +205,13 @@ namespace Shader
             "        {\n"
             "            gl_ViewportIndex = gl_InvocationID;\n"
             "            // Re-project\n"
-            "            gl_Position = stereoViewProjections[gl_InvocationID] * gl_in[i].gl_Position;\n"
-            "            vec4 viewPos = stereoViewMatrices[gl_InvocationID] * gl_in[i].gl_Position;\n"
+            "            gl_Position = stereoViewProjections[gl_InvocationID] * vec4(vertex_passViewPos[i],1);\n"
+            "            vec4 viewPos = stereoViewMatrices[gl_InvocationID] * vec4(vertex_passViewPos[i],1);\n"
             "            gl_ClipVertex = vec4(viewPos.xyz,1);\n"
             "\n"
             "            // Input -> output\n"
             "@FORWARDING\n"
             "\n"
-            "            // TODO: deal with passNormal, depths, etc.\n"
-            "@EXTRA\n"
             "            EmitVertex();\n"
             "        }\n"
             "\n"
@@ -226,6 +224,17 @@ namespace Shader
             {"linearDepth", "linearDepth = gl_Position.z;"},
             {"euclideanDepth", "euclideanDepth = length(viewPos.xyz);"},
             {"passViewPos", "passViewPos = viewPos.xyz;"},
+            {
+                "screenCoordsPassthrough",
+                "                mat4 scalemat = mat4(0.25, 0.0, 0.0, 0.0,\n"
+                "                    0.0, -0.5, 0.0, 0.0,\n"
+                "                    0.0, 0.0, 0.5, 0.0,\n"
+                "                    0.25, 0.5, 0.5, 1.0);\n"
+                "                vec4 texcoordProj = ((scalemat) * (gl_Position));\n"
+                "                screenCoordsPassthrough = texcoordProj.xyw;\n"
+                "                if(gl_InvocationID == 1)\n"
+                "                    screenCoordsPassthrough.x += 0.5 * screenCoordsPassthrough.z;\n"
+            }
         };
 
         std::stringstream ssInputDeclarations;
@@ -251,38 +260,17 @@ namespace Shader
             identifiers.insert(declaration.identifier);
         }
 
-        Log(Debug::Verbose) << "Forward statements: \n" << ssForwardStatements.str();
-
         // passViewPos output is required
-        //if (identifiers.find("passViewPos") == identifiers.end())
-        //{
-        //    Log(Debug::Error) << "Vertex shader is missing 'vec3 passViewPos' on its interface. Geometry shader will NOT work.";
-        //    return "";
-        //}
-
-        if (identifiers.find("screenCoordsPassthrough") != identifiers.end())
+        if (identifiers.find("passViewPos") == identifiers.end())
         {
-            // TODO: This corrects basic sampling but the screenCoordsOffset value in the fragment shader is still fucked.
-            static const char* screenCordsAssignmentCode =
-                "                mat4 scalemat = mat4(0.25, 0.0, 0.0, 0.0,\n"
-                "                    0.0, -0.5, 0.0, 0.0,\n"
-                "                    0.0, 0.0, 0.5, 0.0,\n"
-                "                    0.25, 0.5, 0.5, 1.0);\n"
-                "                vec4 texcoordProj = ((scalemat) * (gl_Position));\n"
-                "                screenCoordsPassthrough = texcoordProj.xyw;\n"
-                "                if(gl_InvocationID == 1)\n"
-                "                    screenCoordsPassthrough.x += 0.5 * screenCoordsPassthrough.z;\n"
-                ;
-            ssExtraStatements << screenCordsAssignmentCode;
+            Log(Debug::Error) << "Vertex shader is missing 'vec3 passViewPos' on its interface. Geometry shader will NOT work.";
+            return "";
         }
-
-        //if()
 
         std::string geometryShader = geometryTemplate;
         geometryShader = std::regex_replace(geometryShader, std::regex("@INPUTS"), ssInputDeclarations.str());
         geometryShader = std::regex_replace(geometryShader, std::regex("@OUTPUTS"), ssOutputDeclarations.str());
         geometryShader = std::regex_replace(geometryShader, std::regex("@FORWARDING"), ssForwardStatements.str());
-        geometryShader = std::regex_replace(geometryShader, std::regex("@EXTRA"), ssExtraStatements.str());
 
         return geometryShader;
     }
