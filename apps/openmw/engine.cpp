@@ -365,6 +365,8 @@ OMW::Engine::Engine(Files::ConfigurationManager& configurationManager)
   , mEncoding(ToUTF8::WINDOWS_1252)
   , mEncoder(nullptr)
   , mScreenCaptureOperation(nullptr)
+  , mStereoEnabled(false)
+  , mStereoOverride(false)
   , mSkipMenu (false)
   , mUseSound (true)
   , mCompileAll (false)
@@ -398,6 +400,8 @@ OMW::Engine::Engine(Files::ConfigurationManager& configurationManager)
 
 OMW::Engine::~Engine()
 {
+    mStereoView = nullptr;
+
     mEnvironment.cleanup();
 
     delete mScriptContext;
@@ -696,13 +700,14 @@ void OMW::Engine::prepareEngine (Settings::Manager & settings)
             window->playVideo(logo, true);
     }
 
-    mStereoEnabled = true; //!< TODO: TEMP
+    // VR mode will override this setting by setting mStereoOverride.
+    mStereoEnabled = mStereoOverride || Settings::Manager::getBool("stereo enabled", "Stereo");
 
     // geometry shader must be enabled before the RenderingManager sets up any shaders
     // therefore this part is separate from the rest of stereo setup.
     if (mStereoEnabled)
     {
-        mResourceSystem->getSceneManager()->getShaderManager().enableGeometryShader(true);
+        mResourceSystem->getSceneManager()->getShaderManager().setStereoGeometryShaderEnabled(Misc::getStereoTechnique() == Misc::StereoView::Technique::GeometryShader_IndexedViewports);
     }
 
     // Create the world
@@ -718,7 +723,7 @@ void OMW::Engine::prepareEngine (Settings::Manager & settings)
         // Remove that altogether when the sky finally uses them.
         auto noShaderMask = MWRender::VisMask::Mask_Sky | MWRender::VisMask::Mask_Sun | MWRender::VisMask::Mask_WeatherParticles;
         auto geometryShaderMask = mViewer->getCamera()->getCullMask() & ~noShaderMask;
-        mStereoView.reset(new Misc::StereoView(mViewer, geometryShaderMask, noShaderMask | MWRender::VisMask::Mask_Scene));
+        mStereoView.reset(new Misc::StereoView(mViewer, Misc::getStereoTechnique(), geometryShaderMask, noShaderMask | MWRender::VisMask::Mask_Scene));
     }
 
     window->setStore(mEnvironment.getWorld()->getStore());

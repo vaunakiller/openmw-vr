@@ -92,6 +92,7 @@ namespace OMW
             std::vector<std::string> mContentFiles;
 
             bool mStereoEnabled;
+            bool mStereoOverride;
             std::unique_ptr<Misc::StereoView> mStereoView;
 
             bool mSkipMenu;

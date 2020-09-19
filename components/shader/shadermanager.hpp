@@ -41,7 +41,8 @@ namespace Shader
         /// whose defines include "geometryShader" set to "1".
         /// This geometry shader is automatically included in any program using that vertex shader.
         ///  \note Does not affect programs that have already been created, set this during startup.
-        void enableGeometryShader(bool enabled);
+        void setStereoGeometryShaderEnabled(bool enabled);
+        bool stereoGeometryShaderEnabled() const;
 
         /// Set the DefineMap used to construct all shaders
         /// @param defines The DefineMap to use

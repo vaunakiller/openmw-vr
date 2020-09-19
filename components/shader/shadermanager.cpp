@@ -515,9 +515,14 @@ namespace Shader
         return DefineMap(mGlobalDefines);
     }
 
-    void ShaderManager::enableGeometryShader(bool enabled)
+    void ShaderManager::setStereoGeometryShaderEnabled(bool enabled)
     {
         mGeometryShadersEnabled = enabled;
+    }
+
+    bool ShaderManager::stereoGeometryShaderEnabled() const
+    {
+        return mGeometryShadersEnabled;
     }
 
     void ShaderManager::setGlobalDefines(DefineMap& globalDefines)

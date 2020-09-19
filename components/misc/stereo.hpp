@@ -78,11 +78,19 @@ namespace Misc
             virtual void updateView(View& left, View& right, double& near, double& far);
         };
 
+        enum class Technique
+        {
+            None = 0, //!< Stereo disabled (do nothing).
+            BruteForce, //!< Two slave cameras culling and drawing everything.
+            GeometryShader_IndexedViewports, //!< Frustum camera culls and draws stereo into indexed viewports using an automatically generated geometry shader.
+        };
+
         //! Adds two cameras in stereo to the mainCamera.
         //! All nodes matching the mask are rendered in stereo using brute force via two camera transforms, the rest are rendered in stereo via a geometry shader.
-        //! \note The mask is removed from the mainCamera, so do not put Scene in this mask.
-        //! \note Brute force does not support shadows. But that's fine because currently this only applies to things that don't use shaders and that's only the sky, which will use shaders in the future.
-        StereoView(osgViewer::Viewer* viewer, osg::Node::NodeMask geometryShaderMask, osg::Node::NodeMask bruteForceMask);
+        //! \param geometryShaderMask should mask in all nodes that use shaders.
+        //! \param noShaderMask mask in all nodes that do not use shaders and must be rendered brute force.
+        //! \note the masks apply only to the GeometryShader_IndexdViewports technique and can be 0 for the BruteForce technique.
+        StereoView(osgViewer::Viewer* viewer, Technique technique, osg::Node::NodeMask geometryShaderMask, osg::Node::NodeMask noShaderMask);
 
         //! Updates uniforms with the view and projection matrices of each stereo view, and replaces the camera's view and projection matrix
         //! with a view and projection that closely envelopes the frustums of the two eyes.
@@ -92,21 +100,23 @@ namespace Misc
         //! Callback that updates stereo configuration during the update pass
         void setUpdateViewCallback(std::shared_ptr<UpdateViewCallback> cb);
 
-        //! Use the slave camera at index instead of the main viewer camera.
-        void useSlaveCameraAtIndex(int index);
+    private:
+        void setupBruteForceTechnique();
+        void setupGeometryShaderIndexedViewportTechnique();
 
         osg::ref_ptr<osgViewer::Viewer> mViewer;
         osg::ref_ptr<osg::Camera>       mMainCamera;
         osg::ref_ptr<osg::Group>        mRoot;
         osg::ref_ptr<osg::Group>        mScene;
+        Technique                       mTechnique;
 
         // Keeps state relevant to doing stereo via the geometry shader
         osg::ref_ptr<osg::Group>    mStereoGeometryShaderRoot{ new osg::Group };
         osg::Node::NodeMask         mGeometryShaderMask;
+        osg::Node::NodeMask         mNoShaderMask;
 
         // Keeps state and cameras relevant to doing stereo via brute force
         osg::ref_ptr<osg::Group>    mStereoBruteForceRoot{ new osg::Group };
-        osg::Node::NodeMask         mBruteForceMask;
         osg::ref_ptr<osg::Camera>   mLeftCamera{ new osg::Camera };
         osg::ref_ptr<osg::Camera>   mRightCamera{ new osg::Camera };
 
@@ -122,6 +132,9 @@ namespace Misc
 
     //! Overrides all stereo-related states/uniforms to enable stereo for the scene rendered by camera
     void enableStereoForCamera(osg::Camera* camera, bool horizontalSplit);
+
+    //! Reads settings to determine stereo technique
+    StereoView::Technique getStereoTechnique(void);
 }
 
 #endif

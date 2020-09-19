@@ -1,5 +1,7 @@
 #include "sdlgraphicswindow.hpp"
 
+#include <osgViewer/viewer>
+
 #include <SDL_video.h>
 
 namespace SDLUtil
@@ -200,6 +202,23 @@ void GraphicsWindowSDL2::setSyncToVBlank(bool on)
     setSwapInterval(on);
 
     SDL_GL_MakeCurrent(oldWin, oldCtx);
+}
+
+osg::GraphicsContext* GraphicsWindowSDL2::findContext(osgViewer::View& view)
+{
+    view.getCamera();
+    if (view.getCamera()->getGraphicsContext())
+    {
+        return  view.getCamera()->getGraphicsContext();
+    }
+
+    for (auto i = 0; i < view.getNumSlaves(); i++)
+    {
+        if (view.getSlave(i)._camera->getGraphicsContext())
+            return view.getSlave(i)._camera->getGraphicsContext();
+    }
+    
+    return nullptr;
 }
 
 void GraphicsWindowSDL2::setSwapInterval(bool enable)
