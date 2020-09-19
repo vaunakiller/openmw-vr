@@ -94,7 +94,7 @@ namespace MWClass
             virtual MWMechanics::Movement& getMovementSettings (const MWWorld::Ptr& ptr) const;
             ///< Return desired movement.
 
-            float getSpeed (const MWWorld::Ptr& ptr) const;
+            float getMaxSpeed (const MWWorld::Ptr& ptr) const;
 
             static void registerSelf();
 
@@ -131,6 +131,8 @@ namespace MWClass
             /// @param rendering Indicates if the scale to adjust is for the rendering mesh, or for the collision mesh
 
             virtual void setBaseAISetting(const std::string& id, MWMechanics::CreatureStats::AiSetting setting, int value) const;
+
+            virtual void modifyBaseInventory(const std::string& actorId, const std::string& itemId, int amount) const;
 
             float getWalkSpeed(const MWWorld::Ptr& ptr) const final;
 

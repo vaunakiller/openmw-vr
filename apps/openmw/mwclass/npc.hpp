@@ -84,8 +84,8 @@ namespace MWClass
             virtual std::string getScript (const MWWorld::ConstPtr& ptr) const;
             ///< Return name of the script attached to ptr
 
-            virtual float getSpeed (const MWWorld::Ptr& ptr) const;
-            ///< Return movement speed.
+            virtual float getMaxSpeed (const MWWorld::Ptr& ptr) const;
+            ///< Return maximal movement speed.
 
             virtual float getJump(const MWWorld::Ptr &ptr) const;
             ///< Return jump velocity (not accounting for movement)
@@ -166,6 +166,8 @@ namespace MWClass
             virtual int getPrimaryFactionRank(const MWWorld::ConstPtr &ptr) const;
 
             virtual void setBaseAISetting(const std::string& id, MWMechanics::CreatureStats::AiSetting setting, int value) const;
+
+            virtual void modifyBaseInventory(const std::string& actorId, const std::string& itemId, int amount) const;
 
             float getWalkSpeed(const MWWorld::Ptr& ptr) const final;
 

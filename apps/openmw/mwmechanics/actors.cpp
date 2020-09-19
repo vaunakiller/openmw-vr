@@ -88,12 +88,13 @@ class CheckActorCommanded : public MWMechanics::EffectSourceVisitor
     MWWorld::Ptr mActor;
 public:
     bool mCommanded;
+
     CheckActorCommanded(const MWWorld::Ptr& actor)
         : mActor(actor)
-    , mCommanded(false){}
+        , mCommanded(false){}
 
-    virtual void visit (MWMechanics::EffectKey key,
-                             const std::string& sourceName, const std::string& sourceId, int casterActorId,
+    virtual void visit (MWMechanics::EffectKey key, int effectIndex,
+                        const std::string& sourceName, const std::string& sourceId, int casterActorId,
                         float magnitude, float remainingTime = -1, float totalTime = -1)
     {
         if (((key.mId == ESM::MagicEffect::CommandHumanoid && mActor.getClass().isNpc())
@@ -156,8 +157,8 @@ namespace MWMechanics
         GetStuntedMagickaDuration(const MWWorld::Ptr& actor)
             : mRemainingTime(0.f){}
 
-        virtual void visit (MWMechanics::EffectKey key,
-                                const std::string& sourceName, const std::string& sourceId, int casterActorId,
+        virtual void visit (MWMechanics::EffectKey key, int effectIndex,
+                            const std::string& sourceName, const std::string& sourceId, int casterActorId,
                             float magnitude, float remainingTime = -1, float totalTime = -1)
         {
             if (mRemainingTime == -1) return;
@@ -186,8 +187,8 @@ namespace MWMechanics
         {
         }
 
-        virtual void visit (MWMechanics::EffectKey key,
-                                 const std::string& sourceName, const std::string& sourceId, int casterActorId,
+        virtual void visit (MWMechanics::EffectKey key, int effectIndex,
+                            const std::string& sourceName, const std::string& sourceId, int casterActorId,
                             float magnitude, float remainingTime = -1, float totalTime = -1)
         {
             if (magnitude <= 0)
@@ -206,8 +207,8 @@ namespace MWMechanics
     {
 
     public:
-        virtual void visit (MWMechanics::EffectKey key,
-                                 const std::string& sourceName, const std::string& sourceId, int casterActorId,
+        virtual void visit (MWMechanics::EffectKey key, int effectIndex,
+                            const std::string& sourceName, const std::string& sourceId, int casterActorId,
                             float magnitude, float remainingTime = -1, float totalTime = -1)
         {
             if (key.mId != ESM::MagicEffect::Corprus)
@@ -231,8 +232,8 @@ namespace MWMechanics
         {
         }
 
-        virtual void visit (MWMechanics::EffectKey key,
-                                 const std::string& sourceName, const std::string& sourceId, int casterActorId,
+        virtual void visit (MWMechanics::EffectKey key, int effectIndex,
+                            const std::string& sourceName, const std::string& sourceId, int casterActorId,
                             float magnitude, float remainingTime = -1, float totalTime = -1)
         {
             if (mTrapped)
@@ -472,9 +473,6 @@ namespace MWMechanics
 
     void Actors::updateMovementSpeed(const MWWorld::Ptr& actor)
     {
-        float previousSpeedFactor = actor.getClass().getMovementSettings(actor).mSpeedFactor;
-        float newSpeedFactor = 1.f;
-
         CreatureStats &stats = actor.getClass().getCreatureStats(actor);
         MWMechanics::AiSequence& seq = stats.getAiSequence();
 
@@ -484,10 +482,13 @@ namespace MWMechanics
             osg::Vec3f actorPos = actor.getRefData().getPosition().asVec3();
             float distance = (targetPos - actorPos).length();
             if (distance < DECELERATE_DISTANCE)
-                newSpeedFactor = std::max(0.7f, 0.1f * previousSpeedFactor * (distance/64.f + 2.f));
+            {
+                float speedCoef = std::max(0.7f, 0.1f * (distance/64.f + 2.f));
+                auto& movement = actor.getClass().getMovementSettings(actor);
+                movement.mPosition[0] *= speedCoef;
+                movement.mPosition[1] *= speedCoef;
+            }
         }
-
-        actor.getClass().getMovementSettings(actor).mSpeedFactor = newSpeedFactor;
     }
 
     void Actors::updateGreetingState(const MWWorld::Ptr& actor, Actor& actorState, bool turnOnly)
@@ -894,7 +895,7 @@ namespace MWMechanics
             {
             }
 
-            virtual void visit (MWMechanics::EffectKey key,
+            virtual void visit (MWMechanics::EffectKey key, int /*effectIndex*/,
                                 const std::string& /*sourceName*/, const std::string& /*sourceId*/, int /*casterActorId*/,
                                 float magnitude, float remainingTime = -1, float /*totalTime*/ = -1)
             {
@@ -1196,6 +1197,7 @@ namespace MWMechanics
         {
             UpdateSummonedCreatures updateSummonedCreatures(ptr);
             creatureStats.getActiveSpells().visitEffectSources(updateSummonedCreatures);
+            creatureStats.getSpells().visitEffectSources(updateSummonedCreatures);
             if (ptr.getClass().hasInventoryStore(ptr))
                 ptr.getClass().getInventoryStore(ptr).visitEffectSources(updateSummonedCreatures);
             updateSummonedCreatures.process(mTimerDisposeSummonsCorpses == 0.f);
@@ -1973,10 +1975,6 @@ namespace MWMechanics
                 // One case where we need this is to make sure bound items are removed upon death
                 stats.modifyMagicEffects(MWMechanics::MagicEffects());
                 stats.getActiveSpells().clear();
-
-                if (!isPlayer)
-                    stats.getSpells().clear();
-
                 // Make sure spell effects are removed
                 purgeSpellEffects(stats.getActorId());
 
@@ -2018,7 +2016,7 @@ namespace MWMechanics
 
             // Remove the summoned creature's summoned creatures as well
             MWMechanics::CreatureStats& stats = ptr.getClass().getCreatureStats(ptr);
-            std::map<CreatureStats::SummonKey, int>& creatureMap = stats.getSummonedCreatureMap();
+            std::map<ESM::SummonKey, int>& creatureMap = stats.getSummonedCreatureMap();
             for (const auto& creature : creatureMap)
                 cleanupSummonedCreature(stats, creature.second);
             creatureMap.clear();
