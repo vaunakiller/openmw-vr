@@ -185,10 +185,20 @@ namespace Shader
     {
         static const char* geometryTemplate =
             "#version 150 compatibility\n"
-            "#extension GL_NV_viewport_array : enable\n"
-            "#extension GL_ARB_gpu_shader5 : enable\n"
-            "layout (triangles, invocations = 2) in;\n"
-            "layout (triangle_strip, max_vertices = 3) out;\n"
+            "#extension GL_ARB_viewport_array : require\n"
+            //"#ifdef GL_ARB_gpu_shader5\n" // Ref: AnyOldName3: This slightly faster path is broken on Vega 56
+            "#if 0\n"
+            "    #extension GL_ARB_gpu_shader5 : enable\n"
+            "    #define ENABLE_GL_ARB_gpu_shader5\n"
+            "#endif\n"
+            "\n"
+            "#ifdef ENABLE_GL_ARB_gpu_shader5\n"
+            "    layout (triangles, invocations = 2) in;\n"
+            "    layout (triangle_strip, max_vertices = 3) out;\n"
+            "#else\n"
+            "    layout (triangles) in;\n"
+            "    layout (triangle_strip, max_vertices = 6) out;\n"
+            "#endif\n"
             "\n"
             "// Geometry Shader Inputs\n"
             "@INPUTS\n"
@@ -200,22 +210,37 @@ namespace Shader
             "uniform mat4 stereoViewMatrices[2];\n"
             "uniform mat4 stereoViewProjections[2];\n"
             "\n"
-            "void main() {\n"
-            "        for(int i = 0; i < gl_in.length(); i++)\n"
-            "        {\n"
-            "            gl_ViewportIndex = gl_InvocationID;\n"
-            "            // Re-project\n"
-            "            gl_Position = stereoViewProjections[gl_InvocationID] * vec4(vertex_passViewPos[i],1);\n"
-            "            vec4 viewPos = stereoViewMatrices[gl_InvocationID] * vec4(vertex_passViewPos[i],1);\n"
-            "            gl_ClipVertex = vec4(viewPos.xyz,1);\n"
-            "\n"
-            "            // Input -> output\n"
+            "void perVertex(int vertex, int viewport)\n"
+            "{\n"
+            "    gl_ViewportIndex = viewport;\n"
+            "    // Re-project\n"
+            "    gl_Position = stereoViewProjections[viewport] * vec4(vertex_passViewPos[vertex],1);\n"
+            "    vec4 viewPos = stereoViewMatrices[viewport] * vec4(vertex_passViewPos[vertex],1);\n"
+            "    gl_ClipVertex = vec4(viewPos.xyz,1);\n"
+            "    \n"
+            "    // Input -> output\n"
             "@FORWARDING\n"
+            "    \n"
+            "    EmitVertex();\n"
+            "}\n"
             "\n"
-            "            EmitVertex();\n"
-            "        }\n"
+            "void perViewport(int viewport)\n"
+            "{\n"
+            "    for(int vertex = 0; vertex < gl_in.length(); vertex++)\n"
+            "    {\n"
+            "        perVertex(vertex, viewport);\n"
+            "    }\n"
+            "    EndPrimitive();\n"
+            "}\n"
             "\n"
-            "        EndPrimitive();\n"
+            "void main() {\n"
+            "#ifdef ENABLE_GL_ARB_gpu_shader5\n"
+            "    int viewport = gl_InvocationID;\n"
+            "#else\n"
+            "    for(int viewport = 0; viewport < 2; viewport++)\n"
+            "#endif\n"
+            "        perViewport(viewport);\n"
+            "\n"
             "}\n"
             ;
 
@@ -232,7 +257,7 @@ namespace Shader
                 "                    0.25, 0.5, 0.5, 1.0);\n"
                 "                vec4 texcoordProj = ((scalemat) * (gl_Position));\n"
                 "                screenCoordsPassthrough = texcoordProj.xyw;\n"
-                "                if(gl_InvocationID == 1)\n"
+                "                if(viewport == 1)\n"
                 "                    screenCoordsPassthrough.x += 0.5 * screenCoordsPassthrough.z;\n"
             }
         };
@@ -255,7 +280,7 @@ namespace Shader
             if (overriddenForwardStatements.count(declaration.identifier) > 0)
                 ssForwardStatements << overriddenForwardStatements[declaration.identifier] << ";\n";
             else
-                ssForwardStatements << "            " << declaration.identifier << " = " << declaration.mangledIdentifier << "[i];\n";
+                ssForwardStatements << "            " << declaration.identifier << " = " << declaration.mangledIdentifier << "[vertex];\n";
 
             identifiers.insert(declaration.identifier);
         }
