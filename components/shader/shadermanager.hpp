@@ -55,6 +55,8 @@ namespace Shader
         const osg::ref_ptr<osg::Uniform> getShadowMapAlphaTestDisableUniform();
 
     private:
+        std::string getTemplateSource(const std::string& templateName);
+
         std::string mPath;
 
         DefineMap mGlobalDefines;

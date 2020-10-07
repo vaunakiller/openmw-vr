@@ -181,68 +181,10 @@ namespace Shader
         }
     }
 
-    static std::string generateGeometryShader(const std::vector<DeclarationMeta>& declarations)
+    static std::string generateGeometryShader(const std::string& geometryTemplate, const std::vector<DeclarationMeta>& declarations)
     {
-        static const char* geometryTemplate =
-            "#version 150 compatibility\n"
-            "#extension GL_ARB_viewport_array : require\n"
-            //"#ifdef GL_ARB_gpu_shader5\n" // Ref: AnyOldName3: This slightly faster path is broken on Vega 56
-            "#if 0\n"
-            "    #extension GL_ARB_gpu_shader5 : enable\n"
-            "    #define ENABLE_GL_ARB_gpu_shader5\n"
-            "#endif\n"
-            "\n"
-            "#ifdef ENABLE_GL_ARB_gpu_shader5\n"
-            "    layout (triangles, invocations = 2) in;\n"
-            "    layout (triangle_strip, max_vertices = 3) out;\n"
-            "#else\n"
-            "    layout (triangles) in;\n"
-            "    layout (triangle_strip, max_vertices = 6) out;\n"
-            "#endif\n"
-            "\n"
-            "// Geometry Shader Inputs\n"
-            "@INPUTS\n"
-            "\n"
-            "// Geometry Shader Outputs\n"
-            "@OUTPUTS\n"
-            "\n"
-            "// Stereo matrices\n"
-            "uniform mat4 stereoViewMatrices[2];\n"
-            "uniform mat4 stereoViewProjections[2];\n"
-            "\n"
-            "void perVertex(int vertex, int viewport)\n"
-            "{\n"
-            "    gl_ViewportIndex = viewport;\n"
-            "    // Re-project\n"
-            "    gl_Position = stereoViewProjections[viewport] * vec4(vertex_passViewPos[vertex],1);\n"
-            "    vec4 viewPos = stereoViewMatrices[viewport] * vec4(vertex_passViewPos[vertex],1);\n"
-            "    gl_ClipVertex = vec4(viewPos.xyz,1);\n"
-            "    \n"
-            "    // Input -> output\n"
-            "@FORWARDING\n"
-            "    \n"
-            "    EmitVertex();\n"
-            "}\n"
-            "\n"
-            "void perViewport(int viewport)\n"
-            "{\n"
-            "    for(int vertex = 0; vertex < gl_in.length(); vertex++)\n"
-            "    {\n"
-            "        perVertex(vertex, viewport);\n"
-            "    }\n"
-            "    EndPrimitive();\n"
-            "}\n"
-            "\n"
-            "void main() {\n"
-            "#ifdef ENABLE_GL_ARB_gpu_shader5\n"
-            "    int viewport = gl_InvocationID;\n"
-            "#else\n"
-            "    for(int viewport = 0; viewport < 2; viewport++)\n"
-            "#endif\n"
-            "        perViewport(viewport);\n"
-            "\n"
-            "}\n"
-            ;
+        if (geometryTemplate.empty())
+            return "";
 
         static std::map<std::string, std::string> overriddenForwardStatements =
         {
@@ -274,7 +216,7 @@ namespace Shader
                 ssInputDeclarations << declaration.interpolationType << " ";
                 ssOutputDeclarations << declaration.interpolationType << " ";
             }
-            ssInputDeclarations << "in " << declaration.type << " " << declaration.mangledIdentifier << "[];\n";
+            ssInputDeclarations << "in " << declaration.type << " " << declaration.mangledIdentifier << "[3];\n";
             ssOutputDeclarations << "out " << declaration.type << " " << declaration.identifier << ";\n";
 
             if (overriddenForwardStatements.count(declaration.identifier) > 0)
@@ -448,35 +390,13 @@ namespace Shader
     {
         std::lock_guard<std::mutex> lock(mMutex);
 
-        // read the template if we haven't already
-        TemplateMap::iterator templateIt = mShaderTemplates.find(templateName);
-        if (templateIt == mShaderTemplates.end())
-        {
-            boost::filesystem::path path = (boost::filesystem::path(mPath) / templateName);
-            boost::filesystem::ifstream stream;
-            stream.open(path);
-            if (stream.fail())
-            {
-                Log(Debug::Error) << "Failed to open " << path.string();
-                return nullptr;
-            }
-            std::stringstream buffer;
-            buffer << stream.rdbuf();
-
-            // parse includes
-            int fileNumber = 1;
-            std::string source = buffer.str();
-            if (!addLineDirectivesAfterConditionalBlocks(source)
-                || !parseIncludes(boost::filesystem::path(mPath), source, templateName, fileNumber, {}))
-                return nullptr;
-
-            templateIt = mShaderTemplates.insert(std::make_pair(templateName, source)).first;
-        }
-
         ShaderMap::iterator shaderIt = mShaders.find(std::make_pair(templateName, defines));
         if (shaderIt == mShaders.end())
         {
-            std::string shaderSource = templateIt->second;
+            std::string shaderSource = getTemplateSource(templateName);
+            if (shaderSource.empty())
+                return nullptr;
+
             if (!parseDefines(shaderSource, defines, mGlobalDefines, templateName) || !parseFors(shaderSource, templateName))
             {
                 // Add to the cache anyway to avoid logging the same error over and over.
@@ -493,7 +413,8 @@ namespace Shader
             {
                 std::vector<DeclarationMeta> declarations;
                 mangleInterface(shaderSource, "out|varying", "vertex_", declarations);
-                std::string geometryShaderSource = generateGeometryShader(declarations);
+                std::string geometryTemplate = getTemplateSource("stereo_geometry.glsl");
+                std::string geometryShaderSource = generateGeometryShader(geometryTemplate, declarations);
                 if (!geometryShaderSource.empty())
                 {
                     osg::ref_ptr<osg::Shader> geometryShader(new osg::Shader(osg::Shader::GEOMETRY));
@@ -590,6 +511,35 @@ namespace Shader
     const osg::ref_ptr<osg::Uniform> ShaderManager::getShadowMapAlphaTestDisableUniform()
     {
         return mShadowMapAlphaTestDisableUniform;
+    }
+
+    std::string ShaderManager::getTemplateSource(const std::string& templateName)
+    {
+        // read the template if we haven't already
+        TemplateMap::iterator templateIt = mShaderTemplates.find(templateName);
+        if (templateIt == mShaderTemplates.end())
+        {
+            boost::filesystem::path path = (boost::filesystem::path(mPath) / templateName);
+            boost::filesystem::ifstream stream;
+            stream.open(path);
+            if (stream.fail())
+            {
+                Log(Debug::Error) << "Failed to open " << path.string();
+                return std::string();
+            }
+            std::stringstream buffer;
+            buffer << stream.rdbuf();
+
+            // parse includes
+            int fileNumber = 1;
+            std::string source = buffer.str();
+            if (!addLineDirectivesAfterConditionalBlocks(source)
+                || !parseIncludes(boost::filesystem::path(mPath), source, templateName, fileNumber, {}))
+                return std::string();
+
+            templateIt = mShaderTemplates.insert(std::make_pair(templateName, source)).first;
+        }
+        return templateIt->second;
     }
 
 }
