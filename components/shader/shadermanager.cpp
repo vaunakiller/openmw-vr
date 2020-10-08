@@ -68,7 +68,7 @@ namespace Shader
     static bool parseIncludes(boost::filesystem::path shaderPath, std::string& source, const std::string& fileName, int& fileNumber, std::set<boost::filesystem::path> includingFiles)
     {
         // An include is cyclic if it is being included by itself
-        if (includingFiles.insert(shaderPath / fileName).second == false)
+        if (includingFiles.insert(shaderPath/fileName).second == false)
         {
             Log(Debug::Error) << "Shader " << fileName << " error: Detected cyclic #includes";
             return false;
@@ -107,7 +107,7 @@ namespace Shader
             else
             {
                 lineDirectivePosition = 0;
-                lineNumber = 1;
+                lineNumber = 0;
             }
             lineNumber += std::count(source.begin() + lineDirectivePosition, source.begin() + foundPos, '\n');
 

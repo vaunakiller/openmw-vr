@@ -310,11 +310,6 @@ void VisController::operator() (osg::Node* node, osg::NodeVisitor* nv)
 
 RollController::RollController(const Nif::NiFloatData *data)
     : mData(data->mKeyList, 1.f)
-    , mStartingTime(0)
-{
-}
-
-RollController::RollController() : mStartingTime(0)
 {
 }
 
@@ -322,7 +317,7 @@ RollController::RollController(const RollController &copy, const osg::CopyOp &co
     : osg::NodeCallback(copy, copyop)
     , Controller(copy)
     , mData(copy.mData)
-    , mStartingTime(0)
+    , mStartingTime(copy.mStartingTime)
 {
 }
 
@@ -449,7 +444,7 @@ void MaterialColorController::apply(osg::StateSet *stateset, osg::NodeVisitor *n
 }
 
 FlipController::FlipController(const Nif::NiFlipController *ctrl, const std::vector<osg::ref_ptr<osg::Texture2D> >& textures)
-    : mTexSlot(ctrl->mTexSlot)
+    : mTexSlot(0) // always affects diffuse
     , mDelta(ctrl->mDelta)
     , mTextures(textures)
 {
@@ -459,12 +454,6 @@ FlipController::FlipController(int texSlot, float delta, const std::vector<osg::
     : mTexSlot(texSlot)
     , mDelta(delta)
     , mTextures(textures)
-{
-}
-
-FlipController::FlipController()
-    : mTexSlot(0)
-    , mDelta(0.f)
 {
 }
 
