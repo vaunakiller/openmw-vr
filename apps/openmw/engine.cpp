@@ -367,6 +367,7 @@ OMW::Engine::Engine(Files::ConfigurationManager& configurationManager)
   , mScreenCaptureOperation(nullptr)
   , mStereoEnabled(false)
   , mStereoOverride(false)
+  , mStereoView(nullptr)
   , mSkipMenu (false)
   , mUseSound (true)
   , mCompileAll (false)
@@ -723,7 +724,7 @@ void OMW::Engine::prepareEngine (Settings::Manager & settings)
         // Remove that altogether when the sky finally uses them.
         auto noShaderMask = MWRender::VisMask::Mask_Sky | MWRender::VisMask::Mask_Sun | MWRender::VisMask::Mask_WeatherParticles;
         auto geometryShaderMask = mViewer->getCamera()->getCullMask() & ~noShaderMask;
-        mStereoView.reset(new Misc::StereoView(mViewer, Misc::getStereoTechnique(), geometryShaderMask, noShaderMask | MWRender::VisMask::Mask_Scene));
+        mStereoView = new Misc::StereoView(mViewer, Misc::getStereoTechnique(), geometryShaderMask, noShaderMask | MWRender::VisMask::Mask_Scene);
     }
 
     window->setStore(mEnvironment.getWorld()->getStore());
