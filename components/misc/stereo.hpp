@@ -6,6 +6,8 @@
 #include <osg/Camera>
 #include <osg/StateSet>
 
+#include <memory>
+
 // Some cursed headers like to define these
 #if defined(near) || defined(far)
 #undef near
