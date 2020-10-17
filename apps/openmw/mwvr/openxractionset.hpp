@@ -13,7 +13,6 @@ namespace MWVR
     {
     public:
         using Actions = MWInput::Actions;
-        using ControllerActionPaths = std::array<XrPath, 2>;
 
         OpenXRActionSet(const std::string& actionSetName);
 
@@ -38,15 +37,12 @@ namespace MWVR
         void createPoseAction(TrackedLimb limb, const std::string& actionName, const std::string& localName);
         void createHapticsAction(TrackedLimb limb, const std::string& actionName, const std::string& localName);
         std::unique_ptr<OpenXRAction> createXRAction(XrActionType actionType, const std::string& actionName, const std::string& localName);
-        XrPath generateXrPath(const std::string& path);
-        void generateControllerActionPaths(ActionPath actionPath, const std::string& controllerAction);
+        XrPath getXrPath(const std::string& path);
         XrActionSet createActionSet(const std::string& name);
-        XrPath getXrPath(ActionPath actionPath, Side side);
 
         XrActionSet mActionSet{ nullptr };
         std::string mLocalizedName{};
         std::string mInternalName{};
-        std::map<ActionPath, ControllerActionPaths> mPathMap;
         std::map<int, std::unique_ptr<Action>> mActionMap;
         std::map<TrackedLimb, std::unique_ptr<PoseAction>> mTrackerMap;
         std::map<TrackedLimb, std::unique_ptr<HapticsAction>> mHapticsMap;

@@ -6,13 +6,6 @@
 
 #include <components/debug/debuglog.hpp>
 
-#include <Windows.h>
-
-#include <openxr/openxr.h>
-#include <openxr/openxr_platform.h>
-#include <openxr/openxr_platform_defines.h>
-#include <openxr/openxr_reflection.h>
-
 namespace MWVR {
     OpenXRSwapchain::OpenXRSwapchain(osg::ref_ptr<osg::State> state, SwapchainConfig config)
         : mPrivate(new OpenXRSwapchainImpl(state, config))

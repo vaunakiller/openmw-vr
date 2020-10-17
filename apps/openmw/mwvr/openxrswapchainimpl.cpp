@@ -5,6 +5,7 @@
 #include <components/debug/debuglog.hpp>
 
 #include <Windows.h>
+#include <objbase.h>
 
 #include <openxr/openxr.h>
 #include <openxr/openxr_platform.h>

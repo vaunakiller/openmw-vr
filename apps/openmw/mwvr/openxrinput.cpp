@@ -40,7 +40,7 @@ namespace MWVR
         // Suggest bindings before attaching
         for (auto& profile : mSuggestedBindings)
         {
-            XrPath profilePath;
+            XrPath profilePath = 0;
             CHECK_XRCMD(
                 xrStringToPath(xr->impl().xrInstance(), profile.first.c_str(), &profilePath));
             XrInteractionProfileSuggestedBinding xrProfileSuggestedBindings{ XR_TYPE_INTERACTION_PROFILE_SUGGESTED_BINDING };

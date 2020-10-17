@@ -8,8 +8,6 @@
 
 namespace MWVR
 {
-
-
     /// Extension of MWInput's set of actions.
     enum VrActions
     {
@@ -27,34 +25,11 @@ namespace MWVR
         A_VrLast
     };
 
-    /// \brief Enum representation of action paths in openxr.
-    ///
-    /// OpenXR allows a lot of generics, consequentially this will most likely be changed/expanded
-    /// in the future as we need it. This set was added based on what the Oculus needed.
-    enum class ActionPath
-    {
-        Pose = 0,
-        Haptic,
-        Menu,
-        ThumbstickX,
-        ThumbstickY,
-        ThumbstickClick,
-        Select,
-        Squeeze,
-        Trigger,
-        X,
-        Y,
-        A,
-        B,
-        Last
-    };
-
     /// \brief Suggest a binding by binding an action to a path on a given hand (left or right).
     struct SuggestedBinding
     {
         int         action;
-        ActionPath  path;
-        Side        side;
+        std::string path;
     };
 
     using SuggestedBindings = std::vector<SuggestedBinding>;

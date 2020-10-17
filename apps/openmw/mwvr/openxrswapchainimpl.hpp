@@ -5,6 +5,7 @@
 #include "openxrmanagerimpl.hpp"
 
 struct XrSwapchainSubImage;
+struct XrSwapchainImageOpenGLKHR;
 
 namespace MWVR
 {

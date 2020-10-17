@@ -266,7 +266,7 @@ if(BUILD_OPENMW_VR)
     FetchContent_Declare( 
         OpenXR 
         GIT_REPOSITORY https://github.com/KhronosGroup/OpenXR-SDK.git
-        GIT_TAG release-1.0.9
+        GIT_TAG release-1.0.12
     )
     FetchContent_MakeAvailable(OpenXR)
 

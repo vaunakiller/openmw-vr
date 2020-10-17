@@ -73,6 +73,15 @@ namespace MWVR
         void applyHapticsLeftHand(float intensity) override;
         void applyHapticsRightHand(float intensity) override;
 
+    private:
+        void suggestBindingsSimple();
+        void suggestBindingsOculusTouch();
+        void suggestBindingsHpMixedReality();
+        void suggestBindingsMicrosoftMixedReality();
+        void suggestBindingsIndex();
+        void suggestBindingsVive();
+        void suggestBindingsXboxController();
+
         std::unique_ptr<OpenXRInput> mXRInput;
         std::unique_ptr<RealisticCombat::StateMachine> mRealisticCombat;
         Pose mHeadPose{};

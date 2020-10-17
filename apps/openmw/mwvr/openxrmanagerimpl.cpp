@@ -16,10 +16,10 @@
 #include "../mwworld/player.hpp"
 #include "../mwworld/esmstore.hpp"
 
-// The OpenXR SDK assumes we've included Windows.h
+// The OpenXR SDK's platform headers assume we've included these windows headers
 #include <Windows.h>
+#include <objbase.h>
 
-#include <openxr/openxr.h>
 #include <openxr/openxr_platform.h>
 #include <openxr/openxr_platform_defines.h>
 #include <openxr/openxr_reflection.h>
@@ -48,18 +48,17 @@ MAKE_TO_STRING_FUNC(XrResult);
 MAKE_TO_STRING_FUNC(XrFormFactor);
 MAKE_TO_STRING_FUNC(XrStructureType);
 
-#if !XR_KHR_composition_layer_depth || !XR_KHR_opengl_enable
-#error "OpenXR extensions missing. Please upgrade your copy of the OpenXR SDK"
-#endif
-
 namespace MWVR
 {
     OpenXRManagerImpl::OpenXRManagerImpl()
     {
-        std::vector<const char*> extensions = {
-            XR_KHR_OPENGL_ENABLE_EXTENSION_NAME,
-            XR_KHR_COMPOSITION_LAYER_DEPTH_EXTENSION_NAME,
-        };
+        setupExtensionsAndLayers();
+
+        std::vector<const char*> extensions;
+        for (auto& extension : mEnabledExtensions)
+            extensions.push_back(extension.c_str());
+
+        logLayersAndExtensions();
 
         { // Create Instance
             XrInstanceCreateInfo createInfo{ XR_TYPE_INSTANCE_CREATE_INFO };
@@ -68,33 +67,7 @@ namespace MWVR
             createInfo.enabledExtensionNames = extensions.data();
             strcpy(createInfo.applicationInfo.applicationName, "openmw_vr");
             createInfo.applicationInfo.apiVersion = XR_CURRENT_API_VERSION;
-            // Iteratively strip extensions until instance creation succeeds.
-            XrResult result = xrCreateInstance(&createInfo, &mInstance);
-            while (result == XR_ERROR_EXTENSION_NOT_PRESENT)
-            {
-                createInfo.enabledExtensionCount--;
-                result = xrCreateInstance(&createInfo, &mInstance);
-            }
-
-            mEnabledExtensions.insert(extensions.begin(), extensions.begin() + createInfo.enabledExtensionCount);
-
-            if (!xrExtensionIsEnabled(XR_KHR_OPENGL_ENABLE_EXTENSION_NAME))
-                throw std::runtime_error(std::string("Required OpenXR extension ") + XR_KHR_OPENGL_ENABLE_EXTENSION_NAME + " not supported");
-
-            Log(Debug::Verbose) << "OpenXR Extension status:";
-            for (auto* ext : extensions)
-            {
-                if (!xrExtensionIsEnabled(ext))
-                {
-                    Log(Debug::Verbose) << "  " << ext << ": disabled (not supported)";
-                }
-                else
-                {
-                    Log(Debug::Verbose) << "  " << ext << ": enabled";
-                }
-            }
-
-
+            CHECK_XRCMD(xrCreateInstance(&createInfo, &mInstance));
             assert(mInstance);
         }
 
@@ -142,32 +115,24 @@ namespace MWVR
             auto DC = wglGetCurrentDC();
             auto GLRC = wglGetCurrentContext();
             auto XRGLRC = wglCreateContext(DC);
-            auto USERGLRC = wglCreateContext(DC);
             wglShareLists(GLRC, XRGLRC);
-            wglShareLists(GLRC, USERGLRC);
 
-            mGraphicsBindingXr.type = XR_TYPE_GRAPHICS_BINDING_OPENGL_WIN32_KHR;
-            mGraphicsBindingXr.next = nullptr;
-            mGraphicsBindingXr.hDC = DC;
-            mGraphicsBindingXr.hGLRC = XRGLRC;
-            mGraphicsBindingUser.type = XR_TYPE_GRAPHICS_BINDING_OPENGL_WIN32_KHR;
-            mGraphicsBindingUser.next = nullptr;
-            mGraphicsBindingUser.hDC = DC;
-            mGraphicsBindingUser.hGLRC = USERGLRC;
+            XrGraphicsBindingOpenGLWin32KHR graphicsBindings;
+            graphicsBindings.type = XR_TYPE_GRAPHICS_BINDING_OPENGL_WIN32_KHR;
+            graphicsBindings.next = nullptr;
+            graphicsBindings.hDC = DC;
+            graphicsBindings.hGLRC = XRGLRC;
 
-            if (!mGraphicsBindingXr.hDC)
+            if (!graphicsBindings.hDC)
                 Log(Debug::Warning) << "Missing DC";
-            if (!mGraphicsBindingXr.hGLRC)
-                Log(Debug::Warning) << "Missing GLRC";
 
             XrSessionCreateInfo createInfo{ XR_TYPE_SESSION_CREATE_INFO };
-            createInfo.next = &mGraphicsBindingXr;
+            createInfo.next = &graphicsBindings;
             createInfo.systemId = mSystemId;
             CHECK_XRCMD(xrCreateSession(mInstance, &createInfo, &mSession));
             assert(mSession);
         }
 
-        LogLayersAndExtensions();
         LogInstanceInfo();
         LogReferenceSpaces();
         LogSwapchainFormats();
@@ -254,9 +219,67 @@ namespace MWVR
     }
 
 
+#if    !XR_KHR_composition_layer_depth \
+    || !XR_KHR_opengl_enable \
+    || !XR_EXT_hp_mixed_reality_controller
+
+#error "OpenXR extensions missing. Please upgrade your copy of the OpenXR SDK to 1.0.12 minimum"
+#endif
+
+    std::vector<std::string> OpenXRManagerImpl::enumerateExtensions(const char* layerName)
+    {
+        uint32_t extensionCount = 0;
+        std::vector<XrExtensionProperties> availableExtensions;
+        xrEnumerateInstanceExtensionProperties(nullptr, 0, &extensionCount, nullptr);
+        availableExtensions.resize(extensionCount, XrExtensionProperties{ XR_TYPE_EXTENSION_PROPERTIES });
+        xrEnumerateInstanceExtensionProperties(nullptr, availableExtensions.size(), &extensionCount, availableExtensions.data());
+        std::vector<std::string> extensionNames;
+        for (auto& extension : availableExtensions)
+            extensionNames.push_back(extension.extensionName);
+        return extensionNames;
+    }
+
+    void OpenXRManagerImpl::setupExtensionsAndLayers()
+    {
+        std::vector<const char*> requiredExtensions = {
+            XR_KHR_OPENGL_ENABLE_EXTENSION_NAME,
+        };
+
+        std::vector<const char*> optionalExtensions = {
+            XR_KHR_COMPOSITION_LAYER_DEPTH_EXTENSION_NAME,
+            XR_EXT_HP_MIXED_REALITY_CONTROLLER_EXTENSION_NAME
+        };
+
+        for (auto& extension : enumerateExtensions())
+            mAvailableExtensions.insert(extension);
+
+        for (auto requiredExtension : requiredExtensions)
+            enableExtension(requiredExtension, false);
+
+        for (auto optionalExtension : optionalExtensions)
+            enableExtension(optionalExtension, true);
+
+    }
+
+    void OpenXRManagerImpl::enableExtension(const std::string& extension, bool optional)
+    {
+        if (mAvailableExtensions.count(extension) > 0)
+        {
+            Log(Debug::Verbose) << "  " << extension << ": enabled";
+            mEnabledExtensions.insert(extension);
+        }
+        else
+        {
+            Log(Debug::Verbose) << "  " << extension << ": disabled (not supported)";
+            if (!optional)
+            {
+                throw std::runtime_error(std::string("Required OpenXR extension ") + extension + " not supported by the runtime");
+            }
+        }
+    }
 
     void
-        OpenXRManagerImpl::LogLayersAndExtensions() {
+        OpenXRManagerImpl::logLayersAndExtensions() {
         // Write out extension properties for a given layer.
         const auto logExtensions = [](const char* layerName, int indent = 0) {
             uint32_t instanceExtensionCount;
@@ -282,9 +305,6 @@ namespace MWVR
 
             Log(Debug::Verbose) << ss.str();
         };
-
-        // Log non-layer extensions (layerName==nullptr).
-        logExtensions(nullptr);
 
         // Log layers and any of their extensions.
         {
@@ -382,15 +402,8 @@ namespace MWVR
     void
         OpenXRManagerImpl::beginFrame()
     {
-        auto DC = wglGetCurrentDC();
-        auto GLRC = wglGetCurrentContext();
-        wglMakeCurrent(mGraphicsBindingUser.hDC, mGraphicsBindingUser.hGLRC);
-        clearGlErrors();
         XrFrameBeginInfo frameBeginInfo{ XR_TYPE_FRAME_BEGIN_INFO };
-
         CHECK_XRCMD(xrBeginFrame(mSession, &frameBeginInfo));
-
-        wglMakeCurrent(DC, GLRC);
     }
 
     XrCompositionLayerProjectionView toXR(MWVR::CompositionLayerProjectionView layer)
@@ -408,11 +421,6 @@ namespace MWVR
     void
         OpenXRManagerImpl::endFrame(FrameInfo frameInfo, int layerCount, const std::array<CompositionLayerProjectionView, 2>& layerStack)
     {
-        auto DC = wglGetCurrentDC();
-        auto GLRC = wglGetCurrentContext();
-        wglMakeCurrent(mGraphicsBindingUser.hDC, mGraphicsBindingUser.hGLRC);
-        clearGlErrors();
-
         std::array<XrCompositionLayerProjectionView, 2> compositionLayerProjectionViews{};
         compositionLayerProjectionViews[(int)Side::LEFT_SIDE] = toXR(layerStack[(int)Side::LEFT_SIDE]);
         compositionLayerProjectionViews[(int)Side::RIGHT_SIDE] = toXR(layerStack[(int)Side::RIGHT_SIDE]);
@@ -449,8 +457,6 @@ namespace MWVR
             frameEndInfo.layers = &xrLayerStack;
         }
         CHECK_XRCMD(xrEndFrame(mSession, &frameEndInfo));
-
-        wglMakeCurrent(DC, GLRC);
     }
 
     std::array<View, 2>

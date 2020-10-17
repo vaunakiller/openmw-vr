@@ -1,3 +1,5 @@
+#include "vrsession.hpp"
+#include "vrgui.hpp"
 #include "vrenvironment.hpp"
 #include "vrinputmanager.hpp"
 #include "openxrmanager.hpp"
@@ -10,21 +12,12 @@
 #include <components/sdlutil/sdlgraphicswindow.hpp>
 #include <components/misc/stringops.hpp>
 
-#include <Windows.h>
-
-#include <openxr/openxr.h>
-#include <openxr/openxr_platform.h>
-#include <openxr/openxr_platform_defines.h>
-#include <openxr/openxr_reflection.h>
-
 #include <osg/Camera>
 
 #include <algorithm>
 #include <vector>
 #include <array>
 #include <iostream>
-#include "vrsession.hpp"
-#include "vrgui.hpp"
 #include <time.h>
 #include <thread>
 

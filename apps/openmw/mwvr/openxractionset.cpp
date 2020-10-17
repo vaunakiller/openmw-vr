@@ -25,24 +25,6 @@ namespace MWVR
         // Currently the set of action paths was determined using the oculus touch (i know nothing about the vive and the index).
         // The set of action paths may therefore need expansion. E.g. /click vs /value may vary with controllers.
 
-        // To fit more actions onto controllers i created a system of short and long press actions. Allowing one action to activate
-        // on a short press, and another on long. Here, what actions are short press and what actions are long press is simply
-        // hardcoded at init, rather than interpreted from bindings. That's bad, and should be fixed, but that's hard to do
-        // while staying true to openxr's binding system, so if the system i wrote for the oculus touch isn't a good fit for
-        // the vive/index, we might want to rewrite this to handle bindings ourselves.
-        generateControllerActionPaths(ActionPath::Select, "/input/select/click");
-        generateControllerActionPaths(ActionPath::Squeeze, "/input/squeeze/value");
-        generateControllerActionPaths(ActionPath::Pose, "/input/aim/pose");
-        generateControllerActionPaths(ActionPath::Haptic, "/output/haptic");
-        generateControllerActionPaths(ActionPath::Menu, "/input/menu/click");
-        generateControllerActionPaths(ActionPath::ThumbstickX, "/input/thumbstick/x");
-        generateControllerActionPaths(ActionPath::ThumbstickY, "/input/thumbstick/y");
-        generateControllerActionPaths(ActionPath::ThumbstickClick, "/input/thumbstick/click");
-        generateControllerActionPaths(ActionPath::X, "/input/x/click");
-        generateControllerActionPaths(ActionPath::Y, "/input/y/click");
-        generateControllerActionPaths(ActionPath::A, "/input/a/click");
-        generateControllerActionPaths(ActionPath::B, "/input/b/click");
-        generateControllerActionPaths(ActionPath::Trigger, "/input/trigger/value");
 
         /*
             // Applicable actions not (yet) included
@@ -65,6 +47,12 @@ namespace MWVR
             A_Screenshot, // Generate a VR screenshot?
             A_Console,    // Currently awkward due to a lack of virtual keyboard, but should be included when that's in place
         */
+
+        // To fit more actions onto controllers i created a system of short and long press actions. Allowing one action to activate
+        // on a short press, and another on long. Here, what actions are short press and what actions are long press is simply
+        // hardcoded at init, rather than interpreted from bindings. That's bad, and should be fixed, but that's hard to do
+        // while staying true to openxr's binding system, so if the system i wrote for the oculus touch isn't a good fit for
+        // the vive/index, we might want to rewrite this to handle bindings ourselves.
         createMWAction<ButtonPressAction>(MWInput::A_GameMenu, "game_menu", "Game Menu");
         createMWAction<ButtonLongPressAction>(A_Recenter, "reposition_menu", "Reposition Menu");
         createMWAction<ButtonPressAction>(MWInput::A_Inventory, "inventory", "Inventory");
@@ -147,10 +135,10 @@ namespace MWVR
     {
         std::vector<XrActionSuggestedBinding> suggestedBindings =
         {
-            {*mTrackerMap[TrackedLimb::LEFT_HAND], getXrPath(ActionPath::Pose, Side::LEFT_SIDE)},
-            {*mTrackerMap[TrackedLimb::RIGHT_HAND], getXrPath(ActionPath::Pose, Side::RIGHT_SIDE)},
-            {*mHapticsMap[TrackedLimb::LEFT_HAND], getXrPath(ActionPath::Haptic, Side::LEFT_SIDE)},
-            {*mHapticsMap[TrackedLimb::RIGHT_HAND], getXrPath(ActionPath::Haptic, Side::RIGHT_SIDE)},
+            {*mTrackerMap[TrackedLimb::LEFT_HAND], getXrPath("/user/hand/left/input/aim/pose")},
+            {*mTrackerMap[TrackedLimb::RIGHT_HAND], getXrPath("/user/hand/right/input/aim/pose")},
+            {*mHapticsMap[TrackedLimb::LEFT_HAND], getXrPath("/user/hand/left/output/haptic")},
+            {*mHapticsMap[TrackedLimb::RIGHT_HAND], getXrPath("/user/hand/right/output/haptic")},
         };
 
         for (auto& mwSuggestedBinding : mwSuggestedBindings)
@@ -161,27 +149,10 @@ namespace MWVR
                 Log(Debug::Error) << "OpenXRActionSet: Unknown action " << mwSuggestedBinding.action;
                 continue;
             }
-            suggestedBindings.push_back({ *xrAction->second, getXrPath(mwSuggestedBinding.path, mwSuggestedBinding.side) });
+            suggestedBindings.push_back({ *xrAction->second, getXrPath(mwSuggestedBinding.path) });
         }
 
         xrSuggestedBindings.insert(xrSuggestedBindings.end(), suggestedBindings.begin(), suggestedBindings.end());
-    }
-
-    void
-        OpenXRActionSet::generateControllerActionPaths(
-            ActionPath actionPath,
-            const std::string& controllerAction)
-    {
-        auto* xr = Environment::get().getManager();
-        ControllerActionPaths actionPaths;
-
-        std::string left = std::string("/user/hand/left") + controllerAction;
-        std::string right = std::string("/user/hand/right") + controllerAction;
-
-        CHECK_XRCMD(xrStringToPath(xr->impl().xrInstance(), left.c_str(), &actionPaths[(int)Side::LEFT_SIDE]));
-        CHECK_XRCMD(xrStringToPath(xr->impl().xrInstance(), right.c_str(), &actionPaths[(int)Side::RIGHT_SIDE]));
-
-        mPathMap[actionPath] = actionPaths;
     }
 
 
@@ -219,7 +190,7 @@ namespace MWVR
             action.second->updateAndQueue(mActionQueue);
     }
 
-    XrPath OpenXRActionSet::generateXrPath(const std::string& path)
+    XrPath OpenXRActionSet::getXrPath(const std::string& path)
     {
         auto* xr = Environment::get().getManager();
         XrPath xrpath = 0;
@@ -264,14 +235,5 @@ namespace MWVR
         }
 
         it->second->apply(intensity);
-    }
-    XrPath OpenXRActionSet::getXrPath(ActionPath actionPath, Side side)
-    {
-        auto it = mPathMap.find(actionPath);
-        if (it == mPathMap.end())
-        {
-            Log(Debug::Error) << "OpenXRActionSet: No such path: " << (int)actionPath;
-        }
-        return it->second[(int)side];
     }
 }

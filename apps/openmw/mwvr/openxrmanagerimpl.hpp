@@ -7,13 +7,7 @@
 #include <components/debug/debuglog.hpp>
 #include <components/sdlutil/sdlgraphicswindow.hpp>
 
-// The OpenXR SDK assumes we've included Windows.h
-#include <Windows.h>
-
 #include <openxr/openxr.h>
-#include <openxr/openxr_platform.h>
-#include <openxr/openxr_platform_defines.h>
-#include <openxr/openxr_reflection.h>
 
 #include <vector>
 #include <array>
@@ -77,7 +71,10 @@ namespace MWVR
         void xrResourceReleased();
 
     protected:
-        void LogLayersAndExtensions();
+        std::vector<std::string> enumerateExtensions(const char* layerName = nullptr);
+        void setupExtensionsAndLayers();
+        void enableExtension(const std::string& extension, bool optional);
+        void logLayersAndExtensions();
         void LogInstanceInfo();
         void LogReferenceSpaces();
         void LogSwapchainFormats();
@@ -100,8 +97,6 @@ namespace MWVR
         XrViewConfigurationType mViewConfigType = XR_VIEW_CONFIGURATION_TYPE_PRIMARY_STEREO;
         XrEnvironmentBlendMode mEnvironmentBlendMode = XR_ENVIRONMENT_BLEND_MODE_OPAQUE;
         XrSystemId mSystemId = XR_NULL_SYSTEM_ID;
-        XrGraphicsBindingOpenGLWin32KHR mGraphicsBindingXr{ XR_TYPE_GRAPHICS_BINDING_OPENGL_WIN32_KHR };
-        XrGraphicsBindingOpenGLWin32KHR mGraphicsBindingUser{ XR_TYPE_GRAPHICS_BINDING_OPENGL_WIN32_KHR };
         XrSystemProperties mSystemProperties{ XR_TYPE_SYSTEM_PROPERTIES };
         std::array<XrViewConfigurationView, 2> mConfigViews{ { {XR_TYPE_VIEW_CONFIGURATION_VIEW}, {XR_TYPE_VIEW_CONFIGURATION_VIEW} } };
         XrSpace mReferenceSpaceView = XR_NULL_HANDLE;
@@ -113,6 +108,7 @@ namespace MWVR
         uint32_t mAcquiredResources = 0;
         std::mutex mFrameStateMutex{};
         std::mutex mEventMutex{};
+        std::set<std::string> mAvailableExtensions;
         std::set<std::string> mEnabledExtensions;
         std::queue<XrEventDataBuffer> mEventQueue;
 
