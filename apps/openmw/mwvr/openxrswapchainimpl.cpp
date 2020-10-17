@@ -1,4 +1,5 @@
 #include "openxrswapchainimpl.hpp"
+#include "openxrdebug.hpp"
 #include "vrenvironment.hpp"
 #include "vrframebuffer.hpp"
 
@@ -97,6 +98,7 @@ namespace MWVR {
                     throw std::runtime_error(XrResultString(res));
                 continue;
             }
+            VrDebug::setName(mSwapchain, "OpenMW XR Color Swapchain " + config.name);
         }
 
         uint32_t imageCount = 0;
@@ -118,6 +120,7 @@ namespace MWVR {
                 auto res = xrCreateSwapchain(xr->impl().xrSession(), &swapchainCreateInfo, &mSwapchainDepth);
                 if (!XR_SUCCEEDED(res))
                     throw std::runtime_error(XrResultString(res));
+                VrDebug::setName(mSwapchainDepth, "OpenMW XR Depth Swapchain " + config.name);
             }
             CHECK_XRCMD(xrEnumerateSwapchainImages(mSwapchainDepth, 0, &imageCount, nullptr));
             mSwapchainDepthBuffers.resize(imageCount, { XR_TYPE_SWAPCHAIN_IMAGE_OPENGL_KHR });

@@ -1,4 +1,5 @@
 #include "openxrmanager.hpp"
+#include "openxrdebug.hpp"
 #include "vrenvironment.hpp"
 #include "openxrmanagerimpl.hpp"
 #include "../mwinput/inputmanagerimp.hpp"

@@ -69,11 +69,13 @@ namespace MWVR
         bool xrSessionCanRender();
         void xrResourceAcquired();
         void xrResourceReleased();
+        void xrUpdateNames();
+        PFN_xrVoidFunction xrGetFunction(const std::string& name);
 
     protected:
-        std::vector<std::string> enumerateExtensions(const char* layerName = nullptr);
         void setupExtensionsAndLayers();
         void enableExtension(const std::string& extension, bool optional);
+        void setupDebugMessenger(void);
         void logLayersAndExtensions();
         void LogInstanceInfo();
         void LogReferenceSpaces();
@@ -103,6 +105,7 @@ namespace MWVR
         XrSpace mReferenceSpaceStage = XR_NULL_HANDLE;
         XrFrameState mFrameState{};
         XrSessionState mSessionState = XR_SESSION_STATE_UNKNOWN;
+        XrDebugUtilsMessengerEXT mDebugMessenger{ nullptr };
         bool mSessionStopRequested = false;
         bool mSessionRunning = false;
         uint32_t mAcquiredResources = 0;

@@ -1,4 +1,5 @@
 #include "openxractionset.hpp"
+#include "openxrdebug.hpp"
 
 #include "vrenvironment.hpp"
 #include "openxrmanager.hpp"
@@ -128,6 +129,7 @@ namespace MWVR
         strcpy_s(createInfo.localizedActionSetName, localized_name.c_str());
         createInfo.priority = 0;
         CHECK_XRCMD(xrCreateActionSet(xr->impl().xrInstance(), &createInfo, &actionSet));
+        VrDebug::setName(actionSet, "OpenMW XR Action Set " + name);
         return actionSet;
     }
 

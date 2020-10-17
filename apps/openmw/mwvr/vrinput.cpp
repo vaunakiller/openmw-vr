@@ -1,4 +1,5 @@
 #include "vrinput.hpp"
+#include "openxrdebug.hpp"
 #include "vrenvironment.hpp"
 #include "openxrmanagerimpl.hpp"
 
@@ -32,6 +33,7 @@ namespace MWVR
         createInfo.poseInActionSpace.orientation.w = 1.f;
         createInfo.subactionPath = XR_NULL_PATH;
         CHECK_XRCMD(xrCreateActionSpace(xr->impl().xrSession(), &createInfo, &mXRSpace));
+        VrDebug::setName(mXRSpace, "OpenMW XR Action Space " + mXRAction->mName);
     }
 
     void PoseAction::update(long long time)

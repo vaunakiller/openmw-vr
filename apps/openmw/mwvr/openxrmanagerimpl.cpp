@@ -1,5 +1,5 @@
 #include "openxrmanagerimpl.hpp"
-
+#include "openxrdebug.hpp"
 #include "openxrswapchain.hpp"
 #include "openxrswapchainimpl.hpp"
 
@@ -30,7 +30,6 @@
 #include <array>
 #include <iostream>
 
-
 #define ENUM_CASE_STR(name, val) case name: return #name;
 #define MAKE_TO_STRING_FUNC(enumType)                  \
     inline const char* to_string(enumType e) {         \
@@ -52,13 +51,13 @@ namespace MWVR
 {
     OpenXRManagerImpl::OpenXRManagerImpl()
     {
+        logLayersAndExtensions();
         setupExtensionsAndLayers();
 
         std::vector<const char*> extensions;
         for (auto& extension : mEnabledExtensions)
             extensions.push_back(extension.c_str());
 
-        logLayersAndExtensions();
 
         { // Create Instance
             XrInstanceCreateInfo createInfo{ XR_TYPE_INSTANCE_CREATE_INFO };
@@ -70,6 +69,8 @@ namespace MWVR
             CHECK_XRCMD(xrCreateInstance(&createInfo, &mInstance));
             assert(mInstance);
         }
+
+        setupDebugMessenger();
 
         {
             // Layer depth is enabled, cache the invariant values
@@ -219,25 +220,32 @@ namespace MWVR
     }
 
 
-#if    !XR_KHR_composition_layer_depth \
-    || !XR_KHR_opengl_enable \
-    || !XR_EXT_hp_mixed_reality_controller
-
-#error "OpenXR extensions missing. Please upgrade your copy of the OpenXR SDK to 1.0.12 minimum"
-#endif
-
-    std::vector<std::string> OpenXRManagerImpl::enumerateExtensions(const char* layerName)
+    static std::vector<std::string> enumerateExtensions(const char* layerName, bool log = false, int logIndent = 2)
     {
         uint32_t extensionCount = 0;
         std::vector<XrExtensionProperties> availableExtensions;
-        xrEnumerateInstanceExtensionProperties(nullptr, 0, &extensionCount, nullptr);
+        xrEnumerateInstanceExtensionProperties(layerName, 0, &extensionCount, nullptr);
         availableExtensions.resize(extensionCount, XrExtensionProperties{ XR_TYPE_EXTENSION_PROPERTIES });
-        xrEnumerateInstanceExtensionProperties(nullptr, availableExtensions.size(), &extensionCount, availableExtensions.data());
+        xrEnumerateInstanceExtensionProperties(layerName, availableExtensions.size(), &extensionCount, availableExtensions.data());
+
         std::vector<std::string> extensionNames;
+        const std::string indentStr(logIndent, ' ');
         for (auto& extension : availableExtensions)
+        {
             extensionNames.push_back(extension.extensionName);
+            if (log)
+                Log(Debug::Verbose) << indentStr << "Name=" << extension.extensionName << " SpecVersion=" << extension.extensionVersion;
+        }
         return extensionNames;
     }
+
+#if    !XR_KHR_composition_layer_depth \
+    || !XR_KHR_opengl_enable \
+    || !XR_EXT_hp_mixed_reality_controller \
+    || !XR_EXT_debug_utils
+
+#error "OpenXR extensions missing. Please upgrade your copy of the OpenXR SDK to 1.0.12 minimum"
+#endif
 
     void OpenXRManagerImpl::setupExtensionsAndLayers()
     {
@@ -250,7 +258,10 @@ namespace MWVR
             XR_EXT_HP_MIXED_REALITY_CONTROLLER_EXTENSION_NAME
         };
 
-        for (auto& extension : enumerateExtensions())
+        if (Settings::Manager::getBool("enable XR_EXT_debug_utils", "VR"))
+            optionalExtensions.emplace_back(XR_EXT_DEBUG_UTILS_EXTENSION_NAME);
+
+        for (auto& extension : enumerateExtensions(nullptr))
             mAvailableExtensions.insert(extension);
 
         for (auto requiredExtension : requiredExtensions)
@@ -278,55 +289,99 @@ namespace MWVR
         }
     }
 
+    static XrBool32 xrDebugCallback(
+        XrDebugUtilsMessageSeverityFlagsEXT messageSeverity,
+        XrDebugUtilsMessageTypeFlagsEXT messageType,
+        const XrDebugUtilsMessengerCallbackDataEXT* callbackData,
+        void* userData)
+    {
+        OpenXRManagerImpl* manager = reinterpret_cast<OpenXRManagerImpl*>(userData);
+        std::string severityStr = "";
+        std::string typeStr = "";
+
+        switch (messageSeverity)
+        {
+        case XR_DEBUG_UTILS_MESSAGE_SEVERITY_VERBOSE_BIT_EXT:
+            severityStr = "Verbose"; break;
+        case XR_DEBUG_UTILS_MESSAGE_SEVERITY_INFO_BIT_EXT:
+            severityStr = "Info"; break;
+        case XR_DEBUG_UTILS_MESSAGE_SEVERITY_WARNING_BIT_EXT:
+            severityStr = "Warning"; break;
+        case XR_DEBUG_UTILS_MESSAGE_SEVERITY_ERROR_BIT_EXT:
+            severityStr = "Error"; break;
+        default:
+            severityStr = "Unknown"; break;
+        }
+
+        switch (messageType)
+        {
+        case XR_DEBUG_UTILS_MESSAGE_TYPE_GENERAL_BIT_EXT:
+            typeStr = "General"; break;
+        case XR_DEBUG_UTILS_MESSAGE_TYPE_VALIDATION_BIT_EXT:
+            typeStr = "Validation"; break;
+        case XR_DEBUG_UTILS_MESSAGE_TYPE_PERFORMANCE_BIT_EXT:
+            typeStr = "Performance"; break;
+        case XR_DEBUG_UTILS_MESSAGE_TYPE_CONFORMANCE_BIT_EXT:
+            typeStr = "Conformance"; break;
+        default:
+            typeStr = "Unknown"; break;
+        }
+
+        Log(Debug::Verbose) << "XrCallback: [" << severityStr << "][" << typeStr << "][ID=" << (callbackData->messageId ? callbackData->messageId : "null") << "]: " << callbackData->message;
+
+        return XR_FALSE;
+    }
+
+    void OpenXRManagerImpl::setupDebugMessenger(void)
+    {
+        if (xrExtensionIsEnabled(XR_EXT_DEBUG_UTILS_EXTENSION_NAME))
+        {
+            XrDebugUtilsMessengerCreateInfoEXT createInfo{ XR_TYPE_DEBUG_UTILS_MESSENGER_CREATE_INFO_EXT, nullptr };
+
+            // Debug message severity levels
+            if (Settings::Manager::getBool("XR_EXT_debug_utils message level verbose", "VR"))
+                createInfo.messageSeverities |= XR_DEBUG_UTILS_MESSAGE_SEVERITY_VERBOSE_BIT_EXT;
+            if (Settings::Manager::getBool("XR_EXT_debug_utils message level info", "VR"))
+                createInfo.messageSeverities |= XR_DEBUG_UTILS_MESSAGE_SEVERITY_INFO_BIT_EXT;
+            if (Settings::Manager::getBool("XR_EXT_debug_utils message level warning", "VR"))
+                createInfo.messageSeverities |= XR_DEBUG_UTILS_MESSAGE_SEVERITY_WARNING_BIT_EXT;
+            if (Settings::Manager::getBool("XR_EXT_debug_utils message level error", "VR"))
+                createInfo.messageSeverities |= XR_DEBUG_UTILS_MESSAGE_SEVERITY_ERROR_BIT_EXT;
+
+            // Debug message types
+            if (Settings::Manager::getBool("XR_EXT_debug_utils message type general", "VR"))
+                createInfo.messageTypes |= XR_DEBUG_UTILS_MESSAGE_TYPE_GENERAL_BIT_EXT;
+            if (Settings::Manager::getBool("XR_EXT_debug_utils message type validation", "VR"))
+                createInfo.messageTypes |= XR_DEBUG_UTILS_MESSAGE_TYPE_VALIDATION_BIT_EXT;
+            if (Settings::Manager::getBool("XR_EXT_debug_utils message type performance", "VR"))
+                createInfo.messageTypes |= XR_DEBUG_UTILS_MESSAGE_TYPE_PERFORMANCE_BIT_EXT;
+            if (Settings::Manager::getBool("XR_EXT_debug_utils message type conformance", "VR"))
+                createInfo.messageTypes |= XR_DEBUG_UTILS_MESSAGE_TYPE_CONFORMANCE_BIT_EXT;
+
+            createInfo.userCallback = &xrDebugCallback;
+            createInfo.userData = this;
+
+            PFN_xrCreateDebugUtilsMessengerEXT createDebugUtilsMessenger = reinterpret_cast<PFN_xrCreateDebugUtilsMessengerEXT>(xrGetFunction("xrCreateDebugUtilsMessengerEXT"));
+            assert(createDebugUtilsMessenger);
+            CHECK_XRCMD(createDebugUtilsMessenger(mInstance, &createInfo, &mDebugMessenger));
+        }
+    }
+
     void
         OpenXRManagerImpl::logLayersAndExtensions() {
-        // Write out extension properties for a given layer.
-        const auto logExtensions = [](const char* layerName, int indent = 0) {
-            uint32_t instanceExtensionCount;
-            CHECK_XRCMD(xrEnumerateInstanceExtensionProperties(layerName, 0, &instanceExtensionCount, nullptr));
-
-            std::vector<XrExtensionProperties> extensions(instanceExtensionCount);
-            for (XrExtensionProperties& extension : extensions) {
-                extension.type = XR_TYPE_EXTENSION_PROPERTIES;
-            }
-
-            CHECK_XRCMD(xrEnumerateInstanceExtensionProperties(layerName, (uint32_t)extensions.size(), &instanceExtensionCount,
-                extensions.data()));
-
-            const std::string indentStr(indent, ' ');
-
-            std::stringstream ss;
-            ss << indentStr.c_str() << "Available Extensions: (" << instanceExtensionCount << ")" << std::endl;
-
-
-            for (const XrExtensionProperties& extension : extensions) {
-                ss << indentStr << "  Name=" << std::string(extension.extensionName) << " SpecVersion=" << extension.extensionVersion << std::endl;
-            }
-
-            Log(Debug::Verbose) << ss.str();
-        };
-
         // Log layers and any of their extensions.
-        {
-            uint32_t layerCount;
-            CHECK_XRCMD(xrEnumerateApiLayerProperties(0, &layerCount, nullptr));
+        uint32_t layerCount;
+        CHECK_XRCMD(xrEnumerateApiLayerProperties(0, &layerCount, nullptr));
+        std::vector<XrApiLayerProperties> layers(layerCount, XrApiLayerProperties{ XR_TYPE_API_LAYER_PROPERTIES });
+        CHECK_XRCMD(xrEnumerateApiLayerProperties((uint32_t)layers.size(), &layerCount, layers.data()));
 
-            std::vector<XrApiLayerProperties> layers(layerCount);
-            for (XrApiLayerProperties& layer : layers) {
-                layer.type = XR_TYPE_API_LAYER_PROPERTIES;
-            }
+        Log(Debug::Verbose) << "Available Extensions: ";
+        enumerateExtensions(nullptr, true, 2);
+        Log(Debug::Verbose) << "Available Layers: ";
 
-            CHECK_XRCMD(xrEnumerateApiLayerProperties((uint32_t)layers.size(), &layerCount, layers.data()));
-
-            std::stringstream ss;
-            ss << "Available Layers: (" << layerCount << ")" << std::endl;
-
-            for (const XrApiLayerProperties& layer : layers) {
-                ss << "  Name=" << layer.layerName << " SpecVersion=" << layer.layerVersion << std::endl;
-                logExtensions(layer.layerName, 2);
-            }
-
-            Log(Debug::Verbose) << ss.str();
+        for (const XrApiLayerProperties& layer : layers) {
+            Log(Debug::Verbose) << "  Name=" << layer.layerName << " SpecVersion=" << layer.layerVersion;
+            enumerateExtensions(layer.layerName, true, 4);
         }
     }
 
@@ -720,6 +775,21 @@ namespace MWVR
         if (mAcquiredResources == 0)
             throw std::logic_error("Releasing a nonexistent resource");
         mAcquiredResources--;
+    }
+
+    void OpenXRManagerImpl::xrUpdateNames()
+    {
+        VrDebug::setName(mInstance, "OpenMW XR Instance");
+        VrDebug::setName(mSession, "OpenMW XR Session");
+        VrDebug::setName(mReferenceSpaceStage, "OpenMW XR Reference Space Stage");
+        VrDebug::setName(mReferenceSpaceView, "OpenMW XR Reference Space Stage");
+    }
+
+    PFN_xrVoidFunction OpenXRManagerImpl::xrGetFunction(const std::string& name)
+    {
+        PFN_xrVoidFunction function = nullptr;
+        xrGetInstanceProcAddr(mInstance, name.c_str(), &function);
+        return function;
     }
 
     bool OpenXRManagerImpl::xrSessionStopRequested()

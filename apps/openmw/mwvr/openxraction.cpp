@@ -1,4 +1,5 @@
 #include "openxraction.hpp"
+#include "openxrdebug.hpp"
 #include "vrenvironment.hpp"
 #include "openxrmanagerimpl.hpp"
 
@@ -15,6 +16,7 @@ namespace MWVR
         , mName(actionName)
         , mLocalName(localName)
     {
+        VrDebug::setName(action, "OpenMW XR Action " + actionName);
     };
 
     OpenXRAction::~OpenXRAction() {

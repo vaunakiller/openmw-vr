@@ -146,6 +146,7 @@ namespace MWVR
             Log(Debug::Verbose) << name << " resolution: Max x=" << config[i].maxWidth << ", y=" << config[i].maxHeight;
             Log(Debug::Verbose) << name << " resolution: Selected x=" << config[i].selectedWidth << ", y=" << config[i].selectedHeight;
 
+            config[i].name = sViewNames[i];
 
             auto view = new VRView(name, config[i], context->getState());
             mViews[name] = view;

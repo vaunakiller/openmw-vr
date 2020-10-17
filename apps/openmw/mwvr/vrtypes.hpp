@@ -108,6 +108,7 @@ namespace MWVR
         int selectedWidth = -1;
         int selectedHeight = -1;
         int selectedSamples = -1;
+        std::string name = "";
     };
 
     struct FrameInfo
