@@ -21,23 +21,9 @@ namespace MWVR
     }
 
     bool
-        OpenXRManager::realized()
+        OpenXRManager::realized() const
     {
         return !!mPrivate;
-    }
-
-    bool OpenXRManager::xrSessionRunning()
-    {
-        if (realized())
-            return impl().xrSessionRunning();
-        return false;
-    }
-
-    bool OpenXRManager::xrSessionCanRender()
-    {
-        if (realized())
-            return impl().xrSessionCanRender();
-        return false;
     }
 
     void OpenXRManager::handleEvents()
@@ -56,9 +42,30 @@ namespace MWVR
         return impl().beginFrame();
     }
 
-    void OpenXRManager::endFrame(FrameInfo frameInfo, int layerCount, const std::array<CompositionLayerProjectionView, 2>& layerStack)
+    void OpenXRManager::endFrame(FrameInfo frameInfo, const std::array<CompositionLayerProjectionView, 2>* layerStack)
     {
-        return impl().endFrame(frameInfo, layerCount, layerStack);
+        return impl().endFrame(frameInfo, layerStack);
+    }
+
+    bool OpenXRManager::appShouldSyncFrameLoop() const
+    {
+        if (realized())
+            return impl().appShouldSyncFrameLoop();
+        return false;
+    }
+
+    bool OpenXRManager::appShouldRender() const
+    {
+        if (realized())
+            return impl().appShouldRender();
+        return false;
+    }
+
+    bool OpenXRManager::appShouldReadInput() const
+    {
+        if (realized())
+            return impl().appShouldReadInput();
+        return false;
     }
 
     void

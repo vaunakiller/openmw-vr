@@ -42,7 +42,7 @@ namespace MWVR
         ~OpenXRManager();
 
         /// Manager has been initialized.
-        bool realized();
+        bool realized() const;
 
         //! Forward call to xrWaitFrame()
         FrameInfo waitFrame();
@@ -51,13 +51,16 @@ namespace MWVR
         void beginFrame();
 
         //! Forward call to xrEndFrame()
-        void endFrame(FrameInfo frameInfo, int layerCount, const std::array<CompositionLayerProjectionView, 2>& layerStack);
+        void endFrame(FrameInfo frameInfo, const std::array<CompositionLayerProjectionView, 2>* layerStack);
 
-        //! Whether the openxr session is currently in a running state
-        bool xrSessionRunning();
+        //! Whether the app should call the openxr frame sync functions ( xr*Frame() )
+        bool appShouldSyncFrameLoop() const;
 
-        //! Whether frames can be rendered in the current state
-        bool xrSessionCanRender();
+        //! Whether the app should render anything.
+        bool appShouldRender() const;
+
+        //! Whether the session is focused and can read input
+        bool appShouldReadInput() const;
 
         //! Process all openxr events
         void handleEvents();

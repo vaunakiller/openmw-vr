@@ -47,6 +47,7 @@ namespace MWVR
             long long   mPredictedDisplayTime{ 0 };
             PoseSet     mPredictedPoses{};
             bool        mShouldRender{ false };
+            bool        mShouldSyncFrameLoop{ false };
             FrameInfo   mFrameInfo{};
         };
 
@@ -66,8 +67,6 @@ namespace MWVR
 
         void beginPhase(FramePhase phase);
         std::unique_ptr<VRFrameMeta>& getFrame(FramePhase phase);
-
-        bool isRunning() const;
 
         float playerScale() const { return mPlayerScale; }
         float setPlayerScale(float scale) { return mPlayerScale = scale; }

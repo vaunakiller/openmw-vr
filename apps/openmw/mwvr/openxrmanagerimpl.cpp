@@ -474,41 +474,41 @@ namespace MWVR
     }
 
     void
-        OpenXRManagerImpl::endFrame(FrameInfo frameInfo, int layerCount, const std::array<CompositionLayerProjectionView, 2>& layerStack)
+        OpenXRManagerImpl::endFrame(FrameInfo frameInfo, const std::array<CompositionLayerProjectionView, 2>* layerStack)
     {
-        std::array<XrCompositionLayerProjectionView, 2> compositionLayerProjectionViews{};
-        compositionLayerProjectionViews[(int)Side::LEFT_SIDE] = toXR(layerStack[(int)Side::LEFT_SIDE]);
-        compositionLayerProjectionViews[(int)Side::RIGHT_SIDE] = toXR(layerStack[(int)Side::RIGHT_SIDE]);
-        XrCompositionLayerProjection layer{};
-        layer.type = XR_TYPE_COMPOSITION_LAYER_PROJECTION;
-        layer.space = getReferenceSpace(ReferenceSpace::STAGE);
-        layer.viewCount = 2;
-        layer.views = compositionLayerProjectionViews.data();
-        auto* xrLayerStack = reinterpret_cast<XrCompositionLayerBaseHeader*>(&layer);
-
-        std::array<XrCompositionLayerDepthInfoKHR, 2> compositionLayerDepth = mLayerDepth;
-        if (xrExtensionIsEnabled(XR_KHR_COMPOSITION_LAYER_DEPTH_EXTENSION_NAME))
-        {
-            auto farClip = Settings::Manager::getFloat("viewing distance", "Camera");
-            // All values not set here are set previously as they are constant
-            compositionLayerDepth[(int)Side::LEFT_SIDE].farZ = farClip;
-            compositionLayerDepth[(int)Side::RIGHT_SIDE].farZ = farClip;
-            compositionLayerDepth[(int)Side::LEFT_SIDE].subImage = layerStack[(int)Side::LEFT_SIDE].swapchain->impl().xrSubImageDepth();
-            compositionLayerDepth[(int)Side::RIGHT_SIDE].subImage = layerStack[(int)Side::RIGHT_SIDE].swapchain->impl().xrSubImageDepth();
-            if (compositionLayerDepth[(int)Side::LEFT_SIDE].subImage.swapchain != XR_NULL_HANDLE
-                && compositionLayerDepth[(int)Side::RIGHT_SIDE].subImage.swapchain != XR_NULL_HANDLE)
-            {
-                compositionLayerProjectionViews[(int)Side::LEFT_SIDE].next = &compositionLayerDepth[(int)Side::LEFT_SIDE];
-                compositionLayerProjectionViews[(int)Side::RIGHT_SIDE].next = &compositionLayerDepth[(int)Side::RIGHT_SIDE];
-            }
-        }
 
         XrFrameEndInfo frameEndInfo{ XR_TYPE_FRAME_END_INFO };
         frameEndInfo.displayTime = frameInfo.runtimePredictedDisplayTime;
         frameEndInfo.environmentBlendMode = mEnvironmentBlendMode;
-        //if (frameInfo.runtimeRequestsRender)
+        if (layerStack)
         {
-            frameEndInfo.layerCount = layerCount;
+            std::array<XrCompositionLayerProjectionView, 2> compositionLayerProjectionViews{};
+            compositionLayerProjectionViews[(int)Side::LEFT_SIDE] = toXR((*layerStack)[(int)Side::LEFT_SIDE]);
+            compositionLayerProjectionViews[(int)Side::RIGHT_SIDE] = toXR((*layerStack)[(int)Side::RIGHT_SIDE]);
+            XrCompositionLayerProjection layer{};
+            layer.type = XR_TYPE_COMPOSITION_LAYER_PROJECTION;
+            layer.space = getReferenceSpace(ReferenceSpace::STAGE);
+            layer.viewCount = 2;
+            layer.views = compositionLayerProjectionViews.data();
+            auto* xrLayerStack = reinterpret_cast<XrCompositionLayerBaseHeader*>(&layer);
+
+            std::array<XrCompositionLayerDepthInfoKHR, 2> compositionLayerDepth = mLayerDepth;
+            if (xrExtensionIsEnabled(XR_KHR_COMPOSITION_LAYER_DEPTH_EXTENSION_NAME))
+            {
+                auto farClip = Settings::Manager::getFloat("viewing distance", "Camera");
+                // All values not set here are set previously as they are constant
+                compositionLayerDepth[(int)Side::LEFT_SIDE].farZ = farClip;
+                compositionLayerDepth[(int)Side::RIGHT_SIDE].farZ = farClip;
+                compositionLayerDepth[(int)Side::LEFT_SIDE].subImage = (*layerStack)[(int)Side::LEFT_SIDE].swapchain->impl().xrSubImageDepth();
+                compositionLayerDepth[(int)Side::RIGHT_SIDE].subImage = (*layerStack)[(int)Side::RIGHT_SIDE].swapchain->impl().xrSubImageDepth();
+                if (compositionLayerDepth[(int)Side::LEFT_SIDE].subImage.swapchain != XR_NULL_HANDLE
+                    && compositionLayerDepth[(int)Side::RIGHT_SIDE].subImage.swapchain != XR_NULL_HANDLE)
+                {
+                    compositionLayerProjectionViews[(int)Side::LEFT_SIDE].next = &compositionLayerDepth[(int)Side::LEFT_SIDE];
+                    compositionLayerProjectionViews[(int)Side::RIGHT_SIDE].next = &compositionLayerDepth[(int)Side::RIGHT_SIDE];
+                }
+            }
+            frameEndInfo.layerCount = 1;
             frameEndInfo.layers = &xrLayerStack;
         }
         CHECK_XRCMD(xrEndFrame(mSession, &frameEndInfo));
@@ -602,6 +602,15 @@ namespace MWVR
             }
             popEvent();
         }
+
+        if (mXrSessionShouldStop)
+        {
+            if (checkStopCondition())
+            {
+                CHECK_XRCMD(xrEndSession(mSession));
+                mXrSessionShouldStop = false;
+            }
+        }
     }
 
     const XrEventDataBaseHeader* OpenXRManagerImpl::nextEvent()
@@ -638,50 +647,70 @@ namespace MWVR
         OpenXRManagerImpl::handleSessionStateChanged(
             const XrEventDataSessionStateChanged& stateChangedEvent)
     {
-        auto oldState = mSessionState;
-        auto newState = stateChangedEvent.state;
-        Log(Debug::Verbose) << "XrEventDataSessionStateChanged: state " << to_string(oldState) << "->" << to_string(newState);
-        bool success = true;
+        Log(Debug::Verbose) << "XrEventDataSessionStateChanged: state " << to_string(mSessionState) << "->" << to_string(stateChangedEvent.state);
+        mSessionState = stateChangedEvent.state;
 
-        switch (newState)
+        // Ref: https://www.khronos.org/registry/OpenXR/specs/1.0/html/xrspec.html#session-states
+        switch (mSessionState)
         {
+        case XR_SESSION_STATE_IDLE:
+        {
+            mAppShouldSyncFrameLoop = false;
+            mAppShouldRender = false;
+            mAppShouldReadInput = false;
+            mXrSessionShouldStop = false;
+            break;
+        }
         case XR_SESSION_STATE_READY:
         {
+            mAppShouldSyncFrameLoop = true;
+            mAppShouldRender = false;
+            mAppShouldReadInput = false;
+            mXrSessionShouldStop = false;
+
             XrSessionBeginInfo beginInfo{ XR_TYPE_SESSION_BEGIN_INFO };
             beginInfo.primaryViewConfigurationType = mViewConfigType;
             CHECK_XRCMD(xrBeginSession(mSession, &beginInfo));
-            mSessionRunning = true;
+
             break;
         }
         case XR_SESSION_STATE_STOPPING:
         {
-            if (checkStopCondition())
-            {
-                CHECK_XRCMD(xrEndSession(mSession));
-                mSessionStopRequested = false;
-                mSessionRunning = false;
-            }
-            else
-            {
-                mSessionStopRequested = true;
-                success = false;
-            }
+            mAppShouldSyncFrameLoop = false;
+            mAppShouldRender = false;
+            mAppShouldReadInput = false;
+            mXrSessionShouldStop = true;
+            break;
+        }
+        case XR_SESSION_STATE_SYNCHRONIZED:
+        {
+            mAppShouldSyncFrameLoop = true;
+            mAppShouldRender = false;
+            mAppShouldReadInput = false;
+            mXrSessionShouldStop = false;
+            break;
+        }
+        case XR_SESSION_STATE_VISIBLE:
+        {
+            mAppShouldSyncFrameLoop = true;
+            mAppShouldRender = true;
+            mAppShouldReadInput = false;
+            mXrSessionShouldStop = false;
+            break;
+        }
+        case XR_SESSION_STATE_FOCUSED:
+        {
+            mAppShouldSyncFrameLoop = true;
+            mAppShouldRender = true;
+            mAppShouldReadInput = true;
+            mXrSessionShouldStop = false;
             break;
         }
         default:
-            Log(Debug::Verbose) << "XrEventDataSessionStateChanged: Ignoring new state " << to_string(newState);
+            Log(Debug::Warning) << "XrEventDataSessionStateChanged: Ignoring new state " << to_string(mSessionState);
         }
 
-        if (success)
-        {
-            mSessionState = newState;
-        }
-        else
-        {
-            Log(Debug::Verbose) << "XrEventDataSessionStateChanged: Conditions for state " << to_string(newState) << " not met, retrying next frame";
-        }
-
-        return success;
+        return true;
     }
 
     bool OpenXRManagerImpl::checkStopCondition()
@@ -760,11 +789,6 @@ namespace MWVR
         return mEnabledExtensions.count(extensionName) != 0;
     }
 
-    bool OpenXRManagerImpl::xrSessionCanRender()
-    {
-        return xrSessionRunning() && !xrSessionStopRequested();
-    }
-
     void OpenXRManagerImpl::xrResourceAcquired()
     {
         mAcquiredResources++;
@@ -790,11 +814,6 @@ namespace MWVR
         PFN_xrVoidFunction function = nullptr;
         xrGetInstanceProcAddr(mInstance, name.c_str(), &function);
         return function;
-    }
-
-    bool OpenXRManagerImpl::xrSessionStopRequested()
-    {
-        return mSessionStopRequested;
     }
 
     void OpenXRManagerImpl::enablePredictions()

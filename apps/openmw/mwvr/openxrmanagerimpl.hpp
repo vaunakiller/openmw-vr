@@ -51,8 +51,10 @@ namespace MWVR
 
         FrameInfo waitFrame();
         void beginFrame();
-        void endFrame(FrameInfo frameInfo, int layerCount, const std::array<CompositionLayerProjectionView, 2>& layerStack);
-        bool xrSessionRunning() const { return mSessionRunning; }
+        void endFrame(FrameInfo frameInfo, const std::array<CompositionLayerProjectionView, 2>* layerStack);
+        bool appShouldSyncFrameLoop() const { return mAppShouldSyncFrameLoop; }
+        bool appShouldRender() const { return mAppShouldRender; }
+        bool appShouldReadInput() const { return mAppShouldReadInput; }
         std::array<View, 2> getPredictedViews(int64_t predictedDisplayTime, ReferenceSpace space);
         MWVR::Pose getPredictedHeadPose(int64_t predictedDisplayTime, ReferenceSpace space);
         void handleEvents();
@@ -65,8 +67,6 @@ namespace MWVR
         XrSession xrSession() const { return mSession; };
         XrInstance xrInstance() const { return mInstance; };
         bool xrExtensionIsEnabled(const char* extensionName) const;
-        bool xrSessionStopRequested();
-        bool xrSessionCanRender();
         void xrResourceAcquired();
         void xrResourceReleased();
         void xrUpdateNames();
@@ -106,8 +106,12 @@ namespace MWVR
         XrFrameState mFrameState{};
         XrSessionState mSessionState = XR_SESSION_STATE_UNKNOWN;
         XrDebugUtilsMessengerEXT mDebugMessenger{ nullptr };
-        bool mSessionStopRequested = false;
-        bool mSessionRunning = false;
+
+        bool mXrSessionShouldStop = false;
+        bool mAppShouldSyncFrameLoop = false;
+        bool mAppShouldRender = false;
+        bool mAppShouldReadInput = false;
+
         uint32_t mAcquiredResources = 0;
         std::mutex mFrameStateMutex{};
         std::mutex mEventMutex{};

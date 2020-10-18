@@ -111,12 +111,6 @@ namespace MWVR
         }
     }
 
-    bool VRSession::isRunning() const {
-        return true;
-        auto* xr = Environment::get().getManager();
-        return xr->xrSessionRunning();
-    }
-
     void VRSession::swapBuffers(osg::GraphicsContext* gc, VRViewer& viewer)
     {
         auto* xr = Environment::get().getManager();
@@ -127,22 +121,29 @@ namespace MWVR
         auto leftView = viewer.getView("LeftEye");
         auto rightView = viewer.getView("RightEye");
 
-        if (frameMeta->mShouldRender)
+        if (frameMeta->mShouldSyncFrameLoop)
         {
-            viewer.blitEyesToMirrorTexture(gc);
-            gc->swapBuffersImplementation();
-            leftView->swapBuffers(gc);
-            rightView->swapBuffers(gc);
+            if (frameMeta->mShouldRender)
+            {
+                viewer.blitEyesToMirrorTexture(gc);
+                gc->swapBuffersImplementation();
+                leftView->swapBuffers(gc);
+                rightView->swapBuffers(gc);
+                std::array<CompositionLayerProjectionView, 2> layerStack{};
+                layerStack[(int)Side::LEFT_SIDE].swapchain = &leftView->swapchain();
+                layerStack[(int)Side::RIGHT_SIDE].swapchain = &rightView->swapchain();
+                layerStack[(int)Side::LEFT_SIDE].pose = frameMeta->mPredictedPoses.eye[(int)Side::LEFT_SIDE] / mPlayerScale;
+                layerStack[(int)Side::RIGHT_SIDE].pose = frameMeta->mPredictedPoses.eye[(int)Side::RIGHT_SIDE] / mPlayerScale;
+                layerStack[(int)Side::LEFT_SIDE].fov = frameMeta->mPredictedPoses.view[(int)Side::LEFT_SIDE].fov;
+                layerStack[(int)Side::RIGHT_SIDE].fov = frameMeta->mPredictedPoses.view[(int)Side::RIGHT_SIDE].fov;
+                xr->endFrame(frameMeta->mFrameInfo, &layerStack);
+            }
+            else
+            {
+                gc->swapBuffersImplementation();
+                xr->endFrame(frameMeta->mFrameInfo, nullptr);
+            }
 
-            std::array<CompositionLayerProjectionView, 2> layerStack{};
-            layerStack[(int)Side::LEFT_SIDE].swapchain = &leftView->swapchain();
-            layerStack[(int)Side::RIGHT_SIDE].swapchain = &rightView->swapchain();
-            layerStack[(int)Side::LEFT_SIDE].pose = frameMeta->mPredictedPoses.eye[(int)Side::LEFT_SIDE] / mPlayerScale;
-            layerStack[(int)Side::RIGHT_SIDE].pose = frameMeta->mPredictedPoses.eye[(int)Side::RIGHT_SIDE] / mPlayerScale;
-            layerStack[(int)Side::LEFT_SIDE].fov = frameMeta->mPredictedPoses.view[(int)Side::LEFT_SIDE].fov;
-            layerStack[(int)Side::RIGHT_SIDE].fov = frameMeta->mPredictedPoses.view[(int)Side::RIGHT_SIDE].fov;
-
-            xr->endFrame(frameMeta->mFrameInfo, 1, layerStack);
             xr->xrResourceReleased();
         }
 
@@ -181,7 +182,7 @@ namespace MWVR
             frame = std::move(getFrame(previousPhase));
         }
 
-        if (phase == mXrSyncPhase && frame->mShouldRender)
+        if (phase == mXrSyncPhase && frame->mShouldSyncFrameLoop)
         {
             // We may reach this point before xrEndFrame of the previous frame
             // Must wait or openxr will interpret another call to xrBeginFrame() as skipping a frame
@@ -191,10 +192,7 @@ namespace MWVR
                 mCondition.wait(lock);
             }
 
-            if (frame->mShouldRender)
-            {
-                Environment::get().getManager()->beginFrame();
-            }
+            Environment::get().getManager()->beginFrame();
         }
     }
 
@@ -215,42 +213,48 @@ namespace MWVR
         frame.reset(new VRFrameMeta);
 
         frame->mFrameNo = mFrames;
-        frame->mShouldRender = xr->xrSessionCanRender();
-        if (frame->mShouldRender)
+        frame->mShouldSyncFrameLoop = xr->appShouldSyncFrameLoop();
+        frame->mShouldRender = xr->appShouldRender();
+        if (frame->mShouldSyncFrameLoop)
         {
             frame->mFrameInfo = xr->waitFrame();
             xr->xrResourceAcquired();
+
+            if (frame->mShouldRender)
+            {
+                frame->mPredictedDisplayTime = frame->mFrameInfo.runtimePredictedDisplayTime;
+
+                PoseSet predictedPoses{};
+
+                xr->enablePredictions();
+                predictedPoses.head = xr->getPredictedHeadPose(frame->mPredictedDisplayTime, ReferenceSpace::STAGE) * mPlayerScale;
+                auto hmdViews = xr->getPredictedViews(frame->mPredictedDisplayTime, ReferenceSpace::VIEW);
+                predictedPoses.view[(int)Side::LEFT_SIDE].pose = hmdViews[(int)Side::LEFT_SIDE].pose * mPlayerScale;
+                predictedPoses.view[(int)Side::RIGHT_SIDE].pose = hmdViews[(int)Side::RIGHT_SIDE].pose * mPlayerScale;
+                predictedPoses.view[(int)Side::LEFT_SIDE].fov = hmdViews[(int)Side::LEFT_SIDE].fov;
+                predictedPoses.view[(int)Side::RIGHT_SIDE].fov = hmdViews[(int)Side::RIGHT_SIDE].fov;
+                auto stageViews = xr->getPredictedViews(frame->mPredictedDisplayTime, ReferenceSpace::STAGE);
+                predictedPoses.eye[(int)Side::LEFT_SIDE] = stageViews[(int)Side::LEFT_SIDE].pose * mPlayerScale;
+                predictedPoses.eye[(int)Side::RIGHT_SIDE] = stageViews[(int)Side::RIGHT_SIDE].pose * mPlayerScale;
+
+                auto* input = Environment::get().getInputManager();
+                if (input)
+                {
+                    predictedPoses.hands[(int)Side::LEFT_SIDE] = input->getLimbPose(frame->mPredictedDisplayTime, TrackedLimb::LEFT_HAND) * mPlayerScale;
+                    predictedPoses.hands[(int)Side::RIGHT_SIDE] = input->getLimbPose(frame->mPredictedDisplayTime, TrackedLimb::RIGHT_HAND) * mPlayerScale;
+                }
+                xr->disablePredictions();
+
+                frame->mPredictedPoses = predictedPoses;
+            }
         }
-        frame->mPredictedDisplayTime = frame->mFrameInfo.runtimePredictedDisplayTime;
-
-        PoseSet predictedPoses{};
-
-        xr->enablePredictions();
-        predictedPoses.head = xr->getPredictedHeadPose(frame->mPredictedDisplayTime, ReferenceSpace::STAGE) * mPlayerScale;
-        auto hmdViews = xr->getPredictedViews(frame->mPredictedDisplayTime, ReferenceSpace::VIEW);
-        predictedPoses.view[(int)Side::LEFT_SIDE].pose = hmdViews[(int)Side::LEFT_SIDE].pose * mPlayerScale;
-        predictedPoses.view[(int)Side::RIGHT_SIDE].pose = hmdViews[(int)Side::RIGHT_SIDE].pose * mPlayerScale;
-        predictedPoses.view[(int)Side::LEFT_SIDE].fov = hmdViews[(int)Side::LEFT_SIDE].fov;
-        predictedPoses.view[(int)Side::RIGHT_SIDE].fov = hmdViews[(int)Side::RIGHT_SIDE].fov;
-        auto stageViews = xr->getPredictedViews(frame->mPredictedDisplayTime, ReferenceSpace::STAGE);
-        predictedPoses.eye[(int)Side::LEFT_SIDE] = stageViews[(int)Side::LEFT_SIDE].pose * mPlayerScale;
-        predictedPoses.eye[(int)Side::RIGHT_SIDE] = stageViews[(int)Side::RIGHT_SIDE].pose * mPlayerScale;
-
-        auto* input = Environment::get().getInputManager();
-        if (input)
-        {
-            predictedPoses.hands[(int)Side::LEFT_SIDE] = input->getLimbPose(frame->mPredictedDisplayTime, TrackedLimb::LEFT_HAND) * mPlayerScale;
-            predictedPoses.hands[(int)Side::RIGHT_SIDE] = input->getLimbPose(frame->mPredictedDisplayTime, TrackedLimb::RIGHT_HAND) * mPlayerScale;
-        }
-        xr->disablePredictions();
-
-        frame->mPredictedPoses = predictedPoses;
     }
 
     const PoseSet& VRSession::predictedPoses(FramePhase phase)
     {
         auto& frame = getFrame(phase);
 
+        // TODO: Manage execution order properly instead of this hack
         if (phase == FramePhase::Update && !frame)
             beginPhase(FramePhase::Update);
 
