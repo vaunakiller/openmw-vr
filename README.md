@@ -154,3 +154,5 @@ Known Issues
 - Movies play upside down
 - Cannot point and click in the main menu, you must use the right hand controller as explained above
 - Performance is shite, you will likely have to play without fancy shadows or water shaders.
+- Audio is not automatically captured.
+  - Work around this by adding the line `device = OpenAL Soft on Headphones (2- Rift Audio)` under `[Sound]` in settings.cfg. Replace the device string with the string corresponding to your device. You can find a list of device strings in openmw.log after running it once.
