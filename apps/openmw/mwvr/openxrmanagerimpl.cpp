@@ -188,8 +188,8 @@ namespace MWVR
         if (!initialized)
         {
             initialized = true;
-            sLogAllXrCalls = Settings::Manager::getBool("log all openxr calls", "VR");
-            sContinueOnErrors = Settings::Manager::getBool("continue on errors", "VR");
+            sLogAllXrCalls = Settings::Manager::getBool("log all openxr calls", "VR Debug");
+            sContinueOnErrors = Settings::Manager::getBool("continue on errors", "VR Debug");
         }
 
         if (XR_FAILED(res)) {
@@ -258,7 +258,7 @@ namespace MWVR
             XR_EXT_HP_MIXED_REALITY_CONTROLLER_EXTENSION_NAME
         };
 
-        if (Settings::Manager::getBool("enable XR_EXT_debug_utils", "VR"))
+        if (Settings::Manager::getBool("enable XR_EXT_debug_utils", "VR Debug"))
             optionalExtensions.emplace_back(XR_EXT_DEBUG_UTILS_EXTENSION_NAME);
 
         for (auto& extension : enumerateExtensions(nullptr))
@@ -339,23 +339,23 @@ namespace MWVR
             XrDebugUtilsMessengerCreateInfoEXT createInfo{ XR_TYPE_DEBUG_UTILS_MESSENGER_CREATE_INFO_EXT, nullptr };
 
             // Debug message severity levels
-            if (Settings::Manager::getBool("XR_EXT_debug_utils message level verbose", "VR"))
+            if (Settings::Manager::getBool("XR_EXT_debug_utils message level verbose", "VR Debug"))
                 createInfo.messageSeverities |= XR_DEBUG_UTILS_MESSAGE_SEVERITY_VERBOSE_BIT_EXT;
-            if (Settings::Manager::getBool("XR_EXT_debug_utils message level info", "VR"))
+            if (Settings::Manager::getBool("XR_EXT_debug_utils message level info", "VR Debug"))
                 createInfo.messageSeverities |= XR_DEBUG_UTILS_MESSAGE_SEVERITY_INFO_BIT_EXT;
-            if (Settings::Manager::getBool("XR_EXT_debug_utils message level warning", "VR"))
+            if (Settings::Manager::getBool("XR_EXT_debug_utils message level warning", "VR Debug"))
                 createInfo.messageSeverities |= XR_DEBUG_UTILS_MESSAGE_SEVERITY_WARNING_BIT_EXT;
-            if (Settings::Manager::getBool("XR_EXT_debug_utils message level error", "VR"))
+            if (Settings::Manager::getBool("XR_EXT_debug_utils message level error", "VR Debug"))
                 createInfo.messageSeverities |= XR_DEBUG_UTILS_MESSAGE_SEVERITY_ERROR_BIT_EXT;
 
             // Debug message types
-            if (Settings::Manager::getBool("XR_EXT_debug_utils message type general", "VR"))
+            if (Settings::Manager::getBool("XR_EXT_debug_utils message type general", "VR Debug"))
                 createInfo.messageTypes |= XR_DEBUG_UTILS_MESSAGE_TYPE_GENERAL_BIT_EXT;
-            if (Settings::Manager::getBool("XR_EXT_debug_utils message type validation", "VR"))
+            if (Settings::Manager::getBool("XR_EXT_debug_utils message type validation", "VR Debug"))
                 createInfo.messageTypes |= XR_DEBUG_UTILS_MESSAGE_TYPE_VALIDATION_BIT_EXT;
-            if (Settings::Manager::getBool("XR_EXT_debug_utils message type performance", "VR"))
+            if (Settings::Manager::getBool("XR_EXT_debug_utils message type performance", "VR Debug"))
                 createInfo.messageTypes |= XR_DEBUG_UTILS_MESSAGE_TYPE_PERFORMANCE_BIT_EXT;
-            if (Settings::Manager::getBool("XR_EXT_debug_utils message type conformance", "VR"))
+            if (Settings::Manager::getBool("XR_EXT_debug_utils message type conformance", "VR Debug"))
                 createInfo.messageTypes |= XR_DEBUG_UTILS_MESSAGE_TYPE_CONFORMANCE_BIT_EXT;
 
             createInfo.userCallback = &xrDebugCallback;

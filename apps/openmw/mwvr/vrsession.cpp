@@ -35,7 +35,7 @@ namespace MWVR
         : mXrSyncPhase{FramePhase::Cull}
     {
         mHandDirectedMovement = Settings::Manager::getBool("hand directed movement", "VR");
-        auto syncPhase = Settings::Manager::getString("openxr sync phase", "VR");
+        auto syncPhase = Settings::Manager::getString("openxr sync phase", "VR Debug");
         syncPhase = Misc::StringUtils::lowerCase(syncPhase);
         if (syncPhase == "update")
             mXrSyncPhase = FramePhase::Update;
@@ -51,10 +51,6 @@ namespace MWVR
             return;
         }
         Log(Debug::Verbose) << "Using openxr sync phase " << syncPhase;
-
-        mUseSteadyClock = Settings::Manager::getBool("use steady clock", "VR");
-        if (mUseSteadyClock)
-            Log(Debug::Verbose) << "Using chrono::steady_clock instead of openxr predicted display times.";
     }
 
     VRSession::~VRSession()
