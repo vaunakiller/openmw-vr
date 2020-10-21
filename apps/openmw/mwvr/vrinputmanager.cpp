@@ -1,6 +1,7 @@
 #include "vrinputmanager.hpp"
 
 #include "vrviewer.hpp"
+#include "vrcamera.hpp"
 #include "vrgui.hpp"
 #include "vranimation.hpp"
 #include "openxrinput.hpp"
@@ -424,7 +425,8 @@ namespace MWVR
 
     void VRInputManager::requestRecenter()
     {
-        mShouldRecenter = true;
+        // TODO: Hack, should have a cleaner way of accessing this
+        reinterpret_cast<VRCamera*>(MWBase::Environment::get().getWorld()->getRenderingManager().getCamera())->requestRecenter();
     }
 
     VRInputManager::VRInputManager(
@@ -508,22 +510,20 @@ namespace MWVR
         MWInput::InputManager::update(dt, disableControls, disableEvents);
         // This is the first update that needs openxr tracking, so i begin the next frame here.
         auto* session = Environment::get().getSession();
-        if (session)
-            session->beginPhase(VRSession::FramePhase::Update);
+        if (!session)
+            return;
+        
+        session->beginPhase(VRSession::FramePhase::Update);
 
         // The rest of this code assumes the game is running
         if (MWBase::Environment::get().getStateManager()->getState() == MWBase::StateManager::State_NoGame)
-        {
             return;
-        }
 
         bool guiMode = MWBase::Environment::get().getWindowManager()->isGuiMode();
 
         // OpenMW assumes all input will come via SDL which i often violate.
         // This keeps player controls correctly enabled for my purposes.
         mBindingsManager->setPlayerControlsEnabled(!guiMode);
-
-        updateHead();
 
         if (!guiMode)
         {
@@ -669,8 +669,12 @@ namespace MWVR
                 mActivationIndication = action->isActive();
                 break;
             case MWInput::A_LookLeftRight:
-                mYaw += osg::DegreesToRadians(action->value()) * 200.f * dt;
+            {
+                float yaw = osg::DegreesToRadians(action->value()) * 200.f * dt;
+                // TODO: Hack, should have a cleaner way of accessing this
+                reinterpret_cast<VRCamera*>(MWBase::Environment::get().getWorld()->getRenderingManager().getCamera())->rotateStage(yaw);
                 break;
+            }
             case MWInput::A_MoveLeftRight:
                 mBindingsManager->ics().getChannel(MWInput::A_MoveLeftRight)->setValue(action->value() / 2.f + 0.5f);
                 break;
@@ -829,65 +833,5 @@ namespace MWVR
                 }
             }
         }
-    }
-
-    osg::Quat VRInputManager::stageRotation()
-    {
-        return osg::Quat(mYaw, osg::Vec3(0, 0, -1));
-    }
-
-    void VRInputManager::updateHead()
-    {
-        auto* session = Environment::get().getSession();
-        auto currentHeadPose = session->predictedPoses(VRSession::FramePhase::Update).head;
-        currentHeadPose.position *= Environment::get().unitsPerMeter();
-        osg::Vec3 vrMovement = currentHeadPose.position - mHeadPose.position;
-        mHeadPose = currentHeadPose;
-        mHeadOffset += stageRotation() * vrMovement;
-
-        if (mShouldRecenter)
-        {
-            // Move position of head to center of character 
-            // Z should not be affected
-            mHeadOffset = osg::Vec3(0, 0, 0);
-            mHeadOffset.z() = mHeadPose.position.z();
-
-            // Adjust orientation to zero yaw
-            float yaw = 0.f;
-            float pitch = 0.f;
-            float roll = 0.f;
-            getEulerAngles(mHeadPose.orientation, yaw, pitch, roll);
-            mYaw = -yaw;
-
-            mShouldRecenter = false;
-            Log(Debug::Verbose) << "Recentered (" << mYaw << ")";
-        }
-        else
-        {
-            MWBase::World* world = MWBase::Environment::get().getWorld();
-            auto& player = world->getPlayer();
-            auto playerPtr = player.getPlayer();
-
-            float yaw = 0.f;
-            float pitch = 0.f;
-            float roll = 0.f;
-            getEulerAngles(mHeadPose.orientation, yaw, pitch, roll);
-
-            yaw += mYaw;
-
-            mVrAngles[0] = pitch;
-            mVrAngles[1] = roll;
-            mVrAngles[2] = yaw;
-
-            if (!player.isDisabled())
-            {
-                world->rotateObject(playerPtr, mVrAngles[0], mVrAngles[1], mVrAngles[2], MWBase::RotationFlag_none);
-            }
-            else {
-                // Update the camera directly to avoid rotating the disabled player
-                world->getRenderingManager().getCamera()->rotateCamera(-pitch, -roll, -yaw, false);
-            }
-        }
-
     }
 }

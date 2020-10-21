@@ -31,6 +31,22 @@
 
 namespace MWVR
 {
+    static void swapConvention(osg::Vec3& v3)
+    {
+
+        float y = v3.y();
+        float z = v3.z();
+        v3.y() = z;
+        v3.z() = -y;
+    }
+    static void swapConvention(osg::Quat& q)
+    {
+        float y = q.y();
+        float z = q.z();
+        q.y() = z;
+        q.z() = -y;
+    }
+
     VRSession::VRSession()
         : mXrSyncPhase{FramePhase::Cull}
     {
@@ -70,15 +86,8 @@ namespace MWVR
     {
         position = position * Environment::get().unitsPerMeter();
 
-        float y = position.y();
-        float z = position.z();
-        position.y() = z;
-        position.z() = -y;
-
-        y = orientation.y();
-        z = orientation.z();
-        orientation.y() = z;
-        orientation.z() = -y;
+        swapConvention(position);
+        swapConvention(orientation);
 
         osg::Matrix viewMatrix;
         viewMatrix.setTrans(-position);
@@ -86,20 +95,41 @@ namespace MWVR
         return viewMatrix;
     }
 
-    osg::Matrix VRSession::viewMatrix(FramePhase phase, Side side, bool offset)
+    osg::Matrix VRSession::viewMatrix(FramePhase phase, Side side, bool offset, bool glConvention)
     {
         if (offset)
         {
             MWVR::Pose pose = predictedPoses(phase).view[(int)side].pose;
-            return viewMatrix(pose.position, pose.orientation);
+            auto position = pose.position * Environment::get().unitsPerMeter();
+            auto orientation = pose.orientation;
+
+            if (glConvention)
+            {
+                swapConvention(position);
+                swapConvention(orientation);
+            }
+
+            osg::Matrix viewMatrix;
+            viewMatrix.setTrans(-position);
+            viewMatrix.postMultRotate(orientation.conj());
+            return viewMatrix;
         }
         else
         {
             MWVR::Pose pose = predictedPoses(phase).eye[(int)side];
             osg::Vec3 position = pose.position * Environment::get().unitsPerMeter();
             osg::Quat orientation = pose.orientation;
-            osg::Vec3d forward = orientation * osg::Vec3d(0, 1, 0);
-            osg::Vec3d up = orientation * osg::Vec3d(0, 0, 1);
+            osg::Vec3 forward = orientation * osg::Vec3(0, 1, 0);
+            osg::Vec3 up = orientation * osg::Vec3(0, 0, 1);
+
+            if (glConvention)
+            {
+                swapConvention(position);
+                swapConvention(orientation);
+                swapConvention(forward);
+                swapConvention(up);
+            }
+
             osg::Matrix viewMatrix;
             viewMatrix.makeLookAt(position, position + forward, up);
 

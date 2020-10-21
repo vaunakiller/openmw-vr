@@ -115,18 +115,15 @@ namespace MWVR {
 
             auto* session = Environment::get().getSession();
             auto viewMatrix = view.getCamera()->getViewMatrix();
-            bool haveView = viewMatrix.getTrans().length() > 0.01;
 
-            // During main menu the view matrix will not be set,
-            // in that case we use the vr stage directly instead.
-            if (haveView)
-            {
-                viewMatrix = viewMatrix * session->viewMatrix(VRSession::FramePhase::Update, side, true);
-            }
-            else
-            {
-                viewMatrix = session->viewMatrix(VRSession::FramePhase::Update, side, false);
-            }
+            // If the camera does not have a view, use the VR stage directly
+            bool useStage = !(viewMatrix.getTrans().length() > 0.01);
+
+            // If the view matrix is still the identity matrix, conventions have to be swapped around.
+            bool swapConventions = viewMatrix.isIdentity();
+
+            viewMatrix = viewMatrix * session->viewMatrix(VRSession::FramePhase::Update, side, !useStage, !swapConventions);
+
             camera->setViewMatrix(viewMatrix);
 
             auto projectionMatrix = session->projectionMatrix(VRSession::FramePhase::Update, side);

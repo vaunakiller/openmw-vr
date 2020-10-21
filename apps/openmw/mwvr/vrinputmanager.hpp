@@ -41,15 +41,6 @@ namespace MWVR
         /// Overriden to update XR inputs
         virtual void update(float dt, bool disableControls = false, bool disableEvents = false);
 
-        /// Current head offset from character position
-        osg::Vec3 headOffset() const { return mHeadOffset; };
-
-        /// Update head offset. Should only be called by the movement solver when reducing head offset.
-        void setHeadOffset(osg::Vec3 offset) { mHeadOffset = offset; };
-
-        /// Quaternion that aligns VR stage coordinates with world coordinates.
-        osg::Quat stageRotation();
-
         /// Set current offset to 0 and re-align VR stage.
         void requestRecenter();
 
@@ -60,8 +51,6 @@ namespace MWVR
         OpenXRActionSet& activeActionSet();
 
     protected:
-        void updateHead();
-
         void processAction(const class Action* action, float dt, bool disableControls);
 
         void updateActivationIndication(void);
@@ -84,14 +73,8 @@ namespace MWVR
 
         std::unique_ptr<OpenXRInput> mXRInput;
         std::unique_ptr<RealisticCombat::StateMachine> mRealisticCombat;
-        Pose mHeadPose{};
-        osg::Vec3 mHeadOffset{ 0,0,0 };
-        bool mShouldRecenter{ true };
         bool mActivationIndication{ false };
         bool mHapticsEnabled{ true };
-        float mYaw{ 0.f };
-
-        float mVrAngles[3]{ 0.f,0.f,0.f };
     };
 }
 

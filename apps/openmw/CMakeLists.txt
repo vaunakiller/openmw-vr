@@ -249,7 +249,7 @@ if(BUILD_OPENMW_VR)
     add_openmw_dir (mwvr
          openxraction openxractionset openxrdebug openxrinput openxrmanager openxrmanagerimpl openxrswapchain openxrswapchainimpl
          realisticcombat 
-         vranimation vrenvironment vrgui vrinputmanager vrinput vrsession vrframebuffer vrshadow vrtypes vrview vrviewer
+         vranimation vrcamera vrenvironment vrgui vrinputmanager vrinput vrsession vrframebuffer vrshadow vrtypes vrview vrviewer
         )
 
     openmw_add_executable(openmw_vr

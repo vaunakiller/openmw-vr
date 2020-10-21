@@ -1,8 +1,8 @@
 #include "vranimation.hpp"
-
 #include "vrenvironment.hpp"
 #include "vrviewer.hpp"
 #include "vrinputmanager.hpp"
+#include "vrcamera.hpp"
 
 #include <osg/MatrixTransform>
 #include <osg/PositionAttitudeTransform>
@@ -90,13 +90,9 @@ namespace MWVR
         position = position * Environment::get().unitsPerMeter();
 
         // Align orientation with the game world
-        auto* inputManager = Environment::get().getInputManager();
-        if (inputManager)
-        {
-            auto stageRotation = inputManager->stageRotation();
-            position = stageRotation * position;
-            orientation = orientation * stageRotation;
-        }
+        auto stageRotation = reinterpret_cast<MWVR::VRCamera*>(MWBase::Environment::get().getWorld()->getRenderingManager().getCamera())->stageRotation();
+        position = stageRotation * position;
+        orientation = orientation * stageRotation;
 
         // Add camera offset
         osg::Vec3 viewPosition;

@@ -80,6 +80,7 @@
 #include "../mwvr/vranimation.hpp"
 #include "../mwvr/vrviewer.hpp"
 #include "../mwvr/vrenvironment.hpp"
+#include "../mwvr/vrcamera.hpp"
 #endif
 
 
@@ -312,8 +313,11 @@ namespace MWRender
 
         // water goes after terrain for correct waterculling order
         mWater.reset(new Water(mRootNode, sceneRoot, mResourceSystem, mViewer->getIncrementalCompileOperation(), resourcePath));
-
+#ifdef USE_OPENXR
+        mCamera.reset(new MWVR::VRCamera(mViewer->getCamera()));
+#else
         mCamera.reset(new Camera(mViewer->getCamera()));
+#endif
         if (Settings::Manager::getBool("view over shoulder", "Camera"))
             mViewOverShoulderController.reset(new ViewOverShoulderController(mCamera.get()));
 

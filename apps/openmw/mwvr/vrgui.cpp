@@ -334,7 +334,11 @@ namespace MWVR
 
     void VRGUILayer::update()
     {
-        if (mConfig.trackingMode != TrackingMode::Menu)
+        auto xr = MWVR::Environment::get().getManager();
+        if (!xr)
+            return;
+
+        if (mConfig.trackingMode != TrackingMode::Menu || !xr->appShouldRender())
             updateTracking();
 
         if (mConfig.sideBySide)
@@ -411,11 +415,31 @@ namespace MWVR
         }
     }
 
+    class VRGUIManagerUpdateCallback : public osg::Callback
+    {
+    public:
+        VRGUIManagerUpdateCallback(VRGUIManager* manager)
+            : mManager(manager)
+        {
+
+        }
+
+        bool run(osg::Object* object, osg::Object* data)
+        {
+            mManager->update();
+            return traverse(object, data);
+        }
+
+    private:
+        VRGUIManager* mManager;
+    };
+
     VRGUIManager::VRGUIManager(
         osg::ref_ptr<osgViewer::Viewer> viewer)
         : mOsgViewer(viewer)
     {
         mGUIGeometriesRoot->setName("VR GUI Geometry Root");
+        mGUIGeometriesRoot->setUpdateCallback(new VRGUIManagerUpdateCallback(this));
         mGUICamerasRoot->setName("VR GUI Cameras Root");
         auto* root = viewer->getSceneData();
         root->asGroup()->addChild(mGUICamerasRoot);
@@ -673,18 +697,13 @@ namespace MWVR
             removeWidget(widget);
     }
 
-    void VRGUIManager::updateTracking(void)
+    void VRGUIManager::setCamera(osg::Camera* camera)
     {
-        auto* world = MWBase::Environment::get().getWorld();
-        if (!world)
-            return;
-        auto* camera = world->getRenderingManager().getCamera()->getOsgCamera();
-        if (!camera)
-            return;
-        updateTracking(camera);
+        mCamera = camera;
+        mShouldUpdatePoses = true;
     }
 
-    void VRGUIManager::updateTracking(osg::Camera* camera)
+    void VRGUIManager::updateTracking(void)
     {
         // Get head pose by reading the camera view matrix to place the GUI in the world.
         osg::Vec3 eye{};
@@ -692,10 +711,12 @@ namespace MWVR
         osg::Vec3 up{};
         Pose headPose{};
 
-        if (MWBase::Environment::get().getStateManager()->getState() == MWBase::StateManager::State_NoGame)
+        osg::ref_ptr<osg::Camera> camera;
+        mCamera.lock(camera);
+
+        if (!camera)
         {
-            // If App is not running, tracking will not be propagated to camera.
-            // So we adopt stage space.
+            // If a camera is not available, use VR stage poses directly.
             auto pose = MWVR::Environment::get().getSession()->predictedPoses(MWVR::VRSession::FramePhase::Update).head;
             osg::Vec3 position = pose.position * Environment::get().unitsPerMeter();
             osg::Quat orientation = pose.orientation;
@@ -738,6 +759,24 @@ namespace MWVR
             }
         }
         return false;
+    }
+
+    void VRGUIManager::update()
+    {
+        auto xr = MWVR::Environment::get().getManager();
+        if (xr)
+        {
+            if (xr->appShouldRender())
+            {
+                if (mShouldUpdatePoses)
+                {
+                    mShouldUpdatePoses = false;
+                    updateTracking();
+                }
+            }
+            else
+                mShouldUpdatePoses = true;
+        }
     }
 
     void VRGUIManager::setFocusLayer(VRGUILayer* layer)

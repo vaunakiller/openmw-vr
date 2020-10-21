@@ -162,15 +162,8 @@ namespace MWVR
                 Log(Debug::Verbose) << ss.str();
             }
 
-
             uint32_t viewCount = 0;
             CHECK_XRCMD(xrEnumerateViewConfigurationViews(mInstance, mSystemId, mViewConfigType, 2, &viewCount, mConfigViews.data()));
-
-            // OpenXR gives me crazy bananas high resolutions. Likely an oculus bug.
-            mConfigViews[0].recommendedImageRectHeight = 1200;
-            mConfigViews[1].recommendedImageRectHeight = 1200;
-            mConfigViews[0].recommendedImageRectWidth = 1080;
-            mConfigViews[1].recommendedImageRectWidth = 1080;
 
             if (viewCount != 2)
             {

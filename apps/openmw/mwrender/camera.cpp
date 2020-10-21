@@ -4,7 +4,7 @@
 
 #include <components/sceneutil/positionattitudetransform.hpp>
 #include <components/settings/settings.hpp>
-#include <components/sceneutil/visitor.hpp>
+#include <components/debug/debuglog.hpp>
 
 #include "../mwbase/environment.hpp"
 #include "../mwbase/windowmanager.hpp"
@@ -13,17 +13,11 @@
 #include "../mwworld/ptr.hpp"
 #include "../mwworld/refdata.hpp"
 
-#ifdef USE_OPENXR
-#include "../mwvr/vrinputmanager.hpp"
-#include "../mwvr/vrenvironment.hpp"
-#endif
-
 #include "../mwmechanics/drawstate.hpp"
 #include "../mwmechanics/movement.hpp"
 #include "../mwmechanics/npcstats.hpp"
 
 #include "npcanimation.hpp"
-#include <components/debug/debuglog.hpp>
 
 namespace
 {
@@ -71,7 +65,6 @@ namespace MWRender
       mBaseCameraDistance(Settings::Manager::getFloat("third person camera distance", "Camera")),
       mPitch(0.f),
       mYaw(0.f),
-      mRoll(0.f),
       mVanityToggleQueued(false),
       mVanityToggleQueuedValue(false),
       mViewModeToggleQueued(false),
@@ -103,10 +96,7 @@ namespace MWRender
     osg::Vec3d Camera::getFocalPoint() const
     {
         if (!mTrackingNode)
-        {
             return osg::Vec3d();
-        }
-
         osg::NodePathList nodepaths = mTrackingNode->getParentalNodePaths();
         if (nodepaths.empty())
             return osg::Vec3d();
@@ -157,24 +147,19 @@ namespace MWRender
         camera = focal + offset;
     }
 
+    void Camera::getOrientation(osg::Quat& orientation) const
+    {
+        orientation = osg::Quat(getPitch(), osg::Vec3d(1, 0, 0))
+            * osg::Quat(getYaw(), osg::Vec3d(0, 0, 1));
+    }
+
     void Camera::updateCamera(osg::Camera *cam)
     {
-        osg::Quat orient = 
-              osg::Quat(getPitch(), osg::Vec3d(1,0,0)) 
-#ifdef USE_OPENXR
-            * osg::Quat(getRoll(),  osg::Vec3d(0,1,0)) 
-#endif
-            * osg::Quat(getYaw(),   osg::Vec3d(0,0,1));
         osg::Vec3d focal, position;
         getPosition(focal, position);
 
-#ifdef USE_OPENXR
-        auto* inputManager = MWVR::Environment::get().getInputManager();
-        if (inputManager)
-        {
-            position += inputManager->headOffset();
-        }
-#endif
+        osg::Quat orient;
+        getOrientation(orient);
 
         osg::Vec3d forward = orient * osg::Vec3d(0,1,0);
         osg::Vec3d up = orient * osg::Vec3d(0,0,1);
@@ -192,15 +177,15 @@ namespace MWRender
 
     void Camera::rotateCamera(float pitch, float roll, float yaw, bool adjust)
     {
+        (void)roll;
+
         if (adjust)
         {
             pitch += getPitch();
             yaw += getYaw();
-            roll += getRoll();
         }
         setYaw(yaw);
         setPitch(pitch);
-        setRoll(roll);
     }
 
     void Camera::update(float duration, bool paused)
@@ -341,10 +326,6 @@ namespace MWRender
 
     bool Camera::toggleVanityMode(bool enable)
     {
-#ifdef USE_OPENXR
-        // Vanity mode makes no sense in VR
-        enable = false;
-#endif
         // Changing the view will stop all playing animations, so if we are playing
         // anything important, queue the view change for later
         if (mFirstPersonView && !mAnimation->upperBodyReady())
@@ -404,17 +385,6 @@ namespace MWRender
             angle += osg::PI*2;
         }
         mYaw = angle;
-    }
-
-    void Camera::setRoll(float angle)
-    {
-        if (angle > osg::PI) {
-            angle -= osg::PI * 2;
-        }
-        else if (angle < -osg::PI) {
-            angle += osg::PI * 2;
-        }
-        mRoll = angle;
     }
 
     void Camera::setPitch(float angle)
@@ -485,17 +455,6 @@ namespace MWRender
 
     void Camera::processViewChange()
     {
-#ifdef USE_OPENXR
-        //mAnimation->setViewMode(NpcAnimation::VM_VRFirstPerson);
-
-        SceneUtil::FindByNameVisitor findRootVisitor("Player Root", osg::NodeVisitor::TRAVERSE_PARENTS);
-        mAnimation->getObjectRoot()->accept(findRootVisitor);
-        mTrackingNode = findRootVisitor.mFoundNode;
-
-        if (!mTrackingNode)
-            throw std::logic_error("Unable to find tracking node for VR camera");
-        mHeightScale = 1.f;
-#else
         if(isFirstPerson())
         {
             mAnimation->setViewMode(NpcAnimation::VM_FirstPerson);
@@ -515,7 +474,6 @@ namespace MWRender
                 mHeightScale = 1.f;
         }
         rotateCamera(getPitch(), 0.f, getYaw(), false);
-#endif
     }
 
     void Camera::applyDeferredPreviewRotationToPlayer(float dt)
@@ -555,7 +513,6 @@ namespace MWRender
     {
         setPitch(-mTrackingPtr.getRefData().getPosition().rot[0] - mDeferredRotation.x());
         setYaw(-mTrackingPtr.getRefData().getPosition().rot[2] - mDeferredRotation.z());
-        setRoll(-mTrackingPtr.getRefData().getPosition().rot[1] - mDeferredRotation.y());
     }
 
     void Camera::instantTransition()

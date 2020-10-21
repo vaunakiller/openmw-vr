@@ -1769,7 +1769,6 @@ namespace MWGui
 
 #ifdef USE_OPENXR
         auto* vrGuiManager = MWVR::Environment::get().getGUIManager();
-        vrGuiManager->updateTracking(mViewer->getCamera());
         vrGuiManager->insertLayer(mVideoBackground->getLayer()->getName());
 #endif
 

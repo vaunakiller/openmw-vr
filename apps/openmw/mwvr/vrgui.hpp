@@ -144,14 +144,17 @@ namespace MWVR
         /// Remove the given layer quad
         void removeLayer(const std::string& name);
 
-        /// Update layer quads based on player camera
+        /// Update layer quads based on current camera
         void updateTracking(void);
 
-        /// Update layer quads based on the given camera
-        void updateTracking(osg::Camera* camera);
+        /// Set camera on which to base tracking
+        void setCamera(osg::Camera* camera);
 
         /// Check current pointer target and update focus layer
         bool updateFocus();
+
+        /// Update traversal
+        void update();
 
         /// Gui cursor coordinates to use to simulate a mouse press/move if the player is currently pointing at a vr gui layer
         osg::Vec2i guiCursor() { return mGuiCursor; };
@@ -171,9 +174,11 @@ namespace MWVR
         std::map<std::string, std::shared_ptr<VRGUILayer>> mLayers;
         std::vector<std::shared_ptr<VRGUILayer> > mSideBySideLayers;
 
+        bool        mShouldUpdatePoses{ true };
         Pose        mHeadPose{};
         osg::Vec2i  mGuiCursor{};
         VRGUILayer* mFocusLayer{ nullptr };
+        osg::observer_ptr<osg::Camera> mCamera{ nullptr };
     };
 }
 

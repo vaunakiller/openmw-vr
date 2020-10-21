@@ -21,8 +21,9 @@
 
 #ifdef USE_OPENXR
 #include "../mwvr/vrsession.hpp"
-#include "../mwvr/vrinputmanager.hpp"
+#include "../mwvr/vrcamera.hpp"
 #include "../mwvr/vrenvironment.hpp"
+#include "../mwrender/renderingmanager.hpp"
 #endif
 
 #include "actor.hpp"
@@ -213,12 +214,11 @@ namespace MWPhysics
 
 #ifdef USE_OPENXR
         // Catch the player character up to the real world position of the player.
-        // TODO: For now this is just a partial duplication of the loop below
-        // Could probably be refactored into its own function.
+        // TODO: Hack.
         if (isPlayer && !world->getPlayer().isDisabled())
         {
 
-            auto* inputManager = MWVR::Environment::get().getInputManager();
+            auto* inputManager = reinterpret_cast<MWVR::VRCamera*>(MWBase::Environment::get().getWorld()->getRenderingManager().getCamera());
 
             osg::Vec3 headOffset = inputManager->headOffset();
             osg::Vec3 trackingOffset = headOffset;
