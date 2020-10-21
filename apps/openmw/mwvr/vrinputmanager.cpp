@@ -335,12 +335,12 @@ namespace MWVR
         std::string controllerProfilePath = "/interaction_profiles/valve/index_controller";
         // In-game character controls
         SuggestedBindings gameplayBindings{
-                {A_ActivateTouch,               "/user/hand/right/input/squeeze/value"},
+                {A_ActivateTouch,               "/user/hand/right/input/squeeze/force"},
                 {A_Recenter,                    "/user/hand/left/input/thumbstick/click"},
-                {MWInput::A_Activate,           "/user/hand/right/input/squeeze/value"},
+                {MWInput::A_Activate,           "/user/hand/right/input/squeeze/force"},
                 //{MWInput::A_AlwaysRun,          "/user/hand/left/input/thumbstick/click"},
                 //{MWInput::A_AutoMove,           "/user/hand/right/input/thumbstick/click"},
-                {MWInput::A_GameMenu,           "/user/hand/left/input/thumbstick/click"},
+                {MWInput::A_GameMenu,           "/user/hand/left/input/trackpad/force"},
                 {MWInput::A_Inventory,          "/user/hand/right/input/b/click"},
                 {MWInput::A_Journal,            "/user/hand/right/input/b/click"},
                 {MWInput::A_Jump,               "/user/hand/left/input/trigger/value"},
@@ -349,7 +349,7 @@ namespace MWVR
                 {MWInput::A_MoveLeftRight,      "/user/hand/left/input/thumbstick/x"},
                 {MWInput::A_QuickSave,          "/user/hand/left/input/b/click"},
                 {MWInput::A_Rest,               "/user/hand/left/input/b/click"},
-                {MWInput::A_Sneak,              "/user/hand/left/input/squeeze/value"},
+                {MWInput::A_Sneak,              "/user/hand/left/input/squeeze/force"},
                 //{MWInput::A_ToggleDebug,        "/user/hand/right/input/thumbstick/click"},
                 //{MWInput::A_ToggleHUD,          "/user/hand/left/input/thumbstick/click"},
                 {MWInput::A_ToggleSpell,        "/user/hand/left/input/a/click"},
@@ -363,7 +363,7 @@ namespace MWVR
                 {A_MenuLeftRight, "/user/hand/right/input/thumbstick/x"},
                 {A_MenuSelect, "/user/hand/right/input/a/click"},
                 {A_MenuBack, "/user/hand/right/input/b/click"},
-                {MWInput::A_GameMenu, "/user/hand/left/input/thumbstick/click"},
+                {MWInput::A_GameMenu, "/user/hand/left/input/trackpad/force"},
                 {MWInput::A_Use, "/user/hand/right/input/trigger/value"},
                 {A_Recenter, "/user/hand/left/input/thumbstick/click"},
         };
