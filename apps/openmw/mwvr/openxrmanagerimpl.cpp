@@ -581,7 +581,7 @@ namespace MWVR
 
     void OpenXRManagerImpl::handleEvents()
     {
-        std::unique_lock<std::mutex> lock(mEventMutex);
+        std::unique_lock<std::mutex> lock(mMutex);
 
         xrQueueEvents();
 
@@ -784,11 +784,13 @@ namespace MWVR
 
     void OpenXRManagerImpl::xrResourceAcquired()
     {
+        std::unique_lock<std::mutex> lock(mMutex);
         mAcquiredResources++;
     }
 
     void OpenXRManagerImpl::xrResourceReleased()
     {
+        std::unique_lock<std::mutex> lock(mMutex);
         if (mAcquiredResources == 0)
             throw std::logic_error("Releasing a nonexistent resource");
         mAcquiredResources--;

@@ -114,8 +114,8 @@ namespace MWGui
         void onMapClicked(MyGUI::Widget* _sender);
 
         // LocalMapBase
-        virtual void customMarkerCreated(MyGUI::Widget* marker) override;
-        virtual void doorMarkerCreated(MyGUI::Widget* marker) override;
+        void customMarkerCreated(MyGUI::Widget* marker) override;
+        void doorMarkerCreated(MyGUI::Widget* marker) override;
 
         void updateEnemyHealthBar();
 

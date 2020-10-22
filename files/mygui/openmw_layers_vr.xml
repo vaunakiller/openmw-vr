@@ -13,10 +13,11 @@
     <Layer name="StatsWindow" overlapped="true" pick="true"/>
     <Layer name="DialogueWindow" overlapped="true" pick="true"/>
     <Layer name="ServiceWindow" overlapped="true" pick="true"/>
-    <Layer name="Windows" overlapped="true" pick="true"/>
+    <Layer name="MainMenu" overlapped="true" pick="true"/>
     <Layer name="JournalBooks" type="ScalingLayer" pick="true">
-        <Property key="Size" value="600 520"/>
+      <Property key="Size" value="600 520"/>
     </Layer>
+    <Layer name="Windows" overlapped="true" pick="true"/>
     <Layer name="Debug" overlapped="true" pick="true"/>
     <Layer name="Notification" overlapped="false" pick="false"/>
     <Layer name="Tooltip" overlapped="true" pick="true"/>

@@ -103,6 +103,11 @@ void WeaponAnimation::attachArrow(MWWorld::Ptr actor)
     }
 }
 
+void WeaponAnimation::detachArrow(MWWorld::Ptr actor)
+{
+    mAmmunition.reset();
+}
+
 void WeaponAnimation::releaseArrow(MWWorld::Ptr actor, float attackStrength)
 {
     MWWorld::InventoryStore& inv = actor.getClass().getInventoryStore(actor);

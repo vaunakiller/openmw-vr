@@ -59,7 +59,7 @@ add_component_dir (nif
     )
 
 add_component_dir (nifosg
-    nifloader controller particle userdata
+    nifloader controller particle matrixtransform
     )
 
 add_component_dir (nifbullet
@@ -86,11 +86,11 @@ add_component_dir (esmterrain
     )
 
 add_component_dir (misc
-    gcd constants utf8stream stringops resourcehelpers rng messageformatparser weakcache
+    constants utf8stream stringops resourcehelpers rng messageformatparser weakcache
     )
 
 add_component_dir (debug
-    debugging debuglog
+    debugging debuglog gldebug
     )
 
 IF(NOT WIN32 AND NOT APPLE)
@@ -233,7 +233,7 @@ target_link_libraries(components
     ${SDL2_LIBRARIES}
     ${OPENGL_gl_LIBRARY}
     ${MyGUI_LIBRARIES}
-    ${BSAOPTHASH_LIBRARIES}
+    LZ4::LZ4
     RecastNavigation::DebugUtils
     RecastNavigation::Detour
     RecastNavigation::Recast

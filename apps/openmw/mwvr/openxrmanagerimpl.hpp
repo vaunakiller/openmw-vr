@@ -113,8 +113,7 @@ namespace MWVR
         bool mAppShouldReadInput = false;
 
         uint32_t mAcquiredResources = 0;
-        std::mutex mFrameStateMutex{};
-        std::mutex mEventMutex{};
+        std::mutex mMutex{};
         std::set<std::string> mAvailableExtensions;
         std::set<std::string> mEnabledExtensions;
         std::queue<XrEventDataBuffer> mEventQueue;

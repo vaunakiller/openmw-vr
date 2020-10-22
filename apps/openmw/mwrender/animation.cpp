@@ -63,7 +63,7 @@ namespace
             : osg::NodeVisitor(TRAVERSE_ALL_CHILDREN)
         { }
 
-        virtual void apply(osg::Node &node)
+        void apply(osg::Node &node) override
         {
             if (dynamic_cast<osgParticle::ParticleProcessor*>(&node))
                 mToRemove.push_back(&node);
@@ -71,7 +71,7 @@ namespace
             traverse(node);
         }
 
-        virtual void apply(osg::Drawable& drw)
+        void apply(osg::Drawable& drw) override
         {
             if (osgParticle::ParticleSystem* partsys = dynamic_cast<osgParticle::ParticleSystem*>(&drw))
                 mToRemove.push_back(partsys);
@@ -99,7 +99,7 @@ namespace
         {
         }
 
-        virtual void operator()(osg::Node* node, osg::NodeVisitor* nv)
+        void operator()(osg::Node* node, osg::NodeVisitor* nv) override
         {
             unsigned int state = MWBase::Environment::get().getWorld()->getNightDayMode();
             const unsigned int newState = node->asGroup()->getNumChildren() > state ? state : 0;
@@ -124,7 +124,7 @@ namespace
             : osg::NodeVisitor(TRAVERSE_ALL_CHILDREN)
         { }
 
-        virtual void apply(osg::Switch &switchNode)
+        void apply(osg::Switch &switchNode) override
         {
             if (switchNode.getName() == Constants::NightDayLabel)
                 switchNode.addUpdateCallback(new DayNightCallback());
@@ -141,7 +141,7 @@ namespace
         {
         }
 
-        virtual void apply(osg::Switch& node)
+        void apply(osg::Switch& node) override
         {
             if (node.getName() == Constants::HerbalismLabel)
             {
@@ -236,7 +236,7 @@ namespace
         {
         }
 
-        void apply(osg::Node& node)
+        void apply(osg::Node& node) override
         {
             if (SceneUtil::hasUserDescription(&node, "CustomBone"))
             {
@@ -261,12 +261,12 @@ namespace
         {
         }
 
-        virtual void apply(osg::Node &node)
+        void apply(osg::Node &node) override
         {
             traverse(node);
         }
 
-        virtual void apply(osg::Group &group)
+        void apply(osg::Group &group) override
         {
             traverse(group);
 
@@ -285,12 +285,12 @@ namespace
             }
         }
 
-        virtual void apply(osg::MatrixTransform &node)
+        void apply(osg::MatrixTransform &node) override
         {
             traverse(node);
         }
 
-        virtual void apply(osg::Geometry&)
+        void apply(osg::Geometry&) override
         {
         }
     };
@@ -314,12 +314,12 @@ namespace
         {
         }
 
-        virtual void apply(osg::Node &node)
+        void apply(osg::Node &node) override
         {
             traverse(node);
         }
 
-        virtual void apply(osg::Group &group)
+        void apply(osg::Group &group) override
         {
             traverse(group);
 
@@ -338,12 +338,12 @@ namespace
             }
         }
 
-        virtual void apply(osg::MatrixTransform &node)
+        void apply(osg::MatrixTransform &node) override
         {
             traverse(node);
         }
 
-        virtual void apply(osg::Geometry&)
+        void apply(osg::Geometry&) override
         {
         }
 
@@ -369,12 +369,12 @@ namespace
         {
         }
 
-        virtual void apply(osg::Node &node)
+        void apply(osg::Node &node) override
         {
             traverse(node);
         }
 
-        virtual void apply(osg::Group &group)
+        void apply(osg::Group &group) override
         {
             osg::Callback* callback = group.getUpdateCallback();
             if (callback)
@@ -391,12 +391,12 @@ namespace
             traverse(group);
         }
 
-        virtual void apply(osg::MatrixTransform &node)
+        void apply(osg::MatrixTransform &node) override
         {
             traverse(node);
         }
 
-        virtual void apply(osg::Geometry&)
+        void apply(osg::Geometry&) override
         {
         }
 
@@ -408,20 +408,20 @@ namespace
     class CleanObjectRootVisitor : public RemoveVisitor
     {
     public:
-        virtual void apply(osg::Drawable& drw)
+        void apply(osg::Drawable& drw) override
         {
             applyDrawable(drw);
         }
 
-        virtual void apply(osg::Group& node)
+        void apply(osg::Group& node) override
         {
             applyNode(node);
         }
-        virtual void apply(osg::MatrixTransform& node)
+        void apply(osg::MatrixTransform& node) override
         {
             applyNode(node);
         }
-        virtual void apply(osg::Node& node)
+        void apply(osg::Node& node) override
         {
             applyNode(node);
         }
@@ -462,16 +462,16 @@ namespace
     class RemoveTriBipVisitor : public RemoveVisitor
     {
     public:
-        virtual void apply(osg::Drawable& drw)
+        void apply(osg::Drawable& drw) override
         {
             applyImpl(drw);
         }
 
-        virtual void apply(osg::Group& node)
+        void apply(osg::Group& node) override
         {
             traverse(node);
         }
-        virtual void apply(osg::MatrixTransform& node)
+        void apply(osg::MatrixTransform& node) override
         {
             traverse(node);
         }
@@ -506,7 +506,7 @@ namespace MWRender
         }
 
     protected:
-        virtual void setDefaults(osg::StateSet* stateset)
+        void setDefaults(osg::StateSet* stateset) override
         {
             osg::BlendFunc* blendfunc (new osg::BlendFunc);
             stateset->setAttributeAndModes(blendfunc, osg::StateAttribute::ON|osg::StateAttribute::OVERRIDE);
@@ -526,7 +526,7 @@ namespace MWRender
             stateset->addUniform(new osg::Uniform("colorMode", 0), osg::StateAttribute::ON|osg::StateAttribute::OVERRIDE);
         }
 
-        virtual void apply(osg::StateSet* stateset, osg::NodeVisitor* /*nv*/)
+        void apply(osg::StateSet* stateset, osg::NodeVisitor* /*nv*/) override
         {
             osg::Material* material = static_cast<osg::Material*>(stateset->getAttribute(osg::StateAttribute::MATERIAL));
             material->setAlpha(osg::Material::FRONT_AND_BACK, mAlpha);
@@ -587,7 +587,7 @@ namespace MWRender
     class ResetAccumRootCallback : public osg::NodeCallback
     {
     public:
-        virtual void operator()(osg::Node* node, osg::NodeVisitor* nv)
+        void operator()(osg::Node* node, osg::NodeVisitor* nv) override
         {
             osg::MatrixTransform* transform = static_cast<osg::MatrixTransform*>(node);
 

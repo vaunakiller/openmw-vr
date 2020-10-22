@@ -83,7 +83,7 @@ namespace MWMechanics
 
         // reset
         creatureStats.setLevel(player->mNpdt.mLevel);
-        creatureStats.getSpells().clear();
+        creatureStats.getSpells().clear(true);
         creatureStats.modifyMagicEffects(MagicEffects());
 
         for (int i=0; i<27; ++i)
@@ -1045,6 +1045,7 @@ namespace MWMechanics
     void MechanicsManager::confiscateStolenItems(const MWWorld::Ptr &player, const MWWorld::Ptr &targetContainer)
     {
         MWWorld::ContainerStore& store = player.getClass().getContainerStore(player);
+        MWWorld::ContainerStore& containerStore = targetContainer.getClass().getContainerStore(targetContainer);
         for (MWWorld::ContainerStoreIterator it = store.begin(); it != store.end(); ++it)
         {
             StolenItemsMap::iterator stolenIt = mStolenItems.find(Misc::StringUtils::lowerCase(it->getCellRef().getRefId()));
@@ -1065,7 +1066,7 @@ namespace MWMechanics
 
             int toMove = it->getRefData().getCount() - itemCount;
 
-            targetContainer.getClass().getContainerStore(targetContainer).add(*it, toMove, targetContainer);
+            containerStore.add(*it, toMove, targetContainer);
             store.remove(*it, toMove, player);
         }
         // TODO: unhardcode the locklevel

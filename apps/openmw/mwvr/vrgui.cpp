@@ -471,6 +471,7 @@ namespace MWVR
     LayerConfig gDefaultConfig = createDefaultConfig(1);
     LayerConfig gVideoPlayerConfig = createDefaultConfig(1, true, SizingMode::Fixed);
     LayerConfig gLoadingScreenConfig = createDefaultConfig(1, true, SizingMode::Fixed);
+    LayerConfig gMainMenuConfig = createDefaultConfig(1, true);
     LayerConfig gJournalBooksConfig = createDefaultConfig(2, false, SizingMode::Fixed);
     LayerConfig gDefaultWindowsConfig = createDefaultConfig(3, true);
     LayerConfig gMessageBoxConfig = createDefaultConfig(6, false, SizingMode::Auto);;
@@ -550,6 +551,7 @@ namespace MWVR
         {"DialogueWindow", gDialogueWindowConfig},
         {"MessageBox", gMessageBoxConfig},
         {"Windows", gDefaultWindowsConfig},
+        {"MainMenu", gMainMenuConfig},
         {"Notification", gNotificationConfig},
         {"InputBlocker", gVideoPlayerConfig},
         {"LoadingScreen", gLoadingScreenConfig},

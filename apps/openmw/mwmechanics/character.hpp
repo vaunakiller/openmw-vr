@@ -196,6 +196,7 @@ class CharacterController : public MWRender::Animation::TextKeyListener
     float mTimeUntilWake;
 
     bool mIsMovingBackward;
+    osg::Vec2f mSmoothedSpeed;
 
     void setAttackTypeBasedOnMovement();
 
@@ -240,7 +241,7 @@ public:
     CharacterController(const MWWorld::Ptr &ptr, MWRender::Animation *anim);
     virtual ~CharacterController();
 
-    virtual void handleTextKey(const std::string &groupname, NifOsg::TextKeyMap::ConstIterator key, const NifOsg::TextKeyMap& map);
+    void handleTextKey(const std::string &groupname, NifOsg::TextKeyMap::ConstIterator key, const NifOsg::TextKeyMap& map) override;
 
     // Be careful when to call this, see comment in Actors
     void updateContinuousVfx();

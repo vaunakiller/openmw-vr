@@ -21,14 +21,14 @@ namespace MWRender
         mAutoSwitchShoulder(Settings::Manager::getBool("auto switch shoulder", "Camera")),
         mOverShoulderHorizontalOffset(30.f), mOverShoulderVerticalOffset(-10.f)
     {
-        std::stringstream offset(Settings::Manager::getString("view over shoulder offset", "Camera"));
-        offset >> mOverShoulderHorizontalOffset >> mOverShoulderVerticalOffset;
-        mDefaultShoulderIsRight = mOverShoulderHorizontalOffset >= 0;
-        mOverShoulderHorizontalOffset = std::abs(mOverShoulderHorizontalOffset);
+        osg::Vec2f offset = Settings::Manager::getVector2("view over shoulder offset", "Camera");
+        mOverShoulderHorizontalOffset = std::abs(offset.x());
+        mOverShoulderVerticalOffset = offset.y();
+        mDefaultShoulderIsRight = offset.x() >= 0;
 
         mCamera->enableDynamicCameraDistance(true);
         mCamera->enableCrosshairInThirdPersonMode(true);
-        mCamera->setFocalPointTargetOffset({mOverShoulderHorizontalOffset, mOverShoulderVerticalOffset});
+        mCamera->setFocalPointTargetOffset(offset);
     }
 
     void ViewOverShoulderController::update()
@@ -89,17 +89,21 @@ namespace MWRender
         MWBase::World* world = MWBase::Environment::get().getWorld();
         osg::Vec3d sideOffset = orient * osg::Vec3d(world->getHalfExtents(mCamera->getTrackingPtr()).x() - 1, 0, 0);
         float rayRight = world->getDistToNearestRayHit(
-            playerPos + sideOffset, orient * osg::Vec3d(1, 1, 0), limitToSwitchBack + 1);
+            playerPos + sideOffset, orient * osg::Vec3d(1, 0, 0), limitToSwitchBack + 1);
         float rayLeft = world->getDistToNearestRayHit(
-            playerPos - sideOffset, orient * osg::Vec3d(-1, 1, 0), limitToSwitchBack + 1);
-        float rayForward = world->getDistToNearestRayHit(
-            playerPos, orient * osg::Vec3d(0, 1, 0), limitToSwitchBack + 1);
+            playerPos - sideOffset, orient * osg::Vec3d(-1, 0, 0), limitToSwitchBack + 1);
+        float rayRightForward = world->getDistToNearestRayHit(
+            playerPos + sideOffset, orient * osg::Vec3d(1, 3, 0), limitToSwitchBack + 1);
+        float rayLeftForward = world->getDistToNearestRayHit(
+            playerPos - sideOffset, orient * osg::Vec3d(-1, 3, 0), limitToSwitchBack + 1);
+        float distRight = std::min(rayRight, rayRightForward);
+        float distLeft = std::min(rayLeft, rayLeftForward);
 
-        if (rayLeft < limitToSwitch && rayRight > limitToSwitchBack)
+        if (distLeft < limitToSwitch && distRight > limitToSwitchBack)
             mMode = Mode::RightShoulder;
-        else if (rayRight < limitToSwitch && rayLeft > limitToSwitchBack)
+        else if (distRight < limitToSwitch && distLeft > limitToSwitchBack)
             mMode = Mode::LeftShoulder;
-        else if (rayLeft > limitToSwitchBack && rayRight > limitToSwitchBack && rayForward > limitToSwitchBack)
+        else if (distRight > limitToSwitchBack && distLeft > limitToSwitchBack)
             mMode = mDefaultShoulderIsRight ? Mode::RightShoulder : Mode::LeftShoulder;
     }
 

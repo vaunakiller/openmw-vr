@@ -66,7 +66,7 @@ public:
             mRenderManager = renderManager;
         }
 
-        virtual void update(osg::NodeVisitor*, osg::Drawable*)
+        void update(osg::NodeVisitor*, osg::Drawable*) override
         {
             if (mRenderManager)
                 mRenderManager->update();
@@ -96,7 +96,7 @@ public:
             mFilter = filter;
         }
 
-        virtual bool cull(osg::NodeVisitor*, osg::Drawable*, osg::State*) const;
+        bool cull(osg::NodeVisitor*, osg::Drawable*, osg::State*) const override;
 
     private:
         GUICamera* mCamera;
@@ -104,7 +104,7 @@ public:
     };
 
     // Stage 2: execute the draw calls. Run during the Draw traversal. May run in parallel with the update traversal of the next frame.
-    virtual void drawImplementation(osg::RenderInfo &renderInfo) const
+    void drawImplementation(osg::RenderInfo &renderInfo) const override
     {
         osg::State *state = renderInfo.getState();
 
@@ -273,11 +273,11 @@ public:
     osg::Array* getVertexArray();
     osg::VertexBufferObject* getVertexBuffer();
 
-    virtual void setVertexCount(size_t count);
-    virtual size_t getVertexCount();
+    void setVertexCount(size_t count) override;
+    size_t getVertexCount() override;
 
-    virtual MyGUI::Vertex *lock();
-    virtual void unlock();
+    MyGUI::Vertex *lock() override;
+    void unlock() override;
 
 };
 
