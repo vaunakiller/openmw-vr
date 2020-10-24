@@ -150,6 +150,7 @@ While in menus the A and B keys, and the thumbsticks change behaviour to navigat
 
 Known Issues
 ------------
+- For oculus headsets, the SteamVR runtime is broken. You'll need to use the Oculus runtimes.
 - The loading screen does not show any backgrounds
 - Movies play upside down
 - Cannot point and click in the main menu, you must use the right hand controller as explained above
