@@ -81,7 +81,7 @@ namespace MWVR
         auto& frameMeta = session->getFrame(VRSession::FramePhase::Update);
         // Only update tracking if rendering.
         // OpenXR does not provide tracking information while not rendering.
-        if (frameMeta->mShouldRender)
+        if (frameMeta && frameMeta->mShouldRender)
         {
             auto currentHeadPose = frameMeta->mPredictedPoses.head;
             currentHeadPose.position *= Environment::get().unitsPerMeter();
