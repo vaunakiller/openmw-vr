@@ -451,7 +451,7 @@ namespace MWVR
     {
     }
 
-    static const LayerConfig createDefaultConfig(int priority, bool background = true, SizingMode sizingMode = SizingMode::Auto)
+    static const LayerConfig createDefaultConfig(int priority, bool background = true, SizingMode sizingMode = SizingMode::Auto, std::string extraLayers = "Popup")
     {
         return LayerConfig{
             priority,
@@ -465,12 +465,12 @@ namespace MWVR
             osg::Vec2(1,1),
             sizingMode,
             TrackingMode::Menu,
-            "Popup"
+            extraLayers
         };
     }
     LayerConfig gDefaultConfig = createDefaultConfig(1);
     LayerConfig gVideoPlayerConfig = createDefaultConfig(1, true, SizingMode::Fixed);
-    LayerConfig gLoadingScreenConfig = createDefaultConfig(1, true, SizingMode::Fixed);
+    LayerConfig gLoadingScreenConfig = createDefaultConfig(1, true, SizingMode::Fixed, "Menu");
     LayerConfig gMainMenuConfig = createDefaultConfig(1, true);
     LayerConfig gJournalBooksConfig = createDefaultConfig(2, false, SizingMode::Fixed);
     LayerConfig gDefaultWindowsConfig = createDefaultConfig(3, true);
@@ -554,6 +554,7 @@ namespace MWVR
         {"MainMenu", gMainMenuConfig},
         {"Notification", gNotificationConfig},
         {"InputBlocker", gVideoPlayerConfig},
+        {"Menu", gVideoPlayerConfig},
         {"LoadingScreen", gLoadingScreenConfig},
     };
 
