@@ -120,6 +120,7 @@
 #include "resourceskin.hpp"
 
 #ifdef USE_OPENXR
+#include "../mwvr/vrmetamenu.hpp"
 #include "../mwvr/vrenvironment.hpp"
 #include "../mwvr/vrgui.hpp"
 #endif
@@ -446,6 +447,12 @@ namespace MWGui
         mJailScreen = new JailScreen();
         mWindows.push_back(mJailScreen);
         mGuiModeStates[GM_Jail] = GuiModeState(mJailScreen);
+
+#ifdef USE_OPENXR
+        mVrMetaMenu = new MWVR::VrMetaMenu(w, h);
+        mWindows.push_back(mVrMetaMenu);
+        mGuiModeStates[GM_VrMetaMenu] = GuiModeState(mVrMetaMenu);
+#endif
 
         std::string werewolfFaderTex = "textures\\werewolfoverlay.dds";
         if (mResourceSystem->getVFS()->exists(werewolfFaderTex))

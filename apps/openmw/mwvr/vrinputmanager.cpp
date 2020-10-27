@@ -182,10 +182,10 @@ namespace MWVR
         // In-game character controls
         SuggestedBindings simpleGameplayBindings{
                 {MWInput::A_Use,        "/user/hand/left/input/select/click"}, // Touch: X
-                {MWInput::A_GameMenu,   "/user/hand/left/input/menu/click"}, // Touch: Y
+                {A_VrMetaMenu,          "/user/hand/left/input/menu/click"}, // Touch: Y
                 {A_Recenter,            "/user/hand/left/input/menu/click"}, // Touch: Y
                 {A_ActivateTouch,       "/user/hand/right/input/select/click"}, // Touch: A
-                {MWInput::A_Inventory,  "/user/hand/right/input/menu/click"}, // Touch: B
+                {MWInput::A_AutoMove,   "/user/hand/right/input/menu/click"}, // Touch: B
         };
 
         // GUI controls
@@ -206,25 +206,25 @@ namespace MWVR
 
         // In-game character controls
         SuggestedBindings gameplayBindings{
-                {A_ActivateTouch,               "/user/hand/right/input/squeeze/value"},
                 {A_Recenter,                    "/user/hand/left/input/menu/click"},
-                {MWInput::A_Activate,           "/user/hand/right/input/squeeze/value"},
-                {MWInput::A_AlwaysRun,          "/user/hand/left/input/thumbstick/click"},
-                {MWInput::A_AutoMove,           "/user/hand/right/input/thumbstick/click"},
-                {MWInput::A_GameMenu,           "/user/hand/left/input/menu/click"},
-                {MWInput::A_Inventory,          "/user/hand/right/input/b/click"},
-                {MWInput::A_Journal,            "/user/hand/right/input/b/click"},
-                {MWInput::A_Jump,               "/user/hand/left/input/trigger/value"},
-                {MWInput::A_LookLeftRight,      "/user/hand/right/input/thumbstick/x"},
-                {MWInput::A_MoveForwardBackward,"/user/hand/left/input/thumbstick/y"},
-                {MWInput::A_MoveLeftRight,      "/user/hand/left/input/thumbstick/x"},
-                {MWInput::A_QuickSave,          "/user/hand/left/input/y/click"},
-                {MWInput::A_Rest,               "/user/hand/left/input/y/click"},
+                {A_VrMetaMenu,                  "/user/hand/left/input/menu/click"},
                 {MWInput::A_Sneak,              "/user/hand/left/input/squeeze/value"},
-                {MWInput::A_ToggleDebug,        "/user/hand/right/input/thumbstick/click"},
-                {MWInput::A_ToggleHUD,          "/user/hand/left/input/thumbstick/click"},
+                {MWInput::A_MoveLeftRight,      "/user/hand/left/input/thumbstick/x"},
+                {MWInput::A_MoveForwardBackward,"/user/hand/left/input/thumbstick/y"},
+                {MWInput::A_AlwaysRun,          "/user/hand/left/input/thumbstick/click"},
+                //{MWInput::A_ToggleHUD,          "/user/hand/left/input/thumbstick/click"},
+                {MWInput::A_Jump,               "/user/hand/left/input/trigger/value"},
                 {MWInput::A_ToggleSpell,        "/user/hand/left/input/x/click"},
+                //{MWInput::A_QuickSave,          "/user/hand/left/input/y/click"},
+                {MWInput::A_Rest,               "/user/hand/left/input/y/click"},
                 {MWInput::A_ToggleWeapon,       "/user/hand/right/input/a/click"},
+                {MWInput::A_Inventory,          "/user/hand/right/input/b/click"},
+                //{MWInput::A_Journal,            "/user/hand/right/input/b/click"},
+                {A_ActivateTouch,               "/user/hand/right/input/squeeze/value"},
+                {MWInput::A_Activate,           "/user/hand/right/input/squeeze/value"},
+                {MWInput::A_LookLeftRight,      "/user/hand/right/input/thumbstick/x"},
+                {MWInput::A_AutoMove,           "/user/hand/right/input/thumbstick/click"},
+                //{MWInput::A_ToggleDebug,        "/user/hand/right/input/thumbstick/click"},
                 {MWInput::A_Use,                "/user/hand/right/input/trigger/value"},
         };
 
@@ -234,8 +234,8 @@ namespace MWVR
                 {A_MenuLeftRight,       "/user/hand/right/input/thumbstick/x"},
                 {A_MenuSelect,          "/user/hand/right/input/a/click"},
                 {A_MenuBack,            "/user/hand/right/input/b/click"},
-                {MWInput::A_GameMenu,   "/user/hand/left/input/menu/click"},
                 {MWInput::A_Use,        "/user/hand/right/input/trigger/value"},
+                {MWInput::A_GameMenu,   "/user/hand/left/input/menu/click"},
                 {A_Recenter,            "/user/hand/left/input/menu/click"},
         };
 
@@ -249,37 +249,37 @@ namespace MWVR
 
         // In-game character controls
         SuggestedBindings gameplayBindings{
-                {A_ActivateTouch,               "/user/hand/right/input/squeeze/value"},
                 {A_Recenter,                    "/user/hand/left/input/menu/click"},
-                {MWInput::A_Activate,           "/user/hand/right/input/squeeze/value"},
-                {MWInput::A_AlwaysRun,          "/user/hand/left/input/thumbstick/click"},
-                {MWInput::A_AutoMove,           "/user/hand/right/input/thumbstick/click"},
-                {MWInput::A_GameMenu,           "/user/hand/left/input/menu/click"},
-                {MWInput::A_Inventory,          "/user/hand/right/input/b/click"},
-                {MWInput::A_Journal,            "/user/hand/right/input/b/click"},
-                {MWInput::A_Jump,               "/user/hand/left/input/trigger/value"},
-                {MWInput::A_LookLeftRight,      "/user/hand/right/input/thumbstick/x"},
+                {A_VrMetaMenu,                  "/user/hand/left/input/menu/click"},
+                {MWInput::A_Sneak,              "/user/hand/left/input/squeeze/value"},
                 {MWInput::A_MoveForwardBackward,"/user/hand/left/input/thumbstick/y"},
                 {MWInput::A_MoveLeftRight,      "/user/hand/left/input/thumbstick/x"},
-                {MWInput::A_QuickSave,          "/user/hand/left/input/y/click"},
-                {MWInput::A_Rest,               "/user/hand/left/input/y/click"},
-                {MWInput::A_Sneak,              "/user/hand/left/input/squeeze/value"},
-                {MWInput::A_ToggleDebug,        "/user/hand/right/input/thumbstick/click"},
-                {MWInput::A_ToggleHUD,          "/user/hand/left/input/thumbstick/click"},
+                {MWInput::A_AlwaysRun,          "/user/hand/left/input/thumbstick/click"},
+                //{MWInput::A_ToggleHUD,          "/user/hand/left/input/thumbstick/click"},
+                {MWInput::A_Jump,               "/user/hand/left/input/trigger/value"},
                 {MWInput::A_ToggleSpell,        "/user/hand/left/input/x/click"},
+                //{MWInput::A_QuickSave,          "/user/hand/left/input/y/click"},
+                {MWInput::A_Rest,               "/user/hand/left/input/y/click"},
                 {MWInput::A_ToggleWeapon,       "/user/hand/right/input/a/click"},
+                {MWInput::A_Inventory,          "/user/hand/right/input/b/click"},
+                //{MWInput::A_Journal,            "/user/hand/right/input/b/click"},
+                {MWInput::A_LookLeftRight,      "/user/hand/right/input/thumbstick/x"},
+                {MWInput::A_AutoMove,           "/user/hand/right/input/thumbstick/click"},
+                //{MWInput::A_ToggleDebug,        "/user/hand/right/input/thumbstick/click"},
                 {MWInput::A_Use,                "/user/hand/right/input/trigger/value"},
+                {A_ActivateTouch,               "/user/hand/right/input/squeeze/value"},
+                {MWInput::A_Activate,           "/user/hand/right/input/squeeze/value"},
         };
 
         // GUI controls
         SuggestedBindings GUIBindings{
+                {A_Recenter,            "/user/hand/left/input/menu/click"},
+                {MWInput::A_GameMenu,   "/user/hand/left/input/menu/click"},
                 {A_MenuUpDown,          "/user/hand/right/input/thumbstick/y"},
                 {A_MenuLeftRight,       "/user/hand/right/input/thumbstick/x"},
                 {A_MenuSelect,          "/user/hand/right/input/a/click"},
                 {A_MenuBack,            "/user/hand/right/input/b/click"},
-                {MWInput::A_GameMenu,   "/user/hand/left/input/menu/click"},
                 {MWInput::A_Use,        "/user/hand/right/input/trigger/value"},
-                {A_Recenter,            "/user/hand/left/input/menu/click"},
         };
 
         mXRInput->suggestBindings(ActionSet::Gameplay, controllerProfilePath, gameplayBindings);
@@ -298,33 +298,33 @@ namespace MWVR
             //{MWInput::A_AutoMove,           "/user/hand/right/input/thumbstick/click"},
             //{MWInput::A_ToggleDebug,        "/user/hand/right/input/thumbstick/click"},
             //{MWInput::A_ToggleHUD,          "/user/hand/left/input/thumbstick/click"},
-            {A_ActivateTouch,               "/user/hand/right/input/squeeze/click"},
             {A_Recenter,                    "/user/hand/left/input/menu/click"},
-            {MWInput::A_Activate,           "/user/hand/right/input/squeeze/click"},
-            {MWInput::A_GameMenu,           "/user/hand/left/input/menu/click"},
-            {MWInput::A_Inventory,          "/user/hand/right/input/thumbstick/click"},
-            {MWInput::A_Journal,            "/user/hand/right/input/thumbstick/click"},
+            {A_VrMetaMenu,                  "/user/hand/left/input/menu/click"},
             {MWInput::A_Jump,               "/user/hand/left/input/trigger/value"},
-            {MWInput::A_LookLeftRight,      "/user/hand/right/input/thumbstick/x"},
             {MWInput::A_MoveForwardBackward,"/user/hand/left/input/thumbstick/y"},
             {MWInput::A_MoveLeftRight,      "/user/hand/left/input/thumbstick/x"},
-            {MWInput::A_QuickSave,          "/user/hand/left/input/thumbstick/click"},
+            //{MWInput::A_QuickSave,          "/user/hand/left/input/thumbstick/click"},
             {MWInput::A_Rest,               "/user/hand/left/input/thumbstick/click"},
-            {MWInput::A_Sneak,              "/user/hand/left/input/squeeze/click"},
             {MWInput::A_ToggleSpell,        "/user/hand/left/input/trackpad/click"},
+            {MWInput::A_Sneak,              "/user/hand/left/input/squeeze/click"},
+            {MWInput::A_Inventory,          "/user/hand/right/input/thumbstick/click"},
+            //{MWInput::A_Journal,            "/user/hand/right/input/thumbstick/click"},
+            {MWInput::A_LookLeftRight,      "/user/hand/right/input/thumbstick/x"},
             {MWInput::A_ToggleWeapon,       "/user/hand/right/input/trackpad/click"},
             {MWInput::A_Use,                "/user/hand/right/input/trigger/value"},
+            {A_ActivateTouch,               "/user/hand/right/input/squeeze/click"},
+            {MWInput::A_Activate,           "/user/hand/right/input/squeeze/click"},
         };
 
         // GUI controls
         SuggestedBindings GUIBindings{
+                {A_MenuBack,            "/user/hand/left/input/trackpad/click"},
+                {MWInput::A_GameMenu,   "/user/hand/left/input/menu/click"},
+                {A_Recenter,            "/user/hand/left/input/menu/click"},
                 {A_MenuUpDown,          "/user/hand/right/input/thumbstick/y"},
                 {A_MenuLeftRight,       "/user/hand/right/input/thumbstick/x"},
                 {A_MenuSelect,          "/user/hand/right/input/trackpad/click"},
-                {A_MenuBack,            "/user/hand/left/input/trackpad/click"},
-                {MWInput::A_GameMenu,   "/user/hand/left/input/menu/click"},
                 {MWInput::A_Use,        "/user/hand/right/input/trigger/value"},
-                {A_Recenter,            "/user/hand/left/input/menu/click"},
         };
 
         mXRInput->suggestBindings(ActionSet::Gameplay, controllerProfilePath, gameplayBindings);
@@ -336,37 +336,37 @@ namespace MWVR
         std::string controllerProfilePath = "/interaction_profiles/valve/index_controller";
         // In-game character controls
         SuggestedBindings gameplayBindings{
-                {A_ActivateTouch,               "/user/hand/right/input/squeeze/force"},
-                {A_Recenter,                    "/user/hand/left/input/thumbstick/click"},
-                {MWInput::A_Activate,           "/user/hand/right/input/squeeze/force"},
                 //{MWInput::A_AlwaysRun,          "/user/hand/left/input/thumbstick/click"},
-                //{MWInput::A_AutoMove,           "/user/hand/right/input/thumbstick/click"},
-                {MWInput::A_GameMenu,           "/user/hand/left/input/trackpad/force"},
-                {MWInput::A_Inventory,          "/user/hand/right/input/b/click"},
-                {MWInput::A_Journal,            "/user/hand/right/input/b/click"},
-                {MWInput::A_Jump,               "/user/hand/left/input/trigger/value"},
-                {MWInput::A_LookLeftRight,      "/user/hand/right/input/thumbstick/x"},
+                {MWInput::A_ToggleSpell,        "/user/hand/left/input/a/click"},
+                {MWInput::A_Rest,               "/user/hand/left/input/b/click"},
+                //{MWInput::A_QuickSave,          "/user/hand/left/input/b/click"},
                 {MWInput::A_MoveForwardBackward,"/user/hand/left/input/thumbstick/y"},
                 {MWInput::A_MoveLeftRight,      "/user/hand/left/input/thumbstick/x"},
-                {MWInput::A_QuickSave,          "/user/hand/left/input/b/click"},
-                {MWInput::A_Rest,               "/user/hand/left/input/b/click"},
-                {MWInput::A_Sneak,              "/user/hand/left/input/squeeze/force"},
-                //{MWInput::A_ToggleDebug,        "/user/hand/right/input/thumbstick/click"},
                 //{MWInput::A_ToggleHUD,          "/user/hand/left/input/thumbstick/click"},
-                {MWInput::A_ToggleSpell,        "/user/hand/left/input/a/click"},
+                {A_Recenter,                    "/user/hand/left/input/trackpad/force"},
+                {A_VrMetaMenu,                  "/user/hand/left/input/trackpad/force"},
+                {MWInput::A_Jump,               "/user/hand/left/input/trigger/value"},
+                {MWInput::A_Sneak,              "/user/hand/left/input/squeeze/force"},
                 {MWInput::A_ToggleWeapon,       "/user/hand/right/input/a/click"},
+                {MWInput::A_Inventory,          "/user/hand/right/input/b/click"},
+                //{MWInput::A_Journal,            "/user/hand/right/input/b/click"},
+                //{MWInput::A_AutoMove,           "/user/hand/right/input/thumbstick/click"},
+                {MWInput::A_LookLeftRight,      "/user/hand/right/input/thumbstick/x"},
+                //{MWInput::A_ToggleDebug,        "/user/hand/right/input/thumbstick/click"},
                 {MWInput::A_Use,                "/user/hand/right/input/trigger/value"},
+                {A_ActivateTouch,               "/user/hand/right/input/squeeze/force"},
+                {MWInput::A_Activate,           "/user/hand/right/input/squeeze/force"},
         };
 
         // GUI controls
         SuggestedBindings GUIBindings{
-                {A_MenuUpDown, "/user/hand/right/input/thumbstick/y"},
-                {A_MenuLeftRight, "/user/hand/right/input/thumbstick/x"},
-                {A_MenuSelect, "/user/hand/right/input/a/click"},
-                {A_MenuBack, "/user/hand/right/input/b/click"},
-                {MWInput::A_GameMenu, "/user/hand/left/input/trackpad/force"},
-                {MWInput::A_Use, "/user/hand/right/input/trigger/value"},
-                {A_Recenter, "/user/hand/left/input/thumbstick/click"},
+                {A_Recenter,            "/user/hand/left/input/thumbstick/click"},
+                {MWInput::A_GameMenu,   "/user/hand/left/input/trackpad/force"},
+                {A_MenuSelect,          "/user/hand/right/input/a/click"},
+                {A_MenuBack,            "/user/hand/right/input/b/click"},
+                {MWInput::A_Use,        "/user/hand/right/input/trigger/value"},
+                {A_MenuUpDown,          "/user/hand/right/input/thumbstick/y"},
+                {A_MenuLeftRight,       "/user/hand/right/input/thumbstick/x"},
         };
 
         mXRInput->suggestBindings(ActionSet::Gameplay, controllerProfilePath, gameplayBindings);
@@ -389,18 +389,18 @@ namespace MWVR
             //{MWInput::A_Rest,               "/user/hand/left/input/b/click"},
             //{MWInput::A_ToggleDebug,        "/user/hand/right/input/thumbstick/click"},
             //{MWInput::A_ToggleHUD,          "/user/hand/left/input/thumbstick/click"},
-            {A_ActivateTouch,               "/user/hand/right/input/squeeze/click"},
             {A_Recenter,                    "/user/hand/left/input/menu/click"},
-            {MWInput::A_Activate,           "/user/hand/right/input/squeeze/click"},
-            {MWInput::A_GameMenu,           "/user/hand/left/input/menu/click"},
-            {MWInput::A_Jump,               "/user/hand/left/input/trigger/value"},
-            {MWInput::A_LookLeftRight,      "/user/hand/right/input/trackpad/x"},
+            {A_VrMetaMenu,                  "/user/hand/left/input/menu/click"},
             {MWInput::A_MoveForwardBackward,"/user/hand/left/input/trackpad/y"},
             {MWInput::A_MoveLeftRight,      "/user/hand/left/input/trackpad/x"},
-            {MWInput::A_Sneak,              "/user/hand/left/input/squeeze/click"},
             {MWInput::A_ToggleSpell,        "/user/hand/left/input/trackpad/click"},
+            {MWInput::A_Jump,               "/user/hand/left/input/trigger/value"},
+            {MWInput::A_Sneak,              "/user/hand/left/input/squeeze/click"},
+            {MWInput::A_LookLeftRight,      "/user/hand/right/input/trackpad/x"},
             {MWInput::A_ToggleWeapon,       "/user/hand/right/input/trackpad/click"},
             {MWInput::A_Use,                "/user/hand/right/input/trigger/value"},
+            {A_ActivateTouch,               "/user/hand/right/input/squeeze/click"},
+            {MWInput::A_Activate,           "/user/hand/right/input/squeeze/click"},
         };
 
         // GUI controls
@@ -703,13 +703,14 @@ namespace MWVR
                 case MWInput::A_GameMenu:
                     mActionManager->toggleMainMenu();
                     break;
+                case A_VrMetaMenu:
+                    MWBase::Environment::get().getWindowManager()->pushGuiMode(MWGui::GM_VrMetaMenu);
+                    break;
                 case MWInput::A_Screenshot:
                     mActionManager->screenshot();
                     break;
                 case MWInput::A_Inventory:
                     mActionManager->toggleInventory();
-                    //injectMousePress(SDL_BUTTON_RIGHT, true);
-                    //mBindingsManager->ics().getChannel(MWInput::A_Inventory)->setValue(0.f);
                     break;
                 case MWInput::A_Console:
                     mActionManager->toggleConsole();
@@ -825,9 +826,6 @@ namespace MWVR
                     if (isToggleSneak)
                         mActionManager->toggleSneaking();
                     break;
-                case MWInput::A_Inventory:
-                    //injectMousePress(SDL_BUTTON_RIGHT, false);
-                    //mBindingsManager->ics().getChannel(MWInput::A_Inventory)->setValue(0.f);
                 default:
                     break;
                 }

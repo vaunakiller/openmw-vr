@@ -1,0 +1,41 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<MyGUI type="Layout">
+    <!-- TODO: Multiple language support -->
+    <Widget type="Widget" layer="MainMenu" position="0 0 300 659" name="_Main" align="Center">
+        <Widget type="Widget" position="63 0 173 659" name="ButtonBox">
+            <Widget type="Button" skin="MW_Button" position="30 0 112 64" name="return">
+                <Property key="Caption" value="Return"/>
+                <Property key="FontHeight" value="32"/>
+            </Widget>
+            <Widget type="Button" skin="MW_Button" position="4 85 164 64" name="quicksave">
+                <Property key="Caption" value="Quick Save"/>
+                <Property key="FontHeight" value="32"/>
+            </Widget>
+            <Widget type="Button" skin="MW_Button" position="3 170 166 64" name="quickload">
+                <Property key="Caption" value="Quick Load"/>
+                <Property key="FontHeight" value="32"/>
+            </Widget>
+            <Widget type="Button" skin="MW_Button" position="27 255 118 64" name="console">
+                <Property key="Caption" value="Console"/>
+                <Property key="FontHeight" value="32"/>
+            </Widget>
+            <Widget type="Button" skin="MW_Button" position="14 340 145 64" name="inventory">
+                <Property key="Caption" value="Inventory"/>
+                <Property key="FontHeight" value="32"/>
+            </Widget>
+            <Widget type="Button" skin="MW_Button" position="31 425 110 64" name="journal">
+                <Property key="Caption" value="Journal"/>
+                <Property key="FontHeight" value="32"/>
+            </Widget>
+            <Widget type="Button" skin="MW_Button" position="46 510 80 64" name="rest">
+                <Property key="Caption" value="Rest"/>
+                <Property key="FontHeight" value="32"/>
+            </Widget>
+            <Widget type="Button" skin="MW_Button" position="0 595 173 64" name="gamemenu">
+                <Property key="Caption" value="Game Menu"/>
+                <Property key="FontHeight" value="32"/>
+            </Widget>
+        </Widget>
+    </Widget>
+</MyGUI>

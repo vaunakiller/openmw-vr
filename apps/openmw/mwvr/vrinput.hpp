@@ -12,6 +12,7 @@ namespace MWVR
     enum VrActions
     {
         A_VrFirst = MWInput::A_Last + 1,
+        A_VrMetaMenu,
         A_ActivateTouch,
         A_HapticsLeft,
         A_HapticsRight,

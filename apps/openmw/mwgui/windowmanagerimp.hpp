@@ -88,6 +88,11 @@ namespace MWRender
     class LocalMap;
 }
 
+namespace MWVR
+{
+    class VrMetaMenu;
+}
+
 namespace MWGui
 {
   class WindowBase;
@@ -440,6 +445,7 @@ namespace MWGui
     ScreenFader* mScreenFader;
     DebugWindow* mDebugWindow;
     JailScreen* mJailScreen;
+    MWVR::VrMetaMenu* mVrMetaMenu;
 
     std::vector<WindowBase*> mWindows;
 

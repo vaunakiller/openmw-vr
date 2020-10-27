@@ -55,6 +55,7 @@ namespace MWVR
         // while staying true to openxr's binding system, so if the system i wrote for the oculus touch isn't a good fit for
         // the vive/index, we might want to rewrite this to handle bindings ourselves.
         createMWAction<ButtonPressAction>(MWInput::A_GameMenu, "game_menu", "Game Menu");
+        createMWAction<ButtonPressAction>(A_VrMetaMenu, "meta_menu", "Meta Menu");
         createMWAction<ButtonLongPressAction>(A_Recenter, "reposition_menu", "Reposition Menu");
         createMWAction<ButtonPressAction>(MWInput::A_Inventory, "inventory", "Inventory");
         createMWAction<ButtonPressAction>(MWInput::A_Activate, "activate", "Activate");
@@ -71,14 +72,14 @@ namespace MWVR
         createMWAction<AxisAction>(MWInput::A_LookLeftRight, "look_left_right", "Look Left Right");
         createMWAction<AxisAction>(MWInput::A_MoveForwardBackward, "move_forward_backward", "Move Forward Backward");
         createMWAction<AxisAction>(MWInput::A_MoveLeftRight, "move_left_right", "Move Left Right");
-        createMWAction<ButtonLongPressAction>(MWInput::A_Journal, "journal_book", "Journal Book");
-        createMWAction<ButtonLongPressAction>(MWInput::A_QuickSave, "quick_save", "Quick Save");
+        createMWAction<ButtonPressAction>(MWInput::A_Journal, "journal_book", "Journal Book");
+        createMWAction<ButtonPressAction>(MWInput::A_QuickSave, "quick_save", "Quick Save");
         createMWAction<ButtonPressAction>(MWInput::A_Rest, "rest", "Rest");
         createMWAction<AxisAction>(A_ActivateTouch, "activate_touched", "Activate Touch");
         createMWAction<ButtonPressAction>(MWInput::A_AlwaysRun, "always_run", "Always Run");
         createMWAction<ButtonPressAction>(MWInput::A_AutoMove, "auto_move", "Auto Move");
-        createMWAction<ButtonLongPressAction>(MWInput::A_ToggleHUD, "toggle_hud", "Toggle HUD");
-        createMWAction<ButtonLongPressAction>(MWInput::A_ToggleDebug, "toggle_debug", "Toggle DEBUG");
+        createMWAction<ButtonPressAction>(MWInput::A_ToggleHUD, "toggle_hud", "Toggle HUD");
+        createMWAction<ButtonPressAction>(MWInput::A_ToggleDebug, "toggle_debug", "Toggle the debug hud");
         createMWAction<AxisAction>(A_MenuUpDown, "menu_up_down", "Menu Up Down");
         createMWAction<AxisAction>(A_MenuLeftRight, "menu_left_right", "Menu Left Right");
         createMWAction<ButtonPressAction>(A_MenuSelect, "menu_select", "Menu Select");

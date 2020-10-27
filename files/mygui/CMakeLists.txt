@@ -61,6 +61,7 @@ set(MYGUI_FILES
     openmw_list.skin.xml
     openmw_loading_screen.layout
     openmw_magicselection_dialog.layout
+    openmw_vr_metamenu.layout
     openmw_mainmenu.layout
     openmw_mainmenu.skin.xml
     openmw_map_window.layout
