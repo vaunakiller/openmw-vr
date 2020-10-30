@@ -5,8 +5,18 @@
 
 #include <components/debug/debuglog.hpp>
 
+#ifdef _WIN32
 #include <Windows.h>
 #include <objbase.h>
+
+#elif __linux__
+#include <X11/Xlib.h>
+#include <GL/glx.h>
+#undef None
+
+#else
+#error Unsupported platform
+#endif
 
 #include <openxr/openxr.h>
 #include <openxr/openxr_platform.h>
@@ -15,7 +25,9 @@
 
 namespace MWVR {
     OpenXRSwapchainImpl::OpenXRSwapchainImpl(osg::ref_ptr<osg::State> state, SwapchainConfig config)
-        : mWidth(config.selectedWidth)
+        : mSwapchainColorBuffers()
+        , mSwapchainDepthBuffers()
+        , mWidth(config.selectedWidth)
         , mHeight(config.selectedHeight)
         , mSamples(config.selectedSamples)
     {

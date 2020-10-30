@@ -3,8 +3,18 @@
 #include "vrenvironment.hpp"
 
 // The OpenXR SDK's platform headers assume we've included these windows headers
+#ifdef _WIN32
 #include <Windows.h>
 #include <objbase.h>
+
+#elif __linux__
+#include <X11/Xlib.h>
+#include <GL/glx.h>
+#undef None
+
+#else
+#error Unsupported platform
+#endif
 
 #include <openxr/openxr_platform.h>
 #include <openxr/openxr_platform_defines.h>

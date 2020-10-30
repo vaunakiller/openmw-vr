@@ -276,7 +276,13 @@ if(BUILD_OPENMW_VR)
     target_include_directories(openmw_vr PRIVATE ${openxr_SOURCE_DIR}/include)
 
     # Preprocessor variable used to control code paths to vr code
-    target_compile_options(openmw_vr PUBLIC -DUSE_OPENXR -DXR_USE_GRAPHICS_API_OPENGL -DXR_USE_PLATFORM_WIN32)
+    if (WIN32)
+        target_compile_options(openmw_vr PUBLIC -DUSE_OPENXR -DXR_USE_GRAPHICS_API_OPENGL -DXR_USE_PLATFORM_WIN32)
+    elseif(UNIX)
+        target_compile_options(openmw_vr PUBLIC -DUSE_OPENXR -DXR_USE_GRAPHICS_API_OPENGL -DXR_USE_PLATFORM_XLIB)
+        find_package(X11 REQUIRED)
+        target_link_libraries(openmw_vr ${X11_LIBRARIES})
+    endif()
     target_link_libraries(openmw_vr ${OPENMW_LINK_TARGETS})
     if(APPLE)
         add_custom_command(TARGET openmw_vr

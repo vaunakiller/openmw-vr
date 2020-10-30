@@ -12,6 +12,11 @@
 
 #include <iostream>
 
+// TODO: should implement actual safe strcpy
+#ifdef __linux__
+#define strcpy_s(dst, src)   int(strcpy(dst, src) != nullptr)
+#endif
+
 namespace MWVR
 {
 

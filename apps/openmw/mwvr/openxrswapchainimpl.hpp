@@ -43,8 +43,8 @@ namespace MWVR
     private:
         XrSwapchain mSwapchain = XR_NULL_HANDLE;
         XrSwapchain mSwapchainDepth = XR_NULL_HANDLE;
-        std::vector<XrSwapchainImageOpenGLKHR> mSwapchainColorBuffers{};
-        std::vector<XrSwapchainImageOpenGLKHR> mSwapchainDepthBuffers{};
+        std::vector<XrSwapchainImageOpenGLKHR> mSwapchainColorBuffers;
+        std::vector<XrSwapchainImageOpenGLKHR> mSwapchainDepthBuffers;
         XrSwapchainSubImage mSubImage{};
         XrSwapchainSubImage mSubImageDepth{};
         int32_t mWidth = -1;

@@ -36,6 +36,7 @@ namespace MWVR
     VRViewer::VRViewer(
         osg::ref_ptr<osgViewer::Viewer> viewer)
         : mViewer(viewer)
+        , mViews()
         , mPreDraw(new PredrawCallback(this))
         , mPostDraw(new PostdrawCallback(this))
         , mVrShadow()

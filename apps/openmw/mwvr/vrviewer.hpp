@@ -87,7 +87,7 @@ namespace MWVR
 
     private:
         osg::ref_ptr<osgViewer::Viewer> mViewer = nullptr;
-        std::map<std::string, osg::ref_ptr<VRView> > mViews{};
+        std::map<std::string, osg::ref_ptr<VRView> > mViews;
         std::map<std::string, osg::ref_ptr<osg::Camera> > mCameras{};
         osg::ref_ptr<PredrawCallback> mPreDraw{ nullptr };
         osg::ref_ptr<PostdrawCallback> mPostDraw{ nullptr };
