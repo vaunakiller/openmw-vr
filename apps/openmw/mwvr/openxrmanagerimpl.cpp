@@ -16,9 +16,19 @@
 #include "../mwworld/player.hpp"
 #include "../mwworld/esmstore.hpp"
 
-// The OpenXR SDK's platform headers assume we've included these windows headers
+// The OpenXR SDK's platform headers assume we've included platform headers
+#ifdef _WIN32
 #include <Windows.h>
 #include <objbase.h>
+
+#elif __linux__
+#include <X11/Xlib.h>
+#include <GL/glx.h>
+#undef None
+
+#else
+#error Unsupported platform
+#endif
 
 #include <openxr/openxr_platform.h>
 #include <openxr/openxr_platform_defines.h>
@@ -111,8 +121,8 @@ namespace MWVR
             }
         }
 
+#ifdef _WIN32
         { // Create Session
-            // TODO: Platform dependent
             auto DC = wglGetCurrentDC();
             auto GLRC = wglGetCurrentContext();
             auto XRGLRC = wglCreateContext(DC);
@@ -133,6 +143,38 @@ namespace MWVR
             CHECK_XRCMD(xrCreateSession(mInstance, &createInfo, &mSession));
             assert(mSession);
         }
+#elif __linux__
+        { // Create Session
+            Display* xDisplay = XOpenDisplay(NULL);
+            GLXContext glxContext = glXGetCurrentContext();
+            GLXDrawable glxDrawable = glXGetCurrentDrawable();
+
+            // TODO: runtimes don't actually care (yet)
+            GLXFBConfig glxFBConfig = 0;
+            uint32_t visualid = 0;
+
+            XrGraphicsBindingOpenGLXlibKHR graphicsBindings;
+            graphicsBindings.type = XR_TYPE_GRAPHICS_BINDING_OPENGL_XLIB_KHR;
+            graphicsBindings.next = nullptr;
+            graphicsBindings.xDisplay = xDisplay;
+            graphicsBindings.glxContext = glxContext;
+            graphicsBindings.glxDrawable = glxDrawable;
+            graphicsBindings.glxFBConfig = glxFBConfig;
+            graphicsBindings.visualid = visualid;
+
+            if (!graphicsBindings.glxContext)
+                Log(Debug::Warning) << "Missing glxContext";
+
+            if (!graphicsBindings.glxDrawable)
+                Log(Debug::Warning) << "Missing glxDrawable";
+
+            XrSessionCreateInfo createInfo{ XR_TYPE_SESSION_CREATE_INFO };
+            createInfo.next = &graphicsBindings;
+            createInfo.systemId = mSystemId;
+            CHECK_XRCMD(xrCreateSession(mInstance, &createInfo, &mSession));
+            assert(mSession);
+        }
+#endif
 
         LogInstanceInfo();
         LogReferenceSpaces();
@@ -187,7 +229,11 @@ namespace MWVR
 
         if (XR_FAILED(res)) {
             std::stringstream ss;
+#ifdef _WIN32
             ss << sourceLocation << ": OpenXR[Error: " << to_string(res) << "][Thread: " << std::this_thread::get_id() << "][DC: " << wglGetCurrentDC() << "][GLRC: " << wglGetCurrentContext() << "]: " << originator;
+#elif __linux__
+            ss << sourceLocation << ": OpenXR[Error: " << to_string(res) << "][Thread: " << std::this_thread::get_id() << "][glxContext: " << glXGetCurrentContext() << "][glxDrawable: " << glXGetCurrentDrawable() << "]: " << originator;
+#endif
             Log(Debug::Error) << ss.str();
             if (res == XR_ERROR_TIME_INVALID)
                 Log(Debug::Error) << "Breakpoint";
@@ -196,7 +242,11 @@ namespace MWVR
         }
         else if (res != XR_SUCCESS || sLogAllXrCalls)
         {
+#ifdef _WIN32
             Log(Debug::Verbose) << sourceLocation << ": OpenXR[" << to_string(res) << "][" << std::this_thread::get_id() << "][" << wglGetCurrentDC() << "][" << wglGetCurrentContext() << "]: " << originator;
+#elif __linux__
+            Log(Debug::Verbose) << sourceLocation << ": OpenXR[" << to_string(res) << "][" << std::this_thread::get_id() << "][" << glXGetCurrentContext() << "][" << glXGetCurrentDrawable() << "]: " << originator;
+#endif
         }
 
         return res;
@@ -728,7 +778,7 @@ namespace MWVR
 
         if (result != XR_EVENT_UNAVAILABLE)
             CHECK_XRRESULT(result, "xrPollEvent");
-        return nullptr;
+        return false;
     }
 
     void OpenXRManagerImpl::popEvent()
@@ -862,7 +912,7 @@ namespace MWVR
 
     XrQuaternionf toXR(osg::Quat quat)
     {
-        return XrQuaternionf{ quat.x(), quat.z(), -quat.y(), quat.w() };
+        return XrQuaternionf{ static_cast<float>(quat.x()), static_cast<float>(quat.z()), static_cast<float>(-quat.y()), static_cast<float>(quat.w()) };
     }
 }
 

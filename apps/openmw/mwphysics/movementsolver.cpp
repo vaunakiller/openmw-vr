@@ -20,8 +20,8 @@
 #include "../mwvr/vrenvironment.hpp"
 #include "../mwrender/renderingmanager.hpp"
 #include "../mwworld/player.hpp"
-#include "../mwmechanics/actorutil.hpp"
 #endif
+#include "../mwmechanics/actorutil.hpp"
 
 #include "actor.hpp"
 #include "collisiontype.hpp"

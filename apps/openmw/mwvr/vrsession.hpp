@@ -7,6 +7,7 @@
 #include <chrono>
 #include <queue>
 #include <thread>
+#include <condition_variable>
 #include <components/debug/debuglog.hpp>
 #include <components/sdlutil/sdlgraphicswindow.hpp>
 #include <components/settings/settings.hpp>
