@@ -244,6 +244,7 @@ namespace MWVR
         if (frame->mShouldSyncFrameLoop)
         {
             frame->mFrameInfo = xr->waitFrame();
+            frame->mShouldRender |= frame->mFrameInfo.runtimeRequestsRender;
             xr->xrResourceAcquired();
 
             if (frame->mShouldRender)
