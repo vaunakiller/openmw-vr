@@ -307,6 +307,8 @@ namespace MWVR
         for (auto& extension : enumerateExtensions(nullptr))
             mAvailableExtensions.insert(extension);
 
+        Log(Debug::Verbose) << "Using extensions:";
+
         for (auto requiredExtension : requiredExtensions)
             enableExtension(requiredExtension, false);
 
@@ -422,6 +424,10 @@ namespace MWVR
         enumerateExtensions(nullptr, true, 2);
         Log(Debug::Verbose) << "Available Layers: ";
 
+        if (layers.size() == 0)
+        {
+            Log(Debug::Verbose) << "  No layers available";
+        }
         for (const XrApiLayerProperties& layer : layers) {
             Log(Debug::Verbose) << "  Name=" << layer.layerName << " SpecVersion=" << layer.layerVersion;
             enumerateExtensions(layer.layerName, true, 4);
