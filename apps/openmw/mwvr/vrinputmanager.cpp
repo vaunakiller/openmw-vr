@@ -391,6 +391,7 @@ namespace MWVR
             //{MWInput::A_ToggleHUD,          "/user/hand/left/input/thumbstick/click"},
             {A_Recenter,                    "/user/hand/left/input/menu/click"},
             {A_VrMetaMenu,                  "/user/hand/left/input/menu/click"},
+            {A_VrMetaMenu,                  "/user/hand/right/input/squeeze/click"},
             {MWInput::A_MoveForwardBackward,"/user/hand/left/input/trackpad/y"},
             {MWInput::A_MoveLeftRight,      "/user/hand/left/input/trackpad/x"},
             {MWInput::A_ToggleSpell,        "/user/hand/left/input/trackpad/click"},
