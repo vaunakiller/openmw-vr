@@ -218,7 +218,7 @@ namespace MWVR
         // Edit offset to account for priority
         if (!mConfig.sideBySide)
         {
-            mConfig.offset.y() -= 0.001f * mConfig.priority;
+            mConfig.offset.y() -= 0.001f * static_cast<float>(mConfig.priority);
         }
 
         mTransform->addUpdateCallback(new LayerUpdateCallback(this));
@@ -380,7 +380,7 @@ namespace MWVR
         if (mLayerName == "Notification")
         {
             auto viewSize = MyGUI::RenderManager::getInstance().getViewSize();
-            h = (1.f - mRealRect.top) * viewSize.height;
+            h = (1.f - mRealRect.top) * static_cast<float>(viewSize.height);
             mTransform->setScale(osg::Vec3(w / res, 1.f, h / res));
         }
 
@@ -577,7 +577,7 @@ namespace MWVR
 
         int n = mSideBySideLayers.size();
 
-        float span = sSideBySideAzimuthInterval * (n - 1); // zero index, places lone layers straight ahead
+        float span = sSideBySideAzimuthInterval * static_cast<float>(n - 1); // zero index, places lone layers straight ahead
         float low = -span / 2;
 
         for (unsigned i = 0; i < mSideBySideLayers.size(); i++)
@@ -817,10 +817,10 @@ namespace MWVR
             y = hitPoint.z() - bottomLeft.y();
             auto rect = mFocusLayer->mRealRect;
             auto viewSize = MyGUI::RenderManager::getInstance().getViewSize();
-            float width = viewSize.width * rect.width();
-            float height = viewSize.height * rect.height();
-            float left = viewSize.width * rect.left;
-            float bottom = viewSize.height * rect.bottom;
+            float width = static_cast<float>(viewSize.width) * rect.width();
+            float height = static_cast<float>(viewSize.height) * rect.height();
+            float left = static_cast<float>(viewSize.width) * rect.left;
+            float bottom = static_cast<float>(viewSize.height) * rect.bottom;
             x = width * x + left;
             y = bottom - height * y;
         }
