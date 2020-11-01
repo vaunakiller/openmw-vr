@@ -19,7 +19,7 @@ MWBase::Environment *MWBase::Environment::sThis = 0;
 MWBase::Environment::Environment()
 : mWorld (0), mSoundManager (0), mScriptManager (0), mWindowManager (0),
   mMechanicsManager (0),  mDialogueManager (0), mJournal (0), mInputManager (0), mStateManager (0),
-  mFrameDuration (0), mFrameRateLimit(0.f)
+  mFrameDuration (0), mFrameRateLimit(0.f), mVrMode(false)
 {
     assert (!sThis);
     sThis = this;
@@ -102,6 +102,16 @@ void MWBase::Environment::limitFrameRate(double dt) const
             std::this_thread::sleep_for(std::chrono::duration<double>(minFrameTime - thisFrameTime));
         }
     }
+}
+
+void MWBase::Environment::setVrMode(bool vrMode)
+{
+    mVrMode = vrMode;
+}
+
+bool MWBase::Environment::getVrMode(void)
+{
+    return mVrMode;
 }
 
 MWBase::World *MWBase::Environment::getWorld() const
