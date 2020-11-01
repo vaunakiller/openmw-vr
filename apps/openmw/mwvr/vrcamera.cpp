@@ -67,13 +67,10 @@ namespace MWVR
 
         yaw += mYawOffset;
 
-        if (player.isDisabled() || !mTrackingNode)
+        if (!player.isDisabled() && mTrackingNode)
         {
-            rotateCamera(-pitch, -roll, -yaw, false);
-        }
-        else
-        {
-            world->rotateObject(playerPtr, pitch, roll, yaw, MWBase::RotationFlag_none);
+            world->rotateObject(playerPtr, pitch, 0.f, yaw, MWBase::RotationFlag_none);
+            world->rotateWorldObject(playerPtr, mHeadPose.orientation);
         }
     }
 
@@ -165,9 +162,7 @@ namespace MWVR
     }
     void VRCamera::getOrientation(osg::Quat& orientation) const
     {
-        orientation = osg::Quat(getPitch(), osg::Vec3d(1, 0, 0))
-            * osg::Quat(getRoll(), osg::Vec3d(0, 1, 0))
-            * osg::Quat(getYaw(), osg::Vec3d(0, 0, 1));
+        orientation = mHeadPose.orientation * osg::Quat(-mYawOffset, osg::Vec3d(0, 0, 1));
     }
 
     void VRCamera::processViewChange()
