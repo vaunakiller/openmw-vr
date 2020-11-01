@@ -18,6 +18,8 @@
 
 #include <components/settings/settings.hpp>
 
+#include <components/misc/constants.hpp>
+
 #include "../mwworld/esmstore.hpp"
 
 #include "../mwmechanics/npcstats.hpp"
@@ -87,7 +89,7 @@ namespace MWVR
         auto orientation = handStage.orientation;
 
         auto position = handStage.position - headStage.position;
-        position = position * Environment::get().unitsPerMeter();
+        position = position * Constants::UnitsPerMeter;
 
         // Align orientation with the game world
         auto stageRotation = reinterpret_cast<MWVR::VRCamera*>(MWBase::Environment::get().getWorld()->getRenderingManager().getCamera())->stageRotation();

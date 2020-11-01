@@ -105,13 +105,3 @@ void MWVR::Environment::setManager(MWVR::OpenXRManager* xrManager)
 {
     mOpenXRManager = xrManager;
 }
-
-float MWVR::Environment::unitsPerMeter() const
-{
-    return mUnitsPerMeter;
-}
-
-void MWVR::Environment::setUnitsPerMeter(float unitsPerMeter)
-{
-    mUnitsPerMeter = unitsPerMeter;
-}

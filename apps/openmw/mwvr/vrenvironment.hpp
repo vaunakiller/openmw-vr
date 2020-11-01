@@ -60,16 +60,12 @@ namespace MWVR
         MWVR::OpenXRManager* getManager() const;
         void setManager(MWVR::OpenXRManager* xrManager);
 
-        float unitsPerMeter() const;
-        void setUnitsPerMeter(float unitsPerMeter);
-
     private:
         MWVR::VRSession* mSession{ nullptr };
         MWVR::VRGUIManager* mGUIManager{ nullptr };
         MWVR::VRAnimation* mPlayerAnimation{ nullptr };
         MWVR::VRViewer* mViewer{ nullptr };
         MWVR::OpenXRManager* mOpenXRManager{ nullptr };
-        float mUnitsPerMeter{ 1.f };
     };
 }
 

@@ -6,6 +6,8 @@
 
 #include <components/sceneutil/visitor.hpp>
 
+#include <components/misc/constants.hpp>
+
 #include "../mwbase/environment.hpp"
 #include "../mwbase/world.hpp"
 
@@ -84,7 +86,7 @@ namespace MWVR
         if (frameMeta && frameMeta->mShouldRender)
         {
             auto currentHeadPose = frameMeta->mPredictedPoses.head;
-            currentHeadPose.position *= Environment::get().unitsPerMeter();
+            currentHeadPose.position *= Constants::UnitsPerMeter;
             osg::Vec3 vrMovement = currentHeadPose.position - mHeadPose.position;
             mHeadPose = currentHeadPose;
             mHeadOffset += stageRotation() * vrMovement;

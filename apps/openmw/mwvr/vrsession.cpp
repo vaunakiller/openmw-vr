@@ -11,6 +11,7 @@
 #include <components/debug/debuglog.hpp>
 #include <components/sdlutil/sdlgraphicswindow.hpp>
 #include <components/misc/stringops.hpp>
+#include <components/misc/constants.hpp>
 
 #include <osg/Camera>
 
@@ -84,7 +85,7 @@ namespace MWVR
 
     osg::Matrix VRSession::viewMatrix(osg::Vec3 position, osg::Quat orientation)
     {
-        position = position * Environment::get().unitsPerMeter();
+        position = position * Constants::UnitsPerMeter;
 
         swapConvention(position);
         swapConvention(orientation);
@@ -100,7 +101,7 @@ namespace MWVR
         if (offset)
         {
             MWVR::Pose pose = predictedPoses(phase).view[(int)side].pose;
-            auto position = pose.position * Environment::get().unitsPerMeter();
+            auto position = pose.position * Constants::UnitsPerMeter;
             auto orientation = pose.orientation;
 
             if (glConvention)
@@ -117,7 +118,7 @@ namespace MWVR
         else
         {
             MWVR::Pose pose = predictedPoses(phase).eye[(int)side];
-            osg::Vec3 position = pose.position * Environment::get().unitsPerMeter();
+            osg::Vec3 position = pose.position * Constants::UnitsPerMeter;
             osg::Quat orientation = pose.orientation;
             osg::Vec3 forward = orientation * osg::Vec3(0, 1, 0);
             osg::Vec3 up = orientation * osg::Vec3(0, 0, 1);

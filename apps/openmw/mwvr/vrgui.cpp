@@ -19,6 +19,7 @@
 #include <components/sceneutil/visitor.hpp>
 #include <components/sceneutil/shadow.hpp>
 #include <components/myguiplatform/myguirendermanager.hpp>
+#include <components/misc/constants.hpp>
 
 #include "../mwrender/util.hpp"
 #include "../mwrender/renderbin.hpp"
@@ -157,7 +158,7 @@ namespace MWVR
         osg::ref_ptr<osg::Vec2Array> texCoords{ new osg::Vec2Array(4) };
         osg::ref_ptr<osg::Vec3Array> normals{ new osg::Vec3Array(1) };
 
-        auto extent_units = config.extent * Environment::get().unitsPerMeter();
+        auto extent_units = config.extent * Constants::UnitsPerMeter;
 
         float left = mConfig.center.x() - 0.5;
         float right = left + 1.f;
@@ -293,7 +294,7 @@ namespace MWVR
             orientation = orientation * vertical;
         }
         // Orient the offset and move the layer
-        auto position = mTrackedPose.position + orientation * mConfig.offset * MWVR::Environment::get().unitsPerMeter();
+        auto position = mTrackedPose.position + orientation * mConfig.offset * Constants::UnitsPerMeter;
 
         mTransform->setAttitude(orientation);
         mTransform->setPosition(position);
@@ -370,7 +371,7 @@ namespace MWVR
         }
 
         // Pixels per unit
-        float res = static_cast<float>(mConfig.spatialResolution) / Environment::get().unitsPerMeter();
+        float res = static_cast<float>(mConfig.spatialResolution) / Constants::UnitsPerMeter;
 
         if (mConfig.sizingMode == SizingMode::Auto)
         {
@@ -723,7 +724,7 @@ namespace MWVR
         {
             // If a camera is not available, use VR stage poses directly.
             auto pose = MWVR::Environment::get().getSession()->predictedPoses(MWVR::VRSession::FramePhase::Update).head;
-            osg::Vec3 position = pose.position * Environment::get().unitsPerMeter();
+            osg::Vec3 position = pose.position * Constants::UnitsPerMeter;
             osg::Quat orientation = pose.orientation;
             headPose.position = position;
             headPose.orientation = orientation;
@@ -816,10 +817,10 @@ namespace MWVR
             y = hitPoint.z() - bottomLeft.y();
             auto rect = mFocusLayer->mRealRect;
             auto viewSize = MyGUI::RenderManager::getInstance().getViewSize();
-            auto width = viewSize.width * rect.width();
-            auto height = viewSize.height * rect.height();
-            auto left = viewSize.width * rect.left;
-            auto bottom = viewSize.height * rect.bottom;
+            float width = viewSize.width * rect.width();
+            float height = viewSize.height * rect.height();
+            float left = viewSize.width * rect.left;
+            float bottom = viewSize.height * rect.bottom;
             x = width * x + left;
             y = bottom - height * y;
         }
