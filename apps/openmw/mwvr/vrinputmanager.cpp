@@ -141,6 +141,9 @@ namespace MWVR
 
     void VRInputManager::injectMousePress(int sdlButton, bool onPress)
     {
+        if (Environment::get().getGUIManager()->injectMouseClick(onPress))
+            return;
+
         SDL_MouseButtonEvent arg;
         if (onPress)
             mMouseManager->mousePressed(arg, sdlButton);
@@ -212,19 +215,15 @@ namespace MWVR
                 {MWInput::A_MoveLeftRight,      "/user/hand/left/input/thumbstick/x"},
                 {MWInput::A_MoveForwardBackward,"/user/hand/left/input/thumbstick/y"},
                 {MWInput::A_AlwaysRun,          "/user/hand/left/input/thumbstick/click"},
-                //{MWInput::A_ToggleHUD,          "/user/hand/left/input/thumbstick/click"},
                 {MWInput::A_Jump,               "/user/hand/left/input/trigger/value"},
                 {MWInput::A_ToggleSpell,        "/user/hand/left/input/x/click"},
-                //{MWInput::A_QuickSave,          "/user/hand/left/input/y/click"},
                 {MWInput::A_Rest,               "/user/hand/left/input/y/click"},
                 {MWInput::A_ToggleWeapon,       "/user/hand/right/input/a/click"},
                 {MWInput::A_Inventory,          "/user/hand/right/input/b/click"},
-                //{MWInput::A_Journal,            "/user/hand/right/input/b/click"},
                 {A_ActivateTouch,               "/user/hand/right/input/squeeze/value"},
                 {MWInput::A_Activate,           "/user/hand/right/input/squeeze/value"},
                 {MWInput::A_LookLeftRight,      "/user/hand/right/input/thumbstick/x"},
                 {MWInput::A_AutoMove,           "/user/hand/right/input/thumbstick/click"},
-                //{MWInput::A_ToggleDebug,        "/user/hand/right/input/thumbstick/click"},
                 {MWInput::A_Use,                "/user/hand/right/input/trigger/value"},
         };
 
@@ -255,17 +254,13 @@ namespace MWVR
                 {MWInput::A_MoveForwardBackward,"/user/hand/left/input/thumbstick/y"},
                 {MWInput::A_MoveLeftRight,      "/user/hand/left/input/thumbstick/x"},
                 {MWInput::A_AlwaysRun,          "/user/hand/left/input/thumbstick/click"},
-                //{MWInput::A_ToggleHUD,          "/user/hand/left/input/thumbstick/click"},
                 {MWInput::A_Jump,               "/user/hand/left/input/trigger/value"},
                 {MWInput::A_ToggleSpell,        "/user/hand/left/input/x/click"},
-                //{MWInput::A_QuickSave,          "/user/hand/left/input/y/click"},
                 {MWInput::A_Rest,               "/user/hand/left/input/y/click"},
                 {MWInput::A_ToggleWeapon,       "/user/hand/right/input/a/click"},
                 {MWInput::A_Inventory,          "/user/hand/right/input/b/click"},
-                //{MWInput::A_Journal,            "/user/hand/right/input/b/click"},
                 {MWInput::A_LookLeftRight,      "/user/hand/right/input/thumbstick/x"},
                 {MWInput::A_AutoMove,           "/user/hand/right/input/thumbstick/click"},
-                //{MWInput::A_ToggleDebug,        "/user/hand/right/input/thumbstick/click"},
                 {MWInput::A_Use,                "/user/hand/right/input/trigger/value"},
                 {A_ActivateTouch,               "/user/hand/right/input/squeeze/value"},
                 {MWInput::A_Activate,           "/user/hand/right/input/squeeze/value"},
@@ -294,21 +289,15 @@ namespace MWVR
 
         // In-game character controls
         SuggestedBindings gameplayBindings{
-            //{MWInput::A_AlwaysRun,          "/user/hand/left/input/thumbstick/click"},
-            //{MWInput::A_AutoMove,           "/user/hand/right/input/thumbstick/click"},
-            //{MWInput::A_ToggleDebug,        "/user/hand/right/input/thumbstick/click"},
-            //{MWInput::A_ToggleHUD,          "/user/hand/left/input/thumbstick/click"},
             {A_Recenter,                    "/user/hand/left/input/menu/click"},
             {A_VrMetaMenu,                  "/user/hand/left/input/menu/click"},
             {MWInput::A_Jump,               "/user/hand/left/input/trigger/value"},
             {MWInput::A_MoveForwardBackward,"/user/hand/left/input/thumbstick/y"},
             {MWInput::A_MoveLeftRight,      "/user/hand/left/input/thumbstick/x"},
-            //{MWInput::A_QuickSave,          "/user/hand/left/input/thumbstick/click"},
             {MWInput::A_Rest,               "/user/hand/left/input/thumbstick/click"},
             {MWInput::A_ToggleSpell,        "/user/hand/left/input/trackpad/click"},
             {MWInput::A_Sneak,              "/user/hand/left/input/squeeze/click"},
             {MWInput::A_Inventory,          "/user/hand/right/input/thumbstick/click"},
-            //{MWInput::A_Journal,            "/user/hand/right/input/thumbstick/click"},
             {MWInput::A_LookLeftRight,      "/user/hand/right/input/thumbstick/x"},
             {MWInput::A_ToggleWeapon,       "/user/hand/right/input/trackpad/click"},
             {MWInput::A_Use,                "/user/hand/right/input/trigger/value"},
@@ -336,23 +325,17 @@ namespace MWVR
         std::string controllerProfilePath = "/interaction_profiles/valve/index_controller";
         // In-game character controls
         SuggestedBindings gameplayBindings{
-                //{MWInput::A_AlwaysRun,          "/user/hand/left/input/thumbstick/click"},
                 {MWInput::A_ToggleSpell,        "/user/hand/left/input/a/click"},
                 {MWInput::A_Rest,               "/user/hand/left/input/b/click"},
-                //{MWInput::A_QuickSave,          "/user/hand/left/input/b/click"},
                 {MWInput::A_MoveForwardBackward,"/user/hand/left/input/thumbstick/y"},
                 {MWInput::A_MoveLeftRight,      "/user/hand/left/input/thumbstick/x"},
-                //{MWInput::A_ToggleHUD,          "/user/hand/left/input/thumbstick/click"},
                 {A_Recenter,                    "/user/hand/left/input/trackpad/force"},
                 {A_VrMetaMenu,                  "/user/hand/left/input/trackpad/force"},
                 {MWInput::A_Jump,               "/user/hand/left/input/trigger/value"},
                 {MWInput::A_Sneak,              "/user/hand/left/input/squeeze/force"},
                 {MWInput::A_ToggleWeapon,       "/user/hand/right/input/a/click"},
                 {MWInput::A_Inventory,          "/user/hand/right/input/b/click"},
-                //{MWInput::A_Journal,            "/user/hand/right/input/b/click"},
-                //{MWInput::A_AutoMove,           "/user/hand/right/input/thumbstick/click"},
                 {MWInput::A_LookLeftRight,      "/user/hand/right/input/thumbstick/x"},
-                //{MWInput::A_ToggleDebug,        "/user/hand/right/input/thumbstick/click"},
                 {MWInput::A_Use,                "/user/hand/right/input/trigger/value"},
                 {A_ActivateTouch,               "/user/hand/right/input/squeeze/force"},
                 {MWInput::A_Activate,           "/user/hand/right/input/squeeze/force"},
@@ -377,18 +360,8 @@ namespace MWVR
     {
         std::string controllerProfilePath = "/interaction_profiles/htc/vive_controller";
 
-        // TODO: I Didn't realize the vive wands were so bad. We don't have NEARLY enough actions available.
-
         // In-game character controls
         SuggestedBindings gameplayBindings{
-            //{MWInput::A_AlwaysRun,          "/user/hand/left/input/thumbstick/click"},
-            //{MWInput::A_AutoMove,           "/user/hand/right/input/thumbstick/click"},
-            //{MWInput::A_Inventory,          "/user/hand/right/input/b/click"},
-            //{MWInput::A_Journal,            "/user/hand/right/input/b/click"},
-            //{MWInput::A_QuickSave,          "/user/hand/left/input/b/click"},
-            //{MWInput::A_Rest,               "/user/hand/left/input/b/click"},
-            //{MWInput::A_ToggleDebug,        "/user/hand/right/input/thumbstick/click"},
-            //{MWInput::A_ToggleHUD,          "/user/hand/left/input/thumbstick/click"},
             {A_Recenter,                    "/user/hand/left/input/menu/click"},
             {A_VrMetaMenu,                  "/user/hand/left/input/menu/click"},
             {A_VrMetaMenu,                  "/user/hand/right/input/squeeze/click"},
@@ -556,19 +529,23 @@ namespace MWVR
     {
         static const bool isToggleSneak = Settings::Manager::getBool("toggle sneak", "Input");
         auto* vrGuiManager = Environment::get().getGUIManager();
+        auto* wm = MWBase::Environment::get().getWindowManager();
 
 
         // OpenMW does not currently provide any way to directly request skipping a video.
         // This is copied from the controller manager and is used to skip videos, 
         // and works because mygui only consumes the escape press if a video is currently playing.
-        auto kc = MWInput::sdlKeyToMyGUI(SDLK_ESCAPE);
-        if (action->onActivate())
+        if (wm->isPlayingVideo())
         {
-            mBindingsManager->setPlayerControlsEnabled(!MyGUI::InputManager::getInstance().injectKeyPress(kc, 0));
-        }
-        else if (action->onDeactivate())
-        {
-            mBindingsManager->setPlayerControlsEnabled(!MyGUI::InputManager::getInstance().injectKeyRelease(kc));
+            auto kc = MWInput::sdlKeyToMyGUI(SDLK_ESCAPE);
+            if (action->onActivate())
+            {
+                mBindingsManager->setPlayerControlsEnabled(!MyGUI::InputManager::getInstance().injectKeyPress(kc, 0));
+            }
+            else if (action->onDeactivate())
+            {
+                mBindingsManager->setPlayerControlsEnabled(!MyGUI::InputManager::getInstance().injectKeyRelease(kc));
+            }
         }
 
         if (disableControls)
@@ -623,14 +600,14 @@ namespace MWVR
                     vrGuiManager->updateTracking();
                     break;
                 case A_MenuSelect:
-                    if (!MWBase::Environment::get().getWindowManager()->injectKeyPress(MyGUI::KeyCode::Space, 0, 0))
+                    if (!wm->injectKeyPress(MyGUI::KeyCode::Return, 0, false))
                         executeAction(MWInput::A_Activate);
                     break;
                 case A_MenuBack:
                     if (MyGUI::InputManager::getInstance().isModalAny())
-                        MWBase::Environment::get().getWindowManager()->exitCurrentModal();
+                        wm->exitCurrentModal();
                     else
-                        MWBase::Environment::get().getWindowManager()->exitCurrentGuiMode();
+                        wm->exitCurrentGuiMode();
                     break;
                 case MWInput::A_Use:
                     pointActivation(true);

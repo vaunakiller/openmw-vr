@@ -3966,7 +3966,7 @@ namespace MWWorld
 
         if (windowManager->isGuiMode() && windowManager->isConsoleMode())
         {
-            return getTargetObject(result, pointer, getMaxActivationDistance() * 50, false);
+            return getTargetObject(result, pointer, getMaxActivationDistance() * 50, true);
         }
         else
         {

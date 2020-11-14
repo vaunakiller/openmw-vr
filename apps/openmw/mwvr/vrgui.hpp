@@ -159,12 +159,16 @@ namespace MWVR
         /// Gui cursor coordinates to use to simulate a mouse press/move if the player is currently pointing at a vr gui layer
         osg::Vec2i guiCursor() { return mGuiCursor; };
 
+        /// Inject mouse click if applicable
+        bool injectMouseClick(bool onPress);
+
     private:
         void computeGuiCursor(osg::Vec3 hitPoint);
         void updateSideBySideLayers();
         void insertWidget(MWGui::Layout* widget);
         void removeWidget(MWGui::Layout* widget);
         void setFocusLayer(VRGUILayer* layer);
+        void setFocusWidget(MyGUI::Widget* widget);
 
         osg::ref_ptr<osgViewer::Viewer> mOsgViewer{ nullptr };
 
@@ -178,6 +182,7 @@ namespace MWVR
         Pose        mHeadPose{};
         osg::Vec2i  mGuiCursor{};
         VRGUILayer* mFocusLayer{ nullptr };
+        MyGUI::Widget* mFocusWidget{ nullptr };
         osg::observer_ptr<osg::Camera> mCamera{ nullptr };
     };
 }

@@ -123,6 +123,7 @@
 #include "../mwvr/vrmetamenu.hpp"
 #include "../mwvr/vrenvironment.hpp"
 #include "../mwvr/vrgui.hpp"
+#include "../mwvr/vrvirtualkeyboard.hpp"
 #endif
 
 namespace MWGui
@@ -168,6 +169,8 @@ namespace MWGui
       , mScreenFader(nullptr)
       , mDebugWindow(nullptr)
       , mJailScreen(nullptr)
+      , mVrMetaMenu(nullptr)
+      , mVirtualKeyboardManager(nullptr)
       , mTranslationDataStorage (translationDataStorage)
       , mCharGen(nullptr)
       , mInputBlocker(nullptr)
@@ -308,6 +311,14 @@ namespace MWGui
 
         mDragAndDrop = new DragAndDrop();
 
+#ifdef USE_OPENXR
+        mVrMetaMenu = new MWVR::VrMetaMenu(w, h);
+        mWindows.push_back(mVrMetaMenu);
+        mGuiModeStates[GM_VrMetaMenu] = GuiModeState(mVrMetaMenu);
+
+        mVirtualKeyboardManager = new MWVR::VirtualKeyboardManager;
+#endif
+
         Recharge* recharge = new Recharge();
         mGuiModeStates[GM_Recharge] = GuiModeState(recharge);
         mWindows.push_back(recharge);
@@ -447,12 +458,6 @@ namespace MWGui
         mJailScreen = new JailScreen();
         mWindows.push_back(mJailScreen);
         mGuiModeStates[GM_Jail] = GuiModeState(mJailScreen);
-
-#ifdef USE_OPENXR
-        mVrMetaMenu = new MWVR::VrMetaMenu(w, h);
-        mWindows.push_back(mVrMetaMenu);
-        mGuiModeStates[GM_VrMetaMenu] = GuiModeState(mVrMetaMenu);
-#endif
 
         std::string werewolfFaderTex = "textures\\werewolfoverlay.dds";
         if (mResourceSystem->getVFS()->exists(werewolfFaderTex))
@@ -1833,6 +1838,11 @@ namespace MWGui
 #endif
         mVideoBackground->setVisible(false);
         mVideoEnabled = false;
+    }
+
+    bool WindowManager::isPlayingVideo(void) const
+    {
+        return mVideoEnabled;
     }
 
     void WindowManager::sizeVideo(int screenWidth, int screenHeight)

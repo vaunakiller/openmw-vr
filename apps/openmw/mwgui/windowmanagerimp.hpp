@@ -81,6 +81,7 @@ namespace osgMyGUI
 namespace Gui
 {
     class FontLoader;
+    class VirtualKeyboardManager;
 }
 
 namespace MWRender
@@ -153,6 +154,7 @@ namespace MWGui
     /// @note This method will block until the video finishes playing
     /// (and will continually update the window while doing so)
     void playVideo(const std::string& name, bool allowSkipping) override;
+    bool isPlayingVideo(void) const override;
 
     /// Warning: do not use MyGUI::InputManager::setKeyFocusWidget directly. Instead use this.
     void setKeyFocusWidget (MyGUI::Widget* widget) override;
@@ -446,6 +448,8 @@ namespace MWGui
     DebugWindow* mDebugWindow;
     JailScreen* mJailScreen;
     MWVR::VrMetaMenu* mVrMetaMenu;
+
+    Gui::VirtualKeyboardManager* mVirtualKeyboardManager;
 
     std::vector<WindowBase*> mWindows;
 

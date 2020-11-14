@@ -480,6 +480,22 @@ namespace MWVR
     LayerConfig gMessageBoxConfig = createDefaultConfig(6, false, SizingMode::Auto);;
     LayerConfig gNotificationConfig = createDefaultConfig(7, false, SizingMode::Fixed);
 
+    //LayerConfig gVirtualKeyboardConfig = createDefaultConfig(50);
+    LayerConfig gVirtualKeyboardConfig = LayerConfig{
+        10,
+        false,
+        osg::Vec4{0.f,0.f,0.f,.75f},
+        osg::Vec3(0.025f,.025f,.066f), // offset (meters)
+        osg::Vec2(0.f,0.5f), // center (model space)
+        osg::Vec2(.25f, .25f), // extent (meters)
+        2048, // Spatial resolution (pixels per meter)
+        osg::Vec2i(2048,2048), // Texture resolution
+        osg::Vec2(1,1),
+        SizingMode::Auto,
+        TrackingMode::HudLeftHand,
+        ""
+    };
+
     static const float sSideBySideRadius = 1.f;
     static const float sSideBySideAzimuthInterval = -osg::PI_4;
     static const LayerConfig createSideBySideConfig(int priority)
@@ -559,6 +575,7 @@ namespace MWVR
         {"InputBlocker", gVideoPlayerConfig},
         {"Menu", gVideoPlayerConfig},
         {"LoadingScreen", gLoadingScreenConfig},
+        {"VirtualKeyboard", gVirtualKeyboardConfig},
     };
 
     static std::set<std::string> layerBlacklist =
@@ -806,6 +823,30 @@ namespace MWVR
         }
     }
 
+    void VRGUIManager::setFocusWidget(MyGUI::Widget* widget)
+    {
+        // TODO: This relies on MyGUI internal functions and may break on any future version.
+        if (widget == mFocusWidget)
+            return;
+        if (mFocusWidget)
+            mFocusWidget->_riseMouseLostFocus(widget);
+        if (widget)
+            widget->_riseMouseSetFocus(mFocusWidget);
+        mFocusWidget = widget;
+    }
+
+    bool VRGUIManager::injectMouseClick(bool onPress)
+    {
+        // TODO: This relies on MyGUI internal functions and may break on any future version.
+        if (mFocusWidget)
+        {
+            if(onPress)
+                mFocusWidget->_riseMouseButtonClick();
+            return true;
+        }
+        return false;
+    }
+
     void VRGUIManager::computeGuiCursor(osg::Vec3 hitPoint)
     {
         float x = 0;
@@ -830,6 +871,21 @@ namespace MWVR
 
         MyGUI::InputManager::getInstance().injectMouseMove((int)x, (int)y, 0);
         MWBase::Environment::get().getWindowManager()->setCursorActive(true);
+
+        // The virtual keyboard must be interactive regardless of modals
+        // This could be generalized with another config entry, but i don't think any other
+        // widgets/layers need it so i'm hardcoding it for the VirtualKeyboard for now.
+        if (
+               mFocusLayer 
+            && mFocusLayer->mLayerName == "VirtualKeyboard" 
+            && MyGUI::InputManager::getInstance().isModalAny())
+        {
+            auto* widget = MyGUI::LayerManager::getInstance().getWidgetFromPoint((int)x, (int)y);
+            setFocusWidget(widget);
+        }
+        else
+            setFocusWidget(nullptr);
+
     }
 
 }

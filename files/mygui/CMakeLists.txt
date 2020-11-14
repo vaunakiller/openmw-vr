@@ -98,6 +98,7 @@ set(MYGUI_FILES
     openmw_trade_window_vr.layout
     openmw_trainingwindow.layout
     openmw_travel_window.layout
+    openmw_vr_virtual_keyboard.layout
     openmw_wait_dialog.layout
     openmw_wait_dialog_progressbar.layout
     openmw_windows.skin.xml
