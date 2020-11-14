@@ -216,7 +216,7 @@ namespace MWVR
         }
     }
 
-    inline XrResult CheckXrResult(XrResult res, const char* originator, const char* sourceLocation) {
+    XrResult CheckXrResult(XrResult res, const char* originator, const char* sourceLocation) {
         static bool initialized = false;
         static bool sLogAllXrCalls = false;
         static bool sContinueOnErrors = false;
