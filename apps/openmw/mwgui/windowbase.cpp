@@ -62,11 +62,16 @@ void WindowBase::setVisible(bool visible)
         onClose();
 
 #ifdef USE_OPENXR
-    auto* vrGUIManager = MWVR::Environment::get().getGUIManager();
-    if (!vrGUIManager)
-        // May end up here before before rendering has been fully set up
-        return;
-    vrGUIManager->setVisible(this, visible);
+    // Check that onOpen/onClose didn't reverse the change before forwarding it
+    // to the VR GUI manager.
+    if (this->isVisible() == visible)
+    {
+        auto* vrGUIManager = MWVR::Environment::get().getGUIManager();
+        if (!vrGUIManager)
+            // May end up here before before rendering has been fully set up
+            return;
+        vrGUIManager->setVisible(this, visible);
+    }
 #endif
 }
 
