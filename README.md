@@ -138,15 +138,23 @@ Building
 --------
 The fork should build with the same instructions as building openmw.
 
-Oculus Touch controls
+VR Controls
 ---------------------
-[Here](https://imgur.com/a/PNgfLGz) is a simple graphic showing the default bindings for the oculus touch controllers.
 
-Ambiguous buttons souch as Y and B fire the alternative action when you hold instead of tap.
+In VR mode control is based on tracking and VR controllers.
+There is currently no option for regular gamepad based controls.
 
-The R-Trigger by default uses the readied tool/spell, but activates objects and actors instead when Pointer mode is active.
+The player hands will track the controllers and can be used to activate items and actors while holding down the control bound pointing.
+The 'use' action (attack, pick lock, cast spell) and activate action share the right trigger on all controllers.
 
-While in menus the A and B keys, and the thumbsticks change behaviour to navigate menus. But past the main menu you can navigate using point and click.
+The control bound to the menu also doubles down as a recenter action. Hold the menu key to recenter the menu in case it opened inside some object and is inaccessible.
+
+Currently openmw-vr has no api for re-binding controls, as this is expected to be offered by the VR runtime itself.
+
+Default controller bindings:
+- Oculus: [Bindings](docs/controller_graphics/Oculus_Touch.png)
+- Index knuckles: [TODO: No graphic available]
+- Vive wands: [TODO: No graphic available]
 
 Known Issues
 ------------
