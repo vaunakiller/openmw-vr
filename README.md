@@ -149,6 +149,8 @@ The 'use' action (attack, pick lock, cast spell) and activate action share the r
 
 The control bound to the menu also doubles down as a recenter action. Hold the menu key to recenter the menu in case it opened inside some object and is inaccessible.
 
+When in menus, alternate bindings are used to navigate the menus using the thumbsticks and the A/B controls (or equivalent)
+
 Currently openmw-vr has no api for re-binding controls, as this is expected to be offered by the VR runtime itself.
 
 Default controller bindings:
@@ -159,9 +161,8 @@ Default controller bindings:
 Known Issues
 ------------
 - For oculus headsets, the SteamVR runtime is broken. You'll need to use the Oculus runtimes.
-- The loading screen does not show any backgrounds
 - Movies play upside down
 - Cannot point and click in the main menu, you must use the right hand controller as explained above
-- Performance is shite, you will likely have to play without fancy shadows or water shaders.
+- Performance is shite, you may have to play without fancy shadows or water shaders.
 - Audio is not automatically captured.
   - Work around this by adding the line `device = OpenAL Soft on Headphones (2- Rift Audio)` under `[Sound]` in settings.cfg. Replace the device string with the string corresponding to your device. You can find a list of device strings in openmw.log after running it once.
