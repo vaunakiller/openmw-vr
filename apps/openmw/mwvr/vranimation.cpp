@@ -441,6 +441,8 @@ namespace MWVR
             removeIndividualPart(ESM::PartReferenceType::PRT_RKnee);
             removeIndividualPart(ESM::PartReferenceType::PRT_LFoot);
             removeIndividualPart(ESM::PartReferenceType::PRT_RFoot);
+            removeIndividualPart(ESM::PartReferenceType::PRT_LPauldron);
+            removeIndividualPart(ESM::PartReferenceType::PRT_RPauldron);
         }
         else
         {
