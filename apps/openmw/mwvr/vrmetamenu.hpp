@@ -39,7 +39,6 @@ namespace MWVR
             bool exit() override;
 
         private:
-            MyGUI::Widget* mButtonBox{ nullptr };
             std::map<std::string, MyGUI::Button*> mButtons{};
 
             void onButtonClicked (MyGUI::Widget* sender);
