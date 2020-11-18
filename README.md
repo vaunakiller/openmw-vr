@@ -117,10 +117,10 @@ Or grab a development build from the artifacts of any pipeline of the openxr_vr 
 Current Status
 --------------
 
-The VR fork was written on windows with access only to the Oculus Rift headset. Consequentially the current state of the port may have any number of Oculus specific idiosyncrasies, only has default bindings for the Oculus Touch controllers, and will not compile on linux.
+The VR fork was written on windows with access only to the Oculus Rift headset. Consequentially the current state of the port may have any number of Oculus specific idiosyncrasies, and may not build for linux.
 Users with the vive, the index, or any other openxr supporting VR headsets are encourage to suggest or contribute bindings for their respective headsets.
 
-Compatibility with general mods should be high, but this has not been thoroughly tested. Shaders have not been tested at all and may spawn spiders inside your headset.
+Compatibility with general mods should be high, but this has not been thoroughly tested. Custom shaders have not been tested at all.
 
 Installation (openmw vr)
 ------------------------
@@ -131,8 +131,7 @@ Reference VR settings exist in settings-default.cfg.
 Installation (OpenXR)
 ---------------------
 If openxr fails to load, it's nonetheless possible your VR headset offers a preview release of openxr.
-[This article](https://uploadvr.com/oculus-rift-basic-openxr-support/) from uploadvr explains how to enable the oculus preview on windows.
-Note that although the article states you need to opt into public test channels, this is no longer necessary. And you no longer need to write your own json file, you can point to the one present in the oculus' runtime's directory.
+At this point most mainstream headsets have OpenXR implementations, but some may be less stable than others. SteamVR users may need to use the BETA channel to run OpenMW VR.
 
 Building
 --------
