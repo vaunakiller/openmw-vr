@@ -155,7 +155,7 @@ Currently openmw-vr has no api for re-binding controls, as this is expected to b
 
 Default controller bindings:
 - Oculus: [Bindings](docs/controller_graphics/Oculus_Touch.png)
-- Index knuckles: [TODO: No graphic available]
+- Index knuckles: [Bindings](docs/controller_graphics/Valve_Index.png)
 - Vive wands: [TODO: No graphic available]
 
 Known Issues
