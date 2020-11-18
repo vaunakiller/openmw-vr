@@ -15,11 +15,7 @@ namespace MWVR
         : WindowBase("openmw_vr_metamenu.layout")
         , mWidth (w)
         , mHeight (h)
-        , mButtonBox(0)
     {
-
-        getWidget(mButtonBox, "ButtonBox");
-        
         updateMenu();
     }
 
@@ -125,8 +121,6 @@ namespace MWVR
 
     void VrMetaMenu::updateMenu()
     {
-        setCoord(0,0, mWidth, mHeight);
-
         static std::vector<std::string> buttons{ "return", "quicksave", "quickload", "console", "inventory", "journal", "rest", "gamemenu" };
 
         if(mButtons.empty())
@@ -141,11 +135,5 @@ namespace MWVR
             button->setVisible(true);
             mButtons[buttonId] = button;
         }
-
-        int width = mButtonBox->getWidth();
-        int height = mButtonBox->getHeight();
-
-        mButtonBox->setCoord (mWidth/2 - width/2, mHeight/2 - height/2, width, height);
-        mButtonBox->setVisible(true);
     }
 }
