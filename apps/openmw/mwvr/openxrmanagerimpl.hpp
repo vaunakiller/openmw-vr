@@ -24,8 +24,8 @@ namespace MWVR
 #define CHK_STRINGIFY(x) #x
 #define TOSTRING(x) CHK_STRINGIFY(x)
 #define FILE_AND_LINE __FILE__ ":" TOSTRING(__LINE__)
-#define CHECK_XRCMD(cmd) CheckXrResult(cmd, #cmd, FILE_AND_LINE);
-#define CHECK_XRRESULT(res, cmdStr) CheckXrResult(res, cmdStr, FILE_AND_LINE);
+#define CHECK_XRCMD(cmd) CheckXrResult(cmd, #cmd, FILE_AND_LINE)
+#define CHECK_XRRESULT(res, cmdStr) CheckXrResult(res, cmdStr, FILE_AND_LINE)
     XrResult CheckXrResult(XrResult res, const char* originator = nullptr, const char* sourceLocation = nullptr);
     std::string XrResultString(XrResult res);
 

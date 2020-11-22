@@ -12,6 +12,45 @@ namespace MWVR
     /// \brief Implementation of OpenXRSwapchain
     class OpenXRSwapchainImpl
     {
+    private:
+        struct SwapchainPrivate
+        {
+            enum class Use {
+                COLOR = 0,
+                DEPTH = 1
+            };
+
+            SwapchainPrivate(osg::ref_ptr<osg::State> state, SwapchainConfig config, Use use);
+            ~SwapchainPrivate();
+
+            uint32_t bufferAt(uint32_t index) const;
+            uint32_t count() const;
+            uint32_t acuiredBuffer() const;
+            uint32_t acuiredIndex() const { return mAcquiredIndex; };
+            bool isAcquired() const;
+            XrSwapchain xrSwapchain(void) const { return mSwapchain; };
+            XrSwapchainSubImage xrSubImage(void) const { return mSubImage; };
+            int width() const { return mWidth; };
+            int height() const { return mHeight; };
+            int samples() const { return mSamples; };
+
+            void acquire();
+            void release();
+            void checkAcquired() const;
+
+        private:
+            XrSwapchain mSwapchain = XR_NULL_HANDLE;
+            XrSwapchainSubImage mSubImage{};
+            std::vector<XrSwapchainImageOpenGLKHR> mBuffers;
+            int32_t mWidth = -1;
+            int32_t mHeight = -1;
+            int32_t mSamples = -1;
+            int64_t mFormat = -1;
+            uint32_t mAcquiredIndex{ 0 };
+            bool mIsIndexAcquired{ false };
+            bool mIsReady{ false };
+        };
+
     public:
         OpenXRSwapchainImpl(osg::ref_ptr<osg::State> state, SwapchainConfig config);
         ~OpenXRSwapchainImpl();
@@ -24,40 +63,29 @@ namespace MWVR
         uint32_t acquiredDepthTexture() const;
 
         bool isAcquired() const;
-        XrSwapchain xrSwapchain(void) const { return mSwapchain; };
-        XrSwapchain xrSwapchainDepth(void) const { return mSwapchainDepth; };
-        XrSwapchainSubImage xrSubImage(void) const { return mSubImage; };
-        XrSwapchainSubImage xrSubImageDepth(void) const { return mSubImageDepth; };
-        int width() const { return mWidth; };
-        int height() const { return mHeight; };
-        int samples() const { return mSamples; };
+        XrSwapchain xrSwapchain(void) const { return mSwapchain->xrSwapchain(); };
+        XrSwapchain xrSwapchainDepth(void) const { return mSwapchainDepth->xrSwapchain(); };
+        XrSwapchainSubImage xrSubImage(void) const { return mSwapchain->xrSubImage(); };
+        XrSwapchainSubImage xrSubImageDepth(void) const { return mSwapchainDepth->xrSubImage(); };
+        int width() const { return mConfig.selectedWidth; };
+        int height() const { return mConfig.selectedHeight; };
+        int samples() const { return mConfig.selectedSamples; };
 
     protected:
         OpenXRSwapchainImpl(const OpenXRSwapchainImpl&) = delete;
         void operator=(const OpenXRSwapchainImpl&) = delete;
 
-        void acquire(osg::GraphicsContext* gc);
-        void release(osg::GraphicsContext* gc);
+        void acquire();
+        void release();
         void checkAcquired() const;
 
     private:
-        XrSwapchain mSwapchain = XR_NULL_HANDLE;
-        XrSwapchain mSwapchainDepth = XR_NULL_HANDLE;
-        std::vector<XrSwapchainImageOpenGLKHR> mSwapchainColorBuffers;
-        std::vector<XrSwapchainImageOpenGLKHR> mSwapchainDepthBuffers;
-        XrSwapchainSubImage mSubImage{};
-        XrSwapchainSubImage mSubImageDepth{};
-        int32_t mWidth = -1;
-        int32_t mHeight = -1;
-        int32_t mSamples = -1;
-        int64_t mSwapchainColorFormat = -1;
-        int64_t mSwapchainDepthFormat = -1;
-        bool mHaveDepthSwapchain = false;
-        uint32_t mFBO = 0;
+        SwapchainConfig mConfig;
+        std::unique_ptr<SwapchainPrivate> mSwapchain{ nullptr };
+        std::unique_ptr<SwapchainPrivate> mSwapchainDepth{ nullptr };
         std::vector<std::unique_ptr<VRFramebuffer> > mRenderBuffers{};
-        int mRenderBuffer{ 0 };
-        uint32_t mAcquiredImageIndex{ 0 };
-        bool mIsAcquired{ false };
+        bool mFormallyAcquired{ false };
+        bool mShouldRelease{ false };
     };
 }
 

@@ -25,19 +25,136 @@
 
 namespace MWVR {
     OpenXRSwapchainImpl::OpenXRSwapchainImpl(osg::ref_ptr<osg::State> state, SwapchainConfig config)
-        : mSwapchainColorBuffers()
-        , mSwapchainDepthBuffers()
+        : mConfig(config)
+    {
+        if (mConfig.selectedWidth <= 0)
+            throw std::invalid_argument("Width must be a positive integer");
+        if (mConfig.selectedHeight <= 0)
+            throw std::invalid_argument("Height must be a positive integer");
+        if (mConfig.selectedSamples <= 0)
+            throw std::invalid_argument("Samples must be a positive integer");
+
+        mSwapchain.reset(new SwapchainPrivate(state, mConfig, SwapchainPrivate::Use::COLOR));
+        mConfig.selectedSamples = mSwapchain->samples();
+
+        auto* xr = Environment::get().getManager();
+
+        if (xr->xrExtensionIsEnabled(XR_KHR_COMPOSITION_LAYER_DEPTH_EXTENSION_NAME))
+        {
+            try
+            {
+                mSwapchainDepth.reset(new SwapchainPrivate(state, mConfig, SwapchainPrivate::Use::DEPTH));
+            }
+            catch (std::exception& e)
+            {
+                Log(Debug::Warning) << "XR_KHR_composition_layer_depth was enabled but creating depth swapchain failed: " << e.what();
+                mSwapchainDepth = nullptr;
+            }
+        }
+
+        uint32_t imageCount = mSwapchain->count();
+        for (uint32_t i = 0; i < imageCount; i++)
+        {
+            uint32_t colorBuffer = mSwapchain->bufferAt(i);
+            uint32_t depthBuffer = mSwapchainDepth ? mSwapchainDepth->bufferAt(i) : 0;
+            mRenderBuffers.emplace_back(new VRFramebuffer(state, mSwapchain->width(), mSwapchain->height(), mSwapchain->samples(), colorBuffer, depthBuffer));
+        }
+    }
+
+    OpenXRSwapchainImpl::~OpenXRSwapchainImpl()
+    {
+    }
+
+    VRFramebuffer* OpenXRSwapchainImpl::renderBuffer() const
+    {
+        checkAcquired();
+        // Note that I am trusting that the openxr runtime won't diverge the indexes of the depth and color swapchains so long as these are always acquired together.
+        // If some dumb ass implementation decides to violate this we'll just have to work around that if it actually happens.
+        return mRenderBuffers[mSwapchain->acuiredIndex()].get();
+    }
+
+    uint32_t OpenXRSwapchainImpl::acquiredColorTexture() const
+    {
+        checkAcquired();
+        return mSwapchain->acuiredBuffer();
+    }
+
+    uint32_t OpenXRSwapchainImpl::acquiredDepthTexture() const
+    {
+        if (mSwapchainDepth)
+        {
+            checkAcquired();
+            return mSwapchainDepth->acuiredBuffer();
+        }
+        return 0;
+    }
+
+    bool OpenXRSwapchainImpl::isAcquired() const
+    {
+        return mFormallyAcquired;
+    }
+
+    void OpenXRSwapchainImpl::beginFrame(osg::GraphicsContext* gc)
+    {
+        acquire();
+        renderBuffer()->bindFramebuffer(gc, GL_FRAMEBUFFER_EXT);
+    }
+
+    int swapCount = 0;
+
+    void OpenXRSwapchainImpl::endFrame(osg::GraphicsContext* gc)
+    {
+        checkAcquired();
+        release();
+    }
+
+    void OpenXRSwapchainImpl::acquire()
+    {
+        if (isAcquired())
+            throw std::logic_error("Trying to acquire already acquired swapchain");
+
+        if (!mShouldRelease)
+        {
+            mSwapchain->acquire();
+            mShouldRelease = mSwapchain->isAcquired();
+            if (mSwapchainDepth && mSwapchain->isAcquired())
+            {
+                mSwapchainDepth->acquire();
+                mShouldRelease = mSwapchainDepth->isAcquired();
+            }
+        }
+
+        mFormallyAcquired = true;
+    }
+
+    void OpenXRSwapchainImpl::release()
+    {
+        if (mShouldRelease)
+        {
+            mSwapchain->release();
+            mShouldRelease = mSwapchain->isAcquired();
+            if (mSwapchainDepth)
+            {
+                mSwapchainDepth->release();
+                mShouldRelease = mSwapchainDepth->isAcquired();
+            }
+        }
+
+        mFormallyAcquired = false;
+    }
+
+    void OpenXRSwapchainImpl::checkAcquired() const
+    {
+        if (!isAcquired())
+            throw std::logic_error("Swapchain must be acquired before use. Call between OpenXRSwapchain::beginFrame() and OpenXRSwapchain::endFrame()");
+    }
+
+    OpenXRSwapchainImpl::SwapchainPrivate::SwapchainPrivate(osg::ref_ptr<osg::State> state, SwapchainConfig config, Use use)
+        : mBuffers()
         , mWidth(config.selectedWidth)
         , mHeight(config.selectedHeight)
         , mSamples(config.selectedSamples)
     {
-        if (mWidth <= 0)
-            throw std::invalid_argument("Width must be a positive integer");
-        if (mHeight <= 0)
-            throw std::invalid_argument("Height must be a positive integer");
-        if (mSamples <= 0)
-            throw std::invalid_argument("Samples must be a positive integer");
-
         auto* xr = Environment::get().getManager();
 
         // Select a swapchain format.
@@ -54,37 +171,31 @@ namespace MWVR {
             //GL_RGBA16,
             //0x881A // GL_RGBA16F
         };
+        constexpr int64_t RequestedDepthSwapchainFormats[] = {
+            GL_DEPTH_COMPONENT24,
+            GL_DEPTH_COMPONENT32F,
+        };
 
-        auto swapchainFormatIt =
+        auto colorFormatIt =
             std::find_first_of(swapchainFormats.begin(), swapchainFormats.end(), std::begin(RequestedColorSwapchainFormats),
                 std::end(RequestedColorSwapchainFormats));
-        if (swapchainFormatIt == swapchainFormats.end()) {
-            throw std::runtime_error("Swapchain color format not supported");
+        auto depthFormatIt =
+            std::find_first_of(swapchainFormats.begin(), swapchainFormats.end(), std::begin(RequestedDepthSwapchainFormats),
+                std::end(RequestedDepthSwapchainFormats));
+
+        auto formatIt = use == Use::COLOR ? colorFormatIt : depthFormatIt;
+        std::string typeString = use == Use::COLOR ? "color" : "depth";
+
+        if (formatIt == swapchainFormats.end()) {
+            throw std::runtime_error(std::string("Swapchain ") + typeString + " format not supported");
         }
-        mSwapchainColorFormat = *swapchainFormatIt;
-        Log(Debug::Verbose) << "Selected color format: " << std::dec << mSwapchainColorFormat << " (" << std::hex << mSwapchainColorFormat << ")" << std::dec;
+
+        mFormat = *formatIt;
+        Log(Debug::Verbose) << "Selected " << typeString << " format: " << std::dec << mFormat << " (" << std::hex << mFormat << ")" << std::dec;
 
         if (xr->xrExtensionIsEnabled(XR_KHR_COMPOSITION_LAYER_DEPTH_EXTENSION_NAME))
         {
-            // Find supported depth swapchain format.
-            constexpr int64_t RequestedDepthSwapchainFormats[] = {
-                GL_DEPTH_COMPONENT24,
-                GL_DEPTH_COMPONENT32F,
-            };
-
-            swapchainFormatIt =
-                std::find_first_of(swapchainFormats.begin(), swapchainFormats.end(), std::begin(RequestedDepthSwapchainFormats),
-                    std::end(RequestedDepthSwapchainFormats));
-            if (swapchainFormatIt == swapchainFormats.end()) {
-                mHaveDepthSwapchain = false;
-                Log(Debug::Warning) << "OpenXR extension " << XR_KHR_COMPOSITION_LAYER_DEPTH_EXTENSION_NAME << " enabled, but no depth formats were found";
-            }
-            else
-            {
-                mSwapchainDepthFormat = *swapchainFormatIt;
-                mHaveDepthSwapchain = true;
-                Log(Debug::Verbose) << "Selected depth format: " << std::dec << mSwapchainDepthFormat << " (" << std::hex << mSwapchainDepthFormat << ")" << std::dec;
-            }
+            // TODO
         }
 
         XrSwapchainCreateInfo swapchainCreateInfo{ XR_TYPE_SWAPCHAIN_CREATE_INFO };
@@ -98,7 +209,7 @@ namespace MWVR {
         {
             Log(Debug::Verbose) << "Creating swapchain with dimensions Width=" << mWidth << " Heigh=" << mHeight << " SampleCount=" << mSamples;
             // First create the swapchain of color buffers.
-            swapchainCreateInfo.format = mSwapchainColorFormat;
+            swapchainCreateInfo.format = mFormat;
             swapchainCreateInfo.sampleCount = mSamples;
             swapchainCreateInfo.usageFlags = XR_SWAPCHAIN_USAGE_SAMPLED_BIT | XR_SWAPCHAIN_USAGE_COLOR_ATTACHMENT_BIT;
             auto res = xrCreateSwapchain(xr->impl().xrSession(), &swapchainCreateInfo, &mSwapchain);
@@ -115,126 +226,72 @@ namespace MWVR {
 
         uint32_t imageCount = 0;
         CHECK_XRCMD(xrEnumerateSwapchainImages(mSwapchain, 0, &imageCount, nullptr));
-        mSwapchainColorBuffers.resize(imageCount, { XR_TYPE_SWAPCHAIN_IMAGE_OPENGL_KHR });
-        CHECK_XRCMD(xrEnumerateSwapchainImages(mSwapchain, imageCount, &imageCount, reinterpret_cast<XrSwapchainImageBaseHeader*>(mSwapchainColorBuffers.data())));
+        mBuffers.resize(imageCount, { XR_TYPE_SWAPCHAIN_IMAGE_OPENGL_KHR });
+        CHECK_XRCMD(xrEnumerateSwapchainImages(mSwapchain, imageCount, &imageCount, reinterpret_cast<XrSwapchainImageBaseHeader*>(mBuffers.data())));
         mSubImage.swapchain = mSwapchain;
         mSubImage.imageRect.offset = { 0, 0 };
         mSubImage.imageRect.extent = { mWidth, mHeight };
-
-        if (mHaveDepthSwapchain)
-        {
-            // Now create the swapchain of depth buffers if applicable
-            if (mHaveDepthSwapchain)
-            {
-                swapchainCreateInfo.format = mSwapchainDepthFormat;
-                swapchainCreateInfo.sampleCount = mSamples;
-                swapchainCreateInfo.usageFlags = XR_SWAPCHAIN_USAGE_SAMPLED_BIT | XR_SWAPCHAIN_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT;
-                auto res = xrCreateSwapchain(xr->impl().xrSession(), &swapchainCreateInfo, &mSwapchainDepth);
-                if (!XR_SUCCEEDED(res))
-                    throw std::runtime_error(XrResultString(res));
-                VrDebug::setName(mSwapchainDepth, "OpenMW XR Depth Swapchain " + config.name);
-            }
-            CHECK_XRCMD(xrEnumerateSwapchainImages(mSwapchainDepth, 0, &imageCount, nullptr));
-            mSwapchainDepthBuffers.resize(imageCount, { XR_TYPE_SWAPCHAIN_IMAGE_OPENGL_KHR });
-            CHECK_XRCMD(xrEnumerateSwapchainImages(mSwapchainDepth, imageCount, &imageCount, reinterpret_cast<XrSwapchainImageBaseHeader*>(mSwapchainDepthBuffers.data())));
-            mSubImageDepth.swapchain = mSwapchainDepth;
-            mSubImageDepth.imageRect.offset = { 0, 0 };
-            mSubImageDepth.imageRect.extent = { mWidth, mHeight };
-        }
-
-        for (unsigned i = 0; i < imageCount; i++)
-        {
-            uint32_t colorBuffer = mSwapchainColorBuffers[i].image;
-            uint32_t depthBuffer = mHaveDepthSwapchain ? mSwapchainDepthBuffers[i].image : 0;
-            mRenderBuffers.emplace_back(new VRFramebuffer(state, mWidth, mHeight, mSamples, colorBuffer, depthBuffer));
-        }
     }
 
-    OpenXRSwapchainImpl::~OpenXRSwapchainImpl()
+    OpenXRSwapchainImpl::SwapchainPrivate::~SwapchainPrivate()
     {
         if (mSwapchain)
             CHECK_XRCMD(xrDestroySwapchain(mSwapchain));
     }
 
-    VRFramebuffer* OpenXRSwapchainImpl::renderBuffer() const
+    uint32_t OpenXRSwapchainImpl::SwapchainPrivate::bufferAt(uint32_t index) const
+    {
+        return mBuffers[index].image;
+    }
+
+    uint32_t OpenXRSwapchainImpl::SwapchainPrivate::count() const
+    {
+        return mBuffers.size();
+    }
+
+    uint32_t OpenXRSwapchainImpl::SwapchainPrivate::acuiredBuffer() const
     {
         checkAcquired();
-        return mRenderBuffers[mAcquiredImageIndex].get();
+        return mBuffers[mAcquiredIndex].image;
     }
-
-    uint32_t OpenXRSwapchainImpl::acquiredColorTexture() const
+    bool OpenXRSwapchainImpl::SwapchainPrivate::isAcquired() const
     {
-        checkAcquired();
-        return mSwapchainColorBuffers[mAcquiredImageIndex].image;
+        return mIsReady;
     }
 
-    uint32_t OpenXRSwapchainImpl::acquiredDepthTexture() const
-    {
-        checkAcquired();
-        return mSwapchainColorBuffers[mAcquiredImageIndex].image;
-    }
-
-    bool OpenXRSwapchainImpl::isAcquired() const
-    {
-        return mIsAcquired;
-    }
-
-    void OpenXRSwapchainImpl::beginFrame(osg::GraphicsContext* gc)
-    {
-        if (isAcquired())
-            throw std::logic_error("Trying to acquire already acquired swapchain");
-        acquire(gc);
-        renderBuffer()->bindFramebuffer(gc, GL_FRAMEBUFFER_EXT);
-    }
-
-    int swapCount = 0;
-
-    void OpenXRSwapchainImpl::endFrame(osg::GraphicsContext* gc)
-    {
-        checkAcquired();
-        release(gc);
-    }
-
-    void OpenXRSwapchainImpl::acquire(osg::GraphicsContext*)
+    void OpenXRSwapchainImpl::SwapchainPrivate::acquire()
     {
         auto xr = Environment::get().getManager();
         XrSwapchainImageAcquireInfo acquireInfo{ XR_TYPE_SWAPCHAIN_IMAGE_ACQUIRE_INFO };
         XrSwapchainImageWaitInfo waitInfo{ XR_TYPE_SWAPCHAIN_IMAGE_WAIT_INFO };
         waitInfo.timeout = XR_INFINITE_DURATION;
-        // I am trusting that the openxr runtime won't diverge these indices so long as these are always called together.
-        // If some dumb ass implementation decides to violate this we'll just have to work around that if it actually happens.
-        CHECK_XRCMD(xrAcquireSwapchainImage(mSwapchain, &acquireInfo, &mAcquiredImageIndex));
-        CHECK_XRCMD(xrWaitSwapchainImage(mSwapchain, &waitInfo));
-        xr->xrResourceAcquired();
-
-        if (mHaveDepthSwapchain)
+        if (!mIsIndexAcquired)
         {
-            uint32_t depthIndex = 0;
-            CHECK_XRCMD(xrAcquireSwapchainImage(mSwapchainDepth, &acquireInfo, &depthIndex));
-            if (depthIndex != mAcquiredImageIndex)
-                Log(Debug::Warning) << "Depth and color indices diverged";
-            CHECK_XRCMD(xrWaitSwapchainImage(mSwapchainDepth, &waitInfo));
-            xr->xrResourceAcquired();
+            mIsIndexAcquired = XR_SUCCEEDED(CHECK_XRCMD(xrAcquireSwapchainImage(mSwapchain, &acquireInfo, &mAcquiredIndex)));
+            if (mIsIndexAcquired)
+                xr->xrResourceAcquired();
         }
-
-        mIsAcquired = true;
+        if (mIsIndexAcquired && !mIsReady)
+        {
+            mIsReady = XR_SUCCEEDED(CHECK_XRCMD(xrWaitSwapchainImage(mSwapchain, &waitInfo)));
+        }
     }
-
-    void OpenXRSwapchainImpl::release(osg::GraphicsContext*)
+    void OpenXRSwapchainImpl::SwapchainPrivate::release()
     {
         auto xr = Environment::get().getManager();
-        mIsAcquired = false;
 
         XrSwapchainImageReleaseInfo releaseInfo{ XR_TYPE_SWAPCHAIN_IMAGE_RELEASE_INFO };
-        CHECK_XRCMD(xrReleaseSwapchainImage(mSwapchain, &releaseInfo));
-        xr->xrResourceReleased();
-        if (mHaveDepthSwapchain)
+        if (mIsReady)
         {
-            CHECK_XRCMD(xrReleaseSwapchainImage(mSwapchainDepth, &releaseInfo));
-            xr->xrResourceReleased();
+            mIsReady = !XR_SUCCEEDED(CHECK_XRCMD(xrReleaseSwapchainImage(mSwapchain, &releaseInfo)));
+            if (!mIsReady)
+            {
+                mIsIndexAcquired = false;
+                xr->xrResourceReleased();
+            }
         }
     }
-    void OpenXRSwapchainImpl::checkAcquired() const
+    void OpenXRSwapchainImpl::SwapchainPrivate::checkAcquired() const
     {
         if (!isAcquired())
             throw std::logic_error("Swapchain must be acquired before use. Call between OpenXRSwapchain::beginFrame() and OpenXRSwapchain::endFrame()");
