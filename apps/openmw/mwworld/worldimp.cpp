@@ -3995,6 +3995,18 @@ namespace MWWorld
     float World::getTargetObject(MWRender::RayResult& result, osg::Transform* pointer, float maxDistance, bool ignorePlayer)
     {
         result = mRendering->castRay(pointer, maxDistance, ignorePlayer, false);
+
+        MWWorld::Ptr facedObject = result.mHitObject;
+        if (facedObject.isEmpty() && result.mHitRefnum.hasContentFile())
+        {
+            for (CellStore* cellstore : mWorldScene->getActiveCells())
+            {
+                facedObject = cellstore->searchViaRefNum(result.mHitRefnum);
+                if (!facedObject.isEmpty()) break;
+            }
+        }
+        result.mHitObject = facedObject;
+
         if(result.mHit)
             return result.mRatio * maxDistance;
         return -1.f;
