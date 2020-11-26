@@ -25,6 +25,7 @@
 #include <osg/Depth>
 
 #include <sstream>
+#include "shadowsbin.hpp"
 
 namespace {
 
@@ -273,10 +274,20 @@ void VDSMCameraCullCallback::operator()(osg::Node* node, osg::NodeVisitor* nv)
         cv->pushCullingSet();
     }
 #endif
+    // bin has to go inside camera cull or the rendertexture stage will override it
+    static osg::ref_ptr<osg::StateSet> ss;
+    if (!ss)
+    {
+        ShadowsBinAdder adder("ShadowsBin");
+        ss = new osg::StateSet;
+        ss->setRenderBinDetails(osg::StateSet::OPAQUE_BIN, "ShadowsBin", osg::StateSet::OVERRIDE_PROTECTED_RENDERBIN_DETAILS);
+    }
+    cv->pushStateSet(ss);
     if (_vdsm->getShadowedScene())
     {
         _vdsm->getShadowedScene()->osg::Group::traverse(*nv);
     }
+    cv->popStateSet();
 #if 1
     if (!_polytope.empty())
     {
@@ -555,6 +566,7 @@ MWShadowTechnique::ShadowData::ShadowData(MWShadowTechnique::ViewDependentData* 
     _camera = new osg::Camera;
     _camera->setName("ShadowCamera");
     _camera->setReferenceFrame(osg::Camera::ABSOLUTE_RF_INHERIT_VIEWPOINT);
+    _camera->setImplicitBufferAttachmentMask(0, 0);
 
     //_camera->setClearColor(osg::Vec4(1.0f,1.0f,1.0f,1.0f));
     _camera->setClearColor(osg::Vec4(0.0f,0.0f,0.0f,0.0f));
@@ -808,9 +820,10 @@ void MWShadowTechnique::enableShadows()
     _enableShadows = true;
 }
 
-void MWShadowTechnique::disableShadows()
+void MWShadowTechnique::disableShadows(bool setDummyState)
 {
     _enableShadows = false;
+    mSetDummyStateWhenDisabled = setDummyState;
 }
 
 void SceneUtil::MWShadowTechnique::enableDebugHUD()
@@ -874,15 +887,6 @@ void SceneUtil::MWShadowTechnique::setupCastingShader(Shader::ShaderManager & sh
 
     _castingProgram->addShader(shaderManager.getShader("shadowcasting_vertex.glsl", Shader::ShaderManager::DefineMap(), osg::Shader::VERTEX));
     _castingProgram->addShader(shaderManager.getShader("shadowcasting_fragment.glsl", Shader::ShaderManager::DefineMap(), osg::Shader::FRAGMENT));
-
-    _shadowMapAlphaTestDisableUniform = shaderManager.getShadowMapAlphaTestDisableUniform();
-    _shadowMapAlphaTestDisableUniform->setName("alphaTestShadows");
-    _shadowMapAlphaTestDisableUniform->setType(osg::Uniform::BOOL);
-    _shadowMapAlphaTestDisableUniform->set(false);
-
-    shaderManager.getShadowMapAlphaTestEnableUniform()->setName("alphaTestShadows");
-    shaderManager.getShadowMapAlphaTestEnableUniform()->setType(osg::Uniform::BOOL);
-    shaderManager.getShadowMapAlphaTestEnableUniform()->set(true);
 }
 
 MWShadowTechnique::ViewDependentData* MWShadowTechnique::createViewDependentData(osgUtil::CullVisitor* /*cv*/)
@@ -1473,7 +1477,28 @@ void MWShadowTechnique::cull(osgUtil::CullVisitor& cv)
 {
     if (!_enableShadows)
     {
+        if (mSetDummyStateWhenDisabled)
+        {
+            osg::ref_ptr<osg::StateSet> dummyState = new osg::StateSet();
+
+            ShadowSettings* settings = getShadowedScene()->getShadowSettings();
+            int baseUnit = settings->getBaseShadowTextureUnit();
+            int endUnit = baseUnit + settings->getNumShadowMapsPerLight();
+            for (int i = baseUnit; i < endUnit; ++i)
+            {
+                dummyState->setTextureAttributeAndModes(i, _fallbackShadowMapTexture, osg::StateAttribute::ON);
+                dummyState->addUniform(new osg::Uniform(("shadowTexture" + std::to_string(i - baseUnit)).c_str(), i));
+                dummyState->addUniform(new osg::Uniform(("shadowTextureUnit" + std::to_string(i - baseUnit)).c_str(), i));
+            }
+
+            cv.pushStateSet(dummyState);
+        }
+
         _shadowedScene->osg::Group::traverse(cv);
+
+        if (mSetDummyStateWhenDisabled)
+            cv.popStateSet();
+
         return;
     }
 
@@ -1645,7 +1670,7 @@ void MWShadowTechnique::createShaders()
     {
         perFrameUniformList.clear();
         perFrameUniformList.push_back(baseTextureSampler);
-        perFrameUniformList.push_back(baseTextureUnit.get());
+        perFrameUniformList.emplace_back(baseTextureUnit.get());
         perFrameUniformList.push_back(maxDistance);
         perFrameUniformList.push_back(fadeStart);
     }
@@ -1657,7 +1682,7 @@ void MWShadowTechnique::createShaders()
             sstr<<"shadowTexture"<<sm_i;
             osg::ref_ptr<osg::Uniform> shadowTextureSampler = new osg::Uniform(sstr.str().c_str(),(int)(settings->getBaseShadowTextureUnit()+sm_i));
             for (auto& perFrameUniformList : _uniforms)
-                perFrameUniformList.push_back(shadowTextureSampler.get());
+                perFrameUniformList.emplace_back(shadowTextureSampler.get());
         }
 
         {
@@ -1665,7 +1690,7 @@ void MWShadowTechnique::createShaders()
             sstr<<"shadowTextureUnit"<<sm_i;
             osg::ref_ptr<osg::Uniform> shadowTextureUnit = new osg::Uniform(sstr.str().c_str(),(int)(settings->getBaseShadowTextureUnit()+sm_i));
             for (auto& perFrameUniformList : _uniforms)
-                perFrameUniformList.push_back(shadowTextureUnit.get());
+                perFrameUniformList.emplace_back(shadowTextureUnit.get());
         }
     }
 
@@ -1711,6 +1736,8 @@ void MWShadowTechnique::createShaders()
         _fallbackShadowMapTexture->setWrap(osg::Texture2D::WRAP_T,osg::Texture2D::REPEAT);
         _fallbackShadowMapTexture->setFilter(osg::Texture2D::MIN_FILTER,osg::Texture2D::NEAREST);
         _fallbackShadowMapTexture->setFilter(osg::Texture2D::MAG_FILTER,osg::Texture2D::NEAREST);
+        _fallbackShadowMapTexture->setShadowComparison(true);
+        _fallbackShadowMapTexture->setShadowCompareFunc(osg::Texture::ShadowCompareFunc::ALWAYS);
 
     }
 
@@ -1720,17 +1747,14 @@ void MWShadowTechnique::createShaders()
     _shadowCastingStateSet->setAttributeAndModes(_castingProgram, osg::StateAttribute::ON | osg::StateAttribute::OVERRIDE);
     // The casting program uses a sampler, so to avoid undefined behaviour, we must bind a dummy texture in case no other is supplied
     _shadowCastingStateSet->setTextureAttributeAndModes(0, _fallbackBaseTexture.get(), osg::StateAttribute::ON);
-    _shadowCastingStateSet->addUniform(new osg::Uniform("useDiffuseMapForShadowAlpha", false));
-    _shadowCastingStateSet->addUniform(_shadowMapAlphaTestDisableUniform);
+    _shadowCastingStateSet->addUniform(new osg::Uniform("useDiffuseMapForShadowAlpha", true));
+    _shadowCastingStateSet->addUniform(new osg::Uniform("alphaTestShadows", false));
     osg::ref_ptr<osg::Depth> depth = new osg::Depth;
     depth->setWriteMask(true);
     _shadowCastingStateSet->setAttribute(depth, osg::StateAttribute::ON|osg::StateAttribute::OVERRIDE);
     _shadowCastingStateSet->setMode(GL_DEPTH_CLAMP, osg::StateAttribute::ON);
 
-    _shadowCastingStateSet->setRenderBinDetails(osg::StateSet::OPAQUE_BIN, "RenderBin", osg::StateSet::OVERRIDE_PROTECTED_RENDERBIN_DETAILS);
-
     // TODO: compare performance when alpha testing is handled here versus using a discard in the fragment shader
-    // TODO: compare performance when we set a bunch of GL state to the default here with OVERRIDE set so that there are fewer pointless state switches
 }
 
 osg::Polytope MWShadowTechnique::computeLightViewFrustumPolytope(Frustum& frustum, LightData& positionedLight)
@@ -2695,12 +2719,12 @@ bool MWShadowTechnique::cropShadowCameraToMainFrustum(Frustum& frustum, osg::Cam
         yMax = convexHull.max(1);
         zMin = convexHull.min(2);
 
-        planeList.push_back(osg::Plane(0.0, -1.0, 0.0, yMax));
-        planeList.push_back(osg::Plane(0.0, 1.0, 0.0, -yMin));
-        planeList.push_back(osg::Plane(-1.0, 0.0, 0.0, xMax));
-        planeList.push_back(osg::Plane(1.0, 0.0, 0.0, -xMin));
+        planeList.emplace_back(0.0, -1.0, 0.0, yMax);
+        planeList.emplace_back(0.0, 1.0, 0.0, -yMin);
+        planeList.emplace_back(-1.0, 0.0, 0.0, xMax);
+        planeList.emplace_back(1.0, 0.0, 0.0, -xMin);
         // In view space, the light is at the most positive value, and we want to cull stuff beyond the minimum value.
-        planeList.push_back(osg::Plane(0.0, 0.0, 1.0, -zMin));
+        planeList.emplace_back(0.0, 0.0, 1.0, -zMin);
         // Don't add a zMax culling plane - we still want those objects, but don't care about their depth buffer value.
     }
 
@@ -3333,7 +3357,7 @@ void SceneUtil::MWShadowTechnique::DebugHUD::addAnotherShadowMap()
     mDebugCameras[shadowMapNumber]->setClearColor(osg::Vec4(1.0, 1.0, 0.0, 1.0));
     mDebugCameras[shadowMapNumber]->getOrCreateStateSet()->setMode(GL_DEPTH_TEST, osg::StateAttribute::OFF);
 
-    mDebugGeometry.push_back(osg::createTexturedQuadGeometry(osg::Vec3(-1, -1, 0), osg::Vec3(2, 0, 0), osg::Vec3(0, 2, 0)));
+    mDebugGeometry.emplace_back(osg::createTexturedQuadGeometry(osg::Vec3(-1, -1, 0), osg::Vec3(2, 0, 0), osg::Vec3(0, 2, 0)));
     mDebugGeometry[shadowMapNumber]->setCullingActive(false);
     mDebugCameras[shadowMapNumber]->addChild(mDebugGeometry[shadowMapNumber]);
     osg::ref_ptr<osg::StateSet> stateSet = mDebugGeometry[shadowMapNumber]->getOrCreateStateSet();

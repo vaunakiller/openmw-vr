@@ -109,18 +109,28 @@ enum RecordType
   RC_NiVectorExtraData,
   RC_NiColorExtraData,
   RC_NiFloatExtraData,
-  RC_NiFloatsExtraData
+  RC_NiFloatsExtraData,
+  RC_NiStringPalette,
+  RC_NiBoolData,
+  RC_NiSkinPartition,
+  RC_BSXFlags,
+  RC_BSBound,
+  RC_bhkBlendController,
+  RC_NiFloatInterpolator,
+  RC_NiPoint3Interpolator,
+  RC_NiBoolInterpolator,
+  RC_NiTransformInterpolator,
 };
 
 /// Base class for all records
 struct Record
 {
     // Record type and type name
-    int recType;
+    int recType{RC_MISSING};
     std::string recName;
-    size_t recIndex;
+    unsigned int recIndex{~0u};
 
-    Record() : recType(RC_MISSING), recIndex(~(size_t)0) {}
+    Record() = default;
 
     /// Parses the record from file
     virtual void read(NIFStream *nif) = 0;

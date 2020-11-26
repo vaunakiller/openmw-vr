@@ -710,33 +710,9 @@ MWWorld::ContainerStoreIterator MWWorld::InventoryStore::getSelectedEnchantItem(
     return mSelectedEnchantItem;
 }
 
-int MWWorld::InventoryStore::remove(const std::string& itemId, int count, const Ptr& actor)
+int MWWorld::InventoryStore::remove(const Ptr& item, int count, const Ptr& actor, bool equipReplacement, bool resolve)
 {
-    return remove(itemId, count, actor, false);
-}
-
-int MWWorld::InventoryStore::remove(const Ptr& item, int count, const Ptr& actor)
-{
-    return remove(item, count, actor, false);
-}
-
-int MWWorld::InventoryStore::remove(const std::string& itemId, int count, const Ptr& actor, bool equipReplacement)
-{
-    int toRemove = count;
-
-    for (ContainerStoreIterator iter(begin()); iter != end() && toRemove > 0; ++iter)
-        if (Misc::StringUtils::ciEqual(iter->getCellRef().getRefId(), itemId))
-            toRemove -= remove(*iter, toRemove, actor, equipReplacement);
-
-    flagAsModified();
-
-    // number of removed items
-    return count - toRemove;
-}
-
-int MWWorld::InventoryStore::remove(const Ptr& item, int count, const Ptr& actor, bool equipReplacement)
-{
-    int retCount = ContainerStore::remove(item, count, actor);
+    int retCount = ContainerStore::remove(item, count, actor, equipReplacement, resolve);
 
     bool wasEquipped = false;
     if (!item.getRefData().getCount())
@@ -1012,7 +988,7 @@ void MWWorld::InventoryStore::writeState(ESM::InventoryState &state) const
         std::vector<std::pair<float, float> > params;
         for (std::vector<EffectParams>::const_iterator pIt = it->second.begin(); pIt != it->second.end(); ++pIt)
         {
-            params.push_back(std::make_pair(pIt->mRandom, pIt->mMultiplier));
+            params.emplace_back(pIt->mRandom, pIt->mMultiplier);
         }
 
         state.mPermanentMagicEffectMagnitudes[it->first] = params;

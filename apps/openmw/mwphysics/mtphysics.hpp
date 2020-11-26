@@ -3,11 +3,13 @@
 
 #include <atomic>
 #include <condition_variable>
-#include <thread>
+#include <optional>
 #include <shared_mutex>
+#include <thread>
 
-#include <boost/optional/optional.hpp>
 #include <BulletCollision/CollisionDispatch/btCollisionWorld.h>
+
+#include <osg/Timer>
 
 #include "physicssystem.hpp"
 #include "ptrholder.hpp"
@@ -30,13 +32,13 @@ namespace MWPhysics
             /// @param timeAccum accumulated time from previous run to interpolate movements
             /// @param actorsData per actor data needed to compute new positions
             /// @return new position of each actor
-            const PtrPositionList& moveActors(int numSteps, float timeAccum, std::vector<ActorFrameData>&& actorsData, CollisionMap& standingCollisions, bool skip);
+            const PtrPositionList& moveActors(int numSteps, float timeAccum, std::vector<ActorFrameData>&& actorsData, bool skip, osg::Timer_t frameStart, unsigned int frameNumber, osg::Stats& stats);
 
             // Thread safe wrappers
             void rayTest(const btVector3& rayFromWorld, const btVector3& rayToWorld, btCollisionWorld::RayResultCallback& resultCallback) const;
             void convexSweepTest(const btConvexShape* castShape, const btTransform& from, const btTransform& to, btCollisionWorld::ConvexResultCallback& resultCallback) const;
             void contactTest(btCollisionObject* colObj, btCollisionWorld::ContactResultCallback& resultCallback);
-            boost::optional<btVector3> getHitPoint(const btTransform& from, btCollisionObject* target);
+            std::optional<btVector3> getHitPoint(const btTransform& from, btCollisionObject* target);
             void aabbTest(const btVector3& aabbMin, const btVector3& aabbMax, btBroadphaseAabbCallback& callback);
             void getAabb(const btCollisionObject* obj, btVector3& min, btVector3& max);
             void setCollisionFilterMask(btCollisionObject* collisionObject, int collisionFilterMask);
@@ -49,7 +51,6 @@ namespace MWPhysics
             void syncComputation();
             void worker();
             void updateActorsPositions();
-            void udpateActorsAabbs();
             bool hasLineOfSight(const Actor* actor1, const Actor* actor2);
             void refreshLOSCache();
             void updateAabbs();
@@ -83,11 +84,17 @@ namespace MWPhysics
             std::atomic<int> mNextLOS;
             std::vector<std::thread> mThreads;
 
-            mutable std::shared_timed_mutex mSimulationMutex;
-            mutable std::shared_timed_mutex mCollisionWorldMutex;
-            mutable std::shared_timed_mutex mLOSCacheMutex;
+            mutable std::shared_mutex mSimulationMutex;
+            mutable std::shared_mutex mCollisionWorldMutex;
+            mutable std::shared_mutex mLOSCacheMutex;
             mutable std::mutex mUpdateAabbMutex;
             std::condition_variable_any mHasJob;
+
+            unsigned int mFrameNumber;
+            const osg::Timer* mTimer;
+            osg::Timer_t mTimeBegin;
+            osg::Timer_t mTimeEnd;
+            osg::Timer_t mFrameStart;
     };
 
 }

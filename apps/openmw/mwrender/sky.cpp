@@ -941,10 +941,10 @@ public:
     Moon(osg::Group* parentNode, Resource::ImageManager& imageManager, float scaleFactor, Type type)
         : CelestialBody(parentNode, scaleFactor, 2)
         , mType(type)
-        , mPhase(MoonState::Phase_Unspecified)
+        , mPhase(MoonState::Phase::Unspecified)
         , mUpdater(new Updater(imageManager))
     {
-        setPhase(MoonState::Phase_Full);
+        setPhase(MoonState::Phase::Full);
         setVisible(true);
 
         mGeom->addUpdateCallback(mUpdater);
@@ -993,14 +993,14 @@ public:
 
     unsigned int getPhaseInt() const
     {
-        if      (mPhase == MoonState::Phase_New)              return 0;
-        else if (mPhase == MoonState::Phase_WaxingCrescent)   return 1;
-        else if (mPhase == MoonState::Phase_WaningCrescent)   return 1;
-        else if (mPhase == MoonState::Phase_FirstQuarter)     return 2;
-        else if (mPhase == MoonState::Phase_ThirdQuarter)     return 2;
-        else if (mPhase == MoonState::Phase_WaxingGibbous)    return 3;
-        else if (mPhase == MoonState::Phase_WaningGibbous)    return 3;
-        else if (mPhase == MoonState::Phase_Full)             return 4;
+        if      (mPhase == MoonState::Phase::New)              return 0;
+        else if (mPhase == MoonState::Phase::WaxingCrescent)   return 1;
+        else if (mPhase == MoonState::Phase::WaningCrescent)   return 1;
+        else if (mPhase == MoonState::Phase::FirstQuarter)     return 2;
+        else if (mPhase == MoonState::Phase::ThirdQuarter)     return 2;
+        else if (mPhase == MoonState::Phase::WaxingGibbous)    return 3;
+        else if (mPhase == MoonState::Phase::WaningGibbous)    return 3;
+        else if (mPhase == MoonState::Phase::Full)             return 4;
         return 0;
     }
 
@@ -1090,14 +1090,14 @@ private:
         else
             textureName += "masser_";
 
-        if     (phase == MoonState::Phase_New)            textureName += "new";
-        else if(phase == MoonState::Phase_WaxingCrescent) textureName += "one_wax";
-        else if(phase == MoonState::Phase_FirstQuarter)   textureName += "half_wax";
-        else if(phase == MoonState::Phase_WaxingGibbous)  textureName += "three_wax";
-        else if(phase == MoonState::Phase_WaningCrescent) textureName += "one_wan";
-        else if(phase == MoonState::Phase_ThirdQuarter)   textureName += "half_wan";
-        else if(phase == MoonState::Phase_WaningGibbous)  textureName += "three_wan";
-        else if(phase == MoonState::Phase_Full)           textureName += "full";
+        if     (phase == MoonState::Phase::New)            textureName += "new";
+        else if(phase == MoonState::Phase::WaxingCrescent) textureName += "one_wax";
+        else if(phase == MoonState::Phase::FirstQuarter)   textureName += "half_wax";
+        else if(phase == MoonState::Phase::WaxingGibbous)  textureName += "three_wax";
+        else if(phase == MoonState::Phase::WaningCrescent) textureName += "one_wan";
+        else if(phase == MoonState::Phase::ThirdQuarter)   textureName += "half_wan";
+        else if(phase == MoonState::Phase::WaningGibbous)  textureName += "three_wan";
+        else if(phase == MoonState::Phase::Full)           textureName += "full";
 
         textureName += ".dds";
 
@@ -1911,42 +1911,42 @@ void SkyManager::setWaterHeight(float height)
 
 void SkyManager::listAssetsToPreload(std::vector<std::string>& models, std::vector<std::string>& textures)
 {
-    models.push_back("meshes/sky_atmosphere.nif");
+    models.emplace_back("meshes/sky_atmosphere.nif");
     if (mSceneManager->getVFS()->exists("meshes/sky_night_02.nif"))
-        models.push_back("meshes/sky_night_02.nif");
-    models.push_back("meshes/sky_night_01.nif");
-    models.push_back("meshes/sky_clouds_01.nif");
+        models.emplace_back("meshes/sky_night_02.nif");
+    models.emplace_back("meshes/sky_night_01.nif");
+    models.emplace_back("meshes/sky_clouds_01.nif");
 
-    models.push_back("meshes\\ashcloud.nif");
-    models.push_back("meshes\\blightcloud.nif");
-    models.push_back("meshes\\snow.nif");
-    models.push_back("meshes\\blizzard.nif");
+    models.emplace_back("meshes\\ashcloud.nif");
+    models.emplace_back("meshes\\blightcloud.nif");
+    models.emplace_back("meshes\\snow.nif");
+    models.emplace_back("meshes\\blizzard.nif");
 
-    textures.push_back("textures/tx_mooncircle_full_s.dds");
-    textures.push_back("textures/tx_mooncircle_full_m.dds");
+    textures.emplace_back("textures/tx_mooncircle_full_s.dds");
+    textures.emplace_back("textures/tx_mooncircle_full_m.dds");
 
-    textures.push_back("textures/tx_masser_new.dds");
-    textures.push_back("textures/tx_masser_one_wax.dds");
-    textures.push_back("textures/tx_masser_half_wax.dds");
-    textures.push_back("textures/tx_masser_three_wax.dds");
-    textures.push_back("textures/tx_masser_one_wan.dds");
-    textures.push_back("textures/tx_masser_half_wan.dds");
-    textures.push_back("textures/tx_masser_three_wan.dds");
-    textures.push_back("textures/tx_masser_full.dds");
+    textures.emplace_back("textures/tx_masser_new.dds");
+    textures.emplace_back("textures/tx_masser_one_wax.dds");
+    textures.emplace_back("textures/tx_masser_half_wax.dds");
+    textures.emplace_back("textures/tx_masser_three_wax.dds");
+    textures.emplace_back("textures/tx_masser_one_wan.dds");
+    textures.emplace_back("textures/tx_masser_half_wan.dds");
+    textures.emplace_back("textures/tx_masser_three_wan.dds");
+    textures.emplace_back("textures/tx_masser_full.dds");
 
-    textures.push_back("textures/tx_secunda_new.dds");
-    textures.push_back("textures/tx_secunda_one_wax.dds");
-    textures.push_back("textures/tx_secunda_half_wax.dds");
-    textures.push_back("textures/tx_secunda_three_wax.dds");
-    textures.push_back("textures/tx_secunda_one_wan.dds");
-    textures.push_back("textures/tx_secunda_half_wan.dds");
-    textures.push_back("textures/tx_secunda_three_wan.dds");
-    textures.push_back("textures/tx_secunda_full.dds");
+    textures.emplace_back("textures/tx_secunda_new.dds");
+    textures.emplace_back("textures/tx_secunda_one_wax.dds");
+    textures.emplace_back("textures/tx_secunda_half_wax.dds");
+    textures.emplace_back("textures/tx_secunda_three_wax.dds");
+    textures.emplace_back("textures/tx_secunda_one_wan.dds");
+    textures.emplace_back("textures/tx_secunda_half_wan.dds");
+    textures.emplace_back("textures/tx_secunda_three_wan.dds");
+    textures.emplace_back("textures/tx_secunda_full.dds");
 
-    textures.push_back("textures/tx_sun_05.dds");
-    textures.push_back("textures/tx_sun_flash_grey_05.dds");
+    textures.emplace_back("textures/tx_sun_05.dds");
+    textures.emplace_back("textures/tx_sun_flash_grey_05.dds");
 
-    textures.push_back("textures/tx_raindrop_01.dds");
+    textures.emplace_back("textures/tx_raindrop_01.dds");
 }
 
 void SkyManager::setWaterEnabled(bool enabled)

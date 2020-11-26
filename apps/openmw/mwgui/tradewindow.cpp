@@ -523,6 +523,9 @@ namespace MWGui
 
     void TradeWindow::onClose()
     {
+        // Make sure the window was actually closed and not temporarily hidden.
+        if (MWBase::Environment::get().getWindowManager()->containsMode(GM_Barter))
+            return;
         resetReference();
     }
 }

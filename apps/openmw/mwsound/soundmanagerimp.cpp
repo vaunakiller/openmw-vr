@@ -65,6 +65,9 @@ namespace MWSound
         , mUnderwaterSound(nullptr)
         , mNearWaterSound(nullptr)
         , mPlaybackPaused(false)
+        , mTimePassed(0.f)
+        , mLastCell(nullptr)
+        , mCurrentRegionSound(nullptr)
     {
         mBufferCacheMin = std::max(Settings::Manager::getInt("buffer cache min", "Sound"), 1);
         mBufferCacheMax = std::max(Settings::Manager::getInt("buffer cache max", "Sound"), 1);
@@ -895,9 +898,11 @@ namespace MWSound
 
         if (!cell->isExterior())
             return;
+        if (mCurrentRegionSound && mOutput->isSoundPlaying(mCurrentRegionSound))
+            return;
 
         if (const auto next = mRegionSoundSelector.getNextRandom(duration, cell->mRegion, *world))
-            playSound(*next, 1.0f, 1.0f);
+            mCurrentRegionSound = playSound(*next, 1.0f, 1.0f);
     }
 
     void SoundManager::updateWaterSound()

@@ -69,6 +69,7 @@ namespace MWRender
       mBaseCameraDistance(Settings::Manager::getFloat("third person camera distance", "Camera")),
       mPitch(0.f),
       mYaw(0.f),
+      mRoll(0.f),
       mVanityToggleQueued(false),
       mVanityToggleQueuedValue(false),
       mViewModeToggleQueued(false),
@@ -84,6 +85,9 @@ namespace MWRender
       mDynamicCameraDistanceEnabled(false),
       mShowCrosshairInThirdPersonMode(false),
       mHeadBobbingEnabled(Settings::Manager::getBool("head bobbing", "Camera")),
+      mHeadBobbingOffset(0.f),
+      mHeadBobbingWeight(0.f),
+      mTotalMovement(0.f),
       mDeferredRotation(osg::Vec3f()),
       mDeferredRotationDisabled(false)
     {

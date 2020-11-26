@@ -1,6 +1,8 @@
 #include <BulletCollision/BroadphaseCollision/btDbvtBroadphase.h>
 #include <BulletCollision/CollisionShapes/btCollisionShape.h>
 
+#include <osg/Stats>
+
 #include "components/debug/debuglog.hpp"
 #include <components/misc/barrier.hpp>
 #include "components/misc/convert.hpp"
@@ -82,14 +84,6 @@ namespace
         ptr.getClass().getMovementSettings(ptr).mPosition[2] = 0;
     }
 
-    void updateStandingCollision(MWPhysics::ActorFrameData& actorData, MWPhysics::CollisionMap& standingCollisions)
-    {
-        if (!actorData.mStandingOn.isEmpty())
-            standingCollisions[actorData.mPtr] = actorData.mStandingOn;
-        else
-            standingCollisions.erase(actorData.mPtr);
-    }
-
     void updateMechanics(MWPhysics::ActorFrameData& actorData)
     {
         if (actorData.mDidJump)
@@ -102,9 +96,18 @@ namespace
             stats.addToFallHeight(-actorData.mFallHeight);
     }
 
-    osg::Vec3f interpolateMovements(const MWPhysics::ActorFrameData& actorData, float timeAccum, float physicsDt)
+    osg::Vec3f interpolateMovements(MWPhysics::ActorFrameData& actorData, float timeAccum, float physicsDt)
     {
         const float interpolationFactor = timeAccum / physicsDt;
+
+        // account for force change of actor's position in the main thread
+        const auto correction = actorData.mActorRaw->getWorldPosition() - actorData.mOrigin;
+        if (correction.length() != 0)
+        {
+            actorData.mActorRaw->adjustPosition(correction);
+            actorData.mPosition = actorData.mActorRaw->getPosition();
+        }
+
         return actorData.mPosition * interpolationFactor + actorData.mActorRaw->getPreviousPosition() * (1.f - interpolationFactor);
     }
 
@@ -142,6 +145,7 @@ namespace MWPhysics
 {
     PhysicsTaskScheduler::PhysicsTaskScheduler(float physicsDt, std::shared_ptr<btCollisionWorld> collisionWorld)
           : mPhysicsDt(physicsDt)
+          , mTimeAccum(0.f)
           , mCollisionWorld(std::move(collisionWorld))
           , mNumJobs(0)
           , mRemainingSteps(0)
@@ -152,6 +156,8 @@ namespace MWPhysics
           , mQuit(false)
           , mNextJob(0)
           , mNextLOS(0)
+          , mFrameNumber(0)
+          , mTimer(osg::Timer::instance())
     {
         mNumThreads = Config::computeNumThreads(mThreadSafeBullet);
 
@@ -181,22 +187,22 @@ namespace MWPhysics
 
         mPostSimBarrier = std::make_unique<Misc::Barrier>(mNumThreads, [&]()
             {
-                udpateActorsAabbs();
                 mNewFrame = false;
                 if (mLOSCacheExpiry >= 0)
                 {
-                    std::unique_lock<std::shared_timed_mutex> lock(mLOSCacheMutex);
+                    std::unique_lock lock(mLOSCacheMutex);
                     mLOSCache.erase(
                             std::remove_if(mLOSCache.begin(), mLOSCache.end(),
                                 [](const LOSRequest& req) { return req.mStale; }),
                             mLOSCache.end());
                 }
+                mTimeEnd = mTimer->tick();
             });
     }
 
     PhysicsTaskScheduler::~PhysicsTaskScheduler()
     {
-        std::unique_lock<std::shared_timed_mutex> lock(mSimulationMutex);
+        std::unique_lock lock(mSimulationMutex);
         mQuit = true;
         mNumJobs = 0;
         mRemainingSteps = 0;
@@ -206,19 +212,16 @@ namespace MWPhysics
             thread.join();
     }
 
-    const PtrPositionList& PhysicsTaskScheduler::moveActors(int numSteps, float timeAccum, std::vector<ActorFrameData>&& actorsData, CollisionMap& standingCollisions, bool skipSimulation)
+    const PtrPositionList& PhysicsTaskScheduler::moveActors(int numSteps, float timeAccum, std::vector<ActorFrameData>&& actorsData, bool skipSimulation, osg::Timer_t frameStart, unsigned int frameNumber, osg::Stats& stats)
     {
         // This function run in the main thread.
         // While the mSimulationMutex is held, background physics threads can't run.
 
-        std::unique_lock<std::shared_timed_mutex> lock(mSimulationMutex);
+        std::unique_lock lock(mSimulationMutex);
 
         // start by finishing previous background computation
         if (mNumThreads != 0)
         {
-            if (mAdvanceSimulation)
-                standingCollisions.clear();
-
             for (auto& data : mActorsFrameData)
             {
                 // Ignore actors that were deleted while the background thread was running
@@ -227,8 +230,21 @@ namespace MWPhysics
 
                 updateMechanics(data);
                 if (mAdvanceSimulation)
-                    updateStandingCollision(data, standingCollisions);
+                    data.mActorRaw->setStandingOnPtr(data.mStandingOn);
+
+                if (mMovementResults.find(data.mPtr) != mMovementResults.end())
+                    data.mActorRaw->setNextPosition(mMovementResults[data.mPtr]);
             }
+
+            if (mFrameNumber == frameNumber - 1)
+            {
+                stats.setAttribute(mFrameNumber, "physicsworker_time_begin", mTimer->delta_s(mFrameStart, mTimeBegin));
+                stats.setAttribute(mFrameNumber, "physicsworker_time_taken", mTimer->delta_s(mTimeBegin, mTimeEnd));
+                stats.setAttribute(mFrameNumber, "physicsworker_time_end", mTimer->delta_s(mFrameStart, mTimeEnd));
+            }
+            mFrameStart = frameStart;
+            mTimeBegin = mTimer->tick();
+            mFrameNumber = frameNumber;
         }
 
         // init
@@ -244,18 +260,17 @@ namespace MWPhysics
         if (mAdvanceSimulation)
             mWorldFrameData = std::make_unique<WorldFrameData>();
 
-        // update each actor position based on latest data
-        for (auto& data : mActorsFrameData)
-            data.updatePosition();
-
         // we are asked to skip the simulation (load a savegame for instance)
         // just return the actors' reference position without applying the movements
         if (skipSimulation)
         {
-            standingCollisions.clear();
             mMovementResults.clear();
             for (const auto& m : mActorsFrameData)
-                mMovementResults[m.mPtr] = m.mPosition;
+            {
+                m.mActorRaw->setStandingOnPtr(nullptr);
+                m.mActorRaw->resetPosition();
+                mMovementResults[m.mPtr] = m.mActorRaw->getWorldPosition();
+            }
             return mMovementResults;
         }
 
@@ -264,11 +279,12 @@ namespace MWPhysics
             mMovementResults.clear();
             syncComputation();
 
-            if (mAdvanceSimulation)
+            for (auto& data : mActorsFrameData)
             {
-                standingCollisions.clear();
-                for (auto& data : mActorsFrameData)
-                    updateStandingCollision(data, standingCollisions);
+                if (mAdvanceSimulation)
+                    data.mActorRaw->setStandingOnPtr(data.mStandingOn);
+                if (mMovementResults.find(data.mPtr) != mMovementResults.end())
+                    data.mActorRaw->setNextPosition(mMovementResults[data.mPtr]);
             }
             return mMovementResults;
         }
@@ -294,25 +310,25 @@ namespace MWPhysics
 
     void PhysicsTaskScheduler::rayTest(const btVector3& rayFromWorld, const btVector3& rayToWorld, btCollisionWorld::RayResultCallback& resultCallback) const
     {
-        MaybeSharedLock<std::shared_timed_mutex> lock(mCollisionWorldMutex, mThreadSafeBullet);
+        MaybeSharedLock lock(mCollisionWorldMutex, mThreadSafeBullet);
         mCollisionWorld->rayTest(rayFromWorld, rayToWorld, resultCallback);
     }
 
     void PhysicsTaskScheduler::convexSweepTest(const btConvexShape* castShape, const btTransform& from, const btTransform& to, btCollisionWorld::ConvexResultCallback& resultCallback) const
     {
-        MaybeSharedLock<std::shared_timed_mutex> lock(mCollisionWorldMutex, mThreadSafeBullet);
+        MaybeSharedLock lock(mCollisionWorldMutex, mThreadSafeBullet);
         mCollisionWorld->convexSweepTest(castShape, from, to, resultCallback);
     }
 
     void PhysicsTaskScheduler::contactTest(btCollisionObject* colObj, btCollisionWorld::ContactResultCallback& resultCallback)
     {
-        std::shared_lock<std::shared_timed_mutex> lock(mCollisionWorldMutex);
+        std::shared_lock lock(mCollisionWorldMutex);
         mCollisionWorld->contactTest(colObj, resultCallback);
     }
 
-    boost::optional<btVector3> PhysicsTaskScheduler::getHitPoint(const btTransform& from, btCollisionObject* target)
+    std::optional<btVector3> PhysicsTaskScheduler::getHitPoint(const btTransform& from, btCollisionObject* target)
     {
-        MaybeSharedLock<std::shared_timed_mutex> lock(mCollisionWorldMutex, mThreadSafeBullet);
+        MaybeSharedLock lock(mCollisionWorldMutex, mThreadSafeBullet);
         // target the collision object's world origin, this should be the center of the collision object
         btTransform rayTo;
         rayTo.setIdentity();
@@ -323,37 +339,37 @@ namespace MWPhysics
         mCollisionWorld->rayTestSingle(from, rayTo, target, target->getCollisionShape(), target->getWorldTransform(), cb);
         if (!cb.hasHit())
             // didn't hit the target. this could happen if point is already inside the collision box
-            return boost::none;
+            return std::nullopt;
         return {cb.m_hitPointWorld};
     }
 
     void PhysicsTaskScheduler::aabbTest(const btVector3& aabbMin, const btVector3& aabbMax, btBroadphaseAabbCallback& callback)
     {
-        std::shared_lock<std::shared_timed_mutex> lock(mCollisionWorldMutex);
+        std::shared_lock lock(mCollisionWorldMutex);
         mCollisionWorld->getBroadphase()->aabbTest(aabbMin, aabbMax, callback);
     }
 
     void PhysicsTaskScheduler::getAabb(const btCollisionObject* obj, btVector3& min, btVector3& max)
     {
-        std::shared_lock<std::shared_timed_mutex> lock(mCollisionWorldMutex);
+        std::shared_lock lock(mCollisionWorldMutex);
         obj->getCollisionShape()->getAabb(obj->getWorldTransform(), min, max);
     }
 
     void PhysicsTaskScheduler::setCollisionFilterMask(btCollisionObject* collisionObject, int collisionFilterMask)
     {
-        std::unique_lock<std::shared_timed_mutex> lock(mCollisionWorldMutex);
+        std::unique_lock lock(mCollisionWorldMutex);
         collisionObject->getBroadphaseHandle()->m_collisionFilterMask = collisionFilterMask;
     }
 
     void PhysicsTaskScheduler::addCollisionObject(btCollisionObject* collisionObject, int collisionFilterGroup, int collisionFilterMask)
     {
-        std::unique_lock<std::shared_timed_mutex> lock(mCollisionWorldMutex);
+        std::unique_lock lock(mCollisionWorldMutex);
         mCollisionWorld->addCollisionObject(collisionObject, collisionFilterGroup, collisionFilterMask);
     }
 
     void PhysicsTaskScheduler::removeCollisionObject(btCollisionObject* collisionObject)
     {
-        std::unique_lock<std::shared_timed_mutex> lock(mCollisionWorldMutex);
+        std::unique_lock lock(mCollisionWorldMutex);
         mCollisionWorld->removeCollisionObject(collisionObject);
     }
 
@@ -361,19 +377,19 @@ namespace MWPhysics
     {
         if (mDeferAabbUpdate)
         {
-            std::unique_lock<std::mutex> lock(mUpdateAabbMutex);
+            std::unique_lock lock(mUpdateAabbMutex);
             mUpdateAabb.insert(std::move(ptr));
         }
         else
         {
-            std::unique_lock<std::shared_timed_mutex> lock(mCollisionWorldMutex);
+            std::unique_lock lock(mCollisionWorldMutex);
             updatePtrAabb(ptr);
         }
     }
 
     bool PhysicsTaskScheduler::getLineOfSight(const std::weak_ptr<Actor>& actor1, const std::weak_ptr<Actor>& actor2)
     {
-        std::unique_lock<std::shared_timed_mutex> lock(mLOSCacheMutex);
+        std::unique_lock lock(mLOSCacheMutex);
 
         auto actorPtr1 = actor1.lock();
         auto actorPtr2 = actor2.lock();
@@ -395,7 +411,7 @@ namespace MWPhysics
 
     void PhysicsTaskScheduler::refreshLOSCache()
     {
-        std::shared_lock<std::shared_timed_mutex> lock(mLOSCacheMutex);
+        std::shared_lock lock(mLOSCacheMutex);
         int job = 0;
         int numLOS = mLOSCache.size();
         while ((job = mNextLOS.fetch_add(1, std::memory_order_relaxed)) < numLOS)
@@ -414,9 +430,7 @@ namespace MWPhysics
 
     void PhysicsTaskScheduler::updateAabbs()
     {
-        std::unique_lock<std::shared_timed_mutex> lock1(mCollisionWorldMutex, std::defer_lock);
-        std::unique_lock<std::mutex> lock2(mUpdateAabbMutex, std::defer_lock);
-        std::lock(lock1, lock2);
+        std::scoped_lock lock(mCollisionWorldMutex, mUpdateAabbMutex);
         std::for_each(mUpdateAabb.begin(), mUpdateAabb.end(),
             [this](const std::weak_ptr<PtrHolder>& ptr) { updatePtrAabb(ptr); });
         mUpdateAabb.clear();
@@ -428,7 +442,7 @@ namespace MWPhysics
         {
             if (const auto actor = std::dynamic_pointer_cast<Actor>(p))
             {
-                actor->commitPositionChange();
+                actor->updateCollisionObjectPosition();
                 mCollisionWorld->updateSingleAabb(actor->getCollisionObject());
             }
             else if (const auto object = std::dynamic_pointer_cast<Object>(p))
@@ -441,7 +455,7 @@ namespace MWPhysics
 
     void PhysicsTaskScheduler::worker()
     {
-        std::shared_lock<std::shared_timed_mutex> lock(mSimulationMutex);
+        std::shared_lock lock(mSimulationMutex);
         while (!mQuit)
         {
             if (!mNewFrame)
@@ -453,7 +467,7 @@ namespace MWPhysics
             int job = 0;
             while (mRemainingSteps && (job = mNextJob.fetch_add(1, std::memory_order_relaxed)) < mNumJobs)
             {
-                MaybeSharedLock<std::shared_timed_mutex> lockColWorld(mCollisionWorldMutex, mThreadSafeBullet);
+                MaybeSharedLock lockColWorld(mCollisionWorldMutex, mThreadSafeBullet);
                 if(const auto actor = mActorsFrameData[job].mActor.lock())
                     MovementSolver::move(mActorsFrameData[job], mPhysicsDt, mCollisionWorld.get(), *mWorldFrameData);
             }
@@ -481,31 +495,20 @@ namespace MWPhysics
 
     void PhysicsTaskScheduler::updateActorsPositions()
     {
-        std::unique_lock<std::shared_timed_mutex> lock(mCollisionWorldMutex);
+        std::unique_lock lock(mCollisionWorldMutex);
         for (auto& actorData : mActorsFrameData)
         {
             if(const auto actor = actorData.mActor.lock())
             {
-                if (actorData.mPosition == actor->getPosition())
-                    actor->setPosition(actorData.mPosition, false); // update previous position to make sure interpolation is correct
-                else
+                bool positionChanged = actorData.mPosition != actorData.mActorRaw->getPosition();
+                actorData.mActorRaw->setPosition(actorData.mPosition);
+                if (positionChanged)
                 {
-                    actorData.mPositionChanged = true;
-                    actor->setPosition(actorData.mPosition);
+                    actor->updateCollisionObjectPosition();
+                    mCollisionWorld->updateSingleAabb(actor->getCollisionObject());
                 }
             }
         }
-    }
-
-    void PhysicsTaskScheduler::udpateActorsAabbs()
-    {
-        std::unique_lock<std::shared_timed_mutex> lock(mCollisionWorldMutex);
-        for (const auto& actorData : mActorsFrameData)
-            if (actorData.mPositionChanged)
-            {
-                if(const auto actor = actorData.mActor.lock())
-                    mCollisionWorld->updateSingleAabb(actor->getCollisionObject());
-            }
     }
 
     bool PhysicsTaskScheduler::hasLineOfSight(const Actor* actor1, const Actor* actor2)
@@ -517,7 +520,7 @@ namespace MWPhysics
         resultCallback.m_collisionFilterGroup = 0xFF;
         resultCallback.m_collisionFilterMask = CollisionType_World|CollisionType_HeightMap|CollisionType_Door;
 
-        MaybeSharedLock<std::shared_timed_mutex> lockColWorld(mCollisionWorldMutex, mThreadSafeBullet);
+        MaybeSharedLock lockColWorld(mCollisionWorldMutex, mThreadSafeBullet);
         mCollisionWorld->rayTest(pos1, pos2, resultCallback);
 
         return !resultCallback.hasHit();
@@ -539,6 +542,5 @@ namespace MWPhysics
             mMovementResults[actorData.mPtr] = interpolateMovements(actorData, mTimeAccum, mPhysicsDt);
             updateMechanics(actorData);
         }
-        udpateActorsAabbs();
     }
 }
