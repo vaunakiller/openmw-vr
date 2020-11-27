@@ -109,7 +109,7 @@ void MWBase::Environment::setVrMode(bool vrMode)
     mVrMode = vrMode;
 }
 
-bool MWBase::Environment::getVrMode(void)
+bool MWBase::Environment::getVrMode(void) const
 {
     return mVrMode;
 }

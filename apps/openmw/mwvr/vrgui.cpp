@@ -40,6 +40,7 @@
 #include <MyGUI_InputManager.h>
 #include <MyGUI_WidgetManager.h>
 #include <MyGUI_Window.h>
+#include <MyGUI_Button.h>
 
 namespace osg
 {
@@ -146,11 +147,12 @@ namespace MWVR
     VRGUILayer::VRGUILayer(
         osg::ref_ptr<osg::Group> geometryRoot,
         osg::ref_ptr<osg::Group> cameraRoot,
-        std::string layerName,
+        MyGUI::ILayer* layer,
         LayerConfig config,
         VRGUIManager* parent)
         : mConfig(config)
-        , mLayerName(layerName)
+        , mLayerName(layer->getName())
+        , mMyGUILayer(layer)
         , mGeometryRoot(geometryRoot)
         , mCameraRoot(cameraRoot)
     {
@@ -468,7 +470,8 @@ namespace MWVR
             osg::Vec2(1,1),
             sizingMode,
             TrackingMode::Menu,
-            extraLayers
+            extraLayers,
+            false
         };
     }
     LayerConfig gDefaultConfig = createDefaultConfig(1);
@@ -493,7 +496,8 @@ namespace MWVR
         osg::Vec2(1,1),
         SizingMode::Auto,
         TrackingMode::HudLeftHand,
-        ""
+        "",
+        true
     };
 
     static const float sSideBySideRadius = 1.f;
@@ -512,7 +516,8 @@ namespace MWVR
             osg::Vec2(0.70f, 0.70f),
             SizingMode::Fixed,
             gDefaultConfig.trackingMode,
-            ""
+            "",
+            false
         };
     };
 
@@ -536,7 +541,8 @@ namespace MWVR
         gDefaultConfig.myGUIViewSize,
         SizingMode::Auto,
         TrackingMode::HudLeftHand,
-        ""
+        "",
+        false
     };
 
     LayerConfig gPopupConfig = LayerConfig
@@ -552,7 +558,8 @@ namespace MWVR
         gDefaultConfig.myGUIViewSize,
         SizingMode::Auto,
         TrackingMode::HudRightHand,
-        ""
+        "",
+        false
     };
 
 
@@ -601,9 +608,10 @@ namespace MWVR
             mSideBySideLayers[i]->setAngle(low + static_cast<float>(i) * sSideBySideAzimuthInterval);
     }
 
-    void VRGUIManager::insertLayer(const std::string& name)
+    void VRGUIManager::insertLayer(MyGUI::ILayer* layer)
     {
         LayerConfig config = gDefaultConfig;
+        const auto& name = layer->getName();
         auto configIt = gLayerConfigs.find(name);
         if (configIt != gLayerConfigs.end())
         {
@@ -614,25 +622,25 @@ namespace MWVR
             Log(Debug::Warning) << "Layer " << name << " has no configuration, using default";
         }
 
-        auto layer = std::shared_ptr<VRGUILayer>(new VRGUILayer(
+        auto vrlayer = std::shared_ptr<VRGUILayer>(new VRGUILayer(
             mGUIGeometriesRoot,
             mGUICamerasRoot,
-            name,
+            layer,
             config,
             this
         ));
-        mLayers[name] = layer;
+        mLayers[name] = vrlayer;
 
-        layer->mGeometry->setUserData(new VRGUILayerUserData(mLayers[name]));
+        vrlayer->mGeometry->setUserData(new VRGUILayerUserData(mLayers[name]));
 
         if (config.sideBySide)
         {
-            mSideBySideLayers.push_back(layer);
+            mSideBySideLayers.push_back(vrlayer);
             updateSideBySideLayers();
         }
 
         if (config.trackingMode == TrackingMode::Menu)
-            layer->updateTracking(mHeadPose);
+            vrlayer->updateTracking(mHeadPose);
     }
 
     void VRGUIManager::insertWidget(MWGui::Layout* widget)
@@ -643,32 +651,24 @@ namespace MWVR
         auto it = mLayers.find(name);
         if (it == mLayers.end())
         {
-            insertLayer(name);
+            insertLayer(layer);
             it = mLayers.find(name);
-            if (it == mLayers.end())
-            {
-                Log(Debug::Error) << "Failed to insert layer " << name;
-                return;
-            }
         }
 
         it->second->insertWidget(widget);
-
-        if (it->second.get() != mFocusLayer)
-            widget->setLayerPick(false);
     }
 
-    void VRGUIManager::removeLayer(const std::string& name)
+    void VRGUIManager::removeLayer(MyGUI::ILayer* layer)
     {
-        auto it = mLayers.find(name);
+        auto it = mLayers.find(layer->getName());
         if (it == mLayers.end())
             return;
 
-        auto layer = it->second;
+        auto vrlayer = it->second;
 
         for (auto it2 = mSideBySideLayers.begin(); it2 < mSideBySideLayers.end(); it2++)
         {
-            if (*it2 == layer)
+            if (*it2 == vrlayer)
             {
                 mSideBySideLayers.erase(it2);
                 updateSideBySideLayers();
@@ -684,9 +684,8 @@ namespace MWVR
     void VRGUIManager::removeWidget(MWGui::Layout* widget)
     {
         auto* layer = widget->mMainWidget->getLayer();
-        auto name = layer->getName();
 
-        auto it = mLayers.find(name);
+        auto it = mLayers.find(layer->getName());
         if (it == mLayers.end())
         {
             //Log(Debug::Warning) << "Tried to remove widget from nonexistent layer " << name;
@@ -696,7 +695,7 @@ namespace MWVR
         it->second->removeWidget(widget);
         if (it->second->widgetCount() == 0)
         {
-            removeLayer(name);
+            removeLayer(layer);
         }
     }
 
@@ -705,14 +704,12 @@ namespace MWVR
         auto* layer = widget->mMainWidget->getLayer();
         auto name = layer->getName();
 
-        Log(Debug::Verbose) << "setVisible (" << name << "): " << visible;
         if (layerBlacklist.find(name) != layerBlacklist.end())
         {
-            Log(Debug::Verbose) << "Blacklisted";
-            // Never pick an invisible layer
-            widget->setLayerPick(false);
+            Log(Debug::Verbose) << "setVisible (" << name << "): ignored";
             return;
         }
+        Log(Debug::Verbose) << "setVisible (" << name << "): " << visible;
 
         if (visible)
             insertWidget(widget);
@@ -807,44 +804,109 @@ namespace MWVR
         if (layer == mFocusLayer)
             return;
 
-        if (mFocusLayer)
-        {
-            mFocusLayer->mWidgets.front()->setLayerPick(false);
-        }
+        setFocusWidget(nullptr);
         mFocusLayer = layer;
-        if (mFocusLayer)
-        {
-            Log(Debug::Verbose) << "Set focus layer to " << mFocusLayer->mWidgets.front()->mMainWidget->getLayer()->getName();
-            mFocusLayer->mWidgets.front()->setLayerPick(true);
-        }
-        else
-        {
-            Log(Debug::Verbose) << "Set focus layer to null";
-        }
     }
 
     void VRGUIManager::setFocusWidget(MyGUI::Widget* widget)
     {
-        // TODO: This relies on MyGUI internal functions and may break on any future version.
         if (widget == mFocusWidget)
             return;
-        if (mFocusWidget)
+
+        // TODO: This relies on MyGUI internal functions and may break on any future version.
+        if (validateFocusWidget())
             mFocusWidget->_riseMouseLostFocus(widget);
         if (widget)
             widget->_riseMouseSetFocus(mFocusWidget);
         mFocusWidget = widget;
     }
 
-    bool VRGUIManager::injectMouseClick(bool onPress)
+    // MyGUI may delete the focusWidget.
+    // Call this and check the result before dereferencing mFocusWidget
+    bool VRGUIManager::validateFocusWidget()
     {
-        // TODO: This relies on MyGUI internal functions and may break on any future version.
         if (mFocusWidget)
         {
-            if(onPress)
-                mFocusWidget->_riseMouseButtonClick();
+            auto* cursorWidget = widgetFromGuiCursor(mGuiCursor.x(), mGuiCursor.y());
+            // If the focus widget is no longer seen at the coordinate it was last seen
+            // it may have been deleted by mygui.
+            // In theory, notifyWidgetUnlinked() should catch all cases but doesn't.
+            if (cursorWidget != mFocusWidget)
+            {
+                mFocusWidget = nullptr;
+                return false;
+            }
             return true;
         }
         return false;
+    }
+
+    bool VRGUIManager::focusIsModalWindow()
+    {
+        if (mFocusLayer)
+            for (auto* window : mFocusLayer->mWidgets)
+                if (mModalWindow == window->mMainWidget)
+                    return true;
+        return false;
+    }
+
+    MyGUI::Widget* VRGUIManager::widgetFromGuiCursor(int x, int y)
+    {
+        if (mFocusLayer)
+        {
+            if (
+                mFocusLayer->mConfig.ignoreModality
+                || !mModalWindow
+                || focusIsModalWindow()
+                )
+                return static_cast<MyGUI::Widget*>(mFocusLayer->mMyGUILayer->getLayerItemByPoint(x, y));
+        }
+        return nullptr;
+    }
+
+    void VRGUIManager::updateGuiCursor(int x, int y)
+    {
+        setFocusWidget(widgetFromGuiCursor(x, y));
+        mGuiCursor.x() = x;
+        mGuiCursor.y() = y;
+    }
+
+    bool VRGUIManager::injectMouseClick(bool onPress)
+    {
+        // TODO: This relies on MyGUI internal functions and may break on any future version.
+        if (validateFocusWidget())
+        {
+            if (onPress)
+            {
+                mFocusWidget->_riseMouseButtonPressed(mGuiCursor.x(), mGuiCursor.y(), MyGUI::MouseButton::Left);
+
+                MyGUI::Button* b = mFocusWidget->castType<MyGUI::Button>(false);
+                if (b && b->getEnabled())
+                {
+                    MWBase::Environment::get().getWindowManager()->playSound("Menu Click");
+                }
+            }
+            else
+            {
+                mFocusWidget->_riseMouseButtonReleased(mGuiCursor.x(), mGuiCursor.y(), MyGUI::MouseButton::Left);
+                mFocusWidget->_riseMouseButtonClick();
+            }
+            return true;
+        }
+        return false;
+    }
+
+    void VRGUIManager::notifyWidgetUnlinked(MyGUI::Widget* widget)
+    {
+        if (widget == mFocusWidget)
+        {
+            mFocusWidget = nullptr;
+        }
+    }
+
+    void VRGUIManager::notifyModalWindow(MyGUI::Widget* window)
+    {
+        mModalWindow = window;
     }
 
     void VRGUIManager::computeGuiCursor(osg::Vec3 hitPoint)
@@ -866,26 +928,8 @@ namespace MWVR
             y = bottom - height * y;
         }
 
-        mGuiCursor.x() = (int)x;
-        mGuiCursor.y() = (int)y;
-
-        MyGUI::InputManager::getInstance().injectMouseMove((int)x, (int)y, 0);
         MWBase::Environment::get().getWindowManager()->setCursorActive(true);
-
-        // The virtual keyboard must be interactive regardless of modals
-        // This could be generalized with another config entry, but i don't think any other
-        // widgets/layers need it so i'm hardcoding it for the VirtualKeyboard for now.
-        if (
-               mFocusLayer 
-            && mFocusLayer->mLayerName == "VirtualKeyboard" 
-            && MyGUI::InputManager::getInstance().isModalAny())
-        {
-            auto* widget = MyGUI::LayerManager::getInstance().getWidgetFromPoint((int)x, (int)y);
-            setFocusWidget(widget);
-        }
-        else
-            setFocusWidget(nullptr);
-
+        updateGuiCursor((int)x, (int)y);
     }
 
 }

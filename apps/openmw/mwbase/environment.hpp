@@ -79,7 +79,7 @@ namespace MWBase
             void limitFrameRate(double dt) const;
 
             void setVrMode(bool vrMode);
-            bool getVrMode(void);
+            bool getVrMode(void) const;
 
             World *getWorld() const;
 

@@ -83,25 +83,6 @@ namespace MWGui
             window->setCaptionWithReplacing(title);
     }
 
-    void Layout::setLayerPick(bool pick)
-    {
-#if MYGUI_VERSION >= MYGUI_DEFINE_VERSION(3,4,0)
-        MyGUI::ILayer* layer = mMainWidget->getLayer();
-        // MyGUI exposes pick on the implementations of ILayer only, but not ILayer itself.
-        auto* oLayer = layer->castType<MyGUI::OverlappedLayer>(false);
-        auto* sLayer = layer->castType<MyGUI::SharedLayer>(false);
-        if (oLayer)
-            oLayer->setPick(pick);
-        if (sLayer)
-            sLayer->setPick(pick);
-#else
-#ifdef USE_OPENXR
-#error "MyGUI version 3.4.0 or greater required to build for VR"
-#endif
-        throw std::logic_error("Not implemented");
-#endif
-    }
-
     MyGUI::Widget* Layout::getWidget(const std::string &_name)
     {
         for (MyGUI::Widget* widget : mListWindowRoot)

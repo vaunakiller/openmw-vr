@@ -11,6 +11,9 @@
 #include "../mwbase/windowmanager.hpp"
 #include "../mwbase/environment.hpp"
 
+#include "../mwvr/vrenvironment.hpp"
+#include "../mwvr/vrgui.hpp"
+
 namespace MWGui
 {
 
@@ -91,6 +94,9 @@ void KeyboardNavigation::_unlinkWidget(MyGUI::Widget *widget)
             w.second = nullptr;
     if (widget == mCurrentFocus)
         mCurrentFocus = nullptr;
+
+    if (MWBase::Environment::get().getVrMode())
+        MWVR::Environment::get().getGUIManager()->notifyWidgetUnlinked(widget);
 }
 
 void styleFocusedButton(MyGUI::Widget* w)
@@ -169,6 +175,9 @@ void KeyboardNavigation::setDefaultFocus(MyGUI::Widget *window, MyGUI::Widget *d
 void KeyboardNavigation::setModalWindow(MyGUI::Widget *window)
 {
     mModalWindow = window;
+
+    if (MWBase::Environment::get().getVrMode())
+        MWVR::Environment::get().getGUIManager()->notifyModalWindow(window);
 }
 
 void KeyboardNavigation::setEnabled(bool enabled)

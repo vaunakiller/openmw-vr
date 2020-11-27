@@ -25,6 +25,9 @@
 
 #include "itemmodel.hpp"
 
+#include "../mwvr/vrenvironment.hpp"
+#include "../mwvr/vrgui.hpp"
+
 namespace MWGui
 {
     std::string ToolTips::sSchoolNames[] = {"#{sSchoolAlteration}", "#{sSchoolConjuration}", "#{sSchoolDestruction}", "#{sSchoolIllusion}", "#{sSchoolMysticism}", "#{sSchoolRestoration}"};
@@ -156,7 +159,11 @@ namespace MWGui
                 if (mRemainingDelay > 0)
                     return;
 
-                MyGUI::Widget* focus = MyGUI::InputManager::getInstance().getMouseFocusWidget();
+                MyGUI::Widget* focus = nullptr;
+                if (MWBase::Environment::get().getVrMode())
+                    focus = MWVR::Environment::get().getGUIManager()->focusWidget();
+                else
+                    MyGUI::Widget* focus = MyGUI::InputManager::getInstance().getMouseFocusWidget();
                 if (focus == 0)
                     return;
 

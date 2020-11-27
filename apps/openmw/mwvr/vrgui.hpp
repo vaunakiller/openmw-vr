@@ -1,5 +1,5 @@
-#ifndef OPENXR_MENU_HPP
-#define OPENXR_MENU_HPP
+#ifndef VRGUI_HPP
+#define VRGUI_HPP
 
 #include <map>
 #include <set>
@@ -25,6 +25,7 @@ namespace MWGui
 {
     class Layout;
     class WindowBase;
+    class ILayer;
 }
 
 struct XrCompositionLayerQuad;
@@ -63,6 +64,7 @@ namespace MWVR
         SizingMode sizingMode; //!< How to size the layer
         TrackingMode trackingMode; //!< Tracking mode
         std::string extraLayers; //!< Additional layers to draw (list separated by any non-alphabetic)
+        bool ignoreModality; //!< Layer input should be enabled even if another modal window is active
 
         bool operator<(const LayerConfig& rhs) const { return priority < rhs.priority; }
     };
@@ -78,7 +80,7 @@ namespace MWVR
         VRGUILayer(
             osg::ref_ptr<osg::Group> geometryRoot,
             osg::ref_ptr<osg::Group> cameraRoot,
-            std::string layerName,
+            MyGUI::ILayer* layer,
             LayerConfig config,
             VRGUIManager* parent);
         ~VRGUILayer();
@@ -102,6 +104,7 @@ namespace MWVR
         Pose mTrackedPose{};
         LayerConfig mConfig;
         std::string mLayerName;
+        MyGUI::ILayer* mMyGUILayer;
         std::vector<MWGui::Layout*> mWidgets;
         osg::ref_ptr<osg::Group> mGeometryRoot;
         osg::ref_ptr<osg::Geometry> mGeometry{ new osg::Geometry };
@@ -139,10 +142,10 @@ namespace MWVR
         void setVisible(MWGui::Layout*, bool visible);
         
         /// Insert the given layer quad if it isn't already
-        void insertLayer(const std::string& name);
+        void insertLayer(MyGUI::ILayer* layer);
 
         /// Remove the given layer quad
-        void removeLayer(const std::string& name);
+        void removeLayer(MyGUI::ILayer* layer);
 
         /// Update layer quads based on current camera
         void updateTracking(void);
@@ -162,6 +165,15 @@ namespace MWVR
         /// Inject mouse click if applicable
         bool injectMouseClick(bool onPress);
 
+        /// Notify VRGUIManager that a widget has been unlinked
+        void notifyWidgetUnlinked(MyGUI::Widget* widget);
+
+        /// Notify VRGUIManager that a window is modal
+        void notifyModalWindow(MyGUI::Widget* window);
+
+        /// Currently focus widget according to VR
+        MyGUI::Widget* focusWidget() { return mFocusWidget; }
+
     private:
         void computeGuiCursor(osg::Vec3 hitPoint);
         void updateSideBySideLayers();
@@ -169,6 +181,10 @@ namespace MWVR
         void removeWidget(MWGui::Layout* widget);
         void setFocusLayer(VRGUILayer* layer);
         void setFocusWidget(MyGUI::Widget* widget);
+        bool validateFocusWidget();
+        bool focusIsModalWindow();
+        MyGUI::Widget* widgetFromGuiCursor(int x, int y);
+        void updateGuiCursor(int x, int y);
 
         osg::ref_ptr<osgViewer::Viewer> mOsgViewer{ nullptr };
 
@@ -183,6 +199,7 @@ namespace MWVR
         osg::Vec2i  mGuiCursor{};
         VRGUILayer* mFocusLayer{ nullptr };
         MyGUI::Widget* mFocusWidget{ nullptr };
+        MyGUI::Widget* mModalWindow{ nullptr };
         osg::observer_ptr<osg::Camera> mCamera{ nullptr };
     };
 }
