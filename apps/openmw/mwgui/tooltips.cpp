@@ -25,8 +25,10 @@
 
 #include "itemmodel.hpp"
 
+#ifdef USE_OPENXR
 #include "../mwvr/vrenvironment.hpp"
 #include "../mwvr/vrgui.hpp"
+#endif
 
 namespace MWGui
 {
@@ -160,9 +162,11 @@ namespace MWGui
                     return;
 
                 MyGUI::Widget* focus = nullptr;
+#ifdef USE_OPENXR
                 if (MWBase::Environment::get().getVrMode())
                     focus = MWVR::Environment::get().getGUIManager()->focusWidget();
                 else
+#endif
                     MyGUI::Widget* focus = MyGUI::InputManager::getInstance().getMouseFocusWidget();
                 if (focus == 0)
                     return;
