@@ -167,7 +167,7 @@ namespace MWGui
                     focus = MWVR::Environment::get().getGUIManager()->focusWidget();
                 else
 #endif
-                    MyGUI::Widget* focus = MyGUI::InputManager::getInstance().getMouseFocusWidget();
+                    focus = MyGUI::InputManager::getInstance().getMouseFocusWidget();
                 if (focus == 0)
                     return;
 
