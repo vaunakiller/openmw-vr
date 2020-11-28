@@ -41,6 +41,8 @@ namespace MWVR
         , mPostDraw(new PostdrawCallback(this))
         , mVrShadow()
         , mConfigured(false)
+        , mMsaaResolveMirrorTexture{nullptr, nullptr}
+        , mMirrorTexture{ nullptr }
     {
         mViewer->setRealizeOperation(new RealizeOperation());
     }
