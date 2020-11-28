@@ -271,9 +271,11 @@ namespace MWVR
                     mTrackedPose.position = world.getTrans();
                     mTrackedPose.orientation = world.getRotate();
                     if (mConfig.trackingMode == TrackingMode::HudRightHand)
+                    {
                         mTrackedPose.orientation = osg::Quat(osg::PI, osg::Vec3(1, 0, 0)) * mTrackedPose.orientation;
-                    mTrackedPose.orientation = osg::Quat(osg::PI_2, osg::Vec3(0, 0, 1)) * mTrackedPose.orientation;
-                    mTrackedPose.orientation = osg::Quat(osg::PI, osg::Vec3(1, 0, 0)) * mTrackedPose.orientation;
+                        mTrackedPose.orientation = osg::Quat(osg::PI_2, osg::Vec3(0, 0, 1)) * mTrackedPose.orientation;
+                    }
+                        mTrackedPose.orientation = osg::Quat(osg::PI, osg::Vec3(1, 0, 0)) * mTrackedPose.orientation;
                 }
             }
         }
@@ -488,7 +490,7 @@ namespace MWVR
         10,
         false,
         osg::Vec4{0.f,0.f,0.f,.75f},
-        osg::Vec3(0.025f,.025f,.066f), // offset (meters)
+        osg::Vec3(0.025f,-.0501f,.066f), // offset (meters)
         osg::Vec2(0.f,0.5f), // center (model space)
         osg::Vec2(.25f, .25f), // extent (meters)
         2048, // Spatial resolution (pixels per meter)
@@ -533,7 +535,7 @@ namespace MWVR
         0,
         false, // side-by-side
         osg::Vec4{}, // background
-        osg::Vec3(0.025f,.025f,.066f), // offset (meters)
+        osg::Vec3(0.025f,-.050f,.066f), // offset (meters)
         osg::Vec2(0.f,0.5f), // center (model space)
         osg::Vec2(.1f, .1f), // extent (meters)
         1024, // resolution (pixels per meter)
