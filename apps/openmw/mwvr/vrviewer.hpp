@@ -92,8 +92,8 @@ namespace MWVR
         osg::ref_ptr<PredrawCallback> mPreDraw{ nullptr };
         osg::ref_ptr<PostdrawCallback> mPostDraw{ nullptr };
         osg::GraphicsContext* mMainCameraGC{ nullptr };
-        std::unique_ptr<VRFramebuffer> mMsaaResolveMirrorTexture[2]{ };
-        std::unique_ptr<VRFramebuffer> mMirrorTexture{ nullptr };
+        std::unique_ptr<VRFramebuffer> mMsaaResolveMirrorTexture[2];
+        std::unique_ptr<VRFramebuffer> mMirrorTexture;
         VrShadow    mVrShadow;
 
         std::mutex mMutex{};
