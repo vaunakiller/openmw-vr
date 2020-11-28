@@ -93,97 +93,97 @@ variables: &engine-targets
 variables: &cs-targets
   targets: "openmw-cs,bsatool,esmtool,niftest"
 
-.Windows_Ninja_Base:
-  tags:
-    - windows
-  before_script:
-  - Import-Module "$env:ChocolateyInstall\helpers\chocolateyProfile.psm1"
-  - choco source add -n=openmw-proxy -s="https://repo.openmw.org/repository/Chocolatey/" --priority=1
-  - choco install git --force --params "/GitAndUnixToolsOnPath" -y
-  - choco install 7zip -y
-  - choco install cmake.install --installargs 'ADD_CMAKE_TO_PATH=System' -y
-  - choco install vswhere -y
-  - choco install ninja -y
-  - choco install python -y
-  - refreshenv
-  stage: build
-  script:
-    - $time = (Get-Date -Format "HH:mm:ss")
-    - echo ${time}
-    - echo "started by ${GITLAB_USER_NAME}"
-    - sh CI/before_script.msvc.sh -c $config -p Win64 -v 2019 -k -V -N
-    - cd MSVC2019_64_Ninja
-    - .\ActivateMSVC.ps1
-    - cmake --build . --config $config --target ($targets.Split(','))
-    - cd $config
-    - |
-      if (Get-ChildItem -Recurse *.pdb) {
-        7z a -tzip ..\..\OpenMW_MSVC2019_64_${config}_${CI_COMMIT_REF_NAME}_${CI_JOB_ID}_symbols.zip '*.pdb'
-        Get-ChildItem -Recurse *.pdb | Remove-Item
-      }
-    - 7z a -tzip ..\..\OpenMW_MSVC2019_64_${config}_${CI_COMMIT_REF_NAME}_${CI_JOB_ID}.zip '*'
-  after_script:
-    - Copy-Item C:\ProgramData\chocolatey\logs\chocolatey.log
-  cache:
-    key: ninja-v2
-    paths:
-    - deps
-    - MSVC2019_64_Ninja/deps/Qt
-  artifacts:
-    when: always
-    paths:
-    - "*.zip"
-    - "*.log"
-    - MSVC2019_64_Ninja/*.log
-    - MSVC2019_64_Ninja/*/*.log
-    - MSVC2019_64_Ninja/*/*/*.log
-    - MSVC2019_64_Ninja/*/*/*/*.log
-    - MSVC2019_64_Ninja/*/*/*/*/*.log
-    - MSVC2019_64_Ninja/*/*/*/*/*/*.log
-    - MSVC2019_64_Ninja/*/*/*/*/*/*/*.log
-    - MSVC2019_64_Ninja/*/*/*/*/*/*/*/*.log
-
-Windows_Ninja_Engine_Release:
-  extends:
-    - .Windows_Ninja_Base
-  variables:
-    <<: *engine-targets
-    config: "Release"
-
-Windows_Ninja_Engine_Debug:
-  extends:
-    - .Windows_Ninja_Base
-  variables:
-    <<: *engine-targets
-    config: "Debug"
-
-Windows_Ninja_Engine_RelWithDebInfo:
-  extends:
-    - .Windows_Ninja_Base
-  variables:
-    <<: *engine-targets
-    config: "RelWithDebInfo"
-
-Windows_Ninja_CS_Release:
-  extends:
-    - .Windows_Ninja_Base
-  variables:
-    <<: *cs-targets
-    config: "Release"
-
-Windows_Ninja_CS_Debug:
-  extends:
-    - .Windows_Ninja_Base
-  variables:
-    <<: *cs-targets
-    config: "Debug"
-
-Windows_Ninja_CS_RelWithDebInfo:
-  extends:
-    - .Windows_Ninja_Base
-  variables:
-    <<: *cs-targets
-    config: "RelWithDebInfo"
+#.Windows_Ninja_Base:
+#  tags:
+#    - windows
+#  before_script:
+#  - Import-Module "$env:ChocolateyInstall\helpers\chocolateyProfile.psm1"
+#  - choco source add -n=openmw-proxy -s="https://repo.openmw.org/repository/Chocolatey/" --priority=1
+#  - choco install git --force --params "/GitAndUnixToolsOnPath" -y
+#  - choco install 7zip -y
+#  - choco install cmake.install --installargs 'ADD_CMAKE_TO_PATH=System' -y
+#  - choco install vswhere -y
+#  - choco install ninja -y
+#  - choco install python -y
+#  - refreshenv
+#  stage: build
+#  script:
+#    - $time = (Get-Date -Format "HH:mm:ss")
+#    - echo ${time}
+#    - echo "started by ${GITLAB_USER_NAME}"
+#    - sh CI/before_script.msvc.sh -c $config -p Win64 -v 2019 -k -V -N
+#    - cd MSVC2019_64_Ninja
+#    - .\ActivateMSVC.ps1
+#    - cmake --build . --config $config --target ($targets.Split(','))
+#    - cd $config
+#    - |
+#      if (Get-ChildItem -Recurse *.pdb) {
+#        7z a -tzip ..\..\OpenMW_MSVC2019_64_${config}_${CI_COMMIT_REF_NAME}_${CI_JOB_ID}_symbols.zip '*.pdb'
+#        Get-ChildItem -Recurse *.pdb | Remove-Item
+#      }
+#    - 7z a -tzip ..\..\OpenMW_MSVC2019_64_${config}_${CI_COMMIT_REF_NAME}_${CI_JOB_ID}.zip '*'
+#  after_script:
+#    - Copy-Item C:\ProgramData\chocolatey\logs\chocolatey.log
+#  cache:
+#    key: ninja-v2
+#    paths:
+#    - deps
+#    - MSVC2019_64_Ninja/deps/Qt
+#  artifacts:
+#    when: always
+#    paths:
+#    - "*.zip"
+#    - "*.log"
+#    - MSVC2019_64_Ninja/*.log
+#    - MSVC2019_64_Ninja/*/*.log
+#    - MSVC2019_64_Ninja/*/*/*.log
+#    - MSVC2019_64_Ninja/*/*/*/*.log
+#    - MSVC2019_64_Ninja/*/*/*/*/*.log
+#    - MSVC2019_64_Ninja/*/*/*/*/*/*.log
+#    - MSVC2019_64_Ninja/*/*/*/*/*/*/*.log
+#    - MSVC2019_64_Ninja/*/*/*/*/*/*/*/*.log
+#
+#Windows_Ninja_Engine_Release:
+#  extends:
+#    - .Windows_Ninja_Base
+#  variables:
+#    <<: *engine-targets
+#    config: "Release"
+#
+#Windows_Ninja_Engine_Debug:
+#  extends:
+#    - .Windows_Ninja_Base
+#  variables:
+#    <<: *engine-targets
+#    config: "Debug"
+#
+#Windows_Ninja_Engine_RelWithDebInfo:
+#  extends:
+#    - .Windows_Ninja_Base
+#  variables:
+#    <<: *engine-targets
+#    config: "RelWithDebInfo"
+#
+#Windows_Ninja_CS_Release:
+#  extends:
+#    - .Windows_Ninja_Base
+#  variables:
+#    <<: *cs-targets
+#    config: "Release"
+#
+#Windows_Ninja_CS_Debug:
+#  extends:
+#    - .Windows_Ninja_Base
+#  variables:
+#    <<: *cs-targets
+#    config: "Debug"
+#
+#Windows_Ninja_CS_RelWithDebInfo:
+#  extends:
+#    - .Windows_Ninja_Base
+#  variables:
+#    <<: *cs-targets
+#    config: "RelWithDebInfo"
 
 .Windows_MSBuild_Base:
   tags:
@@ -275,34 +275,34 @@ Windows_MSBuild_CS_RelWithDebInfo:
     <<: *cs-targets
     config: "RelWithDebInfo"
 
-Debian_AndroidNDK_arm64-v8a:
-  tags:
-    - linux
-  image: debian:bullseye
-  variables:
-    CCACHE_SIZE: 3G
-  cache:
-    key: Debian_AndroidNDK_arm64-v8a.v2
-    paths:
-      - apt-cache/
-      - ccache/
-  before_script:
-    - export APT_CACHE_DIR=`pwd`/apt-cache && mkdir -pv $APT_CACHE_DIR
-    - echo "deb http://deb.debian.org/debian unstable main contrib" > /etc/apt/sources.list
-    - echo "google-android-ndk-installer google-android-installers/mirror select https://dl.google.com" | debconf-set-selections
-    - apt-get update -yq
-    - apt-get -o dir::cache::archives="$APT_CACHE_DIR" install -y cmake ccache curl unzip git build-essential google-android-ndk-installer
-  stage: build
-  script:
-    - export CCACHE_BASEDIR="`pwd`"
-    - export CCACHE_DIR="`pwd`/ccache" && mkdir -pv "$CCACHE_DIR"
-    - ccache -z -M "${CCACHE_SIZE}"
-    - CI/before_install.android.sh
-    - CI/before_script.android.sh
-    - cd build
-    - cmake --build . -- -j $(nproc)
-    - cmake --install .
-    - ccache -s
-  artifacts:
-    paths:
-      - build/install/
+#Debian_AndroidNDK_arm64-v8a:
+#  tags:
+#    - linux
+#  image: debian:bullseye
+#  variables:
+#    CCACHE_SIZE: 3G
+#  cache:
+#    key: Debian_AndroidNDK_arm64-v8a.v2
+#    paths:
+#      - apt-cache/
+#      - ccache/
+#  before_script:
+#    - export APT_CACHE_DIR=`pwd`/apt-cache && mkdir -pv $APT_CACHE_DIR
+#    - echo "deb http://deb.debian.org/debian unstable main contrib" > /etc/apt/sources.list
+#    - echo "google-android-ndk-installer google-android-installers/mirror select https://dl.google.com" | debconf-set-selections
+#    - apt-get update -yq
+#    - apt-get -o dir::cache::archives="$APT_CACHE_DIR" install -y cmake ccache curl unzip git build-essential google-android-ndk-installer
+#  stage: build
+#  script:
+#    - export CCACHE_BASEDIR="`pwd`"
+#    - export CCACHE_DIR="`pwd`/ccache" && mkdir -pv "$CCACHE_DIR"
+#    - ccache -z -M "${CCACHE_SIZE}"
+#    - CI/before_install.android.sh
+#    - CI/before_script.android.sh
+#    - cd build
+#    - cmake --build . -- -j $(nproc)
+#    - cmake --install .
+#    - ccache -s
+#  artifacts:
+#    paths:
+#      - build/install/
