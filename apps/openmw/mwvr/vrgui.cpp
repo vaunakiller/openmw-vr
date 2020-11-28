@@ -20,6 +20,7 @@
 #include <components/sceneutil/shadow.hpp>
 #include <components/myguiplatform/myguirendermanager.hpp>
 #include <components/misc/constants.hpp>
+#include <components/misc/stringops.hpp>
 
 #include "../mwrender/util.hpp"
 #include "../mwrender/renderbin.hpp"
@@ -275,7 +276,7 @@ namespace MWVR
                         mTrackedPose.orientation = osg::Quat(osg::PI, osg::Vec3(1, 0, 0)) * mTrackedPose.orientation;
                         mTrackedPose.orientation = osg::Quat(osg::PI_2, osg::Vec3(0, 0, 1)) * mTrackedPose.orientation;
                     }
-                        mTrackedPose.orientation = osg::Quat(osg::PI, osg::Vec3(1, 0, 0)) * mTrackedPose.orientation;
+                    mTrackedPose.orientation = osg::Quat(osg::PI, osg::Vec3(1, 0, 0)) * mTrackedPose.orientation;
                 }
             }
         }
@@ -441,23 +442,6 @@ namespace MWVR
         VRGUIManager* mManager;
     };
 
-    VRGUIManager::VRGUIManager(
-        osg::ref_ptr<osgViewer::Viewer> viewer)
-        : mOsgViewer(viewer)
-    {
-        mGUIGeometriesRoot->setName("VR GUI Geometry Root");
-        mGUIGeometriesRoot->setUpdateCallback(new VRGUIManagerUpdateCallback(this));
-        mGUICamerasRoot->setName("VR GUI Cameras Root");
-        auto* root = viewer->getSceneData();
-        root->asGroup()->addChild(mGUICamerasRoot);
-        root->asGroup()->addChild(mGUIGeometriesRoot);
-
-    }
-
-    VRGUIManager::~VRGUIManager(void)
-    {
-    }
-
     static const LayerConfig createDefaultConfig(int priority, bool background = true, SizingMode sizingMode = SizingMode::Auto, std::string extraLayers = "Popup")
     {
         return LayerConfig{
@@ -476,116 +460,132 @@ namespace MWVR
             false
         };
     }
-    LayerConfig gDefaultConfig = createDefaultConfig(1);
-    LayerConfig gVideoPlayerConfig = createDefaultConfig(1, true, SizingMode::Fixed);
-    LayerConfig gLoadingScreenConfig = createDefaultConfig(1, true, SizingMode::Fixed, "Menu");
-    LayerConfig gMainMenuConfig = createDefaultConfig(1, true);
-    LayerConfig gJournalBooksConfig = createDefaultConfig(2, false, SizingMode::Fixed);
-    LayerConfig gDefaultWindowsConfig = createDefaultConfig(3, true);
-    LayerConfig gMessageBoxConfig = createDefaultConfig(6, false, SizingMode::Auto);;
-    LayerConfig gNotificationConfig = createDefaultConfig(7, false, SizingMode::Fixed);
-
-    //LayerConfig gVirtualKeyboardConfig = createDefaultConfig(50);
-    LayerConfig gVirtualKeyboardConfig = LayerConfig{
-        10,
-        false,
-        osg::Vec4{0.f,0.f,0.f,.75f},
-        osg::Vec3(0.025f,-.0501f,.066f), // offset (meters)
-        osg::Vec2(0.f,0.5f), // center (model space)
-        osg::Vec2(.25f, .25f), // extent (meters)
-        2048, // Spatial resolution (pixels per meter)
-        osg::Vec2i(2048,2048), // Texture resolution
-        osg::Vec2(1,1),
-        SizingMode::Auto,
-        TrackingMode::HudLeftHand,
-        "",
-        true
-    };
 
     static const float sSideBySideRadius = 1.f;
     static const float sSideBySideAzimuthInterval = -osg::PI_4;
+
     static const LayerConfig createSideBySideConfig(int priority)
     {
-        return LayerConfig{
-            priority,
-            true, // side-by-side
-            gDefaultConfig.backgroundColor,
-            osg::Vec3(0.f,sSideBySideRadius,-.25f), // offset
-            gDefaultConfig.center,
-            radiusAngleWidth(sSideBySideRadius, sSideBySideAzimuthInterval), // extent (meters)
-            gDefaultConfig.spatialResolution,
-            gDefaultConfig.pixelResolution,
-            osg::Vec2(0.70f, 0.70f),
-            SizingMode::Fixed,
-            gDefaultConfig.trackingMode,
+        LayerConfig config = createDefaultConfig(priority, true, SizingMode::Fixed, "");
+        config.sideBySide = true;
+        config.offset = osg::Vec3(0.f, sSideBySideRadius, -.25f);
+        config.extent = radiusAngleWidth(sSideBySideRadius, sSideBySideAzimuthInterval);
+        config.myGUIViewSize = osg::Vec2(0.70f, 0.70f);
+        return config;
+    };
+
+    VRGUIManager::VRGUIManager(
+        osg::ref_ptr<osgViewer::Viewer> viewer)
+        : mOsgViewer(viewer)
+    {
+        mGUIGeometriesRoot->setName("VR GUI Geometry Root");
+        mGUIGeometriesRoot->setUpdateCallback(new VRGUIManagerUpdateCallback(this));
+        mGUICamerasRoot->setName("VR GUI Cameras Root");
+        auto* root = viewer->getSceneData();
+        root->asGroup()->addChild(mGUICamerasRoot);
+        root->asGroup()->addChild(mGUIGeometriesRoot);
+
+        LayerConfig defaultConfig = createDefaultConfig(1);
+        LayerConfig videoPlayerConfig = createDefaultConfig(1, true, SizingMode::Fixed);
+        LayerConfig loadingScreenConfig = createDefaultConfig(1, true, SizingMode::Fixed, "Menu");
+        LayerConfig mainMenuConfig = createDefaultConfig(1, true);
+        LayerConfig journalBooksConfig = createDefaultConfig(2, false, SizingMode::Fixed);
+        LayerConfig defaultWindowsConfig = createDefaultConfig(3, true);
+        LayerConfig messageBoxConfig = createDefaultConfig(6, false, SizingMode::Auto);;
+        LayerConfig notificationConfig = createDefaultConfig(7, false, SizingMode::Fixed);
+
+        LayerConfig statsWindowConfig = createSideBySideConfig(0);
+        LayerConfig inventoryWindowConfig = createSideBySideConfig(1);
+        LayerConfig spellWindowConfig = createSideBySideConfig(2);
+        LayerConfig mapWindowConfig = createSideBySideConfig(3);
+        LayerConfig inventoryCompanionWindowConfig = createSideBySideConfig(4);
+        LayerConfig dialogueWindowConfig = createSideBySideConfig(5);
+
+        osg::Vec3 leftHudOffset = osg::Vec3(0.025f, -.090f, -.033f);
+
+        std::string leftHudSetting = Settings::Manager::getString("left hand hud position", "VR");
+        if (Misc::StringUtils::ciEqual(leftHudSetting, "top"))
+            leftHudOffset = osg::Vec3(0.025f, -.05f, .066f);
+
+        osg::Vec3 vkeyboardOffset = leftHudOffset + osg::Vec3(0,0.0001,0);
+
+        LayerConfig virtualKeyboardConfig = LayerConfig{
+            10,
+            false,
+            osg::Vec4{0.f,0.f,0.f,.75f},
+            vkeyboardOffset, // offset (meters)
+            osg::Vec2(0.f,0.5f), // center (model space)
+            osg::Vec2(.25f, .25f), // extent (meters)
+            2048, // Spatial resolution (pixels per meter)
+            osg::Vec2i(2048,2048), // Texture resolution
+            osg::Vec2(1,1),
+            SizingMode::Auto,
+            TrackingMode::HudLeftHand,
+            "",
+            true
+        };
+        LayerConfig statusHUDConfig = LayerConfig
+        {
+            0,
+            false, // side-by-side
+            osg::Vec4{}, // background
+            leftHudOffset, // offset (meters)
+            osg::Vec2(0.f,0.5f), // center (model space)
+            osg::Vec2(.1f, .1f), // extent (meters)
+            1024, // resolution (pixels per meter)
+            osg::Vec2i(1024,1024),
+            defaultConfig.myGUIViewSize,
+            SizingMode::Auto,
+            TrackingMode::HudLeftHand,
             "",
             false
         };
-    };
 
-    LayerConfig gStatsWindowConfig = createSideBySideConfig(0);
-    LayerConfig gInventoryWindowConfig = createSideBySideConfig(1);
-    LayerConfig gSpellWindowConfig = createSideBySideConfig(2);
-    LayerConfig gMapWindowConfig = createSideBySideConfig(3);
-    LayerConfig gInventoryCompanionWindowConfig = createSideBySideConfig(4);
-    LayerConfig gDialogueWindowConfig = createSideBySideConfig(5);
+        LayerConfig popupConfig = LayerConfig
+        {
+            0,
+            false, // side-by-side
+            osg::Vec4{0.f,0.f,0.f,0.f}, // background
+            osg::Vec3(-0.025f,.025f,.066f), // offset (meters)
+            osg::Vec2(0.f,0.5f), // center (model space)
+            osg::Vec2(.1f, .1f), // extent (meters)
+            1024, // resolution (pixels per meter)
+            osg::Vec2i(2048,2048),
+            defaultConfig.myGUIViewSize,
+            SizingMode::Auto,
+            TrackingMode::HudRightHand,
+            "",
+            false
+        };
 
-    LayerConfig gStatusHUDConfig = LayerConfig
+
+
+        mLayerConfigs = std::map<std::string, LayerConfig>
+        {
+            {"DefaultConfig", defaultConfig},
+            {"StatusHUD", statusHUDConfig},
+            {"Tooltip", popupConfig},
+            {"JournalBooks", journalBooksConfig},
+            {"InventoryCompanionWindow", inventoryCompanionWindowConfig},
+            {"InventoryWindow", inventoryWindowConfig},
+            {"SpellWindow", spellWindowConfig},
+            {"MapWindow", mapWindowConfig},
+            {"StatsWindow", statsWindowConfig},
+            {"DialogueWindow", dialogueWindowConfig},
+            {"MessageBox", messageBoxConfig},
+            {"Windows", defaultWindowsConfig},
+            {"MainMenu", mainMenuConfig},
+            {"Notification", notificationConfig},
+            {"InputBlocker", videoPlayerConfig},
+            {"Menu", videoPlayerConfig},
+            {"LoadingScreen", loadingScreenConfig},
+            {"VirtualKeyboard", virtualKeyboardConfig},
+        };
+    }
+
+    VRGUIManager::~VRGUIManager(void)
     {
-        0,
-        false, // side-by-side
-        osg::Vec4{}, // background
-        osg::Vec3(0.025f,-.050f,.066f), // offset (meters)
-        osg::Vec2(0.f,0.5f), // center (model space)
-        osg::Vec2(.1f, .1f), // extent (meters)
-        1024, // resolution (pixels per meter)
-        osg::Vec2i(1024,1024),
-        gDefaultConfig.myGUIViewSize,
-        SizingMode::Auto,
-        TrackingMode::HudLeftHand,
-        "",
-        false
-    };
-
-    LayerConfig gPopupConfig = LayerConfig
-    {
-        0,
-        false, // side-by-side
-        osg::Vec4{0.f,0.f,0.f,0.f}, // background
-        osg::Vec3(-0.025f,.025f,.066f), // offset (meters)
-        osg::Vec2(0.f,0.5f), // center (model space)
-        osg::Vec2(.1f, .1f), // extent (meters)
-        1024, // resolution (pixels per meter)
-        osg::Vec2i(2048,2048),
-        gDefaultConfig.myGUIViewSize,
-        SizingMode::Auto,
-        TrackingMode::HudRightHand,
-        "",
-        false
-    };
-
-
-
-    static std::map<std::string, LayerConfig&> gLayerConfigs =
-    {
-        {"StatusHUD", gStatusHUDConfig},
-        {"Tooltip", gPopupConfig},
-        {"JournalBooks", gJournalBooksConfig},
-        {"InventoryCompanionWindow", gInventoryCompanionWindowConfig},
-        {"InventoryWindow", gInventoryWindowConfig},
-        {"SpellWindow", gSpellWindowConfig},
-        {"MapWindow", gMapWindowConfig},
-        {"StatsWindow", gStatsWindowConfig},
-        {"DialogueWindow", gDialogueWindowConfig},
-        {"MessageBox", gMessageBoxConfig},
-        {"Windows", gDefaultWindowsConfig},
-        {"MainMenu", gMainMenuConfig},
-        {"Notification", gNotificationConfig},
-        {"InputBlocker", gVideoPlayerConfig},
-        {"Menu", gVideoPlayerConfig},
-        {"LoadingScreen", gLoadingScreenConfig},
-        {"VirtualKeyboard", gVirtualKeyboardConfig},
-    };
+    }
 
     static std::set<std::string> layerBlacklist =
     {
@@ -612,16 +612,17 @@ namespace MWVR
 
     void VRGUIManager::insertLayer(MyGUI::ILayer* layer)
     {
-        LayerConfig config = gDefaultConfig;
+        LayerConfig config{};
         const auto& name = layer->getName();
-        auto configIt = gLayerConfigs.find(name);
-        if (configIt != gLayerConfigs.end())
+        auto configIt = mLayerConfigs.find(name);
+        if (configIt != mLayerConfigs.end())
         {
             config = configIt->second;
         }
         else
         {
             Log(Debug::Warning) << "Layer " << name << " has no configuration, using default";
+            config = mLayerConfigs["DefaultConfig"];
         }
 
         auto vrlayer = std::shared_ptr<VRGUILayer>(new VRGUILayer(

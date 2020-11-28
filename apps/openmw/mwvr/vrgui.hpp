@@ -201,6 +201,7 @@ namespace MWVR
         MyGUI::Widget* mFocusWidget{ nullptr };
         MyGUI::Widget* mModalWindow{ nullptr };
         osg::observer_ptr<osg::Camera> mCamera{ nullptr };
+        std::map<std::string, LayerConfig> mLayerConfigs{};
     };
 }
 
