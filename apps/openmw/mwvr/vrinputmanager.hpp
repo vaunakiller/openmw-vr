@@ -67,9 +67,11 @@ namespace MWVR
         void suggestBindingsSimple();
         void suggestBindingsOculusTouch();
         void suggestBindingsHpMixedReality();
-        void suggestBindingsMicrosoftMixedReality();
+        void suggestBindingsHuaweiController();
         void suggestBindingsIndex();
+        void suggestBindingsMicrosoftMixedReality();
         void suggestBindingsVive();
+        void suggestBindingsViveCosmos();
         void suggestBindingsXboxController();
 
         std::unique_ptr<OpenXRInput> mXRInput;

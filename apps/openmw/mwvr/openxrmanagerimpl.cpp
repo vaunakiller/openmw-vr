@@ -285,9 +285,11 @@ namespace MWVR
 #if    !XR_KHR_composition_layer_depth \
     || !XR_KHR_opengl_enable \
     || !XR_EXT_hp_mixed_reality_controller \
-    || !XR_EXT_debug_utils
+    || !XR_EXT_debug_utils \
+    || !XR_HTC_vive_cosmos_controller_interaction \
+    || !XR_HUAWEI_controller_interaction
 
-#error "OpenXR extensions missing. Please upgrade your copy of the OpenXR SDK to 1.0.12 minimum"
+#error "OpenXR extensions missing. Please upgrade your copy of the OpenXR SDK to 1.0.13 minimum"
 #endif
 
     void OpenXRManagerImpl::setupExtensionsAndLayers()
@@ -298,7 +300,9 @@ namespace MWVR
 
         std::vector<const char*> optionalExtensions = {
             XR_KHR_COMPOSITION_LAYER_DEPTH_EXTENSION_NAME,
-            XR_EXT_HP_MIXED_REALITY_CONTROLLER_EXTENSION_NAME
+            XR_EXT_HP_MIXED_REALITY_CONTROLLER_EXTENSION_NAME,
+            XR_HTC_VIVE_COSMOS_CONTROLLER_INTERACTION_EXTENSION_NAME,
+            XR_HUAWEI_CONTROLLER_INTERACTION_EXTENSION_NAME
         };
 
         if (Settings::Manager::getBool("enable XR_EXT_debug_utils", "VR Debug"))

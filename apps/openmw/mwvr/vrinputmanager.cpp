@@ -294,11 +294,44 @@ namespace MWVR
         mXRInput->suggestBindings(ActionSet::GUI, controllerProfilePath, GUIBindings);
     }
 
+    void VRInputManager::suggestBindingsHuaweiController()
+    {
+        std::string controllerProfilePath = "/interaction_profiles/huawei/controller";
+
+        // In-game character controls
+        SuggestedBindings gameplayBindings{
+            {A_Recenter,                    "/user/hand/left/input/home/click"},
+            {A_VrMetaMenu,                  "/user/hand/left/input/home/click"},
+            {MWInput::A_Jump,               "/user/hand/left/input/trigger/click"},
+            {MWInput::A_MoveForwardBackward,"/user/hand/left/input/trackpad/y"},
+            {MWInput::A_MoveLeftRight,      "/user/hand/left/input/trackpad/x"},
+            {MWInput::A_ToggleSpell,        "/user/hand/left/input/trackpad/click"},
+            {MWInput::A_Sneak,              "/user/hand/left/input/back/click"},
+            {MWInput::A_LookLeftRight,      "/user/hand/right/input/trackpad/x"},
+            {MWInput::A_ToggleWeapon,       "/user/hand/right/input/trackpad/click"},
+            {MWInput::A_Use,                "/user/hand/right/input/trigger/click"},
+            {A_ActivateTouch,               "/user/hand/right/input/squeeze/click"},
+            {MWInput::A_Activate,           "/user/hand/right/input/squeeze/click"},
+        };
+
+        // GUI controls
+        SuggestedBindings GUIBindings{
+                {A_MenuBack,            "/user/hand/left/input/trackpad/click"},
+                {MWInput::A_GameMenu,   "/user/hand/left/input/home/click"},
+                {A_Recenter,            "/user/hand/left/input/home/click"},
+                {A_MenuUpDown,          "/user/hand/right/input/thumbstick/y"},
+                {A_MenuLeftRight,       "/user/hand/right/input/thumbstick/x"},
+                {A_MenuSelect,          "/user/hand/right/input/trackpad/click"},
+                {MWInput::A_Use,        "/user/hand/right/input/trigger/click"},
+        };
+
+        mXRInput->suggestBindings(ActionSet::Gameplay, controllerProfilePath, gameplayBindings);
+        mXRInput->suggestBindings(ActionSet::GUI, controllerProfilePath, GUIBindings);
+    }
+
     void VRInputManager::suggestBindingsMicrosoftMixedReality()
     {
         std::string controllerProfilePath = "/interaction_profiles/microsoft/motion_controller";
-
-        // TODO: Slightly better than the vive wands, but still not good.
 
         // In-game character controls
         SuggestedBindings gameplayBindings{
@@ -405,6 +438,45 @@ namespace MWVR
         mXRInput->suggestBindings(ActionSet::GUI, controllerProfilePath, GUIBindings);
     }
 
+    void VRInputManager::suggestBindingsViveCosmos()
+    {
+        std::string controllerProfilePath = "/interaction_profiles/htc/vive_cosmos_controller";
+
+        // In-game character controls
+        SuggestedBindings gameplayBindings{
+                {A_Recenter,                    "/user/hand/left/input/menu/click"},
+                {A_VrMetaMenu,                  "/user/hand/left/input/menu/click"},
+                {MWInput::A_Sneak,              "/user/hand/left/input/squeeze/value"},
+                {MWInput::A_MoveForwardBackward,"/user/hand/left/input/thumbstick/y"},
+                {MWInput::A_MoveLeftRight,      "/user/hand/left/input/thumbstick/x"},
+                {MWInput::A_AlwaysRun,          "/user/hand/left/input/thumbstick/click"},
+                {MWInput::A_Jump,               "/user/hand/left/input/trigger/click"},
+                {MWInput::A_ToggleSpell,        "/user/hand/left/input/x/click"},
+                {MWInput::A_Rest,               "/user/hand/left/input/y/click"},
+                {MWInput::A_ToggleWeapon,       "/user/hand/right/input/a/click"},
+                {MWInput::A_Inventory,          "/user/hand/right/input/b/click"},
+                {MWInput::A_LookLeftRight,      "/user/hand/right/input/thumbstick/x"},
+                {MWInput::A_AutoMove,           "/user/hand/right/input/thumbstick/click"},
+                {MWInput::A_Use,                "/user/hand/right/input/trigger/click"},
+                {A_ActivateTouch,               "/user/hand/right/input/squeeze/value"},
+                {MWInput::A_Activate,           "/user/hand/right/input/squeeze/value"},
+        };
+
+        // GUI controls
+        SuggestedBindings GUIBindings{
+                {A_Recenter,            "/user/hand/left/input/menu/click"},
+                {MWInput::A_GameMenu,   "/user/hand/left/input/menu/click"},
+                {A_MenuUpDown,          "/user/hand/right/input/thumbstick/y"},
+                {A_MenuLeftRight,       "/user/hand/right/input/thumbstick/x"},
+                {A_MenuSelect,          "/user/hand/right/input/a/click"},
+                {A_MenuBack,            "/user/hand/right/input/b/click"},
+                {MWInput::A_Use,        "/user/hand/right/input/trigger/click"},
+        };
+
+        mXRInput->suggestBindings(ActionSet::Gameplay, controllerProfilePath, gameplayBindings);
+        mXRInput->suggestBindings(ActionSet::GUI, controllerProfilePath, GUIBindings);
+    }
+
     void VRInputManager::suggestBindingsXboxController()
     {
         //TODO
@@ -450,6 +522,10 @@ namespace MWVR
 
         if (xr->xrExtensionIsEnabled(XR_EXT_HP_MIXED_REALITY_CONTROLLER_EXTENSION_NAME))
             suggestBindingsHpMixedReality();
+        if (xr->xrExtensionIsEnabled(XR_HUAWEI_CONTROLLER_INTERACTION_EXTENSION_NAME))
+            suggestBindingsHuaweiController();
+        if (xr->xrExtensionIsEnabled(XR_HTC_VIVE_COSMOS_CONTROLLER_INTERACTION_EXTENSION_NAME))
+            suggestBindingsViveCosmos();
 
         mXRInput->attachActionSets();
     }
