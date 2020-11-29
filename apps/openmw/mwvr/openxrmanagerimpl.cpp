@@ -345,6 +345,7 @@ namespace MWVR
         void* userData)
     {
         OpenXRManagerImpl* manager = reinterpret_cast<OpenXRManagerImpl*>(userData);
+        (void)manager;
         std::string severityStr = "";
         std::string typeStr = "";
 

@@ -915,7 +915,10 @@ namespace MWVR
             else
             {
                 mFocusWidget->_riseMouseButtonReleased(mGuiCursor.x(), mGuiCursor.y(), MyGUI::MouseButton::Left);
-                mFocusWidget->_riseMouseButtonClick();
+
+                // Some widgets are invalidated before returning from _riseMouseButtonReleased
+                if (validateFocusWidget())
+                    mFocusWidget->_riseMouseButtonClick();
             }
             return true;
         }
