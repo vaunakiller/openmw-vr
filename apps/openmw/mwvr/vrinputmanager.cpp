@@ -336,7 +336,7 @@ namespace MWVR
         // In-game character controls
         SuggestedBindings gameplayBindings{
             {A_Recenter,                    "/user/hand/left/input/menu/click"},
-            {A_VrMetaMenu,                  "/user/hand/left/input/menu/click"},
+            {A_VrMetaMenu,                  "/user/hand/right/input/squeeze/click"},
             {MWInput::A_Jump,               "/user/hand/left/input/trigger/value"},
             {MWInput::A_MoveForwardBackward,"/user/hand/left/input/trackpad/y"},
             {MWInput::A_MoveLeftRight,      "/user/hand/left/input/trackpad/x"},
