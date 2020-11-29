@@ -61,6 +61,7 @@ namespace MWVR
 
         void applyHapticsLeftHand(float intensity) override;
         void applyHapticsRightHand(float intensity) override;
+        void processChangedSettings(const std::set< std::pair<std::string, std::string> >& changed) override;
 
     private:
         void suggestBindingsSimple();

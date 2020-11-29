@@ -41,7 +41,7 @@ namespace MWVR
         , mPostDraw(new PostdrawCallback(this))
         , mVrShadow()
         , mConfigured(false)
-        , mMsaaResolveMirrorTexture{nullptr, nullptr}
+        , mMsaaResolveMirrorTexture{}
         , mMirrorTexture{ nullptr }
     {
         mViewer->setRealizeOperation(new RealizeOperation());
@@ -80,6 +80,17 @@ namespace MWVR
         return recommended;
     }
 
+    static VRViewer::MirrorTextureEye mirrorTextureEyeFromString(const std::string& str)
+    {
+        if (Misc::StringUtils::ciEqual(str, "left"))
+            return VRViewer::MirrorTextureEye::Left;
+        if (Misc::StringUtils::ciEqual(str, "right"))
+            return VRViewer::MirrorTextureEye::Right;
+        if (Misc::StringUtils::ciEqual(str, "both"))
+            return VRViewer::MirrorTextureEye::Both;
+        return VRViewer::MirrorTextureEye::Both;
+    }
+
     void VRViewer::realize(osg::GraphicsContext* context)
     {
         std::unique_lock<std::mutex> lock(mMutex);
@@ -113,17 +124,6 @@ namespace MWVR
         // Configure eyes, their cameras, and their enslavement.
         osg::Vec4 clearColor = mainCamera->getClearColor();
         auto config = xr->getRecommendedSwapchainConfig();
-        bool mirror = Settings::Manager::getBool("mirror texture", "VR");
-        std::string mirrorTextureEyeString = Settings::Manager::getString("mirror texture eye", "VR");
-        mirrorTextureEyeString = Misc::StringUtils::lowerCase(mirrorTextureEyeString);
-        if (mirrorTextureEyeString == "left" || mirrorTextureEyeString == "both")
-            mMirrorTextureViews.push_back(sViewNames[(int)Side::LEFT_SIDE]);
-        if (mirrorTextureEyeString == "right" || mirrorTextureEyeString == "both")
-            mMirrorTextureViews.push_back(sViewNames[(int)Side::RIGHT_SIDE]);
-        if (Settings::Manager::getBool("flip mirror texture order", "VR"))
-            std::reverse(mMirrorTextureViews.begin(), mMirrorTextureViews.end());
-        // TODO: If mirror is false either hide the window or paste something meaningful into it.
-        // E.g. Fanart of Dagoth UR wearing a VR headset
 
         std::array<std::string, 2> xConfString;
         std::array<std::string, 2> yConfString;
@@ -165,18 +165,11 @@ namespace MWVR
             auto* slave = mViewer->findSlaveForCamera(camera);
             slave->_updateSlaveCallback = new VRView::UpdateSlaveCallback(view);
 
-            if (mirror)
-                mMsaaResolveMirrorTexture[i].reset(new VRFramebuffer(context->getState(),
-                    view->swapchain().width(),
-                    view->swapchain().height(),
-                    0));
-
             mVrShadow.configureShadowsForCamera(camera, i == 0);
         }
-
-        if (mirror)
-            mMirrorTexture.reset(new VRFramebuffer(context->getState(), mainCamera->getViewport()->width(), mainCamera->getViewport()->height(), 0));
         mViewer->setReleaseContextAtEndOfFrameHint(false);
+
+        setupMirrorTexture();
 
         mMainCameraGC = mainCamera->getGraphicsContext();
         mMainCameraGC->setSwapCallback(new VRViewer::SwapBuffersCallback(this));
@@ -194,6 +187,47 @@ namespace MWVR
         return nullptr;
     }
 
+    void VRViewer::setupMirrorTexture()
+    {
+        mMirrorTextureEnabled = Settings::Manager::getBool("mirror texture", "VR");
+        mMirrorTextureEye = mirrorTextureEyeFromString(Settings::Manager::getString("mirror texture eye", "VR"));
+        mFlipMirrorTextureOrder = Settings::Manager::getBool("flip mirror texture order", "VR");
+        mMirrorTextureShouldBeCleanedUp = true;
+
+        mMirrorTextureViews.clear();
+        if (mMirrorTextureEye == MirrorTextureEye::Left || mMirrorTextureEye == MirrorTextureEye::Both)
+            mMirrorTextureViews.push_back(sViewNames[(int)Side::LEFT_SIDE]);
+        if (mMirrorTextureEye == MirrorTextureEye::Right || mMirrorTextureEye == MirrorTextureEye::Both)
+            mMirrorTextureViews.push_back(sViewNames[(int)Side::RIGHT_SIDE]);
+        if (mFlipMirrorTextureOrder)
+            std::reverse(mMirrorTextureViews.begin(), mMirrorTextureViews.end());
+        // TODO: If mirror is false either hide the window or paste something meaningful into it.
+        // E.g. Fanart of Dagoth UR wearing a VR headset
+    }
+
+    void VRViewer::processChangedSettings(const std::set<std::pair<std::string, std::string>>& changed)
+    {
+        bool mirrorTextureChanged = false;
+        for (Settings::CategorySettingVector::const_iterator it = changed.begin(); it != changed.end(); ++it)
+        {
+            if (it->first == "VR" && it->second == "mirror texture")
+            {
+                mirrorTextureChanged = true;
+            }
+            if (it->first == "VR" && it->second == "mirror texture eye")
+            {
+                mirrorTextureChanged = true;
+            }
+            if (it->first == "VR" && it->second == "flip mirror texture order")
+            {
+                mirrorTextureChanged = true;
+            }
+        }
+
+        if (mirrorTextureChanged)
+            setupMirrorTexture();
+    }
+
     void VRViewer::enableMainCamera(void)
     {
         mCameras["MainCamera"]->setGraphicsContext(mMainCameraGC);
@@ -206,8 +240,18 @@ namespace MWVR
 
     void VRViewer::blitEyesToMirrorTexture(osg::GraphicsContext* gc)
     {
-        if (!mMirrorTexture)
+        if (mMirrorTextureShouldBeCleanedUp)
+        {
+            mMirrorTexture.reset(nullptr);
+            mMsaaResolveMirrorTexture.clear();
+            mMirrorTextureShouldBeCleanedUp = false;
+        }
+        if (!mMirrorTextureEnabled)
             return;
+        if (!mMirrorTexture)
+        {
+            mMirrorTexture.reset(new VRFramebuffer(gc->getState(), mCameras["MainCamera"]->getViewport()->width(), mCameras["MainCamera"]->getViewport()->height(), 0));
+        }
 
         auto* state = gc->getState();
         auto* gl = osg::GLExtensions::Get(state->getContextID(), false);
@@ -220,9 +264,16 @@ namespace MWVR
         // which means resolving msaa twice.
         for (unsigned i = 0; i < mMirrorTextureViews.size(); i++)
         {
-            auto& resolveTexture = *mMsaaResolveMirrorTexture[i];
+            auto& view = mViews[mMirrorTextureViews[i]];
+            if(!mMsaaResolveMirrorTexture[mMirrorTextureViews[i]])
+                mMsaaResolveMirrorTexture[mMirrorTextureViews[i]].reset(new VRFramebuffer(gc->getState(),
+                    view->swapchain().width(),
+                    view->swapchain().height(),
+                    0));
+
+            auto& resolveTexture = *mMsaaResolveMirrorTexture[mMirrorTextureViews[i]];
             resolveTexture.bindFramebuffer(gc, GL_FRAMEBUFFER_EXT);
-            mViews[mMirrorTextureViews[i]]->swapchain().renderBuffer()->blit(gc, 0, 0, resolveTexture.width(), resolveTexture.height());
+            view->swapchain().renderBuffer()->blit(gc, 0, 0, resolveTexture.width(), resolveTexture.height());
             mMirrorTexture->bindFramebuffer(gc, GL_FRAMEBUFFER_EXT);
             resolveTexture.blit(gc, i * mirrorWidth, 0, (i + 1) * mirrorWidth, screenHeight);
         }

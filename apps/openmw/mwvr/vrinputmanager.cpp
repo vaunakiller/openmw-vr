@@ -171,6 +171,19 @@ namespace MWVR
             activeActionSet().applyHaptics(TrackedLimb::RIGHT_HAND, intensity);
     }
 
+    void VRInputManager::processChangedSettings(const std::set<std::pair<std::string, std::string>>& changed)
+    {
+        MWInput::InputManager::processChangedSettings(changed);
+
+        for (Settings::CategorySettingVector::const_iterator it = changed.begin(); it != changed.end(); ++it)
+        {
+            if (it->first == "VR" && it->second == "haptics enabled")
+            {
+                mHapticsEnabled = Settings::Manager::getBool("haptics enabled", "VR");
+            }
+        }
+    }
+
     void VRInputManager::suggestBindingsSimple()
     {
         std::string simpleProfilePath = "/interaction_profiles/khr/simple_controller";

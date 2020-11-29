@@ -64,8 +64,13 @@ namespace MWVR
             VRViewer* mViewer;
         };
 
-
         static const std::array<const char*, 2> sViewNames;
+        enum class MirrorTextureEye
+        {
+            Left, 
+            Right, 
+            Both
+        };
 
     public:
         VRViewer(
@@ -81,6 +86,8 @@ namespace MWVR
         bool realized() { return mConfigured; }
         VRView* getView(std::string name);
         VrShadow& vrShadow() { return mVrShadow; }
+        void setupMirrorTexture();
+        void processChangedSettings(const std::set< std::pair<std::string, std::string> >& changed);
 
         void enableMainCamera(void);
         void disableMainCamera(void);
@@ -92,7 +99,7 @@ namespace MWVR
         osg::ref_ptr<PredrawCallback> mPreDraw{ nullptr };
         osg::ref_ptr<PostdrawCallback> mPostDraw{ nullptr };
         osg::GraphicsContext* mMainCameraGC{ nullptr };
-        std::unique_ptr<VRFramebuffer> mMsaaResolveMirrorTexture[2];
+        std::map< std::string, std::unique_ptr<VRFramebuffer> > mMsaaResolveMirrorTexture;
         std::unique_ptr<VRFramebuffer> mMirrorTexture;
         VrShadow    mVrShadow;
 
@@ -100,6 +107,10 @@ namespace MWVR
 
         bool mConfigured{ false };
         std::vector<std::string> mMirrorTextureViews;
+        bool mMirrorTextureShouldBeCleanedUp{ false };
+        bool mMirrorTextureEnabled{ false };
+        bool mFlipMirrorTextureOrder{ false };
+        MirrorTextureEye mMirrorTextureEye{ MirrorTextureEye::Both };
     };
 }
 

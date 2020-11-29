@@ -474,6 +474,9 @@ namespace MWVR
         return config;
     };
 
+    static osg::Vec3 gLeftHudOffsetTop = osg::Vec3(0.025f, -.05f, .066f);
+    static osg::Vec3 gLeftHudOffsetWrist = osg::Vec3(0.025f, -.090f, -.033f);
+
     VRGUIManager::VRGUIManager(
         osg::ref_ptr<osgViewer::Viewer> viewer)
         : mOsgViewer(viewer)
@@ -501,11 +504,11 @@ namespace MWVR
         LayerConfig inventoryCompanionWindowConfig = createSideBySideConfig(4);
         LayerConfig dialogueWindowConfig = createSideBySideConfig(5);
 
-        osg::Vec3 leftHudOffset = osg::Vec3(0.025f, -.090f, -.033f);
+        osg::Vec3 leftHudOffset = gLeftHudOffsetWrist;
 
         std::string leftHudSetting = Settings::Manager::getString("left hand hud position", "VR");
         if (Misc::StringUtils::ciEqual(leftHudSetting, "top"))
-            leftHudOffset = osg::Vec3(0.025f, -.05f, .066f);
+            leftHudOffset = gLeftHudOffsetTop;
 
         osg::Vec3 vkeyboardOffset = leftHudOffset + osg::Vec3(0,0.0001,0);
 
@@ -862,7 +865,18 @@ namespace MWVR
                 || !mModalWindow
                 || focusIsModalWindow()
                 )
-                return static_cast<MyGUI::Widget*>(mFocusLayer->mMyGUILayer->getLayerItemByPoint(x, y));
+            {
+                MyGUI::ILayerItem* widget = nullptr;
+
+                // Give popup layer priority as dropdown menus appear on the separate popup layer.
+                auto* popupLayer = MyGUI::LayerManager::getInstance().getByName("Popup");
+                if (popupLayer)
+                    widget = popupLayer->getLayerItemByPoint(x, y);
+
+                if (!widget)
+                    widget = mFocusLayer->mMyGUILayer->getLayerItemByPoint(x, y);
+                return static_cast<MyGUI::Widget*>(widget);
+            }
         }
         return nullptr;
     }
@@ -872,6 +886,15 @@ namespace MWVR
         setFocusWidget(widgetFromGuiCursor(x, y));
         mGuiCursor.x() = x;
         mGuiCursor.y() = y;
+    }
+
+    void VRGUIManager::configUpdated(const std::string& layer)
+    {
+        auto it = mLayers.find(layer);
+        if (it != mLayers.end())
+        {
+            it->second->mConfig = mLayerConfigs[layer];
+        }
     }
 
     bool VRGUIManager::injectMouseClick(bool onPress)
@@ -910,6 +933,25 @@ namespace MWVR
     void VRGUIManager::notifyModalWindow(MyGUI::Widget* window)
     {
         mModalWindow = window;
+    }
+
+    void VRGUIManager::processChangedSettings(const std::set<std::pair<std::string, std::string>>& changed)
+    {
+        for (Settings::CategorySettingVector::const_iterator it = changed.begin(); it != changed.end(); ++it)
+        {
+            if (it->first == "VR" && it->second == "left hand hud position")
+            {
+                std::string leftHudSetting = Settings::Manager::getString("left hand hud position", "VR");
+                if (Misc::StringUtils::ciEqual(leftHudSetting, "top"))
+                    mLayerConfigs["StatusHUD"].offset = gLeftHudOffsetTop;
+                else
+                    mLayerConfigs["StatusHUD"].offset = gLeftHudOffsetWrist;
+                mLayerConfigs["VirtualKeyboard"].offset = mLayerConfigs["StatusHUD"].offset + osg::Vec3(0,0.0001,0);
+
+                configUpdated("StatusHUD");
+                configUpdated("VirtualKeyboard");
+            }
+        }
     }
 
     void VRGUIManager::computeGuiCursor(osg::Vec3 hitPoint)

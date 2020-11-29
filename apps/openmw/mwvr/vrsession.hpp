@@ -78,6 +78,8 @@ namespace MWVR
 
         std::array<std::unique_ptr<VRFrameMeta>, (int)FramePhase::NumPhases> mFrame{ nullptr };
 
+        void processChangedSettings(const std::set< std::pair<std::string, std::string> >& changed);
+
     private:
         std::mutex mMutex{};
         std::condition_variable mCondition{};

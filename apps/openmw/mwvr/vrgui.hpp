@@ -174,6 +174,7 @@ namespace MWVR
         /// Currently focus widget according to VR
         MyGUI::Widget* focusWidget() { return mFocusWidget; }
 
+        void processChangedSettings(const std::set< std::pair<std::string, std::string> >& changed);
     private:
         void computeGuiCursor(osg::Vec3 hitPoint);
         void updateSideBySideLayers();
@@ -185,6 +186,7 @@ namespace MWVR
         bool focusIsModalWindow();
         MyGUI::Widget* widgetFromGuiCursor(int x, int y);
         void updateGuiCursor(int x, int y);
+        void configUpdated(const std::string& layer);
 
         osg::ref_ptr<osgViewer::Viewer> mOsgViewer{ nullptr };
 

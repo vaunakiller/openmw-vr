@@ -84,6 +84,7 @@ set(MYGUI_FILES
     openmw_scroll.skin.xml
     openmw_settings.xml
     openmw_settings_window.layout
+    openmw_settings_window_vr.layout
     openmw_spell_buying_window.layout
     openmw_spell_window.layout
     openmw_spell_window_vr.layout

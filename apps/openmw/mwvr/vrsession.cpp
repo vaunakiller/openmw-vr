@@ -83,6 +83,17 @@ namespace MWVR
         return fov.perspectiveMatrix(near_, far_);
     }
 
+    void VRSession::processChangedSettings(const std::set<std::pair<std::string, std::string>>& changed)
+    {
+        for (Settings::CategorySettingVector::const_iterator it = changed.begin(); it != changed.end(); ++it)
+        {
+            if (it->first == "VR" && it->second == "hand directed movement")
+            {
+                mHandDirectedMovement = Settings::Manager::getBool("hand directed movement", "VR");
+            }
+        }
+    }
+
     osg::Matrix VRSession::viewMatrix(osg::Vec3 position, osg::Quat orientation)
     {
         position = position * Constants::UnitsPerMeter;
@@ -332,6 +343,7 @@ namespace MWVR
     {
         if (!getFrame(FramePhase::Update))
             beginPhase(FramePhase::Update);
+        
         if (mHandDirectedMovement)
         {
             auto frameMeta = getFrame(FramePhase::Update).get();
