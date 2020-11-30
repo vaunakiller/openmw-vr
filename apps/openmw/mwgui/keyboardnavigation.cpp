@@ -179,11 +179,6 @@ void KeyboardNavigation::setDefaultFocus(MyGUI::Widget *window, MyGUI::Widget *d
 void KeyboardNavigation::setModalWindow(MyGUI::Widget *window)
 {
     mModalWindow = window;
-
-#ifdef USE_OPENXR
-    if (MWBase::Environment::get().getVrMode())
-        MWVR::Environment::get().getGUIManager()->notifyModalWindow(window);
-#endif
 }
 
 void KeyboardNavigation::setEnabled(bool enabled)

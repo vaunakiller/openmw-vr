@@ -25,11 +25,6 @@
 
 #include "itemmodel.hpp"
 
-#ifdef USE_OPENXR
-#include "../mwvr/vrenvironment.hpp"
-#include "../mwvr/vrgui.hpp"
-#endif
-
 namespace MWGui
 {
     std::string ToolTips::sSchoolNames[] = {"#{sSchoolAlteration}", "#{sSchoolConjuration}", "#{sSchoolDestruction}", "#{sSchoolIllusion}", "#{sSchoolMysticism}", "#{sSchoolRestoration}"};
@@ -61,7 +56,9 @@ namespace MWGui
         mDynamicToolTipBox->setNeedMouseFocus(false);
         mMainWidget->setNeedMouseFocus(false);
 
-        mDelay = Settings::Manager::getFloat("tooltip delay", "GUI");
+        // Tooltip delay is not useful in vr as a player cannot be perfectly still.
+        if (!MWBase::Environment::get().getVrMode())
+            mDelay = Settings::Manager::getFloat("tooltip delay", "GUI");
         mRemainingDelay = mDelay;
 
         for (unsigned int i=0; i < mMainWidget->getChildCount(); ++i)
@@ -161,13 +158,7 @@ namespace MWGui
                 if (mRemainingDelay > 0)
                     return;
 
-                MyGUI::Widget* focus = nullptr;
-#ifdef USE_OPENXR
-                if (MWBase::Environment::get().getVrMode())
-                    focus = MWVR::Environment::get().getGUIManager()->focusWidget();
-                else
-#endif
-                    focus = MyGUI::InputManager::getInstance().getMouseFocusWidget();
+                MyGUI::Widget* focus = MyGUI::InputManager::getInstance().getMouseFocusWidget();
                 if (focus == 0)
                     return;
 

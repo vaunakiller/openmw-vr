@@ -1781,7 +1781,7 @@ namespace MWGui
 
 #ifdef USE_OPENXR
         auto* vrGuiManager = MWVR::Environment::get().getGUIManager();
-        vrGuiManager->insertLayer(mVideoBackground->getLayer());
+        vrGuiManager->insertLayer(mVideoBackground->getLayer()->getName());
 #endif
 
         bool cursorWasVisible = mCursorVisible;
@@ -1834,7 +1834,7 @@ namespace MWGui
         updateVisible();
 
 #ifdef USE_OPENXR
-        vrGuiManager->removeLayer(mVideoBackground->getLayer());
+        vrGuiManager->removeLayer(mVideoBackground->getLayer()->getName());
 #endif
         mVideoBackground->setVisible(false);
         mVideoEnabled = false;
