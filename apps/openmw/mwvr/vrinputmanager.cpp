@@ -647,6 +647,7 @@ namespace MWVR
         if (guiMode)
         {
             MyGUI::KeyCode key = MyGUI::KeyCode::None;
+            bool onPress = true;
 
             // Axis actions
             switch (action->openMWActionCode())
@@ -660,6 +661,16 @@ namespace MWVR
                 {
                     key = MyGUI::KeyCode::ArrowLeft;
                 }
+                if (action->value() < 0.6f && action->previousValue() > 0.6f)
+                {
+                    key = MyGUI::KeyCode::ArrowRight;
+                    onPress = false;
+                }
+                if (action->value() > -0.6f && action->previousValue() < -0.6f)
+                {
+                    key = MyGUI::KeyCode::ArrowLeft;
+                    onPress = false;
+                }
                 break;
             case A_MenuUpDown:
                 if (action->value() > 0.6f && action->previousValue() < 0.6f)
@@ -669,6 +680,16 @@ namespace MWVR
                 if (action->value() < -0.6f && action->previousValue() > -0.6f)
                 {
                     key = MyGUI::KeyCode::ArrowDown;
+                }
+                if (action->value() < 0.6f && action->previousValue() > 0.6f)
+                {
+                    key = MyGUI::KeyCode::ArrowUp;
+                    onPress = false;
+                }
+                if (action->value() > -0.6f && action->previousValue() < -0.6f)
+                {
+                    key = MyGUI::KeyCode::ArrowDown;
+                    onPress = false;
                 }
                 break;
             default: break;
@@ -721,7 +742,14 @@ namespace MWVR
 
             if (key != MyGUI::KeyCode::None)
             {
-                MWBase::Environment::get().getWindowManager()->injectKeyPress(key, 0, 0);
+                if (onPress)
+                {
+                    MWBase::Environment::get().getWindowManager()->injectKeyPress(key, 0, 0);
+                }
+                else
+                {
+                    MWBase::Environment::get().getWindowManager()->injectKeyRelease(key);
+                }
             }
         }
 
