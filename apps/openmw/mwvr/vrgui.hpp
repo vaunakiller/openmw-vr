@@ -168,6 +168,10 @@ namespace MWVR
         /// Update settings where applicable
         void processChangedSettings(const std::set< std::pair<std::string, std::string> >& changed);
 
+        static void registerMyGUIFactories();
+
+        static void setPick(MWGui::Layout* widget, bool pick);
+
     private:
         void computeGuiCursor(osg::Vec3 hitPoint);
         void updateSideBySideLayers();

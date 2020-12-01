@@ -19,6 +19,8 @@
 #include <components/sceneutil/visitor.hpp>
 #include <components/sceneutil/shadow.hpp>
 #include <components/myguiplatform/myguirendermanager.hpp>
+#include <components/myguiplatform/additivelayer.hpp>
+#include <components/myguiplatform/scalinglayer.hpp>
 #include <components/misc/constants.hpp>
 #include <components/misc/stringops.hpp>
 
@@ -41,6 +43,9 @@
 #include <MyGUI_InputManager.h>
 #include <MyGUI_WidgetManager.h>
 #include <MyGUI_Window.h>
+#include <MyGUI_FactoryManager.h>
+#include <MyGUI_OverlappedLayer.h>
+#include <MyGUI_SharedLayer.h>
 
 namespace osg
 {
@@ -660,7 +665,7 @@ namespace MWVR
         it->second->insertWidget(widget);
 
         if (it->second.get() != mFocusLayer)
-            widget->setLayerPick(false);
+            setPick(widget, false);
     }
 
     void VRGUIManager::removeLayer(const std::string& name)
@@ -715,7 +720,8 @@ namespace MWVR
         {
             Log(Debug::Verbose) << "Blacklisted";
             // Never pick an invisible layer
-            widget->setLayerPick(false);
+            auto* layer = widget->mMainWidget->getLayer();
+            setPick(mFocusLayer->mWidgets.front(), false);
             return;
         }
 
@@ -814,13 +820,13 @@ namespace MWVR
 
         if (mFocusLayer)
         {
-            mFocusLayer->mWidgets.front()->setLayerPick(false);
+            setPick(mFocusLayer->mWidgets.front(), false);
         }
         mFocusLayer = layer;
         if (mFocusLayer)
         {
             Log(Debug::Verbose) << "Set focus layer to " << mFocusLayer->mWidgets.front()->mMainWidget->getLayer()->getName();
-            mFocusLayer->mWidgets.front()->setLayerPick(true);
+            setPick(mFocusLayer->mWidgets.front(), true);
         }
         else
         {
@@ -884,6 +890,64 @@ namespace MWVR
                 configUpdated("VirtualKeyboard");
             }
         }
+    }
+
+    class Pickable
+    {
+    public:
+        virtual void setPick(bool pick) = 0;
+    };
+
+    template <typename L>
+    class PickLayer : public L, public Pickable
+    {
+    public:
+        using L::L;
+
+        void setPick(bool pick) override
+        {
+            mIsPick = pick;
+        }
+    };
+
+    template <typename L>
+    class MyFactory
+    {
+    public:
+        using LayerType = L;
+        using PickLayerType = PickLayer<LayerType>;
+        using Delegate = MyGUI::delegates::CDelegate1<MyGUI::IObject*&>;
+        static typename Delegate::IDelegate* getFactory()
+        {
+            return MyGUI::newDelegate(createFromFactory);
+        }
+
+        static void registerFactory()
+        {
+            MyGUI::FactoryManager::getInstance().registerFactory("Layer", LayerType::getClassTypeName(), getFactory());
+        }
+
+    private:
+        static void createFromFactory(MyGUI::IObject*& _instance)
+        {
+            _instance = new PickLayerType();
+        }
+    };
+
+    void VRGUIManager::registerMyGUIFactories()
+    {
+        MyFactory< MyGUI::OverlappedLayer >::registerFactory();
+        MyFactory< MyGUI::SharedLayer >::registerFactory();
+        MyFactory< osgMyGUI::AdditiveLayer >::registerFactory();
+        MyFactory< osgMyGUI::AdditiveLayer >::registerFactory();
+    }
+
+    void VRGUIManager::setPick(MWGui::Layout* widget, bool pick)
+    {
+        auto* layer = widget->mMainWidget->getLayer();
+        auto* pickable = dynamic_cast<Pickable*>(layer);
+        if (pickable)
+            pickable->setPick(pick);
     }
 
     void VRGUIManager::computeGuiCursor(osg::Vec3 hitPoint)

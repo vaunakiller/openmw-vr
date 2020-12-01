@@ -64,9 +64,6 @@ namespace MWGui
     // NOTE: this assume that mMainWidget is of type Window.
     void setTitle(const std::string& title);
 
-    /// \note Affects the layer, not just the widget.
-    void setLayerPick(bool pick);
-
     MyGUI::Widget* mMainWidget;
 
   protected:

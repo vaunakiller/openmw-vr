@@ -200,6 +200,7 @@ namespace MWGui
         mGuiPlatform = new osgMyGUI::Platform(viewer, guiRoot, resourceSystem->getImageManager(), uiScale);
         mGuiPlatform->initialise(resourcePath, logpath);
 
+
 #ifdef USE_OPENXR
         mGuiPlatform->getRenderManagerPtr()->setViewSize(1024, 1024);
 #endif
@@ -238,6 +239,12 @@ namespace MWGui
 
         MyGUI::FactoryManager::getInstance().registerFactory<ResourceImageSetPointerFix>("Resource", "ResourceImageSetPointer");
         MyGUI::FactoryManager::getInstance().registerFactory<AutoSizedResourceSkin>("Resource", "AutoSizedResourceSkin");
+
+#ifdef USE_OPENXR
+        if (MWBase::Environment::get().getVrMode())
+            MWVR::VRGUIManager::registerMyGUIFactories();
+#endif
+
 #ifdef USE_OPENXR
         MyGUI::ResourceManager::getInstance().load("core_vr.xml");
 #else
