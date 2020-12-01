@@ -34,23 +34,19 @@ namespace MWVR
         virtual ~VRAnimation();
 
         /// Overridden to always be false
-        virtual void enableHeadAnimation(bool enable);
+        void enableHeadAnimation(bool enable) override;
 
         /// Overridden to always be false
-        virtual void setAccurateAiming(bool enabled);
+        void setAccurateAiming(bool enabled) override;
 
         /// Overridden, implementation tbd
-        virtual osg::Vec3f runAnimation(float timepassed);
-
-        /// A relative factor (0-1) that decides if and how much the skeleton should be pitched
-        /// to indicate the facing orientation of the character.
-        virtual void setPitchFactor(float factor) { mPitchFactor = factor; }
+        osg::Vec3f runAnimation(float timepassed) override;
 
         /// Overriden to always be a variant of VM_VR*
-        virtual void setViewMode(ViewMode viewMode);
+        void setViewMode(ViewMode viewMode) override;
 
         /// Overriden to include VR modifications
-        virtual void updateParts();
+        void updateParts() override;
 
         /// Overrides finger animations to point forward
         void setFingerPointingMode(bool enabled);
