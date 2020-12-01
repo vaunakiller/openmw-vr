@@ -720,7 +720,6 @@ namespace MWVR
         {
             Log(Debug::Verbose) << "Blacklisted";
             // Never pick an invisible layer
-            auto* layer = widget->mMainWidget->getLayer();
             setPick(mFocusLayer->mWidgets.front(), false);
             return;
         }
@@ -906,7 +905,7 @@ namespace MWVR
 
         void setPick(bool pick) override
         {
-            mIsPick = pick;
+            L::mIsPick = pick;
         }
     };
 
