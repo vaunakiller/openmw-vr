@@ -258,6 +258,9 @@ if(BUILD_OPENMW_VR)
         ${GAME} ${GAME_HEADER}
         ${APPLE_BUNDLE_RESOURCES}
     )
+
+    configure_resource_file(${OpenMW_SOURCE_DIR}/files/xrcontrollersuggestions.xml
+        "${OpenMW_BINARY_DIR}" "xrcontrollersuggestions.xml")
     
     ########### Import the OpenXR SDK
     # Force the openxr-sdk to use its bundled jsoncpp to avoid problems from system jsoncpp if present

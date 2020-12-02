@@ -29,8 +29,8 @@ namespace MWVR
     /// \brief Suggest a binding by binding an action to a path on a given hand (left or right).
     struct SuggestedBinding
     {
-        int         action;
         std::string path;
+        std::string action;
     };
 
     using SuggestedBindings = std::vector<SuggestedBinding>;
@@ -124,7 +124,6 @@ namespace MWVR
         void updateAndQueue(std::deque<const Action*>& queue);
 
     protected:
-
         std::unique_ptr<OpenXRAction> mXRAction;
         int mOpenMWAction;
         float mValue{ 0.f };

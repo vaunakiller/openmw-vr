@@ -2,6 +2,8 @@
 #include "openxrdebug.hpp"
 #include "openxrswapchain.hpp"
 #include "openxrswapchainimpl.hpp"
+#include "vrenvironment.hpp"
+#include "vrinputmanager.hpp"
 
 #include <components/debug/debuglog.hpp>
 #include <components/sdlutil/sdlgraphicswindow.hpp>
@@ -685,8 +687,10 @@ namespace MWVR
             return handleSessionStateChanged(*stateChangeEvent);
             break;
         }
-        case XR_TYPE_EVENT_DATA_INSTANCE_LOSS_PENDING:
         case XR_TYPE_EVENT_DATA_INTERACTION_PROFILE_CHANGED:
+            MWVR::Environment::get().getInputManager()->notifyInteractionProfileChanged();
+            break;
+        case XR_TYPE_EVENT_DATA_INSTANCE_LOSS_PENDING:
         case XR_TYPE_EVENT_DATA_REFERENCE_SPACE_CHANGE_PENDING:
         default:
         {

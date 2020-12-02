@@ -28,8 +28,14 @@ namespace MWVR
         //! Set bindings and attach actionSets to the session.
         void attachActionSets();
 
+        //! Notify that active interaction profile has changed
+        void notifyInteractionProfileChanged();
+
     protected:
         std::map<ActionSet, OpenXRActionSet> mActionSets{};
+        std::map<XrPath, std::string> mInteractionProfileNames{};
+        std::map<std::string, XrPath> mInteractionProfilePaths{};
+        std::map<XrPath, XrPath> mActiveInteractionProfiles;
         XrProfileSuggestedBindings mSuggestedBindings{};
         bool mAttached = false;
     };

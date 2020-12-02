@@ -2,6 +2,7 @@
 #define VR_INPUT_MANAGER_HPP
 
 #include "vrtypes.hpp"
+#include "vrinput.hpp"
 
 #include "../mwinput/inputmanagerimp.hpp"
 
@@ -10,6 +11,8 @@
 #include <iostream>
 
 #include "../mwworld/ptr.hpp"
+
+class TiXmlElement;
 
 namespace MWVR
 {
@@ -31,7 +34,8 @@ namespace MWVR
             osgViewer::ScreenCaptureHandler::CaptureOperation* screenCaptureOperation,
             const std::string& userFile, bool userFileExists,
             const std::string& userControllerBindingsFile,
-            const std::string& controllerBindingsFile, bool grab);
+            const std::string& controllerBindingsFile, bool grab,
+            const std::string& xrControllerSuggestionsFile);
 
         virtual ~VRInputManager();
 
@@ -50,6 +54,9 @@ namespace MWVR
         /// Currently active action set
         OpenXRActionSet& activeActionSet();
 
+        /// Notify input manager that the active interaction profile has changed
+        void notifyInteractionProfileChanged();
+
     protected:
         void processAction(const class Action* action, float dt, bool disableControls);
 
@@ -63,21 +70,19 @@ namespace MWVR
         void applyHapticsRightHand(float intensity) override;
         void processChangedSettings(const std::set< std::pair<std::string, std::string> >& changed) override;
 
-    private:
-        void suggestBindingsSimple();
-        void suggestBindingsOculusTouch();
-        void suggestBindingsHpMixedReality();
-        void suggestBindingsHuaweiController();
-        void suggestBindingsIndex();
-        void suggestBindingsMicrosoftMixedReality();
-        void suggestBindingsVive();
-        void suggestBindingsViveCosmos();
-        void suggestBindingsXboxController();
+        void throwDocumentError(TiXmlElement* element, std::string error);
+        std::string requireAttribute(TiXmlElement* element, std::string attribute);
+        void readInteractionProfile(TiXmlElement* element);
+        void readInteractionProfileActionSet(TiXmlElement* element, ActionSet actionSet, std::string profilePath);
 
+    private:
         std::unique_ptr<OpenXRInput> mXRInput;
         std::unique_ptr<RealisticCombat::StateMachine> mRealisticCombat;
+        std::string mXrControllerSuggestionsFile;
         bool mActivationIndication{ false };
         bool mHapticsEnabled{ true };
+
+        std::map<std::string, std::string> mInteractionProfileLocalNames;
     };
 }
 

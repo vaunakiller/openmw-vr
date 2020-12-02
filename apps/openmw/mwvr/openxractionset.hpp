@@ -43,7 +43,7 @@ namespace MWVR
         XrActionSet mActionSet{ nullptr };
         std::string mLocalizedName{};
         std::string mInternalName{};
-        std::map<int, std::unique_ptr<Action>> mActionMap;
+        std::map<std::string, std::unique_ptr<Action>> mActionMap;
         std::map<TrackedLimb, std::unique_ptr<PoseAction>> mTrackerMap;
         std::map<TrackedLimb, std::unique_ptr<HapticsAction>> mHapticsMap;
         std::deque<const Action*> mActionQueue{};

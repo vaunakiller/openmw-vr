@@ -35,6 +35,7 @@
 #include "../mwrender/camera.hpp"
 
 #include <extern/oics/ICSInputControlSystem.h>
+#include <extern/oics/tinyxml.h>
 
 #include <iostream>
 
@@ -57,6 +58,11 @@ namespace MWVR
         return mXRInput->getActionSet(ActionSet::Gameplay);
     }
 
+    void VRInputManager::notifyInteractionProfileChanged()
+    {
+        mXRInput->notifyInteractionProfileChanged();
+    }
+
     void VRInputManager::updateActivationIndication(void)
     {
         bool guiMode = MWBase::Environment::get().getWindowManager()->isGuiMode();
@@ -67,7 +73,6 @@ namespace MWVR
             playerAnimation->setFingerPointingMode(show);
         }
     }
-
 
     /**
      * Makes it possible to use ItemModel::moveItem to move an item from an inventory to the world.
@@ -184,302 +189,86 @@ namespace MWVR
         }
     }
 
-    void VRInputManager::suggestBindingsSimple()
+    void VRInputManager::throwDocumentError(TiXmlElement* element, std::string error)
     {
-        std::string simpleProfilePath = "/interaction_profiles/khr/simple_controller";
-        // Set up default bindings for the khronos simple controller.
-        // Note: The simple controller is the equivalent to a universal "default".
-        // It has highly reduced functionality. Only poses and two click actions
-        // are available for each hand, reducing the possible functionality of the profile
-        // to that of a wonky preview.
-        // The available click actions are 'select' and 'menu', and i cannot control what
-        // real buttons this is mapped to. On the Oculus Touch they are X, Y, A, and B.
-
-        // In-game character controls
-        SuggestedBindings simpleGameplayBindings{
-                {MWInput::A_Use,        "/user/hand/left/input/select/click"}, // Touch: X
-                {A_VrMetaMenu,          "/user/hand/left/input/menu/click"}, // Touch: Y
-                {A_Recenter,            "/user/hand/left/input/menu/click"}, // Touch: Y
-                {A_ActivateTouch,       "/user/hand/right/input/select/click"}, // Touch: A
-                {MWInput::A_AutoMove,   "/user/hand/right/input/menu/click"}, // Touch: B
-        };
-
-        // GUI controls
-        SuggestedBindings simpleGUIBindings{
-                {MWInput::A_Use,        "/user/hand/left/input/select/click"}, // Touch: X
-                {MWInput::A_GameMenu,   "/user/hand/left/input/menu/click"}, // Touch: Y
-                {A_Recenter,            "/user/hand/left/input/menu/click"}, // Touch: Y
-                {A_MenuSelect,          "/user/hand/right/input/select/click"}, // Touch: A
-                {A_MenuBack,            "/user/hand/right/input/menu/click"}, // Touch: B
-        };
-        mXRInput->suggestBindings(ActionSet::Gameplay, simpleProfilePath, simpleGameplayBindings);
-        mXRInput->suggestBindings(ActionSet::GUI, simpleProfilePath, simpleGUIBindings);
+        std::stringstream ss;
+        ss << mXrControllerSuggestionsFile << "." << element->Row() << "." << element->Value();
+        ss << ": " << error;
+        throw std::runtime_error(ss.str());
     }
 
-    void VRInputManager::suggestBindingsOculusTouch()
+    std::string VRInputManager::requireAttribute(TiXmlElement* element, std::string attribute)
     {
-        std::string controllerProfilePath = "/interaction_profiles/oculus/touch_controller";
-
-        // In-game character controls
-        SuggestedBindings gameplayBindings{
-                {A_Recenter,                    "/user/hand/left/input/menu/click"},
-                {A_VrMetaMenu,                  "/user/hand/left/input/menu/click"},
-                {MWInput::A_Sneak,              "/user/hand/left/input/squeeze/value"},
-                {MWInput::A_MoveLeftRight,      "/user/hand/left/input/thumbstick/x"},
-                {MWInput::A_MoveForwardBackward,"/user/hand/left/input/thumbstick/y"},
-                {MWInput::A_AlwaysRun,          "/user/hand/left/input/thumbstick/click"},
-                {MWInput::A_Jump,               "/user/hand/left/input/trigger/value"},
-                {MWInput::A_ToggleSpell,        "/user/hand/left/input/x/click"},
-                {MWInput::A_Rest,               "/user/hand/left/input/y/click"},
-                {MWInput::A_ToggleWeapon,       "/user/hand/right/input/a/click"},
-                {MWInput::A_Inventory,          "/user/hand/right/input/b/click"},
-                {A_ActivateTouch,               "/user/hand/right/input/squeeze/value"},
-                {MWInput::A_Activate,           "/user/hand/right/input/squeeze/value"},
-                {MWInput::A_LookLeftRight,      "/user/hand/right/input/thumbstick/x"},
-                {MWInput::A_AutoMove,           "/user/hand/right/input/thumbstick/click"},
-                {MWInput::A_Use,                "/user/hand/right/input/trigger/value"},
-        };
-
-        // GUI controls
-        SuggestedBindings GUIBindings{
-                {A_MenuUpDown,          "/user/hand/right/input/thumbstick/y"},
-                {A_MenuLeftRight,       "/user/hand/right/input/thumbstick/x"},
-                {A_MenuSelect,          "/user/hand/right/input/a/click"},
-                {A_MenuBack,            "/user/hand/right/input/b/click"},
-                {MWInput::A_Use,        "/user/hand/right/input/trigger/value"},
-                {MWInput::A_GameMenu,   "/user/hand/left/input/menu/click"},
-                {A_Recenter,            "/user/hand/left/input/menu/click"},
-        };
-
-        mXRInput->suggestBindings(ActionSet::Gameplay, controllerProfilePath, gameplayBindings);
-        mXRInput->suggestBindings(ActionSet::GUI, controllerProfilePath, GUIBindings);
+        const char* value = element->Attribute(attribute.c_str());
+        if (!value)
+            throwDocumentError(element, std::string() + "Missing attribute '" + attribute + "'");
+        return value;
     }
 
-    void VRInputManager::suggestBindingsHpMixedReality()
+    void VRInputManager::readInteractionProfile(TiXmlElement* element)
     {
-        std::string controllerProfilePath = "/interaction_profiles/hp/mixed_reality_controller";
+        std::string interactionProfilePath = requireAttribute(element, "Path");
+        mInteractionProfileLocalNames[interactionProfilePath] = requireAttribute(element, "LocalName");
 
-        // In-game character controls
-        SuggestedBindings gameplayBindings{
-                {A_Recenter,                    "/user/hand/left/input/menu/click"},
-                {A_VrMetaMenu,                  "/user/hand/left/input/menu/click"},
-                {MWInput::A_Sneak,              "/user/hand/left/input/squeeze/value"},
-                {MWInput::A_MoveForwardBackward,"/user/hand/left/input/thumbstick/y"},
-                {MWInput::A_MoveLeftRight,      "/user/hand/left/input/thumbstick/x"},
-                {MWInput::A_AlwaysRun,          "/user/hand/left/input/thumbstick/click"},
-                {MWInput::A_Jump,               "/user/hand/left/input/trigger/value"},
-                {MWInput::A_ToggleSpell,        "/user/hand/left/input/x/click"},
-                {MWInput::A_Rest,               "/user/hand/left/input/y/click"},
-                {MWInput::A_ToggleWeapon,       "/user/hand/right/input/a/click"},
-                {MWInput::A_Inventory,          "/user/hand/right/input/b/click"},
-                {MWInput::A_LookLeftRight,      "/user/hand/right/input/thumbstick/x"},
-                {MWInput::A_AutoMove,           "/user/hand/right/input/thumbstick/click"},
-                {MWInput::A_Use,                "/user/hand/right/input/trigger/value"},
-                {A_ActivateTouch,               "/user/hand/right/input/squeeze/value"},
-                {MWInput::A_Activate,           "/user/hand/right/input/squeeze/value"},
-        };
+        Log(Debug::Verbose) << "Configuring interaction profile '" << interactionProfilePath << "' (" << mInteractionProfileLocalNames[interactionProfilePath] << ")";
 
-        // GUI controls
-        SuggestedBindings GUIBindings{
-                {A_Recenter,            "/user/hand/left/input/menu/click"},
-                {MWInput::A_GameMenu,   "/user/hand/left/input/menu/click"},
-                {A_MenuUpDown,          "/user/hand/right/input/thumbstick/y"},
-                {A_MenuLeftRight,       "/user/hand/right/input/thumbstick/x"},
-                {A_MenuSelect,          "/user/hand/right/input/a/click"},
-                {A_MenuBack,            "/user/hand/right/input/b/click"},
-                {MWInput::A_Use,        "/user/hand/right/input/trigger/value"},
-        };
+        // Check extension if present
+        TiXmlElement* extensionElement = element->FirstChildElement("Extension");
+        if (extensionElement)
+        {
+            std::string extension = requireAttribute(extensionElement, "Name");
+            auto xr = MWVR::Environment::get().getManager();
+            if (!xr->xrExtensionIsEnabled(XR_EXT_HP_MIXED_REALITY_CONTROLLER_EXTENSION_NAME))
+            {
+                Log(Debug::Verbose) << "  Required extension '" << extension << "' not supported. Skipping interaction profile.";
+                return;
+            }
+        }
 
-        mXRInput->suggestBindings(ActionSet::Gameplay, controllerProfilePath, gameplayBindings);
-        mXRInput->suggestBindings(ActionSet::GUI, controllerProfilePath, GUIBindings);
+        TiXmlElement* actionSetGameplay = nullptr;
+        TiXmlElement* actionSetGUI = nullptr;
+        TiXmlElement* child = element->FirstChildElement("ActionSet");
+        while (child)
+        {
+            std::string name = requireAttribute(child, "Name");
+            if (name == "Gameplay")
+                actionSetGameplay = child;
+            else if (name == "GUI")
+                actionSetGUI = child;
+
+            child = child->NextSiblingElement("ActionSet");
+        }
+
+        if (!actionSetGameplay)
+            throwDocumentError(element, "Gameplay action set missing");
+        if (!actionSetGUI)
+            throwDocumentError(element, "GUI action set missing");
+
+        readInteractionProfileActionSet(actionSetGameplay, ActionSet::Gameplay, interactionProfilePath);
+        readInteractionProfileActionSet(actionSetGUI, ActionSet::GUI, interactionProfilePath);
     }
 
-    void VRInputManager::suggestBindingsHuaweiController()
+    void VRInputManager::readInteractionProfileActionSet(TiXmlElement* element, ActionSet actionSet, std::string interactionProfilePath)
     {
-        std::string controllerProfilePath = "/interaction_profiles/huawei/controller";
+        SuggestedBindings suggestedBindings;
 
-        // In-game character controls
-        SuggestedBindings gameplayBindings{
-            {A_Recenter,                    "/user/hand/left/input/home/click"},
-            {A_VrMetaMenu,                  "/user/hand/left/input/home/click"},
-            {MWInput::A_Jump,               "/user/hand/left/input/trigger/click"},
-            {MWInput::A_MoveForwardBackward,"/user/hand/left/input/trackpad/y"},
-            {MWInput::A_MoveLeftRight,      "/user/hand/left/input/trackpad/x"},
-            {MWInput::A_ToggleSpell,        "/user/hand/left/input/trackpad/click"},
-            {MWInput::A_Sneak,              "/user/hand/left/input/back/click"},
-            {MWInput::A_LookLeftRight,      "/user/hand/right/input/trackpad/x"},
-            {MWInput::A_ToggleWeapon,       "/user/hand/right/input/trackpad/click"},
-            {MWInput::A_Use,                "/user/hand/right/input/trigger/click"},
-            {A_ActivateTouch,               "/user/hand/right/input/squeeze/click"},
-            {MWInput::A_Activate,           "/user/hand/right/input/squeeze/click"},
-        };
+        TiXmlElement* child = element->FirstChildElement("Binding");
+        while (child)
+        {
+            std::string action = requireAttribute(child, "ActionName");
+            std::string path = requireAttribute(child, "Path");
 
-        // GUI controls
-        SuggestedBindings GUIBindings{
-                {A_MenuBack,            "/user/hand/left/input/trackpad/click"},
-                {MWInput::A_GameMenu,   "/user/hand/left/input/home/click"},
-                {A_Recenter,            "/user/hand/left/input/home/click"},
-                {A_MenuUpDown,          "/user/hand/right/input/thumbstick/y"},
-                {A_MenuLeftRight,       "/user/hand/right/input/thumbstick/x"},
-                {A_MenuSelect,          "/user/hand/right/input/trackpad/click"},
-                {MWInput::A_Use,        "/user/hand/right/input/trigger/click"},
-        };
+            suggestedBindings.push_back(
+                SuggestedBinding{
+                    path, action
+                });
 
-        mXRInput->suggestBindings(ActionSet::Gameplay, controllerProfilePath, gameplayBindings);
-        mXRInput->suggestBindings(ActionSet::GUI, controllerProfilePath, GUIBindings);
-    }
+            Log(Debug::Debug) << "  " << action << ": " << path;
 
-    void VRInputManager::suggestBindingsMicrosoftMixedReality()
-    {
-        std::string controllerProfilePath = "/interaction_profiles/microsoft/motion_controller";
+            child = child->NextSiblingElement("Binding");
+        }
 
-        // In-game character controls
-        SuggestedBindings gameplayBindings{
-            {A_Recenter,                    "/user/hand/left/input/menu/click"},
-            {A_VrMetaMenu,                  "/user/hand/right/input/squeeze/click"},
-            {MWInput::A_Jump,               "/user/hand/left/input/trigger/value"},
-            {MWInput::A_MoveForwardBackward,"/user/hand/left/input/trackpad/y"},
-            {MWInput::A_MoveLeftRight,      "/user/hand/left/input/trackpad/x"},
-            {MWInput::A_Rest,               "/user/hand/left/input/thumbstick/click"},
-            {MWInput::A_ToggleSpell,        "/user/hand/left/input/trackpad/click"},
-            {MWInput::A_Sneak,              "/user/hand/left/input/squeeze/click"},
-            {MWInput::A_Inventory,          "/user/hand/right/input/thumbstick/click"},
-            {MWInput::A_LookLeftRight,      "/user/hand/right/input/trackpad/x"},
-            {MWInput::A_ToggleWeapon,       "/user/hand/right/input/trackpad/click"},
-            {MWInput::A_Use,                "/user/hand/right/input/trigger/value"},
-            {A_ActivateTouch,               "/user/hand/right/input/squeeze/click"},
-            {MWInput::A_Activate,           "/user/hand/right/input/squeeze/click"},
-        };
-
-        // GUI controls
-        SuggestedBindings GUIBindings{
-                {A_MenuBack,            "/user/hand/left/input/trackpad/click"},
-                {MWInput::A_GameMenu,   "/user/hand/left/input/menu/click"},
-                {A_Recenter,            "/user/hand/left/input/menu/click"},
-                {A_MenuUpDown,          "/user/hand/right/input/trackpad/y"},
-                {A_MenuLeftRight,       "/user/hand/right/input/trackpad/x"},
-                {A_MenuSelect,          "/user/hand/right/input/trackpad/click"},
-                {MWInput::A_Use,        "/user/hand/right/input/trigger/value"},
-        };
-
-        mXRInput->suggestBindings(ActionSet::Gameplay, controllerProfilePath, gameplayBindings);
-        mXRInput->suggestBindings(ActionSet::GUI, controllerProfilePath, GUIBindings);
-    }
-
-    void VRInputManager::suggestBindingsIndex()
-    {
-        std::string controllerProfilePath = "/interaction_profiles/valve/index_controller";
-        // In-game character controls
-        SuggestedBindings gameplayBindings{
-                {MWInput::A_ToggleSpell,        "/user/hand/left/input/a/click"},
-                {MWInput::A_Rest,               "/user/hand/left/input/b/click"},
-                {MWInput::A_MoveForwardBackward,"/user/hand/left/input/thumbstick/y"},
-                {MWInput::A_MoveLeftRight,      "/user/hand/left/input/thumbstick/x"},
-                {A_Recenter,                    "/user/hand/left/input/trackpad/force"},
-                {A_VrMetaMenu,                  "/user/hand/left/input/trackpad/force"},
-                {MWInput::A_Jump,               "/user/hand/left/input/trigger/value"},
-                {MWInput::A_Sneak,              "/user/hand/left/input/squeeze/force"},
-                {MWInput::A_ToggleWeapon,       "/user/hand/right/input/a/click"},
-                {MWInput::A_Inventory,          "/user/hand/right/input/b/click"},
-                {MWInput::A_LookLeftRight,      "/user/hand/right/input/thumbstick/x"},
-                {MWInput::A_Use,                "/user/hand/right/input/trigger/value"},
-                {A_ActivateTouch,               "/user/hand/right/input/squeeze/force"},
-                {MWInput::A_Activate,           "/user/hand/right/input/squeeze/force"},
-        };
-
-        // GUI controls
-        SuggestedBindings GUIBindings{
-                {A_Recenter,            "/user/hand/left/input/thumbstick/click"},
-                {MWInput::A_GameMenu,   "/user/hand/left/input/trackpad/force"},
-                {A_MenuSelect,          "/user/hand/right/input/a/click"},
-                {A_MenuBack,            "/user/hand/right/input/b/click"},
-                {MWInput::A_Use,        "/user/hand/right/input/trigger/value"},
-                {A_MenuUpDown,          "/user/hand/right/input/thumbstick/y"},
-                {A_MenuLeftRight,       "/user/hand/right/input/thumbstick/x"},
-        };
-
-        mXRInput->suggestBindings(ActionSet::Gameplay, controllerProfilePath, gameplayBindings);
-        mXRInput->suggestBindings(ActionSet::GUI, controllerProfilePath, GUIBindings);
-    }
-
-    void VRInputManager::suggestBindingsVive()
-    {
-        std::string controllerProfilePath = "/interaction_profiles/htc/vive_controller";
-
-        // In-game character controls
-        SuggestedBindings gameplayBindings{
-            {A_Recenter,                    "/user/hand/left/input/menu/click"},
-            {A_VrMetaMenu,                  "/user/hand/left/input/menu/click"},
-            {A_VrMetaMenu,                  "/user/hand/right/input/squeeze/click"},
-            {MWInput::A_MoveForwardBackward,"/user/hand/left/input/trackpad/y"},
-            {MWInput::A_MoveLeftRight,      "/user/hand/left/input/trackpad/x"},
-            {MWInput::A_ToggleSpell,        "/user/hand/left/input/trackpad/click"},
-            {MWInput::A_Jump,               "/user/hand/left/input/trigger/value"},
-            {MWInput::A_Sneak,              "/user/hand/left/input/squeeze/click"},
-            {MWInput::A_LookLeftRight,      "/user/hand/right/input/trackpad/x"},
-            {MWInput::A_ToggleWeapon,       "/user/hand/right/input/trackpad/click"},
-            {MWInput::A_Use,                "/user/hand/right/input/trigger/value"},
-            {A_ActivateTouch,               "/user/hand/right/input/squeeze/click"},
-            {MWInput::A_Activate,           "/user/hand/right/input/squeeze/click"},
-        };
-
-        // GUI controls
-        SuggestedBindings GUIBindings{
-                {A_MenuUpDown,          "/user/hand/right/input/trackpad/y"},
-                {A_MenuLeftRight,       "/user/hand/right/input/trackpad/x"},
-                {A_MenuSelect,          "/user/hand/right/input/trackpad/click"},
-                {A_MenuBack,            "/user/hand/left/input/trackpad/click"},
-                {MWInput::A_GameMenu,   "/user/hand/left/input/menu/click"},
-                {MWInput::A_Use,        "/user/hand/right/input/trigger/value"},
-                {A_Recenter,            "/user/hand/left/input/menu/click"},
-        };
-
-        mXRInput->suggestBindings(ActionSet::Gameplay, controllerProfilePath, gameplayBindings);
-        mXRInput->suggestBindings(ActionSet::GUI, controllerProfilePath, GUIBindings);
-    }
-
-    void VRInputManager::suggestBindingsViveCosmos()
-    {
-        std::string controllerProfilePath = "/interaction_profiles/htc/vive_cosmos_controller";
-
-        // In-game character controls
-        SuggestedBindings gameplayBindings{
-                {A_Recenter,                    "/user/hand/left/input/menu/click"},
-                {A_VrMetaMenu,                  "/user/hand/left/input/menu/click"},
-                {MWInput::A_Sneak,              "/user/hand/left/input/squeeze/value"},
-                {MWInput::A_MoveForwardBackward,"/user/hand/left/input/thumbstick/y"},
-                {MWInput::A_MoveLeftRight,      "/user/hand/left/input/thumbstick/x"},
-                {MWInput::A_AlwaysRun,          "/user/hand/left/input/thumbstick/click"},
-                {MWInput::A_Jump,               "/user/hand/left/input/trigger/click"},
-                {MWInput::A_ToggleSpell,        "/user/hand/left/input/x/click"},
-                {MWInput::A_Rest,               "/user/hand/left/input/y/click"},
-                {MWInput::A_ToggleWeapon,       "/user/hand/right/input/a/click"},
-                {MWInput::A_Inventory,          "/user/hand/right/input/b/click"},
-                {MWInput::A_LookLeftRight,      "/user/hand/right/input/thumbstick/x"},
-                {MWInput::A_AutoMove,           "/user/hand/right/input/thumbstick/click"},
-                {MWInput::A_Use,                "/user/hand/right/input/trigger/click"},
-                {A_ActivateTouch,               "/user/hand/right/input/squeeze/value"},
-                {MWInput::A_Activate,           "/user/hand/right/input/squeeze/value"},
-        };
-
-        // GUI controls
-        SuggestedBindings GUIBindings{
-                {A_Recenter,            "/user/hand/left/input/menu/click"},
-                {MWInput::A_GameMenu,   "/user/hand/left/input/menu/click"},
-                {A_MenuUpDown,          "/user/hand/right/input/thumbstick/y"},
-                {A_MenuLeftRight,       "/user/hand/right/input/thumbstick/x"},
-                {A_MenuSelect,          "/user/hand/right/input/a/click"},
-                {A_MenuBack,            "/user/hand/right/input/b/click"},
-                {MWInput::A_Use,        "/user/hand/right/input/trigger/click"},
-        };
-
-        mXRInput->suggestBindings(ActionSet::Gameplay, controllerProfilePath, gameplayBindings);
-        mXRInput->suggestBindings(ActionSet::GUI, controllerProfilePath, GUIBindings);
-    }
-
-    void VRInputManager::suggestBindingsXboxController()
-    {
-        //TODO
+        mXRInput->suggestBindings(actionSet, interactionProfilePath, suggestedBindings);
     }
 
     void VRInputManager::requestRecenter()
@@ -497,7 +286,8 @@ namespace MWVR
         bool userFileExists,
         const std::string& userControllerBindingsFile,
         const std::string& controllerBindingsFile,
-        bool grab)
+        bool grab,
+        const std::string& xrControllerSuggestionsFile)
         : MWInput::InputManager(
             window,
             viewer,
@@ -509,23 +299,46 @@ namespace MWVR
             controllerBindingsFile,
             grab)
         , mXRInput(new OpenXRInput)
+        , mXrControllerSuggestionsFile(xrControllerSuggestionsFile)
         , mHapticsEnabled{ Settings::Manager::getBool("haptics enabled", "VR") }
     {
-        auto xr = MWVR::Environment::get().getManager();
+        if (xrControllerSuggestionsFile.empty())
+            throw std::runtime_error("No interaction profiles available (xrcontrollersuggestions.xml not found)");
 
-        suggestBindingsSimple();
-        suggestBindingsOculusTouch();
-        suggestBindingsMicrosoftMixedReality();
-        suggestBindingsIndex();
-        suggestBindingsVive();
-        suggestBindingsXboxController();
+        Log(Debug::Verbose) << "Reading Input Profile Path suggestions from " << xrControllerSuggestionsFile;
 
-        if (xr->xrExtensionIsEnabled(XR_EXT_HP_MIXED_REALITY_CONTROLLER_EXTENSION_NAME))
-            suggestBindingsHpMixedReality();
-        if (xr->xrExtensionIsEnabled(XR_HUAWEI_CONTROLLER_INTERACTION_EXTENSION_NAME))
-            suggestBindingsHuaweiController();
-        if (xr->xrExtensionIsEnabled(XR_HTC_VIVE_COSMOS_CONTROLLER_INTERACTION_EXTENSION_NAME))
-            suggestBindingsViveCosmos();
+        TiXmlDocument* xmlDoc = nullptr;
+        TiXmlElement* xmlRoot = nullptr;
+
+        xmlDoc = new TiXmlDocument(xrControllerSuggestionsFile.c_str());
+        xmlDoc->LoadFile();
+
+        if (xmlDoc->Error())
+        {
+            std::ostringstream message;
+            message << "TinyXml reported an error reading \"" + xrControllerSuggestionsFile + "\". Row " <<
+                (int)xmlDoc->ErrorRow() << ", Col " << (int)xmlDoc->ErrorCol() << ": " <<
+                xmlDoc->ErrorDesc();
+            Log(Debug::Error) << message.str();
+            throw std::runtime_error(message.str());
+
+            delete xmlDoc;
+            return;
+        }
+
+        xmlRoot = xmlDoc->RootElement();
+        if (std::string(xmlRoot->Value()) != "Root") {
+            Log(Debug::Verbose) << "Error: Invalid xr controllers file. Missing <Root> element.";
+            delete xmlDoc;
+            return;
+        }
+
+        TiXmlElement* profile = xmlRoot->FirstChildElement("Profile");
+        while (profile)
+        {
+            readInteractionProfile(profile);
+            profile = profile->NextSiblingElement("Profile");
+        }
 
         mXRInput->attachActionSets();
     }

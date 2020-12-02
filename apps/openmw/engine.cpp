@@ -718,10 +718,29 @@ void OMW::Engine::prepareEngine (Settings::Manager & settings)
                 Version::getOpenmwVersionDescription(mResDir.string()), mCfgMgr.getUserConfigPath().string());
     mEnvironment.setWindowManager (window);
 
-    MWInput::InputManager* input =
 #ifdef USE_OPENXR
-        new MWVR::VRInputManager(mWindow, mViewer, mScreenCaptureHandler, mScreenCaptureOperation, keybinderUser, keybinderUserExists, userGameControllerdb, gameControllerdb, mGrab);
+    const std::string xrinputuserdefault = mCfgMgr.getUserConfigPath().string() + "/xrcontrollersuggestions.xml";
+    const std::string xrinputlocaldefault = mCfgMgr.getLocalPath().string() + "/xrcontrollersuggestions.xml";
+    const std::string xrinputglobaldefault = mCfgMgr.getGlobalPath().string() + "/xrcontrollersuggestions.xml";
+
+    std::string xrControllerSuggestions;
+    if (boost::filesystem::exists(xrinputuserdefault))
+        xrControllerSuggestions = xrinputuserdefault;
+    else if (boost::filesystem::exists(xrinputlocaldefault))
+        xrControllerSuggestions = xrinputlocaldefault;
+    else if (boost::filesystem::exists(xrinputglobaldefault))
+        xrControllerSuggestions = xrinputglobaldefault;
+    else
+        xrControllerSuggestions = ""; //if it doesn't exist, pass in an empty string
+
+    Log(Debug::Verbose) << "xrinputuserdefault: " << xrinputuserdefault;
+    Log(Debug::Verbose) << "xrinputlocaldefault: " << xrinputlocaldefault;
+    Log(Debug::Verbose) << "xrinputglobaldefault: " << xrinputglobaldefault;
+
+    MWInput::InputManager* input =
+        new MWVR::VRInputManager(mWindow, mViewer, mScreenCaptureHandler, mScreenCaptureOperation, keybinderUser, keybinderUserExists, userGameControllerdb, gameControllerdb, mGrab, xrControllerSuggestions);
 #else
+    MWInput::InputManager* input =
         new MWInput::InputManager (mWindow, mViewer, mScreenCaptureHandler, mScreenCaptureOperation, keybinderUser, keybinderUserExists, userGameControllerdb, gameControllerdb, mGrab);
 #endif
     mEnvironment.setInputManager (input);

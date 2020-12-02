@@ -120,7 +120,8 @@ namespace MWVR
             const std::string& actionName,
             const std::string& localName)
     {
-        mActionMap.emplace(openMWAction, new A(openMWAction, std::move(createXRAction(AT, mInternalName + "_" + actionName, mLocalizedName + " " + localName))));
+        auto xrAction = createXRAction(AT, mInternalName + "_" + actionName, mLocalizedName + " " + localName);
+        mActionMap.emplace(actionName, new A(openMWAction, std::move(xrAction)));
     }
 
     XrActionSet

@@ -28,9 +28,9 @@ namespace MWVR
         return it->second;
     }
 
-    void OpenXRInput::suggestBindings(ActionSet actionSet, std::string profile, const SuggestedBindings& mwSuggestedBindings)
+    void OpenXRInput::suggestBindings(ActionSet actionSet, std::string profilePath, const SuggestedBindings& mwSuggestedBindings)
     {
-        getActionSet(actionSet).suggestBindings(mSuggestedBindings[profile], mwSuggestedBindings);
+        getActionSet(actionSet).suggestBindings(mSuggestedBindings[profilePath], mwSuggestedBindings);
     }
 
     void OpenXRInput::attachActionSets()
@@ -48,6 +48,8 @@ namespace MWVR
             xrProfileSuggestedBindings.suggestedBindings = profile.second.data();
             xrProfileSuggestedBindings.countSuggestedBindings = (uint32_t)profile.second.size();
             CHECK_XRCMD(xrSuggestInteractionProfileBindings(xr->impl().xrInstance(), &xrProfileSuggestedBindings));
+            mInteractionProfileNames[profilePath] = profile.first;
+            mInteractionProfilePaths[profile.first] = profilePath;
         }
 
         // OpenXR requires that xrAttachSessionActionSets be called at most once per session.
@@ -61,5 +63,50 @@ namespace MWVR
         attachInfo.countActionSets = actionSets.size();
         attachInfo.actionSets = actionSets.data();
         CHECK_XRCMD(xrAttachSessionActionSets(xr->impl().xrSession(), &attachInfo));
+    }
+
+    void OpenXRInput::notifyInteractionProfileChanged()
+    {
+        auto xr = MWVR::Environment::get().getManager();
+        xr->impl().xrSession();
+
+        // Unfortunately, openxr does not tell us WHICH profile has changed.
+        std::array<std::string, 5> topLevelUserPaths =
+        {
+            "/user/hand/left",
+            "/user/hand/right",
+            "/user/head",
+            "/user/gamepad",
+            "/user/treadmill"
+        };
+
+        for (auto& userPath : topLevelUserPaths)
+        {
+            auto pathIt = mInteractionProfilePaths.find(userPath);
+            if (pathIt == mInteractionProfilePaths.end())
+            {
+                XrPath xrUserPath = XR_NULL_PATH;
+                CHECK_XRCMD(
+                    xrStringToPath(xr->impl().xrInstance(), userPath.c_str(), &xrUserPath));
+                mInteractionProfilePaths[userPath] = xrUserPath;
+                pathIt = mInteractionProfilePaths.find(userPath);
+            }
+
+            XrInteractionProfileState interactionProfileState{
+                XR_TYPE_INTERACTION_PROFILE_STATE
+            };
+
+            xrGetCurrentInteractionProfile(xr->impl().xrSession(), pathIt->second, &interactionProfileState);
+            if (interactionProfileState.interactionProfile)
+            {
+                auto activeProfileIt = mActiveInteractionProfiles.find(pathIt->second);
+                if (activeProfileIt == mActiveInteractionProfiles.end() || interactionProfileState.interactionProfile != activeProfileIt->second)
+                {
+                    auto activeProfileNameIt = mInteractionProfileNames.find(interactionProfileState.interactionProfile);
+                    Log(Debug::Verbose) << userPath << ": Interaction profile changed to '" << activeProfileNameIt->second << "'";
+                    mActiveInteractionProfiles[pathIt->second] = interactionProfileState.interactionProfile;
+                }
+            }
+        }
     }
 }
