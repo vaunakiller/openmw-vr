@@ -232,9 +232,9 @@ namespace MWVR
         if (XR_FAILED(res)) {
             std::stringstream ss;
 #ifdef _WIN32
-            ss << sourceLocation << ": OpenXR[Error: " << to_string(res) << "][Thread: " << std::this_thread::get_id() << "][DC: " << wglGetCurrentDC() << "][GLRC: " << wglGetCurrentContext() << "]: " << originator;
+            ss << sourceLocation << ": OpenXR[Error: " << to_string(res) << "][Thread: " << std::this_thread::get_id() << "]: " << originator;
 #elif __linux__
-            ss << sourceLocation << ": OpenXR[Error: " << to_string(res) << "][Thread: " << std::this_thread::get_id() << "][glxContext: " << glXGetCurrentContext() << "][glxDrawable: " << glXGetCurrentDrawable() << "]: " << originator;
+            ss << sourceLocation << ": OpenXR[Error: " << to_string(res) << "][Thread: " << std::this_thread::get_id() << "]: " << originator;
 #endif
             Log(Debug::Error) << ss.str();
             if (res == XR_ERROR_TIME_INVALID)
@@ -245,9 +245,9 @@ namespace MWVR
         else if (res != XR_SUCCESS || sLogAllXrCalls)
         {
 #ifdef _WIN32
-            Log(Debug::Verbose) << sourceLocation << ": OpenXR[" << to_string(res) << "][" << std::this_thread::get_id() << "][" << wglGetCurrentDC() << "][" << wglGetCurrentContext() << "]: " << originator;
+            Log(Debug::Verbose) << sourceLocation << ": OpenXR[" << to_string(res) << "][" << std::this_thread::get_id() << "]: " << originator;
 #elif __linux__
-            Log(Debug::Verbose) << sourceLocation << ": OpenXR[" << to_string(res) << "][" << std::this_thread::get_id() << "][" << glXGetCurrentContext() << "][" << glXGetCurrentDrawable() << "]: " << originator;
+            Log(Debug::Verbose) << sourceLocation << ": OpenXR[" << to_string(res) << "][" << std::this_thread::get_id() << "]: " << originator;
 #endif
         }
 
