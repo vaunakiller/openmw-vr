@@ -47,6 +47,7 @@ namespace MWVR
             void onGameMenu();
             void onInventory();
             void onRest();
+            void onQuickMenu();
             void onQuickLoad();
             void onQuickSave();
             void close();

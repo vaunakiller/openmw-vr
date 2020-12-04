@@ -73,7 +73,7 @@ namespace MWVR
         createMWAction<ButtonPressAction>(MWInput::A_CycleWeaponLeft, "cycle_weapon_left", "Cycle Weapon Left");
         createMWAction<ButtonPressAction>(MWInput::A_CycleWeaponRight, "cycle_weapon_right", "Cycle Weapon Right");
         createMWAction<ButtonHoldAction>(MWInput::A_Sneak, "sneak", "Sneak");
-        createMWAction<ButtonPressAction>(MWInput::A_QuickMenu, "quick_menu", "Quick Menu");
+        createMWAction<ButtonPressAction>(MWInput::A_QuickKeysMenu, "quick_menu", "Quick Menu");
         createMWAction<AxisAction>(MWInput::A_LookLeftRight, "look_left_right", "Look Left Right");
         createMWAction<AxisAction>(MWInput::A_MoveForwardBackward, "move_forward_backward", "Move Forward Backward");
         createMWAction<AxisAction>(MWInput::A_MoveLeftRight, "move_left_right", "Move Left Right");

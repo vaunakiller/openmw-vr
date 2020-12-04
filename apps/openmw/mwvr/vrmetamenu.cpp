@@ -77,6 +77,11 @@ namespace MWVR
         MWBase::Environment::get().getWindowManager()->pushGuiMode(MWGui::GM_Rest); //Open rest GUI
     }
 
+    void VrMetaMenu::onQuickMenu()
+    {
+        MWBase::Environment::get().getWindowManager()->pushGuiMode(MWGui::GM_QuickKeysMenu);
+    }
+
     void VrMetaMenu::onQuickLoad()
     {
         if (!MyGUI::InputManager::getInstance().isModalAny())
@@ -108,6 +113,8 @@ namespace MWVR
             onInventory();
         else if (name == "rest")
             onRest();
+        else if (name == "quickmenu")
+            onQuickMenu();
         else if (name == "quickload")
             onQuickLoad();
         else if (name == "quicksave")
@@ -121,7 +128,7 @@ namespace MWVR
 
     void VrMetaMenu::updateMenu()
     {
-        static std::vector<std::string> buttons{ "return", "quicksave", "quickload", "console", "inventory", "journal", "rest", "gamemenu" };
+        static std::vector<std::string> buttons{ "return", "quicksave", "quickload", "console", "inventory", "journal", "rest", "quickmenu", "gamemenu" };
 
         if(mButtons.empty())
         for (std::string& buttonId : buttons)
