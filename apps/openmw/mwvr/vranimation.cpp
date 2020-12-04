@@ -459,7 +459,7 @@ namespace MWVR
             MWBase::Environment::get().getWorld()->getStore().get<ESM::Race>().find(ref->mBase->mRace);
         bool isMale = ref->mBase->isMale();
         float charHeightFactor = isMale ? race->mData.mHeight.mMale : race->mData.mHeight.mFemale;
-        float charHeightBase = 1.8f; // Is this ~ the right value?
+        float charHeightBase = 1.8288f; // Is this ~ the right value?
         float charHeight = charHeightBase * charHeightFactor;
         float realHeight = Settings::Manager::getFloat("real height", "VR");
         float sizeFactor = charHeight / realHeight;
