@@ -676,7 +676,17 @@ namespace MWPhysics
 
         mTimeAccum -= numSteps * mPhysicsDt;
 
-        return mTaskScheduler->moveActors(numSteps, mTimeAccum, prepareFrameData(numSteps), skipSimulation, frameStart, frameNumber, stats);
+        if (skipSimulation)
+        {
+            for (auto& [_, actor] : mActors)
+            {
+                actor->resetPosition();
+                actor->setStandingOnPtr(nullptr);
+            }
+            return mTaskScheduler->resetSimulation();
+        }
+
+        return mTaskScheduler->moveActors(numSteps, mTimeAccum, prepareFrameData(numSteps), frameStart, frameNumber, stats);
     }
 
     std::vector<ActorFrameData> PhysicsSystem::prepareFrameData(int numSteps)
@@ -877,9 +887,12 @@ namespace MWPhysics
         mWantJump = mPtr.getClass().getMovementSettings(mPtr).mPosition[2] != 0;
         mIsDead = mPtr.getClass().getCreatureStats(mPtr).isDead();
         mWasOnGround = actor->getOnGround();
+    }
 
+    void ActorFrameData::updatePosition()
+    {
         mActorRaw->updatePosition();
-        mOrigin = mActorRaw->getNextPosition();
+        mOrigin = mActorRaw->getSimulationPosition();
         mPosition = mActorRaw->getPosition();
         if (mMoveToWaterSurface)
         {

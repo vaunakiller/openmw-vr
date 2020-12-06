@@ -309,7 +309,7 @@ namespace MWWorld
         if (mPlayer)
         {
             mPlayer->clear();
-            mPlayer->setCell(0);
+            mPlayer->setCell(nullptr);
             mPlayer->getPlayer().getRefData() = RefData();
             mPlayer->set(mStore.get<ESM::NPC>().find ("player"));
         }
@@ -1041,7 +1041,7 @@ namespace MWWorld
 
             if (!facedObject.isEmpty() && !facedObject.getClass().allowTelekinesis(facedObject)
                 && mDistanceToFacedObject > getMaxActivationDistance() && !MWBase::Environment::get().getWindowManager()->isGuiMode())
-                return 0;
+                return nullptr;
         }
         return facedObject;
     }
@@ -1221,7 +1221,7 @@ namespace MWWorld
                     haveToMove = false;
 
                     newPtr = currCell->moveTo(ptr, newCell);
-                    newPtr.getRefData().setBaseNode(0);
+                    newPtr.getRefData().setBaseNode(nullptr);
                 }
                 else if (!currCellActive && !newCellActive)
                     newPtr = currCell->moveTo(ptr, newCell);
@@ -1304,7 +1304,7 @@ namespace MWWorld
             mWorldScene->removeFromPagedRefs(ptr);
         }
 
-        if(ptr.getRefData().getBaseNode() != 0)
+        if(ptr.getRefData().getBaseNode() != nullptr)
             mWorldScene->updateObjectScale(ptr);
 
         if (mPhysics->getActor(ptr))
@@ -1352,7 +1352,7 @@ namespace MWWorld
         mRendering->pagingBlacklistObject(mStore.find(ptr.getCellRef().getRefId()), ptr);
         mWorldScene->removeFromPagedRefs(ptr);
 
-        if(ptr.getRefData().getBaseNode() != 0)
+        if(ptr.getRefData().getBaseNode() != nullptr)
         {
             const auto order = flags & MWBase::RotationFlag_inverseOrder
                 ? RotationOrder::inverse : RotationOrder::direct;
@@ -1437,7 +1437,7 @@ namespace MWWorld
 
     void World::rotateWorldObject (const Ptr& ptr, osg::Quat rotate)
     {
-        if(ptr.getRefData().getBaseNode() != 0)
+        if(ptr.getRefData().getBaseNode() != nullptr)
         {
             mRendering->pagingBlacklistObject(mStore.find(ptr.getCellRef().getRefId()), ptr);
             mWorldScene->removeFromPagedRefs(ptr);

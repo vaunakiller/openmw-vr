@@ -2016,7 +2016,7 @@ namespace MWGui
     {
         if (_type != "Text")
             return;
-        char* text=0;
+        char* text=nullptr;
         text = SDL_GetClipboardText();
         if (text)
             _data = MyGUI::TextIterator::toTagsString(text);

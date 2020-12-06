@@ -70,7 +70,7 @@ namespace MWClass
             return *this;
         }
 
-        CreatureCustomData() : mContainerStore(0) {}
+        CreatureCustomData() : mContainerStore(nullptr) {}
         virtual ~CreatureCustomData() { delete mContainerStore; }
     };
 
