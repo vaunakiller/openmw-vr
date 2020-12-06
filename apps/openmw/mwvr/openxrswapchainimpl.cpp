@@ -149,6 +149,51 @@ namespace MWVR {
             throw std::logic_error("Swapchain must be acquired before use. Call between OpenXRSwapchain::beginFrame() and OpenXRSwapchain::endFrame()");
     }
 
+    static int64_t selectFormat(const std::vector<int64_t>& eligibleFormats, const std::vector<int64_t>& requestedFormats)
+    {
+        auto it =
+            std::find_first_of(std::begin(requestedFormats), std::end(requestedFormats),
+                eligibleFormats.begin(), eligibleFormats.end());
+        if (it == std::end(requestedFormats))
+        {
+            return 0;
+        }
+        return *it;
+    }
+
+    static int64_t selectColorFormat(const std::vector<int64_t>& eligibleFormats)
+    {
+        // Find supported color swapchain format.
+        std::vector<int64_t> requestedColorSwapchainFormats = {
+            0x8058, // GL_RGBA8
+            0x8F97, // GL_RGBA8_SNORM
+            0x881A, // GL_RGBA16F
+            0x881B, // GL_RGB16F
+            // Offered by SteamVR but is broken: // 0x805B, // GL_RGBA16
+            0x8C3A, // GL_R11F_G11F_B10F
+            // We manage gamma ourselves: 0x8C43, // GL_SRGB8_ALPHA8
+            // We manage gamma ourselves: 0x8C41, // GL_SRGB8
+        };
+
+        return selectFormat(eligibleFormats, requestedColorSwapchainFormats);
+    }
+
+    static int64_t selectDepthFormat(const std::vector<int64_t>& eligibleFormats)
+    {
+        // Find supported depth swapchain format.
+        std::vector<int64_t> requestedDepthSwapchainFormats = {
+            0x81A6, // GL_DEPTH_COMPONENT24
+            0x88F0, // GL_DEPTH24_STENCIL8
+            0x8CAC, // GL_DEPTH_COMPONENT32F
+            0x81A7, // GL_DEPTH_COMPONENT32
+            0x8DAB, // GL_DEPTH_COMPONENT32F_NV
+            0x8CAD, // GL_DEPTH32_STENCIL8
+            // Need 32bit minimum: // 0x81A5, // GL_DEPTH_COMPONENT16
+        };
+
+        return selectFormat(eligibleFormats, requestedDepthSwapchainFormats);
+    }
+
     OpenXRSwapchainImpl::SwapchainPrivate::SwapchainPrivate(osg::ref_ptr<osg::State> state, SwapchainConfig config, Use use)
         : mBuffers()
         , mWidth(config.selectedWidth)
@@ -163,34 +208,15 @@ namespace MWVR {
         std::vector<int64_t> swapchainFormats(swapchainFormatCount);
         CHECK_XRCMD(xrEnumerateSwapchainFormats(xr->impl().xrSession(), (uint32_t)swapchainFormats.size(), &swapchainFormatCount, swapchainFormats.data()));
 
-        // Find supported color swapchain format.
-        constexpr int64_t RequestedColorSwapchainFormats[] = {
-            GL_RGBA8,
-            GL_RGBA8_SNORM,
-            GL_SRGB8_ALPHA8,
-            //GL_RGBA16,
-            //0x881A // GL_RGBA16F
-        };
-        constexpr int64_t RequestedDepthSwapchainFormats[] = {
-            GL_DEPTH_COMPONENT24,
-            GL_DEPTH_COMPONENT32F,
-        };
-
-        auto colorFormatIt =
-            std::find_first_of(swapchainFormats.begin(), swapchainFormats.end(), std::begin(RequestedColorSwapchainFormats),
-                std::end(RequestedColorSwapchainFormats));
-        auto depthFormatIt =
-            std::find_first_of(swapchainFormats.begin(), swapchainFormats.end(), std::begin(RequestedDepthSwapchainFormats),
-                std::end(RequestedDepthSwapchainFormats));
-
-        auto formatIt = use == Use::COLOR ? colorFormatIt : depthFormatIt;
+        if (use == Use::COLOR)
+            mFormat = selectColorFormat(swapchainFormats);
+        else
+            mFormat = selectDepthFormat(swapchainFormats);
         std::string typeString = use == Use::COLOR ? "color" : "depth";
 
-        if (formatIt == swapchainFormats.end()) {
+        if (mFormat == 0) {
             throw std::runtime_error(std::string("Swapchain ") + typeString + " format not supported");
         }
-
-        mFormat = *formatIt;
         Log(Debug::Verbose) << "Selected " << typeString << " format: " << std::dec << mFormat << " (" << std::hex << mFormat << ")" << std::dec;
 
         if (xr->xrExtensionIsEnabled(XR_KHR_COMPOSITION_LAYER_DEPTH_EXTENSION_NAME))
