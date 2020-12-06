@@ -95,9 +95,9 @@ public:
         : mActor(actor)
         , mCommanded(false){}
 
-    virtual void visit (MWMechanics::EffectKey key, int effectIndex,
+    void visit (MWMechanics::EffectKey key, int effectIndex,
                         const std::string& sourceName, const std::string& sourceId, int casterActorId,
-                        float magnitude, float remainingTime = -1, float totalTime = -1)
+                        float magnitude, float remainingTime = -1, float totalTime = -1) override
     {
         if (((key.mId == ESM::MagicEffect::CommandHumanoid && mActor.getClass().isNpc())
             || (key.mId == ESM::MagicEffect::CommandCreature && mActor.getTypeName() == typeid(ESM::Creature).name()))
@@ -159,9 +159,9 @@ namespace MWMechanics
         GetStuntedMagickaDuration(const MWWorld::Ptr& actor)
             : mRemainingTime(0.f){}
 
-        virtual void visit (MWMechanics::EffectKey key, int effectIndex,
+        void visit (MWMechanics::EffectKey key, int effectIndex,
                             const std::string& sourceName, const std::string& sourceId, int casterActorId,
-                            float magnitude, float remainingTime = -1, float totalTime = -1)
+                            float magnitude, float remainingTime = -1, float totalTime = -1) override
         {
             if (mRemainingTime == -1) return;
 
@@ -189,9 +189,9 @@ namespace MWMechanics
         {
         }
 
-        virtual void visit (MWMechanics::EffectKey key, int effectIndex,
+        void visit (MWMechanics::EffectKey key, int effectIndex,
                             const std::string& sourceName, const std::string& sourceId, int casterActorId,
-                            float magnitude, float remainingTime = -1, float totalTime = -1)
+                            float magnitude, float remainingTime = -1, float totalTime = -1) override
         {
             if (magnitude <= 0)
                 return;
@@ -199,7 +199,7 @@ namespace MWMechanics
             if (sourceId != mSpellId)
                 return;
 
-            mMagnitudes.push_back(std::make_pair(key, magnitude));
+            mMagnitudes.emplace_back(key, magnitude);
         }
 
         std::vector<std::pair<MWMechanics::EffectKey, float>> mMagnitudes;
@@ -209,9 +209,9 @@ namespace MWMechanics
     {
 
     public:
-        virtual void visit (MWMechanics::EffectKey key, int effectIndex,
+        void visit (MWMechanics::EffectKey key, int effectIndex,
                             const std::string& sourceName, const std::string& sourceId, int casterActorId,
-                            float magnitude, float remainingTime = -1, float totalTime = -1)
+                            float magnitude, float remainingTime = -1, float totalTime = -1) override
         {
             if (key.mId != ESM::MagicEffect::Corprus)
                 return;
@@ -234,9 +234,9 @@ namespace MWMechanics
         {
         }
 
-        virtual void visit (MWMechanics::EffectKey key, int effectIndex,
+        void visit (MWMechanics::EffectKey key, int effectIndex,
                             const std::string& sourceName, const std::string& sourceId, int casterActorId,
-                            float magnitude, float remainingTime = -1, float totalTime = -1)
+                            float magnitude, float remainingTime = -1, float totalTime = -1) override
         {
             if (mTrapped)
                 return;
@@ -590,7 +590,9 @@ namespace MWMechanics
 
         if (!actorState.isTurningToPlayer())
         {
-            float angle = std::atan2(dir.x(), dir.y());
+            float from = dir.x();
+            float to = dir.y();
+            float angle = std::atan2(from, to);
             actorState.setAngleToPlayer(angle);
             float deltaAngle = Misc::normalizeAngle(angle - actor.getRefData().getPosition().rot[2]);
             if (!mSmoothMovement || std::abs(deltaAngle) > osg::DegreesToRadians(60.f))
@@ -901,9 +903,9 @@ namespace MWMechanics
             {
             }
 
-            virtual void visit (MWMechanics::EffectKey key, int /*effectIndex*/,
+            void visit (MWMechanics::EffectKey key, int /*effectIndex*/,
                                 const std::string& /*sourceName*/, const std::string& /*sourceId*/, int /*casterActorId*/,
-                                float magnitude, float remainingTime = -1, float /*totalTime*/ = -1)
+                                float magnitude, float remainingTime = -1, float /*totalTime*/ = -1) override
             {
                 if (magnitude > 0 && remainingTime > 0 && remainingTime < mDuration)
                 {
@@ -914,10 +916,53 @@ namespace MWMechanics
             }
     };
 
+    void Actors::applyCureEffects(const MWWorld::Ptr& actor)
+    {
+        CreatureStats &creatureStats = actor.getClass().getCreatureStats(actor);
+        const MagicEffects &effects = creatureStats.getMagicEffects();
+
+        if (effects.get(ESM::MagicEffect::CurePoison).getModifier() > 0)
+        {
+            creatureStats.getActiveSpells().purgeEffect(ESM::MagicEffect::Poison);
+            creatureStats.getSpells().purgeEffect(ESM::MagicEffect::Poison);
+            if (actor.getClass().hasInventoryStore(actor))
+                actor.getClass().getInventoryStore(actor).purgeEffect(ESM::MagicEffect::Poison);
+        }
+        else if (effects.get(ESM::MagicEffect::CureParalyzation).getModifier() > 0)
+        {
+            creatureStats.getActiveSpells().purgeEffect(ESM::MagicEffect::Paralyze);
+            creatureStats.getSpells().purgeEffect(ESM::MagicEffect::Paralyze);
+            if (actor.getClass().hasInventoryStore(actor))
+                actor.getClass().getInventoryStore(actor).purgeEffect(ESM::MagicEffect::Paralyze);
+        }
+        else if (effects.get(ESM::MagicEffect::CureCommonDisease).getModifier() > 0)
+        {
+            creatureStats.getSpells().purgeCommonDisease();
+        }
+        else if (effects.get(ESM::MagicEffect::CureBlightDisease).getModifier() > 0)
+        {
+            creatureStats.getSpells().purgeBlightDisease();
+        }
+        else if (effects.get(ESM::MagicEffect::CureCorprusDisease).getModifier() > 0)
+        {
+            creatureStats.getActiveSpells().purgeCorprusDisease();
+            creatureStats.getSpells().purgeCorprusDisease();
+            if (actor.getClass().hasInventoryStore(actor))
+                actor.getClass().getInventoryStore(actor).purgeEffect(ESM::MagicEffect::Corprus, true);
+        }
+        else if (effects.get(ESM::MagicEffect::RemoveCurse).getModifier() > 0)
+        {
+            creatureStats.getSpells().purgeCurses();
+        }
+    }
+
     void Actors::calculateCreatureStatModifiers (const MWWorld::Ptr& ptr, float duration)
     {
         CreatureStats &creatureStats = ptr.getClass().getCreatureStats(ptr);
         const MagicEffects &effects = creatureStats.getMagicEffects();
+        bool godmode = ptr == getPlayer() && MWBase::Environment::get().getWorld()->getGodModeState();
+
+        applyCureEffects(ptr);
 
         bool wasDead = creatureStats.isDead();
 
@@ -969,8 +1014,11 @@ namespace MWMechanics
         for (int i = 0; i < 3; ++i)
         {
             DynamicStat<float> stat = creatureStats.getDynamic(i);
-            stat.setCurrentModifier(effects.get(ESM::MagicEffect::FortifyHealth + i).getMagnitude() -
-                effects.get(ESM::MagicEffect::DrainHealth + i).getMagnitude(),
+            float fortify = effects.get(ESM::MagicEffect::FortifyHealth + i).getMagnitude();
+            float drain = 0.f;
+            if (!godmode)
+                drain = effects.get(ESM::MagicEffect::DrainHealth + i).getMagnitude();
+            stat.setCurrentModifier(fortify - drain,
                 // Magicka can be decreased below zero due to a fortify effect wearing off
                 // Fatigue can be decreased below zero meaning the actor will be knocked out
                 i == 1 || i == 2);
@@ -982,9 +1030,14 @@ namespace MWMechanics
         for(int i = 0;i < ESM::Attribute::Length;++i)
         {
             AttributeValue stat = creatureStats.getAttribute(i);
-            stat.setModifier(static_cast<int>(effects.get(EffectKey(ESM::MagicEffect::FortifyAttribute, i)).getMagnitude() -
-                             effects.get(EffectKey(ESM::MagicEffect::DrainAttribute, i)).getMagnitude() -
-                             effects.get(EffectKey(ESM::MagicEffect::AbsorbAttribute, i)).getMagnitude()));
+            float fortify = effects.get(EffectKey(ESM::MagicEffect::FortifyAttribute, i)).getMagnitude();
+            float drain = 0.f, absorb = 0.f;
+            if (!godmode)
+            {
+                drain = effects.get(EffectKey(ESM::MagicEffect::DrainAttribute, i)).getMagnitude();
+                absorb = effects.get(EffectKey(ESM::MagicEffect::AbsorbAttribute, i)).getMagnitude();
+            }
+            stat.setModifier(static_cast<int>(fortify - drain - absorb));
 
             creatureStats.setAttribute(i, stat);
         }
@@ -1189,6 +1242,11 @@ namespace MWMechanics
             }
         }
 
+        // Summoned creature update visitor assumes the actor belongs to a cell.
+        // This assumption isn't always valid for the player character.
+        if (!ptr.isInCell())
+            return;
+
         bool hasSummonEffect = false;
         for (MagicEffects::Collection::const_iterator it = effects.begin(); it != effects.end(); ++it)
         {
@@ -1214,14 +1272,20 @@ namespace MWMechanics
     {
         NpcStats &npcStats = ptr.getClass().getNpcStats(ptr);
         const MagicEffects &effects = npcStats.getMagicEffects();
+        bool godmode = ptr == getPlayer() && MWBase::Environment::get().getWorld()->getGodModeState();
 
         // skills
         for(int i = 0;i < ESM::Skill::Length;++i)
         {
             SkillValue& skill = npcStats.getSkill(i);
-            skill.setModifier(static_cast<int>(effects.get(EffectKey(ESM::MagicEffect::FortifySkill, i)).getMagnitude() -
-                             effects.get(EffectKey(ESM::MagicEffect::DrainSkill, i)).getMagnitude() -
-                             effects.get(EffectKey(ESM::MagicEffect::AbsorbSkill, i)).getMagnitude()));
+            float fortify = effects.get(EffectKey(ESM::MagicEffect::FortifySkill, i)).getMagnitude();
+            float drain = 0.f, absorb = 0.f;
+            if (!godmode)
+            {
+                drain = effects.get(EffectKey(ESM::MagicEffect::DrainSkill, i)).getMagnitude();
+                absorb = effects.get(EffectKey(ESM::MagicEffect::AbsorbSkill, i)).getMagnitude();
+            }
+            skill.setModifier(static_cast<int>(fortify - drain - absorb));
         }
     }
 
@@ -1667,9 +1731,13 @@ namespace MWMechanics
 
     void Actors::predictAndAvoidCollisions()
     {
+        if (!MWBase::Environment::get().getMechanicsManager()->isAIActive())
+            return;
+
         const float minGap = 10.f;
-        const float maxDistToCheck = 100.f;
-        const float maxTimeToCheck = 1.f;
+        const float maxDistForPartialAvoiding = 200.f;
+        const float maxDistForStrictAvoiding = 100.f;
+        const float maxTimeToCheck = 2.0f;
         static const bool giveWayWhenIdle = Settings::Manager::getBool("NPCs give way", "Game");
 
         MWWorld::Ptr player = getPlayer();
@@ -1680,9 +1748,15 @@ namespace MWMechanics
             if (ptr == player)
                 continue; // Don't interfere with player controls.
 
+            float maxSpeed = ptr.getClass().getMaxSpeed(ptr);
+            if (maxSpeed == 0.0)
+                continue; // Can't move, so there is no sense to predict collisions.
+
             Movement& movement = ptr.getClass().getMovementSettings(ptr);
             osg::Vec2f origMovement(movement.mPosition[0], movement.mPosition[1]);
             bool isMoving = origMovement.length2() > 0.01;
+            if (movement.mPosition[1] < 0)
+                continue; // Actors can not see others when move backward.
 
             // Moving NPCs always should avoid collisions.
             // Standing NPCs give way to moving ones if they are not in combat (or pursue) mode and either
@@ -1696,7 +1770,7 @@ namespace MWMechanics
                     shouldAvoidCollision = true;
                 else if (package->getTypeId() == AiPackageTypeId::Wander && giveWayWhenIdle)
                 {
-                    if (!dynamic_cast<const AiWander*>(package.get())->isStationary())
+                    if (!static_cast<const AiWander*>(package.get())->isStationary())
                         shouldAvoidCollision = true;
                 }
                 else if (package->getTypeId() == AiPackageTypeId::Combat || package->getTypeId() == AiPackageTypeId::Pursue)
@@ -1710,11 +1784,11 @@ namespace MWMechanics
             if (!shouldAvoidCollision)
                 continue;
 
-            float maxSpeed = ptr.getClass().getMaxSpeed(ptr);
             osg::Vec2f baseSpeed = origMovement * maxSpeed;
             osg::Vec3f basePos = ptr.getRefData().getPosition().asVec3();
             float baseRotZ = ptr.getRefData().getPosition().rot[2];
             osg::Vec3f halfExtents = world->getHalfExtents(ptr);
+            float maxDistToCheck = isMoving ? maxDistForPartialAvoiding : maxDistForStrictAvoiding;
 
             float timeToCollision = maxTimeToCheck;
             osg::Vec2f movementCorrection(0, 0);
@@ -1730,9 +1804,10 @@ namespace MWMechanics
                 osg::Vec3f otherHalfExtents = world->getHalfExtents(otherPtr);
                 osg::Vec3f deltaPos = otherPtr.getRefData().getPosition().asVec3() - basePos;
                 osg::Vec2f relPos = Misc::rotateVec2f(osg::Vec2f(deltaPos.x(), deltaPos.y()), baseRotZ);
+                float dist = deltaPos.length();
 
                 // Ignore actors which are not close enough or come from behind.
-                if (deltaPos.length2() > maxDistToCheck * maxDistToCheck || relPos.y() < 0)
+                if (dist > maxDistToCheck || relPos.y() < 0)
                     continue;
 
                 // Don't check for a collision if vertical distance is greater then the actor's height.
@@ -1767,21 +1842,23 @@ namespace MWMechanics
                 timeToCollision = t;
                 angleToApproachingActor = std::atan2(deltaPos.x(), deltaPos.y());
                 osg::Vec2f posAtT = relPos + relSpeed * t;
-                float coef = (posAtT.x() * relSpeed.x() + posAtT.y() * relSpeed.y()) / (collisionDist * maxSpeed);
+                float coef = (posAtT.x() * relSpeed.x() + posAtT.y() * relSpeed.y()) / (collisionDist * collisionDist * maxSpeed);
+                coef *= osg::clampBetween((maxDistForPartialAvoiding - dist) / (maxDistForPartialAvoiding - maxDistForStrictAvoiding), 0.f, 1.f);
                 movementCorrection = posAtT * coef;
-                // Step to the side rather than backward. Otherwise player will be able to push the NPC far away from it's original location.
-                movementCorrection.y() = std::max(0.f, movementCorrection.y());
+                if (otherPtr.getClass().getCreatureStats(otherPtr).isDead())
+                    // In case of dead body still try to go around (it looks natural), but reduce the correction twice.
+                    movementCorrection.y() *= 0.5f;
             }
 
             if (timeToCollision < maxTimeToCheck)
             {
                 // Try to evade the nearest collision.
                 osg::Vec2f newMovement = origMovement + movementCorrection;
+                // Step to the side rather than backward. Otherwise player will be able to push the NPC far away from it's original location.
+                newMovement.y() = std::max(newMovement.y(), 0.f);
+                newMovement.normalize();
                 if (isMoving)
-                { // Keep the original speed.
-                    newMovement.normalize();
-                    newMovement *= origMovement.length();
-                }
+                    newMovement *= origMovement.length(); // Keep the original speed.
                 movement.mPosition[0] = newMovement.x();
                 movement.mPosition[1] = newMovement.y();
                 if (shouldTurnToApproachingActor)
@@ -1827,6 +1904,7 @@ namespace MWMechanics
                 if (!playerHitAttemptActor.isInCell())
                     player.getClass().getCreatureStats(player).setHitAttemptActorId(-1);
             }
+            bool godmode = MWBase::Environment::get().getWorld()->getGodModeState();
 
              // AI and magic effects update
             for(PtrActorMap::iterator iter(mActors.begin()); iter != mActors.end(); ++iter)
@@ -2007,7 +2085,7 @@ namespace MWMechanics
                     iter->first.getRefData().getBaseNode()->setNodeMask(MWRender::Mask_Actor);
 
                 const bool isDead = iter->first.getClass().getCreatureStats(iter->first).isDead();
-                if (!isDead && iter->first.getClass().getCreatureStats(iter->first).isParalyzed())
+                if (!isDead && (!godmode || !isPlayer) && iter->first.getClass().getCreatureStats(iter->first).isParalyzed())
                     ctrl->skipAnim();
 
                 // Handle player last, in case a cell transition occurs by casting a teleportation spell

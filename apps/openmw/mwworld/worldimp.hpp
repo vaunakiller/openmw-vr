@@ -102,6 +102,7 @@ namespace MWWorld
             bool mSky;
             bool mGodMode;
             bool mScriptsEnabled;
+            bool mDiscardMovements;
             std::vector<std::string> mContentFiles;
 
             std::string mUserDataPath;
@@ -156,7 +157,7 @@ namespace MWWorld
             void processDoors(float duration);
             ///< Run physics simulation and modify \a world accordingly.
 
-            void doPhysics(float duration);
+            void doPhysics(float duration, osg::Timer_t frameStart, unsigned int frameNumber, osg::Stats& stats);
             ///< Run physics simulation and modify \a world accordingly.
 
             void updateNavigator();
@@ -274,7 +275,7 @@ namespace MWWorld
             char getGlobalVariableType (const std::string& name) const override;
             ///< Return ' ', if there is no global variable with this name.
 
-            std::string getCellName (const MWWorld::CellStore *cell = 0) const override;
+            std::string getCellName (const MWWorld::CellStore *cell = nullptr) const override;
             ///< Return name of the cell.
             ///
             /// \note If cell==0, the cell the player is currently in will be used instead to
@@ -487,8 +488,12 @@ namespace MWWorld
             ///< Write this record to the ESM store, allowing it to override a pre-existing record with the same ID.
             /// \return pointer to created record
 
+            const ESM::Container *createOverrideRecord (const ESM::Container& record) override;
+            ///< Write this record to the ESM store, allowing it to override a pre-existing record with the same ID.
+            /// \return pointer to created record
+
             void update (float duration, bool paused) override;
-            void updatePhysics (float duration, bool paused) override;
+            void updatePhysics (float duration, bool paused, osg::Timer_t frameStart, unsigned int frameNumber, osg::Stats& stats) override;
 
             void updateWindowManager () override;
 
@@ -732,6 +737,8 @@ namespace MWWorld
             bool isAreaOccupiedByOtherActor(const osg::Vec3f& position, const float radius, const MWWorld::ConstPtr& ignore) const override;
 
             void reportStats(unsigned int frameNumber, osg::Stats& stats) const override;
+
+            std::vector<MWWorld::Ptr> getAll(const std::string& id) override;
     };
 }
 

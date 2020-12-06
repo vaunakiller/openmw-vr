@@ -57,13 +57,13 @@ namespace CSVWorld
         public:
             ExtendedCommandConfigurator(CSMDoc::Document &document,
                                         const CSMWorld::UniversalId &id,
-                                        QWidget *parent = 0);
+                                        QWidget *parent = nullptr);
 
             void configure(Mode mode, const std::vector<std::string> &selectedIds);
             void setEditLock(bool locked);
 
         protected:
-            virtual void resizeEvent(QResizeEvent *event);
+            void resizeEvent(QResizeEvent *event) override;
 
         private slots:
             void performExtendedCommand();

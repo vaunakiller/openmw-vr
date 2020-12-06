@@ -24,10 +24,10 @@ class LineEdit : public QLineEdit
     QString mPlaceholderText;
 
 public:
-    LineEdit(QWidget *parent = 0);
+    LineEdit(QWidget *parent = nullptr);
 
 protected:
-    void resizeEvent(QResizeEvent *);
+    void resizeEvent(QResizeEvent *) override;
 
 private slots:
     void updateClearButton(const QString &text);

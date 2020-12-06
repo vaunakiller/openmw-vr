@@ -30,13 +30,13 @@ namespace MWGui
 
             ConsoleInterpreterContext (Console& console, MWWorld::Ptr reference);
 
-            virtual void report (const std::string& message);
+            void report (const std::string& message) override;
     };
 
     ConsoleInterpreterContext::ConsoleInterpreterContext (Console& console,
         MWWorld::Ptr reference)
     : MWScript::InterpreterContext (
-        reference.isEmpty() ? 0 : &reference.getRefData().getLocals(), reference),
+        reference.isEmpty() ? nullptr : &reference.getRefData().getLocals(), reference),
       mConsole (console)
     {}
 

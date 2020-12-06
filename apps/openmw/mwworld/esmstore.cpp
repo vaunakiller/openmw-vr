@@ -71,7 +71,7 @@ void ESMStore::load(ESM::ESMReader &esm, Loading::Listener* listener)
 {
     listener->setProgressRange(1000);
 
-    ESM::Dialogue *dialogue = 0;
+    ESM::Dialogue *dialogue = nullptr;
 
     // Land texture loading needs to use a separate internal store for each plugin.
     // We set the number of plugins here to avoid continual resizes during loading,
@@ -153,7 +153,7 @@ void ESMStore::load(ESM::ESMReader &esm, Loading::Listener* listener)
             if (n.intval==ESM::REC_DIAL) {
                 dialogue = const_cast<ESM::Dialogue*>(mDialogs.find(id.mId));
             } else {
-                dialogue = 0;
+                dialogue = nullptr;
             }
         }
         listener->setProgress(static_cast<size_t>(esm.getFileOffset() / (float)esm.getFileSize() * 1000));
@@ -345,7 +345,8 @@ void ESMStore::validate()
             +mWeapons.getDynamicSize()
             +mCreatureLists.getDynamicSize()
             +mItemLists.getDynamicSize()
-            +mCreatures.getDynamicSize();
+            +mCreatures.getDynamicSize()
+            +mContainers.getDynamicSize();
     }
 
     void ESMStore::write (ESM::ESMWriter& writer, Loading::Listener& progress) const
@@ -368,6 +369,7 @@ void ESMStore::validate()
         mItemLists.write (writer, progress);
         mCreatureLists.write (writer, progress);
         mCreatures.write (writer, progress);
+        mContainers.write (writer, progress);
     }
 
     bool ESMStore::readRecord (ESM::ESMReader& reader, uint32_t type)
@@ -386,6 +388,7 @@ void ESMStore::validate()
             case ESM::REC_LEVI:
             case ESM::REC_LEVC:
             case ESM::REC_CREA:
+            case ESM::REC_CONT:
                 mStores[type]->read (reader);
                 return true;
 

@@ -37,7 +37,7 @@ namespace
         for (typename MWWorld::CellRefList<T>::List::iterator iter (containerList.mList.begin());
              iter!=containerList.mList.end(); ++iter)
         {
-            MWWorld::Ptr container (&*iter, 0);
+            MWWorld::Ptr container (&*iter, nullptr);
 
             if (container.getRefData().getCustomData() == nullptr)
                 continue;
@@ -1030,7 +1030,8 @@ namespace MWWorld
             for (CellRefList<ESM::Container>::List::iterator it (mContainers.mList.begin()); it!=mContainers.mList.end(); ++it)
             {
                 Ptr ptr = getCurrentPtr(&*it);
-                if (!ptr.isEmpty() && ptr.getRefData().getCustomData() != nullptr && ptr.getRefData().getCount() > 0)
+                if (!ptr.isEmpty() && ptr.getRefData().getCustomData() != nullptr && ptr.getRefData().getCount() > 0
+                && ptr.getClass().getContainerStore(ptr).isResolved())
                 {
                     ptr.getClass().getContainerStore(ptr).rechargeItems(duration);
                 }

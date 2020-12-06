@@ -24,9 +24,9 @@ namespace MWMechanics
 
         GetAbsorptionProbability() = default;
 
-        virtual void visit (MWMechanics::EffectKey key, int /*effectIndex*/,
+        void visit (MWMechanics::EffectKey key, int /*effectIndex*/,
                             const std::string& /*sourceName*/, const std::string& /*sourceId*/, int /*casterActorId*/,
-                            float magnitude, float /*remainingTime*/, float /*totalTime*/)
+                            float magnitude, float /*remainingTime*/, float /*totalTime*/) override
         {
             if (key.mId == ESM::MagicEffect::SpellAbsorption)
             {
@@ -46,7 +46,7 @@ namespace MWMechanics
 
     bool absorbSpell (const std::string& spellId, const MWWorld::Ptr& caster, const MWWorld::Ptr& target)
     {
-        if (spellId.empty() || caster == target || !target.getClass().isActor())
+        if (spellId.empty() || target.isEmpty() || caster == target || !target.getClass().isActor())
             return false;
 
         CreatureStats& stats = target.getClass().getCreatureStats(target);

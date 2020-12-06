@@ -23,34 +23,19 @@ namespace SceneUtil
         META_Object(SceneUtil, RigGeometry)
 
         // Currently empty as this is difficult to implement. Technically we would need to compile both internal geometries in separate frames but this method is only called once. Alternatively we could compile just the static parts of the model.
-        virtual void compileGLObjects(osg::RenderInfo& renderInfo) const {}
-
-        struct VertexWeight
-        {
-            unsigned short vertex;
-            float value;
-        };
+        void compileGLObjects(osg::RenderInfo& renderInfo) const override {}
 
         struct BoneInfluence
         {
             osg::Matrixf mInvBindMatrix;
             osg::BoundingSpheref mBoundSphere;
-            std::vector<VertexWeight> mWeights;
-        };
-
-        struct BoneData
-        {
-            std::string name;
-            BoneInfluence influence;
-            bool operator<(const BoneData& other) const
-            {
-                return name < other.name;
-            }
+            // <vertex index, weight>
+            std::vector<std::pair<unsigned short, float>> mWeights;
         };
 
         struct InfluenceMap : public osg::Referenced
         {
-            std::vector<BoneData> mData;
+            std::vector<std::pair<std::string, BoneInfluence>> mData;
         };
 
         void setInfluenceMap(osg::ref_ptr<InfluenceMap> influenceMap);
@@ -61,22 +46,22 @@ namespace SceneUtil
 
         osg::ref_ptr<osg::Geometry> getSourceGeometry() const;
 
-        virtual void accept(osg::NodeVisitor &nv);
-        virtual bool supports(const osg::PrimitiveFunctor&) const { return true; }
-        virtual void accept(osg::PrimitiveFunctor&) const;
+        void accept(osg::NodeVisitor &nv) override;
+        bool supports(const osg::PrimitiveFunctor&) const override{ return true; }
+        void accept(osg::PrimitiveFunctor&) const override;
 
         struct CopyBoundingBoxCallback : osg::Drawable::ComputeBoundingBoxCallback
         {
             osg::BoundingBox boundingBox;
 
-            virtual osg::BoundingBox computeBound(const osg::Drawable&) const override { return boundingBox; }
+            osg::BoundingBox computeBound(const osg::Drawable&) const override { return boundingBox; }
         };
 
         struct CopyBoundingSphereCallback : osg::Node::ComputeBoundingSphereCallback
         {
             osg::BoundingSphere boundingSphere;
 
-            virtual osg::BoundingSphere computeBound(const osg::Node&) const override { return boundingSphere; }
+            osg::BoundingSphere computeBound(const osg::Node&) const override { return boundingSphere; }
         };
 
     private:
@@ -94,36 +79,23 @@ namespace SceneUtil
 
         osg::ref_ptr<InfluenceMap> mInfluenceMap;
 
-        struct BoneWeight
-        {
-            std::string boneName;
-            osg::Matrixf bindMatrix;
-            float value;
-            bool operator<(const BoneWeight& other) const
-            {
-                return boneName < other.boneName;
-            }
-        };
+        typedef std::pair<std::string, osg::Matrixf> BoneBindMatrixPair;
 
-        using VertexList = std::vector<unsigned short>;
-        using BoneWeightList = std::vector<BoneWeight>;
-        using Bone2VertexMap = std::map<BoneWeightList, VertexList>;
+        typedef std::pair<BoneBindMatrixPair, float> BoneWeight;
+
+        typedef std::vector<unsigned short> VertexList;
+
+        typedef std::map<std::vector<BoneWeight>, VertexList> Bone2VertexMap;
 
         struct Bone2VertexVector : public osg::Referenced
         {
-            std::vector<std::pair<BoneWeightList, VertexList>> mData;
+            std::vector<std::pair<std::vector<BoneWeight>, VertexList>> mData;
         };
         osg::ref_ptr<Bone2VertexVector> mBone2VertexVector;
 
-        struct BoneSphere
-        {
-            std::string name;
-            osg::BoundingSpheref sphere;
-        };
-
         struct BoneSphereVector : public osg::Referenced
         {
-            std::vector<BoneSphere> mData;
+            std::vector<std::pair<std::string, osg::BoundingSpheref>> mData;
         };
         osg::ref_ptr<BoneSphereVector> mBoneSphereVector;
         std::vector<Bone*> mBoneNodesVector;

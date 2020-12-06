@@ -90,7 +90,7 @@ namespace MWRender
         {
         }
 
-        virtual void setDefaults(osg::StateSet *stateset)
+        void setDefaults(osg::StateSet *stateset) override
         {
             osg::LightModel* lightModel = new osg::LightModel;
             stateset->setAttribute(lightModel, osg::StateAttribute::ON);
@@ -107,7 +107,7 @@ namespace MWRender
                 stateset->removeAttribute(osg::StateAttribute::POLYGONMODE);
         }
 
-        virtual void apply(osg::StateSet* stateset, osg::NodeVisitor*)
+        void apply(osg::StateSet* stateset, osg::NodeVisitor*) override
         {
             osg::LightModel* lightModel = static_cast<osg::LightModel*>(stateset->getAttribute(osg::StateAttribute::LIGHTMODEL));
             lightModel->setAmbientIntensity(mAmbientColor);
@@ -167,7 +167,7 @@ namespace MWRender
         {
         }
 
-        virtual void doWork()
+        void doWork() override
         {
             try
             {
@@ -218,6 +218,7 @@ namespace MWRender
         resourceSystem->getSceneManager()->setNormalHeightMapPattern(Settings::Manager::getString("normal height map pattern", "Shaders"));
         resourceSystem->getSceneManager()->setAutoUseSpecularMaps(Settings::Manager::getBool("auto use object specular maps", "Shaders"));
         resourceSystem->getSceneManager()->setSpecularMapPattern(Settings::Manager::getString("specular map pattern", "Shaders"));
+        resourceSystem->getSceneManager()->setApplyLightingToEnvMaps(Settings::Manager::getBool("apply lighting to environment maps", "Shaders"));
 
         osg::ref_ptr<SceneUtil::LightManager> sceneRoot = new SceneUtil::LightManager;
         sceneRoot->setLightingMask(Mask_Lighting);
@@ -306,7 +307,7 @@ namespace MWRender
         mTerrain->setWorkQueue(mWorkQueue.get());
 
         // water goes after terrain for correct waterculling order
-        mWater.reset(new Water(mRootNode, sceneRoot, mResourceSystem, mViewer->getIncrementalCompileOperation(), resourcePath));
+        mWater.reset(new Water(sceneRoot->getParent(0), sceneRoot, mResourceSystem, mViewer->getIncrementalCompileOperation(), resourcePath));
 
         mCamera.reset(new Camera(mViewer->getCamera()));
         if (Settings::Manager::getBool("view over shoulder", "Camera"))
@@ -363,6 +364,7 @@ namespace MWRender
         mViewer->getCamera()->setCullMask(~(Mask_UpdateVisitor|Mask_SimpleWater));
         NifOsg::Loader::setHiddenNodeMask(Mask_UpdateVisitor);
         NifOsg::Loader::setIntersectionDisabledNodeMask(Mask_Effect);
+        Nif::NIFFile::setLoadUnsupportedFiles(Settings::Manager::getBool("load unsupported nif files", "Models"));
 
         mNearClip = Settings::Manager::getFloat("near clip", "Camera");
         mViewDistance = Settings::Manager::getFloat("viewing distance", "Camera");
@@ -432,7 +434,7 @@ namespace MWRender
             workItem->mKeyframes.push_back(std::string("meshes/") + basemodels[i] + ".kf");
         }
 
-        workItem->mTextures.push_back("textures/_land_default.dds");
+        workItem->mTextures.emplace_back("textures/_land_default.dds");
 
         mWorkQueue->addWorkItem(workItem);
     }
@@ -705,7 +707,7 @@ namespace MWRender
         {
         }
 
-        virtual void operator () (osg::RenderInfo& renderInfo) const
+        void operator () (osg::RenderInfo& renderInfo) const override
         {
             std::lock_guard<std::mutex> lock(mMutex);
             if (renderInfo.getState()->getFrameStamp()->getFrameNumber() >= mFrame)
@@ -932,7 +934,7 @@ namespace MWRender
             : mWidth(width), mHeight(height), mImage(image)
         {
         }
-        virtual void drawImplementation(osg::RenderInfo& renderInfo,const osg::Drawable* /*drawable*/) const
+        void drawImplementation(osg::RenderInfo& renderInfo,const osg::Drawable* /*drawable*/) const override
         {
             int screenW = renderInfo.getCurrentCamera()->getViewport()->width();
             int screenH = renderInfo.getCurrentCamera()->getViewport()->height();

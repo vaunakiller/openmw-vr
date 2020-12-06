@@ -270,6 +270,7 @@ void CharacterController::refreshHitRecoilAnims(CharacterState& idle)
             mCurrentHit = "shield";
             MWRender::Animation::AnimPriority priorityBlock (Priority_Hit);
             priorityBlock[MWRender::Animation::BoneGroup_LeftArm] = Priority_Block;
+            priorityBlock[MWRender::Animation::BoneGroup_LowerBody] = Priority_WeaponLowerBody;
             mAnimation->play(mCurrentHit, priorityBlock, MWRender::Animation::BlendMask_All, true, 1, "block start", "block stop", 0.0f, 0);
         }
 
@@ -289,6 +290,8 @@ void CharacterController::refreshHitRecoilAnims(CharacterState& idle)
                 mUpperBodyState = UpperCharState_Nothing;
             }
         }
+        if (mHitState != CharState_None)
+            idle = CharState_None;
     }
     else if(!mAnimation->isPlaying(mCurrentHit))
     {
@@ -308,8 +311,6 @@ void CharacterController::refreshHitRecoilAnims(CharacterState& idle)
         mAnimation->disable(mCurrentHit);
         mAnimation->play(mCurrentHit, Priority_Knockdown, MWRender::Animation::BlendMask_All, true, 1, "loop stop", "stop", 0.0f, 0);
     }
-    if (mHitState != CharState_None)
-        idle = CharState_None;
 }
 
 void CharacterController::refreshJumpAnims(const std::string& weapShortGroup, JumpingState jump, CharacterState& idle, bool force)
@@ -935,7 +936,7 @@ void split(const std::string &s, char delim, std::vector<std::string> &elems) {
     }
 }
 
-void CharacterController::handleTextKey(const std::string &groupname, NifOsg::TextKeyMap::ConstIterator key, const NifOsg::TextKeyMap& map)
+void CharacterController::handleTextKey(const std::string &groupname, SceneUtil::TextKeyMap::ConstIterator key, const SceneUtil::TextKeyMap& map)
 {
     const std::string &evt = key->second;
 
@@ -1929,7 +1930,7 @@ void CharacterController::update(float duration, bool animationOnly)
     else if(!cls.getCreatureStats(mPtr).isDead())
     {
         bool onground = world->isOnGround(mPtr);
-        bool incapacitated = (cls.getCreatureStats(mPtr).isParalyzed() || cls.getCreatureStats(mPtr).getKnockedDown());
+        bool incapacitated = ((!godmode && cls.getCreatureStats(mPtr).isParalyzed()) || cls.getCreatureStats(mPtr).getKnockedDown());
         bool inwater = world->isSwimming(mPtr);
         bool flying = world->isFlying(mPtr);
         bool solid = world->isActorCollisionEnabled(mPtr);
@@ -1966,6 +1967,7 @@ void CharacterController::update(float duration, bool animationOnly)
         static const bool smoothMovement = Settings::Manager::getBool("smooth movement", "Game");
         if (smoothMovement && !isFirstPersonPlayer)
         {
+            static const float playerTurningCoef = 1.0 / std::max(0.01f, Settings::Manager::getFloat("smooth movement player turning delay", "Game"));
             float angle = mPtr.getRefData().getPosition().rot[2];
             osg::Vec2f targetSpeed = Misc::rotateVec2f(osg::Vec2f(vec.x(), vec.y()), -angle) * movementSettings.mSpeedFactor;
             osg::Vec2f delta = targetSpeed - mSmoothedSpeed;
@@ -1975,7 +1977,7 @@ void CharacterController::update(float duration, bool animationOnly)
             float maxDelta;
             if (std::abs(speedDelta) < deltaLen / 2)
                 // Turning is smooth for player and less smooth for NPCs (otherwise NPC can miss a path point).
-                maxDelta = duration * (isPlayer ? 3.f : 6.f);
+                maxDelta = duration * (isPlayer ? playerTurningCoef : 6.f);
             else if (isPlayer && speedDelta < -deltaLen / 2)
                 // As soon as controls are released, mwinput switches player from running to walking.
                 // So stopping should be instant for player, otherwise it causes a small twitch.

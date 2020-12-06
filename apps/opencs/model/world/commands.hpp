@@ -140,11 +140,11 @@ namespace CSMWorld
         public:
 
             ModifyCommand (QAbstractItemModel& model, const QModelIndex& index, const QVariant& new_,
-                QUndoCommand *parent = 0);
+                QUndoCommand *parent = nullptr);
 
-            virtual void redo();
+            void redo() override;
 
-            virtual void undo();
+            void undo() override;
     };
 
     class CreateCommand : public QUndoCommand
@@ -167,7 +167,7 @@ namespace CSMWorld
 
         public:
 
-            CreateCommand (IdTable& model, const std::string& id, QUndoCommand *parent = 0);
+            CreateCommand (IdTable& model, const std::string& id, QUndoCommand *parent = nullptr);
 
             void setType (UniversalId::Type type);
 
@@ -175,9 +175,9 @@ namespace CSMWorld
 
             void addNestedValue(int parentColumn, int nestedColumn, const QVariant &value);
 
-            virtual void redo();
+            void redo() override;
 
-            virtual void undo();
+            void undo() override;
     };
 
     class CloneCommand : public CreateCommand
@@ -189,11 +189,11 @@ namespace CSMWorld
             CloneCommand (IdTable& model, const std::string& idOrigin,
                           const std::string& IdDestination,
                           const UniversalId::Type type,
-                          QUndoCommand* parent = 0);
+                          QUndoCommand* parent = nullptr);
 
-            virtual void redo();
+            void redo() override;
 
-            virtual void undo();
+            void undo() override;
     };
 
     class RevertCommand : public QUndoCommand
@@ -208,13 +208,13 @@ namespace CSMWorld
 
         public:
 
-            RevertCommand (IdTable& model, const std::string& id, QUndoCommand *parent = 0);
+            RevertCommand (IdTable& model, const std::string& id, QUndoCommand *parent = nullptr);
 
             virtual ~RevertCommand();
 
-            virtual void redo();
+            void redo() override;
 
-            virtual void undo();
+            void undo() override;
     };
 
     class DeleteCommand : public QUndoCommand
@@ -231,13 +231,13 @@ namespace CSMWorld
         public:
 
             DeleteCommand (IdTable& model, const std::string& id,
-                    UniversalId::Type type = UniversalId::Type_None, QUndoCommand *parent = 0);
+                    UniversalId::Type type = UniversalId::Type_None, QUndoCommand *parent = nullptr);
 
             virtual ~DeleteCommand();
 
-            virtual void redo();
+            void redo() override;
 
-            virtual void undo();
+            void undo() override;
     };
 
     class ReorderRowsCommand : public QUndoCommand
@@ -250,18 +250,18 @@ namespace CSMWorld
 
             ReorderRowsCommand (IdTable& model, int baseIndex, const std::vector<int>& newOrder);
 
-            virtual void redo();
+            void redo() override;
 
-            virtual void undo();
+            void undo() override;
     };
 
     class CreatePathgridCommand : public CreateCommand
     {
         public:
 
-            CreatePathgridCommand(IdTable& model, const std::string& id, QUndoCommand *parent = 0);
+            CreatePathgridCommand(IdTable& model, const std::string& id, QUndoCommand *parent = nullptr);
 
-            virtual void redo();
+            void redo() override;
     };
 
     /// \brief Update cell ID according to x/y-coordinates
@@ -279,11 +279,11 @@ namespace CSMWorld
 
         public:
 
-            UpdateCellCommand (IdTable& model, int row, QUndoCommand *parent = 0);
+            UpdateCellCommand (IdTable& model, int row, QUndoCommand *parent = nullptr);
 
-            virtual void redo();
+            void redo() override;
 
-            virtual void undo();
+            void undo() override;
     };
 
 
@@ -316,11 +316,11 @@ namespace CSMWorld
 
         public:
 
-            DeleteNestedCommand (IdTree& model, const std::string& id, int nestedRow, int parentColumn, QUndoCommand* parent = 0);
+            DeleteNestedCommand (IdTree& model, const std::string& id, int nestedRow, int parentColumn, QUndoCommand* parent = nullptr);
 
-            virtual void redo();
+            void redo() override;
 
-            virtual void undo();
+            void undo() override;
     };
 
     class AddNestedCommand : public QUndoCommand, private NestedTableStoring
@@ -338,11 +338,11 @@ namespace CSMWorld
 
         public:
 
-            AddNestedCommand(IdTree& model, const std::string& id, int nestedRow, int parentColumn, QUndoCommand* parent = 0);
+            AddNestedCommand(IdTree& model, const std::string& id, int nestedRow, int parentColumn, QUndoCommand* parent = nullptr);
 
-            virtual void redo();
+            void redo() override;
 
-            virtual void undo();
+            void undo() override;
     };
 }
 

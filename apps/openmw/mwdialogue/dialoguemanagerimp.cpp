@@ -468,7 +468,7 @@ namespace MWDialogue
     void DialogueManager::addChoice (const std::string& text, int choice)
     {
         mIsInChoice = true;
-        mChoices.push_back(std::make_pair(text, choice));
+        mChoices.emplace_back(text, choice);
     }
 
     const std::vector<std::pair<std::string, int> >& DialogueManager::getChoices()
@@ -551,9 +551,9 @@ namespace MWDialogue
             mPermanentDispositionChange += delta;
     }
 
-    bool DialogueManager::checkServiceRefused(ResponseCallback* callback)
+    bool DialogueManager::checkServiceRefused(ResponseCallback* callback, ServiceType service)
     {
-        Filter filter (mActor, mChoice, mTalkedTo);
+        Filter filter (mActor, service, mTalkedTo);
 
         const MWWorld::Store<ESM::Dialogue> &dialogues =
             MWBase::Environment::get().getWorld()->getStore().get<ESM::Dialogue>();

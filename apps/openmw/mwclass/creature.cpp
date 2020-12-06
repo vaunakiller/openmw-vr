@@ -58,18 +58,18 @@ namespace MWClass
         MWWorld::ContainerStore* mContainerStore; // may be InventoryStore for some creatures
         MWMechanics::Movement mMovement;
 
-        virtual MWWorld::CustomData *clone() const;
+        MWWorld::CustomData *clone() const override;
 
-        virtual CreatureCustomData& asCreatureCustomData()
+        CreatureCustomData& asCreatureCustomData() override
         {
             return *this;
         }
-        virtual const CreatureCustomData& asCreatureCustomData() const
+        const CreatureCustomData& asCreatureCustomData() const override
         {
             return *this;
         }
 
-        CreatureCustomData() : mContainerStore(0) {}
+        CreatureCustomData() : mContainerStore(nullptr) {}
         virtual ~CreatureCustomData() { delete mContainerStore; }
     };
 
@@ -840,14 +840,6 @@ namespace MWClass
                         ptr.getCellRef().getPosition().pos[2]);
             }
         }
-    }
-
-    void Creature::restock(const MWWorld::Ptr& ptr) const
-    {
-        MWWorld::LiveCellRef<ESM::Creature> *ref = ptr.get<ESM::Creature>();
-        const ESM::InventoryList& list = ref->mBase->mInventory;
-        MWWorld::ContainerStore& store = getContainerStore(ptr);
-        store.restock(list, ptr, ptr.getCellRef().getRefId());
     }
 
     int Creature::getBaseFightRating(const MWWorld::ConstPtr &ptr) const

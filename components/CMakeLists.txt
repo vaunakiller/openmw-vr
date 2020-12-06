@@ -41,7 +41,8 @@ add_component_dir (vfs
     )
 
 add_component_dir (resource
-    scenemanager keyframemanager imagemanager bulletshapemanager bulletshape niffilemanager objectcache multiobjectcache resourcesystem resourcemanager stats
+    scenemanager keyframemanager imagemanager bulletshapemanager bulletshape niffilemanager objectcache multiobjectcache resourcesystem
+    resourcemanager stats animation
     )
 
 add_component_dir (shader
@@ -51,7 +52,7 @@ add_component_dir (shader
 add_component_dir (sceneutil
     clone attach visitor util statesetupdater controller skeleton riggeometry morphgeometry lightcontroller
     lightmanager lightutil positionattitudetransform workqueue unrefqueue pathgridutil waterutil writescene serialize optimizer
-    actorutil detourdebugdraw navmesh agentpath shadow mwshadowtechnique recastmesh
+    actorutil detourdebugdraw navmesh agentpath shadow mwshadowtechnique recastmesh shadowsbin osgacontroller
     )
 
 add_component_dir (nif
@@ -86,7 +87,8 @@ add_component_dir (esmterrain
     )
 
 add_component_dir (misc
-    gcd constants utf8stream stringops resourcehelpers rng messageformatparser weakcache stereo
+    gcd constants utf8stream stringops resourcehelpers rng messageformatparser weakcache
+    constants utf8stream stringops resourcehelpers rng messageformatparser weakcache stereo
     )
 
 add_component_dir (debug
@@ -233,7 +235,7 @@ target_link_libraries(components
     ${SDL2_LIBRARIES}
     ${OPENGL_gl_LIBRARY}
     ${MyGUI_LIBRARIES}
-    ${BSAOPTHASH_LIBRARIES}
+    LZ4::LZ4
     RecastNavigation::DebugUtils
     RecastNavigation::Detour
     RecastNavigation::Recast

@@ -40,7 +40,7 @@ namespace
     class InitWorldSpaceParticlesCallback : public osg::NodeCallback
     {
     public:
-        virtual void operator()(osg::Node* node, osg::NodeVisitor* nv)
+        void operator()(osg::Node* node, osg::NodeVisitor* nv) override
         {
             osgParticle::ParticleSystem* partsys = static_cast<osgParticle::ParticleSystem*>(node);
 
@@ -91,7 +91,7 @@ namespace
                     && partsys->getUserDataContainer()->getDescriptions()[0] == "worldspace");
         }
 
-        void apply(osg::Drawable& drw)
+        void apply(osg::Drawable& drw) override
         {
             if (osgParticle::ParticleSystem* partsys = dynamic_cast<osgParticle::ParticleSystem*>(&drw))
             {
@@ -143,7 +143,7 @@ namespace Resource
         {
         }
 
-        virtual void visit(osg::Node& node, SceneUtil::Controller& ctrl)
+        void visit(osg::Node& node, SceneUtil::Controller& ctrl) override
         {
             if (NifOsg::FlipController* flipctrl = dynamic_cast<NifOsg::FlipController*>(&ctrl))
             {
@@ -175,7 +175,7 @@ namespace Resource
         {
         }
 
-        virtual void apply(osg::Node& node)
+        void apply(osg::Node& node) override
         {
             osg::StateSet* stateset = node.getStateSet();
             if (stateset)
@@ -220,6 +220,7 @@ namespace Resource
         , mClampLighting(true)
         , mAutoUseNormalMaps(false)
         , mAutoUseSpecularMaps(false)
+        , mApplyLightingToEnvMaps(false)
         , mInstanceCache(new MultiObjectCache)
         , mSharedStateManager(new SharedStateManager)
         , mImageManager(imageManager)
@@ -242,9 +243,9 @@ namespace Resource
         return mForceShaders;
     }
 
-    void SceneManager::recreateShaders(osg::ref_ptr<osg::Node> node)
+    void SceneManager::recreateShaders(osg::ref_ptr<osg::Node> node, const std::string& shaderPrefix)
     {
-        osg::ref_ptr<Shader::ShaderVisitor> shaderVisitor(createShaderVisitor());
+        osg::ref_ptr<Shader::ShaderVisitor> shaderVisitor(createShaderVisitor(shaderPrefix));
         shaderVisitor->setAllowedToModifyStateSets(false);
         node->accept(*shaderVisitor);
     }
@@ -284,6 +285,11 @@ namespace Resource
         mSpecularMapPattern = pattern;
     }
 
+    void SceneManager::setApplyLightingToEnvMaps(bool apply)
+    {
+        mApplyLightingToEnvMaps = apply;
+    }
+
     SceneManager::~SceneManager()
     {
         // this has to be defined in the .cpp file as we can't delete incomplete types
@@ -316,7 +322,7 @@ namespace Resource
         {
         }
 
-        virtual osgDB::ReaderWriter::ReadResult readImage(const std::string& filename, const osgDB::Options* options)
+        osgDB::ReaderWriter::ReadResult readImage(const std::string& filename, const osgDB::Options* options) override
         {
             try
             {
@@ -332,17 +338,9 @@ namespace Resource
         Resource::ImageManager* mImageManager;
     };
 
-    std::string getFileExtension(const std::string& file)
-    {
-        size_t extPos = file.find_last_of('.');
-        if (extPos != std::string::npos && extPos+1 < file.size())
-            return file.substr(extPos+1);
-        return std::string();
-    }
-
     osg::ref_ptr<osg::Node> load (Files::IStreamPtr file, const std::string& normalizedFilename, Resource::ImageManager* imageManager, Resource::NifFileManager* nifFileManager)
     {
-        std::string ext = getFileExtension(normalizedFilename);
+        std::string ext = Resource::getFileExtension(normalizedFilename);
         if (ext == "nif")
             return NifOsg::Loader::load(nifFileManager->get(normalizedFilename), imageManager);
         else
@@ -412,7 +410,7 @@ namespace Resource
             return it != reservedNames.end();
         }
 
-        virtual bool isOperationPermissibleForObjectImplementation(const SceneUtil::Optimizer* optimizer, const osg::Drawable* node,unsigned int option) const
+        bool isOperationPermissibleForObjectImplementation(const SceneUtil::Optimizer* optimizer, const osg::Drawable* node,unsigned int option) const override
         {
             if (option & SceneUtil::Optimizer::FLATTEN_STATIC_TRANSFORMS)
             {
@@ -424,7 +422,7 @@ namespace Resource
             return (option & optimizer->getPermissibleOptimizationsForObject(node))!=0;
         }
 
-        virtual bool isOperationPermissibleForObjectImplementation(const SceneUtil::Optimizer* optimizer, const osg::Node* node,unsigned int option) const
+        bool isOperationPermissibleForObjectImplementation(const SceneUtil::Optimizer* optimizer, const osg::Node* node,unsigned int option) const override
         {
             if (node->getNumDescriptions()>0) return false;
             if (node->getDataVariance() == osg::Object::DYNAMIC) return false;
@@ -498,7 +496,7 @@ namespace Resource
             }
             catch (std::exception& e)
             {
-                static const char * const sMeshTypes[] = { "nif", "osg", "osgt", "osgb", "osgx", "osg2" };
+                static const char * const sMeshTypes[] = { "nif", "osg", "osgt", "osgb", "osgx", "osg2", "dae" };
 
                 for (unsigned int i=0; i<sizeof(sMeshTypes)/sizeof(sMeshTypes[0]); ++i)
                 {
@@ -773,16 +771,24 @@ namespace Resource
         stats->setAttribute(frameNumber, "Node Instance", mInstanceCache->getCacheSize());
     }
 
-    Shader::ShaderVisitor *SceneManager::createShaderVisitor()
+    Shader::ShaderVisitor *SceneManager::createShaderVisitor(const std::string& shaderPrefix)
     {
-        Shader::ShaderVisitor* shaderVisitor = new Shader::ShaderVisitor(*mShaderManager.get(), *mImageManager, "objects_vertex.glsl", "objects_fragment.glsl");
+        Shader::ShaderVisitor* shaderVisitor = new Shader::ShaderVisitor(*mShaderManager.get(), *mImageManager, shaderPrefix+"_vertex.glsl", shaderPrefix+"_fragment.glsl");
         shaderVisitor->setForceShaders(mForceShaders);
         shaderVisitor->setAutoUseNormalMaps(mAutoUseNormalMaps);
         shaderVisitor->setNormalMapPattern(mNormalMapPattern);
         shaderVisitor->setNormalHeightMapPattern(mNormalHeightMapPattern);
         shaderVisitor->setAutoUseSpecularMaps(mAutoUseSpecularMaps);
         shaderVisitor->setSpecularMapPattern(mSpecularMapPattern);
+        shaderVisitor->setApplyLightingToEnvMaps(mApplyLightingToEnvMaps);
         return shaderVisitor;
     }
 
+    std::string getFileExtension(const std::string& file)
+    {
+        size_t extPos = file.find_last_of('.');
+        if (extPos != std::string::npos && extPos+1 < file.size())
+            return file.substr(extPos+1);
+        return std::string();
+    }
 }

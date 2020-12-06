@@ -503,16 +503,6 @@ namespace Shader
             program.second->releaseGLObjects(state);
     }
 
-    const osg::ref_ptr<osg::Uniform> ShaderManager::getShadowMapAlphaTestEnableUniform()
-    {
-        return mShadowMapAlphaTestEnableUniform;
-    }
-
-    const osg::ref_ptr<osg::Uniform> ShaderManager::getShadowMapAlphaTestDisableUniform()
-    {
-        return mShadowMapAlphaTestDisableUniform;
-    }
-
     std::string ShaderManager::getTemplateSource(const std::string& templateName)
     {
         // read the template if we haven't already

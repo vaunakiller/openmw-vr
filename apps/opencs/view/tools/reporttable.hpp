@@ -49,11 +49,11 @@ namespace CSVTools
 
         private:
 
-            void contextMenuEvent (QContextMenuEvent *event);
+            void contextMenuEvent (QContextMenuEvent *event) override;
 
-            void mouseMoveEvent (QMouseEvent *event);
+            void mouseMoveEvent (QMouseEvent *event) override;
 
-            virtual void mouseDoubleClickEvent (QMouseEvent *event);
+            void mouseDoubleClickEvent (QMouseEvent *event) override;
 
         public:
 
@@ -62,9 +62,9 @@ namespace CSVTools
             /// 0 no refresh function exists. If the document current has the specified state
             /// the refresh function is disabled.
             ReportTable (CSMDoc::Document& document, const CSMWorld::UniversalId& id,
-                bool richTextDescription, int refreshState = 0, QWidget *parent = 0);
+                bool richTextDescription, int refreshState = 0, QWidget *parent = nullptr);
 
-            virtual std::vector<CSMWorld::UniversalId> getDraggedRecords() const;
+            std::vector<CSMWorld::UniversalId> getDraggedRecords() const override;
 
             void clear();
 

@@ -1,5 +1,7 @@
 #include "debugging.hpp"
 
+#include <chrono>
+
 #include <components/crashcatcher/crashcatcher.hpp>
 
 #ifdef _WIN32
@@ -11,10 +13,21 @@
 namespace Debug
 {
 #ifdef _WIN32
+    bool isRedirected(DWORD nStdHandle)
+    {
+        DWORD fileType = GetFileType(GetStdHandle(nStdHandle));
+
+        return (fileType == FILE_TYPE_DISK) || (fileType == FILE_TYPE_PIPE);
+    }
+
     bool attachParentConsole()
     {
         if (GetConsoleWindow() != nullptr)
             return true;
+
+        bool inRedirected = isRedirected(STD_INPUT_HANDLE);
+        bool outRedirected = isRedirected(STD_OUTPUT_HANDLE);
+        bool errRedirected = isRedirected(STD_ERROR_HANDLE);
 
         if (AttachConsole(ATTACH_PARENT_PROCESS))
         {
@@ -24,12 +37,21 @@ namespace Debug
             std::cerr.flush();
 
             // this looks dubious but is really the right way
-            _wfreopen(L"CON", L"w", stdout);
-            _wfreopen(L"CON", L"w", stderr);
-            _wfreopen(L"CON", L"r", stdin);
-            freopen("CON", "w", stdout);
-            freopen("CON", "w", stderr);
-            freopen("CON", "r", stdin);
+            if (!inRedirected)
+            {
+                _wfreopen(L"CON", L"r", stdin);
+                freopen("CON", "r", stdin);
+            }
+            if (!outRedirected)
+            {
+                _wfreopen(L"CON", L"w", stdout);
+                freopen("CON", "w", stdout);
+            }
+            if (!errRedirected)
+            {
+                _wfreopen(L"CON", L"w", stderr);
+                freopen("CON", "w", stderr);
+            }
 
             return true;
         }
@@ -40,15 +62,40 @@ namespace Debug
 
     std::streamsize DebugOutputBase::write(const char *str, std::streamsize size)
     {
+        if (size <= 0)
+            return size;
+        std::string_view msg{str, size_t(size)};
+
         // Skip debug level marker
         Level level = getLevelMarker(str);
         if (level != NoLevel)
+            msg = msg.substr(1);
+
+        char prefix[32];
+        int prefixSize;
         {
-            writeImpl(str+1, size-1, level);
-            return size;
+            prefix[0] = '[';
+            uint64_t ms = std::chrono::duration_cast<std::chrono::milliseconds>(
+                std::chrono::high_resolution_clock::now().time_since_epoch()).count();
+            std::time_t t = ms / 1000;
+            prefixSize = std::strftime(prefix + 1, sizeof(prefix) - 1, "%T", std::localtime(&t)) + 1;
+            char levelLetter = " EWIVD*"[int(level)];
+            prefixSize += snprintf(prefix + prefixSize, sizeof(prefix) - prefixSize,
+                                   ".%03u %c] ", static_cast<unsigned>(ms % 1000), levelLetter);
         }
 
-        writeImpl(str, size, NoLevel);
+        while (!msg.empty())
+        {
+            if (msg[0] == 0)
+                break;
+            size_t lineSize = 1;
+            while (lineSize < msg.size() && msg[lineSize - 1] != '\n')
+                lineSize++;
+            writeImpl(prefix, prefixSize, level);
+            writeImpl(msg.data(), lineSize, level);
+            msg = msg.substr(lineSize);
+        }
+
         return size;
     }
 
@@ -152,6 +199,7 @@ int wrapApplication(int (*innerApplication)(int argc, char *argv[]), int argc, c
     // Restore cout and cerr
     std::cout.rdbuf(cout_rdbuf);
     std::cerr.rdbuf(cerr_rdbuf);
+    Debug::CurrentDebugLevel = Debug::NoLevel;
 
     return ret;
 }

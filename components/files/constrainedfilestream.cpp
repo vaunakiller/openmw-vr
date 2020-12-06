@@ -32,12 +32,12 @@ namespace Files
             if (start != 0)
                 mFile.seek(start);
 
-            setg(0,0,0);
+            setg(nullptr,nullptr,nullptr);
 
             mOrigin = start;
         }
 
-        virtual int_type underflow()
+        int_type underflow() override
         {
             if(gptr() == egptr())
             {
@@ -53,7 +53,7 @@ namespace Files
             return traits_type::to_int_type(*gptr());
         }
 
-        virtual pos_type seekoff(off_type offset, std::ios_base::seekdir whence, std::ios_base::openmode mode)
+        pos_type seekoff(off_type offset, std::ios_base::seekdir whence, std::ios_base::openmode mode) override
         {
             if((mode&std::ios_base::out) || !(mode&std::ios_base::in))
                 return traits_type::eof();
@@ -81,12 +81,12 @@ namespace Files
             mFile.seek(mOrigin+newPos);
 
             // Clear read pointers so underflow() gets called on the next read attempt.
-            setg(0, 0, 0);
+            setg(nullptr, nullptr, nullptr);
 
             return newPos;
         }
 
-        virtual pos_type seekpos(pos_type pos, std::ios_base::openmode mode)
+        pos_type seekpos(pos_type pos, std::ios_base::openmode mode) override
         {
             if((mode&std::ios_base::out) || !(mode&std::ios_base::in))
                 return traits_type::eof();
@@ -97,7 +97,7 @@ namespace Files
             mFile.seek(mOrigin + pos);
 
             // Clear read pointers so underflow() gets called on the next read attempt.
-            setg(0, 0, 0);
+            setg(nullptr, nullptr, nullptr);
             return pos;
         }
 

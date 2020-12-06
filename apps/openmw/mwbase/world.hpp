@@ -10,6 +10,8 @@
 
 #include <components/esm/cellid.hpp>
 
+#include <osg/Timer>
+
 #include "../mwworld/ptr.hpp"
 #include "../mwworld/doorstate.hpp"
 
@@ -36,6 +38,7 @@ namespace ESM
     struct Position;
     struct Cell;
     struct Class;
+    struct Container;
     struct Creature;
     struct Potion;
     struct Spell;
@@ -177,7 +180,7 @@ namespace MWBase
             virtual char getGlobalVariableType (const std::string& name) const = 0;
             ///< Return ' ', if there is no global variable with this name.
 
-            virtual std::string getCellName (const MWWorld::CellStore *cell = 0) const = 0;
+            virtual std::string getCellName (const MWWorld::CellStore *cell = nullptr) const = 0;
             ///< Return name of the cell.
             ///
             /// \note If cell==0, the cell the player is currently in will be used instead to
@@ -385,8 +388,12 @@ namespace MWBase
             ///< Write this record to the ESM store, allowing it to override a pre-existing record with the same ID.
             /// \return pointer to created record
 
+            virtual const ESM::Container *createOverrideRecord (const ESM::Container& record) = 0;
+            ///< Write this record to the ESM store, allowing it to override a pre-existing record with the same ID.
+            /// \return pointer to created record
+
             virtual void update (float duration, bool paused) = 0;
-            virtual void updatePhysics (float duration, bool paused) = 0;
+            virtual void updatePhysics (float duration, bool paused, osg::Timer_t frameStart, unsigned int frameNumber, osg::Stats& stats) = 0;
 
             virtual void updateWindowManager () = 0;
 
@@ -641,6 +648,8 @@ namespace MWBase
             virtual bool isAreaOccupiedByOtherActor(const osg::Vec3f& position, const float radius, const MWWorld::ConstPtr& ignore) const = 0;
 
             virtual void reportStats(unsigned int frameNumber, osg::Stats& stats) const = 0;
+
+            virtual std::vector<MWWorld::Ptr> getAll(const std::string& id) = 0;
     };
 }
 

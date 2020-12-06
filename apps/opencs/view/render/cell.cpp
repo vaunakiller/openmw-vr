@@ -45,7 +45,7 @@ namespace CSVRender
     {
         public:
 
-            virtual void operator()(osg::Node* node, osg::NodeVisitor* nv)
+            void operator()(osg::Node* node, osg::NodeVisitor* nv) override
             {
                 traverse(node, nv);
                 CellNodeContainer* container = static_cast<CellNodeContainer*>(node->getUserData());
@@ -504,12 +504,12 @@ void CSVRender::Cell::setCellArrows (int mask)
 
         bool enable = mask & direction;
 
-        if (enable!=(mCellArrows[i].get()!=0))
+        if (enable!=(mCellArrows[i].get()!=nullptr))
         {
             if (enable)
                 mCellArrows[i].reset (new CellArrow (mCellNode, direction, mCoordinates));
             else
-                mCellArrows[i].reset (0);
+                mCellArrows[i].reset (nullptr);
         }
     }
 }
@@ -553,7 +553,7 @@ std::vector<osg::ref_ptr<CSVRender::TagBase> > CSVRender::Cell::getSelection (un
                 result.push_back (iter->second->getTag());
     if (mPathgrid && elementMask & Mask_Pathgrid)
         if (mPathgrid->isSelected())
-            result.push_back(mPathgrid->getTag());
+            result.emplace_back(mPathgrid->getTag());
 
     return result;
 }

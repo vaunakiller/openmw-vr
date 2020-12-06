@@ -28,17 +28,17 @@ namespace CSMWorld
             ///< \a currentRow is a row of the source model.
 
         public:
-            InfoTableProxyModel(UniversalId::Type type, QObject *parent = 0);
+            InfoTableProxyModel(UniversalId::Type type, QObject *parent = nullptr);
 
-            virtual void setSourceModel(QAbstractItemModel *sourceModel);
+            void setSourceModel(QAbstractItemModel *sourceModel) override;
 
         protected:
-            virtual bool lessThan(const QModelIndex &left, const QModelIndex &right) const;
+            bool lessThan(const QModelIndex &left, const QModelIndex &right) const override;
 
         protected slots:
-            virtual void sourceRowsInserted(const QModelIndex &parent, int start, int end);
-            virtual void sourceRowsRemoved(const QModelIndex &parent, int start, int end);
-            virtual void sourceDataChanged(const QModelIndex &topLeft, const QModelIndex &bottomRight);
+            void sourceRowsInserted(const QModelIndex &parent, int start, int end) override;
+            void sourceRowsRemoved(const QModelIndex &parent, int start, int end) override;
+            void sourceDataChanged(const QModelIndex &topLeft, const QModelIndex &bottomRight) override;
     };
 }
 

@@ -4,8 +4,8 @@
 #include "../mwworld/ptr.hpp"
 
 #include <components/sceneutil/controller.hpp>
+#include <components/sceneutil/textkeymap.hpp>
 #include <components/sceneutil/util.hpp>
-#include <components/nifosg/textkeymap.hpp>
 
 #include <vector>
 
@@ -20,14 +20,10 @@ namespace Resource
     class ResourceSystem;
 }
 
-namespace NifOsg
+namespace SceneUtil
 {
     class KeyframeHolder;
     class KeyframeController;
-}
-
-namespace SceneUtil
-{
     class LightSource;
     class LightListCallback;
     class Skeleton;
@@ -45,7 +41,7 @@ class EffectAnimationTime : public SceneUtil::ControllerSource
 private:
     float mTime;
 public:
-    virtual float getValue(osg::NodeVisitor* nv);
+    float getValue(osg::NodeVisitor* nv) override;
 
     void addTime(float duration);
     void resetTime(float time);
@@ -150,8 +146,8 @@ public:
     class TextKeyListener
     {
     public:
-        virtual void handleTextKey(const std::string &groupname, NifOsg::TextKeyMap::ConstIterator key,
-                                   const NifOsg::TextKeyMap& map) = 0;
+        virtual void handleTextKey(const std::string &groupname, SceneUtil::TextKeyMap::ConstIterator key,
+                                   const SceneUtil::TextKeyMap& map) = 0;
 
         virtual ~TextKeyListener() = default;
     };
@@ -173,13 +169,13 @@ protected:
         std::shared_ptr<float> getTimePtr() const
         { return mTimePtr; }
 
-        virtual float getValue(osg::NodeVisitor* nv);
+        float getValue(osg::NodeVisitor* nv) override;
     };
 
     class NullAnimationTime : public SceneUtil::ControllerSource
     {
     public:
-        virtual float getValue(osg::NodeVisitor *nv)
+        float getValue(osg::NodeVisitor *nv) override
         {
             return 0.f;
         }
@@ -242,7 +238,7 @@ protected:
     osg::ref_ptr<osg::Node> mAccumRoot;
 
     // The controller animating that node.
-    osg::ref_ptr<NifOsg::KeyframeController> mAccumCtrl;
+    osg::ref_ptr<SceneUtil::KeyframeController> mAccumCtrl;
 
     // Used to reset the position of the accumulation root every frame - the movement should be applied to the physics system
     osg::ref_ptr<ResetAccumRootCallback> mResetAccumRootCallback;
@@ -306,12 +302,12 @@ protected:
      * the marker is not found, or if the markers are the same, it returns
      * false.
      */
-    bool reset(AnimState &state, const NifOsg::TextKeyMap &keys,
+    bool reset(AnimState &state, const SceneUtil::TextKeyMap &keys,
                const std::string &groupname, const std::string &start, const std::string &stop,
                float startpoint, bool loopfallback);
 
-    void handleTextKey(AnimState &state, const std::string &groupname, NifOsg::TextKeyMap::ConstIterator key,
-                       const NifOsg::TextKeyMap& map);
+    void handleTextKey(AnimState &state, const std::string &groupname, SceneUtil::TextKeyMap::ConstIterator key,
+                       const SceneUtil::TextKeyMap& map);
 
     /** Sets the root model of the object.
      *
@@ -506,7 +502,7 @@ class ObjectAnimation : public Animation {
 public:
     ObjectAnimation(const MWWorld::Ptr& ptr, const std::string &model, Resource::ResourceSystem* resourceSystem, bool animated, bool allowLight);
 
-    bool canBeHarvested() const;
+    bool canBeHarvested() const override;
 };
 
 class UpdateVfxCallback : public osg::NodeCallback
@@ -522,7 +518,7 @@ public:
     bool mFinished;
     EffectParams mParams;
 
-    virtual void operator()(osg::Node* node, osg::NodeVisitor* nv);
+    void operator()(osg::Node* node, osg::NodeVisitor* nv) override;
 
 private:
     double mStartingTime;
