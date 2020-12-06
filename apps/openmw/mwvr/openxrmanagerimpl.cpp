@@ -532,27 +532,27 @@ namespace MWVR
     void
         OpenXRManagerImpl::endFrame(FrameInfo frameInfo, const std::array<CompositionLayerProjectionView, 2>* layerStack)
     {
-
+        std::array<XrCompositionLayerProjectionView, 2> compositionLayerProjectionViews{};
+        XrCompositionLayerProjection layer{};
+        std::array<XrCompositionLayerDepthInfoKHR, 2> compositionLayerDepth{};
         XrFrameEndInfo frameEndInfo{ XR_TYPE_FRAME_END_INFO };
         frameEndInfo.displayTime = frameInfo.runtimePredictedDisplayTime;
         frameEndInfo.environmentBlendMode = mEnvironmentBlendMode;
         if (layerStack)
         {
-            std::array<XrCompositionLayerProjectionView, 2> compositionLayerProjectionViews{};
             compositionLayerProjectionViews[(int)Side::LEFT_SIDE] = toXR((*layerStack)[(int)Side::LEFT_SIDE]);
             compositionLayerProjectionViews[(int)Side::RIGHT_SIDE] = toXR((*layerStack)[(int)Side::RIGHT_SIDE]);
-            XrCompositionLayerProjection layer{};
             layer.type = XR_TYPE_COMPOSITION_LAYER_PROJECTION;
             layer.space = getReferenceSpace(ReferenceSpace::STAGE);
             layer.viewCount = 2;
             layer.views = compositionLayerProjectionViews.data();
             auto* xrLayerStack = reinterpret_cast<XrCompositionLayerBaseHeader*>(&layer);
 
-            std::array<XrCompositionLayerDepthInfoKHR, 2> compositionLayerDepth = mLayerDepth;
             if (xrExtensionIsEnabled(XR_KHR_COMPOSITION_LAYER_DEPTH_EXTENSION_NAME))
             {
                 auto farClip = Settings::Manager::getFloat("viewing distance", "Camera");
                 // All values not set here are set previously as they are constant
+                compositionLayerDepth = mLayerDepth;
                 compositionLayerDepth[(int)Side::LEFT_SIDE].farZ = farClip;
                 compositionLayerDepth[(int)Side::RIGHT_SIDE].farZ = farClip;
                 compositionLayerDepth[(int)Side::LEFT_SIDE].subImage = (*layerStack)[(int)Side::LEFT_SIDE].swapchain->impl().xrSubImageDepth();
