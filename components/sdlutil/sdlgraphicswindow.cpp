@@ -1,6 +1,6 @@
 #include "sdlgraphicswindow.hpp"
 
-#include <osgViewer/viewer>
+#include <osgViewer/Viewer>
 
 #include <SDL_video.h>
 
