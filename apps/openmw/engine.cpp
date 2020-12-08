@@ -393,8 +393,6 @@ OMW::Engine::Engine(Files::ConfigurationManager& configurationManager)
   , mNewGame (false)
   , mCfgMgr(configurationManager)
 {
-    MWClass::registerClasses();
-
     SDL_SetHint(SDL_HINT_ACCELEROMETER_AS_JOYSTICK, "0"); // We use only gamepads
 
     Uint32 flags = SDL_INIT_VIDEO|SDL_INIT_NOPARACHUTE|SDL_INIT_GAMECONTROLLER|SDL_INIT_JOYSTICK|SDL_INIT_SENSOR;
@@ -866,6 +864,8 @@ void OMW::Engine::go()
     Settings::Manager settings;
     std::string settingspath;
     settingspath = loadSettings (settings);
+
+    MWClass::registerClasses();
 
     // Create encoder
     mEncoder = new ToUTF8::Utf8Encoder(mEncoding);
