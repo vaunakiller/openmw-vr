@@ -74,12 +74,12 @@ namespace
         MyGUI::Colour mNormalColour;
         MyGUI::Colour mHoverColour;
 
-        void onMouseLostFocus(MyGUI::Widget* _new) final
+        void onMouseLostFocus(MyGUI::Widget* _new) override
         {
             setColour(mNormalColour);
         }
 
-        void onMouseSetFocus(MyGUI::Widget* _old) final
+        void onMouseSetFocus(MyGUI::Widget* _old) override
         {
             setColour(mHoverColour);
         }
@@ -644,7 +644,7 @@ namespace MWGui
         : WindowPinnableBase("openmw_map_window.layout")
         , LocalMapBase(customMarkers, localMapRender)
         , NoDrop(drag, mMainWidget)
-        , mGlobalMap(0)
+        , mGlobalMap(nullptr)
         , mGlobalMapImage(nullptr)
         , mGlobalMapOverlay(nullptr)
         , mGlobal(Settings::Manager::getBool("global", "Map"))

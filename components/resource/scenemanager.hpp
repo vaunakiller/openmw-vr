@@ -51,7 +51,7 @@ namespace Resource
         Shader::ShaderManager& getShaderManager();
 
         /// Re-create shaders for this node, need to call this if texture stages or vertex color mode have changed.
-        void recreateShaders(osg::ref_ptr<osg::Node> node);
+        void recreateShaders(osg::ref_ptr<osg::Node> node, const std::string& shaderPrefix = "objects");
 
         /// @see ShaderVisitor::setForceShaders
         void setForceShaders(bool force);
@@ -72,6 +72,8 @@ namespace Resource
         void setAutoUseSpecularMaps(bool use);
 
         void setSpecularMapPattern(const std::string& pattern);
+
+        void setApplyLightingToEnvMaps(bool apply);
 
         void setShaderPath(const std::string& path);
 
@@ -146,7 +148,7 @@ namespace Resource
 
     private:
 
-        Shader::ShaderVisitor* createShaderVisitor();
+        Shader::ShaderVisitor* createShaderVisitor(const std::string& shaderPrefix = "objects");
 
         std::unique_ptr<Shader::ShaderManager> mShaderManager;
         bool mForceShaders;
@@ -156,6 +158,7 @@ namespace Resource
         std::string mNormalHeightMapPattern;
         bool mAutoUseSpecularMaps;
         std::string mSpecularMapPattern;
+        bool mApplyLightingToEnvMaps;
 
         osg::ref_ptr<MultiObjectCache> mInstanceCache;
 
@@ -178,6 +181,7 @@ namespace Resource
         void operator = (const SceneManager&);
     };
 
+    std::string getFileExtension(const std::string& file);
 }
 
 #endif

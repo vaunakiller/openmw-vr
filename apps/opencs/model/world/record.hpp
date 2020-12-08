@@ -45,11 +45,11 @@ namespace CSMWorld
         Record(State state,
                 const ESXRecordT *base = 0, const ESXRecordT *modified = 0);
 
-        virtual RecordBase *clone() const;
+        RecordBase *clone() const override;
 
-        virtual RecordBase *modifiedCopy() const;
+        RecordBase *modifiedCopy() const override;
 
-        virtual void assign (const RecordBase& record);
+        void assign (const RecordBase& record) override;
 
         const ESXRecordT& get() const;
         ///< Throws an exception, if the record is deleted.
@@ -87,7 +87,7 @@ namespace CSMWorld
     template <typename ESXRecordT>
     RecordBase *Record<ESXRecordT>::modifiedCopy() const
     {
-        return new Record<ESXRecordT> (State_ModifiedOnly, 0, &(this->get()));
+        return new Record<ESXRecordT> (State_ModifiedOnly, nullptr, &(this->get()));
     }
 
     template <typename ESXRecordT>

@@ -1,50 +1,91 @@
 stages:
   - build
-  
-Debian:
+
+.Debian:
   tags:
     - docker
     - linux
   image: debian:bullseye
   cache:
-    key: cache.002
     paths:
     - apt-cache/
     - ccache/
   before_script:
     - export APT_CACHE_DIR=`pwd`/apt-cache && mkdir -pv $APT_CACHE_DIR
     - apt-get update -yq 
-    - apt-get -o dir::cache::archives="$APT_CACHE_DIR" install -y cmake build-essential libboost-filesystem-dev libboost-program-options-dev libboost-system-dev libboost-iostreams-dev libavcodec-dev libavformat-dev libavutil-dev libswscale-dev libswresample-dev libsdl2-dev libqt5opengl5-dev libopenal-dev libopenscenegraph-dev libunshield-dev libtinyxml-dev libmygui-dev libbullet-dev ccache
+    - apt-get -o dir::cache::archives="$APT_CACHE_DIR" install -y cmake build-essential libboost-filesystem-dev libboost-program-options-dev libboost-system-dev libboost-iostreams-dev libavcodec-dev libavformat-dev libavutil-dev libswscale-dev libswresample-dev libsdl2-dev libqt5opengl5-dev libopenal-dev libopenscenegraph-dev libunshield-dev libtinyxml-dev libmygui-dev libbullet-dev liblz4-dev ccache git clang
   stage: build
   script:
     - export CCACHE_BASEDIR="`pwd`"
     - export CCACHE_DIR="`pwd`/ccache" && mkdir -pv "$CCACHE_DIR"
-    - ccache -z -M 250M
-    - cores_to_use=$((`nproc`-2)); if (( $cores_to_use < 1 )); then cores_to_use=1; fi
-    - mkdir build; cd build; cmake -DCMAKE_BUILD_TYPE=MinSizeRel ../ -DCMAKE_C_COMPILER_LAUNCHER=ccache -DCMAKE_CXX_COMPILER_LAUNCHER=ccache
-    - make -j$cores_to_use
-    - DESTDIR=artifacts make install
+    - ccache -z -M "${CCACHE_SIZE}"
+    - CI/before_script.linux.sh
+    - cd build
+    - cmake --build . -- -j $(nproc)
+    - cmake --install .
+    - if [[ "${BUILD_TESTS_ONLY}" ]]; then ./openmw_test_suite; fi
     - ccache -s
   artifacts:
     paths:
-      - build/artifacts/
+      - build/install/
+
+Debian_GCC:
+  extends: .Debian
+  cache:
+    key: Debian_GCC.v2
+  variables:
+    CC: gcc
+    CXX: g++
+    CCACHE_SIZE: 3G
+  # When CCache doesn't exist (e.g. first build on a fork), build takes more than 1h, which is the default for forks.
+  timeout: 2h
+
+Debian_GCC_tests:
+  extends: .Debian
+  cache:
+    key: Debian_GCC_tests.v2
+  variables:
+    CC: gcc
+    CXX: g++
+    CCACHE_SIZE: 1G
+    BUILD_TESTS_ONLY: 1
+
+Debian_Clang:
+  extends: .Debian
+  cache:
+    key: Debian_Clang.v2
+  variables:
+    CC: clang
+    CXX: clang++
+    CCACHE_SIZE: 2G
+
+Debian_Clang_tests:
+  extends: .Debian
+  cache:
+    key: Debian_Clang_tests.v2
+  variables:
+    CC: clang
+    CXX: clang++
+    CCACHE_SIZE: 1G
+    BUILD_TESTS_ONLY: 1
 
 MacOS:
   tags:
     - macos
-    - xcode
-  except:
-    - branches # because our CI VMs are not public, MRs can't use them and timeout
   stage: build
-  allow_failure: true
+  only:
+    variables:
+      - $CI_PROJECT_ID == "7107382"
   script:
-    - rm -fr build/*  #  remove anything in the build directory
+    - rm -fr build/*  # remove anything in the build directory
     - CI/before_install.osx.sh
     - CI/before_script.osx.sh
     - cd build; make -j2 package
+    - for dmg in *.dmg; do mv "$dmg" "${dmg%.dmg}_${CI_COMMIT_REF_NAME}_${CI_JOB_ID}.dmg"; done
   artifacts:
     paths:
       - build/OpenMW-*.dmg
+      - "build/**/*.log"
 
 variables: &engine-targets
   targets: "openmw,openmw-essimporter,openmw-iniimporter,openmw-launcher,openmw-wizard"
@@ -57,6 +98,7 @@ variables: &cs-targets
     - windows
   before_script:
   - Import-Module "$env:ChocolateyInstall\helpers\chocolateyProfile.psm1"
+  - choco source add -n=openmw-proxy -s="https://repo.openmw.org/repository/Chocolatey/" --priority=1
   - choco install git --force --params "/GitAndUnixToolsOnPath" -y
   - choco install 7zip -y
   - choco install cmake.install --installargs 'ADD_CMAKE_TO_PATH=System' -y
@@ -80,6 +122,8 @@ variables: &cs-targets
         Get-ChildItem -Recurse *.pdb | Remove-Item
       }
     - 7z a -tzip ..\..\OpenMW_MSVC2019_64_${config}_${CI_COMMIT_REF_NAME}_${CI_JOB_ID}.zip '*'
+  after_script:
+    - Copy-Item C:\ProgramData\chocolatey\logs\chocolatey.log
   cache:
     key: ninja-v2
     paths:
@@ -146,6 +190,7 @@ Windows_Ninja_CS_RelWithDebInfo:
     - windows
   before_script:
   - Import-Module "$env:ChocolateyInstall\helpers\chocolateyProfile.psm1"
+  - choco source add -n=openmw-proxy -s="https://repo.openmw.org/repository/Chocolatey/" --priority=1
   - choco install git --force --params "/GitAndUnixToolsOnPath" -y
   - choco install 7zip -y
   - choco install cmake.install --installargs 'ADD_CMAKE_TO_PATH=System' -y
@@ -167,6 +212,8 @@ Windows_Ninja_CS_RelWithDebInfo:
         Get-ChildItem -Recurse *.pdb | Remove-Item
       }
     - 7z a -tzip ..\..\OpenMW_MSVC2019_64_${config}_${CI_COMMIT_REF_NAME}_${CI_JOB_ID}.zip '*'
+  after_script:
+    - Copy-Item C:\ProgramData\chocolatey\logs\chocolatey.log
   cache:
     key: msbuild-v2
     paths:
@@ -227,3 +274,35 @@ Windows_MSBuild_CS_RelWithDebInfo:
   variables:
     <<: *cs-targets
     config: "RelWithDebInfo"
+
+Debian_AndroidNDK_arm64-v8a:
+  tags:
+    - linux
+  image: debian:bullseye
+  variables:
+    CCACHE_SIZE: 3G
+  cache:
+    key: Debian_AndroidNDK_arm64-v8a.v2
+    paths:
+      - apt-cache/
+      - ccache/
+  before_script:
+    - export APT_CACHE_DIR=`pwd`/apt-cache && mkdir -pv $APT_CACHE_DIR
+    - echo "deb http://deb.debian.org/debian unstable main contrib" > /etc/apt/sources.list
+    - echo "google-android-ndk-installer google-android-installers/mirror select https://dl.google.com" | debconf-set-selections
+    - apt-get update -yq
+    - apt-get -o dir::cache::archives="$APT_CACHE_DIR" install -y cmake ccache curl unzip git build-essential google-android-ndk-installer
+  stage: build
+  script:
+    - export CCACHE_BASEDIR="`pwd`"
+    - export CCACHE_DIR="`pwd`/ccache" && mkdir -pv "$CCACHE_DIR"
+    - ccache -z -M "${CCACHE_SIZE}"
+    - CI/before_install.android.sh
+    - CI/before_script.android.sh
+    - cd build
+    - cmake --build . -- -j $(nproc)
+    - cmake --install .
+    - ccache -s
+  artifacts:
+    paths:
+      - build/install/

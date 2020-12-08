@@ -29,7 +29,7 @@
 namespace MWWorld
 {
     Player::Player (const ESM::NPC *player)
-      : mCellStore(0),
+      : mCellStore(nullptr),
         mLastKnownExteriorPosition(0,0,0),
         mMarkedPosition(ESM::Position()),
         mMarkedCell(nullptr),
@@ -230,7 +230,8 @@ namespace MWWorld
 
         MWWorld::Ptr player = getPlayer();
         const MWMechanics::NpcStats &playerStats = player.getClass().getNpcStats(player);
-        if (playerStats.isParalyzed() || playerStats.getKnockedDown() || playerStats.isDead())
+        bool godmode = MWBase::Environment::get().getWorld()->getGodModeState();
+        if ((!godmode && playerStats.isParalyzed()) || playerStats.getKnockedDown() || playerStats.isDead())
             return;
 
         MWWorld::Ptr toActivate = MWBase::Environment::get().getWorld()->getFacedObject();
@@ -298,9 +299,9 @@ namespace MWWorld
 
     void Player::clear()
     {
-        mCellStore = 0;
+        mCellStore = nullptr;
         mSign.clear();
-        mMarkedCell = 0;
+        mMarkedCell = nullptr;
         mAutoMove = false;
         mForwardBackward = 0;
         mTeleported = false;
@@ -447,7 +448,7 @@ namespace MWWorld
             }
             else
             {
-                mMarkedCell = 0;
+                mMarkedCell = nullptr;
             }
 
             mForwardBackward = 0;

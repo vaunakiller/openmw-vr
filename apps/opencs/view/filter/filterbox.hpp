@@ -25,7 +25,7 @@ namespace CSVFilter
             RecordFilterBox *mRecordFilterBox;
 
         public:
-            FilterBox (CSMWorld::Data& data, QWidget *parent = 0);
+            FilterBox (CSMWorld::Data& data, QWidget *parent = nullptr);
 
             void setRecordFilter (const std::string& filter);
 
@@ -34,11 +34,11 @@ namespace CSVFilter
 
 
         private:
-            void dragEnterEvent (QDragEnterEvent* event);
+            void dragEnterEvent (QDragEnterEvent* event) override;
 
-            void dropEvent (QDropEvent* event);
+            void dropEvent (QDropEvent* event) override;
 
-            void dragMoveEvent(QDragMoveEvent *event);
+            void dragMoveEvent(QDragMoveEvent *event) override;
 
         signals:
             void recordFilterChanged (std::shared_ptr<CSMFilter::Node> filter);

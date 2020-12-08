@@ -35,11 +35,11 @@ namespace CSVTools
             CSVDoc::AdjusterWidget *mAdjuster;
             CSMDoc::DocumentManager& mDocumentManager;
 
-            void keyPressEvent (QKeyEvent *event);
+            void keyPressEvent (QKeyEvent *event) override;
 
         public:
 
-            Merge (CSMDoc::DocumentManager& documentManager, QWidget *parent = 0);
+            Merge (CSMDoc::DocumentManager& documentManager, QWidget *parent = nullptr);
 
             /// Configure dialogue for a new merge
             void configure (CSMDoc::Document *document);

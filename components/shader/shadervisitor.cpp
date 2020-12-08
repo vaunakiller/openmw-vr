@@ -1,7 +1,5 @@
 #include "shadervisitor.hpp"
 
-#include <osg/AlphaFunc>
-#include <osg/BlendFunc>
 #include <osg/Geometry>
 #include <osg/Material>
 #include <osg/Texture>
@@ -14,7 +12,6 @@
 #include <components/vfs/manager.hpp>
 #include <components/sceneutil/riggeometry.hpp>
 #include <components/sceneutil/morphgeometry.hpp>
-#include <components/settings/settings.hpp>
 
 #include "shadermanager.hpp"
 
@@ -25,7 +22,6 @@ namespace Shader
         : mShaderRequired(false)
         , mColorMode(0)
         , mMaterialOverridden(false)
-        , mBlendFuncOverridden(false)
         , mNormalHeight(false)
         , mTexStageRequiringTangents(-1)
         , mNode(nullptr)
@@ -43,12 +39,13 @@ namespace Shader
         , mAllowedToModifyStateSets(true)
         , mAutoUseNormalMaps(false)
         , mAutoUseSpecularMaps(false)
+        , mApplyLightingToEnvMaps(false)
         , mShaderManager(shaderManager)
         , mImageManager(imageManager)
         , mDefaultVsTemplate(defaultVsTemplate)
         , mDefaultFsTemplate(defaultFsTemplate)
     {
-        mRequirements.push_back(ShaderRequirements());
+        mRequirements.emplace_back();
     }
 
     void ShaderVisitor::setForceShaders(bool force)
@@ -144,11 +141,9 @@ namespace Shader
                                 // Bump maps are off by default as well
                                 writableStateSet->setTextureMode(unit, GL_TEXTURE_2D, osg::StateAttribute::ON);
                             }
-                            else if (texName == "envMap")
+                            else if (texName == "envMap" && mApplyLightingToEnvMaps)
                             {
-                                static const bool preLightEnv = Settings::Manager::getBool("apply lighting to environment maps", "Shaders");
-                                if (preLightEnv)
-                                    mRequirements.back().mShaderRequired = true;
+                                mRequirements.back().mShaderRequired = true;
                             }
                         }
                         else
@@ -233,13 +228,10 @@ namespace Shader
                 if (!writableStateSet)
                     writableStateSet = getWritableStateSet(node);
                 // We probably shouldn't construct a new version of this each time as Uniforms use pointer comparison for early-out.
-                // Also it should probably belong to the shader manager
+                // Also it should probably belong to the shader manager or be applied by the shadows bin
                 writableStateSet->addUniform(new osg::Uniform("useDiffuseMapForShadowAlpha", true));
             }
         }
-
-        bool alphaSettingsChanged = false;
-        bool alphaTestShadows = false;
 
         const osg::StateSet::AttributeList& attributes = stateset->getAttributeList();
         for (osg::StateSet::AttributeList::const_iterator it = attributes.begin(); it != attributes.end(); ++it)
@@ -284,27 +276,7 @@ namespace Shader
                     mRequirements.back().mColorMode = colorMode;
                 }
             }
-            else if (it->first.first == osg::StateAttribute::BLENDFUNC)
-            {
-                if (!mRequirements.back().mBlendFuncOverridden || it->second.second & osg::StateAttribute::PROTECTED)
-                {
-                    if (it->second.second & osg::StateAttribute::OVERRIDE)
-                        mRequirements.back().mBlendFuncOverridden = true;
-
-                    const osg::BlendFunc* blend = static_cast<const osg::BlendFunc*>(it->second.first.get());
-                    if (blend->getSource() == osg::BlendFunc::SRC_ALPHA || blend->getSource() == osg::BlendFunc::SRC_COLOR)
-                        alphaTestShadows = true;
-                    alphaSettingsChanged = true;
-                }
-            }
             // Eventually, move alpha testing to discard in shader adn remove deprecated state here
-        }
-        // we don't need to check for glEnable/glDisable of blending as we always set it at the same time
-        if (alphaSettingsChanged)
-        {
-            if (!writableStateSet)
-                writableStateSet = getWritableStateSet(node);
-            writableStateSet->addUniform(alphaTestShadows ? mShaderManager.getShadowMapAlphaTestEnableUniform() : mShaderManager.getShadowMapAlphaTestDisableUniform());
         }
     }
 
@@ -322,7 +294,10 @@ namespace Shader
     void ShaderVisitor::createProgram(const ShaderRequirements &reqs)
     {
         if (!reqs.mShaderRequired && !mForceShaders)
+        {
+            ensureFFP(*reqs.mNode);
             return;
+        }
 
         osg::Node& node = *reqs.mNode;
         osg::StateSet* writableStateSet = nullptr;
@@ -359,6 +334,19 @@ namespace Shader
                 writableStateSet->addUniform(new osg::Uniform(texIt->second.c_str(), texIt->first), osg::StateAttribute::ON);
             }
         }
+    }
+
+    void ShaderVisitor::ensureFFP(osg::Node& node)
+    {
+        if (!node.getStateSet() || !node.getStateSet()->getAttribute(osg::StateAttribute::PROGRAM))
+            return;
+        osg::StateSet* writableStateSet = nullptr;
+        if (mAllowedToModifyStateSets)
+            writableStateSet = node.getStateSet();
+        else
+            writableStateSet = getWritableStateSet(node);
+
+        writableStateSet->removeAttribute(osg::StateAttribute::PROGRAM);
     }
 
     bool ShaderVisitor::adjustGeometry(osg::Geometry& sourceGeometry, const ShaderRequirements& reqs)
@@ -408,6 +396,8 @@ namespace Shader
 
             createProgram(reqs);
         }
+        else
+            ensureFFP(geometry);
 
         if (needPop)
             popRequirements();
@@ -442,6 +432,8 @@ namespace Shader
                     morph->setSourceGeometry(sourceGeometry);
             }
         }
+        else
+            ensureFFP(drawable);
 
         if (needPop)
             popRequirements();
@@ -475,6 +467,11 @@ namespace Shader
     void ShaderVisitor::setSpecularMapPattern(const std::string &pattern)
     {
         mSpecularMapPattern = pattern;
+    }
+
+    void ShaderVisitor::setApplyLightingToEnvMaps(bool apply)
+    {
+        mApplyLightingToEnvMaps = apply;
     }
 
 }

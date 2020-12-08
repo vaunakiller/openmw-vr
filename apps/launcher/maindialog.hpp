@@ -48,7 +48,7 @@ namespace Launcher
         Q_OBJECT
 
     public:
-        explicit MainDialog(QWidget *parent = 0);
+        explicit MainDialog(QWidget *parent = nullptr);
         ~MainDialog();
 
         FirstRunDialogResult showFirstRunDialog();
@@ -84,7 +84,7 @@ namespace Launcher
         inline bool startProgram(const QString &name, bool detached = false) { return startProgram(name, QStringList(), detached); }
         bool startProgram(const QString &name, const QStringList &arguments, bool detached = false);
 
-        void closeEvent(QCloseEvent *event);
+        void closeEvent(QCloseEvent *event) override;
 
         PlayPage *mPlayPage;
         GraphicsPage *mGraphicsPage;

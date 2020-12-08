@@ -42,6 +42,44 @@ namespace MWGui
     {
     }
 
+    bool SpellModel::matchingEffectExists(std::string filter, const ESM::EffectList &effects)
+    {
+        auto wm = MWBase::Environment::get().getWindowManager();
+        const MWWorld::ESMStore &store =
+            MWBase::Environment::get().getWorld()->getStore();
+
+        for (const auto& effect : effects.mList)
+        {
+            short effectId = effect.mEffectID;
+
+            if (effectId != -1)
+            {
+                const ESM::MagicEffect *magicEffect =
+                    store.get<ESM::MagicEffect>().search(effectId);
+                std::string effectIDStr = ESM::MagicEffect::effectIdToString(effectId);
+                std::string fullEffectName = wm->getGameSettingString(effectIDStr, "");
+
+                if (magicEffect->mData.mFlags & ESM::MagicEffect::TargetSkill && effect.mSkill != -1)
+                {
+                    fullEffectName += " " + wm->getGameSettingString(ESM::Skill::sSkillNameIds[effect.mSkill], "");
+                }
+
+                if (magicEffect->mData.mFlags & ESM::MagicEffect::TargetAttribute && effect.mAttribute != -1)
+                {
+                    fullEffectName += " " + wm->getGameSettingString(ESM::Attribute::sGmstAttributeIds[effect.mAttribute], "");
+                }
+
+                std::string convert = Misc::StringUtils::lowerCaseUtf8(fullEffectName);
+                if (convert.find(filter) != std::string::npos)
+                {
+                    return true;
+                }
+            }
+        }
+
+        return false;
+    }
+
     void SpellModel::update()
     {
         mSpells.clear();
@@ -61,8 +99,9 @@ namespace MWGui
                 continue;
 
             std::string name = Misc::StringUtils::lowerCaseUtf8(spell->mName);
-
-            if (name.find(filter) == std::string::npos)
+ 
+            if (name.find(filter) == std::string::npos 
+                && !matchingEffectExists(filter, spell->mEffects))
                 continue;
 
             Spell newSpell;
@@ -103,7 +142,8 @@ namespace MWGui
 
             std::string name = Misc::StringUtils::lowerCaseUtf8(item.getClass().getName(item));
 
-            if (name.find(filter) == std::string::npos)
+            if (name.find(filter) == std::string::npos
+                && !matchingEffectExists(filter, enchant->mEffects))
                 continue;
 
             Spell newSpell;

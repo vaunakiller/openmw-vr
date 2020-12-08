@@ -10,6 +10,8 @@
 
 #include <components/esm/cellid.hpp>
 
+#include <osg/Timer>
+
 #include "../mwworld/ptr.hpp"
 #include "../mwworld/doorstate.hpp"
 
@@ -36,6 +38,7 @@ namespace ESM
     struct Position;
     struct Cell;
     struct Class;
+    struct Container;
     struct Creature;
     struct Potion;
     struct Spell;
@@ -49,6 +52,11 @@ namespace ESM
     struct CreatureLevList;
     struct ItemLevList;
     struct TimeStamp;
+}
+
+namespace MWPhysics
+{
+    class RayCastingInterface;
 }
 
 namespace MWRender
@@ -172,7 +180,7 @@ namespace MWBase
             virtual char getGlobalVariableType (const std::string& name) const = 0;
             ///< Return ' ', if there is no global variable with this name.
 
-            virtual std::string getCellName (const MWWorld::CellStore *cell = 0) const = 0;
+            virtual std::string getCellName (const MWWorld::CellStore *cell = nullptr) const = 0;
             ///< Return name of the cell.
             ///
             /// \note If cell==0, the cell the player is currently in will be used instead to
@@ -303,6 +311,8 @@ namespace MWBase
 
             virtual void updateAnimatedCollisionShape(const MWWorld::Ptr &ptr) = 0;
 
+            virtual const MWPhysics::RayCastingInterface* getRayCasting() const = 0;
+
             virtual bool castRay (float x1, float y1, float z1, float x2, float y2, float z2, int mask) = 0;
             ///< cast a Ray and return true if there is an object in the ray path.
 
@@ -378,8 +388,12 @@ namespace MWBase
             ///< Write this record to the ESM store, allowing it to override a pre-existing record with the same ID.
             /// \return pointer to created record
 
+            virtual const ESM::Container *createOverrideRecord (const ESM::Container& record) = 0;
+            ///< Write this record to the ESM store, allowing it to override a pre-existing record with the same ID.
+            /// \return pointer to created record
+
             virtual void update (float duration, bool paused) = 0;
-            virtual void updatePhysics (float duration, bool paused) = 0;
+            virtual void updatePhysics (float duration, bool paused, osg::Timer_t frameStart, unsigned int frameNumber, osg::Stats& stats) = 0;
 
             virtual void updateWindowManager () = 0;
 
@@ -416,12 +430,12 @@ namespace MWBase
 
             virtual void togglePOV(bool force = false) = 0;
             virtual bool isFirstPerson() const = 0;
+            virtual bool isPreviewModeEnabled() const = 0;
             virtual void togglePreviewMode(bool enable) = 0;
             virtual bool toggleVanityMode(bool enable) = 0;
             virtual void allowVanityMode(bool allow) = 0;
-            virtual void changeVanityModeScale(float factor) = 0;
             virtual bool vanityRotateCamera(float * rot) = 0;
-            virtual void setCameraDistance(float dist, bool adjust = false, bool override = true)=0;
+            virtual void adjustCameraDistance(float dist) = 0;
             virtual void applyDeferredPreviewRotationToPlayer(float dt) = 0;
             virtual void disableDeferredPreviewRotation() = 0;
 
@@ -634,6 +648,8 @@ namespace MWBase
             virtual bool isAreaOccupiedByOtherActor(const osg::Vec3f& position, const float radius, const MWWorld::ConstPtr& ignore) const = 0;
 
             virtual void reportStats(unsigned int frameNumber, osg::Stats& stats) const = 0;
+
+            virtual std::vector<MWWorld::Ptr> getAll(const std::string& id) = 0;
     };
 }
 

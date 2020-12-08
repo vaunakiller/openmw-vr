@@ -57,3 +57,5 @@ The ranges included with each setting are the physically possible ranges, not re
 	water
 	windows
 	navigator
+	physics
+	models

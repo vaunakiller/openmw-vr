@@ -41,7 +41,7 @@ namespace Wizard
             Page_Conclusion
         };
 
-        MainWizard(QWidget *parent = 0);
+        MainWizard(QWidget *parent = nullptr);
         ~MainWizard();
 
         bool findFiles(const QString &name, const QString &path);
@@ -81,8 +81,8 @@ namespace Wizard
         void importerStarted();
         void importerFinished(int exitCode, QProcess::ExitStatus exitStatus);
 
-        void accept();
-        void reject();
+        void accept() override;
+        void reject() override;
 
     };
 

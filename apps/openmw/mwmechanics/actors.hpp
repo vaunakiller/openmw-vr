@@ -63,6 +63,8 @@ namespace MWMechanics
 
             void purgeSpellEffects (int casterActorId);
 
+            void predictAndAvoidCollisions();
+
         public:
 
             Actors();
@@ -204,11 +206,13 @@ namespace MWMechanics
 
     private:
         void updateVisibility (const MWWorld::Ptr& ptr, CharacterController* ctrl);
+        void applyCureEffects (const MWWorld::Ptr& actor);
 
         PtrActorMap mActors;
         float mTimerDisposeSummonsCorpses;
         float mActorsProcessingRange;
 
+        bool mSmoothMovement;
     };
 }
 

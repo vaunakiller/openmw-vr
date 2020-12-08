@@ -2,11 +2,14 @@
 
 #include <osg/StateSet>
 
+#include <osgAnimation/Bone>
+#include <osgAnimation/Skeleton>
+#include <osgAnimation/MorphGeometry>
+#include <osgAnimation/RigGeometry>
+
 #include <osgParticle/ParticleProcessor>
 #include <osgParticle/ParticleSystemUpdater>
 #include <osgParticle/Emitter>
-
-#include <components/nifosg/userdata.hpp>
 
 #include <components/sceneutil/morphgeometry.hpp>
 #include <components/sceneutil/riggeometry.hpp>
@@ -22,15 +25,6 @@ namespace SceneUtil
                      | osg::CopyOp::DEEP_COPY_USERDATA);
     }
 
-    osg::Object* CopyOp::operator ()(const osg::Object* node) const
-    {
-        // We should copy node transformations when we copy node
-        if (dynamic_cast<const NifOsg::NodeUserData*>(node))
-            return static_cast<NifOsg::NodeUserData*>(node->clone(*this));
-
-        return osg::CopyOp::operator()(node);
-    }
-
     osg::Node* CopyOp::operator ()(const osg::Node* node) const
     {
         if (const osgParticle::ParticleProcessor* processor = dynamic_cast<const osgParticle::ParticleProcessor*>(node))
@@ -41,6 +35,11 @@ namespace SceneUtil
             mUpdaterToOldPs[cloned] = updater->getParticleSystem(0);
             return cloned;
         }
+
+        if (dynamic_cast<const osgAnimation::Bone*>(node) || dynamic_cast<const osgAnimation::Skeleton*>(node))
+        {
+            return osg::clone(node, *this);
+        }
         return osg::CopyOp::operator()(node);
     }
 
@@ -49,7 +48,7 @@ namespace SceneUtil
         if (const osgParticle::ParticleSystem* partsys = dynamic_cast<const osgParticle::ParticleSystem*>(drawable))
             return operator()(partsys);
 
-        if (dynamic_cast<const SceneUtil::RigGeometry*>(drawable) || dynamic_cast<const SceneUtil::MorphGeometry*>(drawable))
+        if (dynamic_cast<const SceneUtil::RigGeometry*>(drawable) || dynamic_cast<const SceneUtil::MorphGeometry*>(drawable) || dynamic_cast<const osgAnimation::RigGeometry*>(drawable) || dynamic_cast<const osgAnimation::MorphGeometry*>(drawable))
         {
             return static_cast<osg::Drawable*>(drawable->clone(*this));
         }

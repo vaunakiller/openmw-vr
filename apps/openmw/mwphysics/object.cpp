@@ -1,4 +1,5 @@
 #include "object.hpp"
+#include "mtphysics.hpp"
 
 #include <components/debug/debuglog.hpp>
 #include <components/nifosg/particle.hpp>
@@ -8,27 +9,34 @@
 
 #include <BulletCollision/CollisionShapes/btCompoundShape.h>
 #include <BulletCollision/CollisionDispatch/btCollisionObject.h>
-#include <BulletCollision/CollisionDispatch/btCollisionWorld.h>
 
 #include <LinearMath/btTransform.h>
 
 namespace MWPhysics
 {
-    Object::Object(const MWWorld::Ptr& ptr, osg::ref_ptr<Resource::BulletShapeInstance> shapeInstance)
+    Object::Object(const MWWorld::Ptr& ptr, osg::ref_ptr<Resource::BulletShapeInstance> shapeInstance, PhysicsTaskScheduler* scheduler)
         : mShapeInstance(shapeInstance)
         , mSolid(true)
+        , mTaskScheduler(scheduler)
     {
         mPtr = ptr;
 
         mCollisionObject.reset(new btCollisionObject);
         mCollisionObject->setCollisionShape(shapeInstance->getCollisionShape());
 
-        mCollisionObject->setUserPointer(static_cast<PtrHolder*>(this));
+        mCollisionObject->setUserPointer(this);
 
         setScale(ptr.getCellRef().getScale());
         setRotation(Misc::Convert::toBullet(ptr.getRefData().getBaseNode()->getAttitude()));
         const float* pos = ptr.getRefData().getPosition().pos;
         setOrigin(btVector3(pos[0], pos[1], pos[2]));
+        commitPositionChange();
+    }
+
+    Object::~Object()
+    {
+        if (mCollisionObject)
+            mTaskScheduler->removeCollisionObject(mCollisionObject.get());
     }
 
     const Resource::BulletShapeInstance* Object::getShapeInstance() const
@@ -38,17 +46,38 @@ namespace MWPhysics
 
     void Object::setScale(float scale)
     {
-        mShapeInstance->setLocalScaling(btVector3(scale, scale, scale));
+        std::unique_lock<std::mutex> lock(mPositionMutex);
+        mScale = { scale,scale,scale };
+        mScaleUpdatePending = true;
     }
 
     void Object::setRotation(const btQuaternion& quat)
     {
-        mCollisionObject->getWorldTransform().setRotation(quat);
+        std::unique_lock<std::mutex> lock(mPositionMutex);
+        mLocalTransform.setRotation(quat);
+        mTransformUpdatePending = true;
     }
 
     void Object::setOrigin(const btVector3& vec)
     {
-        mCollisionObject->getWorldTransform().setOrigin(vec);
+        std::unique_lock<std::mutex> lock(mPositionMutex);
+        mLocalTransform.setOrigin(vec);
+        mTransformUpdatePending = true;
+    }
+
+    void Object::commitPositionChange()
+    {
+        std::unique_lock<std::mutex> lock(mPositionMutex);
+        if (mScaleUpdatePending)
+        {
+            mShapeInstance->setLocalScaling(mScale);
+            mScaleUpdatePending = false;
+        }
+        if (mTransformUpdatePending)
+        {
+            mCollisionObject->setWorldTransform(mLocalTransform);
+            mTransformUpdatePending = false;
+        }
     }
 
     btCollisionObject* Object::getCollisionObject()
@@ -59,6 +88,12 @@ namespace MWPhysics
     const btCollisionObject* Object::getCollisionObject() const
     {
         return mCollisionObject.get();
+    }
+
+    btTransform Object::getTransform() const
+    {
+        std::unique_lock<std::mutex> lock(mPositionMutex);
+        return mLocalTransform;
     }
 
     bool Object::isSolid() const
@@ -76,10 +111,10 @@ namespace MWPhysics
         return !mShapeInstance->mAnimatedShapes.empty();
     }
 
-    void Object::animateCollisionShapes(btCollisionWorld* collisionWorld)
+    bool Object::animateCollisionShapes()
     {
         if (mShapeInstance->mAnimatedShapes.empty())
-            return;
+            return false;
 
         assert (mShapeInstance->getCollisionShape()->isCompound());
 
@@ -100,7 +135,7 @@ namespace MWPhysics
 
                     // Remove nonexistent nodes from animated shapes map and early out
                     mShapeInstance->mAnimatedShapes.erase(recIndex);
-                    return;
+                    return false;
                 }
                 osg::NodePath nodePath = visitor.mFoundPath;
                 nodePath.erase(nodePath.begin());
@@ -122,7 +157,6 @@ namespace MWPhysics
             if (!(transform == compound->getChildTransform(shapeIndex)))
                 compound->updateChildTransform(shapeIndex, transform);
         }
-
-        collisionWorld->updateSingleAabb(mCollisionObject.get());
+        return true;
     }
 }

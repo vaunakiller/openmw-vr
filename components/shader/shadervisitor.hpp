@@ -38,10 +38,12 @@ namespace Shader
 
         void setSpecularMapPattern(const std::string& pattern);
 
-        virtual void apply(osg::Node& node);
+        void setApplyLightingToEnvMaps(bool apply);
 
-        virtual void apply(osg::Drawable& drawable);
-        virtual void apply(osg::Geometry& geometry);
+        void apply(osg::Node& node) override;
+
+        void apply(osg::Drawable& drawable) override;
+        void apply(osg::Geometry& geometry) override;
 
         void applyStateSet(osg::ref_ptr<osg::StateSet> stateset, osg::Node& node);
 
@@ -59,6 +61,8 @@ namespace Shader
         bool mAutoUseSpecularMaps;
         std::string mSpecularMapPattern;
 
+        bool mApplyLightingToEnvMaps;
+
         ShaderManager& mShaderManager;
         Resource::ImageManager& mImageManager;
 
@@ -75,7 +79,6 @@ namespace Shader
             int mColorMode;
             
             bool mMaterialOverridden;
-            bool mBlendFuncOverridden;
 
             bool mNormalHeight; // true if normal map has height info in alpha channel
 
@@ -91,6 +94,7 @@ namespace Shader
         std::string mDefaultFsTemplate;
 
         void createProgram(const ShaderRequirements& reqs);
+        void ensureFFP(osg::Node& node);
         bool adjustGeometry(osg::Geometry& sourceGeometry, const ShaderRequirements& reqs);
     };
 

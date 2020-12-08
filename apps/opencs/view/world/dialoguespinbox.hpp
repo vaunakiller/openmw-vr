@@ -12,13 +12,13 @@ namespace CSVWorld
 
         public:
 
-            DialogueSpinBox (QWidget *parent = 0);
+            DialogueSpinBox (QWidget *parent = nullptr);
 
         protected:
 
-            virtual void focusInEvent(QFocusEvent *event);
-            virtual void focusOutEvent(QFocusEvent *event);
-            virtual void wheelEvent(QWheelEvent *event);
+            void focusInEvent(QFocusEvent *event) override;
+            void focusOutEvent(QFocusEvent *event) override;
+            void wheelEvent(QWheelEvent *event) override;
     };
 
     class DialogueDoubleSpinBox : public QDoubleSpinBox
@@ -27,13 +27,13 @@ namespace CSVWorld
 
         public:
 
-            DialogueDoubleSpinBox (QWidget *parent = 0);
+            DialogueDoubleSpinBox (QWidget *parent = nullptr);
 
         protected:
 
-            virtual void focusInEvent(QFocusEvent *event);
-            virtual void focusOutEvent(QFocusEvent *event);
-            virtual void wheelEvent(QWheelEvent *event);
+            void focusInEvent(QFocusEvent *event) override;
+            void focusOutEvent(QFocusEvent *event) override;
+            void wheelEvent(QWheelEvent *event) override;
     };
 }
 

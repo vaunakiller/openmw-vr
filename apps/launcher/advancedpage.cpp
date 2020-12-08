@@ -10,37 +10,6 @@
 
 #include <cmath>
 
-
-class HorizontalTextWestTabStyle : public QProxyStyle
-{
-public:
-    QSize sizeFromContents(ContentsType type, const QStyleOption* option, const QSize& size, const QWidget* widget) const
-    {
-        QSize s = QProxyStyle::sizeFromContents(type, option, size, widget);
-        if (type == QStyle::CT_TabBarTab)
-        {
-            s.transpose();
-            s.setHeight(s.height() + 20);
-        }
-        return s;
-    }
-
-    void drawControl(ControlElement element, const QStyleOption* option, QPainter* painter, const QWidget* widget) const
-    {
-        if (element == CE_TabBarTabLabel)
-        {
-            if (const QStyleOptionTab* tab = qstyleoption_cast<const QStyleOptionTab*>(option))
-            {
-                QStyleOptionTab opt(*tab);
-                opt.shape = QTabBar::RoundedNorth;
-                QProxyStyle::drawControl(element, &opt, painter, widget);
-                return;
-            }
-        }
-        QProxyStyle::drawControl(element, option, painter, widget);
-    }
-};
-
 Launcher::AdvancedPage::AdvancedPage(Files::ConfigurationManager &cfg,
                                      Config::GameSettings &gameSettings,
                                      Settings::Manager &engineSettings, QWidget *parent)
@@ -53,7 +22,6 @@ Launcher::AdvancedPage::AdvancedPage(Files::ConfigurationManager &cfg,
     setupUi(this);
 
     loadSettings();
-    AdvancedTabWidget->tabBar()->setStyle(new HorizontalTextWestTabStyle);
     mCellNameCompleter.setModel(&mCellNameCompleterModel);
     startDefaultCharacterAtField->setCompleter(&mCellNameCompleter);
 }
@@ -119,14 +87,26 @@ bool Launcher::AdvancedPage::loadSettings()
         loadSettingBool(requireAppropriateAmmunitionCheckBox, "only appropriate ammunition bypasses resistance", "Game");
         loadSettingBool(uncappedDamageFatigueCheckBox, "uncapped damage fatigue", "Game");
         loadSettingBool(normaliseRaceSpeedCheckBox, "normalise race speed", "Game");
+        loadSettingBool(swimUpwardCorrectionCheckBox, "swim upward correction", "Game");
+        loadSettingBool(avoidCollisionsCheckBox, "NPCs avoid collisions", "Game");
         int unarmedFactorsStrengthIndex = mEngineSettings.getInt("strength influences hand to hand", "Game");
         if (unarmedFactorsStrengthIndex >= 0 && unarmedFactorsStrengthIndex <= 2)
             unarmedFactorsStrengthComboBox->setCurrentIndex(unarmedFactorsStrengthIndex);
+        loadSettingBool(stealingFromKnockedOutCheckBox, "always allow stealing from knocked out actors", "Game");
+        loadSettingBool(enableNavigatorCheckBox, "enable", "Navigator");
+        int numPhysicsThreads = mEngineSettings.getInt("async num threads", "Physics");
+        if (numPhysicsThreads >= 0)
+            physicsThreadsSpinBox->setValue(numPhysicsThreads);
     }
 
     // Visuals
     {
+        loadSettingBool(autoUseObjectNormalMapsCheckBox, "auto use object normal maps", "Shaders");
+        loadSettingBool(autoUseObjectSpecularMapsCheckBox, "auto use object specular maps", "Shaders");
+        loadSettingBool(autoUseTerrainNormalMapsCheckBox, "auto use terrain normal maps", "Shaders");
+        loadSettingBool(autoUseTerrainSpecularMapsCheckBox, "auto use terrain specular maps", "Shaders");
         loadSettingBool(bumpMapLocalLightingCheckBox, "apply lighting to environment maps", "Shaders");
+        loadSettingBool(radialFogCheckBox, "radial fog", "Shaders");
         loadSettingBool(magicItemAnimationsCheckBox, "use magic item animations", "Game");
         connect(animSourcesCheckBox, SIGNAL(toggled(bool)), this, SLOT(slotAnimSourcesToggled(bool)));
         loadSettingBool(animSourcesCheckBox, "use additional anim sources", "Game");
@@ -135,8 +115,8 @@ bool Launcher::AdvancedPage::loadSettings()
             loadSettingBool(weaponSheathingCheckBox, "weapon sheathing", "Game");
             loadSettingBool(shieldSheathingCheckBox, "shield sheathing", "Game");
         }
-        loadSettingBool(viewOverShoulderCheckBox, "view over shoulder", "Camera");
         loadSettingBool(turnToMovementDirectionCheckBox, "turn to movement direction", "Game");
+        loadSettingBool(smoothMovementCheckBox, "smooth movement", "Game");
 
         const bool distantTerrain = mEngineSettings.getBool("distant terrain", "Terrain");
         const bool objectPaging = mEngineSettings.getBool("object paging", "Terrain");
@@ -146,6 +126,19 @@ bool Launcher::AdvancedPage::loadSettings()
 
         loadSettingBool(activeGridObjectPagingCheckBox, "object paging active grid", "Terrain");
         viewingDistanceComboBox->setValue(convertToCells(mEngineSettings.getInt("viewing distance", "Camera")));
+    }
+
+    // Camera
+    {
+        loadSettingBool(viewOverShoulderCheckBox, "view over shoulder", "Camera");
+        connect(viewOverShoulderCheckBox, SIGNAL(toggled(bool)), this, SLOT(slotViewOverShoulderToggled(bool)));
+        viewOverShoulderVerticalLayout->setEnabled(viewOverShoulderCheckBox->checkState());
+        loadSettingBool(autoSwitchShoulderCheckBox, "auto switch shoulder", "Camera");
+        loadSettingBool(previewIfStandStillCheckBox, "preview if stand still", "Camera");
+        loadSettingBool(deferredPreviewRotationCheckBox, "deferred preview rotation", "Camera");
+        loadSettingBool(headBobbingCheckBox, "head bobbing", "Camera");
+        defaultShoulderComboBox->setCurrentIndex(
+            mEngineSettings.getVector2("view over shoulder offset", "Camera").x() >= 0 ? 0 : 1);
     }
 
     // Interface Changes
@@ -159,6 +152,7 @@ bool Launcher::AdvancedPage::loadSettings()
         // Match the index with the option (only 0, 1, 2, or 3 are valid). Will default to 0 if invalid.
         if (showOwnedIndex >= 0 && showOwnedIndex <= 3)
             showOwnedComboBox->setCurrentIndex(showOwnedIndex);
+        loadSettingBool(stretchBackgroundCheckBox, "stretch menu background", "GUI");
     }
 
     // Bug fixes
@@ -212,20 +206,32 @@ void Launcher::AdvancedPage::saveSettings()
         saveSettingBool(requireAppropriateAmmunitionCheckBox, "only appropriate ammunition bypasses resistance", "Game");
         saveSettingBool(uncappedDamageFatigueCheckBox, "uncapped damage fatigue", "Game");
         saveSettingBool(normaliseRaceSpeedCheckBox, "normalise race speed", "Game");
+        saveSettingBool(swimUpwardCorrectionCheckBox, "swim upward correction", "Game");
+        saveSettingBool(avoidCollisionsCheckBox, "NPCs avoid collisions", "Game");
         int unarmedFactorsStrengthIndex = unarmedFactorsStrengthComboBox->currentIndex();
         if (unarmedFactorsStrengthIndex != mEngineSettings.getInt("strength influences hand to hand", "Game"))
             mEngineSettings.setInt("strength influences hand to hand", "Game", unarmedFactorsStrengthIndex);
+        saveSettingBool(stealingFromKnockedOutCheckBox, "always allow stealing from knocked out actors", "Game");
+        saveSettingBool(enableNavigatorCheckBox, "enable", "Navigator");
+        int numPhysicsThreads = physicsThreadsSpinBox->value();
+        if (numPhysicsThreads != mEngineSettings.getInt("async num threads", "Physics"))
+            mEngineSettings.setInt("async num threads", "Physics", numPhysicsThreads);
     }
 
     // Visuals
     {
+        saveSettingBool(autoUseObjectNormalMapsCheckBox, "auto use object normal maps", "Shaders");
+        saveSettingBool(autoUseObjectSpecularMapsCheckBox, "auto use object specular maps", "Shaders");
+        saveSettingBool(autoUseTerrainNormalMapsCheckBox, "auto use terrain normal maps", "Shaders");
+        saveSettingBool(autoUseTerrainSpecularMapsCheckBox, "auto use terrain specular maps", "Shaders");
         saveSettingBool(bumpMapLocalLightingCheckBox, "apply lighting to environment maps", "Shaders");
+        saveSettingBool(radialFogCheckBox, "radial fog", "Shaders");
         saveSettingBool(magicItemAnimationsCheckBox, "use magic item animations", "Game");
         saveSettingBool(animSourcesCheckBox, "use additional anim sources", "Game");
         saveSettingBool(weaponSheathingCheckBox, "weapon sheathing", "Game");
         saveSettingBool(shieldSheathingCheckBox, "shield sheathing", "Game");
-        saveSettingBool(viewOverShoulderCheckBox, "view over shoulder", "Camera");
         saveSettingBool(turnToMovementDirectionCheckBox, "turn to movement direction", "Game");
+        saveSettingBool(smoothMovementCheckBox, "smooth movement", "Game");
 
         const bool distantTerrain = mEngineSettings.getBool("distant terrain", "Terrain");
         const bool objectPaging = mEngineSettings.getBool("object paging", "Terrain");
@@ -243,6 +249,25 @@ void Launcher::AdvancedPage::saveSettings()
         }
     }
 
+    // Camera
+    {
+        saveSettingBool(viewOverShoulderCheckBox, "view over shoulder", "Camera");
+        saveSettingBool(autoSwitchShoulderCheckBox, "auto switch shoulder", "Camera");
+        saveSettingBool(previewIfStandStillCheckBox, "preview if stand still", "Camera");
+        saveSettingBool(deferredPreviewRotationCheckBox, "deferred preview rotation", "Camera");
+        saveSettingBool(headBobbingCheckBox, "head bobbing", "Camera");
+
+        osg::Vec2f shoulderOffset = mEngineSettings.getVector2("view over shoulder offset", "Camera");
+        if (defaultShoulderComboBox->currentIndex() != (shoulderOffset.x() >= 0 ? 0 : 1))
+        {
+            if (defaultShoulderComboBox->currentIndex() == 0)
+                shoulderOffset.x() = std::abs(shoulderOffset.x());
+            else
+                shoulderOffset.x() = -std::abs(shoulderOffset.x());
+            mEngineSettings.setVector2("view over shoulder offset", "Camera", shoulderOffset);
+        }
+    }
+
     // Interface Changes
     {
         saveSettingBool(showEffectDurationCheckBox, "show effect duration", "Game");
@@ -253,6 +278,7 @@ void Launcher::AdvancedPage::saveSettings()
         int showOwnedCurrentIndex = showOwnedComboBox->currentIndex();
         if (showOwnedCurrentIndex != mEngineSettings.getInt("show owned", "Game"))
             mEngineSettings.setInt("show owned", "Game", showOwnedCurrentIndex);
+        saveSettingBool(stretchBackgroundCheckBox, "stretch menu background", "GUI");
     }
 
     // Bug fixes
@@ -323,4 +349,9 @@ void Launcher::AdvancedPage::slotAnimSourcesToggled(bool checked)
         weaponSheathingCheckBox->setCheckState(Qt::Unchecked);
         shieldSheathingCheckBox->setCheckState(Qt::Unchecked);
     }
+}
+
+void Launcher::AdvancedPage::slotViewOverShoulderToggled(bool checked)
+{
+    viewOverShoulderVerticalLayout->setEnabled(viewOverShoulderCheckBox->checkState());
 }

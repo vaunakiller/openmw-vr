@@ -44,7 +44,7 @@ namespace MWScript
         {
             public:
 
-                virtual void execute (Interpreter::Runtime& runtime)
+                void execute (Interpreter::Runtime& runtime) override
                 {
                     MWWorld::Ptr from = R()(runtime);
                     std::string name = runtime.getStringLiteral (runtime[0].mInteger);
@@ -101,7 +101,7 @@ namespace MWScript
         {
             public:
 
-                virtual void execute (Interpreter::Runtime& runtime)
+                void execute (Interpreter::Runtime& runtime) override
                 {
                     MWWorld::Ptr ptr = R()(runtime);
 
@@ -117,7 +117,7 @@ namespace MWScript
         {
             public:
 
-                virtual void execute (Interpreter::Runtime& runtime)
+                void execute (Interpreter::Runtime& runtime) override
                 {
                     MWWorld::Ptr ptr = R()(runtime);
                     runtime.push(ptr.getCellRef().getScale());
@@ -129,7 +129,7 @@ namespace MWScript
         {
             public:
 
-                virtual void execute (Interpreter::Runtime& runtime)
+                void execute (Interpreter::Runtime& runtime) override
                 {
                     MWWorld::Ptr ptr = R()(runtime);
 
@@ -146,7 +146,7 @@ namespace MWScript
         {
             public:
 
-                virtual void execute (Interpreter::Runtime& runtime)
+                void execute (Interpreter::Runtime& runtime) override
                 {
                     MWWorld::Ptr ptr = R()(runtime);
 
@@ -159,12 +159,20 @@ namespace MWScript
                     float ay = ptr.getRefData().getPosition().rot[1];
                     float az = ptr.getRefData().getPosition().rot[2];
 
+                    // XYZ axis use the inverse (XYZ) rotation order like vanilla SetAngle.
+                    // UWV axis use the standard (ZYX) rotation order like TESCS/OpenMW-CS and the rest of the game.
                     if (axis == "x")
-                        MWBase::Environment::get().getWorld()->rotateObject(ptr,angle,ay,az);
+                        MWBase::Environment::get().getWorld()->rotateObject(ptr,angle,ay,az,MWBase::RotationFlag_inverseOrder);
                     else if (axis == "y")
-                        MWBase::Environment::get().getWorld()->rotateObject(ptr,ax,angle,az);
+                        MWBase::Environment::get().getWorld()->rotateObject(ptr,ax,angle,az,MWBase::RotationFlag_inverseOrder);
                     else if (axis == "z")
-                        MWBase::Environment::get().getWorld()->rotateObject(ptr,ax,ay,angle);
+                        MWBase::Environment::get().getWorld()->rotateObject(ptr,ax,ay,angle,MWBase::RotationFlag_inverseOrder);
+                    else if (axis == "u")
+                        MWBase::Environment::get().getWorld()->rotateObject(ptr,angle,ay,az,MWBase::RotationFlag_none);
+                    else if (axis == "w")
+                        MWBase::Environment::get().getWorld()->rotateObject(ptr,ax,angle,az,MWBase::RotationFlag_none);
+                    else if (axis == "v")
+                        MWBase::Environment::get().getWorld()->rotateObject(ptr,ax,ay,angle,MWBase::RotationFlag_none);
                 }
         };
 
@@ -173,7 +181,7 @@ namespace MWScript
         {
             public:
 
-                virtual void execute (Interpreter::Runtime& runtime)
+                void execute (Interpreter::Runtime& runtime) override
                 {
                     MWWorld::Ptr ptr = R()(runtime);
 
@@ -200,7 +208,7 @@ namespace MWScript
         {
             public:
 
-                virtual void execute (Interpreter::Runtime& runtime)
+                void execute (Interpreter::Runtime& runtime) override
                 {
                     MWWorld::Ptr ptr = R()(runtime);
 
@@ -227,7 +235,7 @@ namespace MWScript
         {
             public:
 
-                virtual void execute (Interpreter::Runtime& runtime)
+                void execute (Interpreter::Runtime& runtime) override
                 {
                     MWWorld::Ptr ptr = R()(runtime);
 
@@ -254,7 +262,7 @@ namespace MWScript
         {
             public:
 
-                virtual void execute (Interpreter::Runtime& runtime)
+                void execute (Interpreter::Runtime& runtime) override
                 {
                     MWWorld::Ptr ptr = R()(runtime);
 
@@ -310,7 +318,7 @@ namespace MWScript
         {
             public:
 
-                virtual void execute (Interpreter::Runtime& runtime)
+                void execute (Interpreter::Runtime& runtime) override
                 {
                     MWWorld::Ptr ptr = R()(runtime);
 
@@ -337,7 +345,7 @@ namespace MWScript
         {
             public:
 
-                virtual void execute (Interpreter::Runtime& runtime)
+                void execute (Interpreter::Runtime& runtime) override
                 {
                     MWWorld::Ptr ptr = R()(runtime);
 
@@ -360,7 +368,7 @@ namespace MWScript
                     std::string cellID = runtime.getStringLiteral (runtime[0].mInteger);
                     runtime.pop();
 
-                    MWWorld::CellStore* store = 0;
+                    MWWorld::CellStore* store = nullptr;
                     try
                     {
                         store = MWBase::Environment::get().getWorld()->getInterior(cellID);
@@ -404,7 +412,7 @@ namespace MWScript
         {
             public:
 
-                virtual void execute (Interpreter::Runtime& runtime)
+                void execute (Interpreter::Runtime& runtime) override
                 {
                     MWWorld::Ptr ptr = R()(runtime);
 
@@ -457,7 +465,7 @@ namespace MWScript
         {
             public:
 
-                virtual void execute (Interpreter::Runtime& runtime)
+                void execute (Interpreter::Runtime& runtime) override
                 {
                     std::string itemID = runtime.getStringLiteral (runtime[0].mInteger);
                     runtime.pop();
@@ -473,7 +481,7 @@ namespace MWScript
                     Interpreter::Type_Float zRotDegrees = runtime[0].mFloat;
                     runtime.pop();
 
-                    MWWorld::CellStore* store = 0;
+                    MWWorld::CellStore* store = nullptr;
                     try
                     {
                         store = MWBase::Environment::get().getWorld()->getInterior(cellID);
@@ -510,7 +518,7 @@ namespace MWScript
         {
             public:
 
-                virtual void execute (Interpreter::Runtime& runtime)
+                void execute (Interpreter::Runtime& runtime) override
                 {
                     std::string itemID = runtime.getStringLiteral (runtime[0].mInteger);
                     runtime.pop();
@@ -557,7 +565,7 @@ namespace MWScript
         {
             public:
 
-                virtual void execute (Interpreter::Runtime& runtime)
+                void execute (Interpreter::Runtime& runtime) override
                 {
                     MWWorld::Ptr actor = pc
                         ? MWMechanics::getPlayer()
@@ -598,7 +606,7 @@ namespace MWScript
         {
             public:
 
-                virtual void execute (Interpreter::Runtime& runtime)
+                void execute (Interpreter::Runtime& runtime) override
                 {
                     const MWWorld::Ptr& ptr = R()(runtime);
 
@@ -625,7 +633,7 @@ namespace MWScript
         {
             public:
 
-                virtual void execute (Interpreter::Runtime& runtime)
+                void execute (Interpreter::Runtime& runtime) override
                 {
                     MWWorld::Ptr ptr = R()(runtime);
 
@@ -661,7 +669,7 @@ namespace MWScript
         {
             public:
 
-                virtual void execute (Interpreter::Runtime& runtime)
+                void execute (Interpreter::Runtime& runtime) override
                 {
                     MWWorld::Ptr ptr = R()(runtime);
 
@@ -686,7 +694,7 @@ namespace MWScript
         {
             public:
 
-                virtual void execute (Interpreter::Runtime& runtime)
+                void execute (Interpreter::Runtime& runtime) override
                 {
                     const MWWorld::Ptr& ptr = R()(runtime);
 
@@ -735,7 +743,7 @@ namespace MWScript
         {
             public:
 
-                virtual void execute (Interpreter::Runtime& runtime)
+                void execute (Interpreter::Runtime& runtime) override
                 {
                     MWWorld::Ptr ptr = R()(runtime);
 
@@ -771,7 +779,7 @@ namespace MWScript
         {
         public:
 
-            virtual void execute (Interpreter::Runtime& runtime)
+            void execute (Interpreter::Runtime& runtime) override
             {
                 MWBase::Environment::get().getWorld()->resetActors();
             }
@@ -781,7 +789,7 @@ namespace MWScript
         {
         public:
 
-            virtual void execute (Interpreter::Runtime& runtime)
+            void execute (Interpreter::Runtime& runtime) override
             {
                 MWBase::Environment::get().getWorld()->fixPosition();
             }

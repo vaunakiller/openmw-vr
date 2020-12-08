@@ -20,7 +20,7 @@ namespace Launcher
 
     public:
         AdvancedPage(Files::ConfigurationManager &cfg, Config::GameSettings &gameSettings,
-                     Settings::Manager &engineSettings, QWidget *parent = 0);
+                     Settings::Manager &engineSettings, QWidget *parent = nullptr);
 
         bool loadSettings();
         void saveSettings();
@@ -32,6 +32,7 @@ namespace Launcher
         void on_skipMenuCheckBox_stateChanged(int state);
         void on_runScriptAfterStartupBrowseButton_clicked();
         void slotAnimSourcesToggled(bool checked);
+        void slotViewOverShoulderToggled(bool checked);
 
     private:
         Files::ConfigurationManager &mCfgMgr;

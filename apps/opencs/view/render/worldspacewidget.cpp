@@ -34,11 +34,11 @@
 
 CSVRender::WorldspaceWidget::WorldspaceWidget (CSMDoc::Document& document, QWidget* parent)
     : SceneWidget (document.getData().getResourceSystem(), parent, Qt::WindowFlags(), false)
-    , mSceneElements(0)
-    , mRun(0)
+    , mSceneElements(nullptr)
+    , mRun(nullptr)
     , mDocument(document)
     , mInteractionMask (0)
-    , mEditMode (0)
+    , mEditMode (nullptr)
     , mLocked (false)
     , mDragMode(InteractionType_None)
     , mDragging (false)
@@ -255,8 +255,7 @@ CSVWidget::SceneToolRun *CSVRender::WorldspaceWidget::makeRunTool (
         bool default_ = debugProfiles.data (debugProfiles.index (i, defaultColumn)).toInt();
 
         if (state!=CSMWorld::RecordBase::State_Deleted && default_)
-            profiles.push_back (
-                debugProfiles.data (debugProfiles.index (i, idColumn)).
+            profiles.emplace_back(debugProfiles.data (debugProfiles.index (i, idColumn)).
                 toString().toUtf8().constData());
     }
 
@@ -436,7 +435,7 @@ CSVRender::WorldspaceHitResult CSVRender::WorldspaceWidget::mousePick (const QPo
         }
 
         // Something untagged, probably terrain
-        WorldspaceHitResult hit = { true, 0, 0, 0, 0, intersection.getWorldIntersectPoint() };
+        WorldspaceHitResult hit = { true, nullptr, 0, 0, 0, intersection.getWorldIntersectPoint() };
         if (intersection.indexList.size() >= 3)
         {
             hit.index0 = intersection.indexList[0];
@@ -450,7 +449,7 @@ CSVRender::WorldspaceHitResult CSVRender::WorldspaceWidget::mousePick (const QPo
     direction.normalize();
     direction *= CSMPrefs::get()["3D Scene Editing"]["distance"].toInt();
 
-    WorldspaceHitResult hit = { false, 0, 0, 0, 0, start + direction };
+    WorldspaceHitResult hit = { false, nullptr, 0, 0, 0, start + direction };
     return hit;
 }
 
