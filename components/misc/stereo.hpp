@@ -8,6 +8,8 @@
 
 #include <memory>
 
+#include <components/sceneutil/mwshadowtechnique.hpp>
+
 // Some cursed headers like to define these
 #if defined(near) || defined(far)
 #undef near
@@ -121,6 +123,11 @@ namespace Misc
         osg::ref_ptr<osg::Group>    mStereoBruteForceRoot{ new osg::Group };
         osg::ref_ptr<osg::Camera>   mLeftCamera{ new osg::Camera };
         osg::ref_ptr<osg::Camera>   mRightCamera{ new osg::Camera };
+
+        using SharedShadowMapConfig = SceneUtil::MWShadowTechnique::SharedShadowMapConfig;
+        osg::ref_ptr<SharedShadowMapConfig> mMasterConfig;
+        osg::ref_ptr<SharedShadowMapConfig> mSlaveConfig;
+        bool                                mSharedShadowMaps;
 
         // Camera viewports
         bool flipViewOrder{ true };
