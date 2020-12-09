@@ -10,6 +10,7 @@
 #include <osg/PositionAttitudeTransform>
 #include <osg/ClipNode>
 #include <osg/FrontFace>
+#include <osg/ViewportIndexed>
 
 #include <osgDB/ReadFile>
 
@@ -29,6 +30,7 @@
 #include <components/sceneutil/waterutil.hpp>
 
 #include <components/misc/constants.hpp>
+#include <components/misc/stereo.hpp>
 
 #include <components/nifosg/controller.hpp>
 
@@ -343,6 +345,7 @@ public:
 
         unsigned int rttSize = Settings::Manager::getInt("rtt size", "Water");
         setViewport(0, 0, rttSize, rttSize);
+        
 
         // No need for Update traversal since the mSceneRoot is already updated as part of the main scene graph
         // A double update would mess with the light collection (in addition to being plain redundant)
@@ -596,6 +599,19 @@ void Water::createShaderWaterStateSet(osg::Node* node, Reflection* reflection, R
     std::map<std::string, std::string> defineMap;
     defineMap.insert(std::make_pair(std::string("refraction_enabled"), std::string(refraction ? "1" : "0")));
 
+    if (mResourceSystem->getSceneManager()->getShaderManager().stereoGeometryShaderEnabled())
+    {
+        defineMap["geometryShader"] = "1";
+        if (reflection)
+        {
+            Misc::enableStereoForCamera(reflection, true);
+        }
+        if (refraction)
+        {
+            Misc::enableStereoForCamera(refraction, true);
+        }
+    }
+
     Shader::ShaderManager& shaderMgr = mResourceSystem->getSceneManager()->getShaderManager();
     osg::ref_ptr<osg::Shader> vertexShader (shaderMgr.getShader("water_vertex.glsl", defineMap, osg::Shader::VERTEX));
     osg::ref_ptr<osg::Shader> fragmentShader (shaderMgr.getShader("water_fragment.glsl", defineMap, osg::Shader::FRAGMENT));
@@ -640,9 +656,7 @@ void Water::createShaderWaterStateSet(osg::Node* node, Reflection* reflection, R
 
     shaderStateset->addUniform(mRainIntensityUniform.get());
 
-    osg::ref_ptr<osg::Program> program (new osg::Program);
-    program->addShader(vertexShader);
-    program->addShader(fragmentShader);
+    auto program = shaderMgr.getProgram(vertexShader, fragmentShader);
     shaderStateset->setAttributeAndModes(program, osg::StateAttribute::ON);
 
     node->setStateSet(shaderStateset);

@@ -37,6 +37,11 @@ namespace Compiler
     class Context;
 }
 
+namespace Misc
+{
+    class StereoView;
+}
+
 namespace MWScript
 {
     class ScriptManager;
@@ -89,6 +94,11 @@ namespace OMW
             osgViewer::ScreenCaptureHandler::CaptureOperation *mScreenCaptureOperation;
             std::string mCellName;
             std::vector<std::string> mContentFiles;
+
+            bool mStereoEnabled;
+            bool mStereoOverride;
+            osg::ref_ptr<Misc::StereoView> mStereoView;
+
             bool mSkipMenu;
             bool mUseSound;
             bool mCompileAll;

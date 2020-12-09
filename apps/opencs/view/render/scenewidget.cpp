@@ -20,6 +20,7 @@
 #include <components/resource/scenemanager.hpp>
 #include <components/resource/resourcesystem.hpp>
 #include <components/sceneutil/lightmanager.hpp>
+#include <components/sdlutil/sdlgraphicswindow.hpp>
 
 #include "../widget/scenetoolmode.hpp"
 
@@ -106,7 +107,7 @@ RenderWidget::~RenderWidget()
         // before OSG 3.6.4, the default font was a static object, and if it wasn't attached to the scene when a graphics context was destroyed, it's program wouldn't be released.
         // 3.6.4 moved it into the object cache, which meant it usually got released, but not here.
         // 3.6.5 improved cleanup with osgViewer::CompositeViewer::removeView so it more reliably released associated state for objects in the object cache.
-        osg::ref_ptr<osg::GraphicsContext> graphicsContext = mView->getCamera()->getGraphicsContext();
+        osg::ref_ptr<osg::GraphicsContext> graphicsContext = SDLUtil::GraphicsWindowSDL2::findContext(*mView);
         osgText::Font::getDefaultFont()->releaseGLObjects(graphicsContext->getState());
 #endif
     }
@@ -134,7 +135,7 @@ osg::Camera *RenderWidget::getCamera()
 void RenderWidget::toggleRenderStats()
 {
     osgViewer::GraphicsWindow* window =
-        static_cast<osgViewer::GraphicsWindow*>(mView->getCamera()->getGraphicsContext());
+        static_cast<osgViewer::GraphicsWindow*>(SDLUtil::GraphicsWindowSDL2::findContext(*mView));
 
     window->getEventQueue()->keyPress(osgGA::GUIEventAdapter::KEY_S);
     window->getEventQueue()->keyRelease(osgGA::GUIEventAdapter::KEY_S);
@@ -246,7 +247,7 @@ SceneWidget::SceneWidget(std::shared_ptr<Resource::ResourceSystem> resourceSyste
 SceneWidget::~SceneWidget()
 {
     // Since we're holding on to the resources past the existence of this graphics context, we'll need to manually release the created objects
-    mResourceSystem->releaseGLObjects(mView->getCamera()->getGraphicsContext()->getState());
+    mResourceSystem->releaseGLObjects(SDLUtil::GraphicsWindowSDL2::findContext(*mView)->getState());
 }
 
 void SceneWidget::setLighting(Lighting *lighting)

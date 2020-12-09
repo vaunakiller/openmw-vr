@@ -36,6 +36,14 @@ namespace Shader
         /// Get (a copy of) the DefineMap used to construct all shaders
         DefineMap getGlobalDefines();
 
+        /// Enable or disable automatic stereo geometry shader.
+        /// If enabled, a stereo geometry shader will be automatically generated for any vertex shader
+        /// whose defines include "geometryShader" set to "1".
+        /// This geometry shader is automatically included in any program using that vertex shader.
+        ///  \note Does not affect programs that have already been created, set this during startup.
+        void setStereoGeometryShaderEnabled(bool enabled);
+        bool stereoGeometryShaderEnabled() const;
+
         /// Set the DefineMap used to construct all shaders
         /// @param defines The DefineMap to use
         /// @note This will change the source code for any shaders already created, potentially causing problems if they're being used to render a frame. It is recommended that any associated Viewers have their threading stopped while this function is running if any shaders are in use.
@@ -44,6 +52,8 @@ namespace Shader
         void releaseGLObjects(osg::State* state);
 
     private:
+        std::string getTemplateSource(const std::string& templateName);
+
         std::string mPath;
 
         DefineMap mGlobalDefines;
@@ -55,6 +65,10 @@ namespace Shader
         typedef std::pair<std::string, DefineMap> MapKey;
         typedef std::map<MapKey, osg::ref_ptr<osg::Shader> > ShaderMap;
         ShaderMap mShaders;
+
+        typedef std::map<osg::ref_ptr<osg::Shader>, osg::ref_ptr<osg::Shader> > GeometryShaderMap;
+        GeometryShaderMap mGeometryShaders;
+        bool              mGeometryShadersEnabled{ false };
 
         typedef std::map<std::pair<osg::ref_ptr<osg::Shader>, osg::ref_ptr<osg::Shader> >, osg::ref_ptr<osg::Program> > ProgramMap;
         ProgramMap mPrograms;
