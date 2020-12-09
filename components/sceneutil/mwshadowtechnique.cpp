@@ -934,9 +934,9 @@ void SceneUtil::MWShadowTechnique::shareShadowMap(osgUtil::CullVisitor& cv, View
     // Then initialize new copies of the data that will be written with view-specific data 
     // (the stateset and the texgens).
 
-    lhs->_traversalNumber = rhs->_traversalNumber;
     lhs->_viewDependentShadowMap = rhs->_viewDependentShadowMap;
-    lhs->getStateSet()->clear();
+    auto* stateset = lhs->getStateSet(cv.getTraversalNumber());
+    stateset->clear();
     lhs->_lightDataList = rhs->_lightDataList;
     lhs->_numValidShadows = rhs->_numValidShadows;
 
@@ -1480,6 +1480,7 @@ void MWShadowTechnique::update(osg::NodeVisitor& nv)
 
 void MWShadowTechnique::cull(osgUtil::CullVisitor& cv)
 {
+
     if (!_enableShadows)
     {
         if (mSetDummyStateWhenDisabled)
@@ -1554,7 +1555,6 @@ void MWShadowTechnique::cull(osgUtil::CullVisitor& cv)
 
     if (doCastShadow)
     {
-        vdd->setTraversalNumber(vdd->getTraversalNumber() + 1);
         castShadows(cv, vdd);
     }
 
@@ -1566,7 +1566,7 @@ void MWShadowTechnique::cull(osgUtil::CullVisitor& cv)
 
     if (vdd->_numValidShadows>0)
     {
-        decoratorStateGraph->setStateSet(selectStateSetForRenderingShadow(*vdd));
+        decoratorStateGraph->setStateSet(selectStateSetForRenderingShadow(*vdd, cv.getTraversalNumber()));
     }
 
     // OSG_NOTICE<<"End of shadow setup Projection matrix "<<*cv.getProjectionMatrix()<<std::endl;
@@ -3148,17 +3148,17 @@ void MWShadowTechnique::cullShadowCastingScene(osgUtil::CullVisitor* cv, osg::Ca
     return;
 }
 
-osg::StateSet* MWShadowTechnique::selectStateSetForRenderingShadow(ViewDependentData& vdd) const
+osg::StateSet* MWShadowTechnique::selectStateSetForRenderingShadow(ViewDependentData& vdd, unsigned int traversalNumber) const
 {
-    OSG_INFO<<"   selectStateSetForRenderingShadow() "<<vdd.getStateSet()<<std::endl;
+    OSG_INFO<<"   selectStateSetForRenderingShadow() "<<vdd.getStateSet(traversalNumber)<<std::endl;
 
-    osg::ref_ptr<osg::StateSet> stateset = vdd.getStateSet();
+    osg::ref_ptr<osg::StateSet> stateset = vdd.getStateSet(traversalNumber);
 
     stateset->clear();
 
     stateset->setTextureAttributeAndModes(0, _fallbackBaseTexture.get(), osg::StateAttribute::ON);
 
-    for(const auto& uniform : _uniforms[vdd.getTraversalNumber() % 2])
+    for(const auto& uniform : _uniforms[traversalNumber % 2])
     {
         OSG_INFO<<"addUniform("<<uniform->getName()<<")"<<std::endl;
         stateset->addUniform(uniform);

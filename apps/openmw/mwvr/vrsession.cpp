@@ -156,8 +156,6 @@ namespace MWVR
         beginPhase(FramePhase::Swap);
 
         auto* frameMeta = getFrame(FramePhase::Swap).get();
-        auto leftView = viewer.getView("LeftEye");
-        auto rightView = viewer.getView("RightEye");
 
         if (frameMeta->mShouldSyncFrameLoop)
         {
@@ -165,11 +163,9 @@ namespace MWVR
             {
                 viewer.blitEyesToMirrorTexture(gc);
                 gc->swapBuffersImplementation();
-                leftView->swapBuffers(gc);
-                rightView->swapBuffers(gc);
                 std::array<CompositionLayerProjectionView, 2> layerStack{};
-                layerStack[(int)Side::LEFT_SIDE].swapchain = &leftView->swapchain();
-                layerStack[(int)Side::RIGHT_SIDE].swapchain = &rightView->swapchain();
+                layerStack[(int)Side::LEFT_SIDE].subImage = viewer.subImage(Side::LEFT_SIDE);
+                layerStack[(int)Side::RIGHT_SIDE].subImage = viewer.subImage(Side::RIGHT_SIDE);
                 layerStack[(int)Side::LEFT_SIDE].pose = frameMeta->mPredictedPoses.eye[(int)Side::LEFT_SIDE] / mPlayerScale;
                 layerStack[(int)Side::RIGHT_SIDE].pose = frameMeta->mPredictedPoses.eye[(int)Side::RIGHT_SIDE] / mPlayerScale;
                 layerStack[(int)Side::LEFT_SIDE].fov = frameMeta->mPredictedPoses.view[(int)Side::LEFT_SIDE].fov;

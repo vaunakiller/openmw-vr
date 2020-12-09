@@ -18,6 +18,7 @@ namespace MWVR
 {
     class VRFramebuffer;
     class VRView;
+    class OpenXRSwapchain;
 
     /// \brief Manages stereo rendering and mirror texturing.
     ///
@@ -64,6 +65,12 @@ namespace MWVR
             VRViewer* mViewer;
         };
 
+        class InitialDrawCallback : public osg::Camera::DrawCallback
+        {
+        public:
+            virtual void operator()(osg::RenderInfo& renderInfo) const;
+        };
+
         static const std::array<const char*, 2> sViewNames;
         enum class MirrorTextureEye
         {
@@ -84,33 +91,30 @@ namespace MWVR
         void blitEyesToMirrorTexture(osg::GraphicsContext* gc);
         void realize(osg::GraphicsContext* gc);
         bool realized() { return mConfigured; }
-        VRView* getView(std::string name);
-        VrShadow& vrShadow() { return mVrShadow; }
         void setupMirrorTexture();
         void processChangedSettings(const std::set< std::pair<std::string, std::string> >& changed);
 
-        void enableMainCamera(void);
-        void disableMainCamera(void);
+        SubImage subImage(Side side);
 
     private:
+        std::mutex mMutex{};
+        bool mConfigured{ false };
+
         osg::ref_ptr<osgViewer::Viewer> mViewer = nullptr;
-        std::map<std::string, osg::ref_ptr<VRView> > mViews;
-        std::map<std::string, osg::ref_ptr<osg::Camera> > mCameras{};
         osg::ref_ptr<PredrawCallback> mPreDraw{ nullptr };
         osg::ref_ptr<PostdrawCallback> mPostDraw{ nullptr };
-        osg::GraphicsContext* mMainCameraGC{ nullptr };
-        std::map< std::string, std::unique_ptr<VRFramebuffer> > mMsaaResolveMirrorTexture;
+
+        std::unique_ptr<VRFramebuffer> mMsaaResolveMirrorTexture;
         std::unique_ptr<VRFramebuffer> mMirrorTexture;
-        VrShadow    mVrShadow;
-
-        std::mutex mMutex{};
-
-        bool mConfigured{ false };
         std::vector<std::string> mMirrorTextureViews;
         bool mMirrorTextureShouldBeCleanedUp{ false };
         bool mMirrorTextureEnabled{ false };
         bool mFlipMirrorTextureOrder{ false };
         MirrorTextureEye mMirrorTextureEye{ MirrorTextureEye::Both };
+
+        std::unique_ptr<OpenXRSwapchain> mSwapchain;
+        std::array<SubImage, 2> mSubImages;
+        SwapchainConfig mSwapchainConfig;
     };
 }
 

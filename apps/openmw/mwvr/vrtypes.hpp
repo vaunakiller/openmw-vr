@@ -90,9 +90,18 @@ namespace MWVR
         bool operator==(const PoseSet& rhs) const;
     };
 
-    struct CompositionLayerProjectionView
+    struct SubImage
     {
         class OpenXRSwapchain* swapchain;
+        int32_t x;
+        int32_t y;
+        int32_t width;
+        int32_t height;
+    };
+
+    struct CompositionLayerProjectionView
+    {
+        SubImage subImage;
         Pose pose;
         FieldOfView fov;
     };

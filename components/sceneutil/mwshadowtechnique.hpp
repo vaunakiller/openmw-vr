@@ -214,17 +214,13 @@ namespace SceneUtil {
 
             ShadowDataList& getShadowDataList() { return _shadowDataList; }
 
-            osg::StateSet* getStateSet() { return _stateset[_traversalNumber % 2].get(); }
+            osg::StateSet* getStateSet(unsigned int traversalNumber) { return _stateset[traversalNumber % 2].get(); }
 
             virtual void releaseGLObjects(osg::State* = 0) const;
 
             unsigned int numValidShadows(void) const { return _numValidShadows; }
 
             void setNumValidShadows(unsigned int numValidShadows) { _numValidShadows = numValidShadows; }
-
-            void setTraversalNumber(unsigned int traversalNumber) { _traversalNumber = traversalNumber; }
-
-            unsigned int getTraversalNumber() { return _traversalNumber; }
 
         protected:
             friend class MWShadowTechnique;
@@ -238,7 +234,6 @@ namespace SceneUtil {
             ShadowDataList              _shadowDataList;
 
             unsigned int _numValidShadows;
-            unsigned int _traversalNumber;
         };
 
         virtual ViewDependentData* createViewDependentData(osgUtil::CullVisitor* cv);
@@ -279,7 +274,7 @@ namespace SceneUtil {
 
         virtual void cullShadowCastingScene(osgUtil::CullVisitor* cv, osg::Camera* camera) const;
 
-        virtual osg::StateSet* selectStateSetForRenderingShadow(ViewDependentData& vdd) const;
+        virtual osg::StateSet* selectStateSetForRenderingShadow(ViewDependentData& vdd, unsigned int traversalNumber) const;
 
     protected:
         virtual ~MWShadowTechnique();

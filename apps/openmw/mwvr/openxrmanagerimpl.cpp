@@ -521,12 +521,27 @@ namespace MWVR
     {
         XrCompositionLayerProjectionView xrLayer;
         xrLayer.type = XR_TYPE_COMPOSITION_LAYER_PROJECTION_VIEW;
-        xrLayer.subImage = layer.swapchain->impl().xrSubImage();
+        xrLayer.subImage = toXR(layer.subImage, false);
         xrLayer.pose = toXR(layer.pose);
         xrLayer.fov = toXR(layer.fov);
         xrLayer.next = nullptr;
 
         return xrLayer;
+    }
+
+    XrSwapchainSubImage toXR(MWVR::SubImage subImage, bool depthImage)
+    {
+        XrSwapchainSubImage xrSubImage{};
+        if(depthImage)
+            xrSubImage.swapchain = subImage.swapchain->impl().xrSwapchainDepth();
+        else
+            xrSubImage.swapchain = subImage.swapchain->impl().xrSwapchain();
+        xrSubImage.imageRect.extent.width = subImage.width;
+        xrSubImage.imageRect.extent.height = subImage.height;
+        xrSubImage.imageRect.offset.x = subImage.x;
+        xrSubImage.imageRect.offset.y = subImage.y;
+        xrSubImage.imageArrayIndex = 0;
+        return xrSubImage;
     }
 
     void
@@ -555,8 +570,8 @@ namespace MWVR
                 compositionLayerDepth = mLayerDepth;
                 compositionLayerDepth[(int)Side::LEFT_SIDE].farZ = farClip;
                 compositionLayerDepth[(int)Side::RIGHT_SIDE].farZ = farClip;
-                compositionLayerDepth[(int)Side::LEFT_SIDE].subImage = (*layerStack)[(int)Side::LEFT_SIDE].swapchain->impl().xrSubImageDepth();
-                compositionLayerDepth[(int)Side::RIGHT_SIDE].subImage = (*layerStack)[(int)Side::RIGHT_SIDE].swapchain->impl().xrSubImageDepth();
+                compositionLayerDepth[(int)Side::LEFT_SIDE].subImage = toXR((*layerStack)[(int)Side::LEFT_SIDE].subImage, true);
+                compositionLayerDepth[(int)Side::RIGHT_SIDE].subImage = toXR((*layerStack)[(int)Side::RIGHT_SIDE].subImage, true);
                 if (compositionLayerDepth[(int)Side::LEFT_SIDE].subImage.swapchain != XR_NULL_HANDLE
                     && compositionLayerDepth[(int)Side::RIGHT_SIDE].subImage.swapchain != XR_NULL_HANDLE)
                 {

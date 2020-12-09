@@ -42,6 +42,7 @@ namespace MWVR
     XrQuaternionf       toXR(osg::Quat quat);
 
     XrCompositionLayerProjectionView toXR(MWVR::CompositionLayerProjectionView layer);
+    XrSwapchainSubImage toXR(MWVR::SubImage, bool depthImage);
 
     /// \brief Implementation of OpenXRManager
     struct OpenXRManagerImpl

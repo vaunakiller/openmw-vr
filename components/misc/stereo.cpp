@@ -233,10 +233,18 @@ namespace Misc
         , mTechnique(technique)
         , mGeometryShaderMask(geometryShaderMask)
         , mNoShaderMask(noShaderMask)
+        , mMasterConfig(new SharedShadowMapConfig)
+        , mSlaveConfig(new SharedShadowMapConfig)
+        , mSharedShadowMaps(Settings::Manager::getBool("shared shadow maps", "Stereo"))
     {
         if (technique == Technique::None)
             // Do nothing
             return;
+
+        mMasterConfig->_id = "STEREO";
+        mMasterConfig->_master = true;
+        mSlaveConfig->_id = "STEREO";
+        mSlaveConfig->_master = false;
 
         SceneUtil::FindByNameVisitor findScene("Scene Root");
         mRoot->accept(findScene);
@@ -291,6 +299,12 @@ namespace Misc
         mRightCamera->setClearColor(mMainCamera->getClearColor());
         mRightCamera->setClearMask(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
         mRightCamera->setCullMask(mMainCamera->getCullMask());
+
+        if (mSharedShadowMaps)
+        {
+            mLeftCamera->setUserData(mMasterConfig);
+            mRightCamera->setUserData(mSlaveConfig);
+        }
 
         // Slave cameras must have their viewports defined immediately
         auto width = mMainCamera->getViewport()->width();
@@ -366,65 +380,66 @@ namespace Misc
         auto width = mMainCamera->getViewport()->width();
         auto height = mMainCamera->getViewport()->height();
 
+        // To correctly cull when drawing stereo using the geometry shader, the main camera must
+        // draw a fake view+perspective that includes the full frustums of both the left and right eyes.
+        // This frustum will be computed as a perspective frustum from a position P slightly behind the eyes L and R
+        // where it creates the minimum frustum encompassing both eyes' frustums.
+        // NOTE: I make an assumption that the eyes lie in a horizontal plane relative to the base view,
+        // and lie mirrored around the Y axis (straight ahead).
+        // Re-think this if that turns out to be a bad assumption.
+        View frustumView;
+
+        // Compute Frustum angles. A simple min/max.
+        /* Example values for reference:
+            Left:
+            angleLeft   -0.767549932    float
+            angleRight   0.620896876    float
+            angleDown   -0.837898076    float
+            angleUp	     0.726982594    float
+
+            Right:
+            angleLeft   -0.620896876    float
+            angleRight   0.767549932    float
+            angleDown   -0.837898076    float
+            angleUp	     0.726982594    float
+        */
+        frustumView.fov.angleLeft = std::min(left.fov.angleLeft, right.fov.angleLeft);
+        frustumView.fov.angleRight = std::max(left.fov.angleRight, right.fov.angleRight);
+        frustumView.fov.angleDown = std::min(left.fov.angleDown, right.fov.angleDown);
+        frustumView.fov.angleUp = std::max(left.fov.angleUp, right.fov.angleUp);
+
+        // Check that the case works for this approach
+        auto maxAngle = std::max(frustumView.fov.angleRight - frustumView.fov.angleLeft, frustumView.fov.angleUp - frustumView.fov.angleDown);
+        if (maxAngle > osg::PI)
+        {
+            Log(Debug::Error) << "Total FOV exceeds 180 degrees. Case cannot be culled in single-pass VR. Disabling culling to cope. Consider switching to dual-pass VR.";
+            mMainCamera->setCullingActive(false);
+            return;
+            // TODO: An explicit frustum projection could cope, so implement that later. Guarantee you there will be VR headsets with total horizontal fov > 180 in the future. Maybe already.
+        }
+
+        // Use the law of sines on the triangle spanning PLR to determine P
+        double angleLeft = std::abs(frustumView.fov.angleLeft);
+        double angleRight = std::abs(frustumView.fov.angleRight);
+        double lengthRL = (rightEye - leftEye).length();
+        double ratioRL = lengthRL / std::sin(osg::PI - angleLeft - angleRight);
+        double lengthLP = ratioRL * std::sin(angleRight);
+
+        osg::Vec3d directionLP = osg::Vec3(std::cos(-angleLeft), std::sin(-angleLeft), 0);
+        osg::Vec3d LP = directionLP * lengthLP;
+        frustumView.pose.position = leftEye + LP;
+        //frustumView.pose.position.x() += 1000;
+
+        // Base view position is 0.0, by definition.
+        // The length of the vector P is therefore the required offset to near/far.
+        auto nearFarOffset = frustumView.pose.position.length();
+
+        // Generate the frustum matrices
+        auto frustumViewMatrix = viewMatrix * frustumView.pose.viewMatrix(true);
+        auto frustumProjectionMatrix = frustumView.fov.perspectiveMatrix(near + nearFarOffset, far + nearFarOffset);
+
         if (mTechnique == Technique::GeometryShader_IndexedViewports)
         {
-            // To correctly cull when drawing stereo using the geometry shader, the main camera must
-            // draw a fake view+perspective that includes the full frustums of both the left and right eyes.
-            // This frustum will be computed as a perspective frustum from a position P slightly behind the eyes L and R
-            // where it creates the minimum frustum encompassing both eyes' frustums.
-            // NOTE: I make an assumption that the eyes lie in a horizontal plane relative to the base view,
-            // and lie mirrored around the Y axis (straight ahead).
-            // Re-think this if that turns out to be a bad assumption.
-            View frustumView;
-
-            // Compute Frustum angles. A simple min/max.
-            /* Example values for reference:
-                Left:
-                angleLeft   -0.767549932    float
-                angleRight   0.620896876    float
-                angleDown   -0.837898076    float
-                angleUp	     0.726982594    float
-
-                Right:
-                angleLeft   -0.620896876    float
-                angleRight   0.767549932    float
-                angleDown   -0.837898076    float
-                angleUp	     0.726982594    float
-            */
-            frustumView.fov.angleLeft = std::min(left.fov.angleLeft, right.fov.angleLeft);
-            frustumView.fov.angleRight = std::max(left.fov.angleRight, right.fov.angleRight);
-            frustumView.fov.angleDown = std::min(left.fov.angleDown, right.fov.angleDown);
-            frustumView.fov.angleUp = std::max(left.fov.angleUp, right.fov.angleUp);
-
-            // Check that the case works for this approach
-            auto maxAngle = std::max(frustumView.fov.angleRight - frustumView.fov.angleLeft, frustumView.fov.angleUp - frustumView.fov.angleDown);
-            if (maxAngle > osg::PI)
-            {
-                Log(Debug::Error) << "Total FOV exceeds 180 degrees. Case cannot be culled in single-pass VR. Disabling culling to cope. Consider switching to dual-pass VR.";
-                mMainCamera->setCullingActive(false);
-                return;
-                // TODO: An explicit frustum projection could cope, so implement that later. Guarantee you there will be VR headsets with total fov > 180 in the future. Maybe already.
-            }
-
-            // Use the law of sines on the triangle spanning PLR to determine P
-            double angleLeft = std::abs(frustumView.fov.angleLeft);
-            double angleRight = std::abs(frustumView.fov.angleRight);
-            double lengthRL = (rightEye - leftEye).length();
-            double ratioRL = lengthRL / std::sin(osg::PI - angleLeft - angleRight);
-            double lengthLP = ratioRL * std::sin(angleRight);
-
-            osg::Vec3d directionLP = osg::Vec3(std::cos(-angleLeft), std::sin(-angleLeft), 0);
-            osg::Vec3d LP = directionLP * lengthLP;
-            frustumView.pose.position = leftEye + LP;
-            //frustumView.pose.position.x() += 1000;
-
-            // Base view position is 0.0, by definition.
-            // The length of the vector P is therefore the required offset to near/far.
-            auto nearFarOffset = frustumView.pose.position.length();
-
-            // Generate the frustum matrices
-            auto frustumViewMatrix = viewMatrix * frustumView.pose.viewMatrix(true);
-            auto frustumProjectionMatrix = frustumView.fov.perspectiveMatrix(near + nearFarOffset, far + nearFarOffset);
 
             // Update camera with frustum matrices
             mMainCamera->setViewMatrix(frustumViewMatrix);
@@ -439,6 +454,18 @@ namespace Misc
 
             mLeftCamera->setViewport(0, 0, width / 2, height);
             mRightCamera->setViewport(width / 2, 0, width / 2, height);
+
+            if (mMasterConfig->_projection == nullptr)
+                mMasterConfig->_projection = new osg::RefMatrix;
+            if (mMasterConfig->_modelView == nullptr)
+                mMasterConfig->_modelView = new osg::RefMatrix;
+
+            if (mSharedShadowMaps)
+            {
+                mMasterConfig->_referenceFrame = mMainCamera->getReferenceFrame();
+                mMasterConfig->_modelView->set(frustumViewMatrix);
+                mMasterConfig->_projection->set(projectionMatrix);
+            }
         }
     }
 
@@ -462,9 +489,9 @@ namespace Misc
         stereoViewProjectionsUniform->setElement(1, frustumViewMatrixInverse * mRightCamera->getViewMatrix() * mRightCamera->getProjectionMatrix());
     }
 
-    void StereoView::setUpdateViewCallback(std::shared_ptr<UpdateViewCallback> cb)
+    void StereoView::setUpdateViewCallback(std::shared_ptr<UpdateViewCallback> cb_)
     {
-        this->cb = cb;
+        cb = cb_;
     }
 
     void disableStereoForCamera(osg::Camera* camera)
