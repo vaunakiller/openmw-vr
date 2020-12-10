@@ -186,6 +186,7 @@ namespace MWVR
             mLastRenderedFrame = frameMeta->mFrameNo;
             getFrame(FramePhase::Swap) = nullptr;
         }
+
         mCondition.notify_one();
     }
 
@@ -215,13 +216,12 @@ namespace MWVR
                 throw std::logic_error("beginPhase called without a frame");
             frame = std::move(getFrame(previousPhase));
         }
-
         if (phase == mXrSyncPhase && frame->mShouldSyncFrameLoop)
         {
             // We may reach this point before xrEndFrame of the previous frame
             // Must wait or openxr will interpret another call to xrBeginFrame() as skipping a frame
             std::unique_lock<std::mutex> lock(mMutex);
-            while (mLastRenderedFrame != mFrames - 1)
+            while (mLastRenderedFrame != frame->mFrameNo - 1)
             {
                 mCondition.wait(lock);
             }
