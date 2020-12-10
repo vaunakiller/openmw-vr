@@ -721,13 +721,6 @@ void OMW::Engine::prepareEngine (Settings::Manager & settings)
     // Create sound system
     mEnvironment.setSoundManager (new MWSound::SoundManager(mVFS.get(), mUseSound));
 
-    if (!mSkipMenu)
-    {
-        const std::string& logo = Fallback::Map::getString("Movies_Company_Logo");
-        if (!logo.empty())
-            window->playVideo(logo, true);
-    }
-
     // VR mode will override this setting by setting mStereoOverride.
     mStereoEnabled = mStereoOverride || Settings::Manager::getBool("stereo enabled", "Stereo");
 
@@ -736,6 +729,18 @@ void OMW::Engine::prepareEngine (Settings::Manager & settings)
     if (mStereoEnabled)
     {
         mResourceSystem->getSceneManager()->getShaderManager().setStereoGeometryShaderEnabled(Misc::getStereoTechnique() == Misc::StereoView::Technique::GeometryShader_IndexedViewports);
+        // Mask in everything that does not currently use shaders.
+        // Remove that altogether when the sky finally uses them.
+        auto noShaderMask = MWRender::VisMask::Mask_Sky | MWRender::VisMask::Mask_Sun | MWRender::VisMask::Mask_WeatherParticles;
+        auto geometryShaderMask = mViewer->getCamera()->getCullMask() & ~noShaderMask;
+        mStereoView = new Misc::StereoView(mViewer, Misc::getStereoTechnique(), geometryShaderMask, noShaderMask | MWRender::VisMask::Mask_Scene);
+    }
+
+    if (!mSkipMenu)
+    {
+        const std::string& logo = Fallback::Map::getString("Movies_Company_Logo");
+        if (!logo.empty())
+            window->playVideo(logo, true);
     }
 
     // Create the world
@@ -747,11 +752,7 @@ void OMW::Engine::prepareEngine (Settings::Manager & settings)
     // Set up stereo
     if (mStereoEnabled)
     {
-        // Mask in everything that does not currently use shaders.
-        // Remove that altogether when the sky finally uses them.
-        auto noShaderMask = MWRender::VisMask::Mask_Sky | MWRender::VisMask::Mask_Sun | MWRender::VisMask::Mask_WeatherParticles;
-        auto geometryShaderMask = mViewer->getCamera()->getCullMask() & ~noShaderMask;
-        mStereoView = new Misc::StereoView(mViewer, Misc::getStereoTechnique(), geometryShaderMask, noShaderMask | MWRender::VisMask::Mask_Scene);
+        mStereoView->initializeScene();
     }
 
     window->setStore(mEnvironment.getWorld()->getStore());

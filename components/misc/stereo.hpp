@@ -89,6 +89,8 @@ namespace Misc
             GeometryShader_IndexedViewports, //!< Frustum camera culls and draws stereo into indexed viewports using an automatically generated geometry shader.
         };
 
+        static StereoView& instance();
+
         //! Adds two cameras in stereo to the mainCamera.
         //! All nodes matching the mask are rendered in stereo using brute force via two camera transforms, the rest are rendered in stereo via a geometry shader.
         //! \param geometryShaderMask should mask in all nodes that use shaders.
@@ -101,8 +103,20 @@ namespace Misc
         void update();
         void updateStateset(osg::StateSet* stateset);
 
+        //! Initialized scene. Call when the "scene root" node has been created
+        void initializeScene();
+
         //! Callback that updates stereo configuration during the update pass
         void setUpdateViewCallback(std::shared_ptr<UpdateViewCallback> cb);
+
+        //! Set the initial draw callback on the appropriate camera object
+        void setInitialDrawCallback(osg::ref_ptr<osg::Camera::DrawCallback> cb);
+
+        //! Set the predraw callback on the appropriate camera object
+        void setPredrawCallback(osg::ref_ptr<osg::Camera::DrawCallback> cb);
+
+        //! Set the postdraw callback on the appropriate camera object
+        void setPostdrawCallback(osg::ref_ptr<osg::Camera::DrawCallback> cb);
 
     private:
         void setupBruteForceTechnique();
