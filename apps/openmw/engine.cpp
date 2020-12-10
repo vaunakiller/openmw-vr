@@ -757,7 +757,7 @@ void OMW::Engine::prepareEngine (Settings::Manager & settings)
 
 
 #ifdef USE_OPENXR
-    mXrEnvironment.setGUIManager(new MWVR::VRGUIManager(mViewer));
+    mXrEnvironment.setGUIManager(new MWVR::VRGUIManager(mViewer, mResourceSystem.get()));
     //mViewer->setThreadingModel(osgViewer::ViewerBase::SingleThreaded);
 #endif
 

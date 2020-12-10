@@ -13,6 +13,9 @@
 #include <osg/FrontFace>
 #include <osg/BlendFunc>
 #include <osg/Depth>
+#include <osg/Fog>
+#include <osg/LightModel>
+
 
 #include <osgViewer/Renderer>
 
@@ -23,6 +26,9 @@
 #include <components/myguiplatform/scalinglayer.hpp>
 #include <components/misc/constants.hpp>
 #include <components/misc/stringops.hpp>
+#include <components/resource/resourcesystem.hpp>
+#include <components/resource/scenemanager.hpp>
+#include <components/shader/shadermanager.hpp>
 
 #include "../mwrender/util.hpp"
 #include "../mwrender/renderbin.hpp"
@@ -176,19 +182,20 @@ namespace MWVR
         osg::Vec3 bottom_left(left, 1, bottom);
         osg::Vec3 bottom_right(right, 1, bottom);
         osg::Vec3 top_right(right, 1, top);
-        (*vertices)[0] = top_left;
-        (*vertices)[1] = bottom_left;
+        (*vertices)[0] = bottom_left;
+        (*vertices)[1] = top_left;
         (*vertices)[2] = bottom_right;
         (*vertices)[3] = top_right;
         mGeometry->setVertexArray(vertices);
-        (*texCoords)[0].set(0.0f, 1.0f);
-        (*texCoords)[1].set(0.0f, 0.0f);
+        (*texCoords)[0].set(0.0f, 0.0f);
+        (*texCoords)[1].set(0.0f, 1.0f);
         (*texCoords)[2].set(1.0f, 0.0f);
         (*texCoords)[3].set(1.0f, 1.0f);
         mGeometry->setTexCoordArray(0, texCoords);
         (*normals)[0].set(0.0f, -1.0f, 0.0f);
         mGeometry->setNormalArray(normals, osg::Array::BIND_OVERALL);
-        mGeometry->addPrimitiveSet(new osg::DrawArrays(GL_QUADS, 0, 4));
+        // TODO: Just use GL_TRIANGLES
+        mGeometry->addPrimitiveSet(new osg::DrawArrays(GL_TRIANGLE_STRIP, 0, 4));
         mGeometry->setDataVariance(osg::Object::STATIC);
         mGeometry->setSupportsDisplayList(false);
         mGeometry->setName("VRGUILayer");
@@ -200,17 +207,26 @@ namespace MWVR
         mGUICamera = new GUICamera(config.pixelResolution.x(), config.pixelResolution.y(), config.backgroundColor);
         osgMyGUI::RenderManager& renderManager = static_cast<osgMyGUI::RenderManager&>(MyGUI::RenderManager::getInstance());
         mMyGUICamera = renderManager.createGUICamera(osg::Camera::NESTED_RENDER, filter);
-        //myGUICamera->setViewport(0, 0, 256, 256);
-        //mMyGUICamera->setProjectionMatrixAsOrtho2D(-1, 1, -1, 1);
         mGUICamera->setScene(mMyGUICamera);
 
         // Define state set that allows rendering with transparency
         osg::StateSet* stateSet = mGeometry->getOrCreateStateSet();
         stateSet->setTextureAttributeAndModes(0, menuTexture(), osg::StateAttribute::ON);
-        stateSet->setMode(GL_LIGHTING, osg::StateAttribute::OFF);
         stateSet->setMode(GL_BLEND, osg::StateAttribute::ON);
         stateSet->setAttributeAndModes(new osg::BlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA));
         stateSet->setRenderingHint(osg::StateSet::TRANSPARENT_BIN);
+        // assign large value to effectively turn off fog
+        // shaders don't respect glDisable(GL_FOG)
+        osg::ref_ptr<osg::Fog> fog(new osg::Fog);
+        fog->setStart(10000000);
+        fog->setEnd(10000000);
+        stateSet->setAttributeAndModes(fog, osg::StateAttribute::OFF | osg::StateAttribute::OVERRIDE);
+
+        osg::ref_ptr<osg::LightModel> lightmodel = new osg::LightModel;
+        lightmodel->setAmbientIntensity(osg::Vec4(1.0, 1.0, 1.0, 1.0));
+        stateSet->setAttributeAndModes(lightmodel, osg::StateAttribute::ON);
+        SceneUtil::ShadowManager::disableShadowsForStateSet(stateSet);
+
         mGeometry->setStateSet(stateSet);
 
         // Position in the game world
@@ -480,8 +496,10 @@ namespace MWVR
     static osg::Vec3 gLeftHudOffsetWrist = osg::Vec3(0.025f, -.090f, -.033f);
 
     VRGUIManager::VRGUIManager(
-        osg::ref_ptr<osgViewer::Viewer> viewer)
+        osg::ref_ptr<osgViewer::Viewer> viewer,
+        Resource::ResourceSystem* resourceSystem)
         : mOsgViewer(viewer)
+        , mResourceSystem(resourceSystem)
     {
         mGUIGeometriesRoot->setName("VR GUI Geometry Root");
         mGUIGeometriesRoot->setUpdateCallback(new VRGUIManagerUpdateCallback(this));
@@ -489,6 +507,7 @@ namespace MWVR
         auto* root = viewer->getSceneData();
         root->asGroup()->addChild(mGUICamerasRoot);
         root->asGroup()->addChild(mGUIGeometriesRoot);
+        mGUIGeometriesRoot->getOrCreateStateSet()->setMode(GL_LIGHTING, osg::StateAttribute::OFF);
 
         LayerConfig defaultConfig = createDefaultConfig(1);
         LayerConfig videoPlayerConfig = createDefaultConfig(1, true, SizingMode::Fixed);
@@ -643,6 +662,9 @@ namespace MWVR
 
         if (config.trackingMode == TrackingMode::Menu)
             layer->updateTracking(mHeadPose);
+
+        Resource::SceneManager* sceneManager = mResourceSystem->getSceneManager();
+        sceneManager->recreateShaders(layer->mGeometry);
     }
 
     void VRGUIManager::insertWidget(MWGui::Layout* widget)
