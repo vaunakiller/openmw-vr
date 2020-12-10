@@ -452,10 +452,10 @@ namespace MWVR
     void
         OpenXRManagerImpl::LogReferenceSpaces() {
 
-        uint32_t spaceCount;
-        xrEnumerateReferenceSpaces(mSession, 0, &spaceCount, nullptr);
+        uint32_t spaceCount = 0;
+        CHECK_XRCMD(xrEnumerateReferenceSpaces(mSession, 0, &spaceCount, nullptr));
         std::vector<XrReferenceSpaceType> spaces(spaceCount);
-        xrEnumerateReferenceSpaces(mSession, spaceCount, &spaceCount, spaces.data());
+        CHECK_XRCMD(xrEnumerateReferenceSpaces(mSession, spaceCount, &spaceCount, spaces.data()));
 
         std::stringstream ss;
         ss << "Available reference spaces=" << spaceCount << std::endl;

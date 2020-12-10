@@ -92,9 +92,7 @@ namespace MWVR
 
     void VRViewer::InitialDrawCallback::operator()(osg::RenderInfo& renderInfo) const
     {
-        const auto& name = renderInfo.getCurrentCamera()->getName();
-        if (name == "LeftEye")
-            Environment::get().getSession()->beginPhase(VRSession::FramePhase::Draw);
+        Environment::get().getSession()->beginPhase(VRSession::FramePhase::Draw);
     
         osg::GraphicsOperation* graphicsOperation = renderInfo.getCurrentCamera()->getRenderer();
         osgViewer::Renderer* renderer = dynamic_cast<osgViewer::Renderer*>(graphicsOperation);
@@ -169,12 +167,12 @@ namespace MWVR
             if (i > 0)
             {
                 mSubImages[i].x = mSubImages[i - 1].x + mSubImages[i - 1].width;
-                mSubImages[i].y = mSubImages[i - 1].y + mSubImages[i - 1].height;
             }
             else
             {
-                mSubImages[i].x = mSubImages[i].y = 0;
+                mSubImages[i].x = 0;
             }
+            mSubImages[i].y = 0;
         }
 
         mSwapchainConfig.name = "Main";
@@ -247,46 +245,52 @@ namespace MWVR
 
     void VRViewer::blitEyesToMirrorTexture(osg::GraphicsContext* gc)
     {
-        //if (mMirrorTextureShouldBeCleanedUp)
-        //{
-        //    mMirrorTexture.reset(nullptr);
-        //    mMsaaResolveMirrorTexture.clear();
-        //    mMirrorTextureShouldBeCleanedUp = false;
-        //}
-        //if (!mMirrorTextureEnabled)
-        //    return;
-        //if (!mMirrorTexture)
-        //{
-        //    mMirrorTexture.reset(new VRFramebuffer(gc->getState(), mCameras["MainCamera"]->getViewport()->width(), mCameras["MainCamera"]->getViewport()->height(), 0));
-        //}
+        if (mMirrorTextureShouldBeCleanedUp)
+        {
+            mMirrorTexture = nullptr;
+            mMsaaResolveMirrorTexture = nullptr;
+            mMirrorTextureShouldBeCleanedUp = false;
+        }
+        if (!mMirrorTextureEnabled)
+            return;
+
+        auto* camera = mViewer->getCamera();
+        int screenWidth = camera->getGraphicsContext()->getTraits()->width;
+        int screenHeight = camera->getGraphicsContext()->getTraits()->height;
+        if (!mMirrorTexture)
+        {
+            ;
+            mMirrorTexture.reset(new VRFramebuffer(gc->getState(), 
+                screenWidth,
+                screenHeight,
+                0));
+            mMsaaResolveMirrorTexture.reset(new VRFramebuffer(gc->getState(),
+                mSwapchain->width(),
+                mSwapchain->height(),
+                0));
+        }
 
         auto* state = gc->getState();
         auto* gl = osg::GLExtensions::Get(state->getContextID(), false);
 
-        //auto mainCamera = mViewer->getCamera();
-        //int screenWidth = mainCamera->getViewport()->width();
-        //int mirrorWidth = screenWidth / mMirrorTextureViews.size();
-        //int screenHeight = mainCamera->getViewport()->height();
+        int mirrorWidth = screenWidth / mMirrorTextureViews.size();
 
         //// Since OpenXR does not include native support for mirror textures, we have to generate them ourselves
         //// which means resolving msaa twice.
+        mMsaaResolveMirrorTexture->bindFramebuffer(gc, GL_FRAMEBUFFER_EXT);
+        mSwapchain->renderBuffer()->blit(gc, 0, 0, mSwapchain->width(), mSwapchain->height());
+        mMirrorTexture->bindFramebuffer(gc, GL_FRAMEBUFFER_EXT);
+        mMsaaResolveMirrorTexture->blit(gc, 0, 0, screenWidth, screenHeight);
         //for (unsigned i = 0; i < mMirrorTextureViews.size(); i++)
         //{
-        //    if(!mMsaaResolveMirrorTexture)
-        //        mMsaaResolveMirrorTexture.reset(new VRFramebuffer(gc->getState(),
-        //            mSwapchain->width(),
-        //            mSwapchain->height(),
-        //            0));
-
-        //    auto& resolveTexture = *mMsaaResolveMirrorTexture[mMirrorTextureViews[i]];
-        //    resolveTexture.bindFramebuffer(gc, GL_FRAMEBUFFER_EXT);
-        //    view->swapchain().renderBuffer()->blit(gc, 0, 0, resolveTexture.width(), resolveTexture.height());
-        //    mMirrorTexture->bindFramebuffer(gc, GL_FRAMEBUFFER_EXT);
-        //    resolveTexture.blit(gc, i * mirrorWidth, 0, (i + 1) * mirrorWidth, screenHeight);
+        //    mMsaaResolveMirrorTexture->blit(gc, );
+        //    mMsaaResolveMirrorTexture->bindFramebuffer(gc, GL_READ_FRAMEBUFFER_EXT);
+        //    gl->glBlitFramebuffer(0, 0, mWidth, mHeight, i * mirrorWidth, 0, (i + 1) * mirrorWidth, screenHeight, GL_COLOR_BUFFER_BIT, GL_LINEAR);
+        //    gl->glBindFramebuffer(GL_READ_FRAMEBUFFER_EXT, 0);
         //}
 
         gl->glBindFramebuffer(GL_FRAMEBUFFER_EXT, 0);
-        //mMirrorTexture->blit(gc, 0, 0, screenWidth, screenHeight);
+        mMirrorTexture->blit(gc, 0, 0, screenWidth, screenHeight);
 
         mSwapchain->endFrame(gc);
     }
@@ -316,6 +320,7 @@ namespace MWVR
     {
         if(Environment::get().getSession()->getFrame(VRSession::FramePhase::Draw)->mShouldRender)
             mSwapchain->beginFrame(info.getState()->getGraphicsContext());
+        mViewer->getCamera()->setViewport(0, 0, mSwapchainConfig.selectedWidth, mSwapchainConfig.selectedHeight);
     }
 
     void VRViewer::postDrawCallback(osg::RenderInfo& info)
