@@ -14,6 +14,9 @@
 #include <components/sceneutil/mwshadowtechnique.hpp>
 
 #include <components/misc/stringops.hpp>
+#include <components/misc/stereo.hpp>
+
+#include <components/sdlutil/sdlgraphicswindow.hpp>
 
 namespace MWVR
 {
@@ -39,7 +42,8 @@ namespace MWVR
         : mViewer(viewer)
         , mPreDraw(new PredrawCallback(this))
         , mPostDraw(new PostdrawCallback(this))
-        , mConfigured(false)
+        , mOpenXRConfigured(false)
+        , mCallbacksConfigured(false)
         , mMsaaResolveMirrorTexture{}
         , mMirrorTexture{ nullptr }
     {
@@ -90,19 +94,6 @@ namespace MWVR
         return VRViewer::MirrorTextureEye::Both;
     }
 
-    void VRViewer::InitialDrawCallback::operator()(osg::RenderInfo& renderInfo) const
-    {
-        Environment::get().getSession()->beginPhase(VRSession::FramePhase::Draw);
-    
-        osg::GraphicsOperation* graphicsOperation = renderInfo.getCurrentCamera()->getRenderer();
-        osgViewer::Renderer* renderer = dynamic_cast<osgViewer::Renderer*>(graphicsOperation);
-        if (renderer != nullptr)
-        {
-            // Disable normal OSG FBO camera setup
-            renderer->setCameraRequiresSetUp(false);
-        }
-    }
-
     class CullCallback : public osg::NodeCallback
     {
         void operator()(osg::Node* node, osg::NodeVisitor* nv)
@@ -112,19 +103,15 @@ namespace MWVR
         }
     };
 
-    void VRViewer::realize(osg::GraphicsContext* context)
+    void VRViewer::configureXR(osg::GraphicsContext* context)
     {
         std::unique_lock<std::mutex> lock(mMutex);
 
-        if (mConfigured)
+        if (mOpenXRConfigured)
         {
             return;
         }
 
-        // Give the main camera an initial draw callback that disables camera setup (we don't want it)
-        auto mainCamera = mViewer->getCamera();
-        mainCamera->setName("Main");
-        mainCamera->setInitialDrawCallback(new InitialDrawCallback());
 
         auto* xr = Environment::get().getManager();
         xr->realize(context);
@@ -185,16 +172,25 @@ namespace MWVR
         mSubImages[0].swapchain = mSubImages[1].swapchain = mSwapchain.get();
 
         mViewer->setReleaseContextAtEndOfFrameHint(false);
+        mViewer->getCamera()->getGraphicsContext()->setSwapCallback(new VRViewer::SwapBuffersCallback(this));
 
         setupMirrorTexture();
+        Log(Debug::Verbose) << "XR configured";
+        mOpenXRConfigured = true;
+    }
 
-        mainCamera->getGraphicsContext()->setSwapCallback(new VRViewer::SwapBuffersCallback(this));
-        mainCamera->setPreDrawCallback(mPreDraw);
-        mainCamera->setPostDrawCallback(mPostDraw);
-        mainCamera->setCullCallback(new CullCallback);
-        mConfigured = true;
+    void VRViewer::configureCallbacks()
+    {
+        if (mCallbacksConfigured)
+            return;
 
-        Log(Debug::Verbose) << "Realized";
+        // Give the main camera an initial draw callback that disables camera setup (we don't want it)
+        Misc::StereoView::instance().setInitialDrawCallback(new InitialDrawCallback(this));
+        Misc::StereoView::instance().setPredrawCallback(mPreDraw);
+        Misc::StereoView::instance().setPostdrawCallback(mPostDraw);
+        Misc::StereoView::instance().setCullCallback(new CullCallback);
+
+        mCallbacksConfigured = true;
     }
 
     void VRViewer::setupMirrorTexture()
@@ -254,9 +250,9 @@ namespace MWVR
         if (!mMirrorTextureEnabled)
             return;
 
-        auto* camera = mViewer->getCamera();
-        int screenWidth = camera->getGraphicsContext()->getTraits()->width;
-        int screenHeight = camera->getGraphicsContext()->getTraits()->height;
+        auto* traits = SDLUtil::GraphicsWindowSDL2::findContext(*mViewer)->getTraits();
+        int screenWidth = traits->width;
+        int screenHeight = traits->height;
         if (!mMirrorTexture)
         {
             ;
@@ -307,20 +303,35 @@ namespace MWVR
         RealizeOperation::operator()(
             osg::GraphicsContext* gc)
     {
-        return Environment::get().getViewer()->realize(gc);
+        return Environment::get().getViewer()->configureXR(gc);
     }
 
     bool
         RealizeOperation::realized()
     {
-        return Environment::get().getViewer()->realized();
+        return Environment::get().getViewer()->xrConfigured();
+    }
+
+    void VRViewer::initialDrawCallback(osg::RenderInfo& info)
+    {
+        Environment::get().getSession()->beginPhase(VRSession::FramePhase::Draw);
+        if (Environment::get().getSession()->getFrame(VRSession::FramePhase::Draw)->mShouldRender)
+            mSwapchain->beginFrame(info.getState()->getGraphicsContext());
+        mViewer->getCamera()->setViewport(0, 0, mSwapchainConfig.selectedWidth, mSwapchainConfig.selectedHeight);
+
+        osg::GraphicsOperation* graphicsOperation = info.getCurrentCamera()->getRenderer();
+        osgViewer::Renderer* renderer = dynamic_cast<osgViewer::Renderer*>(graphicsOperation);
+        if (renderer != nullptr)
+        {
+            // Disable normal OSG FBO camera setup
+            renderer->setCameraRequiresSetUp(false);
+        }
     }
 
     void VRViewer::preDrawCallback(osg::RenderInfo& info)
     {
-        if(Environment::get().getSession()->getFrame(VRSession::FramePhase::Draw)->mShouldRender)
-            mSwapchain->beginFrame(info.getState()->getGraphicsContext());
-        mViewer->getCamera()->setViewport(0, 0, mSwapchainConfig.selectedWidth, mSwapchainConfig.selectedHeight);
+        if (Environment::get().getSession()->getFrame(VRSession::FramePhase::Draw)->mShouldRender)
+            mSwapchain->renderBuffer()->bindFramebuffer(info.getState()->getGraphicsContext(), GL_FRAMEBUFFER_EXT);
     }
 
     void VRViewer::postDrawCallback(osg::RenderInfo& info)
@@ -335,5 +346,8 @@ namespace MWVR
             camera->setPreDrawCallback(mPreDraw);
             Log(Debug::Warning) << ("osg overwrote predraw");
         }
+    }
+    VRViewer::InitialDrawCallback::~InitialDrawCallback()
+    {
     }
 }

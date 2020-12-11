@@ -97,7 +97,6 @@ namespace MWVR {
     void OpenXRSwapchainImpl::beginFrame(osg::GraphicsContext* gc)
     {
         acquire();
-        renderBuffer()->bindFramebuffer(gc, GL_FRAMEBUFFER_EXT);
     }
 
     int swapCount = 0;

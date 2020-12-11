@@ -68,7 +68,17 @@ namespace MWVR
         class InitialDrawCallback : public osg::Camera::DrawCallback
         {
         public:
-            virtual void operator()(osg::RenderInfo& renderInfo) const;
+            InitialDrawCallback(VRViewer* viewer)
+                : mViewer(viewer)
+            {}
+
+            ~InitialDrawCallback();
+
+            void operator()(osg::RenderInfo& info) const override { mViewer->initialDrawCallback(info); };
+
+        private:
+
+            VRViewer* mViewer;
         };
 
         static const std::array<const char*, 2> sViewNames;
@@ -86,19 +96,24 @@ namespace MWVR
         ~VRViewer(void);
 
         void traversals();
+        void initialDrawCallback(osg::RenderInfo& info);
         void preDrawCallback(osg::RenderInfo& info);
         void postDrawCallback(osg::RenderInfo& info);
         void blitEyesToMirrorTexture(osg::GraphicsContext* gc);
-        void realize(osg::GraphicsContext* gc);
-        bool realized() { return mConfigured; }
+        void configureXR(osg::GraphicsContext* gc);
+        void configureCallbacks();
         void setupMirrorTexture();
         void processChangedSettings(const std::set< std::pair<std::string, std::string> >& changed);
 
         SubImage subImage(Side side);
 
+        bool xrConfigured() { return mOpenXRConfigured; };
+        bool callbacksConfigured() { return mCallbacksConfigured; };
+
     private:
         std::mutex mMutex{};
-        bool mConfigured{ false };
+        bool mOpenXRConfigured{ false };
+        bool mCallbacksConfigured{ false };
 
         osg::ref_ptr<osgViewer::Viewer> mViewer = nullptr;
         osg::ref_ptr<PredrawCallback> mPreDraw{ nullptr };

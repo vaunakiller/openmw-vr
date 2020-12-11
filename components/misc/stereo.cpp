@@ -9,6 +9,8 @@
 #include <osgViewer/Viewer>
 
 #include <iostream>
+#include <map>
+#include <string>
 
 #include <components/debug/debuglog.hpp>
 
@@ -225,11 +227,18 @@ namespace Misc
         StereoView* stereoView;
     };
 
+    StereoView* sInstance = nullptr;
+
+    StereoView& StereoView::instance()
+    {
+        return *sInstance;
+    }
+
     StereoView::StereoView(osgViewer::Viewer* viewer, Technique technique, osg::Node::NodeMask geometryShaderMask, osg::Node::NodeMask noShaderMask)
-        : osg::Group()
-        , mViewer(viewer)
+        : mViewer(viewer)
         , mMainCamera(mViewer->getCamera())
-        , mRoot(viewer->getSceneData()->asGroup())
+        , mRoot(mViewer->getSceneData()->asGroup())
+        , mStereoRoot(new osg::Group)
         , mTechnique(technique)
         , mGeometryShaderMask(geometryShaderMask)
         , mNoShaderMask(noShaderMask)
@@ -241,20 +250,13 @@ namespace Misc
             // Do nothing
             return;
 
+        mRoot->setDataVariance(osg::Object::STATIC);
+
         mMasterConfig->_id = "STEREO";
         mMasterConfig->_master = true;
         mSlaveConfig->_id = "STEREO";
         mSlaveConfig->_master = false;
 
-        SceneUtil::FindByNameVisitor findScene("Scene Root");
-        mRoot->accept(findScene);
-        mScene = findScene.mFoundNode;
-        if (!mScene)
-            throw std::logic_error("Couldn't find scene root");
-
-        setName("Stereo Root");
-        mRoot->setDataVariance(osg::Object::STATIC);
-        setDataVariance(osg::Object::STATIC);
         mLeftCamera->setReferenceFrame(osg::Transform::ABSOLUTE_RF);
         mLeftCamera->setProjectionResizePolicy(osg::Camera::FIXED);
         mLeftCamera->setProjectionMatrix(osg::Matrix::identity());
@@ -287,6 +289,10 @@ namespace Misc
         {
             setupBruteForceTechnique();
         }
+
+        if (sInstance)
+            throw std::logic_error("Double instance og StereoView");
+        sInstance = this;
     }
 
     void StereoView::setupBruteForceTechnique()
@@ -302,8 +308,8 @@ namespace Misc
 
         if (mSharedShadowMaps)
         {
-            mLeftCamera->setUserData(mMasterConfig);
-            mRightCamera->setUserData(mSlaveConfig);
+            mLeftCamera->setUserData(mSlaveConfig);
+            mRightCamera->setUserData(mMasterConfig);
         }
 
         // Slave cameras must have their viewports defined immediately
@@ -313,8 +319,8 @@ namespace Misc
         mRightCamera->setViewport(width / 2, 0, width / 2, height);
 
         mViewer->stopThreading();
-        mViewer->addSlave(mLeftCamera, true);
         mViewer->addSlave(mRightCamera, true);
+        mViewer->addSlave(mLeftCamera, true);
         mRightCamera->setGraphicsContext(mViewer->getCamera()->getGraphicsContext());
         mLeftCamera->setGraphicsContext(mViewer->getCamera()->getGraphicsContext());
         mViewer->getCamera()->setGraphicsContext(nullptr);
@@ -331,18 +337,18 @@ namespace Misc
         mRightCamera->setCullMask(mNoShaderMask);
         mMainCamera->setCullMask(mGeometryShaderMask);
 
-        addChild(mStereoGeometryShaderRoot);
-        mStereoGeometryShaderRoot->addChild(mRoot);
-        addChild(mStereoBruteForceRoot);
+        mStereoRoot->setName("Stereo Root");
+        mStereoRoot->setDataVariance(osg::Object::STATIC);
+        mStereoRoot->addChild(mStereoGeometryShaderRoot);
+        mStereoRoot->addChild(mStereoBruteForceRoot);
         mStereoBruteForceRoot->addChild(mLeftCamera);
-        mLeftCamera->addChild(mScene); // Use scene directly to avoid redundant shadow computation.
         mStereoBruteForceRoot->addChild(mRightCamera);
-        mRightCamera->addChild(mScene);
 
-        addCullCallback(new StereoStatesetUpdateCallback(this));
+        mStereoRoot->addCullCallback(new StereoStatesetUpdateCallback(this));
 
         // Inject self as the root of the scene graph
-        mViewer->setSceneData(this);
+        mStereoGeometryShaderRoot->addChild(mRoot);
+        mViewer->setSceneData(mStereoRoot);
     }
 
     void StereoView::update()
@@ -494,6 +500,21 @@ namespace Misc
         cb = cb_;
     }
 
+    void StereoView::initializeScene()
+    {
+        SceneUtil::FindByNameVisitor findScene("Scene Root");
+        mRoot->accept(findScene);
+        mScene = findScene.mFoundNode;
+        if (!mScene)
+            throw std::logic_error("Couldn't find scene root");
+
+        if (mTechnique == Technique::GeometryShader_IndexedViewports)
+        {
+            mLeftCamera->addChild(mScene); // Use scene directly to avoid redundant shadow computation.
+            mRightCamera->addChild(mScene);
+        }
+    }
+
     void disableStereoForCamera(osg::Camera* camera)
     {
         auto* viewport = camera->getViewport();
@@ -552,5 +573,55 @@ namespace Misc
         right.fov = { -0.620896876, 0.767549932, -0.837898076, 0.726982594 };
         near = 1;
         far = 6656;
+    }
+
+    void StereoView::setInitialDrawCallback(osg::ref_ptr<osg::Camera::DrawCallback> cb)
+    {
+        if (mTechnique == Technique::GeometryShader_IndexedViewports)
+        {
+            mMainCamera->setInitialDrawCallback(cb);
+        }
+        else
+        {
+            mRightCamera->setInitialDrawCallback(cb);
+        }
+    }
+
+    void StereoView::setPredrawCallback(osg::ref_ptr<osg::Camera::DrawCallback> cb)
+    {
+        if (mTechnique == Technique::GeometryShader_IndexedViewports)
+        {
+            mMainCamera->setPreDrawCallback(cb);
+        }
+        else
+        {
+            mLeftCamera->setPreDrawCallback(cb);
+            mRightCamera->setPreDrawCallback(cb);
+        }
+    }
+
+    void StereoView::setPostdrawCallback(osg::ref_ptr<osg::Camera::DrawCallback> cb)
+    {
+        if (mTechnique == Technique::GeometryShader_IndexedViewports)
+        {
+            mMainCamera->setPostDrawCallback(cb);
+        }
+        else
+        {
+            mLeftCamera->setPostDrawCallback(cb);
+            mRightCamera->setPostDrawCallback(cb);
+        }
+    }
+
+    void StereoView::setCullCallback(osg::ref_ptr<osg::NodeCallback> cb)
+    {
+        if (mTechnique == Technique::GeometryShader_IndexedViewports)
+        {
+            mMainCamera->setCullCallback(cb);
+        }
+        else
+        {
+            mRightCamera->setCullCallback(cb);
+        }
     }
 }

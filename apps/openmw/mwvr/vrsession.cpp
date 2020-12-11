@@ -187,21 +187,28 @@ namespace MWVR
             getFrame(FramePhase::Swap) = nullptr;
         }
 
-        mCondition.notify_one();
+        mCondition.notify_all();
     }
 
     void VRSession::beginPhase(FramePhase phase)
     {
         Log(Debug::Debug) << "beginPhase(" << ((int)phase) << ") " << std::this_thread::get_id();
 
-        auto& frame = getFrame(phase);
-        if (frame)
         {
-            // Happens once during startup but can be ignored that time.
-            // TODO: This issue would be cleaned up if beginPhase(Update) was called at a more appropriate location.
-            Log(Debug::Warning) << "advanceFramePhase called with a frame alreay in the target phase";
-            return;
+            std::unique_lock<std::mutex> lock(mMutex);
+            while (getFrame(phase))
+                mCondition.wait(lock);
         }
+
+            mCondition.notify_all();
+        auto& frame = getFrame(phase);
+        //if (frame)
+        //{
+        //    // Happens once during startup but can be ignored that time.
+        //    // TODO: This issue would be cleaned up if beginPhase(Update) was called at a more appropriate location.
+        //    Log(Debug::Warning) << "advanceFramePhase called with a frame alreay in the target phase";
+        //    return;
+        //}
 
 
         if (phase == FramePhase::Update)
@@ -216,6 +223,7 @@ namespace MWVR
                 throw std::logic_error("beginPhase called without a frame");
             frame = std::move(getFrame(previousPhase));
         }
+
         if (phase == mXrSyncPhase && frame->mShouldSyncFrameLoop)
         {
             // We may reach this point before xrEndFrame of the previous frame
@@ -228,6 +236,8 @@ namespace MWVR
 
             Environment::get().getManager()->beginFrame();
         }
+
+        mCondition.notify_all();
     }
 
     std::unique_ptr<VRSession::VRFrameMeta>& VRSession::getFrame(FramePhase phase)
