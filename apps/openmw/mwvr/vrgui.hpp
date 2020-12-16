@@ -137,7 +137,8 @@ namespace MWVR
     public:
         VRGUIManager(
             osg::ref_ptr<osgViewer::Viewer> viewer,
-            Resource::ResourceSystem* resourceSystem);
+            Resource::ResourceSystem* resourceSystem,
+            osg::Group* rootNode);
 
         ~VRGUIManager(void);
 
@@ -190,6 +191,7 @@ namespace MWVR
         osg::ref_ptr<osgViewer::Viewer> mOsgViewer{ nullptr };
         Resource::ResourceSystem* mResourceSystem;
 
+        osg::ref_ptr<osg::Group> mRootNode{ nullptr };
         osg::ref_ptr<osg::Group> mGUIGeometriesRoot{ new osg::Group };
         osg::ref_ptr<osg::Group> mGUICamerasRoot{ new osg::Group };
 

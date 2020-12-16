@@ -4,103 +4,103 @@
 
 namespace MWVR
 {
-    Pose Pose::operator+(const Pose& rhs)
-    {
-        Pose pose = *this;
-        pose.position += this->orientation * rhs.position;
-        pose.orientation = rhs.orientation * this->orientation;
-        return pose;
-    }
+    //Pose Pose::operator+(const Pose& rhs)
+    //{
+    //    Pose pose = *this;
+    //    pose.position += this->orientation * rhs.position;
+    //    pose.orientation = rhs.orientation * this->orientation;
+    //    return pose;
+    //}
 
-    const Pose& Pose::operator+=(const Pose& rhs)
-    {
-        *this = *this + rhs;
-        return *this;
-    }
+    //const Pose& Pose::operator+=(const Pose& rhs)
+    //{
+    //    *this = *this + rhs;
+    //    return *this;
+    //}
 
-    Pose Pose::operator*(float scalar)
-    {
-        Pose pose = *this;
-        pose.position *= scalar;
-        return pose;
-    }
+    //Pose Pose::operator*(float scalar)
+    //{
+    //    Pose pose = *this;
+    //    pose.position *= scalar;
+    //    return pose;
+    //}
 
-    const Pose& Pose::operator*=(float scalar)
-    {
-        *this = *this * scalar;
-        return *this;
-    }
+    //const Pose& Pose::operator*=(float scalar)
+    //{
+    //    *this = *this * scalar;
+    //    return *this;
+    //}
 
-    Pose Pose::operator/(float scalar)
-    {
-        Pose pose = *this;
-        pose.position /= scalar;
-        return pose;
-    }
-    const Pose& Pose::operator/=(float scalar)
-    {
-        *this = *this / scalar;
-        return *this;
-    }
+    //Pose Pose::operator/(float scalar)
+    //{
+    //    Pose pose = *this;
+    //    pose.position /= scalar;
+    //    return pose;
+    //}
+    //const Pose& Pose::operator/=(float scalar)
+    //{
+    //    *this = *this / scalar;
+    //    return *this;
+    //}
 
-    bool Pose::operator==(const Pose& rhs) const
-    {
-        return position == rhs.position && orientation == rhs.orientation;
-    }
+    //bool Pose::operator==(const Pose& rhs) const
+    //{
+    //    return position == rhs.position && orientation == rhs.orientation;
+    //}
 
-    bool FieldOfView::operator==(const FieldOfView& rhs) const
-    {
-        return angleDown == rhs.angleDown
-            && angleUp == rhs.angleUp
-            && angleLeft == rhs.angleLeft
-            && angleRight == rhs.angleRight;
-    }
+    //bool FieldOfView::operator==(const FieldOfView& rhs) const
+    //{
+    //    return angleDown == rhs.angleDown
+    //        && angleUp == rhs.angleUp
+    //        && angleLeft == rhs.angleLeft
+    //        && angleRight == rhs.angleRight;
+    //}
 
-    // near and far named with an underscore because of windows' headers galaxy brain defines.
-    osg::Matrix FieldOfView::perspectiveMatrix(float near_, float far_)
-    {
-        const float tanLeft = tanf(angleLeft);
-        const float tanRight = tanf(angleRight);
-        const float tanDown = tanf(angleDown);
-        const float tanUp = tanf(angleUp);
+    //// near and far named with an underscore because of windows' headers galaxy brain defines.
+    //osg::Matrix FieldOfView::perspectiveMatrix(float near_, float far_)
+    //{
+    //    const float tanLeft = tanf(angleLeft);
+    //    const float tanRight = tanf(angleRight);
+    //    const float tanDown = tanf(angleDown);
+    //    const float tanUp = tanf(angleUp);
 
-        const float tanWidth = tanRight - tanLeft;
-        const float tanHeight = tanUp - tanDown;
+    //    const float tanWidth = tanRight - tanLeft;
+    //    const float tanHeight = tanUp - tanDown;
 
-        const float offset = near_;
+    //    const float offset = near_;
 
-        float matrix[16] = {};
+    //    float matrix[16] = {};
 
-        matrix[0] = 2 / tanWidth;
-        matrix[4] = 0;
-        matrix[8] = (tanRight + tanLeft) / tanWidth;
-        matrix[12] = 0;
+    //    matrix[0] = 2 / tanWidth;
+    //    matrix[4] = 0;
+    //    matrix[8] = (tanRight + tanLeft) / tanWidth;
+    //    matrix[12] = 0;
 
-        matrix[1] = 0;
-        matrix[5] = 2 / tanHeight;
-        matrix[9] = (tanUp + tanDown) / tanHeight;
-        matrix[13] = 0;
+    //    matrix[1] = 0;
+    //    matrix[5] = 2 / tanHeight;
+    //    matrix[9] = (tanUp + tanDown) / tanHeight;
+    //    matrix[13] = 0;
 
-        if (far_ <= near_) {
-            matrix[2] = 0;
-            matrix[6] = 0;
-            matrix[10] = -1;
-            matrix[14] = -(near_ + offset);
-        }
-        else {
-            matrix[2] = 0;
-            matrix[6] = 0;
-            matrix[10] = -(far_ + offset) / (far_ - near_);
-            matrix[14] = -(far_ * (near_ + offset)) / (far_ - near_);
-        }
+    //    if (far_ <= near_) {
+    //        matrix[2] = 0;
+    //        matrix[6] = 0;
+    //        matrix[10] = -1;
+    //        matrix[14] = -(near_ + offset);
+    //    }
+    //    else {
+    //        matrix[2] = 0;
+    //        matrix[6] = 0;
+    //        matrix[10] = -(far_ + offset) / (far_ - near_);
+    //        matrix[14] = -(far_ * (near_ + offset)) / (far_ - near_);
+    //    }
 
-        matrix[3] = 0;
-        matrix[7] = 0;
-        matrix[11] = -1;
-        matrix[15] = 0;
+    //    matrix[3] = 0;
+    //    matrix[7] = 0;
+    //    matrix[11] = -1;
+    //    matrix[15] = 0;
 
-        return osg::Matrix(matrix);
-    }
+    //    return osg::Matrix(matrix);
+    //}
     bool PoseSet::operator==(const PoseSet& rhs) const
     {
         return  eye[0] == rhs.eye[0]
@@ -112,10 +112,10 @@ namespace MWVR
             && head == rhs.head;
 
     }
-    bool View::operator==(const View& rhs) const
-    {
-        return pose == rhs.pose && fov == rhs.fov;
-    }
+    //bool View::operator==(const View& rhs) const
+    //{
+    //    return pose == rhs.pose && fov == rhs.fov;
+    //}
 
     std::ostream& operator <<(
         std::ostream& os,

@@ -189,6 +189,11 @@ namespace MWVR
         Misc::StereoView::instance().setPredrawCallback(mPreDraw);
         Misc::StereoView::instance().setPostdrawCallback(mPostDraw);
         Misc::StereoView::instance().setCullCallback(new CullCallback);
+        //auto cullMask = Misc::StereoView::instance().getCullMask();
+        auto cullMask = ~(MWRender::VisMask::Mask_UpdateVisitor | MWRender::VisMask::Mask_SimpleWater);
+        cullMask &= ~MWRender::VisMask::Mask_GUI;
+        cullMask |= MWRender::VisMask::Mask_3DGUI;
+        Misc::StereoView::instance().setCullMask(cullMask);
 
         mCallbacksConfigured = true;
     }
@@ -347,7 +352,73 @@ namespace MWVR
             Log(Debug::Warning) << ("osg overwrote predraw");
         }
     }
+
     VRViewer::InitialDrawCallback::~InitialDrawCallback()
     {
+    }
+
+    void VRViewer::updateView(Misc::View& left, Misc::View& right)
+    {
+        auto phase = VRSession::FramePhase::Update;
+        auto session = Environment::get().getSession();
+        auto& frame = session->getFrame(phase);
+
+        if (frame->mShouldRender)
+        {
+            //left.fov.angleLeft = frame->mPredictedPoses.view->fov.angleLeft;
+            //left.fov.angleLeft = frame->mPredictedPoses.view->fov.angleDown;
+            //left.fov.angleLeft = frame->mPredictedPoses.view->fov.angleRight;
+            //left.fov.angleLeft = frame->mPredictedPoses.view->fov.angleUp;
+            //frame->mPredictedPoses.eye;
+            left = frame->mPredictedPoses.view[static_cast<int>(Side::LEFT_SIDE)];
+            right = frame->mPredictedPoses.view[static_cast<int>(Side::RIGHT_SIDE)];
+        }
+
+        //        auto* camera = slave._camera.get();
+        //
+        //        // Update current cached cull mask of camera if it is active
+        //        auto mask = camera->getCullMask();
+        //        if (mask == 0)
+        //            camera->setCullMask(mCullMask);
+        //        else
+        //            mCullMask = mask;
+        //
+        //        // If the session is not active, we do not want to waste resources rendering frames.
+        //        if (Environment::get().getSession()->getFrame(VRSession::FramePhase::Update)->mShouldRender)
+        //        {
+        //            Side side = Side::RIGHT_SIDE;
+        //            if (mName == "LeftEye")
+        //            {
+        //
+        //                Environment::get().getViewer()->vrShadow().updateShadowConfig(view);
+        //                side = Side::LEFT_SIDE;
+        //            }
+        //
+        //            auto* session = Environment::get().getSession();
+        //            auto viewMatrix = view.getCamera()->getViewMatrix();
+        //
+        //            // If the camera does not have a view, use the VR stage directly
+        //            bool useStage = !(viewMatrix.getTrans().length() > 0.01);
+        //
+        //            // If the view matrix is still the identity matrix, conventions have to be swapped around.
+        //            bool swapConventions = viewMatrix.isIdentity();
+        //
+        //            viewMatrix = viewMatrix * session->viewMatrix(VRSession::FramePhase::Update, side, !useStage, !swapConventions);
+        //
+        //            camera->setViewMatrix(viewMatrix);
+        //
+        //            auto projectionMatrix = session->projectionMatrix(VRSession::FramePhase::Update, side);
+        //            camera->setProjectionMatrix(projectionMatrix);
+        //        }
+        //        else
+        //        {
+        //            camera->setCullMask(0);
+        //        }
+        //        slave.updateSlaveImplementation(view);
+    }
+
+    void VRViewer::UpdateViewCallback::updateView(Misc::View& left, Misc::View& right)
+    {
+        mViewer->updateView(left, right);
     }
 }

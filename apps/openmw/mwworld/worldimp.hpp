@@ -195,6 +195,7 @@ namespace MWWorld
             World (
                 osgViewer::Viewer* viewer,
                 osg::ref_ptr<osg::Group> rootNode,
+                std::unique_ptr<MWRender::Camera> camera,
                 Resource::ResourceSystem* resourceSystem, SceneUtil::WorkQueue* workQueue,
                 const Files::Collections& fileCollections,
                 const std::vector<std::string>& contentFiles,

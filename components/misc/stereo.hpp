@@ -73,13 +73,13 @@ namespace Misc
         struct UpdateViewCallback
         {
             //! Called during the update traversal of every frame to source updated stereo values.
-            virtual void updateView(View& left, View& right, double& near, double& far) = 0;
+            virtual void updateView(View& left, View& right) = 0;
         };
 
         //! Default implementation of UpdateViewCallback that just provides some hardcoded values for debugging purposes
         struct DefaultUpdateViewCallback : public UpdateViewCallback
         {
-            virtual void updateView(View& left, View& right, double& near, double& far);
+            virtual void updateView(View& left, View& right);
         };
 
         enum class Technique
@@ -93,10 +93,10 @@ namespace Misc
 
         //! Adds two cameras in stereo to the mainCamera.
         //! All nodes matching the mask are rendered in stereo using brute force via two camera transforms, the rest are rendered in stereo via a geometry shader.
-        //! \param geometryShaderMask should mask in all nodes that use shaders.
         //! \param noShaderMask mask in all nodes that do not use shaders and must be rendered brute force.
+        //! \param sceneMask must equal MWRender::VisMask::Mask_Scene. Necessary while VisMask is still not in components/
         //! \note the masks apply only to the GeometryShader_IndexdViewports technique and can be 0 for the BruteForce technique.
-        StereoView(osgViewer::Viewer* viewer, Technique technique, osg::Node::NodeMask geometryShaderMask, osg::Node::NodeMask noShaderMask);
+        StereoView(osgViewer::Viewer* viewer, Technique technique, osg::Node::NodeMask noShaderMask, osg::Node::NodeMask sceneMask);
 
         //! Updates uniforms with the view and projection matrices of each stereo view, and replaces the camera's view and projection matrix
         //! with a view and projection that closely envelopes the frustums of the two eyes.
@@ -105,6 +105,8 @@ namespace Misc
 
         //! Initialized scene. Call when the "scene root" node has been created
         void initializeScene();
+
+        void setStereoTechnique(Technique technique);
 
         //! Callback that updates stereo configuration during the update pass
         void setUpdateViewCallback(std::shared_ptr<UpdateViewCallback> cb);
@@ -121,21 +123,33 @@ namespace Misc
         //! Set the cull callback on the appropriate camera object
         void setCullCallback(osg::ref_ptr<osg::NodeCallback> cb);
 
+        //! Apply the cullmask to the appropriate camera objects
+        void setCullMask(osg::Node::NodeMask cullMask);
+
+        //! Get the last applied cullmask.
+        osg::Node::NodeMask getCullMask();
+
     private:
         void setupBruteForceTechnique();
         void setupGeometryShaderIndexedViewportTechnique();
+        void removeBruteForceTechnique();
+        void removeGeometryShaderIndexedViewportTechnique();
+        void disableStereo();
+        void enableStereo();
 
         osg::ref_ptr<osgViewer::Viewer> mViewer;
         osg::ref_ptr<osg::Camera>       mMainCamera;
         osg::ref_ptr<osg::Group>        mRoot;
         osg::ref_ptr<osg::Group>        mScene;
         osg::ref_ptr<osg::Group>        mStereoRoot;
+        osg::ref_ptr<osg::Callback>     mUpdateCallback;
         Technique                       mTechnique;
 
         // Keeps state relevant to doing stereo via the geometry shader
         osg::ref_ptr<osg::Group>    mStereoGeometryShaderRoot{ new osg::Group };
-        osg::Node::NodeMask         mGeometryShaderMask;
         osg::Node::NodeMask         mNoShaderMask;
+        osg::Node::NodeMask         mSceneMask;
+        osg::Node::NodeMask         mCullMask;
 
         // Keeps state and cameras relevant to doing stereo via brute force
         osg::ref_ptr<osg::Group>    mStereoBruteForceRoot{ new osg::Group };
@@ -151,7 +165,13 @@ namespace Misc
         bool flipViewOrder{ true };
 
         // Updates stereo configuration during the update pass
-        std::shared_ptr<UpdateViewCallback> cb{ new DefaultUpdateViewCallback };
+        std::shared_ptr<UpdateViewCallback> mUpdateViewCallback{ new DefaultUpdateViewCallback };
+
+        // OSG camera callbacks set using set*callback. StereoView manages that these are always set on the appropriate camera(s);
+        osg::ref_ptr<osg::NodeCallback>         mCullCallback{ nullptr };
+        osg::ref_ptr<osg::Camera::DrawCallback> mInitialDrawCallback{ nullptr };
+        osg::ref_ptr<osg::Camera::DrawCallback> mPreDrawCallback{ nullptr };
+        osg::ref_ptr<osg::Camera::DrawCallback> mPostDrawCallback{ nullptr };
     };
 
     //! Overrides all stereo-related states/uniforms to disable stereo for the scene rendered by camera

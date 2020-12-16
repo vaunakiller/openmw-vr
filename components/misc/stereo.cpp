@@ -234,14 +234,34 @@ namespace Misc
         return *sInstance;
     }
 
-    StereoView::StereoView(osgViewer::Viewer* viewer, Technique technique, osg::Node::NodeMask geometryShaderMask, osg::Node::NodeMask noShaderMask)
+    static osg::Camera*
+        createCamera(std::string name, GLbitfield clearMask)
+    {
+        auto* camera = new osg::Camera;
+
+        camera->setReferenceFrame(osg::Transform::ABSOLUTE_RF);
+        camera->setProjectionResizePolicy(osg::Camera::FIXED);
+        camera->setProjectionMatrix(osg::Matrix::identity());
+        camera->setViewMatrix(osg::Matrix::identity());
+        camera->setName(name);
+        camera->setDataVariance(osg::Object::STATIC);
+        camera->setRenderOrder(osg::Camera::NESTED_RENDER);
+        camera->setClearMask(clearMask);
+        camera->setUpdateCallback(new SceneUtil::StateSetUpdater());
+
+        return camera;
+    }
+
+    StereoView::StereoView(osgViewer::Viewer* viewer, Technique technique, osg::Node::NodeMask noShaderMask, osg::Node::NodeMask sceneMask)
         : mViewer(viewer)
         , mMainCamera(mViewer->getCamera())
         , mRoot(mViewer->getSceneData()->asGroup())
         , mStereoRoot(new osg::Group)
-        , mTechnique(technique)
-        , mGeometryShaderMask(geometryShaderMask)
+        , mUpdateCallback(new StereoUpdateCallback(this))
+        , mTechnique(Technique::None)
         , mNoShaderMask(noShaderMask)
+        , mSceneMask(sceneMask)
+        , mCullMask(mMainCamera->getCullMask())
         , mMasterConfig(new SharedShadowMapConfig)
         , mSlaveConfig(new SharedShadowMapConfig)
         , mSharedShadowMaps(Settings::Manager::getBool("shared shadow maps", "Stereo"))
@@ -257,38 +277,13 @@ namespace Misc
         mSlaveConfig->_id = "STEREO";
         mSlaveConfig->_master = false;
 
-        mLeftCamera->setReferenceFrame(osg::Transform::ABSOLUTE_RF);
-        mLeftCamera->setProjectionResizePolicy(osg::Camera::FIXED);
-        mLeftCamera->setProjectionMatrix(osg::Matrix::identity());
-        mLeftCamera->setViewMatrix(osg::Matrix::identity());
-        mLeftCamera->setName("Stereo Left");
-        mLeftCamera->setDataVariance(osg::Object::STATIC);
-        mRightCamera->setReferenceFrame(osg::Transform::ABSOLUTE_RF);
-        mRightCamera->setProjectionResizePolicy(osg::Camera::FIXED);
-        mRightCamera->setProjectionMatrix(osg::Matrix::identity());
-        mRightCamera->setViewMatrix(osg::Matrix::identity());
-        mRightCamera->setName("Stereo Right");
-        mRightCamera->setDataVariance(osg::Object::STATIC);
+        mStereoRoot->setName("Stereo Root");
+        mStereoRoot->setDataVariance(osg::Object::STATIC);
+        mStereoRoot->addChild(mStereoGeometryShaderRoot);
+        mStereoRoot->addChild(mStereoBruteForceRoot);
+        mStereoRoot->addCullCallback(new StereoStatesetUpdateCallback(this));
 
-        // Update stereo statesets/matrices, but after the main camera updates.
-        auto mainCameraCB = mMainCamera->getUpdateCallback();
-        mMainCamera->removeUpdateCallback(mainCameraCB);
-        mMainCamera->addUpdateCallback(new StereoUpdateCallback(this));
-        mMainCamera->addUpdateCallback(mainCameraCB);
-
-        // Do a blank double buffering of camera statesets on update. Actual state updates are performed in StereoView::Update()
-        mLeftCamera->setUpdateCallback(new SceneUtil::StateSetUpdater());
-        mRightCamera->setUpdateCallback(new SceneUtil::StateSetUpdater());
-
-
-        if (mTechnique == Technique::GeometryShader_IndexedViewports)
-        {
-            setupGeometryShaderIndexedViewportTechnique();
-        }
-        else
-        {
-            setupBruteForceTechnique();
-        }
+        setStereoTechnique(technique);
 
         if (sInstance)
             throw std::logic_error("Double instance og StereoView");
@@ -297,14 +292,8 @@ namespace Misc
 
     void StereoView::setupBruteForceTechnique()
     {
-        mLeftCamera->setRenderOrder(osg::Camera::NESTED_RENDER);
-        mLeftCamera->setClearColor(mMainCamera->getClearColor());
-        mLeftCamera->setClearMask(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
-        mLeftCamera->setCullMask(mMainCamera->getCullMask());
-        mRightCamera->setRenderOrder(osg::Camera::NESTED_RENDER);
-        mRightCamera->setClearColor(mMainCamera->getClearColor());
-        mRightCamera->setClearMask(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
-        mRightCamera->setCullMask(mMainCamera->getCullMask());
+        mLeftCamera = createCamera("Stereo Left", GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+        mRightCamera = createCamera("Stereo Right", GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
         if (mSharedShadowMaps)
         {
@@ -318,37 +307,135 @@ namespace Misc
         mLeftCamera->setViewport(0, 0, width / 2, height);
         mRightCamera->setViewport(width / 2, 0, width / 2, height);
 
+        // Threading should be stopped before adding new slave cameras
         mViewer->stopThreading();
         mViewer->addSlave(mRightCamera, true);
         mViewer->addSlave(mLeftCamera, true);
         mRightCamera->setGraphicsContext(mViewer->getCamera()->getGraphicsContext());
         mLeftCamera->setGraphicsContext(mViewer->getCamera()->getGraphicsContext());
+
+        // Remove main camera's graphics context to ensure it does not do any work
         mViewer->getCamera()->setGraphicsContext(nullptr);
+
+        // Re-realize to ensure slave cameras are set up with appropriate settings
         mViewer->realize();
     }
 
     void StereoView::setupGeometryShaderIndexedViewportTechnique()
     {
-        mLeftCamera->setRenderOrder(osg::Camera::NESTED_RENDER);
-        mLeftCamera->setClearMask(GL_NONE);
-        mLeftCamera->setCullMask(mNoShaderMask);
-        mRightCamera->setRenderOrder(osg::Camera::NESTED_RENDER);
-        mRightCamera->setClearMask(GL_NONE);
-        mRightCamera->setCullMask(mNoShaderMask);
-        mMainCamera->setCullMask(mGeometryShaderMask);
-
-        mStereoRoot->setName("Stereo Root");
-        mStereoRoot->setDataVariance(osg::Object::STATIC);
-        mStereoRoot->addChild(mStereoGeometryShaderRoot);
-        mStereoRoot->addChild(mStereoBruteForceRoot);
+        mLeftCamera = createCamera("Stereo Left", GL_NONE);
+        mRightCamera = createCamera("Stereo Right", GL_NONE);
         mStereoBruteForceRoot->addChild(mLeftCamera);
         mStereoBruteForceRoot->addChild(mRightCamera);
-
-        mStereoRoot->addCullCallback(new StereoStatesetUpdateCallback(this));
 
         // Inject self as the root of the scene graph
         mStereoGeometryShaderRoot->addChild(mRoot);
         mViewer->setSceneData(mStereoRoot);
+    }
+
+    static void removeSlave(osgViewer::Viewer* viewer, osg::Camera* camera)
+    {
+        for (unsigned int i = 0; i < viewer->getNumSlaves(); i++)
+        {
+            auto& slave = viewer->getSlave(i);
+            if (slave._camera == camera);
+            {
+                viewer->removeSlave(i);
+                return;
+            }
+        }
+    }
+
+    void StereoView::removeBruteForceTechnique()
+    {
+        mViewer->stopThreading();
+        removeSlave(mViewer, mRightCamera);
+        removeSlave(mViewer, mLeftCamera);
+        mLeftCamera->setUserData(nullptr);
+        mRightCamera->setUserData(nullptr);
+
+        mMainCamera->setGraphicsContext(mRightCamera->getGraphicsContext());
+        mLeftCamera = nullptr;
+        mRightCamera = nullptr;
+
+        mViewer->realize();
+    }
+
+    void StereoView::removeGeometryShaderIndexedViewportTechnique()
+    {
+        mStereoGeometryShaderRoot->removeChild(mRoot);
+        mViewer->setSceneData(mRoot);
+        mStereoBruteForceRoot->removeChild(mLeftCamera);
+        mStereoBruteForceRoot->removeChild(mRightCamera);
+        mLeftCamera = nullptr;
+        mRightCamera = nullptr;
+    }
+
+    void StereoView::disableStereo()
+    {
+        if (mTechnique == Technique::None)
+            return;
+
+        mMainCamera->removeUpdateCallback(mUpdateCallback);
+
+        switch (mTechnique)
+        {
+        case Technique::GeometryShader_IndexedViewports:
+            removeGeometryShaderIndexedViewportTechnique(); break;
+        case Technique::BruteForce:
+            removeBruteForceTechnique(); break;
+        default: break;
+        }
+
+        mMainCamera->setCullMask(mCullMask);
+    }
+
+    void StereoView::enableStereo()
+    {
+        if (mTechnique == Technique::None)
+            return;
+
+        // Update stereo statesets/matrices, but after the main camera updates.
+        auto mainCameraCB = mMainCamera->getUpdateCallback();
+        mMainCamera->removeUpdateCallback(mainCameraCB);
+        mMainCamera->addUpdateCallback(mUpdateCallback);
+        mMainCamera->addUpdateCallback(mainCameraCB);
+
+        switch (mTechnique)
+        {
+        case Technique::GeometryShader_IndexedViewports:
+            setupGeometryShaderIndexedViewportTechnique(); break;
+        case Technique::BruteForce:
+            setupBruteForceTechnique(); break;
+        default: break;
+        }
+
+        setCullMask(mCullMask);
+    }
+
+    void StereoView::setStereoTechnique(Technique technique)
+    {
+        if (technique == mTechnique)
+            return;
+
+        auto cullCB = mCullCallback;
+        auto initialDrawCB = mInitialDrawCallback;
+        auto predrawCB = mPreDrawCallback;
+        auto postDrawCB = mPostDrawCallback;
+
+        setCullCallback(nullptr);
+        setInitialDrawCallback(nullptr);
+        setPostdrawCallback(nullptr);
+        setPredrawCallback(nullptr);
+
+        disableStereo();
+        mTechnique = technique;
+        enableStereo();
+
+        setCullCallback(cullCB);
+        setInitialDrawCallback(initialDrawCB);
+        setPostdrawCallback(predrawCB);
+        setPredrawCallback(postDrawCB);
     }
 
     void StereoView::update()
@@ -358,13 +445,15 @@ namespace Misc
 
         View left{};
         View right{};
-        double near = 1.f;
-        double far = 10000.f;
-        if (!cb)
+        double near_ = 1.f;
+        double far_ = 10000.f;
+        if (!mUpdateViewCallback)
         {
             Log(Debug::Error) << "No update view callback. Stereo rendering will not work.";
         }
-        cb->updateView(left, right, near, far);
+        mUpdateViewCallback->updateView(left, right);
+        near_ = Settings::Manager::getFloat("near clip", "Camera");
+        far_ = Settings::Manager::getFloat("viewing distance", "Camera");
 
         osg::Vec3d leftEye = left.pose.position;
         osg::Vec3d rightEye = right.pose.position;
@@ -375,8 +464,8 @@ namespace Misc
         osg::Matrix leftViewMatrix = viewMatrix * leftViewOffset;
         osg::Matrix rightViewMatrix = viewMatrix * rightViewOffset;
 
-        osg::Matrix leftProjectionMatrix = left.fov.perspectiveMatrix(near, far);
-        osg::Matrix rightProjectionMatrix = right.fov.perspectiveMatrix(near, far);
+        osg::Matrix leftProjectionMatrix = left.fov.perspectiveMatrix(near_, far_);
+        osg::Matrix rightProjectionMatrix = right.fov.perspectiveMatrix(near_, far_);
 
         mRightCamera->setViewMatrix(rightViewMatrix);
         mLeftCamera->setViewMatrix(leftViewMatrix);
@@ -442,7 +531,7 @@ namespace Misc
 
         // Generate the frustum matrices
         auto frustumViewMatrix = viewMatrix * frustumView.pose.viewMatrix(true);
-        auto frustumProjectionMatrix = frustumView.fov.perspectiveMatrix(near + nearFarOffset, far + nearFarOffset);
+        auto frustumProjectionMatrix = frustumView.fov.perspectiveMatrix(near_ + nearFarOffset, far_ + nearFarOffset);
 
         if (mTechnique == Technique::GeometryShader_IndexedViewports)
         {
@@ -475,7 +564,7 @@ namespace Misc
         }
     }
 
-    void StereoView::updateStateset(osg::StateSet * stateset)
+    void StereoView::updateStateset(osg::StateSet* stateset)
     {
         // Manage viewports in update to automatically catch window/resolution changes.
         auto width = mMainCamera->getViewport()->width();
@@ -495,9 +584,9 @@ namespace Misc
         stereoViewProjectionsUniform->setElement(1, frustumViewMatrixInverse * mRightCamera->getViewMatrix() * mRightCamera->getProjectionMatrix());
     }
 
-    void StereoView::setUpdateViewCallback(std::shared_ptr<UpdateViewCallback> cb_)
+    void StereoView::setUpdateViewCallback(std::shared_ptr<UpdateViewCallback> cb)
     {
-        cb = cb_;
+        mUpdateViewCallback = cb;
     }
 
     void StereoView::initializeScene()
@@ -565,63 +654,85 @@ namespace Misc
         return StereoView::Technique::BruteForce;
     }
 
-    void StereoView::DefaultUpdateViewCallback::updateView(View& left, View& right, double& near, double& far)
+    void StereoView::DefaultUpdateViewCallback::updateView(View& left, View& right)
     {
         left.pose.position = osg::Vec3(-2.2, 0, 0);
         right.pose.position = osg::Vec3(2.2, 0, 0);
         left.fov = { -0.767549932, 0.620896876, -0.837898076, 0.726982594 };
         right.fov = { -0.620896876, 0.767549932, -0.837898076, 0.726982594 };
-        near = 1;
-        far = 6656;
     }
 
     void StereoView::setInitialDrawCallback(osg::ref_ptr<osg::Camera::DrawCallback> cb)
     {
-        if (mTechnique == Technique::GeometryShader_IndexedViewports)
+        mInitialDrawCallback = cb;
+        switch (mTechnique)
         {
-            mMainCamera->setInitialDrawCallback(cb);
-        }
-        else
-        {
-            mRightCamera->setInitialDrawCallback(cb);
+        case Technique::GeometryShader_IndexedViewports:
+            mMainCamera->setInitialDrawCallback(cb); break;
+        case Technique::BruteForce:
+            mRightCamera->setInitialDrawCallback(cb); break;
+        default: break;
         }
     }
 
     void StereoView::setPredrawCallback(osg::ref_ptr<osg::Camera::DrawCallback> cb)
     {
-        if (mTechnique == Technique::GeometryShader_IndexedViewports)
+        mPreDrawCallback = cb;
+        switch (mTechnique)
         {
-            mMainCamera->setPreDrawCallback(cb);
-        }
-        else
-        {
+        case Technique::GeometryShader_IndexedViewports:
+            mMainCamera->setPreDrawCallback(cb); break;
+        case Technique::BruteForce:
             mLeftCamera->setPreDrawCallback(cb);
-            mRightCamera->setPreDrawCallback(cb);
+            mRightCamera->setPreDrawCallback(cb); break;
+        default: break;
         }
     }
 
     void StereoView::setPostdrawCallback(osg::ref_ptr<osg::Camera::DrawCallback> cb)
     {
-        if (mTechnique == Technique::GeometryShader_IndexedViewports)
+        mPostDrawCallback = cb;
+        switch (mTechnique)
         {
-            mMainCamera->setPostDrawCallback(cb);
-        }
-        else
-        {
+        case Technique::GeometryShader_IndexedViewports:
+            mMainCamera->setPostDrawCallback(cb); break;
+        case Technique::BruteForce:
             mLeftCamera->setPostDrawCallback(cb);
-            mRightCamera->setPostDrawCallback(cb);
+            mRightCamera->setPostDrawCallback(cb); break;
+        default: break;
         }
     }
 
     void StereoView::setCullCallback(osg::ref_ptr<osg::NodeCallback> cb)
     {
+        mCullCallback = cb;
+        switch (mTechnique)
+        {
+        case Technique::GeometryShader_IndexedViewports:
+            mMainCamera->setCullCallback(cb); break;
+        case Technique::BruteForce:
+            mRightCamera->setCullCallback(cb); break;
+        default: break;
+        }
+    }
+
+    void StereoView::setCullMask(osg::Node::NodeMask cullMask)
+    {
+        mCullMask = cullMask;
         if (mTechnique == Technique::GeometryShader_IndexedViewports)
         {
-            mMainCamera->setCullCallback(cb);
+            mMainCamera->setCullMask(cullMask & ~mNoShaderMask);
+            mLeftCamera->setCullMask((cullMask & mNoShaderMask) | mSceneMask);
+            mRightCamera->setCullMask((cullMask & mNoShaderMask) | mSceneMask);
         }
         else
         {
-            mRightCamera->setCullCallback(cb);
+            mLeftCamera->setCullMask(cullMask);
+            mRightCamera->setCullMask(cullMask);
         }
+    }
+    osg::Node::NodeMask StereoView::getCullMask()
+    {
+        return mCullMask;
     }
 }

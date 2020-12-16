@@ -35,6 +35,9 @@ namespace MWVR
 
     void VRCamera::recenter()
     {
+        if (!mHasTrackingData)
+            return;
+
         // Move position of head to center of character 
         // Z should not be affected
         mHeadOffset = osg::Vec3(0, 0, 0);
@@ -87,6 +90,7 @@ namespace MWVR
             osg::Vec3 vrMovement = currentHeadPose.position - mHeadPose.position;
             mHeadPose = currentHeadPose;
             mHeadOffset += stageRotation() * vrMovement;
+            mHasTrackingData = true;
         }
     }
 

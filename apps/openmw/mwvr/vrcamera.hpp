@@ -73,6 +73,7 @@ namespace MWVR
         Pose mHeadPose{};
         osg::Vec3 mHeadOffset{ 0,0,0 };
         bool mShouldRecenter{ true };
+        bool mHasTrackingData{ false };
         float mYawOffset{ 0.f };
     };
 }

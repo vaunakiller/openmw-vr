@@ -7,6 +7,7 @@
 #include <components/debug/debuglog.hpp>
 #include <components/sdlutil/sdlgraphicswindow.hpp>
 #include <components/settings/settings.hpp>
+#include <components/misc/stereo.hpp>
 #include <osg/Camera>
 #include <osgViewer/Viewer>
 
@@ -37,47 +38,51 @@ namespace MWVR
         RIGHT_SIDE = 1
     };
 
-    //! Represents the relative pose in space of some limb or eye.
-    struct Pose
-    {
-        //! Position in space
-        osg::Vec3 position{ 0,0,0 };
-        //! Orientation in space.
-        osg::Quat orientation{ 0,0,0,1 };
+    ////! Represents the relative pose in space of some limb or eye.
+    //struct Pose
+    //{
+    //    //! Position in space
+    //    osg::Vec3 position{ 0,0,0 };
+    //    //! Orientation in space.
+    //    osg::Quat orientation{ 0,0,0,1 };
 
-        //! Add one pose to another
-        Pose operator+(const Pose& rhs);
-        const Pose& operator+=(const Pose& rhs);
+    //    //! Add one pose to another
+    //    Pose operator+(const Pose& rhs);
+    //    const Pose& operator+=(const Pose& rhs);
 
-        //! Scale a pose (does not affect orientation)
-        Pose operator*(float scalar);
-        const Pose& operator*=(float scalar);
-        Pose operator/(float scalar);
-        const Pose& operator/=(float scalar);
+    //    //! Scale a pose (does not affect orientation)
+    //    Pose operator*(float scalar);
+    //    const Pose& operator*=(float scalar);
+    //    Pose operator/(float scalar);
+    //    const Pose& operator/=(float scalar);
 
-        bool operator==(const Pose& rhs) const;
-    };
+    //    bool operator==(const Pose& rhs) const;
+    //};
 
-    //! Fov of a single eye
-    struct FieldOfView {
-        float    angleLeft;
-        float    angleRight;
-        float    angleUp;
-        float    angleDown;
+    ////! Fov of a single eye
+    //struct FieldOfView {
+    //    float    angleLeft;
+    //    float    angleRight;
+    //    float    angleUp;
+    //    float    angleDown;
 
-        bool operator==(const FieldOfView& rhs) const;
+    //    bool operator==(const FieldOfView& rhs) const;
 
-        //! Generate a perspective matrix from this fov
-        osg::Matrix perspectiveMatrix(float near, float far);
-    };
+    //    //! Generate a perspective matrix from this fov
+    //    osg::Matrix perspectiveMatrix(float near, float far);
+    //};
 
-    //! Represents an eye in VR including both pose and fov. A view's pose is relative to the head.
-    struct View
-    {
-        Pose pose;
-        FieldOfView fov;
-        bool operator==(const View& rhs) const;
-    };
+    ////! Represents an eye in VR including both pose and fov. A view's pose is relative to the head.
+    //struct View
+    //{
+    //    Pose pose;
+    //    FieldOfView fov;
+    //    bool operator==(const View& rhs) const;
+    //};
+
+    using Pose = Misc::Pose;
+    using FieldOfView = Misc::FieldOfView;
+    using View = Misc::View;
 
     //! The complete set of poses tracked each frame by MWVR.
     struct PoseSet

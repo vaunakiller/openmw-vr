@@ -200,7 +200,7 @@ namespace MWRender
         Resource::ResourceSystem* mResourceSystem;
     };
 
-    RenderingManager::RenderingManager(osgViewer::Viewer* viewer, osg::ref_ptr<osg::Group> rootNode,
+    RenderingManager::RenderingManager(osgViewer::Viewer* viewer, osg::ref_ptr<osg::Group> rootNode, std::unique_ptr<Camera> camera,
                                        Resource::ResourceSystem* resourceSystem, SceneUtil::WorkQueue* workQueue,
                                        const std::string& resourcePath, DetourNavigator::Navigator& navigator)
         : mViewer(viewer)
@@ -316,11 +316,8 @@ namespace MWRender
 
         // water goes after terrain for correct waterculling order
         mWater.reset(new Water(sceneRoot->getParent(0), sceneRoot, mResourceSystem, mViewer->getIncrementalCompileOperation(), resourcePath));
-#ifdef USE_OPENXR
-        mCamera.reset(new MWVR::VRCamera(mViewer->getCamera()));
-#else
-        mCamera.reset(new Camera(mViewer->getCamera()));
-#endif
+        mCamera = std::move(camera);
+
         if (Settings::Manager::getBool("view over shoulder", "Camera"))
             mViewOverShoulderController.reset(new ViewOverShoulderController(mCamera.get()));
 

@@ -21,6 +21,7 @@
 #include <iostream>
 #include <time.h>
 #include <thread>
+#include <chrono>
 
 #ifdef max
 #undef max
@@ -192,24 +193,17 @@ namespace MWVR
 
     void VRSession::beginPhase(FramePhase phase)
     {
-        Log(Debug::Debug) << "beginPhase(" << ((int)phase) << ") " << std::this_thread::get_id();
 
         {
             std::unique_lock<std::mutex> lock(mMutex);
             while (getFrame(phase))
+            {
+                Log(Debug::Verbose) << "Warning: beginPhase called with a frame already in the target phase";
                 mCondition.wait(lock);
+            }
         }
 
-            mCondition.notify_all();
         auto& frame = getFrame(phase);
-        //if (frame)
-        //{
-        //    // Happens once during startup but can be ignored that time.
-        //    // TODO: This issue would be cleaned up if beginPhase(Update) was called at a more appropriate location.
-        //    Log(Debug::Warning) << "advanceFramePhase called with a frame alreay in the target phase";
-        //    return;
-        //}
-
 
         if (phase == FramePhase::Update)
         {
@@ -224,6 +218,8 @@ namespace MWVR
             frame = std::move(getFrame(previousPhase));
         }
 
+        mCondition.notify_all();
+
         if (phase == mXrSyncPhase && frame->mShouldSyncFrameLoop)
         {
             // We may reach this point before xrEndFrame of the previous frame
@@ -237,7 +233,6 @@ namespace MWVR
             Environment::get().getManager()->beginFrame();
         }
 
-        mCondition.notify_all();
     }
 
     std::unique_ptr<VRSession::VRFrameMeta>& VRSession::getFrame(FramePhase phase)
@@ -348,7 +343,7 @@ namespace MWVR
     void VRSession::movementAngles(float& yaw, float& pitch)
     {
         if (!getFrame(FramePhase::Update))
-            beginPhase(FramePhase::Update);
+            return;
         
         if (mHandDirectedMovement)
         {

@@ -375,6 +375,7 @@ public:
         setName("GUI Camera");
         mDrawable = new Drawable(filter, parent, this);
         mDrawable->setName("GUI Drawable");
+        mDrawable->setDataVariance(osg::Object::STATIC);
         addChild(mDrawable.get());
         mDrawable->setCullingActive(false);
     }

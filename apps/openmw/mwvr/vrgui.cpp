@@ -497,16 +497,17 @@ namespace MWVR
 
     VRGUIManager::VRGUIManager(
         osg::ref_ptr<osgViewer::Viewer> viewer,
-        Resource::ResourceSystem* resourceSystem)
+        Resource::ResourceSystem* resourceSystem,
+        osg::Group* rootNode)
         : mOsgViewer(viewer)
         , mResourceSystem(resourceSystem)
+        , mRootNode(rootNode)
     {
         mGUIGeometriesRoot->setName("VR GUI Geometry Root");
         mGUIGeometriesRoot->setUpdateCallback(new VRGUIManagerUpdateCallback(this));
         mGUICamerasRoot->setName("VR GUI Cameras Root");
-        auto* root = viewer->getSceneData();
-        root->asGroup()->addChild(mGUICamerasRoot);
-        root->asGroup()->addChild(mGUIGeometriesRoot);
+        mRootNode->asGroup()->addChild(mGUICamerasRoot);
+        mRootNode->asGroup()->addChild(mGUIGeometriesRoot);
         mGUIGeometriesRoot->getOrCreateStateSet()->setMode(GL_LIGHTING, osg::StateAttribute::OFF);
 
         LayerConfig defaultConfig = createDefaultConfig(1);

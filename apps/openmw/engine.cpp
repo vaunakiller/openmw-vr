@@ -56,6 +56,7 @@
 #include "mwworld/worldimp.hpp"
 
 #include "mwrender/vismask.hpp"
+#include "mwrender/camera.hpp"
 
 #include "mwclass/classes.hpp"
 
@@ -71,6 +72,7 @@
 #include "mwvr/vrinputmanager.hpp"
 #include "mwvr/vrviewer.hpp"
 #include "mwvr/vrgui.hpp"
+#include "mwvr/vrcamera.hpp"
 #endif
 
 namespace
@@ -673,6 +675,20 @@ void OMW::Engine::prepareEngine (Settings::Manager & settings)
         Settings::Manager::getInt("anisotropy", "General")
     );
 
+    // geometry shader must be enabled before the RenderingManager sets up any shaders
+    // therefore this part is separate from the rest of stereo setup.
+    mStereoEnabled = mEnvironment.getVrMode() || Settings::Manager::getBool("stereo enabled", "Stereo");
+    if (mStereoEnabled)
+    {
+        mResourceSystem->getSceneManager()->getShaderManager().setStereoGeometryShaderEnabled(Misc::getStereoTechnique() == Misc::StereoView::Technique::GeometryShader_IndexedViewports);
+        // Mask in everything that does not currently use shaders.
+        // Remove that altogether when the sky finally uses them.
+        auto noShaderMask = MWRender::VisMask::Mask_Sky | MWRender::VisMask::Mask_Sun | MWRender::VisMask::Mask_WeatherParticles;
+        // Since shaders are not yet created, we need to use the brute force technique initially
+        mStereoView.reset(new Misc::StereoView(mViewer, Misc::StereoView::Technique::BruteForce, noShaderMask, MWRender::VisMask::Mask_Scene));
+    }
+
+
     int numThreads = Settings::Manager::getInt("preload num threads", "Cells");
     if (numThreads <= 0)
         throw std::runtime_error("Invalid setting: 'preload num threads' must be >0");
@@ -755,35 +771,28 @@ void OMW::Engine::prepareEngine (Settings::Manager & settings)
     // Create sound system
     mEnvironment.setSoundManager (new MWSound::SoundManager(mVFS.get(), mUseSound));
 
-    // VR mode will override this setting by setting mStereoOverride.
-    mStereoEnabled = mEnvironment.getVrMode() || Settings::Manager::getBool("stereo enabled", "Stereo");
-
-    // geometry shader must be enabled before the RenderingManager sets up any shaders
-    // therefore this part is separate from the rest of stereo setup.
-    if (mStereoEnabled)
-    {
-        mResourceSystem->getSceneManager()->getShaderManager().setStereoGeometryShaderEnabled(Misc::getStereoTechnique() == Misc::StereoView::Technique::GeometryShader_IndexedViewports);
-        // Mask in everything that does not currently use shaders.
-        // Remove that altogether when the sky finally uses them.
-        auto noShaderMask = MWRender::VisMask::Mask_Sky | MWRender::VisMask::Mask_Sun | MWRender::VisMask::Mask_WeatherParticles;
-        auto geometryShaderMask = mViewer->getCamera()->getCullMask() & ~noShaderMask;
-        mStereoView.reset(new Misc::StereoView(mViewer, Misc::getStereoTechnique(), geometryShaderMask, noShaderMask | MWRender::VisMask::Mask_Scene));
-    }
-
 #ifdef USE_OPENXR
-    mXrEnvironment.setGUIManager(new MWVR::VRGUIManager(mViewer, mResourceSystem.get()));
+    mXrEnvironment.setGUIManager(new MWVR::VRGUIManager(mViewer, mResourceSystem.get(), rootNode));
     mXrEnvironment.getViewer()->configureCallbacks();
 #endif
+
+    std::unique_ptr<MWRender::Camera> camera(
+#ifdef USE_OPENXR
+        new MWVR::VRCamera(mViewer->getCamera())
+#else
+        new Camera(mViewer->getCamera())
+#endif
+    );
 
     if (!mSkipMenu)
     {
         const std::string& logo = Fallback::Map::getString("Movies_Company_Logo");
         if (!logo.empty())
-            window->playVideo(logo, true);
+            mEnvironment.getWindowManager()->playVideo(logo, true);
     }
 
     // Create the world
-    mEnvironment.setWorld( new MWWorld::World (mViewer, rootNode, mResourceSystem.get(), mWorkQueue.get(),
+    mEnvironment.setWorld( new MWWorld::World (mViewer, rootNode, std::move(camera), mResourceSystem.get(), mWorkQueue.get(),
         mFileCollections, mContentFiles, mEncoder, mActivationDistanceOverride, mCellName,
         mStartupScript, mResDir.string(), mCfgMgr.getUserDataPath().string()));
     mEnvironment.getWorld()->setupPlayer();
@@ -791,7 +800,9 @@ void OMW::Engine::prepareEngine (Settings::Manager & settings)
     // Set up stereo
     if (mStereoEnabled)
     {
+        mStereoView->setStereoTechnique(Misc::getStereoTechnique());
         mStereoView->initializeScene();
+        mStereoView->setCullMask(mStereoView->getCullMask());
     }
 
     window->setStore(mEnvironment.getWorld()->getStore());
