@@ -70,7 +70,7 @@ namespace MWVR
         osg::Matrix getWeaponTransformMatrix() const;
 
     protected:
-        static osg::ref_ptr<osg::Geometry> createPointerGeometry(void);
+        osg::ref_ptr<osg::Geometry> createPointerGeometry(void);
 
         float getVelocity(const std::string& groupname) const override;
 

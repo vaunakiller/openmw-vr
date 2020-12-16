@@ -10,11 +10,16 @@
 #include <osg/Drawable>
 #include <osg/Object>
 #include <osg/BlendFunc>
+#include <osg/Fog>
+#include <osg/LightModel>
 
 #include <components/debug/debuglog.hpp>
 
 #include <components/sceneutil/actorutil.hpp>
 #include <components/sceneutil/positionattitudetransform.hpp>
+#include <components/sceneutil/shadow.hpp>
+#include <components/resource/resourcesystem.hpp>
+#include <components/resource/scenemanager.hpp>
 
 #include <components/settings/settings.hpp>
 
@@ -510,10 +515,10 @@ namespace MWVR
 
         osg::Vec3 vertices[]{
             {0, 0, 0}, // origin
-            {1, 1, -1}, // top_left
-            {-1, 1, -1}, // bottom_left
-            {-1, 1, 1}, // bottom_right
-            {1, 1, 1}, // top_right
+            {-1, 1, -1}, // A
+            {-1, 1, 1}, //  B
+            {1, 1, 1}, //   C
+            {1, 1, -1}, //  D
         };
 
         osg::Vec4 colors[]{
@@ -524,20 +529,20 @@ namespace MWVR
             osg::Vec4(1.0f, 0.0f, 0.0f, 1.0f),
         };
 
-        const int origin = 0;
-        const int top_left = 1;
-        const int bottom_left = 2;
-        const int bottom_right = 3;
-        const int top_right = 4;
+        const int O = 0;
+        const int A = 1;
+        const int B = 2;
+        const int C = 3;
+        const int D = 4;
 
         const int triangles[] =
         {
-            bottom_right, top_right, top_left,
-            bottom_right, top_left, bottom_left,
-            origin, top_left, top_right,
-            origin, top_right, bottom_right,
-            origin, bottom_left, top_left,
-            origin, bottom_right, bottom_left,
+            A,D,B,
+            B,D,C,
+            O,D,A,
+            O,C,D,
+            O,B,C,
+            O,A,B,
         };
         int numVertices = sizeof(triangles) / sizeof(*triangles);
         osg::ref_ptr<osg::Vec3Array> vertexArray = new osg::Vec3Array(numVertices);
@@ -547,9 +552,6 @@ namespace MWVR
             (*vertexArray)[i] = vertices[triangles[i]];
             (*colorArray)[i] = colors[triangles[i]];
         }
-
-        osg::ref_ptr<osg::Vec3Array> normals = new osg::Vec3Array;
-        normals->push_back(osg::Vec3(0.0f, -1.0f, 0.0f));
 
         geometry->setVertexArray(vertexArray);
         geometry->setColorArray(colorArray, osg::Array::BIND_PER_VERTEX);
@@ -562,6 +564,21 @@ namespace MWVR
         stateset->setMode(GL_BLEND, osg::StateAttribute::ON);
         stateset->setAttributeAndModes(new osg::BlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA));
         stateset->setRenderingHint(osg::StateSet::TRANSPARENT_BIN);
+        osg::ref_ptr<osg::Fog> fog(new osg::Fog);
+        fog->setStart(10000000);
+        fog->setEnd(10000000);
+        stateset->setAttributeAndModes(fog, osg::StateAttribute::OFF | osg::StateAttribute::OVERRIDE);
+
+        osg::ref_ptr<osg::LightModel> lightmodel = new osg::LightModel;
+        lightmodel->setAmbientIntensity(osg::Vec4(1.0, 1.0, 1.0, 1.0));
+        stateset->setAttributeAndModes(lightmodel, osg::StateAttribute::ON);
+        SceneUtil::ShadowManager::disableShadowsForStateSet(stateset);
+
+        osg::ref_ptr<osg::Material> material = new osg::Material;
+        material->setColorMode(osg::Material::ColorMode::AMBIENT_AND_DIFFUSE);
+        stateset->setAttributeAndModes(material, osg::StateAttribute::ON);
+
+        mResourceSystem->getSceneManager()->recreateShaders(geometry);
 
         return geometry;
     }
