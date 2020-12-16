@@ -663,6 +663,19 @@ void OMW::Engine::prepareEngine (Settings::Manager & settings)
         Settings::Manager::getInt("anisotropy", "General")
     );
 
+    // geometry shader must be enabled before the RenderingManager sets up any shaders
+    // therefore this part is separate from the rest of stereo setup.
+    mStereoEnabled = Settings::Manager::getBool("stereo enabled", "Stereo");
+    if (mStereoEnabled)
+    {
+        mResourceSystem->getSceneManager()->getShaderManager().setStereoGeometryShaderEnabled(Misc::getStereoTechnique() == Misc::StereoView::Technique::GeometryShader_IndexedViewports);
+        // Mask in everything that does not currently use shaders.
+        // Remove that altogether when the sky finally uses them.
+        auto noShaderMask = MWRender::VisMask::Mask_Sky | MWRender::VisMask::Mask_Sun | MWRender::VisMask::Mask_WeatherParticles;
+        // Since shaders are not yet created, we need to use the brute force technique initially
+        mStereoView.reset(new Misc::StereoView(mViewer, Misc::StereoView::Technique::BruteForce, noShaderMask, MWRender::VisMask::Mask_Scene));
+    }
+
     int numThreads = Settings::Manager::getInt("preload num threads", "Cells");
     if (numThreads <= 0)
         throw std::runtime_error("Invalid setting: 'preload num threads' must be >0");
@@ -721,21 +734,6 @@ void OMW::Engine::prepareEngine (Settings::Manager & settings)
     // Create sound system
     mEnvironment.setSoundManager (new MWSound::SoundManager(mVFS.get(), mUseSound));
 
-    // VR mode will override this setting by setting mStereoOverride.
-    mStereoEnabled = mStereoOverride || Settings::Manager::getBool("stereo enabled", "Stereo");
-
-    // geometry shader must be enabled before the RenderingManager sets up any shaders
-    // therefore this part is separate from the rest of stereo setup.
-    if (mStereoEnabled)
-    {
-        mResourceSystem->getSceneManager()->getShaderManager().setStereoGeometryShaderEnabled(Misc::getStereoTechnique() == Misc::StereoView::Technique::GeometryShader_IndexedViewports);
-        // Mask in everything that does not currently use shaders.
-        // Remove that altogether when the sky finally uses them.
-        auto noShaderMask = MWRender::VisMask::Mask_Sky | MWRender::VisMask::Mask_Sun | MWRender::VisMask::Mask_WeatherParticles;
-        auto geometryShaderMask = mViewer->getCamera()->getCullMask() & ~noShaderMask;
-        mStereoView = new Misc::StereoView(mViewer, Misc::getStereoTechnique(), geometryShaderMask, noShaderMask | MWRender::VisMask::Mask_Scene);
-    }
-
     if (!mSkipMenu)
     {
         const std::string& logo = Fallback::Map::getString("Movies_Company_Logo");
@@ -752,7 +750,9 @@ void OMW::Engine::prepareEngine (Settings::Manager & settings)
     // Set up stereo
     if (mStereoEnabled)
     {
+        mStereoView->setStereoTechnique(Misc::getStereoTechnique());
         mStereoView->initializeScene();
+        mStereoView->setCullMask(mStereoView->getCullMask());
     }
 
     window->setStore(mEnvironment.getWorld()->getStore());
