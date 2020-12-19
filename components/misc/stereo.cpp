@@ -357,11 +357,13 @@ namespace Misc
         for (auto* sceneView : { renderer->getSceneView(0), renderer->getSceneView(1) })
         {
             sceneView->setComputeStereoMatricesCallback(new ComputeStereoMatricesCallback(this));
-            sceneView->getCullVisitorLeft()->setName("LEFT");
-            sceneView->getCullVisitorRight()->setName("RIGHT");
-        }
 
-        mMainCamera->setUserData(mMasterConfig);
+            if (mSharedShadowMaps)
+            {
+                sceneView->getCullVisitorLeft()->setUserData(mMasterConfig);
+                sceneView->getCullVisitorRight()->setUserData(mSlaveConfig);
+            }
+        }
     }
 
     void StereoView::setupGeometryShaderIndexedViewportTechnique()
