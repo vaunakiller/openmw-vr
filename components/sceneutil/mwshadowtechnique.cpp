@@ -962,7 +962,9 @@ void SceneUtil::MWShadowTechnique::shareShadowMap(osgUtil::CullVisitor& cv, View
 
 bool MWShadowTechnique::trySharedShadowMap(osgUtil::CullVisitor& cv, ViewDependentData* vdd)
 {
-    auto* sharedConfig = dynamic_cast<SharedShadowMapConfig*>(cv.getCurrentCamera()->getUserData());
+    auto* sharedConfig = dynamic_cast<SharedShadowMapConfig*>(cv.getUserData());
+    if (!sharedConfig)
+        sharedConfig = dynamic_cast<SharedShadowMapConfig*>(cv.getCurrentCamera()->getUserData());
     if (!sharedConfig)
     {
         return false;
@@ -997,7 +999,9 @@ bool MWShadowTechnique::trySharedShadowMap(osgUtil::CullVisitor& cv, ViewDepende
 
 void SceneUtil::MWShadowTechnique::endSharedShadowMap(osgUtil::CullVisitor& cv)
 {
-    auto* sharedConfig = dynamic_cast<SharedShadowMapConfig*>(cv.getCurrentCamera()->getUserData());
+    auto* sharedConfig = dynamic_cast<SharedShadowMapConfig*>(cv.getUserData());
+    if (!sharedConfig)
+        sharedConfig = dynamic_cast<SharedShadowMapConfig*>(cv.getCurrentCamera()->getUserData());
     if (!sharedConfig)
     {
         return;
