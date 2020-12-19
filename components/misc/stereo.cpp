@@ -6,6 +6,7 @@
 
 #include <osgUtil/CullVisitor>
 
+#include <osgViewer/Renderer>
 #include <osgViewer/Viewer>
 
 #include <iostream>
@@ -252,26 +253,20 @@ namespace Misc
         return camera;
     }
 
-    StereoView::StereoView(osgViewer::Viewer* viewer, Technique technique, osg::Node::NodeMask noShaderMask, osg::Node::NodeMask sceneMask)
-        : mViewer(viewer)
-        , mMainCamera(mViewer->getCamera())
-        , mRoot(mViewer->getSceneData()->asGroup())
+    StereoView::StereoView(osg::Node::NodeMask noShaderMask, osg::Node::NodeMask sceneMask)
+        : mViewer(nullptr)
+        , mMainCamera(nullptr)
+        , mRoot(nullptr)
         , mStereoRoot(new osg::Group)
         , mUpdateCallback(new StereoUpdateCallback(this))
         , mTechnique(Technique::None)
         , mNoShaderMask(noShaderMask)
         , mSceneMask(sceneMask)
-        , mCullMask(mMainCamera->getCullMask())
+        , mCullMask(0)
         , mMasterConfig(new SharedShadowMapConfig)
         , mSlaveConfig(new SharedShadowMapConfig)
         , mSharedShadowMaps(Settings::Manager::getBool("shared shadow maps", "Stereo"))
     {
-        if (technique == Technique::None)
-            // Do nothing
-            return;
-
-        mRoot->setDataVariance(osg::Object::STATIC);
-
         mMasterConfig->_id = "STEREO";
         mMasterConfig->_master = true;
         mSlaveConfig->_id = "STEREO";
@@ -283,42 +278,90 @@ namespace Misc
         mStereoRoot->addChild(mStereoBruteForceRoot);
         mStereoRoot->addCullCallback(new StereoStatesetUpdateCallback(this));
 
-        setStereoTechnique(technique);
-
         if (sInstance)
             throw std::logic_error("Double instance og StereoView");
         sInstance = this;
+
+        auto* ds = osg::DisplaySettings::instance().get();
+        ds->setStereo(true);
+        ds->setStereoMode(osg::DisplaySettings::StereoMode::HORIZONTAL_SPLIT);
+        ds->setUseSceneViewForStereoHint(true);
+    }
+
+    void StereoView::initializeStereo(osgViewer::Viewer* viewer, Technique technique)
+    {
+        mViewer = viewer;
+        mRoot = viewer->getSceneData()->asGroup();
+        mMainCamera = viewer->getCamera();
+        mCullMask = mMainCamera->getCullMask();
+
+        setStereoTechnique(technique);
+    }
+
+    void StereoView::initializeScene()
+    {
+        SceneUtil::FindByNameVisitor findScene("Scene Root");
+        mRoot->accept(findScene);
+        mScene = findScene.mFoundNode;
+        if (!mScene)
+            throw std::logic_error("Couldn't find scene root");
+
+        if (mTechnique == Technique::GeometryShader_IndexedViewports)
+        {
+            mLeftCamera->addChild(mScene); // Use scene directly to avoid redundant shadow computation.
+            mRightCamera->addChild(mScene);
+        }
     }
 
     void StereoView::setupBruteForceTechnique()
     {
-        mLeftCamera = createCamera("Stereo Left", GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
-        mRightCamera = createCamera("Stereo Right", GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+        auto* ds = osg::DisplaySettings::instance().get();
+        ds->setStereo(true);
+        ds->setStereoMode(osg::DisplaySettings::StereoMode::HORIZONTAL_SPLIT);
+        ds->setUseSceneViewForStereoHint(true);
 
-        if (mSharedShadowMaps)
+        struct ComputeStereoMatricesCallback : public osgUtil::SceneView::ComputeStereoMatricesCallback
         {
-            mLeftCamera->setUserData(mSlaveConfig);
-            mRightCamera->setUserData(mMasterConfig);
+            ComputeStereoMatricesCallback(StereoView* sv)
+                : mStereoView(sv)
+            {
+
+            }
+
+            osg::Matrixd computeLeftEyeProjection(const osg::Matrixd& projection) const override
+            {
+                return mStereoView->computeLeftEyeProjection(projection);
+            }
+
+            osg::Matrixd computeLeftEyeView(const osg::Matrixd& view) const override
+            {
+                return mStereoView->computeLeftEyeView(view);
+            }
+
+            osg::Matrixd computeRightEyeProjection(const osg::Matrixd& projection) const override
+            {
+                return mStereoView->computeRightEyeProjection(projection);
+            }
+
+            osg::Matrixd computeRightEyeView(const osg::Matrixd& view) const override
+            {
+                return mStereoView->computeRightEyeView(view);
+            }
+
+            StereoView* mStereoView;
+        };
+
+        auto* renderer = static_cast<osgViewer::Renderer*>(mMainCamera->getRenderer());
+
+        // osgViewer::Renderer always has two scene views
+        for (auto* sceneView : { renderer->getSceneView(0), renderer->getSceneView(1) })
+        {
+            sceneView->setComputeStereoMatricesCallback(new ComputeStereoMatricesCallback(this));
+            sceneView->getCullVisitorLeft()->setName("LEFT");
+            sceneView->getCullVisitorRight()->setName("RIGHT");
         }
 
-        // Slave cameras must have their viewports defined immediately
-        auto width = mMainCamera->getViewport()->width();
-        auto height = mMainCamera->getViewport()->height();
-        mLeftCamera->setViewport(0, 0, width / 2, height);
-        mRightCamera->setViewport(width / 2, 0, width / 2, height);
-
-        // Threading should be stopped before adding new slave cameras
-        mViewer->stopThreading();
-        mViewer->addSlave(mRightCamera, true);
-        mViewer->addSlave(mLeftCamera, true);
-        mRightCamera->setGraphicsContext(mViewer->getCamera()->getGraphicsContext());
-        mLeftCamera->setGraphicsContext(mViewer->getCamera()->getGraphicsContext());
-
-        // Remove main camera's graphics context to ensure it does not do any work
-        mViewer->getCamera()->setGraphicsContext(nullptr);
-
-        // Re-realize to ensure slave cameras are set up with appropriate settings
-        mViewer->realize();
+        mMainCamera->setUserData(mMasterConfig);
     }
 
     void StereoView::setupGeometryShaderIndexedViewportTechnique()
@@ -338,7 +381,7 @@ namespace Misc
         for (unsigned int i = 0; i < viewer->getNumSlaves(); i++)
         {
             auto& slave = viewer->getSlave(i);
-            if (slave._camera == camera);
+            if (slave._camera == camera)
             {
                 viewer->removeSlave(i);
                 return;
@@ -348,17 +391,10 @@ namespace Misc
 
     void StereoView::removeBruteForceTechnique()
     {
-        mViewer->stopThreading();
-        removeSlave(mViewer, mRightCamera);
-        removeSlave(mViewer, mLeftCamera);
-        mLeftCamera->setUserData(nullptr);
-        mRightCamera->setUserData(nullptr);
-
-        mMainCamera->setGraphicsContext(mRightCamera->getGraphicsContext());
-        mLeftCamera = nullptr;
-        mRightCamera = nullptr;
-
-        mViewer->realize();
+        auto* ds = osg::DisplaySettings::instance().get();
+        ds->setStereo(false);
+        if(mMainCamera->getUserData() == mMasterConfig)
+            mMainCamera->setUserData(nullptr);
     }
 
     void StereoView::removeGeometryShaderIndexedViewportTechnique()
@@ -589,21 +625,6 @@ namespace Misc
         mUpdateViewCallback = cb;
     }
 
-    void StereoView::initializeScene()
-    {
-        SceneUtil::FindByNameVisitor findScene("Scene Root");
-        mRoot->accept(findScene);
-        mScene = findScene.mFoundNode;
-        if (!mScene)
-            throw std::logic_error("Couldn't find scene root");
-
-        if (mTechnique == Technique::GeometryShader_IndexedViewports)
-        {
-            mLeftCamera->addChild(mScene); // Use scene directly to avoid redundant shadow computation.
-            mRightCamera->addChild(mScene);
-        }
-    }
-
     void disableStereoForCamera(osg::Camera* camera)
     {
         auto* viewport = camera->getViewport();
@@ -734,5 +755,21 @@ namespace Misc
     osg::Node::NodeMask StereoView::getCullMask()
     {
         return mCullMask;
+    }
+    osg::Matrixd StereoView::computeLeftEyeProjection(const osg::Matrixd& projection) const
+    {
+        return mLeftCamera->getProjectionMatrix();
+    }
+    osg::Matrixd StereoView::computeLeftEyeView(const osg::Matrixd& view) const
+    {
+        return mLeftCamera->getViewMatrix();
+    }
+    osg::Matrixd StereoView::computeRightEyeProjection(const osg::Matrixd& projection) const
+    {
+        return mRightCamera->getProjectionMatrix();
+    }
+    osg::Matrixd StereoView::computeRightEyeView(const osg::Matrixd& view) const
+    {
+        return mRightCamera->getViewMatrix();
     }
 }

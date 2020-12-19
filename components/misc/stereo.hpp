@@ -96,13 +96,14 @@ namespace Misc
         //! \param noShaderMask mask in all nodes that do not use shaders and must be rendered brute force.
         //! \param sceneMask must equal MWRender::VisMask::Mask_Scene. Necessary while VisMask is still not in components/
         //! \note the masks apply only to the GeometryShader_IndexdViewports technique and can be 0 for the BruteForce technique.
-        StereoView(osgViewer::Viewer* viewer, Technique technique, osg::Node::NodeMask noShaderMask, osg::Node::NodeMask sceneMask);
+        StereoView(osg::Node::NodeMask noShaderMask, osg::Node::NodeMask sceneMask);
 
         //! Updates uniforms with the view and projection matrices of each stereo view, and replaces the camera's view and projection matrix
         //! with a view and projection that closely envelopes the frustums of the two eyes.
         void update();
         void updateStateset(osg::StateSet* stateset);
 
+        void initializeStereo(osgViewer::Viewer* viewer, Technique technique);
         //! Initialized scene. Call when the "scene root" node has been created
         void initializeScene();
 
@@ -128,6 +129,13 @@ namespace Misc
 
         //! Get the last applied cullmask.
         osg::Node::NodeMask getCullMask();
+
+
+        osg::Matrixd computeLeftEyeProjection(const osg::Matrixd& projection) const;
+        osg::Matrixd computeLeftEyeView(const osg::Matrixd& view) const;
+
+        osg::Matrixd computeRightEyeProjection(const osg::Matrixd& projection) const;
+        osg::Matrixd computeRightEyeView(const osg::Matrixd& view) const;
 
     private:
         void setupBruteForceTechnique();
