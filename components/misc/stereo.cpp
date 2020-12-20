@@ -688,55 +688,24 @@ namespace Misc
     void StereoView::setInitialDrawCallback(osg::ref_ptr<osg::Camera::DrawCallback> cb)
     {
         mInitialDrawCallback = cb;
-        switch (mTechnique)
-        {
-        case Technique::GeometryShader_IndexedViewports:
-            mMainCamera->setInitialDrawCallback(cb); break;
-        case Technique::BruteForce:
-            mRightCamera->setInitialDrawCallback(cb); break;
-        default: break;
-        }
+        mMainCamera->setInitialDrawCallback(cb);
     }
 
     void StereoView::setPredrawCallback(osg::ref_ptr<osg::Camera::DrawCallback> cb)
     {
         mPreDrawCallback = cb;
-        switch (mTechnique)
-        {
-        case Technique::GeometryShader_IndexedViewports:
-            mMainCamera->setPreDrawCallback(cb); break;
-        case Technique::BruteForce:
-            mLeftCamera->setPreDrawCallback(cb);
-            mRightCamera->setPreDrawCallback(cb); break;
-        default: break;
-        }
+        mMainCamera->setPreDrawCallback(cb);
     }
 
     void StereoView::setPostdrawCallback(osg::ref_ptr<osg::Camera::DrawCallback> cb)
     {
         mPostDrawCallback = cb;
-        switch (mTechnique)
-        {
-        case Technique::GeometryShader_IndexedViewports:
-            mMainCamera->setPostDrawCallback(cb); break;
-        case Technique::BruteForce:
-            mLeftCamera->setPostDrawCallback(cb);
-            mRightCamera->setPostDrawCallback(cb); break;
-        default: break;
-        }
+        mMainCamera->setPostDrawCallback(cb);
     }
 
     void StereoView::setCullCallback(osg::ref_ptr<osg::NodeCallback> cb)
     {
-        mCullCallback = cb;
-        switch (mTechnique)
-        {
-        case Technique::GeometryShader_IndexedViewports:
-            mMainCamera->setCullCallback(cb); break;
-        case Technique::BruteForce:
-            mRightCamera->setCullCallback(cb); break;
-        default: break;
-        }
+        mMainCamera->setCullCallback(cb);
     }
 
     void StereoView::setCullMask(osg::Node::NodeMask cullMask)
@@ -750,8 +719,7 @@ namespace Misc
         }
         else
         {
-            mLeftCamera->setCullMask(cullMask);
-            mRightCamera->setCullMask(cullMask);
+            mMainCamera->setCullMask(cullMask);
         }
     }
     osg::Node::NodeMask StereoView::getCullMask()

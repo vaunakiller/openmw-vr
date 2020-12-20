@@ -50,25 +50,8 @@ namespace MWVR
     }
 
     VRSession::VRSession()
-        : mXrSyncPhase{FramePhase::Cull}
     {
         mHandDirectedMovement = Settings::Manager::getBool("hand directed movement", "VR");
-        auto syncPhase = Settings::Manager::getString("openxr sync phase", "VR Debug");
-        syncPhase = Misc::StringUtils::lowerCase(syncPhase);
-        if (syncPhase == "update")
-            mXrSyncPhase = FramePhase::Update;
-        else if (syncPhase == "cull")
-            mXrSyncPhase = FramePhase::Cull;
-        else if (syncPhase == "draw")
-            mXrSyncPhase = FramePhase::Draw;
-        else if (syncPhase == "swap")
-            mXrSyncPhase = FramePhase::Swap;
-        else
-        {
-            Log(Debug::Verbose) << "Invalid openxr sync phase " << syncPhase << ", defaulting to cull";
-            return;
-        }
-        Log(Debug::Verbose) << "Using openxr sync phase " << syncPhase;
     }
 
     VRSession::~VRSession()
@@ -154,9 +137,7 @@ namespace MWVR
     {
         auto* xr = Environment::get().getManager();
 
-        beginPhase(FramePhase::Swap);
-
-        auto* frameMeta = getFrame(FramePhase::Swap).get();
+        auto* frameMeta = getFrame(FramePhase::Draw).get();
 
         if (frameMeta->mShouldSyncFrameLoop)
         {
@@ -185,7 +166,7 @@ namespace MWVR
         {
             std::unique_lock<std::mutex> lock(mMutex);
             mLastRenderedFrame = frameMeta->mFrameNo;
-            getFrame(FramePhase::Swap) = nullptr;
+            getFrame(FramePhase::Draw) = nullptr;
         }
 
         mCondition.notify_all();
@@ -193,8 +174,8 @@ namespace MWVR
 
     void VRSession::beginPhase(FramePhase phase)
     {
-
         {
+            // TODO: Use a queue system
             std::unique_lock<std::mutex> lock(mMutex);
             while (getFrame(phase))
             {
@@ -212,24 +193,13 @@ namespace MWVR
         else
         {
             std::unique_lock<std::mutex> lock(mMutex);
-            FramePhase previousPhase = static_cast<FramePhase>((int)phase - 1);
-            if (!getFrame(previousPhase))
-                throw std::logic_error("beginPhase called without a frame");
-            frame = std::move(getFrame(previousPhase));
+            frame = std::move(getFrame(FramePhase::Update));
         }
 
         mCondition.notify_all();
 
-        if (phase == mXrSyncPhase && frame->mShouldSyncFrameLoop)
+        if (phase == FramePhase::Draw && frame->mShouldSyncFrameLoop)
         {
-            // We may reach this point before xrEndFrame of the previous frame
-            // Must wait or openxr will interpret another call to xrBeginFrame() as skipping a frame
-            std::unique_lock<std::mutex> lock(mMutex);
-            while (mLastRenderedFrame != frame->mFrameNo - 1)
-            {
-                mCondition.wait(lock);
-            }
-
             Environment::get().getManager()->beginFrame();
         }
 

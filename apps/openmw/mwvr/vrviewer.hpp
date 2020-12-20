@@ -83,8 +83,6 @@ namespace MWVR
                 : mViewer(viewer)
             {}
 
-            ~InitialDrawCallback();
-
             void operator()(osg::RenderInfo& info) const override { mViewer->initialDrawCallback(info); };
 
         private:
@@ -107,6 +105,7 @@ namespace MWVR
         ~VRViewer(void);
 
         void traversals();
+        void swapBuffersCallback(osg::GraphicsContext* gc);
         void initialDrawCallback(osg::RenderInfo& info);
         void preDrawCallback(osg::RenderInfo& info);
         void postDrawCallback(osg::RenderInfo& info);
@@ -130,6 +129,7 @@ namespace MWVR
         osg::ref_ptr<osgViewer::Viewer> mViewer = nullptr;
         osg::ref_ptr<PredrawCallback> mPreDraw{ nullptr };
         osg::ref_ptr<PostdrawCallback> mPostDraw{ nullptr };
+        bool mRenderingReady{ false };
 
         std::unique_ptr<VRFramebuffer> mMsaaResolveMirrorTexture;
         std::unique_ptr<VRFramebuffer> mMirrorTexture;

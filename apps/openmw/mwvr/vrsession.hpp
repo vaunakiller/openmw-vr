@@ -36,9 +36,7 @@ namespace MWVR
         enum class FramePhase
         {
             Update = 0, //!< The frame currently in update traversals
-            Cull, //!< The frame currently in cull
             Draw, //!< The frame currently in draw
-            Swap, //!< The frame being swapped
             NumPhases
         };
 
@@ -83,7 +81,6 @@ namespace MWVR
     private:
         std::mutex mMutex{};
         std::condition_variable mCondition{};
-        FramePhase mXrSyncPhase{ FramePhase::Cull };
 
         bool mHandDirectedMovement{ false };
         long long mFrames{ 0 };
