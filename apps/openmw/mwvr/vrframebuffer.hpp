@@ -13,10 +13,20 @@ namespace MWVR
     /// \brief Manages an opengl framebuffer
     ///
     /// Intended for managing the vr swapchain, but is also use to manage the mirror texture as a convenience.
-    class VRFramebuffer : public osg::Referenced
+    class VRFramebuffer
     {
+    private:
+        struct Texture
+        {
+            uint32_t mImage = 0;
+            bool mOwner = false;
+
+            void delet();
+            void setTexture(uint32_t image, bool owner);
+        };
+
     public:
-        VRFramebuffer(osg::ref_ptr<osg::State> state, std::size_t width, std::size_t height, uint32_t msaaSamples, uint32_t colorBuffer = 0, uint32_t depthBuffer = 0);
+        VRFramebuffer(osg::ref_ptr<osg::State> state, std::size_t width, std::size_t height, uint32_t msaaSamples);
         ~VRFramebuffer();
 
         void destroy(osg::State* state);
@@ -27,13 +37,20 @@ namespace MWVR
 
         void bindFramebuffer(osg::GraphicsContext* gc, uint32_t target);
 
-        uint32_t fbo(void) const { return mFBO; }
-        uint32_t colorBuffer(void) const { return mColorBuffer; }
+        void setColorBuffer(osg::GraphicsContext* gc, uint32_t colorBuffer, bool takeOwnership);
+        void setDepthBuffer(osg::GraphicsContext* gc, uint32_t depthBuffer, bool takeOwnership);
+        void createColorBuffer(osg::GraphicsContext* gc);
+        void createDepthBuffer(osg::GraphicsContext* gc);
 
         //! Blit to region in currently bound draw fbo
-        void blit(osg::GraphicsContext* gc, int x, int y, int w, int h);
+        void blit(osg::GraphicsContext* gc, int x, int y, int w, int h, uint32_t bits, uint32_t filter = GL_LINEAR);
+
+        uint32_t colorBuffer() const { return mColorBuffer.mImage; };
+        uint32_t depthBuffer() const { return mDepthBuffer.mImage; };
 
     private:
+        uint32_t createImage(osg::GraphicsContext* gc, uint32_t formatInternal, uint32_t format);
+
         // Set aside a weak pointer to the constructor state to use when freeing FBOs, if no state is given to destroy()
         osg::observer_ptr<osg::State> mState;
 
@@ -43,11 +60,8 @@ namespace MWVR
 
         // Render Target
         uint32_t mFBO = 0;
-        uint32_t mBlitFBO = 0;
-        uint32_t mDepthBuffer = 0;
-        bool     mOwnDepthBuffer = false;
-        uint32_t mColorBuffer = 0;
-        bool     mOwnColorBuffer = false;
+        Texture mDepthBuffer;
+        Texture mColorBuffer;
         uint32_t mSamples = 0;
         uint32_t mTextureTarget = 0;
     };

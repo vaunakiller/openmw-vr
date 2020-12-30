@@ -39,10 +39,10 @@ namespace MWVR
         , mViews()
         , mPreDraw(new PredrawCallback(this))
         , mPostDraw(new PostdrawCallback(this))
-        , mVrShadow()
-        , mConfigured(false)
         , mMsaaResolveMirrorTexture{}
         , mMirrorTexture{ nullptr }
+        , mVrShadow()
+        , mConfigured(false)
     {
         mViewer->setRealizeOperation(new RealizeOperation());
     }
@@ -251,6 +251,7 @@ namespace MWVR
         if (!mMirrorTexture)
         {
             mMirrorTexture.reset(new VRFramebuffer(gc->getState(), mCameras["MainCamera"]->getViewport()->width(), mCameras["MainCamera"]->getViewport()->height(), 0));
+            mMirrorTexture->createColorBuffer(gc);
         }
 
         auto* state = gc->getState();
@@ -265,21 +266,24 @@ namespace MWVR
         for (unsigned i = 0; i < mMirrorTextureViews.size(); i++)
         {
             auto& view = mViews[mMirrorTextureViews[i]];
-            if(!mMsaaResolveMirrorTexture[mMirrorTextureViews[i]])
+            if (!mMsaaResolveMirrorTexture[mMirrorTextureViews[i]])
+            {
                 mMsaaResolveMirrorTexture[mMirrorTextureViews[i]].reset(new VRFramebuffer(gc->getState(),
                     view->swapchain().width(),
                     view->swapchain().height(),
                     0));
+                mMsaaResolveMirrorTexture[mMirrorTextureViews[i]]->createColorBuffer(gc);
+            }
 
             auto& resolveTexture = *mMsaaResolveMirrorTexture[mMirrorTextureViews[i]];
             resolveTexture.bindFramebuffer(gc, GL_FRAMEBUFFER_EXT);
-            view->swapchain().renderBuffer()->blit(gc, 0, 0, resolveTexture.width(), resolveTexture.height());
+            view->swapchain().framebuffer()->blit(gc, 0, 0, resolveTexture.width(), resolveTexture.height(), GL_COLOR_BUFFER_BIT);
             mMirrorTexture->bindFramebuffer(gc, GL_FRAMEBUFFER_EXT);
-            resolveTexture.blit(gc, i * mirrorWidth, 0, (i + 1) * mirrorWidth, screenHeight);
+            resolveTexture.blit(gc, i * mirrorWidth, 0, (i + 1) * mirrorWidth, screenHeight, GL_COLOR_BUFFER_BIT);
         }
 
         gl->glBindFramebuffer(GL_FRAMEBUFFER_EXT, 0);
-        mMirrorTexture->blit(gc, 0, 0, screenWidth, screenHeight);
+        mMirrorTexture->blit(gc, 0, 0, screenWidth, screenHeight, GL_COLOR_BUFFER_BIT);
     }
 
     void

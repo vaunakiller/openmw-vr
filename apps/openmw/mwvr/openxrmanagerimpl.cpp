@@ -1,5 +1,6 @@
 #include "openxrmanagerimpl.hpp"
 #include "openxrdebug.hpp"
+#include "openxrplatform.hpp"
 #include "openxrswapchain.hpp"
 #include "openxrswapchainimpl.hpp"
 #include "vrenvironment.hpp"
@@ -18,22 +19,6 @@
 #include "../mwworld/player.hpp"
 #include "../mwworld/esmstore.hpp"
 
-// The OpenXR SDK's platform headers assume we've included platform headers
-#ifdef _WIN32
-#include <Windows.h>
-#include <objbase.h>
-
-#elif __linux__
-#include <X11/Xlib.h>
-#include <GL/glx.h>
-#undef None
-
-#else
-#error Unsupported platform
-#endif
-
-#include <openxr/openxr_platform.h>
-#include <openxr/openxr_platform_defines.h>
 #include <openxr/openxr_reflection.h>
 
 #include <osg/Camera>
@@ -61,126 +46,41 @@ MAKE_TO_STRING_FUNC(XrStructureType);
 
 namespace MWVR
 {
-    OpenXRManagerImpl::OpenXRManagerImpl()
+    OpenXRManagerImpl::OpenXRManagerImpl(osg::GraphicsContext* gc)
+        : mPlatform(gc)
     {
-        logLayersAndExtensions();
-        setupExtensionsAndLayers();
-
-        std::vector<const char*> extensions;
-        for (auto& extension : mEnabledExtensions)
-            extensions.push_back(extension.c_str());
-
-
-        { // Create Instance
-            XrInstanceCreateInfo createInfo{ XR_TYPE_INSTANCE_CREATE_INFO };
-            createInfo.next = nullptr;
-            createInfo.enabledExtensionCount = extensions.size();
-            createInfo.enabledExtensionNames = extensions.data();
-            strcpy(createInfo.applicationInfo.applicationName, "openmw_vr");
-            createInfo.applicationInfo.apiVersion = XR_CURRENT_API_VERSION;
-            CHECK_XRCMD(xrCreateInstance(&createInfo, &mInstance));
-            assert(mInstance);
-        }
+        mInstance = mPlatform.createXrInstance("openmw_vr");
 
         setupDebugMessenger();
 
+        // Layer depth is enabled, cache the invariant values
+        if (xrExtensionIsEnabled(XR_KHR_COMPOSITION_LAYER_DEPTH_EXTENSION_NAME))
         {
-            // Layer depth is enabled, cache the invariant values
-            if (xrExtensionIsEnabled(XR_KHR_COMPOSITION_LAYER_DEPTH_EXTENSION_NAME))
+            GLfloat depthRange[2] = { 0.f, 1.f };
+            glGetFloatv(GL_DEPTH_RANGE, depthRange);
+            auto nearClip = Settings::Manager::getFloat("near clip", "Camera");
+
+            for (auto& layer : mLayerDepth)
             {
-                GLfloat depthRange[2] = { 0.f, 1.f };
-                glGetFloatv(GL_DEPTH_RANGE, depthRange);
-                auto nearClip = Settings::Manager::getFloat("near clip", "Camera");
-
-                for (auto& layer : mLayerDepth)
-                {
-                    layer.type = XR_TYPE_COMPOSITION_LAYER_DEPTH_INFO_KHR;
-                    layer.next = nullptr;
-                    layer.minDepth = depthRange[0];
-                    layer.maxDepth = depthRange[1];
-                    layer.nearZ = nearClip;
-                }
+                layer.type = XR_TYPE_COMPOSITION_LAYER_DEPTH_INFO_KHR;
+                layer.next = nullptr;
+                layer.minDepth = depthRange[0];
+                layer.maxDepth = depthRange[1];
+                layer.nearZ = nearClip;
             }
         }
 
-        { // Get system ID
-            XrSystemGetInfo systemInfo{ XR_TYPE_SYSTEM_GET_INFO };
-            systemInfo.formFactor = mFormFactor = XR_FORM_FACTOR_HEAD_MOUNTED_DISPLAY;
-            CHECK_XRCMD(xrGetSystem(mInstance, &systemInfo, &mSystemId));
-            assert(mSystemId);
-        }
+        // Get system ID
+        XrSystemGetInfo systemInfo{ XR_TYPE_SYSTEM_GET_INFO };
+        systemInfo.formFactor = mFormFactor = XR_FORM_FACTOR_HEAD_MOUNTED_DISPLAY;
+        CHECK_XRCMD(xrGetSystem(mInstance, &systemInfo, &mSystemId));
+        assert(mSystemId);
 
-        { // Initialize OpenGL device
-            // Despite its name, xrGetOpenGLGraphicsRequirementsKHR is a required function call that sets up an opengl instance.
-            PFN_xrGetOpenGLGraphicsRequirementsKHR p_getRequirements = nullptr;
-            xrGetInstanceProcAddr(mInstance, "xrGetOpenGLGraphicsRequirementsKHR", reinterpret_cast<PFN_xrVoidFunction*>(&p_getRequirements));
-            XrGraphicsRequirementsOpenGLKHR requirements{ XR_TYPE_GRAPHICS_REQUIREMENTS_OPENGL_KHR };
-            CHECK_XRCMD(p_getRequirements(mInstance, mSystemId, &requirements));
-
-            const XrVersion desiredApiVersion = XR_MAKE_VERSION(4, 6, 0);
-            if (requirements.minApiVersionSupported > desiredApiVersion) {
-                std::cout << "Runtime does not support desired Graphics API and/or version" << std::endl;
-            }
-        }
-
-#ifdef _WIN32
-        { // Create Session
-            auto DC = wglGetCurrentDC();
-            auto GLRC = wglGetCurrentContext();
-            auto XRGLRC = wglCreateContext(DC);
-            wglShareLists(GLRC, XRGLRC);
-
-            XrGraphicsBindingOpenGLWin32KHR graphicsBindings;
-            graphicsBindings.type = XR_TYPE_GRAPHICS_BINDING_OPENGL_WIN32_KHR;
-            graphicsBindings.next = nullptr;
-            graphicsBindings.hDC = DC;
-            graphicsBindings.hGLRC = XRGLRC;
-
-            if (!graphicsBindings.hDC)
-                Log(Debug::Warning) << "Missing DC";
-
-            XrSessionCreateInfo createInfo{ XR_TYPE_SESSION_CREATE_INFO };
-            createInfo.next = &graphicsBindings;
-            createInfo.systemId = mSystemId;
-            CHECK_XRCMD(xrCreateSession(mInstance, &createInfo, &mSession));
-            assert(mSession);
-        }
-#elif __linux__
-        { // Create Session
-            Display* xDisplay = XOpenDisplay(NULL);
-            GLXContext glxContext = glXGetCurrentContext();
-            GLXDrawable glxDrawable = glXGetCurrentDrawable();
-
-            // TODO: runtimes don't actually care (yet)
-            GLXFBConfig glxFBConfig = 0;
-            uint32_t visualid = 0;
-
-            XrGraphicsBindingOpenGLXlibKHR graphicsBindings;
-            graphicsBindings.type = XR_TYPE_GRAPHICS_BINDING_OPENGL_XLIB_KHR;
-            graphicsBindings.next = nullptr;
-            graphicsBindings.xDisplay = xDisplay;
-            graphicsBindings.glxContext = glxContext;
-            graphicsBindings.glxDrawable = glxDrawable;
-            graphicsBindings.glxFBConfig = glxFBConfig;
-            graphicsBindings.visualid = visualid;
-
-            if (!graphicsBindings.glxContext)
-                Log(Debug::Warning) << "Missing glxContext";
-
-            if (!graphicsBindings.glxDrawable)
-                Log(Debug::Warning) << "Missing glxDrawable";
-
-            XrSessionCreateInfo createInfo{ XR_TYPE_SESSION_CREATE_INFO };
-            createInfo.next = &graphicsBindings;
-            createInfo.systemId = mSystemId;
-            CHECK_XRCMD(xrCreateSession(mInstance, &createInfo, &mSession));
-            assert(mSession);
-        }
-#endif
+        // Create session
+        mSession = mPlatform.createXrSession(mInstance, mSystemId);
 
         LogInstanceInfo();
         LogReferenceSpaces();
-        LogSwapchainFormats();
 
         { // Set up reference space
             XrReferenceSpaceCreateInfo createInfo{ XR_TYPE_REFERENCE_SPACE_CREATE_INFO };
@@ -218,42 +118,6 @@ namespace MWVR
         }
     }
 
-    XrResult CheckXrResult(XrResult res, const char* originator, const char* sourceLocation) {
-        static bool initialized = false;
-        static bool sLogAllXrCalls = false;
-        static bool sContinueOnErrors = false;
-        if (!initialized)
-        {
-            initialized = true;
-            sLogAllXrCalls = Settings::Manager::getBool("log all openxr calls", "VR Debug");
-            sContinueOnErrors = Settings::Manager::getBool("continue on errors", "VR Debug");
-        }
-
-        if (XR_FAILED(res)) {
-            std::stringstream ss;
-#ifdef _WIN32
-            ss << sourceLocation << ": OpenXR[Error: " << to_string(res) << "][Thread: " << std::this_thread::get_id() << "]: " << originator;
-#elif __linux__
-            ss << sourceLocation << ": OpenXR[Error: " << to_string(res) << "][Thread: " << std::this_thread::get_id() << "]: " << originator;
-#endif
-            Log(Debug::Error) << ss.str();
-            if (res == XR_ERROR_TIME_INVALID)
-                Log(Debug::Error) << "Breakpoint";
-            if (!sContinueOnErrors)
-                throw std::runtime_error(ss.str().c_str());
-        }
-        else if (res != XR_SUCCESS || sLogAllXrCalls)
-        {
-#ifdef _WIN32
-            Log(Debug::Verbose) << sourceLocation << ": OpenXR[" << to_string(res) << "][" << std::this_thread::get_id() << "]: " << originator;
-#elif __linux__
-            Log(Debug::Verbose) << sourceLocation << ": OpenXR[" << to_string(res) << "][" << std::this_thread::get_id() << "]: " << originator;
-#endif
-        }
-
-        return res;
-    }
-
     std::string XrResultString(XrResult res)
     {
         return to_string(res);
@@ -264,82 +128,10 @@ namespace MWVR
 
     }
 
-
-    static std::vector<std::string> enumerateExtensions(const char* layerName, bool log = false, int logIndent = 2)
-    {
-        uint32_t extensionCount = 0;
-        std::vector<XrExtensionProperties> availableExtensions;
-        xrEnumerateInstanceExtensionProperties(layerName, 0, &extensionCount, nullptr);
-        availableExtensions.resize(extensionCount, XrExtensionProperties{ XR_TYPE_EXTENSION_PROPERTIES });
-        xrEnumerateInstanceExtensionProperties(layerName, availableExtensions.size(), &extensionCount, availableExtensions.data());
-
-        std::vector<std::string> extensionNames;
-        const std::string indentStr(logIndent, ' ');
-        for (auto& extension : availableExtensions)
-        {
-            extensionNames.push_back(extension.extensionName);
-            if (log)
-                Log(Debug::Verbose) << indentStr << "Name=" << extension.extensionName << " SpecVersion=" << extension.extensionVersion;
-        }
-        return extensionNames;
-    }
-
-#if    !XR_KHR_composition_layer_depth \
-    || !XR_KHR_opengl_enable \
-    || !XR_EXT_hp_mixed_reality_controller \
-    || !XR_EXT_debug_utils \
-    || !XR_HTC_vive_cosmos_controller_interaction \
-    || !XR_HUAWEI_controller_interaction
-
-#error "OpenXR extensions missing. Please upgrade your copy of the OpenXR SDK to 1.0.13 minimum"
-#endif
-
     void OpenXRManagerImpl::setupExtensionsAndLayers()
     {
-        std::vector<const char*> requiredExtensions = {
-            XR_KHR_OPENGL_ENABLE_EXTENSION_NAME,
-        };
-
-        std::vector<const char*> optionalExtensions = {
-            XR_KHR_COMPOSITION_LAYER_DEPTH_EXTENSION_NAME,
-            XR_EXT_HP_MIXED_REALITY_CONTROLLER_EXTENSION_NAME,
-            XR_HTC_VIVE_COSMOS_CONTROLLER_INTERACTION_EXTENSION_NAME,
-            XR_HUAWEI_CONTROLLER_INTERACTION_EXTENSION_NAME
-        };
-
-        if (Settings::Manager::getBool("enable XR_EXT_debug_utils", "VR Debug"))
-            optionalExtensions.emplace_back(XR_EXT_DEBUG_UTILS_EXTENSION_NAME);
-
-        for (auto& extension : enumerateExtensions(nullptr))
-            mAvailableExtensions.insert(extension);
-
-        Log(Debug::Verbose) << "Using extensions:";
-
-        for (auto requiredExtension : requiredExtensions)
-            enableExtension(requiredExtension, false);
-
-        for (auto optionalExtension : optionalExtensions)
-            enableExtension(optionalExtension, true);
 
     }
-
-    void OpenXRManagerImpl::enableExtension(const std::string& extension, bool optional)
-    {
-        if (mAvailableExtensions.count(extension) > 0)
-        {
-            Log(Debug::Verbose) << "  " << extension << ": enabled";
-            mEnabledExtensions.insert(extension);
-        }
-        else
-        {
-            Log(Debug::Verbose) << "  " << extension << ": disabled (not supported)";
-            if (!optional)
-            {
-                throw std::runtime_error(std::string("Required OpenXR extension ") + extension + " not supported by the runtime");
-            }
-        }
-    }
-
     static XrBool32 xrDebugCallback(
         XrDebugUtilsMessageSeverityFlagsEXT messageSeverity,
         XrDebugUtilsMessageTypeFlagsEXT messageType,
@@ -420,28 +212,6 @@ namespace MWVR
     }
 
     void
-        OpenXRManagerImpl::logLayersAndExtensions() {
-        // Log layers and any of their extensions.
-        uint32_t layerCount;
-        CHECK_XRCMD(xrEnumerateApiLayerProperties(0, &layerCount, nullptr));
-        std::vector<XrApiLayerProperties> layers(layerCount, XrApiLayerProperties{ XR_TYPE_API_LAYER_PROPERTIES });
-        CHECK_XRCMD(xrEnumerateApiLayerProperties((uint32_t)layers.size(), &layerCount, layers.data()));
-
-        Log(Debug::Verbose) << "Available Extensions: ";
-        enumerateExtensions(nullptr, true, 2);
-        Log(Debug::Verbose) << "Available Layers: ";
-
-        if (layers.size() == 0)
-        {
-            Log(Debug::Verbose) << "  No layers available";
-        }
-        for (const XrApiLayerProperties& layer : layers) {
-            Log(Debug::Verbose) << "  Name=" << layer.layerName << " SpecVersion=" << layer.layerVersion;
-            enumerateExtensions(layer.layerName, true, 4);
-        }
-    }
-
-    void
         OpenXRManagerImpl::LogInstanceInfo() {
 
         XrInstanceProperties instanceProperties{ XR_TYPE_INSTANCE_PROPERTIES };
@@ -462,24 +232,6 @@ namespace MWVR
 
         for (XrReferenceSpaceType space : spaces)
             ss << "  Name: " << to_string(space) << std::endl;
-        Log(Debug::Verbose) << ss.str();
-    }
-
-    void OpenXRManagerImpl::LogSwapchainFormats()
-    {
-        uint32_t swapchainFormatCount;
-        CHECK_XRCMD(xrEnumerateSwapchainFormats(xrSession(), 0, &swapchainFormatCount, nullptr));
-        std::vector<int64_t> swapchainFormats(swapchainFormatCount);
-        CHECK_XRCMD(xrEnumerateSwapchainFormats(xrSession(), (uint32_t)swapchainFormats.size(), &swapchainFormatCount, swapchainFormats.data()));
-
-        std::stringstream ss;
-        ss << "Available Swapchain formats: (" << swapchainFormatCount << ")" << std::endl;
-
-        for (auto format : swapchainFormats)
-        {
-            ss << "  Enum=" << std::dec << format << " (0x=" << std::hex << format << ")" << std::dec << std::endl;
-        }
-
         Log(Debug::Verbose) << ss.str();
     }
 
@@ -844,7 +596,7 @@ namespace MWVR
 
     bool OpenXRManagerImpl::xrExtensionIsEnabled(const char* extensionName) const
     {
-        return mEnabledExtensions.count(extensionName) != 0;
+        return mPlatform.extensionEnabled(extensionName);
     }
 
     void OpenXRManagerImpl::xrResourceAcquired()
@@ -874,6 +626,18 @@ namespace MWVR
         PFN_xrVoidFunction function = nullptr;
         xrGetInstanceProcAddr(mInstance, name.c_str(), &function);
         return function;
+    }
+
+    int64_t OpenXRManagerImpl::selectColorFormat()
+    {
+        // Find supported color swapchain format.
+        return mPlatform.selectColorFormat();
+    }
+
+    int64_t OpenXRManagerImpl::selectDepthFormat()
+    {
+        // Find supported depth swapchain format.
+        return mPlatform.selectDepthFormat();
     }
 
     void OpenXRManagerImpl::enablePredictions()

@@ -98,6 +98,14 @@ namespace MWVR
         //! Check whether a given openxr extension is enabled or not
         bool xrExtensionIsEnabled(const char* extensionName) const;
 
+        //! Selects a color format from among formats offered by the runtime
+        //! Returns 0 if no format is supported.
+        int64_t selectColorFormat();
+
+        //! Selects a depth format from among formats offered by the runtime
+        //! Returns 0 if no format is supported.
+        int64_t selectDepthFormat();
+
         OpenXRManagerImpl& impl() { return *mPrivate; }
         const OpenXRManagerImpl& impl() const { return *mPrivate; }
 

@@ -77,7 +77,7 @@ namespace MWVR
         {
             gc->makeCurrent();
             try {
-                mPrivate = std::make_shared<OpenXRManagerImpl>();
+                mPrivate = std::make_shared<OpenXRManagerImpl>(gc);
             }
             catch (std::exception& e)
             {
@@ -136,6 +136,16 @@ namespace MWVR
     bool OpenXRManager::xrExtensionIsEnabled(const char* extensionName) const
     {
         return impl().xrExtensionIsEnabled(extensionName);
+    }
+
+    int64_t OpenXRManager::selectColorFormat()
+    {
+        return impl().selectColorFormat();
+    }
+
+    int64_t OpenXRManager::selectDepthFormat()
+    {
+        return impl().selectDepthFormat();
     }
 
     void

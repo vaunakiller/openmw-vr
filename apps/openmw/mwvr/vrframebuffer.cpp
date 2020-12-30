@@ -11,18 +11,15 @@
 namespace MWVR
 {
 
-    VRFramebuffer::VRFramebuffer(osg::ref_ptr<osg::State> state, std::size_t width, std::size_t height, uint32_t msaaSamples, uint32_t colorBuffer, uint32_t depthBuffer)
+    VRFramebuffer::VRFramebuffer(osg::ref_ptr<osg::State> state, std::size_t width, std::size_t height, uint32_t msaaSamples)
         : mState(state)
         , mWidth(width)
         , mHeight(height)
-        , mDepthBuffer(depthBuffer)
-        , mColorBuffer(colorBuffer)
+        , mDepthBuffer()
+        , mColorBuffer()
         , mSamples(msaaSamples)
     {
         auto* gl = osg::GLExtensions::Get(state->getContextID(), false);
-
-        gl->glGenFramebuffers(1, &mBlitFBO);
-        gl->glBindFramebuffer(GL_FRAMEBUFFER_EXT, mBlitFBO);
 
         gl->glGenFramebuffers(1, &mFBO);
 
@@ -30,46 +27,34 @@ namespace MWVR
             mTextureTarget = GL_TEXTURE_2D;
         else
             mTextureTarget = GL_TEXTURE_2D_MULTISAMPLE;
+    }
 
-        if (mColorBuffer == 0)
-        {
-            glGenTextures(1, &mColorBuffer);
-            glBindTexture(mTextureTarget, mColorBuffer);
-            if (mSamples <= 1)
-                glTexImage2D(mTextureTarget, 0, GL_RGBA, mWidth, mHeight, 0, GL_RGBA, GL_UNSIGNED_INT, nullptr);
-            else
-                gl->glTexImage2DMultisample(mTextureTarget, mSamples, GL_RGBA, mWidth, mHeight, false);
-            glTexParameteri(mTextureTarget, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_BORDER_ARB);
-            glTexParameteri(mTextureTarget, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_BORDER_ARB);
-            glTexParameteri(mTextureTarget, GL_TEXTURE_MIN_FILTER, GL_LINEAR_MIPMAP_LINEAR);
-            glTexParameteri(mTextureTarget, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
-            glTexParameteri(mTextureTarget, GL_TEXTURE_MAX_LEVEL, 0);
-        }
+    void VRFramebuffer::setColorBuffer(osg::GraphicsContext* gc, uint32_t colorBuffer, bool takeOwnership)
+    {
+        auto* gl = osg::GLExtensions::Get(gc->getState()->getContextID(), false);
+        mColorBuffer.setTexture(colorBuffer, takeOwnership);
+        bindFramebuffer(gc, GL_FRAMEBUFFER_EXT);
+        gl->glFramebufferTexture2D(GL_FRAMEBUFFER_EXT, GL_COLOR_ATTACHMENT0_EXT, mTextureTarget, mColorBuffer.mImage, 0);
+    }
 
-        if (mDepthBuffer == 0)
-        {
-            glGenTextures(1, &mDepthBuffer);
-            glBindTexture(mTextureTarget, mDepthBuffer);
-            if (mSamples <= 1)
-                glTexImage2D(mTextureTarget, 0, GL_DEPTH_COMPONENT24, mWidth, mHeight, 0, GL_DEPTH_COMPONENT, GL_UNSIGNED_INT, nullptr);
-            else
-                gl->glTexImage2DMultisample(mTextureTarget, mSamples, GL_DEPTH_COMPONENT, mWidth, mHeight, false);
-            glTexParameteri(mTextureTarget, GL_TEXTURE_WRAP_S, GL_REPEAT);
-            glTexParameteri(mTextureTarget, GL_TEXTURE_WRAP_T, GL_REPEAT);
-            glTexParameteri(mTextureTarget, GL_TEXTURE_MIN_FILTER, GL_LINEAR_MIPMAP_LINEAR);
-            glTexParameteri(mTextureTarget, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
-            glTexParameteri(mTextureTarget, GL_TEXTURE_MAX_LEVEL, 0);
-        }
+    void VRFramebuffer::setDepthBuffer(osg::GraphicsContext* gc, uint32_t depthBuffer, bool takeOwnership)
+    {
+        auto* gl = osg::GLExtensions::Get(gc->getState()->getContextID(), false);
+        mDepthBuffer.setTexture(depthBuffer, takeOwnership);
+        bindFramebuffer(gc, GL_FRAMEBUFFER_EXT);
+        gl->glFramebufferTexture2D(GL_FRAMEBUFFER_EXT, GL_DEPTH_ATTACHMENT_EXT, mTextureTarget, mDepthBuffer.mImage, 0);
+    }
 
+    void VRFramebuffer::createColorBuffer(osg::GraphicsContext* gc)
+    {
+        auto colorBuffer = createImage(gc, GL_RGBA8, GL_RGBA);
+        setColorBuffer(gc, colorBuffer, true);
+    }
 
-        gl->glBindFramebuffer(GL_FRAMEBUFFER_EXT, mFBO);
-        gl->glFramebufferTexture2D(GL_FRAMEBUFFER_EXT, GL_COLOR_ATTACHMENT0_EXT, mTextureTarget, mColorBuffer, 0);
-        gl->glFramebufferTexture2D(GL_FRAMEBUFFER_EXT, GL_DEPTH_ATTACHMENT_EXT, mTextureTarget, mDepthBuffer, 0);
-        if (gl->glCheckFramebufferStatus(GL_FRAMEBUFFER_EXT) != GL_FRAMEBUFFER_COMPLETE_EXT)
-            throw std::runtime_error("Failed to create OpenXR framebuffer");
-
-
-        gl->glBindFramebuffer(GL_FRAMEBUFFER_EXT, 0);
+    void VRFramebuffer::createDepthBuffer(osg::GraphicsContext* gc)
+    {
+        auto depthBuffer = createImage(gc, GL_DEPTH24_STENCIL8_EXT, GL_DEPTH_COMPONENT);
+        setDepthBuffer(gc, depthBuffer, true);
     }
 
     VRFramebuffer::~VRFramebuffer()
@@ -94,28 +79,65 @@ namespace MWVR
         else if (mFBO)
             // Without access to glDeleteFramebuffers, i'll have to leak FBOs.
             Log(Debug::Warning) << "destroy() called without a State. Leaking FBO";
+        mFBO = 0;
 
-        if (mDepthBuffer)
-            glDeleteTextures(1, &mDepthBuffer);
-        if (mColorBuffer)
-            glDeleteTextures(1, &mColorBuffer);
-
-        mFBO = mDepthBuffer = mColorBuffer = 0;
+        mColorBuffer.delet();
+        mDepthBuffer.delet();
     }
 
     void VRFramebuffer::bindFramebuffer(osg::GraphicsContext* gc, uint32_t target)
     {
         auto state = gc->getState();
         auto* gl = osg::GLExtensions::Get(state->getContextID(), false);
+        //if (gl->glCheckFramebufferStatus(GL_FRAMEBUFFER_EXT) != GL_FRAMEBUFFER_COMPLETE_EXT)
+        //    throw std::runtime_error("Tried to bind incomplete framebuffer");
         gl->glBindFramebuffer(target, mFBO);
     }
 
-    void VRFramebuffer::blit(osg::GraphicsContext* gc, int x, int y, int w, int h)
+    void VRFramebuffer::blit(osg::GraphicsContext* gc, int x, int y, int w, int h, uint32_t bits, uint32_t filter)
     {
+#define GLERR if(auto err = glGetError() != GL_NO_ERROR) Log(Debug::Verbose) << __FILE__ << "." << __LINE__ << ": " << glGetError()
         auto* state = gc->getState();
         auto* gl = osg::GLExtensions::Get(state->getContextID(), false);
         gl->glBindFramebuffer(GL_READ_FRAMEBUFFER_EXT, mFBO);
-        gl->glBlitFramebuffer(0, 0, mWidth, mHeight, x, y, w, h, GL_COLOR_BUFFER_BIT, GL_LINEAR);
+        gl->glBlitFramebuffer(0, 0, mWidth, mHeight, x, y, w, h, bits, filter);
         gl->glBindFramebuffer(GL_READ_FRAMEBUFFER_EXT, 0);
+    }
+
+    uint32_t VRFramebuffer::createImage(osg::GraphicsContext* gc, uint32_t formatInternal, uint32_t format)
+    {
+        auto* gl = osg::GLExtensions::Get(gc->getState()->getContextID(), false);
+        uint32_t image;
+        glGenTextures(1, &image);
+        glBindTexture(mTextureTarget, image);
+        if (mSamples <= 1)
+            glTexImage2D(mTextureTarget, 0, formatInternal, mWidth, mHeight, 0, format, GL_UNSIGNED_INT, nullptr);
+        else
+            gl->glTexImage2DMultisample(mTextureTarget, mSamples, format, mWidth, mHeight, false);
+        glTexParameteri(mTextureTarget, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_BORDER_ARB);
+        glTexParameteri(mTextureTarget, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_BORDER_ARB);
+        glTexParameteri(mTextureTarget, GL_TEXTURE_MIN_FILTER, GL_LINEAR_MIPMAP_LINEAR);
+        glTexParameteri(mTextureTarget, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+        glTexParameteri(mTextureTarget, GL_TEXTURE_MAX_LEVEL, 0);
+
+        return image;
+    }
+
+    void VRFramebuffer::Texture::delet()
+    {
+        if (mOwner)
+            glDeleteTextures(1, &mImage);
+
+        mImage = 0;
+        mOwner = false;
+    }
+
+    void VRFramebuffer::Texture::setTexture(uint32_t image, bool owner)
+    {
+        if (mImage)
+            delet();
+
+        mImage = image;
+        mOwner = owner;
     }
 }

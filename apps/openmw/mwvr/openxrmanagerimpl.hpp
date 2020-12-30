@@ -2,6 +2,7 @@
 #define OPENXR_MANAGER_IMPL_HPP
 
 #include "openxrmanager.hpp"
+#include "openxrplatform.hpp"
 #include "../mwinput/inputmanagerimp.hpp"
 
 #include <components/debug/debuglog.hpp>
@@ -19,16 +20,6 @@
 
 namespace MWVR
 {
-
-    // Error management macros and functions. Should be used on every openxr call.
-#define CHK_STRINGIFY(x) #x
-#define TOSTRING(x) CHK_STRINGIFY(x)
-#define FILE_AND_LINE __FILE__ ":" TOSTRING(__LINE__)
-#define CHECK_XRCMD(cmd) CheckXrResult(cmd, #cmd, FILE_AND_LINE)
-#define CHECK_XRRESULT(res, cmdStr) CheckXrResult(res, cmdStr, FILE_AND_LINE)
-    XrResult CheckXrResult(XrResult res, const char* originator = nullptr, const char* sourceLocation = nullptr);
-    std::string XrResultString(XrResult res);
-
     /// Conversion methods from openxr types to osg/mwvr types. Includes managing the differing conventions.
     MWVR::Pose          fromXR(XrPosef pose);
     MWVR::FieldOfView   fromXR(XrFovf fov);
@@ -46,7 +37,7 @@ namespace MWVR
     /// \brief Implementation of OpenXRManager
     struct OpenXRManagerImpl
     {
-        OpenXRManagerImpl(void);
+        OpenXRManagerImpl(osg::GraphicsContext* gc);
         ~OpenXRManagerImpl(void);
 
         FrameInfo waitFrame();
@@ -71,15 +62,15 @@ namespace MWVR
         void xrResourceReleased();
         void xrUpdateNames();
         PFN_xrVoidFunction xrGetFunction(const std::string& name);
+        int64_t selectColorFormat();
+        int64_t selectDepthFormat();
+        OpenXRPlatform& platform() { return mPlatform; };
 
     protected:
         void setupExtensionsAndLayers();
-        void enableExtension(const std::string& extension, bool optional);
         void setupDebugMessenger(void);
-        void logLayersAndExtensions();
         void LogInstanceInfo();
         void LogReferenceSpaces();
-        void LogSwapchainFormats();
         bool xrNextEvent(XrEventDataBuffer& eventBuffer);
         void xrQueueEvents();
         const XrEventDataBaseHeader* nextEvent();
@@ -107,6 +98,8 @@ namespace MWVR
         XrSessionState mSessionState = XR_SESSION_STATE_UNKNOWN;
         XrDebugUtilsMessengerEXT mDebugMessenger{ nullptr };
 
+        OpenXRPlatform mPlatform;
+
         bool mXrSessionShouldStop = false;
         bool mAppShouldSyncFrameLoop = false;
         bool mAppShouldRender = false;
@@ -114,8 +107,6 @@ namespace MWVR
 
         uint32_t mAcquiredResources = 0;
         std::mutex mMutex{};
-        std::set<std::string> mAvailableExtensions;
-        std::set<std::string> mEnabledExtensions;
         std::queue<XrEventDataBuffer> mEventQueue;
 
         std::array<XrCompositionLayerDepthInfoKHR, 2> mLayerDepth;
