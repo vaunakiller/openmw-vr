@@ -81,9 +81,9 @@ namespace MWVR
             }
             catch (std::exception& e)
             {
-                Log(Debug::Error) << "Exception thrown by OpenXR: " << e.what();
-                osg::ref_ptr<osg::State> state = gc->getState();
-
+                std::string error = std::string("Exception thrown while initializing OpenXR: ") + e.what();
+                Log(Debug::Error) << error;
+                throw std::runtime_error(error);
             }
         }
     }
