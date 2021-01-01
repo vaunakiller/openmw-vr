@@ -179,7 +179,7 @@ namespace MWVR
             std::unique_lock<std::mutex> lock(mMutex);
             while (getFrame(phase))
             {
-                Log(Debug::Verbose) << "Warning: beginPhase called with a frame already in the target phase";
+                //Log(Debug::Verbose) << "Warning: beginPhase called with a frame already in the target phase";
                 mCondition.wait(lock);
             }
         }

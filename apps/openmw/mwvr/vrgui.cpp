@@ -842,7 +842,8 @@ namespace MWVR
 
         if (mFocusLayer)
         {
-            setPick(mFocusLayer->mWidgets.front(), false);
+            if (!mFocusLayer->mWidgets.empty())
+                setPick(mFocusLayer->mWidgets.front(), false);
         }
         mFocusLayer = layer;
         if (mFocusLayer)

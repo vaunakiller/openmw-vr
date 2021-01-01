@@ -675,7 +675,17 @@ void OMW::Engine::prepareEngine (Settings::Manager & settings)
         Settings::Manager::getInt("anisotropy", "General")
     );
 
+    // geometry shader must be enabled before the RenderingManager sets up any shaders
+    // therefore this part is separate from the rest of stereo setup.
     mStereoEnabled = mEnvironment.getVrMode() || Settings::Manager::getBool("stereo enabled", "Stereo");
+    if (mStereoEnabled)
+    {
+        // Mask in everything that does not currently use shaders.
+        // Remove that altogether when the sky finally uses them.
+        auto noShaderMask = MWRender::VisMask::Mask_Sky | MWRender::VisMask::Mask_Sun | MWRender::VisMask::Mask_WeatherParticles;
+        // Since shaders are not yet created, we need to use the brute force technique initially
+        mStereoView.reset(new Misc::StereoView(noShaderMask, MWRender::VisMask::Mask_Scene));
+    }
 
     int numThreads = Settings::Manager::getInt("preload num threads", "Cells");
     if (numThreads <= 0)
@@ -774,13 +784,13 @@ void OMW::Engine::prepareEngine (Settings::Manager & settings)
     mXrEnvironment.getViewer()->configureCallbacks();
 #endif
 
-    std::unique_ptr<MWRender::Camera> camera(
+    
 #ifdef USE_OPENXR
-        new MWVR::VRCamera(mViewer->getCamera())
+    MWVR::VRCamera* camera = new MWVR::VRCamera(mViewer->getCamera());
 #else
-        new Camera(mViewer->getCamera())
+    MWRender::Camera* camera = new MWRender::Camera(mViewer->getCamera());
 #endif
-    );
+    
 
     if (!mSkipMenu)
     {
@@ -790,10 +800,16 @@ void OMW::Engine::prepareEngine (Settings::Manager & settings)
     }
 
     // Create the world
-    mEnvironment.setWorld( new MWWorld::World (mViewer, rootNode, std::move(camera), mResourceSystem.get(), mWorkQueue.get(),
+    mEnvironment.setWorld( new MWWorld::World (mViewer, rootNode, std::unique_ptr<MWRender::Camera>(camera), mResourceSystem.get(), mWorkQueue.get(),
         mFileCollections, mContentFiles, mEncoder, mActivationDistanceOverride, mCellName,
         mStartupScript, mResDir.string(), mCfgMgr.getUserDataPath().string()));
     mEnvironment.getWorld()->setupPlayer();
+
+#ifdef USE_OPENXR
+    // TODO: Workaround. Needed to stop camera from querying the world object before it is created.
+    // This will be prettier when i clean up the tracking logic.
+    camera->setShouldTrackPlayerCharacter(true);
+#endif
 
     if (mStereoEnabled)
     {
@@ -918,18 +934,6 @@ void OMW::Engine::go()
 
     // Create encoder
     mEncoder = new ToUTF8::Utf8Encoder(mEncoding);
-
-    // geometry shader must be enabled before the RenderingManager sets up any shaders
-    // therefore this part is separate from the rest of stereo setup.
-    mStereoEnabled = Settings::Manager::getBool("stereo enabled", "Stereo");
-    if (mStereoEnabled)
-    {
-        // Mask in everything that does not currently use shaders.
-        // Remove that altogether when the sky finally uses them.
-        auto noShaderMask = MWRender::VisMask::Mask_Sky | MWRender::VisMask::Mask_Sun | MWRender::VisMask::Mask_WeatherParticles;
-        // Since shaders are not yet created, we need to use the brute force technique initially
-        mStereoView.reset(new Misc::StereoView(noShaderMask, MWRender::VisMask::Mask_Scene));
-    }
 
     // Setup viewer
     mViewer = new osgViewer::Viewer;

@@ -63,6 +63,8 @@ namespace MWVR
 
         void setHeadOffset(const osg::Vec3& headOffset) { mHeadOffset = headOffset; }
 
+        void setShouldTrackPlayerCharacter(bool track);
+
     protected:
         void recenter();
         void applyTracking();
@@ -75,6 +77,7 @@ namespace MWVR
         bool mShouldRecenter{ true };
         bool mHasTrackingData{ false };
         float mYawOffset{ 0.f };
+        bool mShouldTrackPlayerCharacter{ false };
     };
 }
 

@@ -33,6 +33,11 @@ namespace MWVR
     {
     }
 
+    void VRCamera::setShouldTrackPlayerCharacter(bool track)
+    {
+        mShouldTrackPlayerCharacter = track;
+    }
+
     void VRCamera::recenter()
     {
         if (!mHasTrackingData)
@@ -57,8 +62,6 @@ namespace MWVR
     void VRCamera::applyTracking()
     {
         MWBase::World* world = MWBase::Environment::get().getWorld();
-        if (!world)
-            return;
 
         auto& player = world->getPlayer();
         auto playerPtr = player.getPlayer();
@@ -107,7 +110,8 @@ namespace MWVR
         }
         else
         {
-            applyTracking();
+            if (mShouldTrackPlayerCharacter)
+                applyTracking();
             Camera::updateCamera(cam);
         }
     }
