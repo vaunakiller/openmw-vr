@@ -247,7 +247,7 @@ if(BUILD_OPENMW_VR)
         vrengine.cpp
     )
     add_openmw_dir (mwvr
-         openxraction openxractionset openxrdebug openxrinput openxrmanager openxrmanagerimpl openxrswapchain openxrswapchainimpl
+         openxraction openxractionset openxrdebug openxrinput openxrmanager openxrmanagerimpl openxrplatform openxrswapchain openxrswapchainimage openxrswapchainimpl
          realisticcombat 
          vranimation vrcamera vrenvironment vrframebuffer vrgui vrinputmanager vrinput vrmetamenu vrsession vrshadow vrtypes vrview vrviewer vrvirtualkeyboard
         )
@@ -280,7 +280,7 @@ if(BUILD_OPENMW_VR)
 
     # Preprocessor variable used to control code paths to vr code
     if (WIN32)
-        target_compile_options(openmw_vr PUBLIC -DUSE_OPENXR -DXR_USE_GRAPHICS_API_OPENGL -DXR_USE_PLATFORM_WIN32)
+        target_compile_options(openmw_vr PUBLIC -DUSE_OPENXR -DXR_USE_GRAPHICS_API_OPENGL -DXR_USE_GRAPHICS_API_D3D11 -DXR_USE_PLATFORM_WIN32)
     elseif(UNIX)
         target_compile_options(openmw_vr PUBLIC -DUSE_OPENXR -DXR_USE_GRAPHICS_API_OPENGL -DXR_USE_PLATFORM_XLIB)
         find_package(X11 REQUIRED)

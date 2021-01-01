@@ -218,7 +218,7 @@ namespace MWVR
         {
             std::string extension = requireAttribute(extensionElement, "Name");
             auto xr = MWVR::Environment::get().getManager();
-            if (!xr->xrExtensionIsEnabled(XR_EXT_HP_MIXED_REALITY_CONTROLLER_EXTENSION_NAME))
+            if (!xr->xrExtensionIsEnabled(extension.c_str()))
             {
                 Log(Debug::Verbose) << "  Required extension '" << extension << "' not supported. Skipping interaction profile.";
                 return;

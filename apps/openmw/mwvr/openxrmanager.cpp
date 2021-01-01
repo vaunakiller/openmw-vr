@@ -77,13 +77,13 @@ namespace MWVR
         {
             gc->makeCurrent();
             try {
-                mPrivate = std::make_shared<OpenXRManagerImpl>();
+                mPrivate = std::make_shared<OpenXRManagerImpl>(gc);
             }
             catch (std::exception& e)
             {
-                Log(Debug::Error) << "Exception thrown by OpenXR: " << e.what();
-                osg::ref_ptr<osg::State> state = gc->getState();
-
+                std::string error = std::string("Exception thrown while initializing OpenXR: ") + e.what();
+                Log(Debug::Error) << error;
+                throw std::runtime_error(error);
             }
         }
     }
@@ -136,6 +136,16 @@ namespace MWVR
     bool OpenXRManager::xrExtensionIsEnabled(const char* extensionName) const
     {
         return impl().xrExtensionIsEnabled(extensionName);
+    }
+
+    int64_t OpenXRManager::selectColorFormat()
+    {
+        return impl().selectColorFormat();
+    }
+
+    int64_t OpenXRManager::selectDepthFormat()
+    {
+        return impl().selectDepthFormat();
     }
 
     void

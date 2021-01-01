@@ -143,7 +143,7 @@ namespace MWVR
         {
             if (frameMeta->mShouldRender)
             {
-                viewer.blitEyesToMirrorTexture(gc);
+                viewer.blit(gc);
                 gc->swapBuffersImplementation();
                 std::array<CompositionLayerProjectionView, 2> layerStack{};
                 layerStack[(int)Side::LEFT_SIDE].subImage = viewer.subImage(Side::LEFT_SIDE);
@@ -239,8 +239,8 @@ namespace MWVR
                 xr->enablePredictions();
                 predictedPoses.head = xr->getPredictedHeadPose(frame->mPredictedDisplayTime, ReferenceSpace::STAGE) * mPlayerScale;
                 auto hmdViews = xr->getPredictedViews(frame->mPredictedDisplayTime, ReferenceSpace::VIEW);
-                predictedPoses.view[(int)Side::LEFT_SIDE].pose = hmdViews[(int)Side::LEFT_SIDE].pose * mPlayerScale;
-                predictedPoses.view[(int)Side::RIGHT_SIDE].pose = hmdViews[(int)Side::RIGHT_SIDE].pose * mPlayerScale;
+                predictedPoses.view[(int)Side::LEFT_SIDE].pose = hmdViews[(int)Side::LEFT_SIDE].pose * mPlayerScale * Constants::UnitsPerMeter;
+                predictedPoses.view[(int)Side::RIGHT_SIDE].pose = hmdViews[(int)Side::RIGHT_SIDE].pose * mPlayerScale * Constants::UnitsPerMeter;
                 predictedPoses.view[(int)Side::LEFT_SIDE].fov = hmdViews[(int)Side::LEFT_SIDE].fov;
                 predictedPoses.view[(int)Side::RIGHT_SIDE].fov = hmdViews[(int)Side::RIGHT_SIDE].fov;
                 auto stageViews = xr->getPredictedViews(frame->mPredictedDisplayTime, ReferenceSpace::STAGE);

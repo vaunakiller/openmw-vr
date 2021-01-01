@@ -48,10 +48,10 @@ namespace Misc
 
     //! Fov that defines all 4 angles from center
     struct FieldOfView {
-        float    angleLeft{ -osg::PI_2 };
-        float    angleRight{ osg::PI_2 };
-        float    angleDown{ -osg::PI_2 };
-        float    angleUp{ osg::PI_2 };
+        float    angleLeft{ 0.f };
+        float    angleRight{ 0.f };
+        float    angleUp{ 0.f };
+        float    angleDown{ 0.f };
 
         bool operator==(const FieldOfView& rhs) const;
 
@@ -173,7 +173,7 @@ namespace Misc
         bool flipViewOrder{ true };
 
         // Updates stereo configuration during the update pass
-        std::shared_ptr<UpdateViewCallback> mUpdateViewCallback{ new DefaultUpdateViewCallback };
+        std::weak_ptr<UpdateViewCallback> mUpdateViewCallback{};
 
         // OSG camera callbacks set using set*callback. StereoView manages that these are always set on the appropriate camera(s);
         osg::ref_ptr<osg::NodeCallback>         mCullCallback{ nullptr };

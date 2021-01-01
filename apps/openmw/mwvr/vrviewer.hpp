@@ -109,7 +109,7 @@ namespace MWVR
         void initialDrawCallback(osg::RenderInfo& info);
         void preDrawCallback(osg::RenderInfo& info);
         void postDrawCallback(osg::RenderInfo& info);
-        void blitEyesToMirrorTexture(osg::GraphicsContext* gc);
+        void blit(osg::GraphicsContext* gc);
         void configureXR(osg::GraphicsContext* gc);
         void configureCallbacks();
         void setupMirrorTexture();
@@ -129,9 +129,9 @@ namespace MWVR
         osg::ref_ptr<osgViewer::Viewer> mViewer = nullptr;
         osg::ref_ptr<PredrawCallback> mPreDraw{ nullptr };
         osg::ref_ptr<PostdrawCallback> mPostDraw{ nullptr };
+        std::shared_ptr<UpdateViewCallback> mUpdateViewCallback{ nullptr };
         bool mRenderingReady{ false };
 
-        std::unique_ptr<VRFramebuffer> mMsaaResolveMirrorTexture;
         std::unique_ptr<VRFramebuffer> mMirrorTexture;
         std::vector<std::string> mMirrorTextureViews;
         bool mMirrorTextureShouldBeCleanedUp{ false };
@@ -139,9 +139,11 @@ namespace MWVR
         bool mFlipMirrorTextureOrder{ false };
         MirrorTextureEye mMirrorTextureEye{ MirrorTextureEye::Both };
 
-        std::unique_ptr<OpenXRSwapchain> mSwapchain;
+        std::unique_ptr<VRFramebuffer> mFramebuffer;
+        std::unique_ptr<VRFramebuffer> mMsaaResolveTexture;
+        std::array<std::unique_ptr<OpenXRSwapchain>, 2> mSwapchain;
         std::array<SubImage, 2> mSubImages;
-        SwapchainConfig mSwapchainConfig;
+        std::array<SwapchainConfig, 2> mSwapchainConfig;
     };
 }
 

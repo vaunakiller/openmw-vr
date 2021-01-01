@@ -122,6 +122,8 @@ namespace MWVR
         int selectedWidth = -1;
         int selectedHeight = -1;
         int selectedSamples = -1;
+        int offsetWidth = 0;
+        int offsetHeight = 0;
         std::string name = "";
     };
 

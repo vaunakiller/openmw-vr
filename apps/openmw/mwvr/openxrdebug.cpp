@@ -16,7 +16,6 @@
 #error Unsupported platform
 #endif
 
-#include <openxr/openxr_platform.h>
 #include <openxr/openxr_platform_defines.h>
 #include <openxr/openxr_reflection.h>
 

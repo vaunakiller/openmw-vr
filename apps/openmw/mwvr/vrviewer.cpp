@@ -42,10 +42,11 @@ namespace MWVR
         : mViewer(viewer)
         , mPreDraw(new PredrawCallback(this))
         , mPostDraw(new PostdrawCallback(this))
+        , mUpdateViewCallback(new UpdateViewCallback(this))
+        , mMsaaResolveTexture{}
+        , mMirrorTexture{ nullptr }
         , mOpenXRConfigured(false)
         , mCallbacksConfigured(false)
-        , mMsaaResolveMirrorTexture{}
-        , mMirrorTexture{ nullptr }
     {
         mViewer->setRealizeOperation(new RealizeOperation());
     }
@@ -94,7 +95,7 @@ namespace MWVR
         return VRViewer::MirrorTextureEye::Both;
     }
 
-    void VRViewer::configureXR(osg::GraphicsContext* context)
+    void VRViewer::configureXR(osg::GraphicsContext* gc)
     {
         std::unique_lock<std::mutex> lock(mMutex);
 
@@ -105,14 +106,14 @@ namespace MWVR
 
 
         auto* xr = Environment::get().getManager();
-        xr->realize(context);
+        xr->realize(gc);
 
         // Run through initial events to start session
         // For the rest of runtime this is handled by vrsession
         xr->handleEvents();
 
         // Set up swapchain config
-        auto config = xr->getRecommendedSwapchainConfig();
+        mSwapchainConfig = xr->getRecommendedSwapchainConfig();
 
         std::array<std::string, 2> xConfString;
         std::array<std::string, 2> yConfString;
@@ -126,41 +127,41 @@ namespace MWVR
         {
             auto name = sViewNames[i];
 
-            config[i].selectedWidth = parseResolution(xConfString[i], config[i].recommendedWidth, config[i].maxWidth);
-            config[i].selectedHeight = parseResolution(yConfString[i], config[i].recommendedHeight, config[i].maxHeight);
+            mSwapchainConfig[i].selectedWidth = parseResolution(xConfString[i], mSwapchainConfig[i].recommendedWidth, mSwapchainConfig[i].maxWidth);
+            mSwapchainConfig[i].selectedHeight = parseResolution(yConfString[i], mSwapchainConfig[i].recommendedHeight, mSwapchainConfig[i].maxHeight);
 
-            config[i].selectedSamples = Settings::Manager::getInt("antialiasing", "Video");
-            // OpenXR requires a non-zero value
-            if (config[i].selectedSamples < 1)
-                config[i].selectedSamples = 1;
+            mSwapchainConfig[i].selectedSamples = 
+                std::max(1, // OpenXR requires a non-zero value
+                    std::min(mSwapchainConfig[i].maxSamples, 
+                        Settings::Manager::getInt("antialiasing", "Video")
+                    )
+                );
+            
+            Log(Debug::Verbose) << name << " resolution: Recommended x=" << mSwapchainConfig[i].recommendedWidth << ", y=" << mSwapchainConfig[i].recommendedHeight;
+            Log(Debug::Verbose) << name << " resolution: Max x=" << mSwapchainConfig[i].maxWidth << ", y=" << mSwapchainConfig[i].maxHeight;
+            Log(Debug::Verbose) << name << " resolution: Selected x=" << mSwapchainConfig[i].selectedWidth << ", y=" << mSwapchainConfig[i].selectedHeight;
 
-            Log(Debug::Verbose) << name << " resolution: Recommended x=" << config[i].recommendedWidth << ", y=" << config[i].recommendedHeight;
-            Log(Debug::Verbose) << name << " resolution: Max x=" << config[i].maxWidth << ", y=" << config[i].maxHeight;
-            Log(Debug::Verbose) << name << " resolution: Selected x=" << config[i].selectedWidth << ", y=" << config[i].selectedHeight;
-
-            config[i].name = sViewNames[i];
-
-            mSubImages[i].width = config[i].selectedWidth;
-            mSubImages[i].height = config[i].selectedHeight;
+            mSwapchainConfig[i].name = sViewNames[i];
             if (i > 0)
-            {
-                mSubImages[i].x = mSubImages[i - 1].x + mSubImages[i - 1].width;
-            }
-            else
-            {
-                mSubImages[i].x = 0;
-            }
-            mSubImages[i].y = 0;
+                mSwapchainConfig[i].offsetWidth = mSwapchainConfig[i].selectedWidth + mSwapchainConfig[i].offsetWidth;
+
+            mSwapchain[i].reset(new OpenXRSwapchain(gc->getState(), mSwapchainConfig[i]));
+            mSubImages[i].width = mSwapchainConfig[i].selectedWidth;
+            mSubImages[i].height = mSwapchainConfig[i].selectedHeight;
+            mSubImages[i].x = mSubImages[i].y = 0;
+            mSubImages[i].swapchain = mSwapchain[i].get();
         }
 
-        mSwapchainConfig.name = "Main";
-        mSwapchainConfig.selectedWidth = config[0].selectedWidth + config[1].selectedWidth;
-        mSwapchainConfig.selectedHeight = std::max(config[0].selectedHeight, config[1].selectedHeight);
-        mSwapchainConfig.selectedSamples = std::max(config[0].selectedSamples, config[1].selectedSamples);
+        int width = mSubImages[0].width + mSubImages[1].width;
+        int height = std::max(mSubImages[0].height, mSubImages[1].height);
+        int samples = std::max(mSwapchainConfig[0].selectedSamples, mSwapchainConfig[1].selectedSamples);
 
-        mSwapchain.reset(new OpenXRSwapchain(context->getState(), mSwapchainConfig));
-
-        mSubImages[0].swapchain = mSubImages[1].swapchain = mSwapchain.get();
+        mFramebuffer.reset(new VRFramebuffer(gc->getState(),width,height, samples));
+        mFramebuffer->createColorBuffer(gc);
+        mFramebuffer->createDepthBuffer(gc);
+        mMsaaResolveTexture.reset(new VRFramebuffer(gc->getState(),width,height,0));
+        mMsaaResolveTexture->createColorBuffer(gc);
+        mMsaaResolveTexture->createDepthBuffer(gc);
 
         mViewer->setReleaseContextAtEndOfFrameHint(false);
         mViewer->getCamera()->getGraphicsContext()->setSwapCallback(new VRViewer::SwapBuffersCallback(this));
@@ -176,6 +177,7 @@ namespace MWVR
             return;
 
         // Give the main camera an initial draw callback that disables camera setup (we don't want it)
+        Misc::StereoView::instance().setUpdateViewCallback(mUpdateViewCallback);
         Misc::StereoView::instance().setInitialDrawCallback(new InitialDrawCallback(this));
         Misc::StereoView::instance().setPredrawCallback(mPreDraw);
         Misc::StereoView::instance().setPostdrawCallback(mPostDraw);
@@ -234,12 +236,11 @@ namespace MWVR
         return mSubImages[static_cast<int>(side)];
     }
 
-    void VRViewer::blitEyesToMirrorTexture(osg::GraphicsContext* gc)
+    void VRViewer::blit(osg::GraphicsContext* gc)
     {
         if (mMirrorTextureShouldBeCleanedUp)
         {
             mMirrorTexture = nullptr;
-            mMsaaResolveMirrorTexture = nullptr;
             mMirrorTextureShouldBeCleanedUp = false;
         }
         if (!mMirrorTextureEnabled)
@@ -255,10 +256,7 @@ namespace MWVR
                 screenWidth,
                 screenHeight,
                 0));
-            mMsaaResolveMirrorTexture.reset(new VRFramebuffer(gc->getState(),
-                mSwapchain->width(),
-                mSwapchain->height(),
-                0));
+            mMirrorTexture->createColorBuffer(gc);
         }
 
         auto* state = gc->getState();
@@ -268,22 +266,18 @@ namespace MWVR
 
         //// Since OpenXR does not include native support for mirror textures, we have to generate them ourselves
         //// which means resolving msaa twice.
-        mMsaaResolveMirrorTexture->bindFramebuffer(gc, GL_FRAMEBUFFER_EXT);
-        mSwapchain->renderBuffer()->blit(gc, 0, 0, mSwapchain->width(), mSwapchain->height());
-        mMirrorTexture->bindFramebuffer(gc, GL_FRAMEBUFFER_EXT);
-        mMsaaResolveMirrorTexture->blit(gc, 0, 0, screenWidth, screenHeight);
-        //for (unsigned i = 0; i < mMirrorTextureViews.size(); i++)
-        //{
-        //    mMsaaResolveMirrorTexture->blit(gc, );
-        //    mMsaaResolveMirrorTexture->bindFramebuffer(gc, GL_READ_FRAMEBUFFER_EXT);
-        //    gl->glBlitFramebuffer(0, 0, mWidth, mHeight, i * mirrorWidth, 0, (i + 1) * mirrorWidth, screenHeight, GL_COLOR_BUFFER_BIT, GL_LINEAR);
-        //    gl->glBindFramebuffer(GL_READ_FRAMEBUFFER_EXT, 0);
-        //}
-
+        mMsaaResolveTexture->bindFramebuffer(gc, GL_FRAMEBUFFER_EXT);
+        //mSwapchain->framebuffer()->blit(gc, 0, 0, mMsaaResolveMirrorTexture->width(), mMsaaResolveMirrorTexture->height(), GL_COLOR_BUFFER_BIT, GL_LINEAR);
+        mFramebuffer->blit(gc, 0, 0, mFramebuffer->width(), mFramebuffer->height(), 0, 0, mMsaaResolveTexture->width(), mMsaaResolveTexture->height(), GL_COLOR_BUFFER_BIT, GL_NEAREST);
+        mFramebuffer->blit(gc, 0, 0, mFramebuffer->width(), mFramebuffer->height(), 0, 0, mMsaaResolveTexture->width(), mMsaaResolveTexture->height(), GL_DEPTH_BUFFER_BIT, GL_NEAREST);
+        //mMirrorTexture->bindFramebuffer(gc, GL_FRAMEBUFFER_EXT);
         gl->glBindFramebuffer(GL_FRAMEBUFFER_EXT, 0);
-        mMirrorTexture->blit(gc, 0, 0, screenWidth, screenHeight);
+        mMsaaResolveTexture->blit(gc, 0, 0, mMsaaResolveTexture->width(), mMsaaResolveTexture->height(), 0, 0, screenWidth, screenHeight, GL_COLOR_BUFFER_BIT, GL_LINEAR);
 
-        mSwapchain->endFrame(gc);
+        //mMirrorTexture->blit(gc, 0, 0, screenWidth, screenHeight, GL_COLOR_BUFFER_BIT);
+
+        mSwapchain[0]->endFrame(gc, *mMsaaResolveTexture);
+        mSwapchain[1]->endFrame(gc, *mMsaaResolveTexture);
     }
 
     void
@@ -313,8 +307,11 @@ namespace MWVR
 
         Environment::get().getSession()->beginPhase(VRSession::FramePhase::Draw);
         if (Environment::get().getSession()->getFrame(VRSession::FramePhase::Draw)->mShouldRender)
-            mSwapchain->beginFrame(info.getState()->getGraphicsContext());
-        mViewer->getCamera()->setViewport(0, 0, mSwapchainConfig.selectedWidth, mSwapchainConfig.selectedHeight);
+        {
+            mSwapchain[0]->beginFrame(info.getState()->getGraphicsContext());
+            mSwapchain[1]->beginFrame(info.getState()->getGraphicsContext());
+        }
+        mViewer->getCamera()->setViewport(0, 0, mFramebuffer->width(), mFramebuffer->height());
 
         osg::GraphicsOperation* graphicsOperation = info.getCurrentCamera()->getRenderer();
         osgViewer::Renderer* renderer = dynamic_cast<osgViewer::Renderer*>(graphicsOperation);
@@ -330,7 +327,10 @@ namespace MWVR
     void VRViewer::preDrawCallback(osg::RenderInfo& info)
     {
         if (Environment::get().getSession()->getFrame(VRSession::FramePhase::Draw)->mShouldRender)
-            mSwapchain->renderBuffer()->bindFramebuffer(info.getState()->getGraphicsContext(), GL_FRAMEBUFFER_EXT);
+        {
+            mFramebuffer->bindFramebuffer(info.getState()->getGraphicsContext(), GL_FRAMEBUFFER_EXT);
+            //mSwapchain->framebuffer()->bindFramebuffer(info.getState()->getGraphicsContext(), GL_FRAMEBUFFER_EXT);
+        }
     }
 
     void VRViewer::postDrawCallback(osg::RenderInfo& info)

@@ -485,11 +485,13 @@ namespace Misc
         View right{};
         double near_ = 1.f;
         double far_ = 10000.f;
-        if (!mUpdateViewCallback)
+        auto updateViewCallback = mUpdateViewCallback.lock();
+        if (!updateViewCallback)
         {
-            Log(Debug::Error) << "No update view callback. Stereo rendering will not work.";
+            Log(Debug::Error) << "StereoView: No update view callback. Stereo rendering will not work.";
+            return;
         }
-        mUpdateViewCallback->updateView(left, right);
+        updateViewCallback->updateView(left, right);
         near_ = Settings::Manager::getFloat("near clip", "Camera");
         far_ = Settings::Manager::getFloat("viewing distance", "Camera");
 

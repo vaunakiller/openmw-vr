@@ -22,13 +22,7 @@ namespace MWVR
         void beginFrame(osg::GraphicsContext* gc);
 
         //! Finalize render
-        void endFrame(osg::GraphicsContext* gc);
-
-        //! Currently acquired color texture
-        uint32_t acquiredColorTexture() const;
-
-        //! Currently acquired depth texture
-        uint32_t acquiredDepthTexture() const;
+        void endFrame(osg::GraphicsContext* gc, VRFramebuffer& readBuffer);
 
         //! Whether subchain is currently acquired (true) or released (false)
         bool isAcquired() const;
@@ -41,9 +35,6 @@ namespace MWVR
 
         //! Samples of the view surface
         int samples() const;
-
-        //! Get the current texture
-        VRFramebuffer* renderBuffer() const;
 
         //! Get the private implementation
         OpenXRSwapchainImpl& impl() { return *mPrivate; }
