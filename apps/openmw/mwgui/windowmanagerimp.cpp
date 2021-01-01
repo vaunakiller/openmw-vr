@@ -606,11 +606,15 @@ namespace MWGui
             mOldCullMask = mViewer->getCamera()->getCullMask();
             mViewer->getUpdateVisitor()->setTraversalMask(disablemask);
             mViewer->getCamera()->setCullMask(disablemask);
+            mViewer->getCamera()->setCullMaskLeft(disablemask);
+            mViewer->getCamera()->setCullMaskRight(disablemask);
         }
         else if (enable && mViewer->getCamera()->getCullMask() == disablemask)
         {
             mViewer->getUpdateVisitor()->setTraversalMask(mOldUpdateMask);
             mViewer->getCamera()->setCullMask(mOldCullMask);
+            mViewer->getCamera()->setCullMaskLeft(mOldCullMask);
+            mViewer->getCamera()->setCullMaskRight(mOldCullMask);
         }
     }
 

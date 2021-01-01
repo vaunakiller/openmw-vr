@@ -720,6 +720,8 @@ namespace Misc
         else
         {
             mMainCamera->setCullMask(cullMask);
+            mMainCamera->setCullMaskLeft(cullMask);
+            mMainCamera->setCullMaskRight(cullMask);
         }
     }
     osg::Node::NodeMask StereoView::getCullMask()

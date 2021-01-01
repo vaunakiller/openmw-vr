@@ -369,7 +369,10 @@ namespace MWRender
         mViewer->getCamera()->setComputeNearFarMode(osg::Camera::DO_NOT_COMPUTE_NEAR_FAR);
         mViewer->getCamera()->setCullingMode(cullingMode);
 
-        mViewer->getCamera()->setCullMask(~(Mask_UpdateVisitor|Mask_SimpleWater));
+        auto mask = ~(Mask_UpdateVisitor | Mask_SimpleWater);
+        mViewer->getCamera()->setCullMask(mask);
+        mViewer->getCamera()->setCullMaskLeft(mask);
+        mViewer->getCamera()->setCullMaskRight(mask);
         NifOsg::Loader::setHiddenNodeMask(Mask_UpdateVisitor);
         NifOsg::Loader::setIntersectionDisabledNodeMask(Mask_Effect);
         Nif::NIFFile::setLoadUnsupportedFiles(Settings::Manager::getBool("load unsupported nif files", "Models"));
@@ -586,6 +589,8 @@ namespace MWRender
             else
                 mask &= ~Mask_Scene;
             mViewer->getCamera()->setCullMask(mask);
+            mViewer->getCamera()->setCullMaskLeft(mask);
+            mViewer->getCamera()->setCullMaskRight(mask);
             return enabled;
         }
         else if (mode == Render_NavMesh)
