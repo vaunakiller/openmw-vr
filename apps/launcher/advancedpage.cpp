@@ -190,6 +190,25 @@ bool Launcher::AdvancedPage::loadSettings()
         startDefaultCharacterAtField->setText(mGameSettings.value("start"));
         runScriptAfterStartupField->setText(mGameSettings.value("script-run"));
     }
+
+    // VR
+    {
+        std::string stereoMethod = mEngineSettings.getString("stereo method", "Stereo");
+        useGeometryShaders->setChecked(stereoMethod == "GeometryShader");
+
+        loadSettingBool(useSharedShadowMaps, "shared shadow maps", "Stereo");
+        loadSettingBool(preferDirectXSwapchains, "Prefer DirectX swapchains", "VR");
+        loadSettingBool(useXrDebug, "enable XR_EXT_debug_utils", "VR Debug");
+        loadSettingBool(logAllXrCalls, "log all openxr calls", "VR Debug");
+        loadSettingBool(ignoreXrErrors, "continue on errors", "VR Debug");
+
+        double minimumSwingSpeed = mEngineSettings.getFloat("realistic combat minimum swing velocity", "VR");
+        realisticCombatMinimumSwingSpeedSpinBox->setValue(minimumSwingSpeed);
+        double maximumSwingSpeed = mEngineSettings.getFloat("realistic combat maximum swing velocity", "VR");
+        realisticCombatMaximumSwingSpeedSpinBox->setValue(maximumSwingSpeed);
+        double realHeightValue = mEngineSettings.getFloat("real height", "VR");
+        realHeightSpinBox->setValue(realHeightValue);
+    }
     return true;
 }
 
@@ -321,6 +340,33 @@ void Launcher::AdvancedPage::saveSettings()
         QString scriptRun = runScriptAfterStartupField->text();
         if (scriptRun != mGameSettings.value("script-run"))
             mGameSettings.setValue("script-run", scriptRun);
+    }
+
+    // VR
+    {
+        std::string stereoMethod = "BruteForce";
+        if (useGeometryShaders->isChecked())
+            stereoMethod = "GeometryShader";
+        if (stereoMethod != mEngineSettings.getString("stereo method", "Stereo"))
+            mEngineSettings.setString("stereo method", "Stereo", stereoMethod);
+
+        saveSettingBool(useSharedShadowMaps, "shared shadow maps", "Stereo");
+        saveSettingBool(preferDirectXSwapchains, "Prefer DirectX swapchains", "VR");
+        saveSettingBool(useXrDebug, "enable XR_EXT_debug_utils", "VR Debug");
+        saveSettingBool(logAllXrCalls, "log all openxr calls", "VR Debug");
+        saveSettingBool(ignoreXrErrors, "continue on errors", "VR Debug");
+
+        double minimumSwingSpeed = realisticCombatMinimumSwingSpeedSpinBox->value();
+        if (minimumSwingSpeed != mEngineSettings.getFloat("realistic combat minimum swing velocity", "VR"))
+            mEngineSettings.setFloat("realistic combat minimum swing velocity", "VR", minimumSwingSpeed);
+
+        double maximumSwingSpeed = realisticCombatMaximumSwingSpeedSpinBox->value();
+        if (maximumSwingSpeed != mEngineSettings.getFloat("realistic combat maximum swing velocity", "VR"))
+            mEngineSettings.setFloat("realistic combat maximum swing velocity", "VR", maximumSwingSpeed);
+
+        double realHeightValue = realHeightSpinBox->value();
+        if (realHeightValue != mEngineSettings.getFloat("real height", "VR"))
+            mEngineSettings.setFloat("real height", "VR", realHeightValue);
     }
 }
 
