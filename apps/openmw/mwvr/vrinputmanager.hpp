@@ -75,7 +75,10 @@ namespace MWVR
         void readInteractionProfile(TiXmlElement* element);
         void readInteractionProfileActionSet(TiXmlElement* element, ActionSet actionSet, std::string profilePath);
 
+        void setThumbstickDeadzone(float deadzoneRadius);
+
     private:
+        std::shared_ptr<AxisAction::Deadzone> mAxisDeadzone{ new AxisAction::Deadzone };
         std::unique_ptr<OpenXRInput> mXRInput;
         std::unique_ptr<RealisticCombat::StateMachine> mRealisticCombat;
         std::string mXrControllerSuggestionsFile;

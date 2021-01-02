@@ -7,6 +7,7 @@
 #include <deque>
 #include <array>
 #include <iostream>
+#include <cassert>
 
 namespace MWVR
 {
@@ -131,15 +132,42 @@ namespace MWVR
     }
 
 
+    AxisAction::AxisAction(int openMWAction, std::unique_ptr<OpenXRAction> xrAction, std::shared_ptr<AxisAction::Deadzone> deadzone)
+        : Action(openMWAction, std::move(xrAction))
+        , mDeadzone(deadzone)
+    {
+    }
+
     void AxisAction::update()
     {
         mActive = false;
         mXRAction->getFloat(0, mValue);
+        mDeadzone->applyDeadzone(mValue);
 
         if (std::fabs(mValue) > gAxisEpsilon)
             mActive = true;
         else
             mValue = 0.f;
+    }
+
+    void AxisAction::Deadzone::applyDeadzone(float& value)
+    {
+        float sign = std::copysignf(1.f, value);
+        float magnitude = std::fabsf(value);
+        magnitude = std::min(mActiveRadiusOuter, magnitude);
+        magnitude = std::max(0.f, magnitude - mActiveRadiusInner);
+        value = sign * magnitude * mActiveScale;
+
+    }
+
+    void AxisAction::Deadzone::setDeadzoneRadius(float deadzoneRadius)
+    {
+        deadzoneRadius = std::min(std::max(deadzoneRadius, 0.0f), 0.5f - 1e-5f);
+        mActiveRadiusInner = deadzoneRadius;
+        mActiveRadiusOuter = 1.f - deadzoneRadius;
+        float activeRadius = mActiveRadiusOuter - mActiveRadiusInner;
+        assert(activeRadius > 0.f);
+        mActiveScale = 1.f / activeRadius;
     }
 
 }
