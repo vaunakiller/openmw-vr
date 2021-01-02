@@ -153,7 +153,7 @@ namespace MWVR
     void AxisAction::Deadzone::applyDeadzone(float& value)
     {
         float sign = std::copysignf(1.f, value);
-        float magnitude = std::fabsf(value);
+        float magnitude = std::fabs(value);
         magnitude = std::min(mActiveRadiusOuter, magnitude);
         magnitude = std::max(0.f, magnitude - mActiveRadiusInner);
         value = sign * magnitude * mActiveScale;
