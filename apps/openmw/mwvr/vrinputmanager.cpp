@@ -186,6 +186,10 @@ namespace MWVR
             {
                 mHapticsEnabled = Settings::Manager::getBool("haptics enabled", "VR");
             }
+            if (it->first == "Input" && it->second == "joystick dead zone")
+            {
+                setThumbstickDeadzone(Settings::Manager::getFloat("joystick dead zone", "Input"));
+            }
         }
     }
 
@@ -271,6 +275,11 @@ namespace MWVR
         mXRInput->suggestBindings(actionSet, interactionProfilePath, suggestedBindings);
     }
 
+    void VRInputManager::setThumbstickDeadzone(float deadzoneRadius)
+    {
+        mAxisDeadzone->setDeadzoneRadius(deadzoneRadius);
+    }
+
     void VRInputManager::requestRecenter()
     {
         // TODO: Hack, should have a cleaner way of accessing this
@@ -298,7 +307,7 @@ namespace MWVR
             userControllerBindingsFile,
             controllerBindingsFile,
             grab)
-        , mXRInput(new OpenXRInput)
+        , mXRInput(new OpenXRInput(mAxisDeadzone))
         , mXrControllerSuggestionsFile(xrControllerSuggestionsFile)
         , mHapticsEnabled{ Settings::Manager::getBool("haptics enabled", "VR") }
     {
@@ -341,6 +350,7 @@ namespace MWVR
         }
 
         mXRInput->attachActionSets();
+        setThumbstickDeadzone(Settings::Manager::getFloat("joystick dead zone", "Input"));
     }
 
     VRInputManager::~VRInputManager()

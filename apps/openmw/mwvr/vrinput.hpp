@@ -192,13 +192,29 @@ namespace MWVR
     class AxisAction : public Action
     {
     public:
-        using Action::Action;
+        class Deadzone
+        {
+        public:
+            void applyDeadzone(float& value);
+
+            void setDeadzoneRadius(float deadzoneRadius);
+
+        private:
+            float mActiveRadiusInner{ 0.f };
+            float mActiveRadiusOuter{ 1.f };
+            float mActiveScale{ 1.f };
+        };
+
+    public:
+        AxisAction(int openMWAction, std::unique_ptr<OpenXRAction> xrAction, std::shared_ptr<AxisAction::Deadzone> deadzone);
 
         static const XrActionType ActionType = XR_ACTION_TYPE_FLOAT_INPUT;
 
         void update() override;
 
         virtual bool shouldQueue() const override { return mActive || onDeactivate(); }
+
+        std::shared_ptr<AxisAction::Deadzone> mDeadzone;
     };
 }
 

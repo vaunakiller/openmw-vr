@@ -14,10 +14,10 @@
 namespace MWVR
 {
 
-    OpenXRInput::OpenXRInput()
+    OpenXRInput::OpenXRInput(std::shared_ptr<AxisAction::Deadzone> deadzone)
     {
-        mActionSets.emplace(ActionSet::Gameplay, "Gameplay");
-        mActionSets.emplace(ActionSet::GUI, "GUI");
+        mActionSets.emplace(ActionSet::Gameplay, OpenXRActionSet("Gameplay", deadzone));
+        mActionSets.emplace(ActionSet::GUI, OpenXRActionSet("GUI", deadzone));
     };
 
     OpenXRActionSet& OpenXRInput::getActionSet(ActionSet actionSet)

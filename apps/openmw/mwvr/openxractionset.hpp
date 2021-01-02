@@ -14,7 +14,7 @@ namespace MWVR
     public:
         using Actions = MWInput::Actions;
 
-        OpenXRActionSet(const std::string& actionSetName);
+        OpenXRActionSet(const std::string& actionSetName, std::shared_ptr<AxisAction::Deadzone> deadzone);
 
         //! Update all controls and queue any actions
         void updateControls();
@@ -32,8 +32,10 @@ namespace MWVR
         void suggestBindings(std::vector<XrActionSuggestedBinding>& xrSuggestedBindings, const SuggestedBindings& mwSuggestedBindings);
 
     protected:
-        template<typename A, XrActionType AT = A::ActionType>
+        template<typename A>
         void createMWAction(int openMWAction, const std::string& actionName, const std::string& localName);
+        template<typename A>
+        void createMWAction(int openMWAction, const std::string& actionName, const std::string& localName, std::shared_ptr<AxisAction::Deadzone> deadzone);
         void createPoseAction(TrackedLimb limb, const std::string& actionName, const std::string& localName);
         void createHapticsAction(TrackedLimb limb, const std::string& actionName, const std::string& localName);
         std::unique_ptr<OpenXRAction> createXRAction(XrActionType actionType, const std::string& actionName, const std::string& localName);

@@ -17,7 +17,7 @@ namespace MWVR
         using XrProfileSuggestedBindings = std::map<std::string, XrSuggestedBindings>;
 
         //! Default constructor, creates two ActionSets: Gameplay and GUI
-        OpenXRInput();
+        OpenXRInput(std::shared_ptr<AxisAction::Deadzone> deadzone);
 
         //! Get the specified actionSet.
         OpenXRActionSet& getActionSet(ActionSet actionSet);

@@ -20,7 +20,7 @@
 namespace MWVR
 {
 
-    OpenXRActionSet::OpenXRActionSet(const std::string& actionSetName)
+    OpenXRActionSet::OpenXRActionSet(const std::string& actionSetName, std::shared_ptr<AxisAction::Deadzone> deadzone)
         : mActionSet(nullptr)
         , mLocalizedName(actionSetName)
         , mInternalName(Misc::StringUtils::lowerCase(actionSetName))
@@ -74,19 +74,19 @@ namespace MWVR
         createMWAction<ButtonPressAction>(MWInput::A_CycleWeaponRight, "cycle_weapon_right", "Cycle Weapon Right");
         createMWAction<ButtonHoldAction>(MWInput::A_Sneak, "sneak", "Sneak");
         createMWAction<ButtonPressAction>(MWInput::A_QuickKeysMenu, "quick_menu", "Quick Menu");
-        createMWAction<AxisAction>(MWInput::A_LookLeftRight, "look_left_right", "Look Left Right");
-        createMWAction<AxisAction>(MWInput::A_MoveForwardBackward, "move_forward_backward", "Move Forward Backward");
-        createMWAction<AxisAction>(MWInput::A_MoveLeftRight, "move_left_right", "Move Left Right");
+        createMWAction<AxisAction>(MWInput::A_LookLeftRight, "look_left_right", "Look Left Right", deadzone);
+        createMWAction<AxisAction>(MWInput::A_MoveForwardBackward, "move_forward_backward", "Move Forward Backward", deadzone);
+        createMWAction<AxisAction>(MWInput::A_MoveLeftRight, "move_left_right", "Move Left Right", deadzone);
         createMWAction<ButtonPressAction>(MWInput::A_Journal, "journal_book", "Journal Book");
         createMWAction<ButtonPressAction>(MWInput::A_QuickSave, "quick_save", "Quick Save");
         createMWAction<ButtonPressAction>(MWInput::A_Rest, "rest", "Rest");
-        createMWAction<AxisAction>(A_ActivateTouch, "activate_touched", "Activate Touch");
+        createMWAction<AxisAction>(A_ActivateTouch, "activate_touched", "Activate Touch", deadzone);
         createMWAction<ButtonPressAction>(MWInput::A_AlwaysRun, "always_run", "Always Run");
         createMWAction<ButtonPressAction>(MWInput::A_AutoMove, "auto_move", "Auto Move");
         createMWAction<ButtonPressAction>(MWInput::A_ToggleHUD, "toggle_hud", "Toggle HUD");
         createMWAction<ButtonPressAction>(MWInput::A_ToggleDebug, "toggle_debug", "Toggle the debug hud");
-        createMWAction<AxisAction>(A_MenuUpDown, "menu_up_down", "Menu Up Down");
-        createMWAction<AxisAction>(A_MenuLeftRight, "menu_left_right", "Menu Left Right");
+        createMWAction<AxisAction>(A_MenuUpDown, "menu_up_down", "Menu Up Down", deadzone);
+        createMWAction<AxisAction>(A_MenuLeftRight, "menu_left_right", "Menu Left Right", deadzone);
         createMWAction<ButtonPressAction>(A_MenuSelect, "menu_select", "Menu Select");
         createMWAction<ButtonPressAction>(A_MenuBack, "menu_back", "Menu Back");
         createPoseAction(TrackedLimb::LEFT_HAND, "left_hand_pose", "Left Hand Pose");
@@ -113,16 +113,30 @@ namespace MWVR
         mHapticsMap.emplace(limb, new HapticsAction(std::move(createXRAction(XR_ACTION_TYPE_VIBRATION_OUTPUT, actionName, localName))));
     }
 
-    template<typename A, XrActionType AT>
+    template<typename A>
     void
         OpenXRActionSet::createMWAction(
             int openMWAction,
             const std::string& actionName,
             const std::string& localName)
     {
-        auto xrAction = createXRAction(AT, mInternalName + "_" + actionName, mLocalizedName + " " + localName);
+        auto xrAction = createXRAction(A::ActionType, mInternalName + "_" + actionName, mLocalizedName + " " + localName);
         mActionMap.emplace(actionName, new A(openMWAction, std::move(xrAction)));
     }
+
+    template<typename A>
+    void
+        OpenXRActionSet::createMWAction(
+            int openMWAction,
+            const std::string& actionName,
+            const std::string& localName,
+            std::shared_ptr<AxisAction::Deadzone> deadzone)
+    {
+        auto xrAction = createXRAction(AxisAction::ActionType, mInternalName + "_" + actionName, mLocalizedName + " " + localName);
+        mActionMap.emplace(actionName, new AxisAction(openMWAction, std::move(xrAction), deadzone));
+    }
+
+
 
     XrActionSet
         OpenXRActionSet::createActionSet(const std::string& name)
