@@ -96,7 +96,6 @@ namespace MWVR
 
     void VRFramebuffer::blit(osg::GraphicsContext* gc, int srcX0, int srcY0, int srcX1, int srcY1, int dstX0, int dstY0, int dstX1, int dstY1, uint32_t bits, uint32_t filter)
     {
-#define GLERR if(auto err = glGetError() != GL_NO_ERROR) Log(Debug::Verbose) << __FILE__ << "." << __LINE__ << ": " << glGetError()
         auto* state = gc->getState();
         auto* gl = osg::GLExtensions::Get(state->getContextID(), false);
         gl->glBindFramebuffer(GL_READ_FRAMEBUFFER_EXT, mFBO);
@@ -111,13 +110,16 @@ namespace MWVR
         glGenTextures(1, &image);
         glBindTexture(mTextureTarget, image);
         if (mSamples <= 1)
+        {
             glTexImage2D(mTextureTarget, 0, formatInternal, mWidth, mHeight, 0, format, GL_UNSIGNED_INT, nullptr);
+            glTexParameteri(mTextureTarget, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_BORDER_ARB);
+            glTexParameteri(mTextureTarget, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_BORDER_ARB);
+            glTexParameteri(mTextureTarget, GL_TEXTURE_MIN_FILTER, GL_LINEAR_MIPMAP_LINEAR);
+            glTexParameteri(mTextureTarget, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+        }
         else
             gl->glTexImage2DMultisample(mTextureTarget, mSamples, format, mWidth, mHeight, false);
-        glTexParameteri(mTextureTarget, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_BORDER_ARB);
-        glTexParameteri(mTextureTarget, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_BORDER_ARB);
-        glTexParameteri(mTextureTarget, GL_TEXTURE_MIN_FILTER, GL_LINEAR_MIPMAP_LINEAR);
-        glTexParameteri(mTextureTarget, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+        
         glTexParameteri(mTextureTarget, GL_TEXTURE_MAX_LEVEL, 0);
 
         return image;

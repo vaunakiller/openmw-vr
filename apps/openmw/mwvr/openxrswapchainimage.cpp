@@ -66,7 +66,6 @@ namespace MWVR {
         {
             mFramebuffer->bindFramebuffer(gc, GL_FRAMEBUFFER_EXT);
             readBuffer.blit(gc, offset_x, offset_y, offset_x + mFramebuffer->width(), offset_y + mFramebuffer->height(), 0, 0, mFramebuffer->width(), mFramebuffer->height(), mBufferBits, GL_NEAREST);
-            readBuffer.bindFramebuffer(gc, GL_FRAMEBUFFER_EXT);
         }
 
         XrSwapchainImageOpenGLKHR mXrImage;
@@ -148,7 +147,6 @@ namespace MWVR {
             mFramebuffer->bindFramebuffer(gc, GL_FRAMEBUFFER_EXT);
             readBuffer.blit(gc, offset_x, offset_y, offset_x + mFramebuffer->width(), offset_y + mFramebuffer->height(), 0, mFramebuffer->height(), mFramebuffer->width(), 0, mBufferBits, GL_NEAREST);
             xr->impl().platform().DXUnlockObject(mDxResourceShareHandle);
-            readBuffer.bindFramebuffer(gc, GL_FRAMEBUFFER_EXT);
             
 
             // If the d3d11 texture couldn't be shared directly, blit it again.

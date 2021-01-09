@@ -216,8 +216,12 @@ namespace MWGui
         getWidget(mControllerSwitch, "ControllerButton");
         getWidget(mWaterTextureSize, "WaterTextureSize");
         getWidget(mWaterReflectionDetail, "WaterReflectionDetail");
-        getWidget(mVRMirrorTextureEye, "VRMirrorTextureEye");
-        getWidget(mVRLeftHudPosition, "VRLeftHudPosition");
+
+        if (MWBase::Environment::get().getVrMode())
+        {
+            getWidget(mVRMirrorTextureEye, "VRMirrorTextureEye");
+            getWidget(mVRLeftHudPosition, "VRLeftHudPosition");
+        }
 
 #ifndef WIN32
         // hide gamma controls since it currently does not work under Linux
@@ -246,8 +250,11 @@ namespace MWGui
         mKeyboardSwitch->eventMouseButtonClick += MyGUI::newDelegate(this, &SettingsWindow::onKeyboardSwitchClicked);
         mControllerSwitch->eventMouseButtonClick += MyGUI::newDelegate(this, &SettingsWindow::onControllerSwitchClicked);
 
-        mVRMirrorTextureEye->eventComboChangePosition += MyGUI::newDelegate(this, &SettingsWindow::onVRMirrorTextureEyeChanged);
-        mVRLeftHudPosition->eventComboChangePosition += MyGUI::newDelegate(this, &SettingsWindow::onVRLeftHudPositionChanged);
+        if (MWBase::Environment::get().getVrMode())
+        {
+            mVRMirrorTextureEye->eventComboChangePosition += MyGUI::newDelegate(this, &SettingsWindow::onVRMirrorTextureEyeChanged);
+            mVRLeftHudPosition->eventComboChangePosition += MyGUI::newDelegate(this, &SettingsWindow::onVRLeftHudPositionChanged);
+        }
 
         center();
 
@@ -277,15 +284,18 @@ namespace MWGui
         std::string tmip = Settings::Manager::getString("texture mipmap", "General");
         mTextureFilteringButton->setCaption(textureMipmappingToStr(tmip));
 
-        std::string mirrorTextureEye = Settings::Manager::getString("mirror texture eye", "VR");
-        for (unsigned i = 0; i < mVRMirrorTextureEye->getItemCount(); i++)
-            if (Misc::StringUtils::ciEqual(mirrorTextureEye, mVRMirrorTextureEye->getItem(i)))
-                mVRMirrorTextureEye->setIndexSelected(i);
+        if (MWBase::Environment::get().getVrMode())
+        {
+            std::string mirrorTextureEye = Settings::Manager::getString("mirror texture eye", "VR");
+            for (unsigned i = 0; i < mVRMirrorTextureEye->getItemCount(); i++)
+                if (Misc::StringUtils::ciEqual(mirrorTextureEye, mVRMirrorTextureEye->getItem(i)))
+                    mVRMirrorTextureEye->setIndexSelected(i);
 
-        std::string leftHandHudPosition = Settings::Manager::getString("left hand hud position", "VR");
-        for (unsigned i = 0; i < mVRLeftHudPosition->getItemCount(); i++)
-            if (Misc::StringUtils::ciEqual(leftHandHudPosition, mVRLeftHudPosition->getItem(i)))
-                mVRLeftHudPosition->setIndexSelected(i);
+            std::string leftHandHudPosition = Settings::Manager::getString("left hand hud position", "VR");
+            for (unsigned i = 0; i < mVRLeftHudPosition->getItemCount(); i++)
+                if (Misc::StringUtils::ciEqual(leftHandHudPosition, mVRLeftHudPosition->getItem(i)))
+                    mVRLeftHudPosition->setIndexSelected(i);
+        }
 
         int waterTextureSize = Settings::Manager::getInt("rtt size", "Water");
         if (waterTextureSize >= 512)
@@ -524,9 +534,12 @@ namespace MWGui
         MWBase::Environment::get().getInputManager()->processChangedSettings(changed);
         MWBase::Environment::get().getMechanicsManager()->processChangedSettings(changed);
 #ifdef USE_OPENXR
-        MWVR::Environment::get().getSession()->processChangedSettings(changed);
-        MWVR::Environment::get().getViewer()->processChangedSettings(changed);
-        MWVR::Environment::get().getGUIManager()->processChangedSettings(changed);
+        if (MWBase::Environment::get().getVrMode())
+        {
+            MWVR::Environment::get().getSession()->processChangedSettings(changed);
+            MWVR::Environment::get().getViewer()->processChangedSettings(changed);
+            MWVR::Environment::get().getGUIManager()->processChangedSettings(changed);
+        }
 #endif
         Settings::Manager::resetPendingChanges();
     }

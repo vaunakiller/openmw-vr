@@ -11,12 +11,16 @@
 
 #include <osgViewer/Renderer>
 
+#include <components/debug/gldebug.hpp>
+
 #include <components/sceneutil/mwshadowtechnique.hpp>
 
 #include <components/misc/stringops.hpp>
 #include <components/misc/stereo.hpp>
 
 #include <components/sdlutil/sdlgraphicswindow.hpp>
+
+#include <Windows.h>
 
 namespace MWVR
 {
@@ -270,14 +274,18 @@ namespace MWVR
         //mSwapchain->framebuffer()->blit(gc, 0, 0, mMsaaResolveMirrorTexture->width(), mMsaaResolveMirrorTexture->height(), GL_COLOR_BUFFER_BIT, GL_LINEAR);
         mFramebuffer->blit(gc, 0, 0, mFramebuffer->width(), mFramebuffer->height(), 0, 0, mMsaaResolveTexture->width(), mMsaaResolveTexture->height(), GL_COLOR_BUFFER_BIT, GL_NEAREST);
         mFramebuffer->blit(gc, 0, 0, mFramebuffer->width(), mFramebuffer->height(), 0, 0, mMsaaResolveTexture->width(), mMsaaResolveTexture->height(), GL_DEPTH_BUFFER_BIT, GL_NEAREST);
-        //mMirrorTexture->bindFramebuffer(gc, GL_FRAMEBUFFER_EXT);
-        gl->glBindFramebuffer(GL_FRAMEBUFFER_EXT, 0);
-        mMsaaResolveTexture->blit(gc, 0, 0, mMsaaResolveTexture->width(), mMsaaResolveTexture->height(), 0, 0, screenWidth, screenHeight, GL_COLOR_BUFFER_BIT, GL_LINEAR);
 
-        //mMirrorTexture->blit(gc, 0, 0, screenWidth, screenHeight, GL_COLOR_BUFFER_BIT);
+        if (mMirrorTexture)
+        {
+            mMirrorTexture->bindFramebuffer(gc, GL_FRAMEBUFFER_EXT);
+            mMsaaResolveTexture->blit(gc, 0, 0, mMsaaResolveTexture->width(), mMsaaResolveTexture->height(), 0, 0, screenWidth, screenHeight, GL_COLOR_BUFFER_BIT, GL_LINEAR);
+            gl->glBindFramebuffer(GL_FRAMEBUFFER_EXT, 0);
+            mMirrorTexture->blit(gc, 0, 0, screenWidth, screenHeight, 0, 0, screenWidth, screenHeight, GL_COLOR_BUFFER_BIT, GL_NEAREST);
+        }
 
         mSwapchain[0]->endFrame(gc, *mMsaaResolveTexture);
         mSwapchain[1]->endFrame(gc, *mMsaaResolveTexture);
+        gl->glBindFramebuffer(GL_FRAMEBUFFER_EXT, 0);
     }
 
     void
@@ -291,7 +299,10 @@ namespace MWVR
         RealizeOperation::operator()(
             osg::GraphicsContext* gc)
     {
-        return Environment::get().getViewer()->configureXR(gc);
+        if (Debug::shouldDebugOpenGL())
+            Debug::EnableGLDebugOperation()(gc);
+
+        Environment::get().getViewer()->configureXR(gc);
     }
 
     bool
