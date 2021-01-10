@@ -173,7 +173,7 @@ namespace Misc
         bool flipViewOrder{ true };
 
         // Updates stereo configuration during the update pass
-        std::weak_ptr<UpdateViewCallback> mUpdateViewCallback{};
+        std::shared_ptr<UpdateViewCallback> mUpdateViewCallback;
 
         // OSG camera callbacks set using set*callback. StereoView manages that these are always set on the appropriate camera(s);
         osg::ref_ptr<osg::NodeCallback>         mCullCallback{ nullptr };

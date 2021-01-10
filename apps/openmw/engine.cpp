@@ -805,7 +805,9 @@ void OMW::Engine::prepareEngine (Settings::Manager & settings)
         // Stereo shader technique can be set up now.
         mStereoView->setStereoTechnique(Misc::getStereoTechnique());
         mStereoView->initializeScene();
-        mStereoView->setCullMask(mViewer->getCamera()->getCullMask() & ~MWRender::VisMask::Mask_GUI);
+
+        if (mEnvironment.getVrMode())
+            mStereoView->setCullMask(mStereoView->getCullMask() & ~MWRender::VisMask::Mask_GUI);
     }
 
     window->setStore(mEnvironment.getWorld()->getStore());

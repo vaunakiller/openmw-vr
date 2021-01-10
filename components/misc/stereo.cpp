@@ -266,6 +266,7 @@ namespace Misc
         , mMasterConfig(new SharedShadowMapConfig)
         , mSlaveConfig(new SharedShadowMapConfig)
         , mSharedShadowMaps(Settings::Manager::getBool("shared shadow maps", "Stereo"))
+        , mUpdateViewCallback(new DefaultUpdateViewCallback)
     {
         mMasterConfig->_id = "STEREO";
         mMasterConfig->_master = true;
@@ -485,13 +486,12 @@ namespace Misc
         View right{};
         double near_ = 1.f;
         double far_ = 10000.f;
-        auto updateViewCallback = mUpdateViewCallback.lock();
-        if (!updateViewCallback)
+        if (!mUpdateViewCallback)
         {
             Log(Debug::Error) << "StereoView: No update view callback. Stereo rendering will not work.";
             return;
         }
-        updateViewCallback->updateView(left, right);
+        mUpdateViewCallback->updateView(left, right);
         near_ = Settings::Manager::getFloat("near clip", "Camera");
         far_ = Settings::Manager::getFloat("viewing distance", "Camera");
 
@@ -683,8 +683,8 @@ namespace Misc
     {
         left.pose.position = osg::Vec3(-2.2, 0, 0);
         right.pose.position = osg::Vec3(2.2, 0, 0);
-        left.fov = { -0.767549932, 0.620896876, -0.837898076, 0.726982594 };
-        right.fov = { -0.620896876, 0.767549932, -0.837898076, 0.726982594 };
+        left.fov = { -0.767549932, 0.620896876, 0.726982594, -0.837898076 };
+        right.fov = { -0.620896876, 0.767549932, 0.726982594, -0.837898076 };
     }
 
     void StereoView::setInitialDrawCallback(osg::ref_ptr<osg::Camera::DrawCallback> cb)
