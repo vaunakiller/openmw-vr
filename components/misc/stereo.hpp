@@ -79,7 +79,7 @@ namespace Misc
         //! Default implementation of UpdateViewCallback that just provides some hardcoded values for debugging purposes
         struct DefaultUpdateViewCallback : public UpdateViewCallback
         {
-            virtual void updateView(View& left, View& right);
+            void updateView(View& left, View& right) override;
         };
 
         enum class Technique

@@ -40,10 +40,10 @@ namespace MWVR
         virtual ~VRInputManager();
 
         /// Overriden to force vr modes such as hiding cursors and crosshairs
-        virtual void changeInputMode(bool guiMode);
+        void changeInputMode(bool guiMode) override;
 
         /// Overriden to update XR inputs
-        virtual void update(float dt, bool disableControls = false, bool disableEvents = false);
+        void update(float dt, bool disableControls = false, bool disableEvents = false) override;
 
         /// Set current offset to 0 and re-align VR stage.
         void requestRecenter();

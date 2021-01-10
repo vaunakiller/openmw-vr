@@ -20,8 +20,6 @@
 
 #include <components/sdlutil/sdlgraphicswindow.hpp>
 
-#include <Windows.h>
-
 namespace MWVR
 {
 
