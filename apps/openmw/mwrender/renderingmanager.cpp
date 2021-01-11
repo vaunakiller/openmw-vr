@@ -970,12 +970,7 @@ namespace MWRender
     {
         osg::Camera* camera = mViewer->getCamera();
 #ifdef USE_OPENXR
-        // In VR mode, the main camera is disabled.
-        if (mViewer->getNumSlaves() > 0)
-        {
-            auto& slave = mViewer->getSlave(mViewer->getNumSlaves()-1);
-            camera = slave._camera;
-        }
+        MWVR::Environment::get().getSession()->beginPhase(MWVR::VRSession::FramePhase::Update);
 #endif
         osg::ref_ptr<osg::Drawable> tempDrw = new osg::Drawable;
         tempDrw->setDrawCallback(new ReadImageFromFramebufferCallback(image, w, h));
