@@ -470,7 +470,20 @@ namespace MWVR
             throw std::logic_error("Enum value not implemented");
         }
 #elif __linux__
-        { // Create Session
+        {
+            // Get system requirements
+            PFN_xrGetOpenGLGraphicsRequirementsKHR p_getRequirements = nullptr;
+            xrGetInstanceProcAddr(instance, "xrGetOpenGLGraphicsRequirementsKHR", reinterpret_cast<PFN_xrVoidFunction*>(&p_getRequirements));
+            XrGraphicsRequirementsOpenGLKHR requirements{ XR_TYPE_GRAPHICS_REQUIREMENTS_OPENGL_KHR };
+            CHECK_XRCMD(p_getRequirements(instance, systemId, &requirements));
+
+            // TODO: Actually get system version
+            const XrVersion systemApiVersion = XR_MAKE_VERSION(4, 6, 0);
+            if (requirements.minApiVersionSupported > systemApiVersion) {
+                std::cout << "Runtime does not support desired Graphics API and/or version" << std::endl;
+            }
+
+            // Create Session
             Display* xDisplay = XOpenDisplay(NULL);
             GLXContext glxContext = glXGetCurrentContext();
             GLXDrawable glxDrawable = glXGetCurrentDrawable();
