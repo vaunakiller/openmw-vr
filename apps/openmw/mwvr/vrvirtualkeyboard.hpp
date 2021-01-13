@@ -7,6 +7,7 @@
 #include "components/widgets/virtualkeyboardmanager.hpp"
 
 #include <map>
+#include <memory>
 
 namespace Gui
 {
