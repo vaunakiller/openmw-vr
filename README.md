@@ -110,9 +110,12 @@ Command line options
 VR
 ======
 
-This fork is a VR port of openmw using the openxr VR standard.
+This fork is a VR port of openmw using the OpenXR VR standard.
+
+Download
+--------------
 You can grab the latest binaries/sources under [Releases](https://gitlab.com/madsbuvi/openmw/-/releases)
-Or grab a development build from the artifacts of any pipeline of the openxr_vr build on the gitlab.
+Or grab a development build from the artifacts of any pipeline of the [openmw-vr](https://gitlab.com/madsbuvi/openmw/-/tree/openmw-vr) branch on the gitlab.
 
 Current Status
 --------------
