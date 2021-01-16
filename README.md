@@ -110,9 +110,12 @@ Command line options
 VR
 ======
 
-This fork is a VR port of openmw using the openxr VR standard.
+This fork is a VR port of openmw using the OpenXR VR standard.
+
+Download
+--------------
 You can grab the latest binaries/sources under [Releases](https://gitlab.com/madsbuvi/openmw/-/releases)
-Or grab a development build from the artifacts of any pipeline of the openxr_vr build on the gitlab.
+Or grab a development build from the artifacts of any pipeline of the [openmw-vr](https://gitlab.com/madsbuvi/openmw/-/tree/openmw-vr) branch on the gitlab.
 
 Current Status
 --------------
@@ -135,11 +138,11 @@ At this point most mainstream headsets have OpenXR implementations, but some may
 
 Building
 --------
-The fork should build with the same instructions as building openmw.
+On windows, the fork builds with the same instructions as [building openmw](https://wiki.openmw.org/index.php?title=Development_Environment_Setup#MSVC_2017-2019).
+On linux, however, openmw does not package binaries for external dependencies. It is therefore necessary to build your own copy of [my fork of OSG](https://github.com/madsbuvi/osg) that contains stereo fixes, until these are accepted upstream.
 
 VR Controls
 ---------------------
-
 In VR mode control is based on tracking and VR controllers.
 There is currently no option for regular gamepad based controls.
 
@@ -150,18 +153,22 @@ The control bound to the menu also doubles down as a recenter action. Hold the m
 
 When in menus, alternate bindings are used to navigate the menus using the thumbsticks and the A/B controls (or equivalent)
 
-Currently openmw-vr has no api for re-binding controls, as this is expected to be offered by the VR runtime itself.
-
 Default controller bindings:
 - Oculus: [Bindings](docs/controller_graphics/Oculus_Touch.png)
 - Index knuckles: [Bindings](docs/controller_graphics/Valve_Index.png)
 - Vive wands: [TODO: No graphic available]
 
+Rebinding Controls
+---------------------
+Currently openmw-vr has interface for re-binding controls in VR, as this is expected to be offered by the VR runtime itself. No runtimes have implemented this so far, however. You can manually edit bindings by modifying _xrcontrollersuggestions.xml_. It is strongly recommended that you copy this file to your settings folder (documents/my games/openmw) first and only edit that copy.
+
 Known Issues
 ------------
-- For oculus headsets, the SteamVR runtime is broken. You'll need to use the Oculus runtimes.
+- For many controllers, the SteamVR runtimes do not play well or at all. Use your native runtimes when possible
+- For Quest users: Virtual desktop requires SteamVR to play OpenMW VR. But SteamVR does not currently play well with the oculus controllers. Use the link for now
 - Movies play upside down
-- Cannot point and click in the main menu, you must use the right hand controller as explained above
-- Performance is shite, you may have to play without fancy shadows or water shaders.
+- Cannot point and click in the main menu, you must use the controllers / hit enter to load into any game first.
+- Performance is shite, you may have to turn off shadows and/or the water shader.
 - Audio is not automatically captured.
   - Work around this by adding the line `device = OpenAL Soft on Headphones (2- Rift Audio)` under `[Sound]` in settings.cfg. Replace the device string with the string corresponding to your device. You can find a list of device strings in openmw.log after running it once.
+- When building your own binaries, the water shader may break if you do not build your own copy of OSG from [my fork](https://github.com/madsbuvi/osg)
