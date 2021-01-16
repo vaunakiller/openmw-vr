@@ -394,8 +394,6 @@ namespace Shader
         if (shaderIt == mShaders.end())
         {
             std::string shaderSource = getTemplateSource(templateName);
-            if (shaderSource.empty())
-                return nullptr;
 
             if (!parseDefines(shaderSource, defines, mGlobalDefines, templateName) || !parseFors(shaderSource, templateName))
             {
