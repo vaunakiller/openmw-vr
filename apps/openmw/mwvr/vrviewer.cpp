@@ -240,7 +240,7 @@ namespace MWVR
         return mSubImages[static_cast<int>(side)];
     }
 
-    GLuint createShader(osg::GLExtensions* gl,  const char* source, GLenum type)
+    static GLuint createShader(osg::GLExtensions* gl, const char* source, GLenum type)
     {
         GLint len = strlen(source);
         GLuint shader = gl->glCreateShader(type);
@@ -263,41 +263,11 @@ namespace MWVR
         return shader;
     }
 
-    void VRViewer::blit(osg::GraphicsContext* gc)
+    static bool applyGamma(osg::GraphicsContext* gc, VRFramebuffer& target, VRFramebuffer& source)
     {
-        if (mMirrorTextureShouldBeCleanedUp)
-        {
-            mMirrorTexture = nullptr;
-            mMirrorTextureShouldBeCleanedUp = false;
-        }
-        if (!mMirrorTextureEnabled)
-            return;
-
-        auto* traits = SDLUtil::GraphicsWindowSDL2::findContext(*mViewer)->getTraits();
-        int screenWidth = traits->width;
-        int screenHeight = traits->height;
-        if (!mMirrorTexture)
-        {
-            ;
-            mMirrorTexture.reset(new VRFramebuffer(gc->getState(), 
-                screenWidth,
-                screenHeight,
-                0));
-            mMirrorTexture->createColorBuffer(gc);
-        }
-
-        auto* state = gc->getState();
-        auto* gl = osg::GLExtensions::Get(state->getContextID(), false);
-
-        int mirrorWidth = screenWidth / mMirrorTextureViews.size();
-
-        //// Since OpenXR does not include native support for mirror textures, we have to generate them ourselves
-        //// which means resolving msaa twice.
-        mMsaaResolveTexture->bindFramebuffer(gc, GL_FRAMEBUFFER_EXT);
-
-        mFramebuffer->blit(gc, 0, 0, mFramebuffer->width(), mFramebuffer->height(), 0, 0, mMsaaResolveTexture->width(), mMsaaResolveTexture->height(), GL_COLOR_BUFFER_BIT, GL_NEAREST);
-
-
+        // TODO: Temporary solution for applying gamma and contrast modifications
+        // When OpenMW implements post processing, this will be performed there instead.
+        // I'm just throwing things into static locals since this is temporary code that will be trashed later.
         static bool first = true;
         static GLuint vShader = 0;
         static GLuint fShader = 0;
@@ -305,6 +275,10 @@ namespace MWVR
         static GLuint vbo = 0;
         static GLuint gammaUniform = 0;
         static GLuint contrastUniform = 0;
+
+        auto* state = gc->getState();
+        auto* gl = osg::GLExtensions::Get(state->getContextID(), false);
+
         if (first)
         {
             first = false;
@@ -361,13 +335,13 @@ namespace MWVR
             }
         }
 
-        mGammaResolveTexture->bindFramebuffer(gc, GL_FRAMEBUFFER_EXT);
+        target.bindFramebuffer(gc, GL_FRAMEBUFFER_EXT);
 
         if (program > 0)
         {
             gl->glUseProgram(program);
             gl->glBindVertexArray(0);
-            glViewport(0, 0, mGammaResolveTexture->width(), mGammaResolveTexture->height());
+            glViewport(0, 0, target.width(), target.height());
 
             gl->glUniform1f(gammaUniform, Settings::Manager::getFloat("gamma", "Video"));
             gl->glUniform1f(contrastUniform, Settings::Manager::getFloat("contrast", "Video"));
@@ -375,7 +349,7 @@ namespace MWVR
             gl->glBindBuffer(GL_ARRAY_BUFFER_ARB, vbo);
             glVertexPointer(4, GL_FLOAT, 0, 0);
             gl->glActiveTexture(GL_TEXTURE0);
-            glBindTexture(GL_TEXTURE_2D, mMsaaResolveTexture->colorBuffer());
+            glBindTexture(GL_TEXTURE_2D, source.colorBuffer());
             glClear(GL_DEPTH_BUFFER_BIT | GL_COLOR_BUFFER_BIT);
             glDisable(GL_BLEND);
 
@@ -385,8 +359,46 @@ namespace MWVR
             glBindTexture(GL_TEXTURE_2D, 0);
             glEnable(GL_BLEND);
             gl->glBindBuffer(GL_ARRAY_BUFFER_ARB, 0);
+            return true;
         }
-        else
+        return false;
+    }
+
+    void VRViewer::blit(osg::GraphicsContext* gc)
+    {
+        if (mMirrorTextureShouldBeCleanedUp)
+        {
+            mMirrorTexture = nullptr;
+            mMirrorTextureShouldBeCleanedUp = false;
+        }
+        if (!mMirrorTextureEnabled)
+            return;
+
+        auto* traits = SDLUtil::GraphicsWindowSDL2::findContext(*mViewer)->getTraits();
+        int screenWidth = traits->width;
+        int screenHeight = traits->height;
+        if (!mMirrorTexture)
+        {
+            ;
+            mMirrorTexture.reset(new VRFramebuffer(gc->getState(), 
+                screenWidth,
+                screenHeight,
+                0));
+            mMirrorTexture->createColorBuffer(gc);
+        }
+
+        auto* state = gc->getState();
+        auto* gl = osg::GLExtensions::Get(state->getContextID(), false);
+
+        int mirrorWidth = screenWidth / mMirrorTextureViews.size();
+
+        //// Since OpenXR does not include native support for mirror textures, we have to generate them ourselves
+        //// which means resolving msaa twice.
+        mMsaaResolveTexture->bindFramebuffer(gc, GL_FRAMEBUFFER_EXT);
+
+        mFramebuffer->blit(gc, 0, 0, mFramebuffer->width(), mFramebuffer->height(), 0, 0, mMsaaResolveTexture->width(), mMsaaResolveTexture->height(), GL_COLOR_BUFFER_BIT, GL_NEAREST);
+
+        if(!applyGamma(gc, *mGammaResolveTexture, *mMsaaResolveTexture))
             mMsaaResolveTexture->blit(gc, 0, 0, mMsaaResolveTexture->width(), mMsaaResolveTexture->height(), 0, 0, mGammaResolveTexture->width(), mGammaResolveTexture->height(), GL_COLOR_BUFFER_BIT, GL_NEAREST);
 
         mFramebuffer->blit(gc, 0, 0, mFramebuffer->width(), mFramebuffer->height(), 0, 0, mGammaResolveTexture->width(), mGammaResolveTexture->height(), GL_DEPTH_BUFFER_BIT, GL_NEAREST);
