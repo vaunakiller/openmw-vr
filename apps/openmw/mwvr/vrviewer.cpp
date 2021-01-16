@@ -163,7 +163,9 @@ namespace MWVR
         mFramebuffer->createDepthBuffer(gc);
         mMsaaResolveTexture.reset(new VRFramebuffer(gc->getState(),width,height,0));
         mMsaaResolveTexture->createColorBuffer(gc);
-        mMsaaResolveTexture->createDepthBuffer(gc);
+        mGammaResolveTexture.reset(new VRFramebuffer(gc->getState(), width, height, 0));
+        mGammaResolveTexture->createColorBuffer(gc);
+        mGammaResolveTexture->createDepthBuffer(gc);
 
         mViewer->setReleaseContextAtEndOfFrameHint(false);
         mViewer->getCamera()->getGraphicsContext()->setSwapCallback(new VRViewer::SwapBuffersCallback(this));
@@ -238,6 +240,29 @@ namespace MWVR
         return mSubImages[static_cast<int>(side)];
     }
 
+    GLuint createShader(osg::GLExtensions* gl,  const char* source, GLenum type)
+    {
+        GLint len = strlen(source);
+        GLuint shader = gl->glCreateShader(type);
+        gl->glShaderSource(shader, 1, &source, &len);
+        gl->glCompileShader(shader);
+        GLint isCompiled = 0;
+        gl->glGetShaderiv(shader, GL_COMPILE_STATUS, &isCompiled);
+        if (isCompiled == GL_FALSE)
+        {
+            GLint maxLength = 0;
+            gl->glGetShaderiv(shader, GL_INFO_LOG_LENGTH, &maxLength);
+            std::vector<GLchar> infoLog(maxLength);
+            gl->glGetShaderInfoLog(shader, maxLength, &maxLength, &infoLog[0]);
+            gl->glDeleteShader(shader);
+
+            Log(Debug::Error) << "Failed to compile shader: " << infoLog.data();
+
+            return 0;
+        }
+        return shader;
+    }
+
     void VRViewer::blit(osg::GraphicsContext* gc)
     {
         if (mMirrorTextureShouldBeCleanedUp)
@@ -269,9 +294,102 @@ namespace MWVR
         //// Since OpenXR does not include native support for mirror textures, we have to generate them ourselves
         //// which means resolving msaa twice.
         mMsaaResolveTexture->bindFramebuffer(gc, GL_FRAMEBUFFER_EXT);
-        //mSwapchain->framebuffer()->blit(gc, 0, 0, mMsaaResolveMirrorTexture->width(), mMsaaResolveMirrorTexture->height(), GL_COLOR_BUFFER_BIT, GL_LINEAR);
+
         mFramebuffer->blit(gc, 0, 0, mFramebuffer->width(), mFramebuffer->height(), 0, 0, mMsaaResolveTexture->width(), mMsaaResolveTexture->height(), GL_COLOR_BUFFER_BIT, GL_NEAREST);
-        mFramebuffer->blit(gc, 0, 0, mFramebuffer->width(), mFramebuffer->height(), 0, 0, mMsaaResolveTexture->width(), mMsaaResolveTexture->height(), GL_DEPTH_BUFFER_BIT, GL_NEAREST);
+
+
+        static bool first = true;
+        static GLuint vShader = 0;
+        static GLuint fShader = 0;
+        static GLuint program = 0;
+        static GLuint vbo = 0;
+        static GLuint gammaUniform = 0;
+        static GLuint contrastUniform = 0;
+        if (first)
+        {
+            first = false;
+
+            const char* vSource = "#version 120\n varying vec2 uv; void main(){ gl_Position = vec4(gl_Vertex.xy*2.0 - 1, 0, 1); uv = gl_Vertex.xy;}";
+            const char* fSource = "#version 120\n varying vec2 uv; uniform sampler2D t; uniform float gamma; uniform float contrast;"
+                "void main() {"
+                "vec4 color1 = texture2D(t, uv);"
+                "vec3 rgb = color1.rgb;"
+                "rgb = (rgb - 0.5f) * contrast + 0.5f;"
+                "rgb = pow(rgb, vec3(1.0/gamma));"
+                "gl_FragColor = vec4(rgb, color1.a);"
+                "}";
+
+            vShader = createShader(gl, vSource, GL_VERTEX_SHADER);
+            fShader = createShader(gl, fSource, GL_FRAGMENT_SHADER);
+
+            program = gl->glCreateProgram();
+            gl->glAttachShader(program, vShader);
+            gl->glAttachShader(program, fShader);
+            gl->glLinkProgram(program);
+
+            GLint isCompiled = 0;
+            gl->glGetProgramiv(program, GL_LINK_STATUS, &isCompiled);
+            if (isCompiled == GL_FALSE)
+            {
+                GLint maxLength = 0;
+                gl->glGetProgramInfoLog(program, 0, &maxLength, nullptr);
+                std::vector<GLchar> infoLog(maxLength);
+                gl->glGetProgramInfoLog(program, maxLength, &maxLength, &infoLog[0]);
+                gl->glDeleteProgram(program);
+                program = 0;
+                Log(Debug::Error) << "Failed to link program: " << infoLog.data();
+            }
+
+            if (program)
+            {
+                GLfloat vertices[] =
+                {
+                    0, 0, 0, 0,
+                    1, 0, 0, 0,
+                    1, 1, 0, 0,
+                    0, 0, 0, 0,
+                    1, 1, 0, 0,
+                    0, 1, 0, 0
+                };
+
+                gl->glGenBuffers(1, &vbo);
+                gl->glBindBuffer(GL_ARRAY_BUFFER_ARB, vbo);
+                gl->glBufferData(GL_ARRAY_BUFFER_ARB, sizeof(vertices), vertices, GL_STATIC_DRAW);
+
+                gammaUniform = gl->glGetUniformLocation(program, "gamma");
+                contrastUniform = gl->glGetUniformLocation(program, "contrast");
+            }
+        }
+
+        mGammaResolveTexture->bindFramebuffer(gc, GL_FRAMEBUFFER_EXT);
+
+        if (program > 0)
+        {
+            gl->glUseProgram(program);
+            gl->glBindVertexArray(0);
+            glViewport(0, 0, mGammaResolveTexture->width(), mGammaResolveTexture->height());
+
+            gl->glUniform1f(gammaUniform, Settings::Manager::getFloat("gamma", "Video"));
+            gl->glUniform1f(contrastUniform, Settings::Manager::getFloat("contrast", "Video"));
+
+            gl->glBindBuffer(GL_ARRAY_BUFFER_ARB, vbo);
+            glVertexPointer(4, GL_FLOAT, 0, 0);
+            gl->glActiveTexture(GL_TEXTURE0);
+            glBindTexture(GL_TEXTURE_2D, mMsaaResolveTexture->colorBuffer());
+            glClear(GL_DEPTH_BUFFER_BIT | GL_COLOR_BUFFER_BIT);
+            glDisable(GL_BLEND);
+
+            glDrawArrays(GL_TRIANGLES, 0, 6);
+
+            gl->glUseProgram(0);
+            glBindTexture(GL_TEXTURE_2D, 0);
+            glEnable(GL_BLEND);
+            gl->glBindBuffer(GL_ARRAY_BUFFER_ARB, 0);
+        }
+        else
+            mMsaaResolveTexture->blit(gc, 0, 0, mMsaaResolveTexture->width(), mMsaaResolveTexture->height(), 0, 0, mGammaResolveTexture->width(), mGammaResolveTexture->height(), GL_COLOR_BUFFER_BIT, GL_NEAREST);
+
+        mFramebuffer->blit(gc, 0, 0, mFramebuffer->width(), mFramebuffer->height(), 0, 0, mGammaResolveTexture->width(), mGammaResolveTexture->height(), GL_DEPTH_BUFFER_BIT, GL_NEAREST);
 
         if (mMirrorTexture)
         {
@@ -281,8 +399,8 @@ namespace MWVR
             mMirrorTexture->blit(gc, 0, 0, screenWidth, screenHeight, 0, 0, screenWidth, screenHeight, GL_COLOR_BUFFER_BIT, GL_NEAREST);
         }
 
-        mSwapchain[0]->endFrame(gc, *mMsaaResolveTexture);
-        mSwapchain[1]->endFrame(gc, *mMsaaResolveTexture);
+        mSwapchain[0]->endFrame(gc, *mGammaResolveTexture);
+        mSwapchain[1]->endFrame(gc, *mGammaResolveTexture);
         gl->glBindFramebuffer(GL_FRAMEBUFFER_EXT, 0);
     }
 

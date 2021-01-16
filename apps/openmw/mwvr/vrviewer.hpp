@@ -141,6 +141,7 @@ namespace MWVR
 
         std::unique_ptr<VRFramebuffer> mFramebuffer;
         std::unique_ptr<VRFramebuffer> mMsaaResolveTexture;
+        std::unique_ptr<VRFramebuffer> mGammaResolveTexture;
         std::array<std::unique_ptr<OpenXRSwapchain>, 2> mSwapchain;
         std::array<SubImage, 2> mSubImages;
         std::array<SwapchainConfig, 2> mSwapchainConfig;
