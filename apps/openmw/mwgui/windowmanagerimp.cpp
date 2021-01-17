@@ -124,6 +124,8 @@
 #include "../mwvr/vrenvironment.hpp"
 #include "../mwvr/vrgui.hpp"
 #include "../mwvr/vrvirtualkeyboard.hpp"
+#include "../mwvr/vrviewer.hpp"
+#include "../mwvr/vrsession.hpp"
 #endif
 
 namespace MWGui
@@ -770,11 +772,7 @@ namespace MWGui
                 if (!mWindowVisible)
                     std::this_thread::sleep_for(std::chrono::milliseconds(5));
                 else
-                {
-                    mViewer->eventTraversal();
-                    mViewer->updateTraversal();
-                    mViewer->renderingTraversals();
-                }
+                    viewerTraversals(false);
                 // at the time this function is called we are in the middle of a frame,
                 // so out of order calls are necessary to get a correct frameNumber for the next frame.
                 // refer to the advance() and frame() order in Engine::go()
@@ -1829,9 +1827,7 @@ namespace MWGui
                 if (mVideoWidget->isPaused())
                     mVideoWidget->resume();
 
-                mViewer->eventTraversal();
-                mViewer->updateTraversal();
-                mViewer->renderingTraversals();
+                viewerTraversals(false);
             }
             // at the time this function is called we are in the middle of a frame,
             // so out of order calls are necessary to get a correct frameNumber for the next frame.
@@ -2246,6 +2242,25 @@ namespace MWGui
     bool WindowManager::injectKeyRelease(MyGUI::KeyCode key)
     {
         return MyGUI::InputManager::getInstance().injectKeyRelease(key);
+    }
+
+    void WindowManager::viewerTraversals(bool updateWindowManager)
+    {
+#ifdef USE_OPENXR
+        if (MWBase::Environment::get().getVrMode())
+            MWVR::Environment::get().getSession()->beginFrame();
+#endif
+
+        mViewer->eventTraversal();
+        mViewer->updateTraversal();
+        if (updateWindowManager)
+            MWBase::Environment::get().getWorld()->updateWindowManager();
+        mViewer->renderingTraversals();
+
+#ifdef USE_OPENXR
+        if (MWBase::Environment::get().getVrMode())
+            MWVR::Environment::get().getSession()->endFrame();
+#endif
     }
 
     void WindowManager::GuiModeState::update(bool visible)

@@ -104,7 +104,6 @@ namespace MWVR
 
         ~VRViewer(void);
 
-        void traversals();
         void swapBuffersCallback(osg::GraphicsContext* gc);
         void initialDrawCallback(osg::RenderInfo& info);
         void preDrawCallback(osg::RenderInfo& info);

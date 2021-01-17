@@ -394,12 +394,13 @@ namespace MWVR
         updateActivationIndication();
 
         MWInput::InputManager::update(dt, disableControls, disableEvents);
+
         // This is the first update that needs openxr tracking, so i begin the next frame here.
         auto* session = Environment::get().getSession();
         if (!session)
             return;
         
-        session->beginPhase(VRSession::FramePhase::Update);
+        session->beginFrame();
 
         // The rest of this code assumes the game is running
         if (MWBase::Environment::get().getStateManager()->getState() == MWBase::StateManager::State_NoGame)

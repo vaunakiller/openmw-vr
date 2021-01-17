@@ -407,9 +407,7 @@ namespace MWGui
         // at the time this function is called we are in the middle of a frame,
         // so out of order calls are necessary to get a correct frameNumber for the next frame.
         // refer to the advance() and frame() order in Engine::go()
-        mViewer->eventTraversal();
-        mViewer->updateTraversal();
-        mViewer->renderingTraversals();
+        MWBase::Environment::get().getWindowManager()->viewerTraversals(false);
         mViewer->advance(mViewer->getFrameStamp()->getSimulationTime());
 
         if (mHasCallback)

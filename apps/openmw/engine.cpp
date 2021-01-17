@@ -1023,12 +1023,7 @@ void OMW::Engine::go()
         }
         else
         {
-            mViewer->eventTraversal();
-            mViewer->updateTraversal();
-
-            mEnvironment.getWorld()->updateWindowManager();
-
-            mViewer->renderingTraversals();
+            mEnvironment.getWindowManager()->viewerTraversals(true);
 
             bool guiActive = mEnvironment.getWindowManager()->isGuiMode();
             if (!guiActive)

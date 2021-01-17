@@ -78,6 +78,9 @@ namespace MWVR
 
         void processChangedSettings(const std::set< std::pair<std::string, std::string> >& changed);
 
+        void beginFrame();
+        void endFrame();
+
     private:
         std::mutex mMutex{};
         std::condition_variable mCondition{};

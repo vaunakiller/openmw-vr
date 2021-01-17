@@ -927,9 +927,7 @@ namespace MWRender
 
         MWBase::Environment::get().getWindowManager()->getLoadingScreen()->loadingOn(false);
 
-        mViewer->eventTraversal();
-        mViewer->updateTraversal();
-        mViewer->renderingTraversals();
+        MWBase::Environment::get().getWindowManager()->viewerTraversals(false);
         callback->waitTillDone();
 
         MWBase::Environment::get().getWindowManager()->getLoadingScreen()->loadingOff();
@@ -969,9 +967,6 @@ namespace MWRender
     void RenderingManager::screenshotFramebuffer(osg::Image* image, int w, int h)
     {
         osg::Camera* camera = mViewer->getCamera();
-#ifdef USE_OPENXR
-        MWVR::Environment::get().getSession()->beginPhase(MWVR::VRSession::FramePhase::Update);
-#endif
         osg::ref_ptr<osg::Drawable> tempDrw = new osg::Drawable;
         tempDrw->setDrawCallback(new ReadImageFromFramebufferCallback(image, w, h));
         tempDrw->setCullingActive(false);
@@ -980,9 +975,7 @@ namespace MWRender
         osg::ref_ptr<NotifyDrawCompletedCallback> callback (new NotifyDrawCompletedCallback(mViewer->getFrameStamp()->getFrameNumber()));
         auto* oldCb = camera->getFinalDrawCallback();
         camera->setFinalDrawCallback(callback);
-        mViewer->eventTraversal();
-        mViewer->updateTraversal();
-        mViewer->renderingTraversals();
+        MWBase::Environment::get().getWindowManager()->viewerTraversals(false);
         callback->waitTillDone();
         // now that we've "used up" the current frame, get a fresh frame number for the next frame() following after the screenshot is completed
         mViewer->advance(mViewer->getFrameStamp()->getSimulationTime());

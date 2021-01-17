@@ -78,6 +78,26 @@ namespace MWVR
         }
     }
 
+    void VRSession::beginFrame()
+    {
+        // Viewer traversals are sometimes entered without first updating the input manager.
+        if (getFrame(FramePhase::Update) == nullptr)
+        {
+            beginPhase(FramePhase::Update);
+        }
+
+    }
+
+    void VRSession::endFrame()
+    {
+        // Make sure we don't continue until the render thread has moved the frame to its next phase.
+        std::unique_lock<std::mutex> lock(mMutex);
+        while (getFrame(FramePhase::Update))
+        {
+            mCondition.wait(lock);
+        }
+    }
+
     osg::Matrix VRSession::viewMatrix(osg::Vec3 position, osg::Quat orientation)
     {
         position = position * Constants::UnitsPerMeter;
@@ -179,7 +199,7 @@ namespace MWVR
             std::unique_lock<std::mutex> lock(mMutex);
             while (getFrame(phase))
             {
-                //Log(Debug::Verbose) << "Warning: beginPhase called with a frame already in the target phase";
+                Log(Debug::Verbose) << "Warning: beginPhase called with a frame already in the target phase";
                 mCondition.wait(lock);
             }
         }

@@ -389,6 +389,7 @@ namespace MWGui
     bool injectKeyPress(MyGUI::KeyCode key, unsigned int text, bool repeat=false) override;
     bool injectKeyRelease(MyGUI::KeyCode key) override;
 
+    void viewerTraversals(bool updateWindowManager) override;
   private:
     unsigned int mOldUpdateMask; unsigned int mOldCullMask;
 

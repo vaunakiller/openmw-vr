@@ -57,12 +57,6 @@ namespace MWVR
     {
     }
 
-    void VRViewer::traversals()
-    {
-        mViewer->updateTraversal();
-        mViewer->renderingTraversals();
-    }
-
     int parseResolution(std::string conf, int recommended, int max)
     {
         if (Misc::StringUtils::isNumber(conf))
