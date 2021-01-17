@@ -232,7 +232,7 @@ You will not make an interaction profile work by removing the extension requirem
         <ActionSet Name="Gameplay">
             <Binding ActionName="reposition_menu" Path="/user/hand/left/input/menu/click"/>
             <Binding ActionName="meta_menu" Path="/user/hand/left/input/menu/click"/>
-            <Binding ActionName="sneak" Path="/user/hand/left/input/squeeze/value"/>
+            <Binding ActionName="sneak" Path="/user/hand/left/input/squeeze/click"/>
             <Binding ActionName="move_forward_backward" Path="/user/hand/left/input/thumbstick/y"/>
             <Binding ActionName="move_left_right" Path="/user/hand/left/input/thumbstick/x"/>
             <Binding ActionName="always_run" Path="/user/hand/left/input/thumbstick/click"/>
@@ -244,8 +244,8 @@ You will not make an interaction profile work by removing the extension requirem
             <Binding ActionName="look_left_right" Path="/user/hand/right/input/thumbstick/x"/>
             <Binding ActionName="auto_move" Path="/user/hand/right/input/thumbstick/click"/>
             <Binding ActionName="use" Path="/user/hand/right/input/trigger/click"/>
-            <Binding ActionName="activate_touched" Path="/user/hand/right/input/squeeze/value"/>
-            <Binding ActionName="activate" Path="/user/hand/right/input/squeeze/value"/>
+            <Binding ActionName="activate_touched" Path="/user/hand/right/input/squeeze/click"/>
+            <Binding ActionName="activate" Path="/user/hand/right/input/squeeze/click"/>
         </ActionSet>
         <ActionSet Name="GUI">
             <Binding ActionName="reposition_menu" Path="/user/hand/left/input/menu/click"/>
