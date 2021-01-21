@@ -109,7 +109,7 @@ namespace Misc
     }
 
     // near and far named with an underscore because of windows' headers galaxy brain defines.
-    osg::Matrix FieldOfView::perspectiveMatrix(float near_, float far_)
+    osg::Matrix FieldOfView::perspectiveMatrix(float near_, float far_) const
     {
         const float tanLeft = tanf(angleLeft);
         const float tanRight = tanf(angleRight);

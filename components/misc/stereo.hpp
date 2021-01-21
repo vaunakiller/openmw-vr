@@ -56,7 +56,7 @@ namespace Misc
         bool operator==(const FieldOfView& rhs) const;
 
         //! Generate a perspective matrix from this fov
-        osg::Matrix perspectiveMatrix(float near, float far);
+        osg::Matrix perspectiveMatrix(float near, float far) const;
     };
 
     //! Represents an eye including both pose and fov.
