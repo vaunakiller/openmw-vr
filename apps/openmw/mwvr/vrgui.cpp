@@ -88,6 +88,8 @@ namespace MWVR
             setName("GUICamera");
 
             setCullMask(MWRender::Mask_GUI);
+            setCullMaskLeft(MWRender::Mask_GUI);
+            setCullMaskRight(MWRender::Mask_GUI);
             setNodeMask(MWRender::Mask_RenderToTexture);
 
             setViewport(0, 0, width, height);
@@ -415,7 +417,10 @@ namespace MWVR
         float menuBottom = (1.f - mRealRect.bottom) * 2. - 1.;
         float menuTop = (1.f - mRealRect.top) * 2.f - 1.;
 
-        mMyGUICamera->setProjectionMatrixAsOrtho2D(menuLeft, menuRight, menuBottom, menuTop);
+        if(mLayerName == "InputBlocker")
+            mMyGUICamera->setProjectionMatrixAsOrtho2D(menuRight, menuLeft, menuTop, menuBottom);
+        else
+            mMyGUICamera->setProjectionMatrixAsOrtho2D(menuLeft, menuRight, menuBottom, menuTop);
     }
 
     void
@@ -505,17 +510,19 @@ namespace MWVR
     {
         mGUIGeometriesRoot->setName("VR GUI Geometry Root");
         mGUIGeometriesRoot->setUpdateCallback(new VRGUIManagerUpdateCallback(this));
+        mGUIGeometriesRoot->setNodeMask(MWRender::VisMask::Mask_3DGUI);
         mGUICamerasRoot->setName("VR GUI Cameras Root");
+        mGUICamerasRoot->setNodeMask(MWRender::VisMask::Mask_3DGUI);
         mRootNode->asGroup()->addChild(mGUICamerasRoot);
         mRootNode->asGroup()->addChild(mGUIGeometriesRoot);
         mGUIGeometriesRoot->getOrCreateStateSet()->setMode(GL_LIGHTING, osg::StateAttribute::OFF);
 
         LayerConfig defaultConfig = createDefaultConfig(1);
-        LayerConfig videoPlayerConfig = createDefaultConfig(1, true, SizingMode::Fixed);
         LayerConfig loadingScreenConfig = createDefaultConfig(1, true, SizingMode::Fixed, "Menu");
         LayerConfig mainMenuConfig = createDefaultConfig(1, true);
         LayerConfig journalBooksConfig = createDefaultConfig(2, false, SizingMode::Fixed);
         LayerConfig defaultWindowsConfig = createDefaultConfig(3, true);
+        LayerConfig videoPlayerConfig = createDefaultConfig(4, true, SizingMode::Fixed);
         LayerConfig messageBoxConfig = createDefaultConfig(6, false, SizingMode::Auto);;
         LayerConfig notificationConfig = createDefaultConfig(7, false, SizingMode::Fixed);
 
@@ -738,10 +745,8 @@ namespace MWVR
         auto* layer = widget->mMainWidget->getLayer();
         auto name = layer->getName();
 
-        Log(Debug::Verbose) << "setVisible (" << name << "): " << visible;
         if (layerBlacklist.find(name) != layerBlacklist.end())
         {
-            Log(Debug::Verbose) << "Blacklisted";
             // Never pick an invisible layer
             setPick(widget, false);
             return;

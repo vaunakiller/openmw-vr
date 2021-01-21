@@ -597,10 +597,9 @@ namespace MWGui
 
         unsigned int disablemask = MWRender::Mask_GUI|MWRender::Mask_PreCompile;
 
-        // In VR mode we have a scene to render.
-        // TODO: We should nonetheless disable the scene outside of the 3D GUI
+        // VR mode needs to render the 3D gui
         if (MWBase::Environment::get().getVrMode())
-            return;
+            disablemask = MWRender::Mask_3DGUI | MWRender::Mask_PreCompile | MWRender::Mask_RenderToTexture;
 
         if (!enable && mViewer->getCamera()->getCullMask() != disablemask)
         {
