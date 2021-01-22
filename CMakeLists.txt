@@ -259,8 +259,11 @@ if(NOT HAVE_STDINT_H)
     message(FATAL_ERROR "stdint.h was not found" )
 endif()
 
-
-find_package(OpenSceneGraph 3.3.4 REQUIRED osgDB osgViewer osgText osgGA osgParticle osgUtil osgFX osgShadow osgAnimation)
+set(OSG_VERSION_REQUIRED "3.3.4")
+if(BUILD_OPENMW_VR)
+    set(OSG_VERSION_REQUIRED "3.6.5")
+endif()
+find_package(OpenSceneGraph ${OSG_VERSION_REQUIRED} REQUIRED osgDB osgViewer osgText osgGA osgParticle osgUtil osgFX osgShadow osgAnimation)
 include_directories(SYSTEM ${OPENSCENEGRAPH_INCLUDE_DIRS})
 
 set(USED_OSG_PLUGINS

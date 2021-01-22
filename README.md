@@ -139,7 +139,9 @@ At this point most mainstream headsets have OpenXR implementations, but some may
 Building
 --------
 On windows, the fork builds with the same instructions as [building openmw](https://wiki.openmw.org/index.php?title=Development_Environment_Setup#MSVC_2017-2019).
-On linux, however, openmw does not package binaries for external dependencies. It is therefore necessary to build your own copy of [my fork of OSG](https://github.com/madsbuvi/osg) that contains stereo fixes, until these are accepted upstream.
+
+On linux, however, openmw does not package binaries for external dependencies. This fork is written against OSG version 3.6.5 and earlier versions may not work or even compile.
+It may therefore be necessary to build your own version of OSG. For now, I advise building [my fork of OSG](https://github.com/madsbuvi/osg) that contain a stereo fix, without which the water shader may break.
 
 VR Controls
 ---------------------
