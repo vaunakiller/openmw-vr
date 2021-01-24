@@ -4,6 +4,7 @@
 #include <osg/Node>
 
 #include <map>
+#include <memory>
 
 namespace osg
 {
