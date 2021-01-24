@@ -34,7 +34,6 @@ namespace SceneUtil
             setClearMask(GL_DEPTH_BUFFER_BIT | GL_COLOR_BUFFER_BIT);
             setRenderTargetImplementation(osg::Camera::FRAME_BUFFER_OBJECT);
 
-
             unsigned int rttSize = Settings::Manager::getInt("rtt size", "Water");
             setViewport(0, 0, rttSize, rttSize);
 
@@ -63,7 +62,8 @@ namespace SceneUtil
         osg::ref_ptr<osg::Texture2D> mDepthBuffer;
     };
 
-    RTTNode::RTTNode()
+    RTTNode::RTTNode(bool doPerViewMapping)
+        : mDoPerViewMapping(doPerViewMapping)
     {
         addCullCallback(new CullCallback(this));
     }
@@ -91,6 +91,11 @@ namespace SceneUtil
 
     RTTNode::ViewDependentData* RTTNode::getViewDependentData(osgUtil::CullVisitor* cv)
     {
+        if (!mDoPerViewMapping)
+            // Always setting it to null is an easy way to disable per-view mapping when mDoPerViewMapping is false.
+            // This is safe since the visitor is never dereferenced.
+            cv = nullptr;
+
         if (mViewDependentDataMap.count(cv) == 0)
         {
             mViewDependentDataMap[cv].reset(new ViewDependentData);

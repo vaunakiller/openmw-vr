@@ -30,7 +30,7 @@ namespace SceneUtil
     class RTTNode : public osg::Node
     {
     public:
-        RTTNode();
+        RTTNode(bool doPerViewMapping);
         ~RTTNode();
 
         osg::Texture2D* getColorTexture(osgUtil::CullVisitor* cv);
@@ -57,6 +57,7 @@ namespace SceneUtil
 
         typedef std::map< osgUtil::CullVisitor*, std::unique_ptr<ViewDependentData> >  ViewDependentDataMap;
         ViewDependentDataMap mViewDependentDataMap;
+        bool mDoPerViewMapping;
     };
 }
 #endif
