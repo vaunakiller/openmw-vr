@@ -646,6 +646,11 @@ namespace MWVR
         return mPlatform.selectDepthFormat();
     }
 
+    void OpenXRManagerImpl::eraseFormat(int64_t format)
+    {
+        mPlatform.eraseFormat(format);
+    }
+
     void OpenXRManagerImpl::enablePredictions()
     {
         mPredictionsEnabled = true;

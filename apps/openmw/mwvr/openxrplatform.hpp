@@ -49,6 +49,7 @@ namespace MWVR
         int64_t selectColorFormat();
         int64_t selectDepthFormat();
         int64_t selectFormat(const std::vector<int64_t>& requestedFormats);
+        void eraseFormat(int64_t format);
         std::vector<int64_t> mSwapchainFormats{};
 
         /// Registers an object for sharing as if calling wglDXRegisterObjectNV requesting write access.

@@ -148,6 +148,11 @@ namespace MWVR
         return impl().selectDepthFormat();
     }
 
+    void OpenXRManager::eraseFormat(int64_t format)
+    {
+        return impl().eraseFormat(format);
+    }
+
     void
         OpenXRManager::CleanupOperation::operator()(
             osg::GraphicsContext* gc)

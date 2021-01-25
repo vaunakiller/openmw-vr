@@ -47,7 +47,7 @@ namespace MWVR
             int32_t mWidth = -1;
             int32_t mHeight = -1;
             int32_t mSamples = -1;
-            int64_t mFormat = -1;
+            int64_t mFormat = 0;
             uint32_t mAcquiredIndex{ 0 };
             Use mUsage;
             bool mIsIndexAcquired{ false };
@@ -62,10 +62,10 @@ namespace MWVR
         void endFrame(osg::GraphicsContext* gc, VRFramebuffer& readBuffer);
 
         bool isAcquired() const;
-        XrSwapchain xrSwapchain(void) const { return mSwapchain->xrSwapchain(); };
-        XrSwapchain xrSwapchainDepth(void) const { return mSwapchainDepth->xrSwapchain(); };
-        XrSwapchainSubImage xrSubImage(void) const { return mSwapchain->xrSubImage(); };
-        XrSwapchainSubImage xrSubImageDepth(void) const { return mSwapchainDepth->xrSubImage(); };
+        XrSwapchain xrSwapchain(void) const;
+        XrSwapchain xrSwapchainDepth(void) const;
+        XrSwapchainSubImage xrSubImage(void) const;
+        XrSwapchainSubImage xrSubImageDepth(void) const;
         int width() const { return mConfig.selectedWidth; };
         int height() const { return mConfig.selectedHeight; };
         int samples() const { return mConfig.selectedSamples; };

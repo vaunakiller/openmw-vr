@@ -625,6 +625,18 @@ namespace MWVR
         }
     }
 
+    void OpenXRPlatform::eraseFormat(int64_t format)
+    {
+        for (auto it = mSwapchainFormats.begin(); it != mSwapchainFormats.end(); it++)
+        {
+            if (*it == format)
+            {
+                mSwapchainFormats.erase(it);
+                return;
+            }
+        }
+    }
+
     int64_t OpenXRPlatform::selectFormat(const std::vector<int64_t>& requestedFormats)
     {
         auto it =

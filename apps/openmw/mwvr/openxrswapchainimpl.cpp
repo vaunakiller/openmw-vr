@@ -113,23 +113,6 @@ namespace MWVR {
     {
         auto* xr = Environment::get().getManager();
 
-        // Select a swapchain format.
-        if (use == Use::COLOR)
-            mFormat = xr->selectColorFormat();
-        else
-            mFormat = xr->selectDepthFormat();
-        std::string typeString = use == Use::COLOR ? "color" : "depth";
-
-        if (mFormat == 0) {
-            throw std::runtime_error(std::string("Swapchain ") + typeString + " format not supported");
-        }
-        Log(Debug::Verbose) << "Selected " << typeString << " format: " << std::dec << mFormat << " (" << std::hex << mFormat << ")" << std::dec;
-
-        if (xr->xrExtensionIsEnabled(XR_KHR_COMPOSITION_LAYER_DEPTH_EXTENSION_NAME))
-        {
-            // TODO
-        }
-
         XrSwapchainCreateInfo swapchainCreateInfo{ XR_TYPE_SWAPCHAIN_CREATE_INFO };
         swapchainCreateInfo.arraySize = 1;
         swapchainCreateInfo.width = mWidth;
@@ -137,18 +120,40 @@ namespace MWVR {
         swapchainCreateInfo.mipCount = 1;
         swapchainCreateInfo.faceCount = 1;
 
-        while (mSamples > 0 && mSwapchain == XR_NULL_HANDLE)
+        while (mSamples > 0 && mSwapchain == XR_NULL_HANDLE && mFormat == 0)
         {
+            // Select a swapchain format.
+            if (use == Use::COLOR)
+                mFormat = xr->selectColorFormat();
+            else
+                mFormat = xr->selectDepthFormat();
+            std::string typeString = use == Use::COLOR ? "color" : "depth";
+            if (mFormat == 0) {
+                throw std::runtime_error(std::string("Swapchain ") + typeString + " format not supported");
+            }
+            Log(Debug::Verbose) << "Selected " << typeString << " format: " << std::dec << mFormat << " (" << std::hex << mFormat << ")" << std::dec;
+
+            // Now create the swapchain
             Log(Debug::Verbose) << "Creating swapchain with dimensions Width=" << mWidth << " Heigh=" << mHeight << " SampleCount=" << mSamples;
-            // First create the swapchain of color buffers.
             swapchainCreateInfo.format = mFormat;
             swapchainCreateInfo.sampleCount = mSamples;
-            if(use == Use::COLOR)
-                swapchainCreateInfo.usageFlags = XR_SWAPCHAIN_USAGE_SAMPLED_BIT | XR_SWAPCHAIN_USAGE_COLOR_ATTACHMENT_BIT;
+            if(mUsage == Use::COLOR)
+                swapchainCreateInfo.usageFlags = XR_SWAPCHAIN_USAGE_COLOR_ATTACHMENT_BIT;
             else
-                swapchainCreateInfo.usageFlags = XR_SWAPCHAIN_USAGE_SAMPLED_BIT | XR_SWAPCHAIN_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT;
+                swapchainCreateInfo.usageFlags = XR_SWAPCHAIN_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT;
             auto res = xrCreateSwapchain(xr->impl().xrSession(), &swapchainCreateInfo, &mSwapchain);
-            if (!XR_SUCCEEDED(res))
+
+            // Check errors and try again if possible
+            if (res == XR_ERROR_SWAPCHAIN_FORMAT_UNSUPPORTED)
+            {
+                // We only try swapchain formats enumerated by the runtime itself.
+                // This does not guarantee that that swapchain format is going to be supported for this specific usage.
+                Log(Debug::Verbose) << "Failed to create swapchain with Format=" << mFormat<< ": " << XrResultString(res);
+                xr->eraseFormat(mFormat);
+                mFormat = 0;
+                continue;
+            }
+            else if (!XR_SUCCEEDED(res))
             {
                 Log(Debug::Verbose) << "Failed to create swapchain with SampleCount=" << mSamples << ": " << XrResultString(res);
                 mSamples /= 2;
@@ -216,9 +221,38 @@ namespace MWVR {
             }
         }
     }
+
     void OpenXRSwapchainImpl::SwapchainPrivate::checkAcquired() const
     {
         if (!isAcquired())
             throw std::logic_error("Swapchain must be acquired before use. Call between OpenXRSwapchain::beginFrame() and OpenXRSwapchain::endFrame()");
+    }
+
+    XrSwapchain OpenXRSwapchainImpl::xrSwapchain(void) const 
+    { 
+        if(mSwapchain)
+            return mSwapchain->xrSwapchain(); 
+        return XR_NULL_HANDLE;
+    }
+
+    XrSwapchain OpenXRSwapchainImpl::xrSwapchainDepth(void) const
+    {
+        if (mSwapchainDepth)
+            return mSwapchainDepth->xrSwapchain();
+        return XR_NULL_HANDLE;
+    }
+
+    XrSwapchainSubImage OpenXRSwapchainImpl::xrSubImage(void) const
+    {
+        if (mSwapchain)
+            return mSwapchain->xrSubImage();
+        return XrSwapchainSubImage{ XR_NULL_HANDLE };
+    }
+
+    XrSwapchainSubImage OpenXRSwapchainImpl::xrSubImageDepth(void) const
+    {
+        if (mSwapchainDepth)
+            return mSwapchainDepth->xrSubImage();
+        return XrSwapchainSubImage{ XR_NULL_HANDLE };
     }
 }

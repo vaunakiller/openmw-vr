@@ -66,6 +66,7 @@ namespace MWVR
         PFN_xrVoidFunction xrGetFunction(const std::string& name);
         int64_t selectColorFormat();
         int64_t selectDepthFormat();
+        void eraseFormat(int64_t format);
         OpenXRPlatform& platform() { return mPlatform; };
 
     protected:

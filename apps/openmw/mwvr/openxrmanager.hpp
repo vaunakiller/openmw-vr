@@ -106,6 +106,9 @@ namespace MWVR
         //! Returns 0 if no format is supported.
         int64_t selectDepthFormat();
 
+        //! Erase format from list of format candidates
+        void eraseFormat(int64_t format);
+
         OpenXRManagerImpl& impl() { return *mPrivate; }
         const OpenXRManagerImpl& impl() const { return *mPrivate; }
 
