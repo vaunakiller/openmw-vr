@@ -9,6 +9,7 @@
 namespace osg
 {
     class Texture2D;
+    class Camera;
 }
 
 namespace osgUtil
@@ -18,8 +19,6 @@ namespace osgUtil
 
 namespace SceneUtil
 {
-    class RTTCamera;
-
     /// @brief Implements per-view RTT operations.
     /// @par With a naive RTT implementation, subsequent views of multiple views will overwrite the results of the previous views, leading to
     ///     the results of the last view being broadcast to all views. An error in all cases where the RTT result depends on the view.
@@ -28,15 +27,17 @@ namespace SceneUtil
     /// @par Camera settings should be effectuated by overriding the setDefaults() and apply() methods, following a pattern similar to SceneUtil::StateSetUpdater
     /// @par When using the RTT texture in your statesets, it is recommended to use SceneUtil::StateSetUpdater as a cull callback to handle this as the appropriate
     ///     textures can be retrieved during SceneUtil::StateSetUpdater::Apply()
+    /// @par For any of COLOR_BUFFER or DEPTH_BUFFER not added during setDefaults(), RTTNode will attach a default buffer. The default color buffer has an internal format of GL_RGB.
+    ///     The default depth buffer has internal format GL_DEPTH_COMPONENT24, source format GL_DEPTH_COMPONENT, and source type GL_UNSIGNED_INT. Default wrap is CLAMP_TO_EDGE and filter LINEAR.
     class RTTNode : public osg::Node
     {
     public:
-        RTTNode(bool doPerViewMapping);
+        RTTNode(uint32_t textureWidth, uint32_t textureHeight, bool doPerViewMapping);
         ~RTTNode();
 
-        osg::Texture2D* getColorTexture(osgUtil::CullVisitor* cv);
+        osg::Texture* getColorTexture(osgUtil::CullVisitor* cv);
 
-        osg::Texture2D* getDepthTexture(osgUtil::CullVisitor* cv);
+        osg::Texture* getDepthTexture(osgUtil::CullVisitor* cv);
 
 
         /// Apply state - to override in derived classes
@@ -51,13 +52,15 @@ namespace SceneUtil
     private:
         struct ViewDependentData
         {
-            osg::ref_ptr<RTTCamera> mCamera;
+            osg::ref_ptr<osg::Camera> mCamera;
         };
 
         ViewDependentData* getViewDependentData(osgUtil::CullVisitor* cv);
 
         typedef std::map< osgUtil::CullVisitor*, std::unique_ptr<ViewDependentData> >  ViewDependentDataMap;
         ViewDependentDataMap mViewDependentDataMap;
+        uint32_t mTextureWidth;
+        uint32_t mTextureHeight;
         bool mDoPerViewMapping;
     };
 }

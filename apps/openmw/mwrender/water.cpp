@@ -232,8 +232,8 @@ osg::ref_ptr<osg::Image> readPngImage (const std::string& file)
 class Refraction : public SceneUtil::RTTNode
 {
 public:
-    Refraction()
-        : RTTNode(false)
+    Refraction(uint32_t rttSize)
+        : RTTNode(rttSize, rttSize, false)
     {
         mClipCullNode = new ClipCullNode;
     }
@@ -296,8 +296,8 @@ private:
 class Reflection : public SceneUtil::RTTNode
 {
 public:
-    Reflection(bool isInterior)
-        : RTTNode(false)
+    Reflection(uint32_t rttSize, bool isInterior)
+        : RTTNode(rttSize, rttSize, false)
     {
         setInterior(isInterior);
         mClipCullNode = new ClipCullNode;
@@ -477,7 +477,9 @@ void Water::updateWaterMaterial()
 
     if (Settings::Manager::getBool("shader", "Water"))
     {
-        mReflection = new Reflection(mInterior);
+        unsigned int rttSize = Settings::Manager::getInt("rtt size", "Water");
+
+        mReflection = new Reflection(rttSize, mInterior);
         mReflection->setWaterLevel(mTop);
         mReflection->setScene(mSceneRoot);
         if (mCullCallback)
@@ -486,7 +488,7 @@ void Water::updateWaterMaterial()
 
         if (Settings::Manager::getBool("refraction", "Water"))
         {
-            mRefraction = new Refraction;
+            mRefraction = new Refraction(rttSize);
             mRefraction->setWaterLevel(mTop);
             mRefraction->setScene(mSceneRoot);
             if (mCullCallback)
