@@ -278,13 +278,13 @@ public:
 
     void setWaterLevel(float waterLevel)
     {
-        const float refractionScale = std::min(1.0f,std::max(0.0f,
+        const float refractionScale = std::min(1.0f, std::max(0.0f,
             Settings::Manager::getFloat("refraction scale", "Water")));
 
-        mViewMatrix = osg::Matrix::scale(1,1,refractionScale) *
-            osg::Matrix::translate(0,0,(1.0 - refractionScale) * waterLevel);
+        mViewMatrix = osg::Matrix::scale(1, 1, refractionScale) *
+            osg::Matrix::translate(0, 0, (1.0 - refractionScale) * waterLevel);
 
-        mClipCullNode->setPlane(osg::Plane(osg::Vec3d(0,0,-1), osg::Vec3d(0,0, waterLevel)));
+        mClipCullNode->setPlane(osg::Plane(osg::Vec3d(0, 0, -1), osg::Vec3d(0, 0, waterLevel)));
     }
 
 private:
@@ -341,8 +341,8 @@ public:
 
     void setWaterLevel(float waterLevel)
     {
-        mViewMatrix = osg::Matrix::scale(1,1,-1) * osg::Matrix::translate(0,0,2 * waterLevel);
-        mClipCullNode->setPlane(osg::Plane(osg::Vec3d(0,0,1), osg::Vec3d(0,0,waterLevel)));
+        mViewMatrix = osg::Matrix::scale(1, 1, -1) * osg::Matrix::translate(0, 0, 2 * waterLevel);
+        mClipCullNode->setPlane(osg::Plane(osg::Vec3d(0, 0, 1), osg::Vec3d(0, 0, waterLevel)));
     }
 
     void setScene(osg::Node* scene)
