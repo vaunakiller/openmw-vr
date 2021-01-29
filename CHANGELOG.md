@@ -23,6 +23,7 @@
     Bug #4083: Door animation freezes when colliding with actors
     Bug #4201: Projectile-projectile collision
     Bug #4247: Cannot walk up stairs in Ebonheart docks
+    Bug #4357: OpenMW-CS: TopicInfos index sorting and rearranging isn't fully functional
     Bug #4363: Editor: Defect in Clone Function for Dialogue Info records
     Bug #4447: Actor collision capsule shape allows looking through some walls
     Bug #4465: Collision shape overlapping causes twitching
@@ -43,6 +44,7 @@
     Bug #5367: Selecting a spell on an enchanted item per hotkey always plays the equip sound
     Bug #5369: Spawnpoint in the Grazelands doesn't produce oversized creatures
     Bug #5370: Opening an unlocked but trapped door uses the key
+    Bug #5379: Wandering NPCs falling through cantons
     Bug #5384: openmw-cs: deleting an instance requires reload of scene window to show in editor
     Bug #5387: Move/MoveWorld don't update the object's cell properly
     Bug #5391: Races Redone 1.2 bodies don't show on the inventory
@@ -60,6 +62,7 @@
     Bug #5441: Enemies can't push a player character when in critical strike stance
     Bug #5451: Magic projectiles don't disappear with the caster
     Bug #5452: Autowalk is being included in savegames
+    Bug #5469: Local map is reset when re-entering certain cells
     Bug #5472: Mistify mod causes CTD in 0.46 on Mac
     Bug #5479: NPCs who should be walking around town are standing around without walking
     Bug #5484: Zero value items shouldn't be able to be bought or sold for 1 gold
