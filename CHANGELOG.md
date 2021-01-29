@@ -44,7 +44,6 @@
     Bug #5367: Selecting a spell on an enchanted item per hotkey always plays the equip sound
     Bug #5369: Spawnpoint in the Grazelands doesn't produce oversized creatures
     Bug #5370: Opening an unlocked but trapped door uses the key
-    Bug #5379: Wandering NPCs falling through cantons
     Bug #5384: openmw-cs: deleting an instance requires reload of scene window to show in editor
     Bug #5387: Move/MoveWorld don't update the object's cell properly
     Bug #5391: Races Redone 1.2 bodies don't show on the inventory
@@ -127,6 +126,7 @@
     Feature #5692: Improve spell/magic item search to factor in magic effect names
     Feature #5730: Add graphic herbalism option to the launcher and documents
     Feature #5771: ori command should report where a mesh is loaded from and whether the x version is used.
+    Feature #5813: Instanced groundcover support
     Task #5480: Drop Qt4 support
     Task #5520: Improve cell name autocompleter implementation
 
