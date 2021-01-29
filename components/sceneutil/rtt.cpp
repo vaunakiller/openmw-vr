@@ -24,9 +24,10 @@ namespace SceneUtil
         RTTNode* mGroup;
     };
 
-    RTTNode::RTTNode(uint32_t textureWidth, uint32_t textureHeight, bool doPerViewMapping)
+    RTTNode::RTTNode(uint32_t textureWidth, uint32_t textureHeight, int renderOrderNum, bool doPerViewMapping)
         : mTextureWidth(textureWidth)
         , mTextureHeight(textureHeight)
+        , mRenderOrderNum(renderOrderNum)
         , mDoPerViewMapping(doPerViewMapping)
     {
         addCullCallback(new CullCallback(this));
@@ -66,7 +67,7 @@ namespace SceneUtil
             mViewDependentDataMap[cv].reset(new ViewDependentData);
             mViewDependentDataMap[cv]->mCamera = camera;
 
-            camera->setRenderOrder(osg::Camera::PRE_RENDER);
+            camera->setRenderOrder(osg::Camera::PRE_RENDER, mRenderOrderNum);
             camera->setClearMask(GL_DEPTH_BUFFER_BIT | GL_COLOR_BUFFER_BIT);
             camera->setRenderTargetImplementation(osg::Camera::FRAME_BUFFER_OBJECT);
             camera->setViewport(0, 0, mTextureWidth, mTextureHeight);

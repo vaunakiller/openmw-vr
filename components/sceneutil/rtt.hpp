@@ -32,7 +32,7 @@ namespace SceneUtil
     class RTTNode : public osg::Node
     {
     public:
-        RTTNode(uint32_t textureWidth, uint32_t textureHeight, bool doPerViewMapping);
+        RTTNode(uint32_t textureWidth, uint32_t textureHeight, int renderOrderNum, bool doPerViewMapping);
         ~RTTNode();
 
         osg::Texture* getColorTexture(osgUtil::CullVisitor* cv);
@@ -61,6 +61,7 @@ namespace SceneUtil
         ViewDependentDataMap mViewDependentDataMap;
         uint32_t mTextureWidth;
         uint32_t mTextureHeight;
+        int mRenderOrderNum;
         bool mDoPerViewMapping;
     };
 }
