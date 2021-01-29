@@ -4,6 +4,7 @@
 #include <osg/NodeCallback>
 
 #include <map>
+#include <array>
 
 namespace osgUtil
 {
@@ -55,7 +56,7 @@ namespace SceneUtil
         void applyUpdate(osg::Node* node, osg::NodeVisitor* nv);
         osg::StateSet* getCvDependentStateset(osgUtil::CullVisitor* cv);
 
-        osg::ref_ptr<osg::StateSet> mStateSetsUpdate[2];
+        std::array<osg::ref_ptr<osg::StateSet>, 2> mStateSetsUpdate;
         std::map<osgUtil::CullVisitor*, osg::ref_ptr<osg::StateSet>> mStateSetsCull;
     };
 
