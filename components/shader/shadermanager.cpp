@@ -442,6 +442,8 @@ namespace Shader
             osg::ref_ptr<osg::Program> program(new osg::Program);
             program->addShader(vertexShader);
             program->addShader(fragmentShader);
+            program->addBindAttribLocation("aOffset", 6);
+            program->addBindAttribLocation("aRotation", 7);
 
             auto git = mGeometryShaders.find(vertexShader);
             if (git != mGeometryShaders.end())

@@ -510,7 +510,7 @@ namespace MWBase
 
             /// \todo this does not belong here
             virtual void screenshot (osg::Image* image, int w, int h) = 0;
-            virtual bool screenshot360 (osg::Image* image, std::string settingStr) = 0;
+            virtual bool screenshot360 (osg::Image* image) = 0;
 
             /// Find default position inside exterior cell specified by name
             /// \return false if exterior with given name not exists, true otherwise
@@ -532,7 +532,7 @@ namespace MWBase
             /// Returns true if levitation spell effect is allowed.
             virtual bool isLevitationEnabled() const = 0;
 
-            virtual bool getGodModeState() = 0;
+            virtual bool getGodModeState() const = 0;
 
             virtual bool toggleGodMode() = 0;
 

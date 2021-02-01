@@ -3,6 +3,7 @@
 #include <iomanip>
 
 #include <memory>
+#include <optional>
 #include <osg/PositionAttitudeTransform>
 
 #include <components/debug/debuglog.hpp>
@@ -43,6 +44,7 @@
 
 #include "../mwsound/sound.hpp"
 
+#include "../mwphysics/collisiontype.hpp"
 #include "../mwphysics/physicssystem.hpp"
 #include "../mwphysics/projectile.hpp"
 
@@ -192,7 +194,7 @@ namespace MWWorld
     };
 
 
-    void ProjectileManager::createModel(State &state, const std::string &model, const osg::Vec3f& pos, const osg::Quat& orient,
+    float ProjectileManager::createModel(State &state, const std::string &model, const osg::Vec3f& pos, const osg::Quat& orient,
                                         bool rotate, bool createLight, osg::Vec4 lightDiffuseColor, std::string texture)
     {
         state.mNode = new osg::PositionAttitudeTransform;
@@ -256,6 +258,7 @@ namespace MWWorld
         state.mNode->accept(assignVisitor);
 
         MWRender::overrideFirstRootTexture(texture, mResourceSystem, projectile);
+        return projectile->getBound().radius();
     }
 
     void ProjectileManager::update(State& state, float duration)
@@ -319,7 +322,7 @@ namespace MWWorld
 
         osg::Vec4 lightDiffuseColor = getMagicBoltLightDiffuseColor(state.mEffects);
 
-        createModel(state, ptr.getClass().getModel(ptr), pos, orient, true, true, lightDiffuseColor, texture);
+        const auto radius = createModel(state, ptr.getClass().getModel(ptr), pos, orient, true, true, lightDiffuseColor, texture);
 
         MWBase::SoundManager *sndMgr = MWBase::Environment::get().getSoundManager();
         for (const std::string &soundid : state.mSoundIds)
@@ -330,7 +333,7 @@ namespace MWWorld
                 state.mSounds.push_back(sound);
         }
 
-        state.mProjectileId = mPhysics->addProjectile(caster, pos);
+        state.mProjectileId = mPhysics->addProjectile(caster, pos, radius, false);
         state.mToDelete = false;
         mMagicBolts.push_back(state);
     }
@@ -354,7 +357,7 @@ namespace MWWorld
         if (!ptr.getClass().getEnchantment(ptr).empty())
             SceneUtil::addEnchantedGlow(state.mNode, mResourceSystem, ptr.getClass().getEnchantmentColor(ptr));
 
-        state.mProjectileId = mPhysics->addProjectile(actor, pos);
+        state.mProjectileId = mPhysics->addProjectile(actor, pos, 1.f, true);
         state.mToDelete = false;
         mProjectiles.push_back(state);
     }
@@ -421,15 +424,7 @@ namespace MWWorld
             float speed = fTargetSpellMaxSpeed * magicBoltState.mSpeed;
             osg::Vec3f direction = orient * osg::Vec3f(0,1,0);
             direction.normalize();
-            osg::Vec3f pos(magicBoltState.mNode->getPosition());
-            osg::Vec3f newPos = pos + direction * duration * speed;
-
-            for (const auto& sound : magicBoltState.mSounds)
-                sound->setPosition(newPos);
-
-            magicBoltState.mNode->setPosition(newPos);
-
-            mPhysics->updateProjectile(magicBoltState.mProjectileId, newPos);
+            osg::Vec3f newPos = projectile->getPosition() + direction * duration * speed;
 
             update(magicBoltState, duration);
 
@@ -439,41 +434,7 @@ namespace MWWorld
                 caster.getClass().getCreatureStats(caster).getAiSequence().getCombatTargets(targetActors);
             projectile->setValidTargets(targetActors);
 
-            // Check for impact
-            // TODO: use a proper btRigidBody / btGhostObject?
-            const auto result = mPhysics->castRay(pos, newPos, caster, targetActors, 0xff, MWPhysics::CollisionType_Projectile, magicBoltState.mProjectileId);
-
-            bool hit = false;
-            if (result.mHit)
-            {
-                hit = true;
-                if (result.mHitObject.isEmpty())
-                {
-                    // terrain or projectile
-                }
-                else
-                {
-                    MWMechanics::CastSpell cast(caster, result.mHitObject);
-                    cast.mHitPosition = pos;
-                    cast.mId = magicBoltState.mSpellId;
-                    cast.mSourceName = magicBoltState.mSourceName;
-                    cast.mStack = false;
-                    cast.inflict(result.mHitObject, caster, magicBoltState.mEffects, ESM::RT_Target, false, true);
-                    mPhysics->reportCollision(Misc::Convert::toBullet(result.mHitPos), Misc::Convert::toBullet(result.mHitNormal));
-                }
-            }
-
-            // Explodes when hitting water
-            if (MWBase::Environment::get().getWorld()->isUnderwater(MWMechanics::getPlayer().getCell(), newPos))
-                hit = true;
-
-            if (hit)
-            {
-                MWBase::Environment::get().getWorld()->explodeSpell(pos, magicBoltState.mEffects, caster, result.mHitObject,
-                                                                    ESM::RT_Target, magicBoltState.mSpellId, magicBoltState.mSourceName);
-
-                cleanupMagicBolt(magicBoltState);
-            }
+            mPhysics->updateProjectile(magicBoltState.mProjectileId, newPos);
         }
     }
 
@@ -491,8 +452,7 @@ namespace MWWorld
             // simulating aerodynamics at all
             projectileState.mVelocity -= osg::Vec3f(0, 0, Constants::GravityConst * Constants::UnitsPerMeter * 0.1f) * duration;
 
-            osg::Vec3f pos(projectileState.mNode->getPosition());
-            osg::Vec3f newPos = pos + projectileState.mVelocity * duration;
+            osg::Vec3f newPos = projectile->getPosition() + projectileState.mVelocity * duration;
 
             // rotation does not work well for throwing projectiles - their roll angle will depend on shooting direction.
             if (!projectileState.mThrown)
@@ -501,10 +461,6 @@ namespace MWWorld
                 orient.makeRotate(osg::Vec3f(0,1,0), projectileState.mVelocity);
                 projectileState.mNode->setAttitude(orient);
             }
-
-            projectileState.mNode->setPosition(newPos);
-
-            mPhysics->updateProjectile(projectileState.mProjectileId, newPos);
 
             update(projectileState, duration);
 
@@ -516,36 +472,7 @@ namespace MWWorld
                 caster.getClass().getCreatureStats(caster).getAiSequence().getCombatTargets(targetActors);
             projectile->setValidTargets(targetActors);
 
-            // Check for impact
-            // TODO: use a proper btRigidBody / btGhostObject?
-            const auto result = mPhysics->castRay(pos, newPos, caster, targetActors, 0xff, MWPhysics::CollisionType_Projectile, projectileState.mProjectileId);
-
-            bool underwater = MWBase::Environment::get().getWorld()->isUnderwater(MWMechanics::getPlayer().getCell(), newPos);
-
-            if (result.mHit || underwater)
-            {
-                // Try to get a Ptr to the bow that was used. It might no longer exist.
-                MWWorld::ManualRef projectileRef(MWBase::Environment::get().getWorld()->getStore(), projectileState.mIdArrow);
-                MWWorld::Ptr bow = projectileRef.getPtr();
-                if (!caster.isEmpty() && projectileState.mIdArrow != projectileState.mBowId)
-                {
-                    MWWorld::InventoryStore& inv = caster.getClass().getInventoryStore(caster);
-                    MWWorld::ContainerStoreIterator invIt = inv.getSlot(MWWorld::InventoryStore::Slot_CarriedRight);
-                    if (invIt != inv.end() && Misc::StringUtils::ciEqual(invIt->getCellRef().getRefId(), projectileState.mBowId))
-                        bow = *invIt;
-                }
-
-                if (caster.isEmpty())
-                    caster = result.mHitObject;
-
-                MWMechanics::projectileHit(caster, result.mHitObject, bow, projectileRef.getPtr(), result.mHit ? result.mHitPos : newPos, projectileState.mAttackStrength);
-                mPhysics->reportCollision(Misc::Convert::toBullet(result.mHitPos), Misc::Convert::toBullet(result.mHitNormal));
-
-                if (underwater)
-                    mRendering->emitWaterRipple(newPos);
-
-                cleanupProjectile(projectileState);
-            }
+            mPhysics->updateProjectile(projectileState.mProjectileId, newPos);
         }
     }
 
@@ -557,17 +484,19 @@ namespace MWWorld
                 continue;
 
             auto* projectile = mPhysics->getProjectile(projectileState.mProjectileId);
+
+            if (const auto hitWaterPos = projectile->getWaterHitPosition())
+                mRendering->emitWaterRipple(Misc::Convert::toOsg(*hitWaterPos));
+
+            const auto pos = projectile->getPosition();
+            projectileState.mNode->setPosition(pos);
+
             if (projectile->isActive())
                 continue;
+
             const auto target = projectile->getTarget();
-            const auto pos = projectile->getHitPos();
-            MWWorld::Ptr caster = projectileState.getCaster();
+            auto caster = projectileState.getCaster();
             assert(target != caster);
-            if (!projectile->isValidTarget(target))
-            {
-                projectile->activate();
-                continue;
-            }
 
             if (caster.isEmpty())
                 caster = target;
@@ -583,9 +512,8 @@ namespace MWWorld
                     bow = *invIt;
             }
 
-            projectileState.mHitPosition = pos;
-            cleanupProjectile(projectileState);
             MWMechanics::projectileHit(caster, target, bow, projectileRef.getPtr(), pos, projectileState.mAttackStrength);
+            cleanupProjectile(projectileState);
         }
         for (auto& magicBoltState : mMagicBolts)
         {
@@ -593,20 +521,18 @@ namespace MWWorld
                 continue;
 
             auto* projectile = mPhysics->getProjectile(magicBoltState.mProjectileId);
+
+            const auto pos = projectile->getPosition();
+            magicBoltState.mNode->setPosition(pos);
+            for (const auto& sound : magicBoltState.mSounds)
+                sound->setPosition(pos);
+
             if (projectile->isActive())
                 continue;
-            const auto target = projectile->getTarget();
-            const auto pos = projectile->getHitPos();
-            MWWorld::Ptr caster = magicBoltState.getCaster();
-            assert(target != caster);
-            if (!projectile->isValidTarget(target))
-            {
-                projectile->activate();
-                continue;
-            }
 
-            magicBoltState.mHitPosition = pos;
-            cleanupMagicBolt(magicBoltState);
+            const auto target = projectile->getTarget();
+            const auto caster = magicBoltState.getCaster();
+            assert(target != caster);
 
             MWMechanics::CastSpell cast(caster, target);
             cast.mHitPosition = pos;
@@ -616,6 +542,7 @@ namespace MWWorld
             cast.inflict(target, caster, magicBoltState.mEffects, ESM::RT_Target, false, true);
 
             MWBase::Environment::get().getWorld()->explodeSpell(pos, magicBoltState.mEffects, caster, target, ESM::RT_Target, magicBoltState.mSpellId, magicBoltState.mSourceName);
+            cleanupMagicBolt(magicBoltState);
         }
         mProjectiles.erase(std::remove_if(mProjectiles.begin(), mProjectiles.end(), [](const State& state) { return state.mToDelete; }),
                 mProjectiles.end());
@@ -716,7 +643,7 @@ namespace MWWorld
                 int weaponType = ptr.get<ESM::Weapon>()->mBase->mData.mType;
                 state.mThrown = MWMechanics::getWeaponType(weaponType)->mWeaponClass == ESM::WeaponType::Thrown;
 
-                state.mProjectileId = mPhysics->addProjectile(state.getCaster(), osg::Vec3f(esm.mPosition));
+                state.mProjectileId = mPhysics->addProjectile(state.getCaster(), osg::Vec3f(esm.mPosition), 1.f, true);
             }
             catch(...)
             {
@@ -761,7 +688,6 @@ namespace MWWorld
                 MWWorld::ManualRef ref(MWBase::Environment::get().getWorld()->getStore(), state.mIdMagic.at(0));
                 MWWorld::Ptr ptr = ref.getPtr();
                 model = ptr.getClass().getModel(ptr);
-                state.mProjectileId = mPhysics->addProjectile(state.getCaster(), osg::Vec3f(esm.mPosition));
             }
             catch(...)
             {
@@ -769,7 +695,8 @@ namespace MWWorld
             }
 
             osg::Vec4 lightDiffuseColor = getMagicBoltLightDiffuseColor(state.mEffects);
-            createModel(state, model, osg::Vec3f(esm.mPosition), osg::Quat(esm.mOrientation), true, true, lightDiffuseColor, texture);
+            const auto radius = createModel(state, model, osg::Vec3f(esm.mPosition), osg::Quat(esm.mOrientation), true, true, lightDiffuseColor, texture);
+            state.mProjectileId = mPhysics->addProjectile(state.getCaster(), osg::Vec3f(esm.mPosition), radius, false);
 
             MWBase::SoundManager *sndMgr = MWBase::Environment::get().getSoundManager();
             for (const std::string &soundid : state.mSoundIds)

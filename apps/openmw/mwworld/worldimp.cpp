@@ -148,6 +148,7 @@ namespace MWWorld
         Resource::ResourceSystem* resourceSystem, SceneUtil::WorkQueue* workQueue,
         const Files::Collections& fileCollections,
         const std::vector<std::string>& contentFiles,
+        const std::vector<std::string>& groundcoverFiles,
         ToUTF8::Utf8Encoder* encoder, int activationDistanceOverride,
         const std::string& startCell, const std::string& startupScript,
         const std::string& resourcePath, const std::string& userDataPath)
@@ -160,7 +161,7 @@ namespace MWWorld
       mLevitationEnabled(true), mGoToJail(false), mDaysInPrison(0),
       mPlayerTraveling(false), mPlayerInJail(false), mSpellPreloadTimer(0.f)
     {
-        mEsm.resize(contentFiles.size());
+        mEsm.resize(contentFiles.size() + groundcoverFiles.size());
         Loading::Listener* listener = MWBase::Environment::get().getWindowManager()->getLoadingScreen();
         listener->loadingOn();
 
@@ -173,7 +174,7 @@ namespace MWWorld
         gameContentLoader.addLoader(".omwaddon", &esmLoader);
         gameContentLoader.addLoader(".project", &esmLoader);
 
-        loadContentFiles(fileCollections, contentFiles, gameContentLoader);
+        loadContentFiles(fileCollections, contentFiles, groundcoverFiles, gameContentLoader);
 
         listener->loadingOff();
 
@@ -1378,6 +1379,12 @@ namespace MWWorld
 
     void World::adjustPosition(const Ptr &ptr, bool force)
     {
+        if (ptr.isEmpty())
+        {
+            Log(Debug::Warning) << "Unable to adjust position for empty object";
+            return;
+        }
+
         osg::Vec3f pos (ptr.getRefData().getPosition().asVec3());
 
         if(!ptr.getRefData().getBaseNode())
@@ -1386,8 +1393,14 @@ namespace MWWorld
             return;
         }
 
+        if (!ptr.isInCell())
+        {
+            Log(Debug::Warning) << "Unable to adjust position for object '" << ptr.getCellRef().getRefId() << "' - it has no cell";
+            return;
+        }
+
         const float terrainHeight = ptr.getCell()->isExterior() ? getTerrainHeightAt(pos) : -std::numeric_limits<float>::max();
-        pos.z() = std::max(pos.z(), terrainHeight + 20); // place slightly above terrain. will snap down to ground with code below
+        pos.z() = std::max(pos.z(), terrainHeight) + 20; // place slightly above terrain. will snap down to ground with code below
 
         // We still should trace down dead persistent actors - they do not use the "swimdeath" animation.
         bool swims = ptr.getClass().isActor() && isSwimming(ptr) && !(ptr.getClass().isPersistent(ptr) && ptr.getClass().getCreatureStats(ptr).isDeathAnimationFinished());
@@ -1398,7 +1411,6 @@ namespace MWWorld
         }
 
         moveObject(ptr, ptr.getCell(), pos.x(), pos.y(), pos.z());
-        mPhysics->resetPosition(ptr);
     }
 
     void World::fixPosition()
@@ -2345,8 +2357,12 @@ namespace MWWorld
         if (stats.isDead())
             return false;
 
+        const bool isPlayer = ptr == getPlayerConstPtr();
+        if (!(isPlayer && mGodMode) && stats.isParalyzed())
+            return false;
+
         if (ptr.getClass().canFly(ptr))
-            return !stats.isParalyzed();
+            return true;
 
         if(stats.getMagicEffects().get(ESM::MagicEffect::Levitate).getMagnitude() > 0
                 && isLevitationEnabled())
@@ -2575,12 +2591,12 @@ namespace MWWorld
 
     void World::screenshot(osg::Image* image, int w, int h)
     {
-        mRendering->screenshotFramebuffer(image, w, h);
+        mRendering->screenshot(image, w, h);
     }
 
-    bool World::screenshot360(osg::Image* image, std::string settingStr)
+    bool World::screenshot360(osg::Image* image)
     {
-        return mRendering->screenshot360(image,settingStr);
+        return mRendering->screenshot360(image);
     }
 
     void World::activateDoor(const MWWorld::Ptr& door)
@@ -2956,7 +2972,7 @@ namespace MWWorld
         mRendering->rebuildPtr(getPlayerPtr());
     }
 
-    bool World::getGodModeState()
+    bool World::getGodModeState() const
     {
         return mGodMode;
     }
@@ -2980,7 +2996,7 @@ namespace MWWorld
     }
 
     void World::loadContentFiles(const Files::Collections& fileCollections,
-        const std::vector<std::string>& content, ContentLoader& contentLoader)
+        const std::vector<std::string>& content, const std::vector<std::string>& groundcover, ContentLoader& contentLoader)
     {
         int idx = 0;
         for (const std::string &file : content)
@@ -2994,6 +3010,24 @@ namespace MWWorld
             else
             {
                 std::string message = "Failed loading " + file + ": the content file does not exist";
+                throw std::runtime_error(message);
+            }
+            idx++;
+        }
+
+        ESM::GroundcoverIndex = idx;
+
+        for (const std::string &file : groundcover)
+        {
+            boost::filesystem::path filename(file);
+            const Files::MultiDirCollection& col = fileCollections.getCollection(filename.extension().string());
+            if (col.doesExist(file))
+            {
+                contentLoader.load(col.getPath(file), idx);
+            }
+            else
+            {
+                std::string message = "Failed loading " + file + ": the groundcover file does not exist";
                 throw std::runtime_error(message);
             }
             idx++;

@@ -13,6 +13,7 @@
 #include "../mwworld/player.hpp"
 
 #include "actor.hpp"
+#include "contacttestwrapper.h"
 #include "movementsolver.hpp"
 #include "mtphysics.hpp"
 #include "object.hpp"
@@ -87,12 +88,13 @@ namespace
 
     void updateMechanics(MWPhysics::ActorFrameData& actorData)
     {
+        auto ptr = actorData.mActorRaw->getPtr();
         if (actorData.mDidJump)
-            handleJump(actorData.mPtr);
+            handleJump(ptr);
 
-        MWMechanics::CreatureStats& stats = actorData.mPtr.getClass().getCreatureStats(actorData.mPtr);
+        MWMechanics::CreatureStats& stats = ptr.getClass().getCreatureStats(ptr);
         if (actorData.mNeedLand)
-            stats.land(actorData.mPtr == MWMechanics::getPlayer() && (actorData.mFlying || actorData.mSwimming));
+            stats.land(ptr == MWMechanics::getPlayer() && (actorData.mFlying || actorData.mSwimming));
         else if (actorData.mFallHeight < 0)
             stats.addToFallHeight(-actorData.mFallHeight);
     }
@@ -150,6 +152,9 @@ namespace MWPhysics
           , mNextLOS(0)
           , mFrameNumber(0)
           , mTimer(osg::Timer::instance())
+          , mTimeBegin(0)
+          , mTimeEnd(0)
+          , mFrameStart(0)
     {
         mNumThreads = Config::computeNumThreads(mThreadSafeBullet);
 
@@ -166,7 +171,16 @@ namespace MWPhysics
 
         mPreStepBarrier = std::make_unique<Misc::Barrier>(mNumThreads, [&]()
             {
+            if (mDeferAabbUpdate)
                 updateAabbs();
+            if (!mRemainingSteps)
+                return;
+            for (auto& data : mActorsFrameData)
+                if (data.mActor.lock())
+                {
+                    std::unique_lock lock(mCollisionWorldMutex);
+                    MovementSolver::unstuck(data, mCollisionWorld.get());
+                }
             });
 
         mPostStepBarrier = std::make_unique<Misc::Barrier>(mNumThreads, [&]()
@@ -218,8 +232,13 @@ namespace MWPhysics
         {
             for (auto& data : mActorsFrameData)
             {
+                const auto actorActive = [&data](const auto& newFrameData) -> bool
+                {
+                    const auto actor = data.mActor.lock();
+                    return actor && actor->getPtr() == newFrameData.mActorRaw->getPtr();
+                };
                 // Only return actors that are still part of the scene
-                if (std::any_of(actorsData.begin(), actorsData.end(), [&data](const auto& newFrameData) { return data.mActorRaw->getPtr() == newFrameData.mActorRaw->getPtr(); }))
+                if (std::any_of(actorsData.begin(), actorsData.end(), actorActive))
                 {
                     updateMechanics(data);
 
@@ -230,16 +249,7 @@ namespace MWPhysics
                     mMovedActors.emplace_back(data.mActorRaw->getPtr());
                 }
             }
-
-            if (mFrameNumber == frameNumber - 1)
-            {
-                stats.setAttribute(mFrameNumber, "physicsworker_time_begin", mTimer->delta_s(mFrameStart, mTimeBegin));
-                stats.setAttribute(mFrameNumber, "physicsworker_time_taken", mTimer->delta_s(mTimeBegin, mTimeEnd));
-                stats.setAttribute(mFrameNumber, "physicsworker_time_end", mTimer->delta_s(mFrameStart, mTimeEnd));
-            }
-            mFrameStart = frameStart;
-            mTimeBegin = mTimer->tick();
-            mFrameNumber = frameNumber;
+            updateStats(frameStart, frameNumber, stats);
         }
 
         // init
@@ -275,8 +285,8 @@ namespace MWPhysics
         mActorsFrameData.clear();
         for (const auto& [_, actor] : actors)
         {
-            actor->resetPosition();
-            actor->setSimulationPosition(actor->getWorldPosition()); // resetPosition skip next simulation, now we need to "consume" it
+            actor->updatePosition();
+            actor->setSimulationPosition(actor->getWorldPosition()); // updatePosition skip next simulation, now we need to "consume" it
             actor->updateCollisionObjectPosition();
             mMovedActors.emplace_back(actor->getPtr());
         }
@@ -298,7 +308,7 @@ namespace MWPhysics
     void PhysicsTaskScheduler::contactTest(btCollisionObject* colObj, btCollisionWorld::ContactResultCallback& resultCallback)
     {
         std::shared_lock lock(mCollisionWorldMutex);
-        mCollisionWorld->contactTest(colObj, resultCallback);
+        ContactTestWrapper::contactTest(mCollisionWorld.get(), colObj, resultCallback);
     }
 
     std::optional<btVector3> PhysicsTaskScheduler::getHitPoint(const btTransform& from, btCollisionObject* target)
@@ -352,7 +362,6 @@ namespace MWPhysics
     {
         if (!mDeferAabbUpdate || immediate)
         {
-            std::unique_lock lock(mCollisionWorldMutex);
             updatePtrAabb(ptr);
         }
         else
@@ -405,7 +414,7 @@ namespace MWPhysics
 
     void PhysicsTaskScheduler::updateAabbs()
     {
-        std::scoped_lock lock(mCollisionWorldMutex, mUpdateAabbMutex);
+        std::scoped_lock lock(mUpdateAabbMutex);
         std::for_each(mUpdateAabb.begin(), mUpdateAabb.end(),
             [this](const std::weak_ptr<PtrHolder>& ptr) { updatePtrAabb(ptr); });
         mUpdateAabb.clear();
@@ -415,6 +424,7 @@ namespace MWPhysics
     {
         if (const auto p = ptr.lock())
         {
+            std::scoped_lock lock(mCollisionWorldMutex);
             if (const auto actor = std::dynamic_pointer_cast<Actor>(p))
             {
                 actor->updateCollisionObjectPosition();
@@ -441,15 +451,16 @@ namespace MWPhysics
             if (!mNewFrame)
                 mHasJob.wait(lock, [&]() { return mQuit || mNewFrame; });
 
-            if (mDeferAabbUpdate)
-                mPreStepBarrier->wait();
+            mPreStepBarrier->wait();
 
             int job = 0;
             while (mRemainingSteps && (job = mNextJob.fetch_add(1, std::memory_order_relaxed)) < mNumJobs)
             {
-                MaybeSharedLock lockColWorld(mCollisionWorldMutex, mThreadSafeBullet);
                 if(const auto actor = mActorsFrameData[job].mActor.lock())
+                {
+                    MaybeSharedLock lockColWorld(mCollisionWorldMutex, mThreadSafeBullet);
                     MovementSolver::move(mActorsFrameData[job], mPhysicsDt, mCollisionWorld.get(), *mWorldFrameData);
+                }
             }
 
             mPostStepBarrier->wait();
@@ -474,13 +485,13 @@ namespace MWPhysics
 
     void PhysicsTaskScheduler::updateActorsPositions()
     {
-        std::unique_lock lock(mCollisionWorldMutex);
         for (auto& actorData : mActorsFrameData)
         {
             if(const auto actor = actorData.mActor.lock())
             {
                 if (actor->setPosition(actorData.mPosition))
                 {
+                    std::scoped_lock lock(mCollisionWorldMutex);
                     actor->updateCollisionObjectPosition();
                     mCollisionWorld->updateSingleAabb(actor->getCollisionObject());
                 }
@@ -508,7 +519,10 @@ namespace MWPhysics
         while (mRemainingSteps--)
         {
             for (auto& actorData : mActorsFrameData)
+            {
+                MovementSolver::unstuck(actorData, mCollisionWorld.get());
                 MovementSolver::move(actorData, mPhysicsDt, mCollisionWorld.get(), *mWorldFrameData);
+            }
 
             updateActorsPositions();
         }
@@ -522,5 +536,20 @@ namespace MWPhysics
             if (mAdvanceSimulation)
                 actorData.mActorRaw->setStandingOnPtr(actorData.mStandingOn);
         }
+    }
+
+    void PhysicsTaskScheduler::updateStats(osg::Timer_t frameStart, unsigned int frameNumber, osg::Stats& stats)
+    {
+        if (!stats.collectStats("engine"))
+            return;
+        if (mFrameNumber == frameNumber - 1)
+        {
+            stats.setAttribute(mFrameNumber, "physicsworker_time_begin", mTimer->delta_s(mFrameStart, mTimeBegin));
+            stats.setAttribute(mFrameNumber, "physicsworker_time_taken", mTimer->delta_s(mTimeBegin, mTimeEnd));
+            stats.setAttribute(mFrameNumber, "physicsworker_time_end", mTimer->delta_s(mFrameStart, mTimeEnd));
+        }
+        mFrameStart = frameStart;
+        mTimeBegin = mTimer->tick();
+        mFrameNumber = frameNumber;
     }
 }

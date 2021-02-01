@@ -72,7 +72,7 @@ void KeyboardNavigation::saveFocus(int mode)
     {
         mKeyFocus[mode] = focus;
     }
-    else
+    else if(shouldAcceptKeyFocus(mCurrentFocus))
     {
         mKeyFocus[mode] = mCurrentFocus;
     }
@@ -103,6 +103,7 @@ void KeyboardNavigation::_unlinkWidget(MyGUI::Widget *widget)
 #endif
 }
 
+#if MYGUI_VERSION < MYGUI_DEFINE_VERSION(3,2,3)
 void styleFocusedButton(MyGUI::Widget* w)
 {
     if (w)
@@ -113,6 +114,7 @@ void styleFocusedButton(MyGUI::Widget* w)
         }
     }
 }
+#endif
 
 bool isRootParent(MyGUI::Widget* widget, MyGUI::Widget* root)
 {
@@ -136,7 +138,9 @@ void KeyboardNavigation::onFrame()
 
     if (focus == mCurrentFocus)
     {
+#if MYGUI_VERSION < MYGUI_DEFINE_VERSION(3,2,3)
         styleFocusedButton(mCurrentFocus);
+#endif
         return;
     }
 
@@ -147,19 +151,21 @@ void KeyboardNavigation::onFrame()
         focus = mCurrentFocus;
     }
 
-    // style highlighted button (won't be needed for MyGUI 3.2.3)
     if (focus != mCurrentFocus)
     {
+#if MYGUI_VERSION < MYGUI_DEFINE_VERSION(3,2,3)
         if (mCurrentFocus)
         {
             if (MyGUI::Button* b = mCurrentFocus->castType<MyGUI::Button>(false))
                 b->_setWidgetState("normal");
         }
-
+#endif
         mCurrentFocus = focus;
     }
 
+#if MYGUI_VERSION < MYGUI_DEFINE_VERSION(3,2,3)
     styleFocusedButton(mCurrentFocus);
+#endif
 }
 
 void KeyboardNavigation::setDefaultFocus(MyGUI::Widget *window, MyGUI::Widget *defaultFocus)

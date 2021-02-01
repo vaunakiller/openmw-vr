@@ -790,6 +790,7 @@ MWShadowTechnique::MWShadowTechnique():
     _debugHud(nullptr)
 {
     _shadowRecievingPlaceholderStateSet = new osg::StateSet;
+    mSetDummyStateWhenDisabled = false;
 }
 
 MWShadowTechnique::MWShadowTechnique(const MWShadowTechnique& vdsm, const osg::CopyOp& copyop):
@@ -797,6 +798,7 @@ MWShadowTechnique::MWShadowTechnique(const MWShadowTechnique& vdsm, const osg::C
 {
     _shadowRecievingPlaceholderStateSet = new osg::StateSet;
     _enableShadows = vdsm._enableShadows;
+    mSetDummyStateWhenDisabled = vdsm.mSetDummyStateWhenDisabled;
 }
 
 MWShadowTechnique::~MWShadowTechnique()

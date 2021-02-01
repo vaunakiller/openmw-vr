@@ -70,10 +70,11 @@ namespace DetourNavigator
 
 namespace MWRender
 {
-
+    class GroundcoverUpdater;
     class StateUpdater;
 
     class EffectManager;
+    class ScreenshotManager;
     class FogManager;
     class SkyManager;
     class NpcAnimation;
@@ -87,6 +88,7 @@ namespace MWRender
     class ActorsPaths;
     class RecastMesh;
     class ObjectPaging;
+    class Groundcover;
 
     // Result data of ray cast methods.
     // Needs to be declared outside the RenderingManager class to be forward declarable
@@ -165,9 +167,8 @@ namespace MWRender
         void setWaterHeight(float level);
 
         /// Take a screenshot of w*h onto the given image, not including the GUI.
-        void screenshot(osg::Image* image, int w, int h, osg::Matrixd cameraTransform=osg::Matrixd()); // make a new render at given size
-        void screenshotFramebuffer(osg::Image* image, int w, int h); // copy directly from framebuffer and scale to given size
-        bool screenshot360(osg::Image* image, std::string settingStr);
+        void screenshot(osg::Image* image, int w, int h);
+        bool screenshot360(osg::Image* image);
 
         RayResult castRay(const osg::Vec3f& origin, const osg::Vec3f& dest, bool ignorePlayer, bool ignoreActors=false);
 
@@ -258,8 +259,6 @@ namespace MWRender
 
         void reportStats() const;
 
-        void renderCameraToImage(osg::Camera *camera, osg::Image *image, int w, int h);
-
         void updateNavMesh();
 
         void updateRecastMesh();
@@ -272,6 +271,8 @@ namespace MWRender
         osg::ref_ptr<osg::Group> mRootNode;
         osg::ref_ptr<osg::Group> mSceneRoot;
         Resource::ResourceSystem* mResourceSystem;
+
+        osg::ref_ptr<GroundcoverUpdater> mGroundcoverUpdater;
 
         osg::ref_ptr<SceneUtil::WorkQueue> mWorkQueue;
         osg::ref_ptr<SceneUtil::UnrefQueue> mUnrefQueue;
@@ -287,10 +288,13 @@ namespace MWRender
         std::unique_ptr<Objects> mObjects;
         std::unique_ptr<Water> mWater;
         std::unique_ptr<Terrain::World> mTerrain;
-        TerrainStorage* mTerrainStorage;
+        std::unique_ptr<Terrain::World> mGroundcoverWorld;
+        std::unique_ptr<TerrainStorage> mTerrainStorage;
         std::unique_ptr<ObjectPaging> mObjectPaging;
+        std::unique_ptr<Groundcover> mGroundcover;
         std::unique_ptr<SkyManager> mSky;
         std::unique_ptr<FogManager> mFog;
+        std::unique_ptr<ScreenshotManager> mScreenshotManager;
         std::unique_ptr<EffectManager> mEffectManager;
         std::unique_ptr<SceneUtil::ShadowManager> mShadowManager;
         osg::ref_ptr<NpcAnimation> mPlayerAnimation;
