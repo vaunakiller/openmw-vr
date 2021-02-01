@@ -309,8 +309,8 @@ namespace MWRender
         rttCamera->setUpdateCallback(new NoTraverseCallback);
         rttCamera->addChild(mSceneRoot);
 
-        rttCamera->addChild(mWater->getReflectionCamera());
-        rttCamera->addChild(mWater->getRefractionCamera());
+        rttCamera->addChild(mWater->getReflectionNode());
+        rttCamera->addChild(mWater->getRefractionNode());
 
         rttCamera->setCullMask(mViewer->getCamera()->getCullMask() & (~Mask_GUI));
 
