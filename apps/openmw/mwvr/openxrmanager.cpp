@@ -76,15 +76,7 @@ namespace MWVR
         if (!realized())
         {
             gc->makeCurrent();
-            try {
-                mPrivate = std::make_shared<OpenXRManagerImpl>(gc);
-            }
-            catch (std::exception& e)
-            {
-                std::string error = std::string("Exception thrown while initializing OpenXR: ") + e.what();
-                Log(Debug::Error) << error;
-                throw std::runtime_error(error);
-            }
+            mPrivate = std::make_shared<OpenXRManagerImpl>(gc);
         }
     }
 

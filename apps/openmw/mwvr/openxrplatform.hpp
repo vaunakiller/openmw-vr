@@ -62,6 +62,9 @@ namespace MWVR
         /// Unlocks a DX object for use by DirectX as if calling wglDXUnlockObjectsNV
         void  DXUnlockObject(void* dxResourceShareHandle);
 
+        std::string getInstanceName(XrInstance instance);
+        XrVersion getInstanceVersion(XrInstance instance);
+        void initFailure(XrResult, XrInstance);
 
     private:
         void enumerateExtensions(const char* layerName, int logIndent);

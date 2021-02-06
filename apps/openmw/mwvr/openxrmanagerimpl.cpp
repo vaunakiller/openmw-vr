@@ -73,8 +73,9 @@ namespace MWVR
         // Get system ID
         XrSystemGetInfo systemInfo{ XR_TYPE_SYSTEM_GET_INFO };
         systemInfo.formFactor = mFormFactor = XR_FORM_FACTOR_HEAD_MOUNTED_DISPLAY;
-        CHECK_XRCMD(xrGetSystem(mInstance, &systemInfo, &mSystemId));
-        assert(mSystemId);
+        auto res = CHECK_XRCMD(xrGetSystem(mInstance, &systemInfo, &mSystemId));
+        if (!XR_SUCCEEDED(res))
+            mPlatform.initFailure(res, mInstance);
 
         // Create session
         mSession = mPlatform.createXrSession(mInstance, mSystemId);

@@ -29,6 +29,7 @@
 #include <stdexcept>
 #include <deque>
 #include <cassert>
+#include <optional>
 
 namespace MWVR
 {
@@ -409,13 +410,17 @@ namespace MWVR
         createInfo.enabledExtensionNames = mEnabledExtensions.data();
         strcpy(createInfo.applicationInfo.applicationName, "openmw_vr");
         createInfo.applicationInfo.apiVersion = XR_CURRENT_API_VERSION;
-        CHECK_XRCMD(xrCreateInstance(&createInfo, &instance));
+
+        auto res = CHECK_XRCMD(xrCreateInstance(&createInfo, &instance));
+        if (!XR_SUCCEEDED(res))
+            initFailure(res, instance);
         return instance;
     }
 
     XrSession OpenXRPlatform::createXrSession(XrInstance instance, XrSystemId systemId)
     {
         XrSession session = XR_NULL_HANDLE;
+        XrResult res = XR_SUCCESS;
 #ifdef _WIN32
         std::string graphicsAPIExtension = graphicsAPIExtensionName();
         if(graphicsAPIExtension == XR_KHR_OPENGL_ENABLE_EXTENSION_NAME)
@@ -448,7 +453,7 @@ namespace MWVR
             XrSessionCreateInfo createInfo{ XR_TYPE_SESSION_CREATE_INFO };
             createInfo.next = &graphicsBindings;
             createInfo.systemId = systemId;
-            CHECK_XRCMD(xrCreateSession(instance, &createInfo, &session));
+            res = CHECK_XRCMD(xrCreateSession(instance, &createInfo, &session));
         }
 #ifdef XR_USE_GRAPHICS_API_D3D11
         else if(graphicsAPIExtension == XR_KHR_D3D11_ENABLE_EXTENSION_NAME)
@@ -462,7 +467,7 @@ namespace MWVR
             XrSessionCreateInfo createInfo{ XR_TYPE_SESSION_CREATE_INFO };
             createInfo.next = &mPrivate->mD3D11bindings;
             createInfo.systemId = systemId;
-            CHECK_XRCMD(xrCreateSession(instance, &createInfo, &session));
+            res = CHECK_XRCMD(xrCreateSession(instance, &createInfo, &session));
         }
 #endif
         else
@@ -510,10 +515,11 @@ namespace MWVR
             XrSessionCreateInfo createInfo{ XR_TYPE_SESSION_CREATE_INFO };
             createInfo.next = &graphicsBindings;
             createInfo.systemId = systemId;
-            CHECK_XRCMD(xrCreateSession(instance, &createInfo, &session));
+            res = CHECK_XRCMD(xrCreateSession(instance, &createInfo, &session));
         }
 #endif
-        assert(session);
+        if (!XR_SUCCEEDED(res))
+            initFailure(res, instance);
 
         uint32_t swapchainFormatCount;
         CHECK_XRCMD(xrEnumerateSwapchainFormats(session, 0, &swapchainFormatCount, nullptr));
@@ -677,5 +683,57 @@ namespace MWVR
 #ifdef XR_USE_GRAPHICS_API_D3D11
         mPrivate->wglDXUnlockObjectsNV(mPrivate->wglDXDevice, 1, &dxResourceShareHandle);
 #endif
+    }
+
+    static XrInstanceProperties
+        getInstanceProperties(XrInstance instance)
+    {
+        XrInstanceProperties properties{ XR_TYPE_INSTANCE_PROPERTIES };
+        if (instance)
+            xrGetInstanceProperties(instance, &properties);
+        return properties;
+    }
+
+    std::string OpenXRPlatform::getInstanceName(XrInstance instance)
+    {
+        if (instance)
+            return getInstanceProperties(instance).runtimeName;
+        return "unknown";
+    }
+
+    XrVersion OpenXRPlatform::getInstanceVersion(XrInstance instance)
+    {
+        if (instance)
+            return getInstanceProperties(instance).runtimeVersion;
+        return 0;
+    }
+    void OpenXRPlatform::initFailure(XrResult res, XrInstance instance)
+    {
+        std::stringstream ss;
+        std::string runtimeName = getInstanceName(instance);
+        XrVersion runtimeVersion = getInstanceVersion(instance);
+        ss << "Error caught while initializing VR device: " << XrResultString(res) << std::endl;
+        ss << "Device: " << runtimeName << std::endl;
+        ss << "Version: " << runtimeVersion << std::endl;
+        if (res == XR_ERROR_FORM_FACTOR_UNAVAILABLE)
+        {
+            ss << "Cause: Unable to open VR device. Make sure your device is plugged in and the VR driver is running." << std::endl;
+            ss << std::endl;
+            if (runtimeName == "Oculus" || runtimeName == "Quest")
+            {
+                ss << "Your device has been identified as an Oculus device." << std::endl;
+                ss << "The most common cause for this error when using an oculus device, is quest users attempting to run the game via Virtual Desktop." << std::endl;
+                ss << "Unfortunately this is currently broken, and quest users will need to play via a link cable." << std::endl;
+            }
+        }
+        else if (res == XR_ERROR_LIMIT_REACHED)
+        {
+            ss << "Cause: Device resources exhausted. Close other VR applications if you have any open. If you have none, you may need to reboot to reset the driver." << std::endl;
+        }
+        else
+        {
+            ss << "Cause: Unknown. Make sure your device is plugged in and ready." << std::endl;
+        }
+        throw std::runtime_error(ss.str());
     }
 }
