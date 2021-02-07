@@ -270,11 +270,11 @@ namespace SceneUtil {
 
         virtual bool assignTexGenSettings(osgUtil::CullVisitor* cv, osg::Camera* camera, unsigned int textureUnit, osg::TexGen* texgen);
 
-        virtual osg::ref_ptr<osgUtil::StateGraph> cullShadowReceivingScene(osgUtil::CullVisitor* cv) const;
+        virtual void cullShadowReceivingScene(osgUtil::CullVisitor* cv) const;
 
         virtual void cullShadowCastingScene(osgUtil::CullVisitor* cv, osg::Camera* camera) const;
 
-        virtual osg::StateSet* selectStateSetForRenderingShadow(ViewDependentData& vdd, unsigned int traversalNumber) const;
+        virtual osg::StateSet* prepareStateSetForRenderingShadow(ViewDependentData& vdd, unsigned int traversalNumber) const;
 
     protected:
         virtual ~MWShadowTechnique();

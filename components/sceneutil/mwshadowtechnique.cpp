@@ -1544,7 +1544,13 @@ void MWShadowTechnique::cull(osgUtil::CullVisitor& cv)
     }
 
     // 1. Traverse main scene graph
-    osg::ref_ptr<osgUtil::StateGraph> decoratorStateGraph = cullShadowReceivingScene(&cv);
+    auto* shadowReceiverStateSet = vdd->getStateSet(cv.getTraversalNumber());
+    shadowReceiverStateSet->clear();
+    cv.pushStateSet(shadowReceiverStateSet);
+
+    cullShadowReceivingScene(&cv);
+
+    cv.popStateSet();
 
     if (cv.getComputeNearFarMode()!=osg::CullSettings::DO_NOT_COMPUTE_NEAR_FAR)
     {
@@ -1572,7 +1578,7 @@ void MWShadowTechnique::cull(osgUtil::CullVisitor& cv)
 
     if (vdd->_numValidShadows>0)
     {
-        decoratorStateGraph->setStateSet(selectStateSetForRenderingShadow(*vdd, cv.getTraversalNumber()));
+        prepareStateSetForRenderingShadow(*vdd, cv.getTraversalNumber());
     }
 
     // OSG_NOTICE<<"End of shadow setup Projection matrix "<<*cv.getProjectionMatrix()<<std::endl;
@@ -3118,24 +3124,20 @@ bool MWShadowTechnique::assignTexGenSettings(osgUtil::CullVisitor* cv, osg::Came
     return true;
 }
 
-osg::ref_ptr<osgUtil::StateGraph> MWShadowTechnique::cullShadowReceivingScene(osgUtil::CullVisitor* cv) const
+void MWShadowTechnique::cullShadowReceivingScene(osgUtil::CullVisitor* cv) const
 {
     OSG_INFO<<"cullShadowReceivingScene()"<<std::endl;
 
     // record the traversal mask on entry so we can reapply it later.
     unsigned int traversalMask = cv->getTraversalMask();
 
-
-    cv->pushStateSet(_shadowRecievingPlaceholderStateSet.get());
-    osg::ref_ptr<osgUtil::StateGraph> decoratorStateGraph = cv->getCurrentStateGraph();
     cv->setTraversalMask( traversalMask & _shadowedScene->getShadowSettings()->getReceivesShadowTraversalMask() );
 
     _shadowedScene->osg::Group::traverse(*cv);
 
     cv->setTraversalMask( traversalMask );
-    cv->popStateSet();
 
-    return decoratorStateGraph;
+    return;
 }
 
 void MWShadowTechnique::cullShadowCastingScene(osgUtil::CullVisitor* cv, osg::Camera* camera) const
@@ -3154,9 +3156,9 @@ void MWShadowTechnique::cullShadowCastingScene(osgUtil::CullVisitor* cv, osg::Ca
     return;
 }
 
-osg::StateSet* MWShadowTechnique::selectStateSetForRenderingShadow(ViewDependentData& vdd, unsigned int traversalNumber) const
+osg::StateSet* MWShadowTechnique::prepareStateSetForRenderingShadow(ViewDependentData& vdd, unsigned int traversalNumber) const
 {
-    OSG_INFO<<"   selectStateSetForRenderingShadow() "<<vdd.getStateSet(traversalNumber)<<std::endl;
+    OSG_INFO<<"   prepareStateSetForRenderingShadow() "<<vdd.getStateSet(traversalNumber)<<std::endl;
 
     osg::ref_ptr<osg::StateSet> stateset = vdd.getStateSet(traversalNumber);
 
