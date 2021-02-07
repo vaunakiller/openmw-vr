@@ -179,6 +179,9 @@ namespace MWVR
 
         static void setPick(MWGui::Layout* widget, bool pick);
 
+        void setGeometryRoot(osg::Group* root);
+        void setCameraRoot(osg::Group* root);
+
     private:
         void computeGuiCursor(osg::Vec3 hitPoint);
         void updateSideBySideLayers();
@@ -191,9 +194,10 @@ namespace MWVR
         osg::ref_ptr<osgViewer::Viewer> mOsgViewer{ nullptr };
         Resource::ResourceSystem* mResourceSystem;
 
-        osg::ref_ptr<osg::Group> mRootNode{ nullptr };
-        osg::ref_ptr<osg::Group> mGUIGeometriesRoot{ new osg::Group };
-        osg::ref_ptr<osg::Group> mGUICamerasRoot{ new osg::Group };
+        osg::ref_ptr<osg::Group> mGeometriesRootNode{ nullptr };
+        osg::ref_ptr<osg::Group> mGeometries{ new osg::Group };
+        osg::ref_ptr<osg::Group> mGUICamerasRootNode{ nullptr };
+        osg::ref_ptr<osg::Group> mGUICameras{ new osg::Group };
 
         std::map<std::string, std::shared_ptr<VRGUILayer>> mLayers;
         std::vector<std::shared_ptr<VRGUILayer> > mSideBySideLayers;

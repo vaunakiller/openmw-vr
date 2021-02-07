@@ -216,22 +216,10 @@ namespace MWVR
         auto texture = menuTexture();
         texture->setName("diffuseMap");
         stateSet->setTextureAttributeAndModes(0, texture, osg::StateAttribute::ON);
-        stateSet->setMode(GL_BLEND, osg::StateAttribute::ON);
-        stateSet->setAttributeAndModes(new osg::BlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA));
-        stateSet->setRenderingHint(osg::StateSet::TRANSPARENT_BIN);
-        // assign large value to effectively turn off fog
-        // shaders don't respect glDisable(GL_FOG)
-        osg::ref_ptr<osg::Fog> fog(new osg::Fog);
-        fog->setStart(10000000);
-        fog->setEnd(10000000);
-        stateSet->setAttributeAndModes(fog, osg::StateAttribute::OFF | osg::StateAttribute::OVERRIDE);
 
-        osg::ref_ptr<osg::LightModel> lightmodel = new osg::LightModel;
-        lightmodel->setAmbientIntensity(osg::Vec4(1.0, 1.0, 1.0, 1.0));
-        stateSet->setAttributeAndModes(lightmodel, osg::StateAttribute::ON | osg::StateAttribute::OVERRIDE);
-        SceneUtil::ShadowManager::disableShadowsForStateSet(stateSet);
-
-        mGeometry->setStateSet(stateSet);
+        osg::ref_ptr<osg::Material> mat = new osg::Material;
+        mat->setColorMode(osg::Material::AMBIENT_AND_DIFFUSE);
+        stateSet->setAttribute(mat);
 
         // Position in the game world
         mTransform->setScale(osg::Vec3(extent_units.x(), 1.f, extent_units.y()));
@@ -502,22 +490,55 @@ namespace MWVR
     static osg::Vec3 gLeftHudOffsetTop = osg::Vec3(0.025f, -.05f, .066f);
     static osg::Vec3 gLeftHudOffsetWrist = osg::Vec3(0.025f, -.090f, -.033f);
 
+    void VRGUIManager::setGeometryRoot(osg::Group* root)
+    {
+        mGeometriesRootNode->removeChild(mGeometries);
+        mGeometriesRootNode = root;
+        mGeometriesRootNode->addChild(mGeometries);
+    }
+
+    void VRGUIManager::setCameraRoot(osg::Group* root)
+    {
+        mGUICamerasRootNode->removeChild(mGUICameras);
+        mGUICamerasRootNode = root;
+        mGUICamerasRootNode->addChild(mGUICameras);
+    }
+
     VRGUIManager::VRGUIManager(
         osg::ref_ptr<osgViewer::Viewer> viewer,
         Resource::ResourceSystem* resourceSystem,
         osg::Group* rootNode)
         : mOsgViewer(viewer)
         , mResourceSystem(resourceSystem)
-        , mRootNode(rootNode)
+        , mGeometriesRootNode(rootNode)
+        , mGUICamerasRootNode(rootNode)
     {
-        mGUIGeometriesRoot->setName("VR GUI Geometry Root");
-        mGUIGeometriesRoot->setUpdateCallback(new VRGUIManagerUpdateCallback(this));
-        mGUIGeometriesRoot->setNodeMask(MWRender::VisMask::Mask_3DGUI);
-        mGUICamerasRoot->setName("VR GUI Cameras Root");
-        mGUICamerasRoot->setNodeMask(MWRender::VisMask::Mask_3DGUI);
-        mRootNode->asGroup()->addChild(mGUICamerasRoot);
-        mRootNode->asGroup()->addChild(mGUIGeometriesRoot);
-        mGUIGeometriesRoot->getOrCreateStateSet()->setMode(GL_LIGHTING, osg::StateAttribute::OFF);
+        mGeometries->setName("VR GUI Geometry Root");
+        mGeometries->setUpdateCallback(new VRGUIManagerUpdateCallback(this));
+        mGeometries->setNodeMask(MWRender::VisMask::Mask_3DGUI);
+        mGeometriesRootNode->addChild(mGeometries);
+
+        auto stateSet = mGeometries->getOrCreateStateSet();
+        stateSet->setMode(GL_BLEND, osg::StateAttribute::ON);
+        stateSet->setAttributeAndModes(new osg::BlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA));
+        stateSet->setRenderingHint(osg::StateSet::TRANSPARENT_BIN);
+        // assign large value to effectively turn off fog
+        // shaders don't respect glDisable(GL_FOG)
+        osg::ref_ptr<osg::Fog> fog(new osg::Fog);
+        fog->setStart(10000000);
+        fog->setEnd(10000000);
+        stateSet->setAttributeAndModes(fog, osg::StateAttribute::OFF);
+
+        osg::ref_ptr<osg::LightModel> lightmodel = new osg::LightModel;
+        lightmodel->setAmbientIntensity(osg::Vec4(1.0, 1.0, 1.0, 1.0));
+        stateSet->setAttributeAndModes(lightmodel, osg::StateAttribute::ON);
+
+        SceneUtil::ShadowManager::disableShadowsForStateSet(stateSet);
+        mGeometries->setStateSet(stateSet);
+
+        mGUICameras->setName("VR GUI Cameras Root");
+        mGUICameras->setNodeMask(MWRender::VisMask::Mask_3DGUI);
+        mGUICamerasRootNode->addChild(mGUICameras);
 
         LayerConfig defaultConfig = createDefaultConfig(1);
         LayerConfig loadingScreenConfig = createDefaultConfig(1, true, SizingMode::Fixed, "Menu");
@@ -654,8 +675,8 @@ namespace MWVR
         }
 
         auto layer = std::shared_ptr<VRGUILayer>(new VRGUILayer(
-            mGUIGeometriesRoot,
-            mGUICamerasRoot,
+            mGeometries,
+            mGUICameras,
             name,
             config,
             this
