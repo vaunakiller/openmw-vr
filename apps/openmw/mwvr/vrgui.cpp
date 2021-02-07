@@ -213,7 +213,9 @@ namespace MWVR
 
         // Define state set that allows rendering with transparency
         osg::StateSet* stateSet = mGeometry->getOrCreateStateSet();
-        stateSet->setTextureAttributeAndModes(0, menuTexture(), osg::StateAttribute::ON);
+        auto texture = menuTexture();
+        texture->setName("diffuseMap");
+        stateSet->setTextureAttributeAndModes(0, texture, osg::StateAttribute::ON);
         stateSet->setMode(GL_BLEND, osg::StateAttribute::ON);
         stateSet->setAttributeAndModes(new osg::BlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA));
         stateSet->setRenderingHint(osg::StateSet::TRANSPARENT_BIN);
@@ -226,7 +228,7 @@ namespace MWVR
 
         osg::ref_ptr<osg::LightModel> lightmodel = new osg::LightModel;
         lightmodel->setAmbientIntensity(osg::Vec4(1.0, 1.0, 1.0, 1.0));
-        stateSet->setAttributeAndModes(lightmodel, osg::StateAttribute::ON);
+        stateSet->setAttributeAndModes(lightmodel, osg::StateAttribute::ON | osg::StateAttribute::OVERRIDE);
         SceneUtil::ShadowManager::disableShadowsForStateSet(stateSet);
 
         mGeometry->setStateSet(stateSet);
