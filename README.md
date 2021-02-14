@@ -1,3 +1,5 @@
+[[_TOC_]]
+
 OpenMW
 ======
 
@@ -140,8 +142,7 @@ Building
 --------
 On windows, the fork builds with the same instructions as [building openmw](https://wiki.openmw.org/index.php?title=Development_Environment_Setup#MSVC_2017-2019).
 
-On linux, however, openmw does not package binaries for external dependencies. This fork is written against OSG version 3.6.5 and earlier versions may not work or even compile.
-It may therefore be necessary to build your own version of OSG. For now, I advise building [my fork of OSG](https://github.com/madsbuvi/osg) that contain a stereo fix, without which the water shader may break.
+On linux, however, openmw does not package binaries for external dependencies. OpenMW attempts to support commonly packaged versions, but this fork is written against OSG version 3.6.5 and earlier versions may not work or even compile. It may therefore be necessary to build your own version of OSG. 
 
 VR Controls
 ---------------------
@@ -162,15 +163,15 @@ Default controller bindings:
 
 Rebinding Controls
 ---------------------
-Currently openmw-vr has interface for re-binding controls in VR, as this is expected to be offered by the VR runtime itself. No runtimes have implemented this so far, however. You can manually edit bindings by modifying _xrcontrollersuggestions.xml_. It is strongly recommended that you copy this file to your settings folder (documents/my games/openmw) first and only edit that copy.
+Currently openmw-vr has no interface for re-binding controls in VR, as this is expected to be offered by the VR runtime itself. No runtimes have implemented this so far, however. You can manually edit bindings by modifying _xrcontrollersuggestions.xml_. It is strongly recommended that you copy this file to your settings folder (documents/my games/openmw) first and only edit that copy.
 
 Known Issues
 ------------
 - For many controllers, the SteamVR runtimes do not play well or at all. Use your native runtimes when possible
-- For Quest users: Virtual desktop requires SteamVR to play OpenMW VR. But SteamVR does not currently play well with the oculus controllers. Use the link for now
-- Movies play upside down
+- For Quest users: Virtual desktop requires SteamVR to play OpenMW VR. But SteamVR does not play well with the oculus controllers.
+  - Workaround 1: https://www.reddit.com/r/OculusQuest/comments/lf7ten/openmw_vr_oculus_quest_2_joystick_fixed/
+  - Workaround 2: use the link
 - Cannot point and click in the main menu, you must use the controllers / hit enter to load into any game first.
-- Performance is shite, you may have to turn off shadows and/or the water shader.
-- Audio is not automatically captured.
+- Performance is sub par, you may have to turn off shadows and/or the water shader.
+- Audio is not automatically captured in some HMDs.
   - Work around this by adding the line `device = OpenAL Soft on Headphones (2- Rift Audio)` under `[Sound]` in settings.cfg. Replace the device string with the string corresponding to your device. You can find a list of device strings in openmw.log after running it once.
-- When building your own binaries, the water shader may break if you do not build your own copy of OSG from [my fork](https://github.com/madsbuvi/osg)
