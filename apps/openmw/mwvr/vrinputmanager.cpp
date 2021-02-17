@@ -534,8 +534,7 @@ namespace MWVR
                     vrGuiManager->updateTracking();
                     break;
                 case A_MenuSelect:
-                    if (!wm->injectKeyPress(MyGUI::KeyCode::Return, 0, false))
-                        executeAction(MWInput::A_Activate);
+                    wm->injectKeyPress(MyGUI::KeyCode::Return, 0, false);
                     break;
                 case A_MenuBack:
                     if (MyGUI::InputManager::getInstance().isModalAny())
@@ -558,6 +557,9 @@ namespace MWVR
                 case MWInput::A_Use:
                     mBindingsManager->ics().getChannel(MWInput::A_Use)->setValue(0.f);
                     pointActivation(false);
+                    break;
+                case A_MenuSelect:
+                    wm->injectKeyRelease(MyGUI::KeyCode::Return);
                     break;
                 default:
                     break;

@@ -85,7 +85,8 @@ namespace MWVR
 
     void VrVirtualKeyboard::delegateOnSetFocus(MyGUI::Widget* _sender, MyGUI::Widget* _old)
     {
-        open(static_cast<MyGUI::EditBox*>(_sender));
+        if (_sender->getUserString("VirtualKeyboard") != "false")
+            open(static_cast<MyGUI::EditBox*>(_sender));
     }
 
     void VrVirtualKeyboard::delegateOnLostFocus(MyGUI::Widget* _sender, MyGUI::Widget* _new)

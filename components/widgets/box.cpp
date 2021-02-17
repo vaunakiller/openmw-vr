@@ -488,11 +488,10 @@ namespace Gui
     }
 
 
-    EditBox::EditBox(bool shouldSupportVirtualKeyboard)
+    EditBox::EditBox()
         : mVirtualKeyboardRegistered(false)
     {
-        if (shouldSupportVirtualKeyboard)
-            registerVirtualKeyboard();
+        registerVirtualKeyboard();
     }
     EditBox::~EditBox()
     {
@@ -500,14 +499,11 @@ namespace Gui
     }
     void EditBox::registerVirtualKeyboard()
     {
-        if (!mVirtualKeyboardRegistered)
+        auto* vkm = Gui::VirtualKeyboardManager::getInstancePtr();
+        if (vkm)
         {
-            auto* vkm = Gui::VirtualKeyboardManager::getInstancePtr();
-            if (vkm)
-            {
-                vkm->registerEditBox(this);
-                mVirtualKeyboardRegistered = true;
-            }
+            vkm->registerEditBox(this);
+            mVirtualKeyboardRegistered = true;
         }
     }
     void EditBox::unregisterVirtualKeyboard()

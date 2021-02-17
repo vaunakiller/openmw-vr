@@ -26,7 +26,7 @@ namespace Gui
         MYGUI_RTTI_DERIVED( EditBox )
 
         /// @param supportsVirtualKeyboard If true, VR mode will spawn a virtual keyboard whenever this widget is focused.
-        EditBox(bool shouldSupportVirtualKeyboard = true);
+        EditBox();
         ~EditBox();
 
     private:

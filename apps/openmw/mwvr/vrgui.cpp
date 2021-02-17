@@ -548,6 +548,7 @@ namespace MWVR
         LayerConfig videoPlayerConfig = createDefaultConfig(4, true, SizingMode::Fixed);
         LayerConfig messageBoxConfig = createDefaultConfig(6, false, SizingMode::Auto);;
         LayerConfig notificationConfig = createDefaultConfig(7, false, SizingMode::Fixed);
+        LayerConfig listBoxConfig = createDefaultConfig(10, true);
 
         LayerConfig statsWindowConfig = createSideBySideConfig(0);
         LayerConfig inventoryWindowConfig = createSideBySideConfig(1);
@@ -624,6 +625,7 @@ namespace MWVR
             {"DialogueWindow", dialogueWindowConfig},
             {"MessageBox", messageBoxConfig},
             {"Windows", defaultWindowsConfig},
+            {"ListBox", listBoxConfig},
             {"MainMenu", mainMenuConfig},
             {"Notification", notificationConfig},
             {"InputBlocker", videoPlayerConfig},
