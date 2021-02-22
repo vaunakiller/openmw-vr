@@ -392,8 +392,12 @@ namespace MWVR
 
         mFramebuffer->blit(gc, 0, 0, mFramebuffer->width(), mFramebuffer->height(), 0, 0, mMsaaResolveTexture->width(), mMsaaResolveTexture->height(), GL_COLOR_BUFFER_BIT, GL_NEAREST);
 
-        if(!applyGamma(gc, *mGammaResolveTexture, *mMsaaResolveTexture))
+        bool shouldDoGamma = Settings::Manager::getBool("gamma postprocessing", "VR Debug");
+        if (!shouldDoGamma || !applyGamma(gc, *mGammaResolveTexture, *mMsaaResolveTexture))
+        {
+            mGammaResolveTexture->bindFramebuffer(gc, GL_FRAMEBUFFER_EXT);
             mMsaaResolveTexture->blit(gc, 0, 0, mMsaaResolveTexture->width(), mMsaaResolveTexture->height(), 0, 0, mGammaResolveTexture->width(), mGammaResolveTexture->height(), GL_COLOR_BUFFER_BIT, GL_NEAREST);
+        }
 
         mFramebuffer->blit(gc, 0, 0, mFramebuffer->width(), mFramebuffer->height(), 0, 0, mGammaResolveTexture->width(), mGammaResolveTexture->height(), GL_DEPTH_BUFFER_BIT, GL_NEAREST);
 
