@@ -19,6 +19,7 @@ namespace Settings
     public:
         static CategorySettingValueMap mDefaultSettings;
         static CategorySettingValueMap mUserSettings;
+        static CategorySettingValueMap mSettingsOverrides;
 
         static CategorySettingVector mChangedSettings;
         ///< tracks all the settings that were changed since the last apply() call
@@ -31,6 +32,9 @@ namespace Settings
 
         void loadUser (const std::string& file);
         ///< load file as user settings
+
+        void loadOverrides (const std::string& file);
+        ///< load file as settings overrides
 
         void saveUser (const std::string& file);
         ///< save user settings to file
@@ -55,6 +59,13 @@ namespace Settings
         static void setBool (const std::string& setting, const std::string& category, const bool value);
         static void setVector2 (const std::string& setting, const std::string& category, const osg::Vec2f value);
         static void setVector3 (const std::string& setting, const std::string& category, const osg::Vec3f value);
+
+        static void overrideInt(const std::string& setting, const std::string& category, const int value);
+        static void overrideFloat(const std::string& setting, const std::string& category, const float value);
+        static void overrideString(const std::string& setting, const std::string& category, const std::string& value);
+        static void overrideBool(const std::string& setting, const std::string& category, const bool value);
+        static void overrideVector2(const std::string& setting, const std::string& category, const osg::Vec2f value);
+        static void overrideVector3(const std::string& setting, const std::string& category, const osg::Vec3f value);
     };
 
 }

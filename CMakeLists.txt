@@ -371,6 +371,9 @@ endif (APPLE)
 configure_resource_file(${OpenMW_SOURCE_DIR}/files/settings-default.cfg
     "${OpenMW_BINARY_DIR}" "settings-default.cfg")
 
+configure_resource_file(${OpenMW_SOURCE_DIR}/files/settings-overrides-vr.cfg
+    "${OpenMW_BINARY_DIR}" "settings-overrides-vr.cfg")
+
 configure_resource_file(${OpenMW_SOURCE_DIR}/files/openmw.appdata.xml
     "${OpenMW_BINARY_DIR}" "openmw.appdata.xml")
 

@@ -10,6 +10,7 @@ namespace Settings
 
 CategorySettingValueMap Manager::mDefaultSettings = CategorySettingValueMap();
 CategorySettingValueMap Manager::mUserSettings = CategorySettingValueMap();
+CategorySettingValueMap Manager::mSettingsOverrides = CategorySettingValueMap();
 CategorySettingVector Manager::mChangedSettings = CategorySettingVector();
 
 void Manager::clear()
@@ -17,6 +18,7 @@ void Manager::clear()
     mDefaultSettings.clear();
     mUserSettings.clear();
     mChangedSettings.clear();
+    mSettingsOverrides.clear();
 }
 
 void Manager::loadDefault(const std::string &file)
@@ -25,10 +27,16 @@ void Manager::loadDefault(const std::string &file)
     parser.loadSettingsFile(file, mDefaultSettings);
 }
 
-void Manager::loadUser(const std::string &file)
+void Manager::loadUser(const std::string& file)
 {
     SettingsFileParser parser;
     parser.loadSettingsFile(file, mUserSettings);
+}
+
+void Manager::loadOverrides(const std::string& file)
+{
+    SettingsFileParser parser;
+    parser.loadSettingsFile(file, mSettingsOverrides);
 }
 
 void Manager::saveUser(const std::string &file)
@@ -40,7 +48,11 @@ void Manager::saveUser(const std::string &file)
 std::string Manager::getString(const std::string &setting, const std::string &category)
 {
     CategorySettingValueMap::key_type key = std::make_pair(category, setting);
-    CategorySettingValueMap::iterator it = mUserSettings.find(key);
+    CategorySettingValueMap::iterator it = mSettingsOverrides.find(key);
+    if (it != mSettingsOverrides.end())
+        return it->second;
+
+    it = mUserSettings.find(key);
     if (it != mUserSettings.end())
         return it->second;
 
@@ -101,8 +113,11 @@ osg::Vec3f Manager::getVector3 (const std::string& setting, const std::string& c
 void Manager::setString(const std::string &setting, const std::string &category, const std::string &value)
 {
     CategorySettingValueMap::key_type key = std::make_pair(category, setting);
+    CategorySettingValueMap::iterator found = mSettingsOverrides.find(key);
+    if (found != mSettingsOverrides.end())
+        return;
 
-    CategorySettingValueMap::iterator found = mUserSettings.find(key);
+    found = mUserSettings.find(key);
     if (found != mUserSettings.end())
     {
         if (found->second == value)
@@ -162,5 +177,54 @@ void Manager::resetPendingChanges()
 {
     mChangedSettings.clear();
 }
+
+
+void Manager::overrideString(const std::string& setting, const std::string& category, const std::string& value)
+{
+    CategorySettingValueMap::key_type key = std::make_pair(category, setting);
+
+    CategorySettingValueMap::iterator found = mUserSettings.find(key);
+    if (found != mUserSettings.end())
+    {
+        if (found->second == value)
+            return;
+    }
+
+    mSettingsOverrides[key] = value;
+}
+
+void Manager::overrideInt(const std::string& setting, const std::string& category, const int value)
+{
+    std::ostringstream stream;
+    stream << value;
+    overrideString(setting, category, stream.str());
+}
+
+void Manager::overrideFloat(const std::string& setting, const std::string& category, const float value)
+{
+    std::ostringstream stream;
+    stream << value;
+    overrideString(setting, category, stream.str());
+}
+
+void Manager::overrideBool(const std::string& setting, const std::string& category, const bool value)
+{
+    overrideString(setting, category, value ? "true" : "false");
+}
+
+void Manager::overrideVector2(const std::string& setting, const std::string& category, const osg::Vec2f value)
+{
+    std::ostringstream stream;
+    stream << value.x() << " " << value.y();
+    overrideString(setting, category, stream.str());
+}
+
+void Manager::overrideVector3(const std::string& setting, const std::string& category, const osg::Vec3f value)
+{
+    std::ostringstream stream;
+    stream << value.x() << ' ' << value.y() << ' ' << value.z();
+    overrideString(setting, category, stream.str());
+}
+
 
 }

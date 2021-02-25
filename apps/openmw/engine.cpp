@@ -509,6 +509,18 @@ std::string OMW::Engine::loadSettings (Settings::Manager & settings)
     if (boost::filesystem::exists(settingspath))
         settings.loadUser(settingspath);
 
+
+#ifdef USE_OPENXR
+    const std::string localoverrides = (mCfgMgr.getLocalPath() / "settings-overrides-vr.cfg").string();
+    const std::string globaloverrides = (mCfgMgr.getGlobalPath() / "settings-overrides-vr.cfg").string();
+    if (boost::filesystem::exists(localoverrides))
+        settings.loadOverrides(localoverrides);
+    else if (boost::filesystem::exists(globaloverrides))
+        settings.loadOverrides(globaloverrides);
+    else
+        throw std::runtime_error("No settings overrides file found! Make sure the file \"settings-overrides-vr.cfg\" was properly installed.");
+#endif
+
     return settingspath;
 }
 
