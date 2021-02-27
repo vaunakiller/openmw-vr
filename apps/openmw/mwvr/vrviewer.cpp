@@ -335,7 +335,7 @@ namespace MWVR
 
         target.bindFramebuffer(state->getGraphicsContext(), GL_FRAMEBUFFER_EXT);
 
-        if (program > 0)
+        if (program != nullptr)
         {
             // OSG does not pop statesets until after the final draw callback. Unrelated statesets may therefore still be on the stack at this point.
             // Pop these to avoid inheriting arbitrary state from these. They will not be used more in this frame.
