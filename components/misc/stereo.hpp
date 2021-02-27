@@ -89,6 +89,29 @@ namespace Misc
             GeometryShader_IndexedViewports, //!< Frustum camera culls and draws stereo into indexed viewports using an automatically generated geometry shader.
         };
 
+        //! A draw callback that adds stereo information to the operator.
+        //! The stereo information is an enum describing which of the views the callback concerns.
+        //! With some stereo methods, there is only one callback, in which case the enum will be 'Both'.
+        //! 
+        //! A typical use case of this callback is to prevent firing callbacks twice and correctly identifying the last/first callback.
+        struct StereoDrawCallback : public osg::Camera::DrawCallback
+        {
+        public:
+            enum class View
+            {
+                Both, Left, Right
+            };
+        public:
+            StereoDrawCallback()
+            {}
+
+            void operator()(osg::RenderInfo& info) const override;
+
+            virtual void operator()(osg::RenderInfo& info, View view) const = 0;
+
+        private:
+        };
+
         static StereoView& instance();
 
         //! Adds two cameras in stereo to the mainCamera.
@@ -120,6 +143,9 @@ namespace Misc
 
         //! Set the postdraw callback on the appropriate camera object
         void setPostdrawCallback(osg::ref_ptr<osg::Camera::DrawCallback> cb);
+
+        //! Set the final draw callback on the appropriate camera object
+        void setFinaldrawCallback(osg::ref_ptr<osg::Camera::DrawCallback> cb);
 
         //! Set the cull callback on the appropriate camera object
         void setCullCallback(osg::ref_ptr<osg::NodeCallback> cb);
@@ -180,6 +206,7 @@ namespace Misc
         osg::ref_ptr<osg::Camera::DrawCallback> mInitialDrawCallback{ nullptr };
         osg::ref_ptr<osg::Camera::DrawCallback> mPreDrawCallback{ nullptr };
         osg::ref_ptr<osg::Camera::DrawCallback> mPostDrawCallback{ nullptr };
+        osg::ref_ptr<osg::Camera::DrawCallback> mFinalDrawCallback{ nullptr };
     };
 
     //! Overrides all stereo-related states/uniforms to disable stereo for the scene rendered by camera

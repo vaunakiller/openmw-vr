@@ -10,6 +10,9 @@
 #include "../mwrender/vismask.hpp"
 
 #include <osgViewer/Renderer>
+#include <osg/StateAttribute>
+#include <osg/BufferObject>
+#include <osg/VertexArrayState>
 
 #include <components/debug/gldebug.hpp>
 
@@ -44,6 +47,7 @@ namespace MWVR
         : mViewer(viewer)
         , mPreDraw(new PredrawCallback(this))
         , mPostDraw(new PostdrawCallback(this))
+        , mFinalDraw(new FinaldrawCallback(this))
         , mUpdateViewCallback(new UpdateViewCallback(this))
         , mMsaaResolveTexture{}
         , mMirrorTexture{ nullptr }
@@ -126,13 +130,13 @@ namespace MWVR
             mSwapchainConfig[i].selectedWidth = parseResolution(xConfString[i], mSwapchainConfig[i].recommendedWidth, mSwapchainConfig[i].maxWidth);
             mSwapchainConfig[i].selectedHeight = parseResolution(yConfString[i], mSwapchainConfig[i].recommendedHeight, mSwapchainConfig[i].maxHeight);
 
-            mSwapchainConfig[i].selectedSamples = 
+            mSwapchainConfig[i].selectedSamples =
                 std::max(1, // OpenXR requires a non-zero value
-                    std::min(mSwapchainConfig[i].maxSamples, 
+                    std::min(mSwapchainConfig[i].maxSamples,
                         Settings::Manager::getInt("antialiasing", "Video")
                     )
                 );
-            
+
             Log(Debug::Verbose) << name << " resolution: Recommended x=" << mSwapchainConfig[i].recommendedWidth << ", y=" << mSwapchainConfig[i].recommendedHeight;
             Log(Debug::Verbose) << name << " resolution: Max x=" << mSwapchainConfig[i].maxWidth << ", y=" << mSwapchainConfig[i].maxHeight;
             Log(Debug::Verbose) << name << " resolution: Selected x=" << mSwapchainConfig[i].selectedWidth << ", y=" << mSwapchainConfig[i].selectedHeight;
@@ -152,10 +156,10 @@ namespace MWVR
         int height = std::max(mSubImages[0].height, mSubImages[1].height);
         int samples = std::max(mSwapchainConfig[0].selectedSamples, mSwapchainConfig[1].selectedSamples);
 
-        mFramebuffer.reset(new VRFramebuffer(gc->getState(),width,height, samples));
+        mFramebuffer.reset(new VRFramebuffer(gc->getState(), width, height, samples));
         mFramebuffer->createColorBuffer(gc);
         mFramebuffer->createDepthBuffer(gc);
-        mMsaaResolveTexture.reset(new VRFramebuffer(gc->getState(),width,height,0));
+        mMsaaResolveTexture.reset(new VRFramebuffer(gc->getState(), width, height, 0));
         mMsaaResolveTexture->createColorBuffer(gc);
         mGammaResolveTexture.reset(new VRFramebuffer(gc->getState(), width, height, 0));
         mGammaResolveTexture->createColorBuffer(gc);
@@ -179,6 +183,7 @@ namespace MWVR
         Misc::StereoView::instance().setInitialDrawCallback(new InitialDrawCallback(this));
         Misc::StereoView::instance().setPredrawCallback(mPreDraw);
         Misc::StereoView::instance().setPostdrawCallback(mPostDraw);
+        Misc::StereoView::instance().setFinaldrawCallback(mFinalDraw);
         //auto cullMask = Misc::StereoView::instance().getCullMask();
         auto cullMask = ~(MWRender::VisMask::Mask_UpdateVisitor | MWRender::VisMask::Mask_SimpleWater);
         cullMask &= ~MWRender::VisMask::Mask_GUI;
@@ -257,108 +262,106 @@ namespace MWVR
         return shader;
     }
 
-    static bool applyGamma(osg::GraphicsContext* gc, VRFramebuffer& target, VRFramebuffer& source)
+    static bool applyGamma(osg::RenderInfo& info, VRFramebuffer& target, VRFramebuffer& source)
     {
-        // TODO: Temporary solution for applying gamma and contrast modifications
-        // When OpenMW implements post processing, this will be performed there instead.
-        // I'm just throwing things into static locals since this is temporary code that will be trashed later.
-        static bool first = true;
-        static GLuint vShader = 0;
-        static GLuint fShader = 0;
-        static GLuint program = 0;
-        static GLuint vbo = 0;
-        static GLuint gammaUniform = 0;
-        static GLuint contrastUniform = 0;
+        osg::State* state = info.getState();
+        static const char* vSource = "#version 120\n varying vec2 uv; void main(){ gl_Position = vec4(gl_Vertex.xy*2.0 - 1, 0, 1); uv = gl_Vertex.xy;}";
+        static const char* fSource = "#version 120\n varying vec2 uv; uniform sampler2D t; uniform float gamma; uniform float contrast;"
+            "void main() {"
+            "vec4 color1 = texture2D(t, uv);"
+            "vec3 rgb = color1.rgb;"
+            "rgb = (rgb - 0.5f) * contrast + 0.5f;"
+            "rgb = pow(rgb, vec3(1.0/gamma));"
+            "gl_FragColor = vec4(rgb, color1.a);"
+            "}";
 
-        auto* state = gc->getState();
-        auto* gl = osg::GLExtensions::Get(state->getContextID(), false);
+        static bool first = true;
+        static osg::ref_ptr<osg::Program> program = nullptr;
+        static osg::ref_ptr<osg::Shader> vShader = nullptr;
+        static osg::ref_ptr<osg::Shader> fShader = nullptr;
+        static osg::ref_ptr<osg::Uniform> gammaUniform = nullptr;
+        static GLint gammaUniformLocation = 0;
+        static osg::ref_ptr<osg::Uniform> contrastUniform = nullptr;
+        static GLint contrastUniformLocation = 0;
+        osg::Viewport* viewport = nullptr;
+        static osg::ref_ptr<osg::StateSet> stateset = nullptr;
+        static osg::ref_ptr<osg::Geometry> geometry = nullptr;
+        static osg::ref_ptr<osg::Texture2D> texture = nullptr;
+        static osg::ref_ptr<osg::Texture::TextureObject> textureObject = nullptr;
+
+        static std::vector<osg::Vec4> vertices =
+        {
+            {0, 0, 0, 0},
+            {1, 0, 0, 0},
+            {1, 1, 0, 0},
+            {0, 0, 0, 0},
+            {1, 1, 0, 0},
+            {0, 1, 0, 0}
+        };
+        static osg::ref_ptr<osg::Vec4Array> vertexArray = new osg::Vec4Array(vertices.begin(), vertices.end());
 
         if (first)
         {
+            geometry = new osg::Geometry();
+            geometry->setVertexArray(vertexArray);
+            geometry->addPrimitiveSet(new osg::DrawArrays(GL_TRIANGLES, 0, 6));
+            geometry->setUseDisplayList(false);
+            stateset = geometry->getOrCreateStateSet();
+
+            vShader = new osg::Shader(osg::Shader::Type::VERTEX, vSource);
+            fShader = new osg::Shader(osg::Shader::Type::FRAGMENT, fSource);
+            program = new osg::Program();
+            program->addShader(vShader);
+            program->addShader(fShader);
+            program->compileGLObjects(*state);
+            stateset->setAttributeAndModes(program, osg::StateAttribute::ON);
+
+            texture = new osg::Texture2D();
+            texture->setName("diffuseMap");
+            textureObject = new osg::Texture::TextureObject(texture, source.colorBuffer(), GL_TEXTURE_2D);
+            texture->setTextureObject(state->getContextID(), textureObject);
+            stateset->setTextureAttributeAndModes(0, texture, osg::StateAttribute::PROTECTED);
+            stateset->setTextureMode(0, GL_TEXTURE_2D, osg::StateAttribute::PROTECTED);
+
+            gammaUniform = new osg::Uniform("gamma", Settings::Manager::getFloat("gamma", "Video"));
+            contrastUniform = new osg::Uniform("contrast", Settings::Manager::getFloat("contrast", "Video"));
+            stateset->addUniform(gammaUniform);
+            stateset->addUniform(contrastUniform);
+
+            geometry->compileGLObjects(info);
+
             first = false;
-
-            const char* vSource = "#version 120\n varying vec2 uv; void main(){ gl_Position = vec4(gl_Vertex.xy*2.0 - 1, 0, 1); uv = gl_Vertex.xy;}";
-            const char* fSource = "#version 120\n varying vec2 uv; uniform sampler2D t; uniform float gamma; uniform float contrast;"
-                "void main() {"
-                "vec4 color1 = texture2D(t, uv);"
-                "vec3 rgb = color1.rgb;"
-                "rgb = (rgb - 0.5f) * contrast + 0.5f;"
-                "rgb = pow(rgb, vec3(1.0/gamma));"
-                "gl_FragColor = vec4(rgb, color1.a);"
-                "}";
-
-            vShader = createShader(gl, vSource, GL_VERTEX_SHADER);
-            fShader = createShader(gl, fSource, GL_FRAGMENT_SHADER);
-
-            program = gl->glCreateProgram();
-            gl->glAttachShader(program, vShader);
-            gl->glAttachShader(program, fShader);
-            gl->glLinkProgram(program);
-
-            GLint isCompiled = 0;
-            gl->glGetProgramiv(program, GL_LINK_STATUS, &isCompiled);
-            if (isCompiled == GL_FALSE)
-            {
-                GLint maxLength = 0;
-                gl->glGetProgramInfoLog(program, 0, &maxLength, nullptr);
-                std::vector<GLchar> infoLog(maxLength);
-                gl->glGetProgramInfoLog(program, maxLength, &maxLength, &infoLog[0]);
-                gl->glDeleteProgram(program);
-                program = 0;
-                Log(Debug::Error) << "Failed to link program: " << infoLog.data();
-            }
-
-            if (program)
-            {
-                GLfloat vertices[] =
-                {
-                    0, 0, 0, 0,
-                    1, 0, 0, 0,
-                    1, 1, 0, 0,
-                    0, 0, 0, 0,
-                    1, 1, 0, 0,
-                    0, 1, 0, 0
-                };
-
-                gl->glGenBuffers(1, &vbo);
-                gl->glBindBuffer(GL_ARRAY_BUFFER_ARB, vbo);
-                gl->glBufferData(GL_ARRAY_BUFFER_ARB, sizeof(vertices), vertices, GL_STATIC_DRAW);
-
-                gammaUniform = gl->glGetUniformLocation(program, "gamma");
-                contrastUniform = gl->glGetUniformLocation(program, "contrast");
-            }
         }
 
-        target.bindFramebuffer(gc, GL_FRAMEBUFFER_EXT);
+        target.bindFramebuffer(state->getGraphicsContext(), GL_FRAMEBUFFER_EXT);
 
         if (program > 0)
         {
-            gl->glUseProgram(program);
-            gl->glBindVertexArray(0);
-            glViewport(0, 0, target.width(), target.height());
+            // OSG does not pop statesets until after the final draw callback. Unrelated statesets may therefore still be on the stack at this point.
+            // Pop these to avoid inheriting arbitrary state from these. They will not be used more in this frame.
+            state->popAllStateSets();
+            state->apply();
 
-            gl->glUniform1f(gammaUniform, Settings::Manager::getFloat("gamma", "Video"));
-            gl->glUniform1f(contrastUniform, Settings::Manager::getFloat("contrast", "Video"));
+            gammaUniform->set(Settings::Manager::getFloat("gamma", "Video"));
+            contrastUniform->set(Settings::Manager::getFloat("contrast", "Video"));
+            state->pushStateSet(stateset);
+            state->apply();
 
-            gl->glBindBuffer(GL_ARRAY_BUFFER_ARB, vbo);
-            glVertexPointer(4, GL_FLOAT, 0, 0);
-            gl->glActiveTexture(GL_TEXTURE0);
-            glBindTexture(GL_TEXTURE_2D, source.colorBuffer());
+            if(!viewport)
+                viewport = new osg::Viewport(0, 0, target.width(), target.height());
+            viewport->setViewport(0, 0, target.width(), target.height());
+            viewport->apply(*state);
+
             glClear(GL_DEPTH_BUFFER_BIT | GL_COLOR_BUFFER_BIT);
-            glDisable(GL_BLEND);
+            geometry->draw(info);
 
-            glDrawArrays(GL_TRIANGLES, 0, 6);
-
-            gl->glUseProgram(0);
-            glBindTexture(GL_TEXTURE_2D, 0);
-            glEnable(GL_BLEND);
-            gl->glBindBuffer(GL_ARRAY_BUFFER_ARB, 0);
+            state->popStateSet();
             return true;
         }
         return false;
     }
 
-    void VRViewer::blit(osg::GraphicsContext* gc)
+    void VRViewer::blit(osg::RenderInfo& info)
     {
         if (mMirrorTextureShouldBeCleanedUp)
         {
@@ -368,21 +371,23 @@ namespace MWVR
         if (!mMirrorTextureEnabled)
             return;
 
+        auto* state = info.getState();
+        auto* gc = state->getGraphicsContext();
+        auto* gl = osg::GLExtensions::Get(state->getContextID(), false);
+
         auto* traits = SDLUtil::GraphicsWindowSDL2::findContext(*mViewer)->getTraits();
         int screenWidth = traits->width;
         int screenHeight = traits->height;
         if (!mMirrorTexture)
         {
             ;
-            mMirrorTexture.reset(new VRFramebuffer(gc->getState(), 
+            mMirrorTexture.reset(new VRFramebuffer(state, 
                 screenWidth,
                 screenHeight,
                 0));
             mMirrorTexture->createColorBuffer(gc);
         }
 
-        auto* state = gc->getState();
-        auto* gl = osg::GLExtensions::Get(state->getContextID(), false);
 
         int mirrorWidth = screenWidth / mMirrorTextureViews.size();
 
@@ -393,7 +398,7 @@ namespace MWVR
         mFramebuffer->blit(gc, 0, 0, mFramebuffer->width(), mFramebuffer->height(), 0, 0, mMsaaResolveTexture->width(), mMsaaResolveTexture->height(), GL_COLOR_BUFFER_BIT, GL_NEAREST);
 
         bool shouldDoGamma = Settings::Manager::getBool("gamma postprocessing", "VR Debug");
-        if (!shouldDoGamma || !applyGamma(gc, *mGammaResolveTexture, *mMsaaResolveTexture))
+        if (!shouldDoGamma || !applyGamma(info, *mGammaResolveTexture, *mMsaaResolveTexture))
         {
             mGammaResolveTexture->bindFramebuffer(gc, GL_FRAMEBUFFER_EXT);
             mMsaaResolveTexture->blit(gc, 0, 0, mMsaaResolveTexture->width(), mMsaaResolveTexture->height(), 0, 0, mGammaResolveTexture->width(), mGammaResolveTexture->height(), GL_COLOR_BUFFER_BIT, GL_NEAREST);
@@ -484,6 +489,20 @@ namespace MWVR
         }
     }
 
+    void VRViewer::finalDrawCallback(osg::RenderInfo& info)
+    {
+        auto* session = Environment::get().getSession();
+        auto* frameMeta = session->getFrame(VRSession::FramePhase::Draw).get();
+
+        if (frameMeta->mShouldSyncFrameLoop)
+        {
+            if (frameMeta->mShouldRender)
+            {
+                blit(info);
+            }
+        }
+    }
+
     void VRViewer::swapBuffersCallback(osg::GraphicsContext* gc)
     {
         auto* session = Environment::get().getSession();
@@ -507,5 +526,11 @@ namespace MWVR
     void VRViewer::UpdateViewCallback::updateView(Misc::View& left, Misc::View& right)
     {
         mViewer->updateView(left, right);
+    }
+
+    void VRViewer::FinaldrawCallback::operator()(osg::RenderInfo& info, Misc::StereoView::StereoDrawCallback::View view) const
+    {
+        if (view != Misc::StereoView::StereoDrawCallback::View::Left)
+            mViewer->finalDrawCallback(info);
     }
 }

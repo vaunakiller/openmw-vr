@@ -163,7 +163,6 @@ namespace MWVR
         {
             if (frameMeta->mShouldRender)
             {
-                viewer.blit(gc);
                 gc->swapBuffersImplementation();
                 std::array<CompositionLayerProjectionView, 2> layerStack{};
                 layerStack[(int)Side::LEFT_SIDE].subImage = viewer.subImage(Side::LEFT_SIDE);

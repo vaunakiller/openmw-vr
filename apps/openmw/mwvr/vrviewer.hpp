@@ -90,6 +90,20 @@ namespace MWVR
             VRViewer* mViewer;
         };
 
+        class FinaldrawCallback : public Misc::StereoView::StereoDrawCallback
+        {
+        public:
+            FinaldrawCallback(VRViewer* viewer)
+                : mViewer(viewer)
+            {}
+
+            void operator()(osg::RenderInfo& info, Misc::StereoView::StereoDrawCallback::View view) const override;
+
+        private:
+
+            VRViewer* mViewer;
+        };
+
         static const std::array<const char*, 2> sViewNames;
         enum class MirrorTextureEye
         {
@@ -108,7 +122,8 @@ namespace MWVR
         void initialDrawCallback(osg::RenderInfo& info);
         void preDrawCallback(osg::RenderInfo& info);
         void postDrawCallback(osg::RenderInfo& info);
-        void blit(osg::GraphicsContext* gc);
+        void finalDrawCallback(osg::RenderInfo& info);
+        void blit(osg::RenderInfo& gc);
         void configureXR(osg::GraphicsContext* gc);
         void configureCallbacks();
         void setupMirrorTexture();
@@ -128,6 +143,7 @@ namespace MWVR
         osg::ref_ptr<osgViewer::Viewer> mViewer = nullptr;
         osg::ref_ptr<PredrawCallback> mPreDraw{ nullptr };
         osg::ref_ptr<PostdrawCallback> mPostDraw{ nullptr };
+        osg::ref_ptr<FinaldrawCallback> mFinalDraw{ nullptr };
         std::shared_ptr<UpdateViewCallback> mUpdateViewCallback{ nullptr };
         bool mRenderingReady{ false };
 
