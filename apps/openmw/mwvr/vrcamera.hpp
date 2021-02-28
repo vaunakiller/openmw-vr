@@ -57,7 +57,7 @@ namespace MWVR
 
         void rotateStage(float yaw) { mYawOffset += yaw; }
 
-        void requestRecenter() { mShouldRecenter = true; }
+        void requestRecenter(bool resetZ);
 
         const osg::Vec3& headOffset() const { return mHeadOffset; }
 
@@ -75,6 +75,7 @@ namespace MWVR
         Pose mHeadPose{};
         osg::Vec3 mHeadOffset{ 0,0,0 };
         bool mShouldRecenter{ true };
+        bool mShouldResetZ{ true };
         bool mHasTrackingData{ false };
         float mYawOffset{ 0.f };
         bool mShouldTrackPlayerCharacter{ false };

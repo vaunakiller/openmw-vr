@@ -52,6 +52,7 @@ namespace MWVR
     VRSession::VRSession()
     {
         mHandDirectedMovement = Settings::Manager::getBool("hand directed movement", "VR");
+        mSeatedPlay = Settings::Manager::getBool("seated play", "VR");
     }
 
     VRSession::~VRSession()
@@ -71,10 +72,8 @@ namespace MWVR
     {
         for (Settings::CategorySettingVector::const_iterator it = changed.begin(); it != changed.end(); ++it)
         {
-            if (it->first == "VR" && it->second == "hand directed movement")
-            {
-                mHandDirectedMovement = Settings::Manager::getBool("hand directed movement", "VR");
-            }
+            mHandDirectedMovement = Settings::Manager::getBool("hand directed movement", "VR");
+            setSeatedPlay(Settings::Manager::getBool("seated play", "VR"));
         }
     }
 
@@ -95,6 +94,15 @@ namespace MWVR
         while (getFrame(FramePhase::Update))
         {
             mCondition.wait(lock);
+        }
+    }
+
+    void VRSession::setSeatedPlay(bool seatedPlay)
+    {
+        std::swap(mSeatedPlay, seatedPlay);
+        if (mSeatedPlay != seatedPlay)
+        {
+            Environment::get().getInputManager()->requestRecenter(true);
         }
     }
 

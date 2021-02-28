@@ -595,7 +595,17 @@
                         <Property key="Caption" value="Hand directed movement"/>
                     </Widget>
                 </Widget>
-				<Widget type="HBox" skin="" position="4 154 350 24">
+                <Widget type="HBox" skin="" position="4 154 260 24">
+                    <Widget type="AutoSizedButton" skin="MW_Button" position="0 0 24 24" align="Left Top">
+                        <UserString key="SettingCategory" value="VR"/>
+                        <UserString key="SettingName" value="seated play"/>
+                        <UserString key="SettingType" value="CheckButton"/>
+                    </Widget>
+                    <Widget type="AutoSizedTextBox" skin="SandText" position="28 4 71 16" align="Left Top">
+                        <Property key="Caption" value="Seated play"/>
+                    </Widget>
+                </Widget>
+				<Widget type="HBox" skin="" position="4 184 350 24">
 					<Widget type="ComboBox" skin="MW_ComboBox" position="0 0 85 24" align="Left Top" name="VRLeftHudPosition">
 						<Property key="AddItem" value="Wrist"/>
 						<Property key="AddItem" value="Top"/>

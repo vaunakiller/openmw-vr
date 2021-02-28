@@ -90,7 +90,12 @@ namespace MWVR
             CHECK_XRCMD(xrCreateReferenceSpace(mSession, &createInfo, &mReferenceSpaceView));
             createInfo.referenceSpaceType = XR_REFERENCE_SPACE_TYPE_STAGE;
             CHECK_XRCMD(xrCreateReferenceSpace(mSession, &createInfo, &mReferenceSpaceStage));
+            createInfo.referenceSpaceType = XR_REFERENCE_SPACE_TYPE_LOCAL;
+            CHECK_XRCMD(xrCreateReferenceSpace(mSession, &createInfo, &mReferenceSpaceLocal));
         }
+
+        // Default to using the stage
+        mReferenceSpace = mReferenceSpaceStage;
 
         { // Read and log graphics properties for the swapchain
             xrGetSystemProperties(mInstance, mSystemId, &mSystemProperties);
@@ -302,7 +307,7 @@ namespace MWVR
             compositionLayerProjectionViews[(int)Side::LEFT_SIDE] = toXR((*layerStack)[(int)Side::LEFT_SIDE]);
             compositionLayerProjectionViews[(int)Side::RIGHT_SIDE] = toXR((*layerStack)[(int)Side::RIGHT_SIDE]);
             layer.type = XR_TYPE_COMPOSITION_LAYER_PROJECTION;
-            layer.space = getReferenceSpace(ReferenceSpace::STAGE);
+            layer.space = getReferenceSpace();
             layer.viewCount = 2;
             layer.views = compositionLayerProjectionViews.data();
             auto* xrLayerStack = reinterpret_cast<XrCompositionLayerBaseHeader*>(&layer);
@@ -591,14 +596,9 @@ namespace MWVR
         return XrFovf{ fov.angleLeft, fov.angleRight, fov.angleUp, fov.angleDown };
     }
 
-    XrSpace OpenXRManagerImpl::getReferenceSpace(ReferenceSpace space)
+    XrSpace OpenXRManagerImpl::getReferenceSpace()
     {
-        XrSpace referenceSpace = XR_NULL_HANDLE;
-        if (space == ReferenceSpace::STAGE)
-            referenceSpace = mReferenceSpaceStage;
-        if (space == ReferenceSpace::VIEW)
-            referenceSpace = mReferenceSpaceView;
-        return referenceSpace;
+        return mReferenceSpace;
     }
 
     bool OpenXRManagerImpl::xrExtensionIsEnabled(const char* extensionName) const

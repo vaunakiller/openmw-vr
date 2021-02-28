@@ -6,7 +6,9 @@
 #include "../mwbase/windowmanager.hpp"
 #include "../mwbase/world.hpp"
 #include "../mwbase/statemanager.hpp"
-#include "vrmetamenu.hpp"
+
+#include "vrenvironment.hpp"
+#include "vrinputmanager.hpp"
 
 namespace MWVR
 {
@@ -94,6 +96,11 @@ namespace MWVR
             MWBase::Environment::get().getStateManager()->quickSave();
     }
 
+    void VrMetaMenu::onRecenter()
+    {
+        Environment::get().getInputManager()->requestRecenter(true);
+    }
+
     void VrMetaMenu::close()
     {
         MWBase::Environment::get().getWindowManager()->removeGuiMode(MWGui::GM_VrMetaMenu);
@@ -118,7 +125,9 @@ namespace MWVR
         else if (name == "quickload")
             onQuickLoad();
         else if (name == "quicksave")
-            onQuickSave();
+            onQuickSave();       
+        else if (name == "recenter")
+            onRecenter();
     }
 
     bool VrMetaMenu::exit()
@@ -128,7 +137,7 @@ namespace MWVR
 
     void VrMetaMenu::updateMenu()
     {
-        static std::vector<std::string> buttons{ "return", "quicksave", "quickload", "console", "inventory", "journal", "rest", "quickmenu", "gamemenu" };
+        static std::vector<std::string> buttons{ "return", "recenter", "quicksave", "quickload", "console", "inventory", "journal", "rest", "quickmenu", "gamemenu" };
 
         if(mButtons.empty())
         for (std::string& buttonId : buttons)

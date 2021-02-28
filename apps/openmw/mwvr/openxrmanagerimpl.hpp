@@ -56,7 +56,7 @@ namespace MWVR
         long long getLastPredictedDisplayTime();
         long long getLastPredictedDisplayPeriod();
         std::array<SwapchainConfig, 2> getRecommendedSwapchainConfig() const;
-        XrSpace getReferenceSpace(ReferenceSpace space);
+        XrSpace getReferenceSpace();
         XrSession xrSession() const { return mSession; };
         XrInstance xrInstance() const { return mInstance; };
         bool xrExtensionIsEnabled(const char* extensionName) const;
@@ -68,6 +68,7 @@ namespace MWVR
         int64_t selectDepthFormat();
         void eraseFormat(int64_t format);
         OpenXRPlatform& platform() { return mPlatform; };
+
 
     protected:
         void setupExtensionsAndLayers();
@@ -97,6 +98,8 @@ namespace MWVR
         std::array<XrViewConfigurationView, 2> mConfigViews{ { {XR_TYPE_VIEW_CONFIGURATION_VIEW}, {XR_TYPE_VIEW_CONFIGURATION_VIEW} } };
         XrSpace mReferenceSpaceView = XR_NULL_HANDLE;
         XrSpace mReferenceSpaceStage = XR_NULL_HANDLE;
+        XrSpace mReferenceSpaceLocal = XR_NULL_HANDLE;
+        XrSpace mReferenceSpace = XR_NULL_HANDLE;
         XrFrameState mFrameState{};
         XrSessionState mSessionState = XR_SESSION_STATE_UNKNOWN;
         XrDebugUtilsMessengerEXT mDebugMessenger{ nullptr };

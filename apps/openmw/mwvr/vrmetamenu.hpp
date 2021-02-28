@@ -50,6 +50,7 @@ namespace MWVR
             void onQuickMenu();
             void onQuickLoad();
             void onQuickSave();
+            void onRecenter();
             void close();
 
             void updateMenu();

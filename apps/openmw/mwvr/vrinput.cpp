@@ -42,7 +42,7 @@ namespace MWVR
         mPrevious = mValue;
 
         auto* xr = Environment::get().getManager();
-        XrSpace referenceSpace = xr->impl().getReferenceSpace(ReferenceSpace::STAGE);
+        XrSpace referenceSpace = xr->impl().getReferenceSpace();
 
         XrSpaceLocation location{ XR_TYPE_SPACE_LOCATION };
         XrSpaceVelocity velocity{ XR_TYPE_SPACE_VELOCITY };

@@ -469,6 +469,7 @@ namespace MWVR
         float realHeight = Settings::Manager::getFloat("real height", "VR");
         float sizeFactor = charHeight / realHeight;
         Environment::get().getSession()->setPlayerScale(sizeFactor);
+        Environment::get().getSession()->setEyeLevel(charHeightBase - 0.15f); // approximation
     }
 
     void VRAnimation::setFingerPointingMode(bool enabled)

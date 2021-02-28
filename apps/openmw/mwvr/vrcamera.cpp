@@ -12,6 +12,9 @@
 #include "../mwbase/world.hpp"
 
 #include "../mwworld/player.hpp"
+#include "../mwworld/class.hpp"
+
+#include "../mwmechanics/movement.hpp"
 
 #include <osg/Quat>
 
@@ -45,16 +48,35 @@ namespace MWVR
 
         // Move position of head to center of character 
         // Z should not be affected
-        mHeadOffset = osg::Vec3(0, 0, 0);
-        mHeadOffset.z() = mHeadPose.position.z();
+        mHeadOffset.x() = 0;
+        mHeadOffset.y() = 0;
 
-        // Adjust orientation to zero yaw
-        float yaw = 0.f;
-        float pitch = 0.f;
-        float roll = 0.f;
-        getEulerAngles(mHeadPose.orientation, yaw, pitch, roll);
-        mYawOffset = -yaw;
+        auto* session = Environment::get().getSession();
+        if (session->seatedPlay() && mShouldResetZ)
+        {
+            // Adjust offset to place the current pose roughly at eye level
+            mHeadOffset.z() = session->eyeLevel() * Constants::UnitsPerMeter;
+        }
+        else
+        {
+            mHeadOffset.z() = mHeadPose.position.z();
+        }
+        mShouldResetZ = false;
 
+        // When the cell changes, the game rotates the character appropriately.
+        // To respect this, reset yaw offset to make our yaw match the character.
+        MWBase::World* world = MWBase::Environment::get().getWorld();
+        if (world)
+        {
+            auto& player = world->getPlayer();
+            auto playerPtr = player.getPlayer();
+            const auto& data = playerPtr.getRefData();
+            float yaw = 0.f;
+            float pitch = 0.f;
+            float roll = 0.f;
+            getEulerAngles(mHeadPose.orientation, yaw, pitch, roll);
+            mYawOffset = data.getPosition().rot[2] - yaw;
+        }
         mShouldRecenter = false;
         Log(Debug::Verbose) << "Recentered";
     }
@@ -193,5 +215,13 @@ namespace MWVR
     osg::Quat VRCamera::stageRotation()
     {
         return osg::Quat(mYawOffset, osg::Vec3(0, 0, -1));
+    }
+
+    void VRCamera::requestRecenter(bool resetZ)
+    {
+        mShouldRecenter = true;
+
+        // Use OR so we don't a pending reset of Z.
+        mShouldResetZ |= resetZ;
     }
 }

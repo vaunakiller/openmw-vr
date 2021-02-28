@@ -46,7 +46,7 @@ namespace MWVR
         void update(float dt, bool disableControls = false, bool disableEvents = false) override;
 
         /// Set current offset to 0 and re-align VR stage.
-        void requestRecenter();
+        void requestRecenter(bool resetZ);
 
         /// Tracking pose of the given limb at the given predicted time
         Pose getLimbPose(int64_t time, TrackedLimb limb);

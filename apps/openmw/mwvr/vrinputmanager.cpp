@@ -280,10 +280,10 @@ namespace MWVR
         mAxisDeadzone->setDeadzoneRadius(deadzoneRadius);
     }
 
-    void VRInputManager::requestRecenter()
+    void VRInputManager::requestRecenter(bool resetZ)
     {
         // TODO: Hack, should have a cleaner way of accessing this
-        reinterpret_cast<VRCamera*>(MWBase::Environment::get().getWorld()->getRenderingManager().getCamera())->requestRecenter();
+        reinterpret_cast<VRCamera*>(MWBase::Environment::get().getWorld()->getRenderingManager().getCamera())->requestRecenter(resetZ);
     }
 
     VRInputManager::VRInputManager(
@@ -723,7 +723,7 @@ namespace MWVR
                 case A_Recenter:
                     vrGuiManager->updateTracking();
                     if (!MWBase::Environment::get().getWindowManager()->isGuiMode())
-                        requestRecenter();
+                        requestRecenter(true);
                     break;
                 case MWInput::A_Use:
                     if (mActivationIndication || MWBase::Environment::get().getWindowManager()->isGuiMode())

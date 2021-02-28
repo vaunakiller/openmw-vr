@@ -158,10 +158,10 @@ namespace MWPhysics
         // But 2. is not so obvious. I guess it's doable if i compute the direction between current position and the player's
         // position in the VR stage, and just let it catch up at the character's own move speed, but it still needs to reach the position as exactly as possible.
 
-        if (isPlayer)
+        auto* session = MWVR::Environment::get().getSession();
+        if (session)
         {
-            auto* session = MWVR::Environment::get().getSession();
-            if (session)
+            if (isPlayer)
             {
                 float pitch = 0.f;
                 float yaw = 0.f;
@@ -238,81 +238,90 @@ namespace MWPhysics
 
 #ifdef USE_OPENXR
         // Catch the player character up to the real world position of the player.
+        // But only if play is not seated.
         // TODO: Hack.
-        if (isPlayer && !world->getPlayer().isDisabled())
+        if (isPlayer)
         {
+            bool shouldMove = true;
+            if (session && session->seatedPlay())
+                shouldMove = false;
+            if (world->getPlayer().isDisabled())
+                shouldMove = false;
 
-            auto* inputManager = reinterpret_cast<MWVR::VRCamera*>(MWBase::Environment::get().getWorld()->getRenderingManager().getCamera());
-
-            osg::Vec3 headOffset = inputManager->headOffset();
-            osg::Vec3 trackingOffset = headOffset;
-            // Player's tracking height should not affect character position
-            trackingOffset.z() = 0;
-
-            float remainingTime = time;
-            bool seenGround = physicActor->getOnGround() && !physicActor->getOnSlope() && !actor.mFlying;
-            float remainder = 1.f;
-
-            for (int iterations = 0; iterations < sMaxIterations && remainingTime > 0.01f && remainder > 0.01; ++iterations)
+            if (shouldMove)
             {
-                osg::Vec3 toMove = trackingOffset * remainder;
-                osg::Vec3 nextpos = newPosition + toMove;
+                auto* inputManager = reinterpret_cast<MWVR::VRCamera*>(MWBase::Environment::get().getWorld()->getRenderingManager().getCamera());
 
-                if ((newPosition - nextpos).length2() > 0.0001)
+                osg::Vec3 headOffset = inputManager->headOffset();
+                osg::Vec3 trackingOffset = headOffset;
+                // Player's tracking height should not affect character position
+                trackingOffset.z() = 0;
+
+                float remainingTime = time;
+                bool seenGround = physicActor->getOnGround() && !physicActor->getOnSlope() && !actor.mFlying;
+                float remainder = 1.f;
+
+                for (int iterations = 0; iterations < sMaxIterations && remainingTime > 0.01f && remainder > 0.01; ++iterations)
                 {
-                    // trace to where character would go if there were no obstructions
-                    tracer.doTrace(colobj, newPosition, nextpos, collisionWorld);
+                    osg::Vec3 toMove = trackingOffset * remainder;
+                    osg::Vec3 nextpos = newPosition + toMove;
 
-                    // check for obstructions
-                    if (tracer.mFraction >= 1.0f)
+                    if ((newPosition - nextpos).length2() > 0.0001)
                     {
-                        newPosition = tracer.mEndPos; // ok to move, so set newPosition
+                        // trace to where character would go if there were no obstructions
+                        tracer.doTrace(colobj, newPosition, nextpos, collisionWorld);
+
+                        // check for obstructions
+                        if (tracer.mFraction >= 1.0f)
+                        {
+                            newPosition = tracer.mEndPos; // ok to move, so set newPosition
+                            remainder = 0.f;
+                            break;
+                        }
+                    }
+                    else
+                    {
+                        // The current position and next position are nearly the same, so just exit.
+                        // Note: Bullet can trigger an assert in debug modes if the positions
+                        // are the same, since that causes it to attempt to normalize a zero
+                        // length vector (which can also happen with nearly identical vectors, since
+                        // precision can be lost due to any math Bullet does internally). Since we
+                        // aren't performing any collision detection, we want to reject the next
+                        // position, so that we don't slowly move inside another object.
                         remainder = 0.f;
                         break;
                     }
-                }
-                else
-                {
-                    // The current position and next position are nearly the same, so just exit.
-                    // Note: Bullet can trigger an assert in debug modes if the positions
-                    // are the same, since that causes it to attempt to normalize a zero
-                    // length vector (which can also happen with nearly identical vectors, since
-                    // precision can be lost due to any math Bullet does internally). Since we
-                    // aren't performing any collision detection, we want to reject the next
-                    // position, so that we don't slowly move inside another object.
-                    remainder = 0.f;
-                    break;
+
+                    if (isWalkableSlope(tracer.mPlaneNormal) && !actor.mFlying && newPosition.z() >= swimlevel)
+                        seenGround = true;
+
+                    // We are touching something.
+                    if (tracer.mFraction < 1E-9f)
+                    {
+                        // Try to separate by backing off slighly to unstuck the solver
+                        osg::Vec3f backOff = (newPosition - tracer.mHitPoint) * 1E-2f;
+                        newPosition += backOff;
+                    }
+
+                    // We hit something. Check if we can step up.
+                    float hitHeight = tracer.mHitPoint.z() - tracer.mEndPos.z() + halfExtents.z();
+                    osg::Vec3f oldPosition = newPosition;
+                    bool result = false;
+                    if (hitHeight < sStepSizeUp && !isActor(tracer.mHitObject))
+                    {
+                        // Try to step up onto it.
+                        // NOTE: stepMove does not allow stepping over, modifies newPosition if successful
+                        result = stepper.step(newPosition, toMove, remainingTime, seenGround, iterations == 0);
+                        remainder = remainingTime / time;
+                    }
                 }
 
-                if (isWalkableSlope(tracer.mPlaneNormal) && !actor.mFlying && newPosition.z() >= swimlevel)
-                    seenGround = true;
-
-                // We are touching something.
-                if (tracer.mFraction < 1E-9f)
-                {
-                    // Try to separate by backing off slighly to unstuck the solver
-                    osg::Vec3f backOff = (newPosition - tracer.mHitPoint) * 1E-2f;
-                    newPosition += backOff;
-                }
-
-                // We hit something. Check if we can step up.
-                float hitHeight = tracer.mHitPoint.z() - tracer.mEndPos.z() + halfExtents.z();
-                osg::Vec3f oldPosition = newPosition;
-                bool result = false;
-                if (hitHeight < sStepSizeUp && !isActor(tracer.mHitObject))
-                {
-                    // Try to step up onto it.
-                    // NOTE: stepMove does not allow stepping over, modifies newPosition if successful
-                    result = stepper.step(newPosition, toMove, remainingTime, seenGround, iterations == 0);
-                    remainder = remainingTime / time;
-                }
+                // Try not to lose any tracking
+                osg::Vec3 moved = newPosition - actor.mPosition;
+                headOffset.x() -= moved.x();
+                headOffset.y() -= moved.y();
+                inputManager->setHeadOffset(headOffset);
             }
-
-            // Try not to lose any tracking
-            osg::Vec3 moved = newPosition - actor.mPosition;
-            headOffset.x() -= moved.x();
-            headOffset.y() -= moved.y();
-            inputManager->setHeadOffset(headOffset);
         }
 #endif
 

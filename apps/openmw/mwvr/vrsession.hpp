@@ -66,9 +66,13 @@ namespace MWVR
 
         void beginPhase(FramePhase phase);
         std::unique_ptr<VRFrameMeta>& getFrame(FramePhase phase);
+        bool seatedPlay() const { return mSeatedPlay; }
 
         float playerScale() const { return mPlayerScale; }
-        float setPlayerScale(float scale) { return mPlayerScale = scale; }
+        void setPlayerScale(float scale) { mPlayerScale = scale; }
+
+        float eyeLevel() const { return mEyeLevel; }
+        void setEyeLevel(float eyeLevel) { mEyeLevel = eyeLevel; }
 
         osg::Matrix viewMatrix(osg::Vec3 position, osg::Quat orientation);
         osg::Matrix viewMatrix(FramePhase phase, Side side, bool offset, bool glConvention);
@@ -81,11 +85,15 @@ namespace MWVR
         void beginFrame();
         void endFrame();
 
+    protected:
+        void setSeatedPlay(bool seatedPlay);
+
     private:
         std::mutex mMutex{};
         std::condition_variable mCondition{};
 
         bool mHandDirectedMovement{ false };
+        bool mSeatedPlay{ false };
         long long mFrames{ 0 };
         long long mLastRenderedFrame{ 0 };
         long long mLastPredictedDisplayTime{ 0 };
@@ -95,6 +103,7 @@ namespace MWVR
         std::chrono::steady_clock::time_point mLastRenderedFrameTimestamp{ std::chrono::steady_clock::now() };
 
         float mPlayerScale{ 1.f };
+        float mEyeLevel{ 1.f };
     };
 
 }

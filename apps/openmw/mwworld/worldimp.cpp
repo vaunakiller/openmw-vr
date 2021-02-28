@@ -964,7 +964,7 @@ namespace MWWorld
 #ifdef USE_OPENXR
         auto* xrInput = MWVR::Environment::get().getInputManager();
         if (xrInput)
-            xrInput->requestRecenter();
+            xrInput->requestRecenter(false);
 #endif
     }
 
@@ -987,7 +987,7 @@ namespace MWWorld
 #ifdef USE_OPENXR
         auto* xrInput = MWVR::Environment::get().getInputManager();
         if (xrInput)
-            xrInput->requestRecenter();
+            xrInput->requestRecenter(false);
 #endif
     }
 
