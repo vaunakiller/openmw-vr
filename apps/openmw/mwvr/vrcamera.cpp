@@ -52,16 +52,20 @@ namespace MWVR
         mHeadOffset.y() = 0;
 
         auto* session = Environment::get().getSession();
-        if (session->seatedPlay() && mShouldResetZ)
+
+        if (mShouldResetZ)
         {
-            // Adjust offset to place the current pose roughly at eye level
-            mHeadOffset.z() = session->eyeLevel() * Constants::UnitsPerMeter;
+            if (session->seatedPlay())
+            {
+                // Adjust offset to place the current pose roughly at eye level
+                mHeadOffset.z() = session->eyeLevel() * Constants::UnitsPerMeter;
+            }
+            else
+            {
+                mHeadOffset.z() = mHeadPose.position.z();
+            }
+            mShouldResetZ = false;
         }
-        else
-        {
-            mHeadOffset.z() = mHeadPose.position.z();
-        }
-        mShouldResetZ = false;
 
         // When the cell changes, the game rotates the character appropriately.
         // To respect this, reset yaw offset to make our yaw match the character.
