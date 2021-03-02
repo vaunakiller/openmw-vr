@@ -84,7 +84,6 @@ namespace MWBase
 
             void setFrameRateLimit(float frameRateLimit);
             float getFrameRateLimit() const;
-            void limitFrameRate(double dt) const;
 
             void setVrMode(bool vrMode);
             bool getVrMode(void) const;

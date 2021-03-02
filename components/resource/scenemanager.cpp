@@ -25,6 +25,7 @@
 #include <components/sceneutil/util.hpp>
 #include <components/sceneutil/controller.hpp>
 #include <components/sceneutil/optimizer.hpp>
+#include <components/sceneutil/visitor.hpp>
 
 #include <components/shader/shadervisitor.hpp>
 #include <components/shader/shadermanager.hpp>
@@ -373,6 +374,14 @@ namespace Resource
                 errormsg << "Error loading " << normalizedFilename << ": " << result.message() << " code " << result.status() << std::endl;
                 throw std::runtime_error(errormsg.str());
             }
+
+            // Recognize and hide collision node
+            unsigned int hiddenNodeMask = 0;
+            SceneUtil::FindByNameVisitor nameFinder("Collision");
+            result.getNode()->accept(nameFinder);
+            if (nameFinder.mFoundNode)
+                nameFinder.mFoundNode->setNodeMask(hiddenNodeMask);
+
             return result.getNode();
         }
     }
@@ -386,30 +395,19 @@ namespace Resource
                 return false;
 
             static std::vector<std::string> reservedNames;
-            static std::mutex reservedNamesMutex;
+            if (reservedNames.empty())
             {
-                std::lock_guard<std::mutex> lock(reservedNamesMutex);
-                if (reservedNames.empty())
-                {
-                    // This keeps somehow accessing garbage so i rewrote it using safer types.
-                    //const char* reserved[] = {"Head", "Neck", "Chest", "Groin", "Right Hand", "Left Hand", "Right Wrist", "Left Wrist", "Shield Bone", "Right Forearm", "Left Forearm", "Right Upper Arm",
-                    //                          "Left Upper Arm", "Right Foot", "Left Foot", "Right Ankle", "Left Ankle", "Right Knee", "Left Knee", "Right Upper Leg", "Left Upper Leg", "Right Clavicle",
-                    //                          "Left Clavicle", "Weapon Bone", "Tail", "Bip01", "Root Bone", "BoneOffset", "AttachLight", "Arrow", "Camera"};
+                const char* reserved[] = {"Head", "Neck", "Chest", "Groin", "Right Hand", "Left Hand", "Right Wrist", "Left Wrist", "Shield Bone", "Right Forearm", "Left Forearm", "Right Upper Arm",
+                                          "Left Upper Arm", "Right Foot", "Left Foot", "Right Ankle", "Left Ankle", "Right Knee", "Left Knee", "Right Upper Leg", "Left Upper Leg", "Right Clavicle",
+                                          "Left Clavicle", "Weapon Bone", "Tail", "Bip01", "Root Bone", "BoneOffset", "AttachLight", "Arrow", "Camera", "Collision", "Right_Wrist", "Left_Wrist",
+                                          "Shield_Bone", "Right_Forearm", "Left_Forearm", "Right_Upper_Arm", "Left_Clavicle", "Weapon_Bone", "Root_Bone"};
 
-                    //reservedNames = std::vector<std::string>(reserved, reserved + sizeof(reserved)/sizeof(const char*));
+                reservedNames = std::vector<std::string>(reserved, reserved + sizeof(reserved)/sizeof(reserved[0]));
 
-                    //for (unsigned int i=0; i<sizeof(reserved)/sizeof(const char*); ++i)
-                    //    reservedNames.push_back(std::string("Tri ") + reserved[i]);
+                for (unsigned int i=0; i<sizeof(reserved)/sizeof(reserved[0]); ++i)
+                    reservedNames.push_back(std::string("Tri ") + reserved[i]);
 
-                    std::vector<std::string> r = { "Head", "Neck", "Chest", "Groin", "Right Hand", "Left Hand", "Right Wrist", "Left Wrist", "Shield Bone", "Right Forearm", "Left Forearm", "Right Upper Arm",
-                                              "Left Upper Arm", "Right Foot", "Left Foot", "Right Ankle", "Left Ankle", "Right Knee", "Left Knee", "Right Upper Leg", "Left Upper Leg", "Right Clavicle",
-                                              "Left Clavicle", "Weapon Bone", "Tail", "Bip01", "Root Bone", "BoneOffset", "AttachLight", "Arrow", "Camera" };
-                    reservedNames = std::vector<std::string>(r.begin(), r.end());
-                    for (auto& reservedName : r)
-                        reservedNames.emplace_back(std::string("Tri ") + reservedName);
-
-                    std::sort(reservedNames.begin(), reservedNames.end(), Misc::StringUtils::ciLess);
-                }
+                std::sort(reservedNames.begin(), reservedNames.end(), Misc::StringUtils::ciLess);
             }
 
             std::vector<std::string>::iterator it = Misc::StringUtils::partialBinarySearch(reservedNames.begin(), reservedNames.end(), name);

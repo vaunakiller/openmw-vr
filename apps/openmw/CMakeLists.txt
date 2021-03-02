@@ -133,28 +133,28 @@ if (NOT UNIX)
         ${SDL2MAIN_LIBRARY})
 endif()
 
-if (ANDROID)
-    set (OSG_PLUGINS
-        -Wl,--whole-archive
-    )
-    foreach(PLUGIN_NAME ${USED_OSG_PLUGINS})
-        set(OSG_PLUGINS ${OSG_PLUGINS} ${OSG_PLUGINS_DIR}/lib${PLUGIN_NAME}.a)
+if(OSG_STATIC)
+    unset(_osg_plugins_static_files)
+    add_library(openmw_osg_plugins INTERFACE)
+    foreach(_plugin ${USED_OSG_PLUGINS})
+        string(TOUPPER ${_plugin} _plugin_uc)
+        if (${_plugin_uc}_LIBRARY MATCHES "[/.]")
+            list(APPEND _osg_plugins_static_files ${${_plugin_uc}_LIBRARY})
+        else()
+            list(APPEND _osg_plugins_static_files $<TARGET_FILE:${${_plugin_uc}_LIBRARY}>)
+        endif()
+        target_link_libraries(openmw_osg_plugins INTERFACE ${${_plugin_uc}_LIBRARY})
     endforeach()
-
-    set (OSG_PLUGINS
-        ${OSG_PLUGINS} -Wl,--no-whole-archive
-    )
+    # We use --whole-archive because OSG plugins use registration.
+    get_whole_archive_options(_opts ${_osg_plugins_static_files})
+    target_link_options(openmw_osg_plugins INTERFACE ${_opts})
     set(OPENMW_LINK_TARGETS ${OPENMW_LINK_TARGETS}
-        EGL
-        android
-        log
-        dl
-        z
-        ${OPENSCENEGRAPH_LIBRARIES}
-        freetype
-        jpeg
-        png
-    )
+        openmw_osg_plugins)
+endif(OSG_STATIC)
+
+if (ANDROID)
+    set(OPENMW_LINK_TARGETS ${OPENMW_LINK_TARGETS}
+        EGL android log z)
 endif (ANDROID)
 
 # Fix for not visible pthreads functions for linker with glibc 2.15

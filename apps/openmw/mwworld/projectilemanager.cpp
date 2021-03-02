@@ -194,7 +194,7 @@ namespace MWWorld
     };
 
 
-    float ProjectileManager::createModel(State &state, const std::string &model, const osg::Vec3f& pos, const osg::Quat& orient,
+    void ProjectileManager::createModel(State &state, const std::string &model, const osg::Vec3f& pos, const osg::Quat& orient,
                                         bool rotate, bool createLight, osg::Vec4 lightDiffuseColor, std::string texture)
     {
         state.mNode = new osg::PositionAttitudeTransform;
@@ -258,7 +258,6 @@ namespace MWWorld
         state.mNode->accept(assignVisitor);
 
         MWRender::overrideFirstRootTexture(texture, mResourceSystem, projectile);
-        return projectile->getBound().radius();
     }
 
     void ProjectileManager::update(State& state, float duration)
@@ -322,7 +321,8 @@ namespace MWWorld
 
         osg::Vec4 lightDiffuseColor = getMagicBoltLightDiffuseColor(state.mEffects);
 
-        const auto radius = createModel(state, ptr.getClass().getModel(ptr), pos, orient, true, true, lightDiffuseColor, texture);
+        auto model = ptr.getClass().getModel(ptr);
+        createModel(state, model, pos, orient, true, true, lightDiffuseColor, texture);
 
         MWBase::SoundManager *sndMgr = MWBase::Environment::get().getSoundManager();
         for (const std::string &soundid : state.mSoundIds)
@@ -333,7 +333,10 @@ namespace MWWorld
                 state.mSounds.push_back(sound);
         }
 
-        state.mProjectileId = mPhysics->addProjectile(caster, pos, radius, false);
+        // in case there are multiple effects, the model is a dummy without geometry. Use the second effect for physics shape
+        if (state.mIdMagic.size() > 1)
+            model = "meshes\\" + MWBase::Environment::get().getWorld()->getStore().get<ESM::Weapon>().find(state.mIdMagic.at(1))->mModel;
+        state.mProjectileId = mPhysics->addProjectile(caster, pos, model, true, false);
         state.mToDelete = false;
         mMagicBolts.push_back(state);
     }
@@ -353,11 +356,12 @@ namespace MWWorld
         MWWorld::ManualRef ref(MWBase::Environment::get().getWorld()->getStore(), projectile.getCellRef().getRefId());
         MWWorld::Ptr ptr = ref.getPtr();
 
-        createModel(state, ptr.getClass().getModel(ptr), pos, orient, false, false, osg::Vec4(0,0,0,0));
+        const auto model = ptr.getClass().getModel(ptr);
+        createModel(state, model, pos, orient, false, false, osg::Vec4(0,0,0,0));
         if (!ptr.getClass().getEnchantment(ptr).empty())
             SceneUtil::addEnchantedGlow(state.mNode, mResourceSystem, ptr.getClass().getEnchantmentColor(ptr));
 
-        state.mProjectileId = mPhysics->addProjectile(actor, pos, 1.f, true);
+        state.mProjectileId = mPhysics->addProjectile(actor, pos, model, false, true);
         state.mToDelete = false;
         mProjectiles.push_back(state);
     }
@@ -643,7 +647,7 @@ namespace MWWorld
                 int weaponType = ptr.get<ESM::Weapon>()->mBase->mData.mType;
                 state.mThrown = MWMechanics::getWeaponType(weaponType)->mWeaponClass == ESM::WeaponType::Thrown;
 
-                state.mProjectileId = mPhysics->addProjectile(state.getCaster(), osg::Vec3f(esm.mPosition), 1.f, true);
+                state.mProjectileId = mPhysics->addProjectile(state.getCaster(), osg::Vec3f(esm.mPosition), model, false, true);
             }
             catch(...)
             {
@@ -695,8 +699,8 @@ namespace MWWorld
             }
 
             osg::Vec4 lightDiffuseColor = getMagicBoltLightDiffuseColor(state.mEffects);
-            const auto radius = createModel(state, model, osg::Vec3f(esm.mPosition), osg::Quat(esm.mOrientation), true, true, lightDiffuseColor, texture);
-            state.mProjectileId = mPhysics->addProjectile(state.getCaster(), osg::Vec3f(esm.mPosition), radius, false);
+            createModel(state, model, osg::Vec3f(esm.mPosition), osg::Quat(esm.mOrientation), true, true, lightDiffuseColor, texture);
+            state.mProjectileId = mPhysics->addProjectile(state.getCaster(), osg::Vec3f(esm.mPosition), model, true, false);
 
             MWBase::SoundManager *sndMgr = MWBase::Environment::get().getSoundManager();
             for (const std::string &soundid : state.mSoundIds)

@@ -100,6 +100,10 @@
     Bug #5821: NPCs from mods getting removed if mod order was changed
     Bug #5835: OpenMW doesn't accept negative values for NPC's hello, alarm, fight, and flee
     Bug #5836: OpenMW dialogue/greeting/voice filter doesn't accept negative Ai values for NPC's hello, alarm, fight, and flee
+    Bug #5838: Local map and other menus become blank in some locations while playing Wizards' Islands mod.
+    Bug #5840: GetSoundPlaying "Health Damage" doesn't play when NPC hits target with shield effect ( vanilla engine behavior )
+    Bug #5841: Can't Cast Zero Cost Spells When Magicka is < 0
+    Bug #5871: The console appears if you type the Russian letter "Ё" in the name of the enchantment
     Feature #390: 3rd person look "over the shoulder"
     Feature #1536: Show more information about level on menu
     Feature #2386: Distant Statics in the form of Object Paging
@@ -107,6 +111,7 @@
     Feature #2686: Timestamps in openmw.log
     Feature #3171: OpenMW-CS: Instance drag selection
     Feature #4894: Consider actors as obstacles for pathfinding
+    Feature #4977: Use the "default icon.tga" when an item's icon is not found
     Feature #5043: Head Bobbing
     Feature #5199: Improve Scene Colors
     Feature #5297: Add a search function to the "Datafiles" tab of the OpenMW launcher

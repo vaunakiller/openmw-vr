@@ -181,6 +181,7 @@ add_component_dir(detournavigator
     settings
     navigator
     findrandompointaroundcircle
+    raycast
     )
 
 set (ESM_UI ${CMAKE_SOURCE_DIR}/files/ui/contentselector.ui
@@ -245,7 +246,7 @@ target_link_libraries(components
     RecastNavigation::Recast
     )
 
-if (BULLET_USE_DOUBLES AND (UBUNTU_FOUND OR DEBIAN_FOUND))
+if (BULLET_USE_DOUBLES AND (UBUNTU_FOUND OR DEBIAN_FOUND) AND OPENMW_USE_SYSTEM_BULLET)
     target_link_libraries(components BulletCollision-float64 LinearMath-float64)
 else()
     target_link_libraries(components ${BULLET_LIBRARIES})
