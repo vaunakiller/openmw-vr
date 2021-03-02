@@ -1,5 +1,6 @@
 #include "stereo.hpp"
 #include "stringops.hpp"
+#include "callbackmanager.hpp"
 
 #include <osg/io_utils>
 #include <osg/ViewportIndexed>
@@ -457,27 +458,9 @@ namespace Misc
         if (technique == mTechnique)
             return;
 
-        auto cullCB = mCullCallback;
-        auto initialDrawCB = mInitialDrawCallback;
-        auto predrawCB = mPreDrawCallback;
-        auto postDrawCB = mPostDrawCallback;
-        auto finalDrawCB = mFinalDrawCallback;
-
-        setCullCallback(nullptr);
-        setInitialDrawCallback(nullptr);
-        setPostdrawCallback(nullptr);
-        setPredrawCallback(nullptr);
-        setFinaldrawCallback(nullptr);
-
         disableStereo();
         mTechnique = technique;
         enableStereo();
-
-        setCullCallback(cullCB);
-        setInitialDrawCallback(initialDrawCB);
-        setPostdrawCallback(predrawCB);
-        setPredrawCallback(postDrawCB);
-        setFinaldrawCallback(finalDrawCB);
     }
 
     void StereoView::update()
@@ -688,30 +671,6 @@ namespace Misc
         right.pose.position = osg::Vec3(2.2, 0, 0);
         left.fov = { -0.767549932, 0.620896876, 0.726982594, -0.837898076 };
         right.fov = { -0.620896876, 0.767549932, 0.726982594, -0.837898076 };
-    }
-
-    void StereoView::setInitialDrawCallback(osg::ref_ptr<osg::Camera::DrawCallback> cb)
-    {
-        mInitialDrawCallback = cb;
-        mMainCamera->setInitialDrawCallback(cb);
-    }
-
-    void StereoView::setPredrawCallback(osg::ref_ptr<osg::Camera::DrawCallback> cb)
-    {
-        mPreDrawCallback = cb;
-        mMainCamera->setPreDrawCallback(cb);
-    }
-
-    void StereoView::setPostdrawCallback(osg::ref_ptr<osg::Camera::DrawCallback> cb)
-    {
-        mPostDrawCallback = cb;
-        mMainCamera->setPostDrawCallback(cb);
-    }
-
-    void StereoView::setFinaldrawCallback(osg::ref_ptr<osg::Camera::DrawCallback> cb)
-    {
-        mFinalDrawCallback = cb;
-        mMainCamera->setFinalDrawCallback(cb);
     }
 
     void StereoView::setCullCallback(osg::ref_ptr<osg::NodeCallback> cb)

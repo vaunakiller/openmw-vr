@@ -20,6 +20,7 @@
 
 #include <components/misc/stringops.hpp>
 #include <components/misc/stereo.hpp>
+#include <components/misc/callbackmanager.hpp>
 
 #include <components/sdlutil/sdlgraphicswindow.hpp>
 
@@ -180,11 +181,10 @@ namespace MWVR
 
         // Give the main camera an initial draw callback that disables camera setup (we don't want it)
         Misc::StereoView::instance().setUpdateViewCallback(mUpdateViewCallback);
-        Misc::StereoView::instance().setInitialDrawCallback(new InitialDrawCallback(this));
-        Misc::StereoView::instance().setPredrawCallback(mPreDraw);
-        Misc::StereoView::instance().setPostdrawCallback(mPostDraw);
-        Misc::StereoView::instance().setFinaldrawCallback(mFinalDraw);
-        //auto cullMask = Misc::StereoView::instance().getCullMask();
+        Misc::CallbackManager::instance().addCallback(Misc::CallbackManager::DrawStage::Initial, new InitialDrawCallback(this));
+        Misc::CallbackManager::instance().addCallback(Misc::CallbackManager::DrawStage::PreDraw, mPreDraw);
+        Misc::CallbackManager::instance().addCallback(Misc::CallbackManager::DrawStage::PostDraw, mPostDraw);
+        Misc::CallbackManager::instance().addCallback(Misc::CallbackManager::DrawStage::Final, mFinalDraw);
         auto cullMask = ~(MWRender::VisMask::Mask_UpdateVisitor | MWRender::VisMask::Mask_SimpleWater);
         cullMask &= ~MWRender::VisMask::Mask_GUI;
         cullMask |= MWRender::VisMask::Mask_3DGUI;
@@ -479,14 +479,6 @@ namespace MWVR
     {
         auto* camera = info.getCurrentCamera();
         auto name = camera->getName();
-
-        // This happens sometimes, i've not been able to catch it when as happens
-        // to see why and how i can stop it.
-        if (camera->getPreDrawCallback() != mPreDraw)
-        {
-            camera->setPreDrawCallback(mPreDraw);
-            Log(Debug::Warning) << ("osg overwrote predraw");
-        }
     }
 
     void VRViewer::finalDrawCallback(osg::RenderInfo& info)

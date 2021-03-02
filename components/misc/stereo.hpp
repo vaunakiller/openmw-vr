@@ -135,18 +135,6 @@ namespace Misc
         //! Callback that updates stereo configuration during the update pass
         void setUpdateViewCallback(std::shared_ptr<UpdateViewCallback> cb);
 
-        //! Set the initial draw callback on the appropriate camera object
-        void setInitialDrawCallback(osg::ref_ptr<osg::Camera::DrawCallback> cb);
-
-        //! Set the predraw callback on the appropriate camera object
-        void setPredrawCallback(osg::ref_ptr<osg::Camera::DrawCallback> cb);
-
-        //! Set the postdraw callback on the appropriate camera object
-        void setPostdrawCallback(osg::ref_ptr<osg::Camera::DrawCallback> cb);
-
-        //! Set the final draw callback on the appropriate camera object
-        void setFinaldrawCallback(osg::ref_ptr<osg::Camera::DrawCallback> cb);
-
         //! Set the cull callback on the appropriate camera object
         void setCullCallback(osg::ref_ptr<osg::NodeCallback> cb);
 
@@ -203,10 +191,6 @@ namespace Misc
 
         // OSG camera callbacks set using set*callback. StereoView manages that these are always set on the appropriate camera(s);
         osg::ref_ptr<osg::NodeCallback>         mCullCallback{ nullptr };
-        osg::ref_ptr<osg::Camera::DrawCallback> mInitialDrawCallback{ nullptr };
-        osg::ref_ptr<osg::Camera::DrawCallback> mPreDrawCallback{ nullptr };
-        osg::ref_ptr<osg::Camera::DrawCallback> mPostDrawCallback{ nullptr };
-        osg::ref_ptr<osg::Camera::DrawCallback> mFinalDrawCallback{ nullptr };
     };
 
     //! Overrides all stereo-related states/uniforms to disable stereo for the scene rendered by camera
