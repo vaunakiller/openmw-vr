@@ -40,6 +40,7 @@ namespace Compiler
 namespace Misc
 {
     class StereoView;
+    class CallbackManager;
 }
 
 namespace MWScript
@@ -99,6 +100,8 @@ namespace OMW
             bool mStereoEnabled;
             bool mStereoOverride;
             std::unique_ptr<Misc::StereoView> mStereoView;
+
+            std::unique_ptr<Misc::CallbackManager> mCallbackManager;
 
             bool mSkipMenu;
             bool mUseSound;

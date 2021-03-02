@@ -14,6 +14,7 @@
 #include <MyGUI_TextBox.h>
 
 #include <components/misc/rng.hpp>
+#include <components/misc/callbackmanager.hpp>
 #include <components/debug/debuglog.hpp>
 #include <components/myguiplatform/myguitexture.hpp>
 #include <components/settings/settings.hpp>
@@ -333,12 +334,7 @@ namespace MWGui
             mCopyFramebufferToTextureCallback = new CopyFramebufferToTextureCallback(mTexture);
         }
 
-#if OSG_VERSION_GREATER_OR_EQUAL(3, 5, 10)
-        mViewer->getCamera()->removeInitialDrawCallback(mCopyFramebufferToTextureCallback);
-        mViewer->getCamera()->addInitialDrawCallback(mCopyFramebufferToTextureCallback);
-#else
-        mViewer->getCamera()->setInitialDrawCallback(mCopyFramebufferToTextureCallback);
-#endif
+        Misc::CallbackManager::instance().addCallbackOneshot(Misc::CallbackManager::DrawStage::Initial, mCopyFramebufferToTextureCallback);
         mCopyFramebufferToTextureCallback->reset();
 
         mBackgroundImage->setBackgroundImage("");

@@ -33,6 +33,7 @@
 #include <components/compiler/extensions0.hpp>
 
 #include <components/misc/stereo.hpp>
+#include <components/misc/callbackmanager.hpp>
 
 #include <components/sceneutil/workqueue.hpp>
 
@@ -682,6 +683,8 @@ void OMW::Engine::prepareEngine (Settings::Manager & settings)
 
     osg::ref_ptr<osg::Group> rootNode (new osg::Group);
     mViewer->setSceneData(rootNode);
+
+    mCallbackManager.reset(new Misc::CallbackManager(mViewer));
 
     mVFS.reset(new VFS::Manager(mFSStrict));
 

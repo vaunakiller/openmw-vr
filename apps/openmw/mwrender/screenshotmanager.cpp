@@ -9,6 +9,7 @@
 #include <osg/TextureCubeMap>
 
 #include <components/misc/stringops.hpp>
+#include <components/misc/callbackmanager.hpp>
 #include <components/resource/resourcesystem.hpp>
 #include <components/resource/scenemanager.hpp>
 #include <components/shader/shadermanager.hpp>
@@ -108,14 +109,12 @@ namespace MWRender
         tempDrw->getOrCreateStateSet()->setRenderBinDetails(100, "RenderBin", osg::StateSet::USE_RENDERBIN_DETAILS); // so its after all scene bins but before POST_RENDER gui camera
         camera->addChild(tempDrw);
         osg::ref_ptr<NotifyDrawCompletedCallback> callback(new NotifyDrawCompletedCallback(mViewer->getFrameStamp()->getFrameNumber()));
-        auto * oldCb = camera->getFinalDrawCallback();
-        camera->setFinalDrawCallback(callback);
+        Misc::CallbackManager::instance().addCallbackOneshot(Misc::CallbackManager::DrawStage::Final, callback);
         MWBase::Environment::get().getWindowManager()->viewerTraversals(false);
-        callback->waitTillDone();
+        Misc::CallbackManager::instance().waitCallbackOneshot(Misc::CallbackManager::DrawStage::Final, callback);
                 // now that we've "used up" the current frame, get a fresh frame number for the next frame() following after the screenshot is completed
         mViewer->advance(mViewer->getFrameStamp()->getSimulationTime());
         camera->removeChild(tempDrw);
-        camera->setFinalDrawCallback(oldCb);
     }
 
     bool ScreenshotManager::screenshot360(osg::Image* image)
@@ -281,12 +280,12 @@ namespace MWRender
 
         // The draw needs to complete before we can copy back our image.
         osg::ref_ptr<NotifyDrawCompletedCallback> callback (new NotifyDrawCompletedCallback(0));
-        camera->setFinalDrawCallback(callback);
 
         MWBase::Environment::get().getWindowManager()->getLoadingScreen()->loadingOn(false);
 
+        Misc::CallbackManager::instance().addCallbackOneshot(Misc::CallbackManager::DrawStage::Final, callback);
         MWBase::Environment::get().getWindowManager()->viewerTraversals(false);
-        callback->waitTillDone();
+        Misc::CallbackManager::instance().waitCallbackOneshot(Misc::CallbackManager::DrawStage::Final, callback);
 
         MWBase::Environment::get().getWindowManager()->getLoadingScreen()->loadingOff();
 
