@@ -3,7 +3,7 @@
 namespace Misc
 {
 
-    CallbackManager* sInstance = nullptr;
+    static CallbackManager* sInstance = nullptr;
 
     CallbackManager& CallbackManager::instance()
     {

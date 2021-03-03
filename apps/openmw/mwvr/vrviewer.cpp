@@ -280,9 +280,7 @@ namespace MWVR
         static osg::ref_ptr<osg::Shader> vShader = nullptr;
         static osg::ref_ptr<osg::Shader> fShader = nullptr;
         static osg::ref_ptr<osg::Uniform> gammaUniform = nullptr;
-        static GLint gammaUniformLocation = 0;
         static osg::ref_ptr<osg::Uniform> contrastUniform = nullptr;
-        static GLint contrastUniformLocation = 0;
         osg::Viewport* viewport = nullptr;
         static osg::ref_ptr<osg::StateSet> stateset = nullptr;
         static osg::ref_ptr<osg::Geometry> geometry = nullptr;

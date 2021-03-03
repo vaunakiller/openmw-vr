@@ -229,7 +229,7 @@ namespace Misc
         StereoView* stereoView;
     };
 
-    StereoView* sInstance = nullptr;
+    static StereoView* sInstance = nullptr;
 
     StereoView& StereoView::instance()
     {
