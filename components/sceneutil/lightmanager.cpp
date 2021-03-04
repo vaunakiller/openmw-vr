@@ -430,6 +430,8 @@ namespace SceneUtil
             transformBoundingSphere(mat, nodeBound);
 
             mLightList.clear();
+            mLightListCropped.clear();
+
             for (unsigned int i=0; i<lights.size(); ++i)
             {
                 const LightManager::LightSourceViewBound& l = lights[i];
@@ -447,37 +449,39 @@ namespace SceneUtil
 
             osg::StateSet* stateset = nullptr;
 
-            if (mLightList.size() > maxLights)
+            if (mLightListCropped.empty())
             {
-                // remove lights culled by this camera
-                LightManager::LightList lightList = mLightList;
-                for (LightManager::LightList::iterator it = lightList.begin(); it != lightList.end() && lightList.size() > maxLights; )
+                mLightListCropped = mLightList;
+                if (mLightList.size() > maxLights)
                 {
-                    osg::CullStack::CullingStack& stack = cv->getModelViewCullingStack();
-
-                    osg::BoundingSphere bs = (*it)->mViewBound;
-                    bs._radius = bs._radius*2;
-                    osg::CullingSet& cullingSet = stack.front();
-                    if (cullingSet.isCulled(bs))
+                    // remove lights culled by this camera
+                    for (LightManager::LightList::iterator it = mLightListCropped.begin(); it != mLightListCropped.end() && mLightListCropped.size() > maxLights; )
                     {
-                        it = lightList.erase(it);
-                        continue;
-                    }
-                    else
-                        ++it;
-                }
+                        osg::CullStack::CullingStack& stack = cv->getModelViewCullingStack();
 
-                if (lightList.size() > maxLights)
-                {
-                    // sort by proximity to camera, then get rid of furthest away lights
-                    std::sort(lightList.begin(), lightList.end(), sortLights);
-                    while (lightList.size() > maxLights)
-                        lightList.pop_back();
+                        osg::BoundingSphere bs = (*it)->mViewBound;
+                        bs._radius = bs._radius * 2;
+                        osg::CullingSet& cullingSet = stack.front();
+                        if (cullingSet.isCulled(bs))
+                        {
+                            it = mLightListCropped.erase(it);
+                            continue;
+                        }
+                        else
+                            ++it;
+                    }
+
+                    if (mLightListCropped.size() > maxLights)
+                    {
+                        // sort by proximity to camera, then get rid of furthest away lights
+                        std::sort(mLightListCropped.begin(), mLightListCropped.end(), sortLights);
+                        while (mLightListCropped.size() > maxLights)
+                            mLightListCropped.pop_back();
+                    }
                 }
-                stateset = mLightManager->getLightListStateSet(lightList, cv->getTraversalNumber());
             }
-            else
-                stateset = mLightManager->getLightListStateSet(mLightList, cv->getTraversalNumber());
+
+            stateset = mLightManager->getLightListStateSet(mLightListCropped, cv->getTraversalNumber());
 
 
             cv->pushStateSet(stateset);

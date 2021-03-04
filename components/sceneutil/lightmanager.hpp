@@ -182,6 +182,7 @@ namespace SceneUtil
         LightManager* mLightManager;
         unsigned int mLastFrameNumber;
         LightManager::LightList mLightList;
+        LightManager::LightList mLightListCropped;
         std::set<SceneUtil::LightSource*> mIgnoredLightSources;
     };
 
