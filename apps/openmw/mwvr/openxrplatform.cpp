@@ -559,31 +559,38 @@ namespace MWVR
         std::string graphicsAPIExtension = graphicsAPIExtensionName();
         if (graphicsAPIExtension == XR_KHR_OPENGL_ENABLE_EXTENSION_NAME)
         {
-            // Find supported color swapchain format.
-            std::vector<int64_t> requestedColorSwapchainFormats = {
-                0x8058, // GL_RGBA8
-                0x8F97, // GL_RGBA8_SNORM
-                0x881A, // GL_RGBA16F
-                0x881B, // GL_RGB16F
-                // Offered by SteamVR but is broken: // 0x805B, // GL_RGBA16
-                0x8C3A, // GL_R11F_G11F_B10F
-                // Don't need srgb: 0x8C43, // GL_SRGB8_ALPHA8
-                // Don't need srgb: 0x8C41, // GL_SRGB8
-            };
+            std::vector<int64_t> requestedColorSwapchainFormats;
+
+            if (Settings::Manager::getBool("Prefer sRGB swapchains", "VR"))
+            {
+                requestedColorSwapchainFormats.push_back(0x8C43); // GL_SRGB8_ALPHA8
+                requestedColorSwapchainFormats.push_back(0x8C41); // GL_SRGB8
+            }
+
+            requestedColorSwapchainFormats.push_back(0x8058); // GL_RGBA8
+            requestedColorSwapchainFormats.push_back(0x8F97); // GL_RGBA8_SNORM
+            requestedColorSwapchainFormats.push_back(0x881A); // GL_RGBA16F
+            requestedColorSwapchainFormats.push_back(0x881B); // GL_RGB16F
+            requestedColorSwapchainFormats.push_back(0x8C3A); // GL_R11F_G11F_B10F
+
             return selectFormat(requestedColorSwapchainFormats);
         }
 #ifdef XR_USE_GRAPHICS_API_D3D11
         else if (graphicsAPIExtension == XR_KHR_D3D11_ENABLE_EXTENSION_NAME)
         {
-            // Find supported color swapchain format.
-            std::vector<int64_t> requestedColorSwapchainFormats = {
-                0x1c, // DXGI_FORMAT_R8G8B8A8_UNORM
-                0x57, // DXGI_FORMAT_B8G8R8A8_UNORM
-                0xa , // DXGI_FORMAT_R16G16B16A16_FLOAT
-                0x18, // DXGI_FORMAT_R10G10B10A2_UNORM
-                // Don't need srgb: 0x1d, // DXGI_FORMAT_R8G8B8A8_UNORM_SRGB
-                // Don't need srgb: 0x5b, // DXGI_FORMAT_B8G8R8A8_UNORM_SRGB
-            };
+            std::vector<int64_t> requestedColorSwapchainFormats;
+
+            if (Settings::Manager::getBool("Prefer sRGB swapchains", "VR"))
+            {
+                requestedColorSwapchainFormats.push_back(0x1d); // DXGI_FORMAT_R8G8B8A8_UNORM_SRGB
+                requestedColorSwapchainFormats.push_back(0x5b); // DXGI_FORMAT_B8G8R8A8_UNORM_SRGB
+            }
+
+            requestedColorSwapchainFormats.push_back(0x1c); // DXGI_FORMAT_R8G8B8A8_UNORM
+            requestedColorSwapchainFormats.push_back(0x57); // DXGI_FORMAT_B8G8R8A8_UNORM
+            requestedColorSwapchainFormats.push_back(0xa); // DXGI_FORMAT_R16G16B16A16_FLOAT
+            requestedColorSwapchainFormats.push_back(0x18); // DXGI_FORMAT_R10G10B10A2_UNORM
+
             return selectFormat(requestedColorSwapchainFormats);
         }
 #endif

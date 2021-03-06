@@ -1097,7 +1097,17 @@
 								</property>
 							</widget>
 						</item>
-						<item row="3" column="0">
+            <item row="3" column="0">
+              <widget class="QCheckBox" name="preferSRGBSwapchains">
+                <property name="toolTip">
+                  <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Makes OpenMW VR use sRGB format for its swapchain textures if available. Needed for some headsets that don't play nice without sRGB. Enable this if the game seems much brighter in your headset than what's shown on the mirror texture.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
+                </property>
+                <property name="text">
+                  <string>Prefer sRGB swapchains.</string>
+                </property>
+              </widget>
+            </item>
+						<item row="4" column="0">
 							<widget class="QCheckBox" name="useSharedShadowMaps">
 								<property name="toolTip">
 									<string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Makes OpenMW VR map shadows for both eyes in one pass, instead of once per eye. This is a significant performance benefit, and should only be disabled for debugging or masochism purposes.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
@@ -1107,7 +1117,7 @@
 								</property>
 							</widget>
 						</item>
-						<item row="4" column="0">
+						<item row="5" column="0">
 							<widget class="QCheckBox" name="useGeometryShaders">
 								<property name="toolTip">
 									<string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Makes OpenMW VR render stereo using geometry shaders instead of two render passes. Players with a CPU bound will benefit from this, but players with a gpu bound will not. E.g. with a high cell view distance (distant lands) this will degrade your performance instead. NOTE: This feature is experimental, broken on AMD GPUs, and untested on Intel.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
@@ -1117,7 +1127,7 @@
 								</property>
 							</widget>
 						</item>
-						<item row="5" column="0">
+						<item row="6" column="0">
 							<widget class="QCheckBox" name="preferDirectXSwapchains">
 								<property name="toolTip">
 									<string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Makes OpenMW VR use DirectX swapchains even if OpenGL swapchains are available. Note that OpenMW will always fall back to DirectX swapchains if OpenGL swapchains are not available. This option exists to debug/work around runtimes with bad OpenGL implementations.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
@@ -1127,7 +1137,7 @@
 								</property>
 							</widget>
 						</item>
-						<item row="6" column="0">
+						<item row="7" column="0">
 							<widget class="QCheckBox" name="useXrDebug">
 								<property name="toolTip">
 									<string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Makes OpenMW VR enable and use the XR_EXT_debug_utils extension, which may help produce more detailed debug information.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
@@ -1137,7 +1147,7 @@
 								</property>
 							</widget>
 						</item>
-						<item row="7" column="0">
+						<item row="8" column="0">
 							<widget class="QCheckBox" name="logAllXrCalls">
 								<property name="toolTip">
 									<string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Makes OpenMW VR log every single OpenXR call. This degrades performance and creates a massive log. You probably want this disabled.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
@@ -1147,7 +1157,7 @@
 								</property>
 							</widget>
 						</item>
-						<item row="8" column="0">
+						<item row="9" column="0">
 							<widget class="QCheckBox" name="ignoreXrErrors">
 								<property name="toolTip">
 									<string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Makes OpenMW VR ignore unsuccessful calls to OpenXR. You probably want this enabled.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>

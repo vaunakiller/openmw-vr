@@ -378,7 +378,6 @@ namespace MWVR
         int screenHeight = traits->height;
         if (!mMirrorTexture)
         {
-            ;
             mMirrorTexture.reset(new VRFramebuffer(state, 
                 screenWidth,
                 screenHeight,
@@ -390,7 +389,6 @@ namespace MWVR
         int mirrorWidth = screenWidth / mMirrorTextureViews.size();
 
         //// Since OpenXR does not include native support for mirror textures, we have to generate them ourselves
-        //// which means resolving msaa twice.
         mMsaaResolveTexture->bindFramebuffer(gc, GL_FRAMEBUFFER_EXT);
 
         mFramebuffer->blit(gc, 0, 0, mFramebuffer->width(), mFramebuffer->height(), 0, 0, mMsaaResolveTexture->width(), mMsaaResolveTexture->height(), GL_COLOR_BUFFER_BIT, GL_NEAREST);
@@ -402,6 +400,7 @@ namespace MWVR
             mMsaaResolveTexture->blit(gc, 0, 0, mMsaaResolveTexture->width(), mMsaaResolveTexture->height(), 0, 0, mGammaResolveTexture->width(), mGammaResolveTexture->height(), GL_COLOR_BUFFER_BIT, GL_NEAREST);
         }
 
+        mGammaResolveTexture->bindFramebuffer(gc, GL_FRAMEBUFFER_EXT);
         mFramebuffer->blit(gc, 0, 0, mFramebuffer->width(), mFramebuffer->height(), 0, 0, mGammaResolveTexture->width(), mGammaResolveTexture->height(), GL_DEPTH_BUFFER_BIT, GL_NEAREST);
 
         if (mMirrorTexture)

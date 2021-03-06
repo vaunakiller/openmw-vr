@@ -196,6 +196,7 @@ bool Launcher::AdvancedPage::loadSettings()
 
         loadSettingBool(useSharedShadowMaps, "shared shadow maps", "Stereo");
         loadSettingBool(preferDirectXSwapchains, "Prefer DirectX swapchains", "VR");
+        loadSettingBool(preferSRGBSwapchains, "Prefer sRGB swapchains", "VR");
         loadSettingBool(useXrDebug, "enable XR_EXT_debug_utils", "VR Debug");
         loadSettingBool(logAllXrCalls, "log all openxr calls", "VR Debug");
         loadSettingBool(ignoreXrErrors, "continue on errors", "VR Debug");
@@ -349,7 +350,8 @@ void Launcher::AdvancedPage::saveSettings()
             mEngineSettings.setString("stereo method", "Stereo", stereoMethod);
 
         saveSettingBool(useSharedShadowMaps, "shared shadow maps", "Stereo");
-        saveSettingBool(preferDirectXSwapchains, "Prefer DirectX swapchains", "VR");
+        saveSettingBool(preferDirectXSwapchains, "Prefer sRGB swapchains", "VR");
+        saveSettingBool(preferSRGBSwapchains, "Prefer DirectX swapchains", "VR");
         saveSettingBool(useXrDebug, "enable XR_EXT_debug_utils", "VR Debug");
         saveSettingBool(logAllXrCalls, "log all openxr calls", "VR Debug");
         saveSettingBool(ignoreXrErrors, "continue on errors", "VR Debug");
