@@ -22,6 +22,7 @@
 #include "../mwbase/mechanicsmanager.hpp"
 
 #include "../mwgui/draganddrop.hpp"
+#include "../mwgui/inventorywindow.hpp"
 
 #include "../mwinput/actionmanager.hpp"
 #include "../mwinput/bindingsmanager.hpp"
@@ -116,7 +117,8 @@ namespace MWVR
         {
             auto* node = anim->getPointerTarget().mHitNode;
             MWWorld::Ptr ptr = anim->getPointerTarget().mHitObject;
-            auto& dnd = MWBase::Environment::get().getWindowManager()->getDragAndDrop();
+            auto wm = MWBase::Environment::get().getWindowManager();
+            auto& dnd = wm->getDragAndDrop();
 
             if (node && node->getName() == "VRGUILayer")
             {
@@ -138,8 +140,21 @@ namespace MWVR
             }
             else if (!ptr.isEmpty())
             {
-                MWWorld::Player& player = MWBase::Environment::get().getWorld()->getPlayer();
-                player.activate(ptr);
+                if (wm->isConsoleMode())
+                    wm->setConsoleSelectedObject(ptr);
+                // Don't active things during GUI mode.
+                else if (wm->isGuiMode())
+                {
+                    if (wm->getMode() != MWGui::GM_Container && wm->getMode() != MWGui::GM_Inventory)
+                        return;
+                    wm->getInventoryWindow()->pickUpObject(ptr);
+                }
+                else
+                {
+                    auto* world = MWBase::Environment::get().getWorld();
+                    MWWorld::Player& player = world->getPlayer();
+                    player.activate(ptr);
+                }
             }
         }
     }
