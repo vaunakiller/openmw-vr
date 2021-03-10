@@ -250,11 +250,11 @@ namespace MWVR
 
         frame->mFrameNo = mFrames;
         frame->mShouldSyncFrameLoop = xr->appShouldSyncFrameLoop();
-        frame->mShouldRender = xr->appShouldRender();
+        //frame->mShouldRender = xr->appShouldRender();
         if (frame->mShouldSyncFrameLoop)
         {
             frame->mFrameInfo = xr->waitFrame();
-            frame->mShouldRender |= frame->mFrameInfo.runtimeRequestsRender;
+            frame->mShouldRender = frame->mFrameInfo.runtimeRequestsRender;
             xr->xrResourceAcquired();
 
             if (frame->mShouldRender)
