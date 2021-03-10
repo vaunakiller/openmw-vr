@@ -55,8 +55,6 @@ namespace MWVR
             ss << sourceLocation << ": OpenXR[Error: " << resultString << "][Thread: " << std::this_thread::get_id() << "]: " << originator;
 #endif
             Log(Debug::Error) << ss.str();
-            if (res == XR_ERROR_TIME_INVALID)
-                Log(Debug::Error) << "Breakpoint";
             if (!sContinueOnErrors)
                 throw std::runtime_error(ss.str().c_str());
         }
@@ -246,11 +244,13 @@ namespace MWVR
     void OpenXRPlatform::setupExtensions()
     {
         std::vector<const char*> optionalExtensions = {
-            XR_KHR_COMPOSITION_LAYER_DEPTH_EXTENSION_NAME,
             XR_EXT_HP_MIXED_REALITY_CONTROLLER_EXTENSION_NAME,
             XR_HTC_VIVE_COSMOS_CONTROLLER_INTERACTION_EXTENSION_NAME,
             XR_HUAWEI_CONTROLLER_INTERACTION_EXTENSION_NAME
         };
+
+        if (Settings::Manager::getBool("enable XR_KHR_composition_layer_depth", "VR Debug"))
+            optionalExtensions.emplace_back(XR_KHR_COMPOSITION_LAYER_DEPTH_EXTENSION_NAME);
 
         if (Settings::Manager::getBool("enable XR_EXT_debug_utils", "VR Debug"))
             optionalExtensions.emplace_back(XR_EXT_DEBUG_UTILS_EXTENSION_NAME);
