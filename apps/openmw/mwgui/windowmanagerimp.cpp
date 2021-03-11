@@ -299,7 +299,7 @@ namespace MWGui
 
         mShowOwned = Settings::Manager::getInt("show owned", "Game");
 
-        mVideoWrapper = new SDLUtil::VideoWrapper(window, viewer);
+        mVideoWrapper = new SDLUtil::VideoWrapper(window, viewer, MWBase::Environment::get().getVrMode() != true);
         mVideoWrapper->setGammaContrast(Settings::Manager::getFloat("gamma", "Video"),
                                         Settings::Manager::getFloat("contrast", "Video"));
 

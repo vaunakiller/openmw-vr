@@ -402,7 +402,7 @@ namespace MWVR
         if (mMirrorTexture)
         {
             mMirrorTexture->bindFramebuffer(gc, GL_FRAMEBUFFER_EXT);
-            mMsaaResolveTexture->blit(gc, 0, 0, mMsaaResolveTexture->width(), mMsaaResolveTexture->height(), 0, 0, screenWidth, screenHeight, GL_COLOR_BUFFER_BIT, GL_LINEAR);
+            mGammaResolveTexture->blit(gc, 0, 0, mGammaResolveTexture->width(), mGammaResolveTexture->height(), 0, 0, screenWidth, screenHeight, GL_COLOR_BUFFER_BIT, GL_LINEAR);
             gl->glBindFramebuffer(GL_FRAMEBUFFER_EXT, 0);
             mMirrorTexture->blit(gc, 0, 0, screenWidth, screenHeight, 0, 0, screenWidth, screenHeight, GL_COLOR_BUFFER_BIT, GL_NEAREST);
         }
