@@ -51,8 +51,85 @@ namespace MWVR
     {
         mInstance = mPlatform.createXrInstance("openmw_vr");
 
+        LogInstanceInfo();
+
         setupDebugMessenger();
 
+        setupLayerDepth();
+
+        getSystem();
+
+        enumerateViews();
+
+        // TODO: Blend mode
+        // setupBlendMode();
+
+        // Create session
+        mSession = mPlatform.createXrSession(mInstance, mSystemId);
+        
+        LogReferenceSpaces();
+
+        createReferenceSpaces();
+
+        getSystemProperties();
+    }
+
+    void OpenXRManagerImpl::createReferenceSpaces()
+    {
+        XrReferenceSpaceCreateInfo createInfo{ XR_TYPE_REFERENCE_SPACE_CREATE_INFO };
+        createInfo.poseInReferenceSpace.orientation.w = 1.f; // Identity pose
+        createInfo.referenceSpaceType = XR_REFERENCE_SPACE_TYPE_VIEW;
+        CHECK_XRCMD(xrCreateReferenceSpace(mSession, &createInfo, &mReferenceSpaceView));
+        createInfo.referenceSpaceType = XR_REFERENCE_SPACE_TYPE_STAGE;
+        CHECK_XRCMD(xrCreateReferenceSpace(mSession, &createInfo, &mReferenceSpaceStage));
+        createInfo.referenceSpaceType = XR_REFERENCE_SPACE_TYPE_LOCAL;
+        CHECK_XRCMD(xrCreateReferenceSpace(mSession, &createInfo, &mReferenceSpaceLocal));
+
+        // Default to using the stage
+        mReferenceSpace = mReferenceSpaceStage;
+    }
+
+    void OpenXRManagerImpl::getSystem()
+    {
+        XrSystemGetInfo systemInfo{ XR_TYPE_SYSTEM_GET_INFO };
+        systemInfo.formFactor = mFormFactor = XR_FORM_FACTOR_HEAD_MOUNTED_DISPLAY;
+        auto res = CHECK_XRCMD(xrGetSystem(mInstance, &systemInfo, &mSystemId));
+        if (!XR_SUCCEEDED(res))
+            mPlatform.initFailure(res, mInstance);
+    }
+
+    void OpenXRManagerImpl::getSystemProperties()
+    {// Read and log graphics properties for the swapchain
+        CHECK_XRCMD(xrGetSystemProperties(mInstance, mSystemId, &mSystemProperties));
+
+        // Log system properties.
+        {
+            std::stringstream ss;
+            ss << "System Properties: Name=" << mSystemProperties.systemName << " VendorId=" << mSystemProperties.vendorId << std::endl;
+            ss << "System Graphics Properties: MaxWidth=" << mSystemProperties.graphicsProperties.maxSwapchainImageWidth;
+            ss << " MaxHeight=" << mSystemProperties.graphicsProperties.maxSwapchainImageHeight;
+            ss << " MaxLayers=" << mSystemProperties.graphicsProperties.maxLayerCount << std::endl;
+            ss << "System Tracking Properties: OrientationTracking=" << mSystemProperties.trackingProperties.orientationTracking ? "True" : "False";
+            ss << " PositionTracking=" << mSystemProperties.trackingProperties.positionTracking ? "True" : "False";
+            Log(Debug::Verbose) << ss.str();
+        }
+    }
+
+    void OpenXRManagerImpl::enumerateViews()
+    {
+        uint32_t viewCount = 0;
+        CHECK_XRCMD(xrEnumerateViewConfigurationViews(mInstance, mSystemId, mViewConfigType, 2, &viewCount, mConfigViews.data()));
+
+        if (viewCount != 2)
+        {
+            std::stringstream ss;
+            ss << "xrEnumerateViewConfigurationViews returned " << viewCount << " views";
+            Log(Debug::Verbose) << ss.str();
+        }
+    }
+
+    void OpenXRManagerImpl::setupLayerDepth()
+    {
         // Layer depth is enabled, cache the invariant values
         if (xrExtensionIsEnabled(XR_KHR_COMPOSITION_LAYER_DEPTH_EXTENSION_NAME))
         {
@@ -67,59 +144,6 @@ namespace MWVR
                 layer.minDepth = depthRange[0];
                 layer.maxDepth = depthRange[1];
                 layer.nearZ = nearClip;
-            }
-        }
-
-        // Get system ID
-        XrSystemGetInfo systemInfo{ XR_TYPE_SYSTEM_GET_INFO };
-        systemInfo.formFactor = mFormFactor = XR_FORM_FACTOR_HEAD_MOUNTED_DISPLAY;
-        auto res = CHECK_XRCMD(xrGetSystem(mInstance, &systemInfo, &mSystemId));
-        if (!XR_SUCCEEDED(res))
-            mPlatform.initFailure(res, mInstance);
-
-        // Create session
-        mSession = mPlatform.createXrSession(mInstance, mSystemId);
-
-        LogInstanceInfo();
-        LogReferenceSpaces();
-
-        { // Set up reference space
-            XrReferenceSpaceCreateInfo createInfo{ XR_TYPE_REFERENCE_SPACE_CREATE_INFO };
-            createInfo.poseInReferenceSpace.orientation.w = 1.f; // Identity pose
-            createInfo.referenceSpaceType = XR_REFERENCE_SPACE_TYPE_VIEW;
-            CHECK_XRCMD(xrCreateReferenceSpace(mSession, &createInfo, &mReferenceSpaceView));
-            createInfo.referenceSpaceType = XR_REFERENCE_SPACE_TYPE_STAGE;
-            CHECK_XRCMD(xrCreateReferenceSpace(mSession, &createInfo, &mReferenceSpaceStage));
-            createInfo.referenceSpaceType = XR_REFERENCE_SPACE_TYPE_LOCAL;
-            CHECK_XRCMD(xrCreateReferenceSpace(mSession, &createInfo, &mReferenceSpaceLocal));
-        }
-
-        // Default to using the stage
-        mReferenceSpace = mReferenceSpaceStage;
-
-        { // Read and log graphics properties for the swapchain
-            xrGetSystemProperties(mInstance, mSystemId, &mSystemProperties);
-
-            // Log system properties.
-            {
-                std::stringstream ss;
-                ss << "System Properties: Name=" << mSystemProperties.systemName << " VendorId=" << mSystemProperties.vendorId << std::endl;
-                ss << "System Graphics Properties: MaxWidth=" << mSystemProperties.graphicsProperties.maxSwapchainImageWidth;
-                ss << " MaxHeight=" << mSystemProperties.graphicsProperties.maxSwapchainImageHeight;
-                ss << " MaxLayers=" << mSystemProperties.graphicsProperties.maxLayerCount << std::endl;
-                ss << "System Tracking Properties: OrientationTracking=" << mSystemProperties.trackingProperties.orientationTracking ? "True" : "False";
-                ss << " PositionTracking=" << mSystemProperties.trackingProperties.positionTracking ? "True" : "False";
-                Log(Debug::Verbose) << ss.str();
-            }
-
-            uint32_t viewCount = 0;
-            CHECK_XRCMD(xrEnumerateViewConfigurationViews(mInstance, mSystemId, mViewConfigType, 2, &viewCount, mConfigViews.data()));
-
-            if (viewCount != 2)
-            {
-                std::stringstream ss;
-                ss << "xrEnumerateViewConfigurationViews returned " << viewCount << " views";
-                Log(Debug::Verbose) << ss.str();
             }
         }
     }
@@ -221,7 +245,7 @@ namespace MWVR
         OpenXRManagerImpl::LogInstanceInfo() {
 
         XrInstanceProperties instanceProperties{ XR_TYPE_INSTANCE_PROPERTIES };
-        xrGetInstanceProperties(mInstance, &instanceProperties);
+        CHECK_XRCMD(xrGetInstanceProperties(mInstance, &instanceProperties));
         Log(Debug::Verbose) << "Instance RuntimeName=" << instanceProperties.runtimeName << " RuntimeVersion=" << instanceProperties.runtimeVersion;
     }
 

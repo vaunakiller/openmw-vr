@@ -109,10 +109,6 @@ namespace MWVR
         auto* xr = Environment::get().getManager();
         xr->realize(gc);
 
-        // Run through initial events to start session
-        // For the rest of runtime this is handled by vrsession
-        xr->handleEvents();
-
         // Set up swapchain config
         mSwapchainConfig = xr->getRecommendedSwapchainConfig();
 

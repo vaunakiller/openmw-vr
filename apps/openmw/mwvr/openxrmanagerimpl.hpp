@@ -82,6 +82,11 @@ namespace MWVR
         void popEvent();
         bool handleSessionStateChanged(const XrEventDataSessionStateChanged& stateChangedEvent);
         bool checkStopCondition();
+        void createReferenceSpaces();
+        void getSystem();
+        void getSystemProperties();
+        void enumerateViews();
+        void setupLayerDepth();
 
     private:
 

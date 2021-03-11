@@ -158,9 +158,14 @@ namespace MWVR {
                 Log(Debug::Verbose) << "Failed to create swapchain with SampleCount=" << mSamples << ": " << XrResultString(res);
                 mSamples /= 2;
                 if (mSamples == 0)
+                {
+                    CHECK_XRRESULT(res, "xrCreateSwapchain");
                     throw std::runtime_error(XrResultString(res));
+                }
                 continue;
             }
+
+            CHECK_XRRESULT(res, "xrCreateSwapchain");
             VrDebug::setName(mSwapchain, "OpenMW XR Color Swapchain " + config.name);
         }
 

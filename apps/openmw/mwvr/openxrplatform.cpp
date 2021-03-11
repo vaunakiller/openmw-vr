@@ -74,9 +74,9 @@ namespace MWVR
     {
         uint32_t extensionCount = 0;
         std::vector<XrExtensionProperties> availableExtensions;
-        xrEnumerateInstanceExtensionProperties(layerName, 0, &extensionCount, nullptr);
+        CHECK_XRCMD(xrEnumerateInstanceExtensionProperties(layerName, 0, &extensionCount, nullptr));
         availableExtensions.resize(extensionCount, XrExtensionProperties{ XR_TYPE_EXTENSION_PROPERTIES });
-        xrEnumerateInstanceExtensionProperties(layerName, availableExtensions.size(), &extensionCount, availableExtensions.data());
+        CHECK_XRCMD(xrEnumerateInstanceExtensionProperties(layerName, availableExtensions.size(), &extensionCount, availableExtensions.data()));
 
         std::vector<std::string> extensionNames;
         const std::string indentStr(logIndent, ' ');
@@ -427,7 +427,7 @@ namespace MWVR
         { 
             // Get system requirements
             PFN_xrGetOpenGLGraphicsRequirementsKHR p_getRequirements = nullptr;
-            xrGetInstanceProcAddr(instance, "xrGetOpenGLGraphicsRequirementsKHR", reinterpret_cast<PFN_xrVoidFunction*>(&p_getRequirements));
+            CHECK_XRCMD(xrGetInstanceProcAddr(instance, "xrGetOpenGLGraphicsRequirementsKHR", reinterpret_cast<PFN_xrVoidFunction*>(&p_getRequirements)));
             XrGraphicsRequirementsOpenGLKHR requirements{ XR_TYPE_GRAPHICS_REQUIREMENTS_OPENGL_KHR };
             CHECK_XRCMD(p_getRequirements(instance, systemId, &requirements));
 
@@ -459,7 +459,7 @@ namespace MWVR
         else if(graphicsAPIExtension == XR_KHR_D3D11_ENABLE_EXTENSION_NAME)
         {
             PFN_xrGetD3D11GraphicsRequirementsKHR p_getRequirements = nullptr;
-            xrGetInstanceProcAddr(instance, "xrGetD3D11GraphicsRequirementsKHR", reinterpret_cast<PFN_xrVoidFunction*>(&p_getRequirements));
+            CHECK_XRCMD(xrGetInstanceProcAddr(instance, "xrGetD3D11GraphicsRequirementsKHR", reinterpret_cast<PFN_xrVoidFunction*>(&p_getRequirements)));
             XrGraphicsRequirementsD3D11KHR requirements{ XR_TYPE_GRAPHICS_REQUIREMENTS_D3D11_KHR };
             CHECK_XRCMD(p_getRequirements(instance, systemId, &requirements));
             mPrivate->initializeD3D11(requirements);
