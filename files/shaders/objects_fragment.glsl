@@ -1,5 +1,9 @@
 #version 120
 
+#if @useGPUShader4
+    #extension GL_EXT_gpu_shader4: require
+#endif
+
 #if @diffuseMap
 uniform sampler2D diffuseMap;
 varying vec2 diffuseMapUV;
@@ -60,6 +64,8 @@ varying float linearDepth;
 #if !PER_PIXEL_LIGHTING
 centroid varying vec3 passLighting;
 centroid varying vec3 shadowDiffuseLighting;
+#else
+uniform float emissiveMult;
 #endif
 varying vec3 passViewPos;
 varying vec3 passNormal;
@@ -68,6 +74,7 @@ varying vec3 passNormal;
 #include "shadows_fragment.glsl"
 #include "lighting.glsl"
 #include "parallax.glsl"
+#include "alpha.glsl"
 
 void main()
 {
@@ -109,9 +116,14 @@ void main()
 
 #if @diffuseMap
     gl_FragData[0] = texture2D(diffuseMap, adjustedDiffuseUV);
+    gl_FragData[0].a *= coveragePreservingAlphaScale(diffuseMap, adjustedDiffuseUV);
 #else
     gl_FragData[0] = vec4(1.0);
 #endif
+
+    vec4 diffuseColor = getDiffuseColor();
+    gl_FragData[0].a *= diffuseColor.a;
+    alphaTest();
 
 #if @detailMap
     gl_FragData[0].xyz *= texture2D(detailMap, detailMapUV).xyz * 2.0;
@@ -151,9 +163,6 @@ void main()
 
 #endif
 
-    vec4 diffuseColor = getDiffuseColor();
-    gl_FragData[0].a *= diffuseColor.a;
-
     float shadowing = unshadowedLightRatio(linearDepth);
     vec3 lighting;
 #if !PER_PIXEL_LIGHTING
@@ -161,7 +170,8 @@ void main()
 #else
     vec3 diffuseLight, ambientLight;
     doLighting(passViewPos, normalize(viewNormal), shadowing, diffuseLight, ambientLight);
-    lighting = diffuseColor.xyz * diffuseLight + getAmbientColor().xyz * ambientLight + getEmissionColor().xyz;
+    vec3 emission = getEmissionColor().xyz * emissiveMult;
+    lighting = diffuseColor.xyz * diffuseLight + getAmbientColor().xyz * ambientLight + emission;
 #endif
 
 #if @clamp

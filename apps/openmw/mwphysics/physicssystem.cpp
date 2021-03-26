@@ -604,7 +604,9 @@ namespace MWPhysics
                 return object->getCollisionObject();
             return nullptr;
         }();
-        assert(caster);
+
+        if (caster == nullptr)
+            Log(Debug::Warning) << "No caster for projectile " << projectileId;
 
         ProjectileConvexCallback resultCallback(caster, btFrom, btTo, projectile);
         resultCallback.m_collisionFilterMask = 0xff;
@@ -695,6 +697,15 @@ namespace MWPhysics
         return mProjectileId;
     }
 
+    void PhysicsSystem::setCaster(int projectileId, const MWWorld::Ptr& caster)
+    {
+        const auto foundProjectile = mProjectiles.find(projectileId);
+        assert(foundProjectile != mProjectiles.end());
+        auto* projectile = foundProjectile->second.get();
+
+        projectile->setCaster(caster);
+    }
+
     bool PhysicsSystem::toggleCollisionMode()
     {
         ActorMap::iterator found = mActors.find(MWMechanics::getPlayer());
@@ -733,19 +744,14 @@ namespace MWPhysics
     {
         mTimeAccum += dt;
 
-        const int maxAllowedSteps = 20;
-        int numSteps = mTimeAccum / mPhysicsDt;
-        numSteps = std::min(numSteps, maxAllowedSteps);
-
-        mTimeAccum -= numSteps * mPhysicsDt;
-
         if (skipSimulation)
             return mTaskScheduler->resetSimulation(mActors);
 
-        return mTaskScheduler->moveActors(numSteps, mTimeAccum, prepareFrameData(numSteps), frameStart, frameNumber, stats);
+        // modifies mTimeAccum
+        return mTaskScheduler->moveActors(mTimeAccum, prepareFrameData(mTimeAccum >= mPhysicsDt), frameStart, frameNumber, stats);
     }
 
-    std::vector<ActorFrameData> PhysicsSystem::prepareFrameData(int numSteps)
+    std::vector<ActorFrameData> PhysicsSystem::prepareFrameData(bool willSimulate)
     {
         std::vector<ActorFrameData> actorsFrameData;
         actorsFrameData.reserve(mMovementQueue.size());
@@ -785,7 +791,7 @@ namespace MWPhysics
 
             // Ue current value only if we don't advance the simulation. Otherwise we might get a stale value.
             MWWorld::Ptr standingOn;
-            if (numSteps == 0)
+            if (!willSimulate)
                 standingOn = physicActor->getStandingOnPtr();
 
             actorsFrameData.emplace_back(std::move(physicActor), standingOn, moveToWaterSurface, movement, slowFall, waterlevel);
@@ -950,6 +956,10 @@ namespace MWPhysics
     void ActorFrameData::updatePosition()
     {
         mActorRaw->updateWorldPosition();
+        // If physics runs "fast enough", position are interpolated without simulation
+        // By calling this here, we are sure that offsets are applied at least once per frame,
+        // regardless of simulation speed.
+        mActorRaw->applyOffsetChange();
         mPosition = mActorRaw->getPosition();
         if (mMoveToWaterSurface)
         {

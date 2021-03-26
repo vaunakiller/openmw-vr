@@ -31,15 +31,20 @@ if(NOT OPENMW_USE_SYSTEM_BULLET)
     set(USE_DOUBLE_PRECISION ${BULLET_USE_DOUBLES} CACHE BOOL "")
     set(BULLET2_MULTITHREADING ON CACHE BOOL "")
 
-    # Version 3.08 with the following changes:
-    # 1. Fixes the linking of Threads:
-    #    https://github.com/bulletphysics/bullet3/pull/3237
-    # 2. Removes ~300 MiB of files not used here:
-    #    rm -rf build3 data docs examples test Doxyfile
+    if(BULLET_STATIC)
+        set(BUILD_SHARED_LIBS OFF CACHE BOOL "" FORCE)
+    else()
+        set(BUILD_SHARED_LIBS ON CACHE BOOL "" FORCE)
+        if(MSVC)
+            set(USE_MSVC_RUNTIME_LIBRARY_DLL ON CACHE BOOL "" FORCE)
+        endif()
+    endif()
+
+    # master on 12 Mar 2021
     include(FetchContent)
     FetchContent_Declare(bullet
-        URL https://github.com/glebm/bullet3/archive/ed5256454f4f84bd2c1728c88ddb0405d614e7d2.zip
-        URL_HASH MD5=e3c94fac35a7be885ad8843f828a0f96
+        URL https://github.com/bulletphysics/bullet3/archive/87e668f6b2a883b4ef63db8a07c8e9283916e9d9.zip
+        URL_HASH MD5=9f13246439968494c2b595cf412d83c8
         SOURCE_DIR fetched/bullet
     )
     FetchContent_MakeAvailableExcludeFromAll(bullet)
@@ -60,16 +65,21 @@ if(NOT OPENMW_USE_SYSTEM_MYGUI)
     set(MYGUI_BUILD_PLUGINS OFF CACHE BOOL "")
     set(MYGUI_BUILD_TOOLS OFF CACHE BOOL "")
 
+    # We appear to be using some obsolete properties in the XML.
+    # See https://gitlab.com/OpenMW/openmw/-/issues/5896
+    set(MYGUI_DONT_USE_OBSOLETE OFF CACHE BOOL "")
+
     if(MYGUI_STATIC)
-        set(BUILD_SHARED_LIBS OFF)
+        set(BUILD_SHARED_LIBS OFF CACHE BOOL "" FORCE)
     else()
-        set(BUILD_SHARED_LIBS ON)
+        set(BUILD_SHARED_LIBS ON CACHE BOOL "" FORCE)
     endif()
 
+    # master on 13 Mar 2021
     include(FetchContent)
     FetchContent_Declare(mygui
-        URL https://github.com/MyGUI/mygui/archive/MyGUI3.4.0.zip
-        URL_HASH MD5=9e990a4240430cbf567bfe73488a274e
+        URL https://github.com/MyGUI/mygui/archive/59c1388b942721887d18743ada15f1906ff11a1f.zip
+        URL_HASH MD5=0a64c9cccc8f96dc8c08172175e68e1c
         SOURCE_DIR fetched/mygui
     )
     FetchContent_MakeAvailableExcludeFromAll(mygui)
@@ -81,8 +91,6 @@ endif()
 if(NOT OPENMW_USE_SYSTEM_OSG)
     cmake_minimum_required(VERSION 3.11) # for FetchContent
 
-    set(DYNAMIC_OPENTHREADS OFF CACHE BOOL "")
-    set(DYNAMIC_OPENSCENEGRAPH OFF CACHE BOOL "")
     set(BUILD_OSG_APPLICATIONS OFF CACHE BOOL "")
     set(BUILD_OSG_DEPRECATED_SERIALIZERS OFF CACHE BOOL "")
     set(OSG_FIND_3RD_PARTY_DEPS OFF CACHE BOOL "")
@@ -104,9 +112,33 @@ if(NOT OPENMW_USE_SYSTEM_OSG)
     set(OPENGL_PROFILE "GL2" CACHE STRING "")
 
     if(OSG_STATIC)
-        set(BUILD_SHARED_LIBS OFF)
+        set(BUILD_SHARED_LIBS OFF CACHE BOOL "" FORCE)
+        set(DYNAMIC_OPENTHREADS OFF CACHE BOOL "" FORCE)
+        set(DYNAMIC_OPENSCENEGRAPH OFF CACHE BOOL "" FORCE)
     else()
-        set(BUILD_SHARED_LIBS ON)
+        set(BUILD_SHARED_LIBS ON CACHE BOOL "" FORCE)
+        set(DYNAMIC_OPENTHREADS ON CACHE BOOL "" FORCE)
+        set(DYNAMIC_OPENSCENEGRAPH ON CACHE BOOL "" FORCE)
+    endif()
+    mark_as_advanced(DYNAMIC_OPENTHREADS DYNAMIC_OPENSCENEGRAPH)
+
+    if(WIN32)
+        # OSG here inherits C++17 language level because it doesn't specify its own.
+        #
+        # OSG's `using namespace std` interferes with Windows header files.
+        #
+        # See https://developercommunity.visualstudio.com/t/error-c2872-byte-ambiguous-symbol/93889
+        #
+        # An alternative way to work around this without changing the language level is:
+        #
+        # add_compile_definitions(_HAS_STD_BYTE=0)
+        #
+        # TODO: Put OSG into its own scope so that this does not leak into Recast below.
+        set(CMAKE_CXX_STANDARD 11)
+
+        if(MSVC)
+            set(OSG_MSVC_VERSIONED_DLL OFF CACHE BOOL "")
+        endif()
     endif()
 
     # branch OpenSceneGraph-3.6 on 23 Jan 2021.

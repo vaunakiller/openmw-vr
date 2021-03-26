@@ -102,13 +102,18 @@ add_openmw_dir (mwbase
 # Main executable
 
 set(OPENMW_LINK_TARGETS 
-    ${OSG_LIBRARIES}
+    # CMake's built-in OSG finder does not use pkgconfig, so we have to
+    # manually ensure the order is correct for inter-library dependencies.
+    # This only makes a difference with `-DOPENMW_USE_SYSTEM_OSG=ON -DOSG_STATIC=ON`.
+    # https://gitlab.kitware.com/cmake/cmake/-/issues/21701
     ${OSGPARTICLE_LIBRARIES}
-    ${OSGUTIL_LIBRARIES}
-    ${OSGDB_LIBRARIES}
     ${OSGVIEWER_LIBRARIES}
     ${OSGGA_LIBRARIES}
     ${OSGSHADOW_LIBRARIES}
+    ${OSGDB_LIBRARIES}
+    ${OSGUTIL_LIBRARIES}
+    ${OSG_LIBRARIES}
+
     ${Boost_SYSTEM_LIBRARY}
     ${Boost_THREAD_LIBRARY}
     ${Boost_FILESYSTEM_LIBRARY}
@@ -138,18 +143,26 @@ if(OSG_STATIC)
     add_library(openmw_osg_plugins INTERFACE)
     foreach(_plugin ${USED_OSG_PLUGINS})
         string(TOUPPER ${_plugin} _plugin_uc)
-        if (${_plugin_uc}_LIBRARY MATCHES "[/.]")
+        if(OPENMW_USE_SYSTEM_OSG)
             list(APPEND _osg_plugins_static_files ${${_plugin_uc}_LIBRARY})
         else()
             list(APPEND _osg_plugins_static_files $<TARGET_FILE:${${_plugin_uc}_LIBRARY}>)
+            target_link_libraries(openmw_osg_plugins INTERFACE $<TARGET_PROPERTY:${${_plugin_uc}_LIBRARY},LINK_LIBRARIES>)
+            add_dependencies(openmw_osg_plugins ${${_plugin_uc}_LIBRARY})
         endif()
-        target_link_libraries(openmw_osg_plugins INTERFACE ${${_plugin_uc}_LIBRARY})
     endforeach()
     # We use --whole-archive because OSG plugins use registration.
     get_whole_archive_options(_opts ${_osg_plugins_static_files})
     target_link_options(openmw_osg_plugins INTERFACE ${_opts})
     set(OPENMW_LINK_TARGETS ${OPENMW_LINK_TARGETS}
         openmw_osg_plugins)
+
+    if(OPENMW_USE_SYSTEM_OSG)
+        # OSG plugin pkgconfig files are missing these dependencies.
+        # https://github.com/openscenegraph/OpenSceneGraph/issues/1052
+        set(OPENMW_LINK_TARGETS ${OPENMW_LINK_TARGETS}
+            freetype jpeg png)
+    endif()
 endif(OSG_STATIC)
 
 if (ANDROID)

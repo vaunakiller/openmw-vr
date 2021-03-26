@@ -28,6 +28,7 @@
 
 #include <components/sceneutil/rtt.hpp>
 #include <components/sceneutil/shadow.hpp>
+#include <components/sceneutil/util.hpp>
 #include <components/sceneutil/waterutil.hpp>
 
 #include <components/misc/constants.hpp>
@@ -213,6 +214,37 @@ public:
     }
 };
 
+class RainIntensityUpdater : public SceneUtil::StateSetUpdater
+{
+public:
+    RainIntensityUpdater()
+        : mRainIntensity(0.f)
+    {
+    }
+
+    void setRainIntensity(float rainIntensity)
+    {
+        mRainIntensity = rainIntensity;
+    }
+
+protected:
+    void setDefaults(osg::StateSet* stateset) override
+    {
+        osg::ref_ptr<osg::Uniform> rainIntensityUniform = new osg::Uniform("rainIntensity", 0.0f);
+        stateset->addUniform(rainIntensityUniform.get());
+    }
+
+    void apply(osg::StateSet* stateset, osg::NodeVisitor* /*nv*/) override
+    {
+        osg::ref_ptr<osg::Uniform> rainIntensityUniform = stateset->getUniform("rainIntensity");
+        if (rainIntensityUniform != nullptr)
+            rainIntensityUniform->set(mRainIntensity);
+    }
+
+private:
+    float mRainIntensity;
+};
+
 osg::ref_ptr<osg::Image> readPngImage (const std::string& file)
 {
     // use boost in favor of osgDB::readImage, to handle utf-8 path issues on Windows
@@ -396,7 +428,8 @@ public:
 
 Water::Water(osg::Group *parent, osg::Group* sceneRoot, Resource::ResourceSystem *resourceSystem,
              osgUtil::IncrementalCompileOperation *ico, const std::string& resourcePath)
-    : mParent(parent)
+    : mRainIntensityUpdater(nullptr)
+    , mParent(parent)
     , mSceneRoot(sceneRoot)
     , mResourceSystem(resourceSystem)
     , mResourcePath(resourcePath)
@@ -429,8 +462,6 @@ Water::Water(osg::Group *parent, osg::Group* sceneRoot, Resource::ResourceSystem
 
     setHeight(mTop);
 
-    mRainIntensityUniform = new osg::Uniform("rainIntensity",(float) 0.0);
-
     updateWaterMaterial();
 
     if (ico)
@@ -458,11 +489,6 @@ void Water::setCullCallback(osg::Callback* callback)
         if (mRefraction)
             mRefraction->addCullCallback(callback);
     }
-}
-
-osg::Uniform *Water::getRainIntensityUniform()
-{
-    return mRainIntensityUniform.get();
 }
 
 void Water::updateWaterMaterial()
@@ -531,6 +557,8 @@ void Water::createSimpleWaterStateSet(osg::Node* node, float alpha)
     osg::ref_ptr<osg::StateSet> stateset = SceneUtil::createSimpleWaterStateSet(alpha, MWRender::RenderBin_Water);
 
     node->setStateSet(stateset);
+    node->setUpdateCallback(nullptr);
+    mRainIntensityUpdater = nullptr;
 
     // Add animated textures
     std::vector<osg::ref_ptr<osg::Texture2D> > textures;
@@ -583,7 +611,6 @@ public:
         stateset->addUniform(new osg::Uniform("normalMap", 0));
         stateset->setTextureAttributeAndModes(0, mNormalMap, osg::StateAttribute::ON);
         stateset->setMode(GL_CULL_FACE, osg::StateAttribute::OFF);
-        stateset->addUniform(mWater->getRainIntensityUniform());
         stateset->setAttributeAndModes(mProgram, osg::StateAttribute::ON);
 
         stateset->addUniform(new osg::Uniform("reflectionMap", 1));
@@ -648,6 +675,9 @@ void Water::createShaderWaterStateSet(osg::Node* node, Reflection* reflection, R
     normalMap->setMaxAnisotropy(16);
     normalMap->setFilter(osg::Texture::MIN_FILTER, osg::Texture::LINEAR_MIPMAP_LINEAR);
     normalMap->setFilter(osg::Texture::MAG_FILTER, osg::Texture::LINEAR);
+    
+    mRainIntensityUpdater = new RainIntensityUpdater();
+    node->setUpdateCallback(mRainIntensityUpdater);
 
     mShaderWaterStateSetUpdater = new ShaderWaterStateSetUpdater(this, mReflection, mRefraction, program, normalMap);
     node->addCullCallback(mShaderWaterStateSetUpdater);
@@ -729,6 +759,12 @@ void Water::setHeight(const float height)
         mReflection->setWaterLevel(mTop);
     if (mRefraction)
         mRefraction->setWaterLevel(mTop);
+}
+
+void Water::setRainIntensity(float rainIntensity)
+{
+    if (mRainIntensityUpdater)
+        mRainIntensityUpdater->setRainIntensity(rainIntensity);
 }
 
 void Water::update(float dt)

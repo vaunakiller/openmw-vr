@@ -96,8 +96,15 @@ namespace MWPhysics
           * Returns true if the new position is different.
           */
         bool setPosition(const osg::Vec3f& position);
+
+        // force set actor position to be as in Ptr::RefData
         void updatePosition();
+
+        // register a position offset that will be applied during simulation.
         void adjustPosition(const osg::Vec3f& offset);
+
+        // apply position offset. Can't be called during simulation
+        void applyOffsetChange();
 
         osg::Vec3f getPosition() const;
 
@@ -152,6 +159,24 @@ namespace MWPhysics
         MWWorld::Ptr getStandingOnPtr() const;
         void setStandingOnPtr(const MWWorld::Ptr& ptr);
 
+        unsigned int getStuckFrames() const
+        {
+            return mStuckFrames;
+        }
+        void setStuckFrames(unsigned int frames)
+        {
+            mStuckFrames = frames;
+        }
+
+        const osg::Vec3f &getLastStuckPosition() const
+        {
+            return mLastStuckPosition;
+        }
+        void setLastStuckPosition(osg::Vec3f position)
+        {
+            mLastStuckPosition = position;
+        }
+
     private:
         MWWorld::Ptr mStandingOnPtr;
         /// Removes then re-adds the collision object to the dynamics world
@@ -184,6 +209,9 @@ namespace MWPhysics
         bool mSkipSimulation;
         btTransform mLocalTransform;
         mutable std::mutex mPositionMutex;
+
+        unsigned int mStuckFrames;
+        osg::Vec3f mLastStuckPosition;
 
         osg::Vec3f mForce;
         std::atomic<bool> mOnGround;

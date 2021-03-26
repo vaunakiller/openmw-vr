@@ -270,9 +270,8 @@ namespace MWWorld
         osg::Vec3f pos = caster.getRefData().getPosition().asVec3();
         if (caster.getClass().isActor())
         {
-            // Spawn at 0.75 * ActorHeight
             // Note: we ignore the collision box offset, this is required to make some flying creatures work as intended.
-            pos.z() += mPhysics->getRenderingHalfExtents(caster).z() * 2 * 0.75;
+            pos.z() += mPhysics->getRenderingHalfExtents(caster).z() * 2 * Constants::TorsoHeight;
         }
 
         if (MWBase::Environment::get().getWorld()->isUnderwater(caster.getCell(), pos)) // Underwater casting not possible
@@ -364,6 +363,29 @@ namespace MWWorld
         state.mProjectileId = mPhysics->addProjectile(actor, pos, model, false, true);
         state.mToDelete = false;
         mProjectiles.push_back(state);
+    }
+
+    void ProjectileManager::updateCasters()
+    {
+        for (auto& state : mProjectiles)
+            mPhysics->setCaster(state.mProjectileId, state.getCaster());
+
+        for (auto& state : mMagicBolts)
+        {
+            // casters are identified by actor id in the savegame. objects doesn't have one so they can't be identified back.
+            // TODO: should object-type caster be restored from savegame?
+            if (state.mActorId == -1)
+                continue;
+
+            auto caster = state.getCaster();
+            if (caster.isEmpty())
+            {
+                Log(Debug::Error) << "Couldn't find caster with ID " << state.mActorId;
+                cleanupMagicBolt(state);
+                continue;
+            }
+            mPhysics->setCaster(state.mProjectileId, caster);
+        }
     }
 
     void ProjectileManager::update(float dt)

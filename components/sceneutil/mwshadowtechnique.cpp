@@ -280,7 +280,7 @@ void VDSMCameraCullCallback::operator()(osg::Node* node, osg::NodeVisitor* nv)
     static osg::ref_ptr<osg::StateSet> ss;
     if (!ss)
     {
-        ShadowsBinAdder adder("ShadowsBin");
+        ShadowsBinAdder adder("ShadowsBin", _vdsm->getCastingPrograms());
         ss = new osg::StateSet;
         ss->setRenderBinDetails(osg::StateSet::OPAQUE_BIN, "ShadowsBin", osg::StateSet::OVERRIDE_PROTECTED_RENDERBIN_DETAILS);
     }
@@ -787,7 +787,8 @@ void MWShadowTechnique::ViewDependentData::releaseGLObjects(osg::State* state) c
 MWShadowTechnique::MWShadowTechnique():
     ShadowTechnique(),
     _enableShadows(false),
-    _debugHud(nullptr)
+    _debugHud(nullptr),
+    _castingPrograms{ nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr }
 {
     _shadowRecievingPlaceholderStateSet = new osg::StateSet;
     mSetDummyStateWhenDisabled = false;
@@ -795,6 +796,7 @@ MWShadowTechnique::MWShadowTechnique():
 
 MWShadowTechnique::MWShadowTechnique(const MWShadowTechnique& vdsm, const osg::CopyOp& copyop):
     ShadowTechnique(vdsm,copyop)
+    , _castingPrograms(vdsm._castingPrograms)
 {
     _shadowRecievingPlaceholderStateSet = new osg::StateSet;
     _enableShadows = vdsm._enableShadows;
@@ -875,7 +877,10 @@ void SceneUtil::MWShadowTechnique::enableFrontFaceCulling()
     _useFrontFaceCulling = true;
 
     if (_shadowCastingStateSet)
+    {
         _shadowCastingStateSet->setAttribute(new osg::CullFace(osg::CullFace::FRONT), osg::StateAttribute::ON | osg::StateAttribute::OVERRIDE);
+        _shadowCastingStateSet->setMode(GL_CULL_FACE, osg::StateAttribute::OFF);
+    }
 }
 
 void SceneUtil::MWShadowTechnique::disableFrontFaceCulling()
@@ -883,17 +888,29 @@ void SceneUtil::MWShadowTechnique::disableFrontFaceCulling()
     _useFrontFaceCulling = false;
 
     if (_shadowCastingStateSet)
+    {
+        _shadowCastingStateSet->removeAttribute(osg::StateAttribute::CULLFACE);
         _shadowCastingStateSet->setMode(GL_CULL_FACE, osg::StateAttribute::OFF | osg::StateAttribute::OVERRIDE);
+    }
 }
 
 void SceneUtil::MWShadowTechnique::setupCastingShader(Shader::ShaderManager & shaderManager)
 {
     // This can't be part of the constructor as OSG mandates that there be a trivial constructor available
-    
-    _castingProgram = new osg::Program();
 
-    _castingProgram->addShader(shaderManager.getShader("shadowcasting_vertex.glsl", Shader::ShaderManager::DefineMap(), osg::Shader::VERTEX));
-    _castingProgram->addShader(shaderManager.getShader("shadowcasting_fragment.glsl", Shader::ShaderManager::DefineMap(), osg::Shader::FRAGMENT));
+    osg::ref_ptr<osg::Shader> castingVertexShader = shaderManager.getShader("shadowcasting_vertex.glsl", {}, osg::Shader::VERTEX);
+    osg::ref_ptr<osg::GLExtensions> exts = osg::GLExtensions::Get(0, false);
+    std::string useGPUShader4 = exts && exts->isGpuShader4Supported ? "1" : "0";
+    for (int alphaFunc = GL_NEVER; alphaFunc <= GL_ALWAYS; ++alphaFunc)
+    {
+        auto& program = _castingPrograms[alphaFunc - GL_NEVER];
+        program = new osg::Program();
+        program->addShader(castingVertexShader);
+        program->addShader(shaderManager.getShader("shadowcasting_fragment.glsl", { {"alphaFunc", std::to_string(alphaFunc)},
+                                                                                    {"alphaToCoverage", "0"},
+                                                                                    {"useGPUShader4", useGPUShader4}
+                                                                                  }, osg::Shader::FRAGMENT));
+    }
 }
 
 MWShadowTechnique::ViewDependentData* MWShadowTechnique::createViewDependentData(osgUtil::CullVisitor* /*cv*/)
@@ -1758,10 +1775,11 @@ void MWShadowTechnique::createShaders()
 
     }
 
-    if (!_castingProgram)
+    if (!_castingPrograms[GL_ALWAYS - GL_NEVER])
         OSG_NOTICE << "Shadow casting shader has not been set up. Remember to call setupCastingShader(Shader::ShaderManager &)" << std::endl;
 
-    _shadowCastingStateSet->setAttributeAndModes(_castingProgram, osg::StateAttribute::ON | osg::StateAttribute::OVERRIDE);
+    // Always use the GL_ALWAYS shader as the shadows bin will change it if necessary
+    _shadowCastingStateSet->setAttributeAndModes(_castingPrograms[GL_ALWAYS - GL_NEVER], osg::StateAttribute::ON | osg::StateAttribute::OVERRIDE);
     // The casting program uses a sampler, so to avoid undefined behaviour, we must bind a dummy texture in case no other is supplied
     _shadowCastingStateSet->setTextureAttributeAndModes(0, _fallbackBaseTexture.get(), osg::StateAttribute::ON);
     _shadowCastingStateSet->addUniform(new osg::Uniform("useDiffuseMapForShadowAlpha", true));

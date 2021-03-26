@@ -12,6 +12,7 @@
 #include <osg/BlendFunc>
 #include <osg/Texture2D>
 #include <osg/TexMat>
+#include <osg/ValueObject>
 
 #include <osgViewer/Viewer>
 
@@ -19,6 +20,9 @@
 
 #include <components/resource/imagemanager.hpp>
 
+#include <components/debug/debuglog.hpp>
+
+#include "myguicompat.h"
 #include "myguitexture.hpp"
 
 #define MYGUI_PLATFORM_LOG_SECTION "Platform"
@@ -274,7 +278,7 @@ public:
     osg::VertexBufferObject* getVertexBuffer();
 
     void setVertexCount(size_t count) override;
-    size_t getVertexCount() override;
+    size_t getVertexCount() OPENMW_MYGUI_CONST_GETTER_3_4_1 override;
 
     MyGUI::Vertex *lock() override;
     void unlock() override;
@@ -301,7 +305,7 @@ void OSGVertexBuffer::setVertexCount(size_t count)
     mNeedVertexCount = count;
 }
 
-size_t OSGVertexBuffer::getVertexCount()
+size_t OSGVertexBuffer::getVertexCount() OPENMW_MYGUI_CONST_GETTER_3_4_1
 {
     return mNeedVertexCount;
 }
@@ -502,15 +506,24 @@ void GUICamera::doRender(MyGUI::IVertexBuffer *buffer, MyGUI::ITexture *texture,
     batch.mVertexBuffer = static_cast<OSGVertexBuffer*>(buffer)->getVertexBuffer();
     batch.mArray = static_cast<OSGVertexBuffer*>(buffer)->getVertexArray();
     static_cast<OSGVertexBuffer*>(buffer)->markUsed();
+    bool premultipliedAlpha = false;
     if (texture)
     {
         batch.mTexture = static_cast<OSGTexture*>(texture)->getTexture();
         if (batch.mTexture->getDataVariance() == osg::Object::DYNAMIC)
             mDrawable->setDataVariance(osg::Object::DYNAMIC); // only for this frame, reset in begin()
+        batch.mTexture->getUserValue("premultiplied alpha", premultipliedAlpha);
     }
 
     if (mInjectState)
         batch.mStateSet = mInjectState;
+    else if (premultipliedAlpha)
+    {
+        // This is hacky, but MyGUI made it impossible to use a custom layer for a nested node, so state couldn't be injected 'properly'
+        osg::ref_ptr<osg::StateSet> stateSet = new osg::StateSet();
+        stateSet->setAttribute(new osg::BlendFunc(osg::BlendFunc::ONE, osg::BlendFunc::ONE_MINUS_SRC_ALPHA));
+        batch.mStateSet = stateSet;
+    }
 
     mDrawable->addBatch(batch);
 }
@@ -675,5 +688,15 @@ bool RenderManager::checkTexture(MyGUI::ITexture* _texture)
     // We support external textures that aren't registered via this manager, so can't implement this method sensibly.
     return true;
 }
+
+#if MYGUI_VERSION > MYGUI_DEFINE_VERSION(3, 4, 0)
+void RenderManager::registerShader(
+    const std::string& _shaderName,
+    const std::string& _vertexProgramFile,
+    const std::string& _fragmentProgramFile)
+{
+    MYGUI_PLATFORM_LOG(Warning, "osgMyGUI::RenderManager::registerShader is not implemented");
+}
+#endif
 
 }

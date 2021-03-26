@@ -125,6 +125,7 @@ namespace MWPhysics
             void addActor (const MWWorld::Ptr& ptr, const std::string& mesh);
 
             int addProjectile(const MWWorld::Ptr& caster, const osg::Vec3f& position, const std::string& mesh, bool computeRadius, bool canTraverseWater);
+            void setCaster(int projectileId, const MWWorld::Ptr& caster);
             void updateProjectile(const int projectileId, const osg::Vec3f &position) const;
             void removeProjectile(const int projectileId);
 
@@ -251,7 +252,7 @@ namespace MWPhysics
 
             void updateWater();
 
-            std::vector<ActorFrameData> prepareFrameData(int numSteps);
+            std::vector<ActorFrameData> prepareFrameData(bool willSimulate);
 
             osg::ref_ptr<SceneUtil::UnrefQueue> mUnrefQueue;
 

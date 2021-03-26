@@ -18,6 +18,8 @@ namespace DetourNavigator
 
     void NavigatorImpl::addAgent(const osg::Vec3f& agentHalfExtents)
     {
+        if(agentHalfExtents.length2() <= 0)
+            return;
         ++mAgents[agentHalfExtents];
         mNavMeshManager.addAgent(agentHalfExtents);
     }
@@ -210,5 +212,11 @@ namespace DetourNavigator
             else
                 ++it;
         }
+    }
+
+    float NavigatorImpl::getMaxNavmeshAreaRealRadius() const
+    {
+        const auto& settings = getSettings();
+        return getRealTileSize(settings) * getMaxNavmeshAreaRadius(settings);
     }
 }

@@ -24,6 +24,7 @@ declare -rA GROUPED_DEPS=(
     libbullet-dev liblz4-dev libpng-dev libjpeg-dev 
 	libxcb-glx0-dev libx11-dev
   "
+  # TODO: add librecastnavigation-dev when debian is ready
 
   # These dependencies can alternatively be built and linked statically.
   [openmw-deps-dynamic]="libmygui-dev libopenscenegraph-dev"

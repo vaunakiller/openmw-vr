@@ -1,4 +1,5 @@
 #include "rtt.hpp"
+#include "util.hpp"
 
 #include <osg/Node>
 #include <osg/NodeVisitor>
@@ -86,6 +87,7 @@ namespace SceneUtil
                 colorBuffer->setFilter(osg::Texture::MIN_FILTER, osg::Texture::LINEAR);
                 colorBuffer->setFilter(osg::Texture::MAG_FILTER, osg::Texture::LINEAR);
                 camera->attach(osg::Camera::COLOR_BUFFER, colorBuffer);
+                SceneUtil::attachAlphaToCoverageFriendlyFramebufferToCamera(camera, osg::Camera::COLOR_BUFFER, colorBuffer);
             }
 
             if (camera->getBufferAttachmentMap().count(osg::Camera::DEPTH_BUFFER) == 0)

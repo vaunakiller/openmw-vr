@@ -3240,6 +3240,11 @@ namespace MWWorld
         mProjectileManager->launchMagicBolt(spellId, caster, fallbackDirection);
     }
 
+    void World::updateProjectilesCasters()
+    {
+        mProjectileManager->updateCasters();
+    }
+
     class ApplyLoopingParticlesVisitor : public MWMechanics::EffectSourceVisitor
     {
     private:
@@ -3921,11 +3926,14 @@ namespace MWWorld
         return false;
     }
 
-    osg::Vec3f World::aimToTarget(const ConstPtr &actor, const MWWorld::ConstPtr& target)
+    osg::Vec3f World::aimToTarget(const ConstPtr &actor, const ConstPtr &target)
     {
         osg::Vec3f weaponPos = actor.getRefData().getPosition().asVec3();
-        weaponPos.z() += mPhysics->getHalfExtents(actor).z();
-        osg::Vec3f targetPos = mPhysics->getCollisionObjectPosition(target);
+        osg::Vec3f weaponHalfExtents = mPhysics->getHalfExtents(actor);
+        osg::Vec3f targetPos = target.getRefData().getPosition().asVec3();
+        osg::Vec3f targetHalfExtents = mPhysics->getHalfExtents(target);
+        weaponPos.z() += weaponHalfExtents.z() * 2 * Constants::TorsoHeight;
+        targetPos.z() += targetHalfExtents.z();
         return (targetPos - weaponPos);
     }
 
