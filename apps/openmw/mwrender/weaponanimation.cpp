@@ -16,6 +16,7 @@
 #include "../mwmechanics/creaturestats.hpp"
 #include "../mwmechanics/combat.hpp"
 #include "../mwmechanics/weapontype.hpp"
+#include "../mwmechanics/actorutil.hpp"
 
 #ifdef USE_OPENXR
 #include "../mwvr/vrenvironment.hpp"
@@ -117,13 +118,15 @@ void WeaponAnimation::releaseArrow(MWWorld::Ptr actor, float attackStrength)
     if (weapon->getTypeName() != typeid(ESM::Weapon).name())
         return;
 
-#ifdef USE_OPENXR
-    // In VR weapon aim is taken from the real orientation of the weapon.
-    osg::Quat orient = MWVR::Environment::get().getPlayerAnimation()->getWeaponTransformMatrix().getRotate();
-#else
     // The orientation of the launched projectile. Always the same as the actor orientation, even if the ArrowBone's orientation dictates otherwise.
-    osg::Quat orient = osg::Quat(actor.getRefData().getPosition().rot[0], osg::Vec3f(-1,0,0))
-            * osg::Quat(actor.getRefData().getPosition().rot[2], osg::Vec3f(0,0,-1));
+    osg::Quat orient = osg::Quat(actor.getRefData().getPosition().rot[0], osg::Vec3f(-1, 0, 0))
+        * osg::Quat(actor.getRefData().getPosition().rot[2], osg::Vec3f(0, 0, -1));
+
+#ifdef USE_OPENXR
+    bool isPlayer = actor == MWMechanics::getPlayer();
+    // In VR weapon aim is taken from the real orientation of the weapon.
+    if(isPlayer)
+        orient = MWVR::Environment::get().getPlayerAnimation()->getWeaponTransformMatrix().getRotate();
 #endif
 
     const MWWorld::Store<ESM::GameSetting> &gmst =
