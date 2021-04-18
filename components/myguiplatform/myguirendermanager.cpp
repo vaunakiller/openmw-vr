@@ -405,7 +405,7 @@ public:
     void setViewSize(MyGUI::IntSize viewSize);
 
     /** @see IRenderTarget::getInfo */
-    const MyGUI::RenderTargetInfo& getInfo() override { return mInfo; }
+    const MyGUI::RenderTargetInfo& getInfo() OPENMW_MYGUI_CONST_GETTER_3_4_1 override { return mInfo; }
 
     RenderManager* mParent;
     osg::ref_ptr<Drawable> mDrawable;
