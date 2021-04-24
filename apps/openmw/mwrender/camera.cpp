@@ -453,7 +453,7 @@ namespace MWRender
     void Camera::setPitch(float angle)
     {
         const float epsilon = 0.000001f;
-        float limit = osg::PI_2 - epsilon;
+        float limit = static_cast<float>(osg::PI_2) - epsilon;
         mPitch = osg::clampBetween(angle, -limit, limit);
     }
 

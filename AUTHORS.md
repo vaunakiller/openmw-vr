@@ -4,7 +4,7 @@ Contributors
 The OpenMW project was started in 2008 by Nicolay Korslund.
 In the course of years many people have contributed to the project.
 
-If you feel your name is missing from this list, please notify a developer.
+If you feel your name is missing from this list, please add it to `AUTHORS.md`.
 
 
 Programmers
@@ -24,7 +24,7 @@ Programmers
     Alex McKibben
     alexanderkjall
     Alexander Nadeau (wareya)
-    Alexander Olofsson (Ace)
+    Alexander Olofsson (Ananace)
     Alex Rice
     Alex S (docwest)
     Allofich
@@ -49,6 +49,7 @@ Programmers
     Cédric Mocquillon
     Chris Boyce (slothlife)
     Chris Robinson (KittyCat)
+    Cody Glassman (Wazabear)
     Coleman Smith (olcoal)
     Cory F. Cohen (cfcohen)
     Cris Mihalache (Mirceam)
@@ -89,6 +90,7 @@ Programmers
     Internecine
     Jackerty
     Jacob Essex (Yacoby)
+    Jacob Turnbull (Tankinfrank)
     Jake Westrip (16bitint)
     James Carty (MrTopCat)
     James Moore (moore.work)
@@ -150,6 +152,7 @@ Programmers
     Nathan Jeffords (blunted2night)
     NeveHanter
     Nialsy
+    Nick Crawford (nighthawk469)
     Nikolay Kasyanov (corristo)
     nobrakal
     Nolan Poe (nopoe)
@@ -184,6 +187,7 @@ Programmers
     sergoz
     ShadowRadiance
     Siimacore
+    Simon Meulenbeek (simonmb)
     sir_herrbatka
     smbas
     Sophie Kirschner (pineapplemachine)
@@ -197,6 +201,7 @@ Programmers
     Sylvain Thesnieres (Garvek)
     t6
     terrorfisch
+    Tess (tescoShoppah)
     thegriglat
     Thomas Luppi (Digmaster)
     tlmullis
@@ -235,7 +240,8 @@ Documentation
 Packagers
 ---------
 
-    Alexander Olofsson (Ace) - Windows
+    Alexander Olofsson (Ananace) - Windows and Flatpak
+    Alexey Sokolov (DarthGandalf) - Gentoo Linux
     Bret Curtis (psi29a) - Debian and Ubuntu Linux
     Edmondo Tommasina (edmondo) - Gentoo Linux
     Julian Ospald (hasufell) - Gentoo Linux

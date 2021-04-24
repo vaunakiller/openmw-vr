@@ -1,5 +1,13 @@
 #version 120
 
+#if @useUBO
+    #extension GL_ARB_uniform_buffer_object : require
+#endif
+
+#if @useGPUShader4
+    #extension GL_EXT_gpu_shader4: require
+#endif
+
 varying vec2 uv;
 
 uniform sampler2D diffuseMap;
@@ -79,12 +87,7 @@ void main()
     vec3 diffuseLight, ambientLight;
     doLighting(passViewPos, normalize(viewNormal), shadowing, diffuseLight, ambientLight);
     lighting = diffuseColor.xyz * diffuseLight + getAmbientColor().xyz * ambientLight + getEmissionColor().xyz;
-#endif
-
-#if @clamp
-    lighting = clamp(lighting, vec3(0.0), vec3(1.0));
-#else
-    lighting = max(lighting, 0.0);
+    clampLightingResult(lighting);
 #endif
 
     gl_FragData[0].xyz *= lighting;

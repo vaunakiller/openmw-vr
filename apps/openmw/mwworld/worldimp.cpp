@@ -1280,7 +1280,7 @@ namespace MWWorld
         return newPtr;
     }
 
-    MWWorld::Ptr World::moveObjectImp(const Ptr& ptr, float x, float y, float z, bool movePhysics, bool moveToActive)
+    MWWorld::Ptr World::moveObject (const Ptr& ptr, float x, float y, float z, bool movePhysics, bool moveToActive)
     {
         int cellX, cellY;
         positionToIndex(x, y, cellX, cellY);
@@ -1295,20 +1295,14 @@ namespace MWWorld
         return moveObject(ptr, cell, x, y, z, movePhysics);
     }
 
-    MWWorld::Ptr World::moveObject (const Ptr& ptr, float x, float y, float z, bool moveToActive)
-    {
-        return moveObjectImp(ptr, x, y, z, true, moveToActive);
-    }
-
-    MWWorld::Ptr World::moveObjectBy(const Ptr& ptr, osg::Vec3f vec)
+    MWWorld::Ptr World::moveObjectBy(const Ptr& ptr, osg::Vec3f vec, bool moveToActive)
     {
         auto* actor = mPhysics->getActor(ptr);
-        if (actor)
-        {
-            actor->adjustPosition(vec);
-            return ptr;
-        }
         osg::Vec3f newpos = ptr.getRefData().getPosition().asVec3() + vec;
+        if (actor)
+            actor->adjustPosition(vec);
+        if (ptr.getClass().isActor())
+            return moveObject(ptr, newpos.x(), newpos.y(), newpos.z(), false, moveToActive && ptr != getPlayerPtr());
         return moveObject(ptr, newpos.x(), newpos.y(), newpos.z());
     }
 
@@ -1575,7 +1569,7 @@ namespace MWWorld
                 auto* physactor = mPhysics->getActor(actor);
                 assert(physactor);
                 const auto position = physactor->getSimulationPosition();
-                moveObjectImp(actor, position.x(), position.y(), position.z(), false);
+                moveObject(actor, position.x(), position.y(), position.z(), false, false);
             }
         }
 
@@ -1585,7 +1579,7 @@ namespace MWWorld
             auto* physactor = mPhysics->getActor(*player);
             assert(physactor);
             const auto position = physactor->getSimulationPosition();
-            moveObjectImp(*player, position.x(), position.y(), position.z(), false);
+            moveObject(*player, position.x(), position.y(), position.z(), false, false);
         }
     }
 
@@ -2513,6 +2507,11 @@ namespace MWWorld
     void World::adjustCameraDistance(float dist)
     {
         mRendering->getCamera()->adjustCameraDistance(dist);
+    }
+
+    void World::saveLoaded()
+    {
+        mStore.validateDynamic();
     }
 
     void World::setupPlayer()
@@ -3926,14 +3925,12 @@ namespace MWWorld
         return false;
     }
 
-    osg::Vec3f World::aimToTarget(const ConstPtr &actor, const ConstPtr &target)
+    osg::Vec3f World::aimToTarget(const ConstPtr &actor, const ConstPtr &target, bool isRangedCombat)
     {
         osg::Vec3f weaponPos = actor.getRefData().getPosition().asVec3();
-        osg::Vec3f weaponHalfExtents = mPhysics->getHalfExtents(actor);
-        osg::Vec3f targetPos = target.getRefData().getPosition().asVec3();
-        osg::Vec3f targetHalfExtents = mPhysics->getHalfExtents(target);
-        weaponPos.z() += weaponHalfExtents.z() * 2 * Constants::TorsoHeight;
-        targetPos.z() += targetHalfExtents.z();
+        float heightRatio = isRangedCombat ? 2.f * Constants::TorsoHeight : 1.f;
+        weaponPos.z() += mPhysics->getHalfExtents(actor).z() * heightRatio;
+        osg::Vec3f targetPos = mPhysics->getCollisionObjectPosition(target);
         return (targetPos - weaponPos);
     }
 
@@ -3957,7 +3954,7 @@ namespace MWWorld
             if (!model.empty())
                 scene->preload(model, ref.getPtr().getClass().useAnim());
         }
-        catch(std::exception& e)
+        catch(std::exception&)
         {
         }
     }

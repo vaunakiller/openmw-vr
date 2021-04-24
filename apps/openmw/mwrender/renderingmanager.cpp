@@ -54,6 +54,7 @@
 #include "../mwgui/loadingscreen.hpp"
 #include "../mwbase/environment.hpp"
 #include "../mwbase/windowmanager.hpp"
+#include "../mwmechanics/actorutil.hpp"
 
 #include "sky.hpp"
 #include "effectmanager.hpp"
@@ -205,14 +206,20 @@ namespace MWRender
         , mWorkQueue(workQueue)
         , mUnrefQueue(new SceneUtil::UnrefQueue)
         , mNavigator(navigator)
+        , mMinimumAmbientLuminance(0.f)
         , mNightEyeFactor(0.f)
         , mFieldOfViewOverridden(false)
         , mFieldOfViewOverride(0.f)
     {
+        auto lightingMethod = SceneUtil::LightManager::getLightingMethodFromString(Settings::Manager::getString("lighting method", "Shaders"));
+
         resourceSystem->getSceneManager()->setParticleSystemMask(MWRender::Mask_ParticleSystem);
         resourceSystem->getSceneManager()->setShaderPath(resourcePath + "/shaders");
         // Shadows and radial fog have problems with fixed-function mode
-        //bool forceShaders = Settings::Manager::getBool("radial fog", "Shaders") || Settings::Manager::getBool("force shaders", "Shaders") || Settings::Manager::getBool("enable shadows", "Shadows");
+        bool forceShaders = Settings::Manager::getBool("radial fog", "Shaders")
+                            || Settings::Manager::getBool("force shaders", "Shaders")
+                            || Settings::Manager::getBool("enable shadows", "Shadows")
+                            || lightingMethod != SceneUtil::LightingMethod::FFP;
         //resourceSystem->getSceneManager()->setForceShaders(forceShaders);
         resourceSystem->getSceneManager()->setForceShaders(true);
         // FIXME: calling dummy method because terrain needs to know whether lighting is clamped
@@ -225,7 +232,13 @@ namespace MWRender
         resourceSystem->getSceneManager()->setApplyLightingToEnvMaps(Settings::Manager::getBool("apply lighting to environment maps", "Shaders"));
         resourceSystem->getSceneManager()->setConvertAlphaTestToAlphaToCoverage(Settings::Manager::getBool("antialias alpha test", "Shaders") && Settings::Manager::getInt("antialiasing", "Video") > 1);
 
-        osg::ref_ptr<SceneUtil::LightManager> sceneRoot = new SceneUtil::LightManager;
+        // Let LightManager choose which backend to use based on our hint. For methods besides legacy lighting, this depends on support for various OpenGL extensions.
+        osg::ref_ptr<SceneUtil::LightManager> sceneRoot = new SceneUtil::LightManager(lightingMethod == SceneUtil::LightingMethod::FFP);
+        resourceSystem->getSceneManager()->getShaderManager().setLightingMethod(sceneRoot->getLightingMethod());
+        resourceSystem->getSceneManager()->setLightingMethod(sceneRoot->getLightingMethod());
+        resourceSystem->getSceneManager()->setSupportedLightingMethods(sceneRoot->getSupportedLightingMethods());
+        mMinimumAmbientLuminance = std::clamp(Settings::Manager::getFloat("minimum interior brightness", "Shaders"), 0.f, 1.f);
+
         sceneRoot->setLightingMask(Mask_Lighting);
         mSceneRoot = sceneRoot;
         sceneRoot->setStartLight(1);
@@ -247,6 +260,7 @@ namespace MWRender
         mShadowManager.reset(new SceneUtil::ShadowManager(sceneRoot, mRootNode, shadowCastingTraversalMask, indoorShadowCastingTraversalMask, mResourceSystem->getSceneManager()->getShaderManager()));
 
         Shader::ShaderManager::DefineMap shadowDefines = mShadowManager->getShadowDefines();
+        Shader::ShaderManager::DefineMap lightDefines = sceneRoot->getLightDefines();
         Shader::ShaderManager::DefineMap globalDefines = mResourceSystem->getSceneManager()->getShaderManager().getGlobalDefines();
 
         for (auto itr = shadowDefines.begin(); itr != shadowDefines.end(); itr++)
@@ -258,9 +272,15 @@ namespace MWRender
         globalDefines["radialFog"] = Settings::Manager::getBool("radial fog", "Shaders") ? "1" : "0";
         globalDefines["useGPUShader4"] = "0";
 
+        for (auto itr = lightDefines.begin(); itr != lightDefines.end(); itr++)
+            globalDefines[itr->first] = itr->second;
+
+        // Refactor this at some point - most shaders don't care about these defines
         float groundcoverDistance = (Constants::CellSizeInUnits * std::max(1, Settings::Manager::getInt("distance", "Groundcover")) - 1024) * 0.93;
         globalDefines["groundcoverFadeStart"] = std::to_string(groundcoverDistance * 0.9f);
         globalDefines["groundcoverFadeEnd"] = std::to_string(groundcoverDistance);
+        globalDefines["groundcoverStompMode"] = std::to_string(std::clamp(Settings::Manager::getInt("stomp mode", "Groundcover"), 0, 2));
+        globalDefines["groundcoverStompIntensity"] = std::to_string(std::clamp(Settings::Manager::getInt("stomp intensity", "Groundcover"), 0, 2));
 
         // It is unnecessary to stop/start the viewer as no frames are being rendered yet.
         mResourceSystem->getSceneManager()->getShaderManager().setGlobalDefines(globalDefines);
@@ -363,6 +383,7 @@ namespace MWRender
         mSunLight->setAmbient(osg::Vec4f(0,0,0,1));
         mSunLight->setSpecular(osg::Vec4f(0,0,0,0));
         mSunLight->setConstantAttenuation(1.f);
+        sceneRoot->setSunlight(mSunLight);
         sceneRoot->addChild(source);
 
         sceneRoot->getOrCreateStateSet()->setMode(GL_CULL_FACE, osg::StateAttribute::ON);
@@ -536,7 +557,32 @@ namespace MWRender
 
     void RenderingManager::configureAmbient(const ESM::Cell *cell)
     {
-        setAmbientColour(SceneUtil::colourFromRGB(cell->mAmbi.mAmbient));
+        bool needsAdjusting = false;
+        if (mResourceSystem->getSceneManager()->getLightingMethod() != SceneUtil::LightingMethod::FFP)
+            needsAdjusting = !cell->isExterior() && !(cell->mData.mFlags & ESM::Cell::QuasiEx);
+
+        auto ambient = SceneUtil::colourFromRGB(cell->mAmbi.mAmbient);
+
+        if (needsAdjusting)
+        {
+            constexpr float pR = 0.2126;
+            constexpr float pG = 0.7152;
+            constexpr float pB = 0.0722;
+
+            // we already work in linear RGB so no conversions are needed for the luminosity function
+            float relativeLuminance = pR*ambient.r() + pG*ambient.g() + pB*ambient.b();
+            if (relativeLuminance < mMinimumAmbientLuminance)
+            {
+                // brighten ambient so it reaches the minimum threshold but no more, we want to mess with content data as least we can
+                float targetBrightnessIncreaseFactor = mMinimumAmbientLuminance / relativeLuminance;
+                if (ambient.r() == 0.f && ambient.g() == 0.f && ambient.b() == 0.f)
+                    ambient = osg::Vec4(mMinimumAmbientLuminance, mMinimumAmbientLuminance, mMinimumAmbientLuminance, ambient.a());
+                else
+                    ambient *= targetBrightnessIncreaseFactor;
+            }
+        }
+
+        setAmbientColour(ambient);
 
         osg::Vec4f diffuse = SceneUtil::colourFromRGB(cell->mAmbi.mSunlight);
         mSunLight->setDiffuse(diffuse);
@@ -630,7 +676,7 @@ namespace MWRender
         }
         else if (mode == Render_Scene)
         {
-            int mask = mViewer->getCamera()->getCullMask();
+            unsigned int mask = mViewer->getCamera()->getCullMask();
             bool enabled = mask&Mask_Scene;
             enabled = !enabled;
             if (enabled)
@@ -787,7 +833,7 @@ namespace MWRender
             return false;
         }
 
-        int maskBackup = mPlayerAnimation->getObjectRoot()->getNodeMask();
+        unsigned int maskBackup = mPlayerAnimation->getObjectRoot()->getNodeMask();
 
         if (mCamera->isFirstPerson())
             mPlayerAnimation->getObjectRoot()->setNodeMask(0);
@@ -832,7 +878,7 @@ namespace MWRender
     {
         RayResult result;
         result.mHit = false;
-        result.mHitRefnum.mContentFile = -1;
+        result.mHitRefnum.unset();
         result.mRatio = 0;
         result.mHitNode = nullptr;
         if (intersector->containsIntersections())
@@ -893,7 +939,7 @@ namespace MWRender
         mIntersectionVisitor->setFrameStamp(mViewer->getFrameStamp());
         mIntersectionVisitor->setIntersector(intersector);
 
-        int mask = ~0;
+        unsigned int mask = ~0u;
         mask &= ~(Mask_RenderToTexture|Mask_Sky|Mask_Debug|Mask_Effect|Mask_Water|Mask_SimpleWater|Mask_Groundcover);
         if (ignorePlayer)
             mask &= ~(Mask_Player);
@@ -1154,9 +1200,47 @@ namespace MWRender
             else if (it->first == "General" && (it->second == "texture filter" ||
                                                 it->second == "texture mipmap" ||
                                                 it->second == "anisotropy"))
+            {
                 updateTextureFiltering();
+            }
             else if (it->first == "Water")
+            {
                 mWater->processChangedSettings(changed);
+            }
+            else if (it->first == "Shaders" && it->second == "minimum interior brightness")
+            {
+                mMinimumAmbientLuminance = std::clamp(Settings::Manager::getFloat("minimum interior brightness", "Shaders"), 0.f, 1.f);
+                if (MWMechanics::getPlayer().isInCell())
+                    configureAmbient(MWMechanics::getPlayer().getCell()->getCell());
+            }
+            else if (it->first == "Shaders" && (it->second == "light bounds multiplier" ||
+                                                it->second == "maximum light distance" ||
+                                                it->second == "light fade start" ||
+                                                it->second == "max lights"))
+            {
+                auto* lightManager = static_cast<SceneUtil::LightManager*>(getLightRoot());
+                lightManager->processChangedSettings(changed);
+
+                if (it->second == "max lights" && !lightManager->usingFFP())
+                {
+                    mViewer->stopThreading();
+
+                    lightManager->updateMaxLights();
+
+                    auto defines = mResourceSystem->getSceneManager()->getShaderManager().getGlobalDefines();
+                    for (const auto& [name, key] : lightManager->getLightDefines())
+                        defines[name] = key;
+                    mResourceSystem->getSceneManager()->getShaderManager().setGlobalDefines(defines);
+
+                    mSceneRoot->removeUpdateCallback(mStateUpdater);
+                    mStateUpdater = new StateUpdater;
+                    mSceneRoot->addUpdateCallback(mStateUpdater);
+                    mStateUpdater->setFogEnd(mViewDistance);
+                    updateAmbient();
+
+                    mViewer->startThreading();
+                }
+            }
         }
     }
 

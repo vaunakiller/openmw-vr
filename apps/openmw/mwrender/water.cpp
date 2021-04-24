@@ -30,6 +30,7 @@
 #include <components/sceneutil/shadow.hpp>
 #include <components/sceneutil/util.hpp>
 #include <components/sceneutil/waterutil.hpp>
+#include <components/sceneutil/lightmanager.hpp>
 
 #include <components/misc/constants.hpp>
 #include <components/misc/stereo.hpp>
@@ -676,6 +677,10 @@ void Water::createShaderWaterStateSet(osg::Node* node, Reflection* reflection, R
     normalMap->setFilter(osg::Texture::MIN_FILTER, osg::Texture::LINEAR_MIPMAP_LINEAR);
     normalMap->setFilter(osg::Texture::MAG_FILTER, osg::Texture::LINEAR);
     
+
+    auto method = mResourceSystem->getSceneManager()->getLightingMethod();
+    if (method == SceneUtil::LightingMethod::SingleUBO)
+        program->addBindUniformBlock("LightBufferBinding", static_cast<int>(Shader::UBOBinding::LightBuffer));
     mRainIntensityUpdater = new RainIntensityUpdater();
     node->setUpdateCallback(mRainIntensityUpdater);
 
@@ -775,11 +780,11 @@ void Water::update(float dt)
 void Water::updateVisible()
 {
     bool visible = mEnabled && mToggled;
-    mWaterNode->setNodeMask(visible ? ~0 : 0);
+    mWaterNode->setNodeMask(visible ? ~0u : 0u);
     if (mRefraction)
-        mRefraction->setNodeMask(visible ? Mask_RenderToTexture : 0);
+        mRefraction->setNodeMask(visible ? Mask_RenderToTexture : 0u);
     if (mReflection)
-        mReflection->setNodeMask(visible ? Mask_RenderToTexture : 0);
+        mReflection->setNodeMask(visible ? Mask_RenderToTexture : 0u);
 }
 
 bool Water::toggle()

@@ -83,6 +83,7 @@ CSMWorld::Data::Data (ToUTF8::FromType encoding, bool fsStrict, const Files::Pat
     defines["clamp"] = "1"; // Clamp lighting
     defines["preLightEnv"] = "0"; // Apply environment maps after lighting like Morrowind
     defines["radialFog"] = "0";
+    defines["lightingModel"] = "0";
     for (const auto& define : shadowDefines)
         defines[define.first] = define.second;
     mResourceSystem->getSceneManager()->getShaderManager().setGlobalDefines(defines);
@@ -983,20 +984,6 @@ int CSMWorld::Data::startLoading (const boost::filesystem::path& path, bool base
         metaData.load (*mReader);
 
         mMetaData.setRecord (0, Record<MetaData> (RecordBase::State_ModifiedOnly, nullptr, &metaData));
-    }
-
-    // Fix uninitialized master data index
-    for (std::vector<ESM::Header::MasterData>::const_iterator masterData = mReader->getGameFiles().begin();
-        masterData != mReader->getGameFiles().end(); ++masterData)
-    {
-        std::map<std::string, int>::iterator nameResult = mContentFileNames.find(masterData->name);
-        if (nameResult != mContentFileNames.end())
-        {
-            ESM::Header::MasterData& hackedMasterData = const_cast<ESM::Header::MasterData&>(*masterData);
-
-
-            hackedMasterData.index = nameResult->second;
-        }
     }
 
     return mReader->getRecordCount();

@@ -79,7 +79,7 @@ namespace MWPhysics
     struct ActorFrameData
     {
         ActorFrameData(const std::shared_ptr<Actor>& actor, const MWWorld::Ptr standingOn, bool moveToWaterSurface, osg::Vec3f movement, float slowFall, float waterlevel);
-        void  updatePosition();
+        void  updatePosition(btCollisionWorld* world);
         std::weak_ptr<Actor> mActor;
         Actor* mActorRaw;
         MWWorld::Ptr mStandingOn;
@@ -90,7 +90,7 @@ namespace MWPhysics
         bool mDidJump;
         bool mFloatToSurface;
         bool mNeedLand;
-        bool mMoveToWaterSurface;
+        bool mWaterCollision;
         float mWaterlevel;
         float mSlowFall;
         float mOldHeight;
@@ -259,7 +259,7 @@ namespace MWPhysics
             std::unique_ptr<btBroadphaseInterface> mBroadphase;
             std::unique_ptr<btDefaultCollisionConfiguration> mCollisionConfiguration;
             std::unique_ptr<btCollisionDispatcher> mDispatcher;
-            std::shared_ptr<btCollisionWorld> mCollisionWorld;
+            std::unique_ptr<btCollisionWorld> mCollisionWorld;
             std::unique_ptr<PhysicsTaskScheduler> mTaskScheduler;
 
             std::unique_ptr<Resource::BulletShapeManager> mShapeManager;

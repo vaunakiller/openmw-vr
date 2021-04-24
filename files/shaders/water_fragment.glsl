@@ -1,5 +1,13 @@
 #version 120
 
+#if @useUBO
+    #extension GL_ARB_uniform_buffer_object : require
+#endif
+
+#if @useGPUShader4
+    #extension GL_EXT_gpu_shader4: require
+#endif
+
 #define REFRACTION @refraction_enabled
 
 // Inspired by Blender GLSL Water by martinsh ( https://devlog-martinsh.blogspot.de/2012/07/waterundewater-shader-wip.html )
@@ -29,20 +37,19 @@ const float BUMP_RAIN = 2.5;
 const float REFL_BUMP = 0.10;                      // reflection distortion amount
 const float REFR_BUMP = 0.07;                      // refraction distortion amount
 
+const float SCATTER_AMOUNT = 0.3;                  // amount of sunlight scattering
+const vec3 SCATTER_COLOUR = vec3(0.0,1.0,0.95);    // colour of sunlight scattering
+
 const vec3 SUN_EXT = vec3(0.45, 0.55, 0.68);       //sunlight extinction
 
 const float SPEC_HARDNESS = 256.0;                 // specular highlights hardness
 
 const float BUMP_SUPPRESS_DEPTH = 300.0;           // at what water depth bumpmap will be suppressed for reflections and refractions (prevents artifacts at shores)
-const float BUMP_SUPPRESS_DEPTH_SS = 1000.0;      // modifier using screenspace depth (helps prevent same artifacts but at higher distances)
 
 const vec2 WIND_DIR = vec2(0.5f, -0.8f);
 const float WIND_SPEED = 0.2f;
 
 const vec3 WATER_COLOR = vec3(0.090195, 0.115685, 0.12745);
-
-const float SCATTER_AMOUNT = 0.5;                  // amount of sunlight scattering
-const vec3 SCATTER_COLOUR = WATER_COLOR * 8.0;     // colour of sunlight scattering
 
 // ---------------- rain ripples related stuff ---------------------
 
@@ -143,7 +150,10 @@ uniform vec3 nodePosition;
 
 uniform float rainIntensity;
 
+#define PER_PIXEL_LIGHTING 0
+
 #include "shadows_fragment.glsl"
+#include "lighting.glsl"
 
 float frustumDepth;
 
@@ -193,8 +203,7 @@ void main(void)
                    normal3 * midWaves.y + normal4 * smallWaves.x + normal5 * smallWaves.y + rippleAdd);
     normal = normalize(vec3(-normal.x * bump, -normal.y * bump, normal.z));
 
-    vec3 lVec = normalize((gl_ModelViewMatrixInverse * vec4(gl_LightSource[0].position.xyz, 0.0)).xyz);
-
+    vec3 lVec = normalize((gl_ModelViewMatrixInverse * vec4(lcalcPosition(0).xyz, 0.0)).xyz);
     vec3 cameraPos = (gl_ModelViewMatrixInverse * vec4(0,0,0,1)).xyz;
     vec3 vVec = normalize(position.xyz - cameraPos.xyz);
 
@@ -219,10 +228,7 @@ void main(void)
     float depthSampleDistorted = linearizeDepth(texture2D(refractionDepthMap,screenCoords-screenCoordsOffset).x) * radialise;
     float surfaceDepth = linearizeDepth(gl_FragCoord.z) * radialise;
     float realWaterDepth = depthSample - surfaceDepth;  // undistorted water depth in view direction, independent of frustum
-    screenCoordsOffset *= clamp(
-            realWaterDepth / (BUMP_SUPPRESS_DEPTH
-                * max(1, depthSample / BUMP_SUPPRESS_DEPTH_SS)) // suppress more at distance
-        ,0 ,1);
+    screenCoordsOffset *= clamp(realWaterDepth / BUMP_SUPPRESS_DEPTH,0,1);
 #endif
     // reflection
     vec3 reflection = texture2D(reflectionMap, screenCoords + screenCoordsOffset).rgb;
@@ -232,6 +238,8 @@ void main(void)
 
     vec3 waterColor = WATER_COLOR * sunFade;
 
+    vec4 sunSpec = lcalcSpecular(0);
+
 #if REFRACTION
     // refraction
     vec3 refraction = texture2D(refractionMap, screenCoords - screenCoordsOffset).rgb;
@@ -240,11 +248,7 @@ void main(void)
     if (cameraPos.z < 0.0)
         refraction = clamp(refraction * 1.5, 0.0, 1.0);
     else
-    {
-        vec3 refractionA = mix(refraction, waterColor, clamp(depthSampleDistorted/VISIBILITY, 0.0, 1.0));
-        vec3 refractionB = mix(refraction, waterColor, clamp(realWaterDepth/VISIBILITY, 0.0, 1.0));
-        refraction = mix(refractionA, refractionB, 0.8);
-    }
+        refraction = mix(refraction, waterColor, clamp(depthSampleDistorted/VISIBILITY, 0.0, 1.0));
 
     // sunlight scattering
     // normal for sunlight scattering
@@ -255,11 +259,11 @@ void main(void)
     vec3 scatterColour = mix(SCATTER_COLOUR*vec3(1.0,0.4,0.0), SCATTER_COLOUR, clamp(1.0-exp(-sunHeight*SUN_EXT), 0.0, 1.0));
     vec3 lR = reflect(lVec, lNormal);
     float lightScatter = clamp(dot(lVec,lNormal)*0.7+0.3, 0.0, 1.0) * clamp(dot(lR, vVec)*2.0-1.2, 0.0, 1.0) * SCATTER_AMOUNT * sunFade * clamp(1.0-exp(-sunHeight), 0.0, 1.0);
-    gl_FragData[0].xyz = mix( mix(refraction,  scatterColour,  lightScatter),  reflection,  fresnel) + specular * gl_LightSource[0].specular.xyz + vec3(rainRipple.w) * 0.2;
+    gl_FragData[0].xyz = mix( mix(refraction,  scatterColour,  lightScatter),  reflection,  fresnel) + specular * sunSpec.xyz + vec3(rainRipple.w) * 0.2;
     gl_FragData[0].w = 1.0;
 #else
-    gl_FragData[0].xyz = mix(reflection,  waterColor,  (1.0-fresnel)*0.5) + specular * gl_LightSource[0].specular.xyz + vec3(rainRipple.w) * 0.7;
-    gl_FragData[0].w = clamp(fresnel*6.0 + specular * gl_LightSource[0].specular.w, 0.0, 1.0);     //clamp(fresnel*2.0 + specular * gl_LightSource[0].specular.w, 0.0, 1.0);
+    gl_FragData[0].xyz = mix(reflection,  waterColor,  (1.0-fresnel)*0.5) + specular * sunSpec.xyz + vec3(rainRipple.w) * 0.7;
+    gl_FragData[0].w = clamp(fresnel*6.0 + specular * sunSpec.w, 0.0, 1.0);     //clamp(fresnel*2.0 + specular * gl_LightSource[0].specular.w, 0.0, 1.0);
 #endif
 
     // fog

@@ -461,7 +461,7 @@ void MWState::StateManager::loadGame (const Character *character, const std::str
 
                 case ESM::REC_GSCR:
 
-                    MWBase::Environment::get().getScriptManager()->getGlobalScripts().readRecord (reader, n.intval);
+                    MWBase::Environment::get().getScriptManager()->getGlobalScripts().readRecord (reader, n.intval, contentFileMap);
                     break;
 
                 case ESM::REC_GMAP:
@@ -505,6 +505,7 @@ void MWState::StateManager::loadGame (const Character *character, const std::str
                                       character->getPath().filename().string());
 
         MWBase::Environment::get().getWindowManager()->setNewGame(false);
+        MWBase::Environment::get().getWorld()->saveLoaded();
         MWBase::Environment::get().getWorld()->setupPlayer();
         MWBase::Environment::get().getWorld()->renderPlayer();
         MWBase::Environment::get().getWindowManager()->updatePlayer();

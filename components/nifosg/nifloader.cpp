@@ -214,7 +214,7 @@ namespace NifOsg
         return sHiddenNodeMask;
     }
 
-    unsigned int Loader::sIntersectionDisabledNodeMask = ~0;
+    unsigned int Loader::sIntersectionDisabledNodeMask = ~0u;
 
     void Loader::setIntersectionDisabledNodeMask(unsigned int mask)
     {
@@ -238,7 +238,7 @@ namespace NifOsg
         std::string mFilename;
         unsigned int mVersion, mUserVersion, mBethVersion;
 
-        size_t mFirstRootTextureIndex = -1;
+        size_t mFirstRootTextureIndex{~0u};
         bool mFoundFirstRootTexturingProperty = false;
 
         bool mHasNightDayLabel = false;

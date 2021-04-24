@@ -174,7 +174,9 @@ namespace MWRender
 
         mCamera->setNodeMask(Mask_RenderToTexture);
 
-        osg::ref_ptr<SceneUtil::LightManager> lightManager = new SceneUtil::LightManager;
+        bool ffp = mResourceSystem->getSceneManager()->getLightingMethod() == SceneUtil::LightingMethod::FFP;
+
+        osg::ref_ptr<SceneUtil::LightManager> lightManager = new SceneUtil::LightManager(ffp);
         lightManager->setStartLight(1);
         osg::ref_ptr<osg::StateSet> stateset = lightManager->getOrCreateStateSet();
         stateset->setMode(GL_LIGHTING, osg::StateAttribute::ON);
@@ -231,12 +233,22 @@ namespace MWRender
         float positionZ = std::cos(altitude);
         light->setPosition(osg::Vec4(positionX,positionY,positionZ, 0.0));
         light->setDiffuse(osg::Vec4(diffuseR,diffuseG,diffuseB,1));
-        light->setAmbient(osg::Vec4(ambientR,ambientG,ambientB,1));
+        osg::Vec4 ambientRGBA = osg::Vec4(ambientR,ambientG,ambientB,1);
+        if (mResourceSystem->getSceneManager()->getForceShaders())
+        {
+            // When using shaders, we now skip the ambient sun calculation as this is the only place it's used.
+            // Using the scene ambient will give identical results.
+            lightmodel->setAmbientIntensity(ambientRGBA);
+            light->setAmbient(osg::Vec4(0,0,0,1));
+        }
+        else
+            light->setAmbient(ambientRGBA);
         light->setSpecular(osg::Vec4(0,0,0,0));
         light->setLightNum(0);
         light->setConstantAttenuation(1.f);
         light->setLinearAttenuation(0.f);
         light->setQuadraticAttenuation(0.f);
+        lightManager->setSunlight(light);
 
         osg::ref_ptr<osg::LightSource> lightSource = new osg::LightSource;
         lightSource->setLight(light);
@@ -414,7 +426,7 @@ namespace MWRender
         visitor.setTraversalNumber(mDrawOnceCallback->getLastRenderedFrame());
 
         osg::Node::NodeMask nodeMask = mCamera->getNodeMask();
-        mCamera->setNodeMask(~0);
+        mCamera->setNodeMask(~0u);
         mCamera->accept(visitor);
         mCamera->setNodeMask(nodeMask);
 

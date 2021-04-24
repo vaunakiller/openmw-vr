@@ -43,7 +43,7 @@ namespace bfs = boost::filesystem;
 #include <sys/user.h>
 #endif
 
-static const char crash_switch[] = "--cc-handle-crash";
+#include "crashcatcher.hpp"
 
 static const char fatal_err[] = "\n\n*** Fatal Error ***\n";
 static const char pipe_err[] = "!!! Failed to create pipe\n";
@@ -146,11 +146,13 @@ static void gdb_info(pid_t pid)
     /*
      * Create a temp file to put gdb commands into.
      * Note: POSIX.1-2008 declares that the file should be already created with mode 0600 by default.
-     * Modern systems implement it and and suggest to do not touch masks in multithreaded applications.
+     * Modern systems implement it and suggest to do not touch masks in multithreaded applications.
      * So CoverityScan warning is valid only for ancient versions of stdlib.
     */
     strcpy(respfile, "/tmp/gdb-respfile-XXXXXX");
-    // coverity[secure_temp]
+#ifdef __COVERITY__
+    umask(0600);
+#endif
     if((fd=mkstemp(respfile)) >= 0 && (f=fdopen(fd, "w")) != nullptr)
     {
         fprintf(f, "attach %d\n"

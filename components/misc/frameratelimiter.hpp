@@ -14,6 +14,7 @@ namespace Misc
                                       std::chrono::steady_clock::time_point now = std::chrono::steady_clock::now())
                 : mMaxFrameDuration(std::chrono::duration_cast<std::chrono::steady_clock::duration>(maxFrameDuration))
                 , mLastMeasurement(now)
+                , mLastFrameDuration(0)
             {}
 
             std::chrono::steady_clock::duration getLastFrameDuration() const

@@ -19,9 +19,13 @@
 #include <components/sceneutil/visitor.hpp>
 #include <components/sceneutil/shadow.hpp>
 #include <components/sceneutil/util.hpp>
+#include <components/sceneutil/lightmanager.hpp>
 #include <components/files/memorystream.hpp>
+#include <components/resource/scenemanager.hpp>
+#include <components/resource/resourcesystem.hpp>
 
 #include "../mwbase/environment.hpp"
+#include "../mwbase/windowmanager.hpp"
 #include "../mwbase/world.hpp"
 
 #include "../mwworld/cellstore.hpp"
@@ -89,9 +93,8 @@ LocalMap::LocalMap(osg::Group* root)
     , mInterior(false)
 {
     // Increase map resolution, if use UI scaling
-    float uiScale = Settings::Manager::getFloat("scaling factor", "GUI");
-    if (uiScale > 1.0)
-        mMapResolution *= uiScale;
+    float uiScale = MWBase::Environment::get().getWindowManager()->getScalingFactor();
+    mMapResolution *= uiScale;
 
     SceneUtil::FindByNameVisitor find("Scene Root");
     mRoot->accept(find);
@@ -219,6 +222,9 @@ osg::ref_ptr<osg::Camera> LocalMap::createOrthographicCamera(float x, float y, f
     lightSource->setStateSetModes(*stateset, osg::StateAttribute::ON|osg::StateAttribute::OVERRIDE);
 
     SceneUtil::ShadowManager::disableShadowsForStateSet(stateset);
+
+    // override sun for local map 
+    SceneUtil::configureStateSetSunOverride(static_cast<SceneUtil::LightManager*>(mSceneRoot.get()), light, stateset);
 
     camera->addChild(lightSource);
     camera->setStateSet(stateset);

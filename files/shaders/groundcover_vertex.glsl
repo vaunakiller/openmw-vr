@@ -1,5 +1,13 @@
 #version 120
 
+#if @useUBO
+    #extension GL_ARB_uniform_buffer_object : require
+#endif
+
+#if @useGPUShader4
+    #extension GL_EXT_gpu_shader4: require
+#endif
+
 #define GROUNDCOVER
 
 attribute vec4 aOffset;
@@ -38,6 +46,15 @@ uniform mat4 osg_ViewMatrix;
 uniform float windSpeed;
 uniform vec3 playerPos;
 
+#if @groundcoverStompMode == 0
+#else
+    #define STOMP 1
+    #if @groundcoverStompMode == 2
+        #define STOMP_HEIGHT_SENSITIVE 1
+    #endif
+    #define STOMP_INTENSITY_LEVEL @groundcoverStompIntensity
+#endif
+
 vec2 groundcoverDisplacement(in vec3 worldpos, float h)
 {
     vec2 windDirection = vec2(1.0);
@@ -53,14 +70,31 @@ vec2 groundcoverDisplacement(in vec3 worldpos, float h)
     harmonics += vec2((1.0 + 0.14*v) * sin(3.0*osg_SimulationTime + worldpos.xy / 500.0));
     harmonics += vec2((1.0 + 0.28*v) * sin(5.0*osg_SimulationTime + worldpos.xy / 200.0));
 
-    float d = length(worldpos - footPos.xyz);
-    vec3 stomp = vec3(0.0);
-    if (d < 150.0 && d > 0.0)
-    {
-        stomp = (60.0 / d - 0.4) * (worldpos - footPos.xyz);
-    }
+    vec2 stomp = vec2(0.0);
+#if STOMP
+    float d = length(worldpos.xy - footPos.xy);
+#if STOMP_INTENSITY_LEVEL == 0
+    // Gentle intensity
+    const float STOMP_RANGE = 50.0; // maximum distance from player that grass is affected by stomping
+    const float STOMP_DISTANCE = 20.0; // maximum distance stomping can move grass
+#elif STOMP_INTENSITY_LEVEL == 1
+    // Reduced intensity
+    const float STOMP_RANGE = 80.0;
+    const float STOMP_DISTANCE = 40.0;
+#elif STOMP_INTENSITY_LEVEL == 2
+    // MGE XE intensity
+    const float STOMP_RANGE = 150.0;
+    const float STOMP_DISTANCE = 60.0;
+#endif
+    if (d < STOMP_RANGE && d > 0.0)
+        stomp = (STOMP_DISTANCE / d - STOMP_DISTANCE / STOMP_RANGE) * (worldpos.xy - footPos.xy);
 
-    return clamp(0.02 * h, 0.0, 1.0) * (harmonics * displace + stomp.xy);
+#ifdef STOMP_HEIGHT_SENSITIVE
+    stomp *= clamp((worldpos.z - footPos.z) / h, 0.0, 1.0);
+#endif
+#endif
+
+    return clamp(0.02 * h, 0.0, 1.0) * (harmonics * displace + stomp);
 }
 
 mat4 rotation(in vec3 angle)
@@ -131,6 +165,7 @@ void main(void)
     vec3 diffuseLight, ambientLight;
     doLighting(viewPos.xyz, viewNormal, diffuseLight, ambientLight, shadowDiffuseLighting);
     passLighting = diffuseLight + ambientLight;
+    clampLightingResult(passLighting);
 #endif
 
 #if (@shadows_enabled)

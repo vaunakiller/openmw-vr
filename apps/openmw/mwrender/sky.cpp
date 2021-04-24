@@ -45,6 +45,9 @@
 #include <components/sceneutil/visitor.hpp>
 #include <components/sceneutil/shadow.hpp>
 
+#include <components/settings/settings.hpp>
+#include <components/misc/stringops.hpp>
+
 #include <components/nifosg/particle.hpp>
 
 #include "../mwbase/environment.hpp"
@@ -314,8 +317,8 @@ public:
             if (cv->getCullingMode() & osg::CullSettings::FAR_PLANE_CULLING)
                 ++numPlanes;
 
-            int mask = 0x1;
-            int resultMask = cv->getProjectionCullingStack().back().getFrustum().getResultMask();
+            unsigned int mask = 0x1;
+            unsigned int resultMask = cv->getProjectionCullingStack().back().getFrustum().getResultMask();
             for (unsigned int i=0; i<cv->getProjectionCullingStack().back().getFrustum().getPlaneList().size(); ++i)
             {
                 if (i >= numPlanes)
@@ -438,7 +441,7 @@ private:
 class CelestialBody
 {
 public:
-    CelestialBody(osg::Group* parentNode, float scaleFactor, int numUvSets, unsigned int visibleMask=~0)
+    CelestialBody(osg::Group* parentNode, float scaleFactor, int numUvSets, unsigned int visibleMask=~0u)
         : mVisibleMask(visibleMask)
     {
         mGeom = createTexturedQuad(numUvSets);
@@ -1164,7 +1167,7 @@ void SkyManager::create()
 {
     assert(!mCreated);
 
-    mAtmosphereDay = mSceneManager->getInstance("meshes/sky_atmosphere.nif", mEarlyRenderBinRoot);
+    mAtmosphereDay = mSceneManager->getInstance(Settings::Manager::getString("skyatmosphere", "Models"), mEarlyRenderBinRoot);
     ModVertexAlphaVisitor modAtmosphere(0);
     mAtmosphereDay->accept(modAtmosphere);
 
@@ -1176,10 +1179,10 @@ void SkyManager::create()
     mEarlyRenderBinRoot->addChild(mAtmosphereNightNode);
 
     osg::ref_ptr<osg::Node> atmosphereNight;
-    if (mSceneManager->getVFS()->exists("meshes/sky_night_02.nif"))
-        atmosphereNight = mSceneManager->getInstance("meshes/sky_night_02.nif", mAtmosphereNightNode);
+    if (mSceneManager->getVFS()->exists(Settings::Manager::getString("skynight02", "Models")))
+        atmosphereNight = mSceneManager->getInstance(Settings::Manager::getString("skynight02", "Models"), mAtmosphereNightNode);
     else
-        atmosphereNight = mSceneManager->getInstance("meshes/sky_night_01.nif", mAtmosphereNightNode);
+        atmosphereNight = mSceneManager->getInstance(Settings::Manager::getString("skynight01", "Models"), mAtmosphereNightNode);
     atmosphereNight->getOrCreateStateSet()->setAttributeAndModes(createAlphaTrackingUnlitMaterial(), osg::StateAttribute::ON|osg::StateAttribute::OVERRIDE);
     ModVertexAlphaVisitor modStars(2);
     atmosphereNight->accept(modStars);
@@ -1193,14 +1196,14 @@ void SkyManager::create()
 
     mCloudNode = new osg::PositionAttitudeTransform;
     mEarlyRenderBinRoot->addChild(mCloudNode);
-    mCloudMesh = mSceneManager->getInstance("meshes/sky_clouds_01.nif", mCloudNode);
+    mCloudMesh = mSceneManager->getInstance(Settings::Manager::getString("skyclouds", "Models"), mCloudNode);
     ModVertexAlphaVisitor modClouds(1);
     mCloudMesh->accept(modClouds);
     mCloudUpdater = new CloudUpdater;
     mCloudUpdater->setOpacity(1.f);
     mCloudMesh->addUpdateCallback(mCloudUpdater);
 
-    mCloudMesh2 = mSceneManager->getInstance("meshes/sky_clouds_01.nif", mCloudNode);
+    mCloudMesh2 = mSceneManager->getInstance(Settings::Manager::getString("skyclouds", "Models"), mCloudNode);
     mCloudMesh2->accept(modClouds);
     mCloudUpdater2 = new CloudUpdater;
     mCloudUpdater2->setOpacity(0.f);
@@ -1597,7 +1600,7 @@ void SkyManager::update(float duration)
         if (mParticleNode)
         {
             // Morrowind deliberately rotates the blizzard mesh, so so should we.
-            if (mCurrentParticleEffect == "meshes\\blizzard.nif")
+            if (mCurrentParticleEffect == Settings::Manager::getString("weatherblizzard", "Models"))
                 quat.makeRotate(osg::Vec3f(-1,0,0), mStormDirection);
             mParticleNode->setAttitude(quat);
         }
@@ -1621,7 +1624,7 @@ void SkyManager::setEnabled(bool enabled)
     if (enabled && !mCreated)
         create();
 
-    mRootNode->setNodeMask(enabled ? Mask_Sky : 0);
+    mRootNode->setNodeMask(enabled ? Mask_Sky : 0u);
 
     mEnabled = enabled;
 }
@@ -1782,7 +1785,7 @@ void SkyManager::setWeather(const WeatherResult& weather)
 
         mCloudUpdater->setOpacity((1.f-mCloudBlendFactor));
         mCloudUpdater2->setOpacity(mCloudBlendFactor);
-        mCloudMesh2->setNodeMask(mCloudBlendFactor > 0.f ? ~0 : 0);
+        mCloudMesh2->setNodeMask(mCloudBlendFactor > 0.f ? ~0u : 0);
     }
 
     if (mCloudColour != weather.mFogColor)
@@ -1827,7 +1830,7 @@ void SkyManager::setWeather(const WeatherResult& weather)
         mAtmosphereNightUpdater->setFade(mStarsOpacity);
     }
 
-    mAtmosphereNightNode->setNodeMask(weather.mNight ? ~0 : 0);
+    mAtmosphereNightNode->setNodeMask(weather.mNight ? ~0u : 0);
 
     mPrecipitationAlpha = weather.mPrecipitationAlpha;
 }
@@ -1897,16 +1900,16 @@ void SkyManager::setWaterHeight(float height)
 
 void SkyManager::listAssetsToPreload(std::vector<std::string>& models, std::vector<std::string>& textures)
 {
-    models.emplace_back("meshes/sky_atmosphere.nif");
-    if (mSceneManager->getVFS()->exists("meshes/sky_night_02.nif"))
-        models.emplace_back("meshes/sky_night_02.nif");
-    models.emplace_back("meshes/sky_night_01.nif");
-    models.emplace_back("meshes/sky_clouds_01.nif");
+    models.emplace_back(Settings::Manager::getString("skyatmosphere", "Models"));
+    if (mSceneManager->getVFS()->exists(Settings::Manager::getString("skynight02", "Models")))
+        models.emplace_back(Settings::Manager::getString("skynight02", "Models"));
+    models.emplace_back(Settings::Manager::getString("skynight01", "Models"));
+    models.emplace_back(Settings::Manager::getString("skyclouds", "Models"));
 
-    models.emplace_back("meshes\\ashcloud.nif");
-    models.emplace_back("meshes\\blightcloud.nif");
-    models.emplace_back("meshes\\snow.nif");
-    models.emplace_back("meshes\\blizzard.nif");
+    models.emplace_back(Settings::Manager::getString("weatherashcloud", "Models"));
+    models.emplace_back(Settings::Manager::getString("weatherblightcloud", "Models"));
+    models.emplace_back(Settings::Manager::getString("weathersnow", "Models"));
+    models.emplace_back(Settings::Manager::getString("weatherblizzard", "Models"));
 
     textures.emplace_back("textures/tx_mooncircle_full_s.dds");
     textures.emplace_back("textures/tx_mooncircle_full_m.dds");

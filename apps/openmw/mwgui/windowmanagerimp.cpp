@@ -1,5 +1,6 @@
 #include "windowmanagerimp.hpp"
 
+#include <algorithm>
 #include <cassert>
 #include <chrono>
 #include <thread>
@@ -199,8 +200,8 @@ namespace MWGui
       , mVersionDescription(versionDescription)
       , mWindowVisible(true)
     {
-        float uiScale = Settings::Manager::getFloat("scaling factor", "GUI");
-        mGuiPlatform = new osgMyGUI::Platform(viewer, guiRoot, resourceSystem->getImageManager(), uiScale);
+        mScalingFactor = std::clamp(Settings::Manager::getFloat("scaling factor", "GUI"), 0.5f, 8.f);
+        mGuiPlatform = new osgMyGUI::Platform(viewer, guiRoot, resourceSystem->getImageManager(), mScalingFactor);
         mGuiPlatform->initialise(resourcePath, (boost::filesystem::path(logpath) / "MyGUI.log").generic_string());
 
 
@@ -216,7 +217,7 @@ namespace MWGui
         MyGUI::LanguageManager::getInstance().eventRequestTag = MyGUI::newDelegate(this, &WindowManager::onRetrieveTag);
 
         // Load fonts
-        mFontLoader.reset(new Gui::FontLoader(encoding, resourceSystem->getVFS(), userDataPath));
+        mFontLoader.reset(new Gui::FontLoader(encoding, resourceSystem->getVFS(), userDataPath, mScalingFactor));
         mFontLoader->loadBitmapFonts(exportFonts);
 
         //Register own widgets with MyGUI
@@ -1370,6 +1371,11 @@ namespace MWGui
     bool WindowManager::getWorldMouseOver()
     {
         return mHud->getWorldMouseOver();
+    }
+
+    float WindowManager::getScalingFactor()
+    {
+        return mScalingFactor;
     }
 
     void WindowManager::executeInConsole (const std::string& path)

@@ -243,7 +243,7 @@ osg::GraphicsContext* GraphicsWindowSDL2::findContext(osgViewer::View& view)
         return  view.getCamera()->getGraphicsContext();
     }
 
-    for (auto i = 0; i < view.getNumSlaves(); i++)
+    for (std::size_t i = 0; i < view.getNumSlaves(); i++)
     {
         if (view.getSlave(i)._camera->getGraphicsContext())
             return view.getSlave(i)._camera->getGraphicsContext();

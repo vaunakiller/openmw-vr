@@ -1,5 +1,13 @@
 #version 120
 
+#if @useUBO
+    #extension GL_ARB_uniform_buffer_object : require
+#endif
+
+#if @useGPUShader4
+    #extension GL_EXT_gpu_shader4: require
+#endif
+
 #if @diffuseMap
 varying vec2 diffuseMapUV;
 #endif
@@ -117,6 +125,7 @@ void main(void)
     doLighting(viewPos.xyz, viewNormal, diffuseLight, ambientLight, shadowDiffuseLighting);
     vec3 emission = getEmissionColor().xyz * emissiveMult;
     passLighting = getDiffuseColor().xyz * diffuseLight + getAmbientColor().xyz * ambientLight + emission;
+    clampLightingResult(passLighting);
     shadowDiffuseLighting *= getDiffuseColor().xyz;
 #endif
 

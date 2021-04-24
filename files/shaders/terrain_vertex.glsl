@@ -1,5 +1,13 @@
 #version 130
 
+#if @useUBO
+    #extension GL_ARB_uniform_buffer_object : require
+#endif
+
+#if @useGPUShader4
+    #extension GL_EXT_gpu_shader4: require
+#endif
+
 varying vec2 uv;
 varying float euclideanDepth;
 varying float linearDepth;
@@ -39,6 +47,7 @@ void main(void)
     vec3 diffuseLight, ambientLight;
     doLighting(viewPos.xyz, viewNormal, diffuseLight, ambientLight, shadowDiffuseLighting);
     passLighting = getDiffuseColor().xyz * diffuseLight + getAmbientColor().xyz * ambientLight + getEmissionColor().xyz;
+    clampLightingResult(passLighting);
     shadowDiffuseLighting *= getDiffuseColor().xyz;
 #endif
 

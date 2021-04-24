@@ -1,14 +1,19 @@
 #include "advancedpage.hpp"
 
+#include <array>
+
 #include <components/config/gamesettings.hpp>
 #include <components/config/launchersettings.hpp>
 #include <QFileDialog>
 #include <QCompleter>
 #include <QProxyStyle>
+#include <QString>
 #include <components/contentselector/view/contentselector.hpp>
 #include <components/contentselector/model/esmfile.hpp>
 
 #include <cmath>
+
+#include "utils/openalutil.hpp"
 
 Launcher::AdvancedPage::AdvancedPage(Config::GameSettings &gameSettings,
                                      Settings::Manager &engineSettings, QWidget *parent)
@@ -19,7 +24,17 @@ Launcher::AdvancedPage::AdvancedPage(Config::GameSettings &gameSettings,
     setObjectName ("AdvancedPage");
     setupUi(this);
 
+    for(const char * name : Launcher::enumerateOpenALDevices())
+    {
+        audioDeviceSelectorComboBox->addItem(QString::fromUtf8(name), QString::fromUtf8(name));
+    }
+    for(const char * name : Launcher::enumerateOpenALDevicesHrtf())
+    {
+        hrtfProfileSelectorComboBox->addItem(QString::fromUtf8(name), QString::fromUtf8(name));
+    }
+
     loadSettings();
+
     mCellNameCompleter.setModel(&mCellNameCompleterModel);
     startDefaultCharacterAtField->setCompleter(&mCellNameCompleter);
 }
@@ -95,6 +110,7 @@ bool Launcher::AdvancedPage::loadSettings()
         int numPhysicsThreads = mEngineSettings.getInt("async num threads", "Physics");
         if (numPhysicsThreads >= 0)
             physicsThreadsSpinBox->setValue(numPhysicsThreads);
+        loadSettingBool(allowNPCToFollowOverWaterSurfaceCheckBox, "allow actors to follow over water surface", "Game");
     }
 
     // Visuals
@@ -124,7 +140,42 @@ bool Launcher::AdvancedPage::loadSettings()
 
         loadSettingBool(activeGridObjectPagingCheckBox, "object paging active grid", "Terrain");
         viewingDistanceComboBox->setValue(convertToCells(mEngineSettings.getInt("viewing distance", "Camera")));
+
+        int lightingMethod = 1;
+        if (mEngineSettings.getString("lighting method", "Shaders") == "legacy")
+            lightingMethod = 0;
+        else if (mEngineSettings.getString("lighting method", "Shaders") == "shaders")
+            lightingMethod = 2;
+        lightingMethodComboBox->setCurrentIndex(lightingMethod);
     }
+
+    // Audio
+    {
+        std::string selectedAudioDevice = mEngineSettings.getString("device", "Sound");
+        if (selectedAudioDevice.empty() == false)
+        {
+            int audioDeviceIndex = audioDeviceSelectorComboBox->findData(QString::fromStdString(selectedAudioDevice));
+            if (audioDeviceIndex != -1)
+            {
+                audioDeviceSelectorComboBox->setCurrentIndex(audioDeviceIndex);
+            }
+        }
+        int hrtfEnabledIndex = mEngineSettings.getInt("hrtf enable", "Sound");
+        if (hrtfEnabledIndex >= -1 && hrtfEnabledIndex <= 1)
+        {
+            enableHRTFComboBox->setCurrentIndex(hrtfEnabledIndex + 1);
+        }
+        std::string selectedHRTFProfile = mEngineSettings.getString("hrtf", "Sound");
+        if (selectedHRTFProfile.empty() == false)
+        {
+            int hrtfProfileIndex = hrtfProfileSelectorComboBox->findData(QString::fromStdString(selectedHRTFProfile));
+            if (hrtfProfileIndex != -1)
+            {
+                hrtfProfileSelectorComboBox->setCurrentIndex(hrtfProfileIndex);
+            }
+        }
+    }
+
 
     // Camera
     {
@@ -152,6 +203,7 @@ bool Launcher::AdvancedPage::loadSettings()
             showOwnedComboBox->setCurrentIndex(showOwnedIndex);
         loadSettingBool(stretchBackgroundCheckBox, "stretch menu background", "GUI");
         loadSettingBool(graphicHerbalismCheckBox, "graphic herbalism", "Game");
+        scalingSpinBox->setValue(mEngineSettings.getFloat("scaling factor", "GUI"));
     }
 
     // Bug fixes
@@ -266,6 +318,36 @@ void Launcher::AdvancedPage::saveSettings()
         {
             mEngineSettings.setInt("viewing distance", "Camera", convertToUnits(viewingDistance));
         }
+
+        static std::array<std::string, 3> lightingMethodMap = {"legacy", "shaders compatibility", "shaders"};
+        mEngineSettings.setString("lighting method", "Shaders", lightingMethodMap[lightingMethodComboBox->currentIndex()]);
+    }
+    
+    // Audio
+    {
+        int audioDeviceIndex = audioDeviceSelectorComboBox->currentIndex();
+        if (audioDeviceIndex != 0)
+        {
+            mEngineSettings.setString("device", "Sound", audioDeviceSelectorComboBox->currentText().toUtf8().constData());
+        } 
+        else 
+        {
+            mEngineSettings.setString("device", "Sound", "");
+        }
+        int hrtfEnabledIndex = enableHRTFComboBox->currentIndex() - 1;
+        if (hrtfEnabledIndex != mEngineSettings.getInt("hrtf enable", "Sound"))
+        {
+            mEngineSettings.setInt("hrtf enable", "Sound", hrtfEnabledIndex);
+        }
+        int selectedHRTFProfileIndex = hrtfProfileSelectorComboBox->currentIndex();
+        if (selectedHRTFProfileIndex != 0)
+        {
+            mEngineSettings.setString("hrtf", "Sound", hrtfProfileSelectorComboBox->currentText().toUtf8().constData());
+        }
+        else 
+        {
+            mEngineSettings.setString("hrtf", "Sound", "");
+        }
     }
 
     // Camera
@@ -299,6 +381,9 @@ void Launcher::AdvancedPage::saveSettings()
             mEngineSettings.setInt("show owned", "Game", showOwnedCurrentIndex);
         saveSettingBool(stretchBackgroundCheckBox, "stretch menu background", "GUI");
         saveSettingBool(graphicHerbalismCheckBox, "graphic herbalism", "Game");
+        float uiScalingFactor = scalingSpinBox->value();
+        if (uiScalingFactor != mEngineSettings.getFloat("scaling factor", "GUI"))
+            mEngineSettings.setFloat("scaling factor", "GUI", uiScalingFactor);
     }
 
     // Bug fixes

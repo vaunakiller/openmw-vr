@@ -40,7 +40,6 @@ namespace MWInput
 
         // Used to override mouse position when using controllers not through SDL, such as OpenXR.
         void setMousePosition(int x, int y);
-        void setGUIScale(float scale);
 
     private:
         bool mInvertX;
@@ -51,7 +50,6 @@ namespace MWInput
 
         BindingsManager* mBindingsManager;
         SDLUtil::InputWrapper* mInputWrapper;
-        float mInvUiScalingFactor;
 
         float mGuiCursorX;
         float mGuiCursorY;
