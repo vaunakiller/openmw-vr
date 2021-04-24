@@ -282,14 +282,11 @@ if(BUILD_OPENMW_VR)
     FetchContent_Declare( 
         OpenXR 
         GIT_REPOSITORY https://github.com/KhronosGroup/OpenXR-SDK.git
-        GIT_TAG release-1.0.13
+        GIT_TAG release-1.0.15
     )
     FetchContent_MakeAvailable(OpenXR)
 
     target_link_libraries(openmw_vr openxr_loader)
-    # openxr makes include directories private
-    # Delete this line when the issue is solved: https://github.com/KhronosGroup/OpenXR-SDK-Source/issues/195
-    target_include_directories(openmw_vr PRIVATE ${openxr_SOURCE_DIR}/include)
 
     # Preprocessor variable used to control code paths to vr code
     if (WIN32)
