@@ -459,7 +459,6 @@ namespace MWVR
         auto* vrGuiManager = Environment::get().getGUIManager();
         auto* wm = MWBase::Environment::get().getWindowManager();
 
-
         // OpenMW does not currently provide any way to directly request skipping a video.
         // This is copied from the controller manager and is used to skip videos, 
         // and works because mygui only consumes the escape press if a video is currently playing.
@@ -474,11 +473,6 @@ namespace MWVR
             {
                 mBindingsManager->setPlayerControlsEnabled(!MyGUI::InputManager::getInstance().injectKeyRelease(kc));
             }
-        }
-
-        if (disableControls)
-        {
-            return;
         }
 
         bool guiMode = MWBase::Environment::get().getWindowManager()->isGuiMode();
@@ -596,6 +590,10 @@ namespace MWVR
 
         else
         {
+            if (disableControls)
+            {
+                return;
+            }
 
             // Hold actions
             switch (action->openMWActionCode())
