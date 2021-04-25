@@ -164,7 +164,7 @@ macOS10.15_Xcode11:
     CCACHE_SIZE: 3G
 
 variables: &engine-targets
-  targets: "openmw,openmw-essimporter,openmw-iniimporter,openmw-launcher,openmw-wizard"
+  targets: "openmw_vr,openmw-essimporter,openmw-iniimporter,openmw-launcher,openmw-wizard"
   package: "Engine"
 
 variables: &cs-targets
