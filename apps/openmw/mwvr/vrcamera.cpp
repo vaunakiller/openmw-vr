@@ -10,6 +10,7 @@
 
 #include "../mwbase/environment.hpp"
 #include "../mwbase/world.hpp"
+#include "../mwbase/windowmanager.hpp"
 
 #include "../mwworld/player.hpp"
 #include "../mwworld/class.hpp"
@@ -66,21 +67,6 @@ namespace MWVR
             }
             mShouldResetZ = false;
         }
-
-        // When the cell changes, the game rotates the character appropriately.
-        // To respect this, reset yaw offset to make our yaw match the character.
-        MWBase::World* world = MWBase::Environment::get().getWorld();
-        if (world)
-        {
-            auto& player = world->getPlayer();
-            auto playerPtr = player.getPlayer();
-            const auto& data = playerPtr.getRefData();
-            float yaw = 0.f;
-            float pitch = 0.f;
-            float roll = 0.f;
-            getEulerAngles(mHeadPose.orientation, yaw, pitch, roll);
-            mYawOffset = data.getPosition().rot[2] - yaw;
-        }
         mShouldRecenter = false;
         Log(Debug::Verbose) << "Recentered";
     }
@@ -91,18 +77,18 @@ namespace MWVR
 
         auto& player = world->getPlayer();
         auto playerPtr = player.getPlayer();
+        
+        osg::Quat orientation;
+        getOrientation(orientation);
 
         float yaw = 0.f;
         float pitch = 0.f;
         float roll = 0.f;
-        getEulerAngles(mHeadPose.orientation, yaw, pitch, roll);
-
-        yaw += mYawOffset;
+        getEulerAngles(orientation, yaw, pitch, roll);
 
         if (!player.isDisabled() && mTrackingNode)
         {
             world->rotateObject(playerPtr, pitch, 0.f, yaw, MWBase::RotationFlag_none);
-            world->rotateWorldObject(playerPtr, mHeadPose.orientation);
         }
     }
 
@@ -136,8 +122,9 @@ namespace MWVR
         }
         else
         {
-            if (mShouldTrackPlayerCharacter)
+            if (mShouldTrackPlayerCharacter && !MWBase::Environment::get().getWindowManager()->isGuiMode())
                 applyTracking();
+
             Camera::updateCamera(cam);
         }
     }
@@ -214,6 +201,15 @@ namespace MWVR
     {
         Camera::rotateCameraToTrackingPtr();
         setRoll(-mTrackingPtr.getRefData().getPosition().rot[1] - mDeferredRotation.y());
+
+        // When the cell changes, openmw rotates the character.
+        // To make sure the player faces the same direction regardless of current orientation,
+        // compute the offset from character orientation to player orientation and reset yaw offset to this.
+        float yaw = 0.f;
+        float pitch = 0.f;
+        float roll = 0.f;
+        getEulerAngles(mHeadPose.orientation, yaw, pitch, roll);
+        mYawOffset = -mYaw - yaw;
     }
 
     osg::Quat VRCamera::stageRotation()
@@ -225,7 +221,7 @@ namespace MWVR
     {
         mShouldRecenter = true;
 
-        // Use OR so we don't a pending reset of Z.
+        // Use OR so we don't negate a pending requests.
         mShouldResetZ |= resetZ;
     }
 }
