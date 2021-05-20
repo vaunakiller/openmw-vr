@@ -18,6 +18,82 @@ namespace MWVR
     {
         mActionSets.emplace(ActionSet::Gameplay, OpenXRActionSet("Gameplay", deadzone));
         mActionSets.emplace(ActionSet::GUI, OpenXRActionSet("GUI", deadzone));
+        mActionSets.emplace(ActionSet::Tracking, OpenXRActionSet("Tracking", deadzone));
+        mActionSets.emplace(ActionSet::Haptics, OpenXRActionSet("Haptics", deadzone));
+
+
+        /*
+            // Applicable actions not (yet) included
+            A_QuickKey1,
+            A_QuickKey2,
+            A_QuickKey3,
+            A_QuickKey4,
+            A_QuickKey5,
+            A_QuickKey6,
+            A_QuickKey7,
+            A_QuickKey8,
+            A_QuickKey9,
+            A_QuickKey10,
+            A_QuickKeysMenu,
+            A_QuickLoad,
+            A_CycleSpellLeft,
+            A_CycleSpellRight,
+            A_CycleWeaponLeft,
+            A_CycleWeaponRight,
+            A_Screenshot, // Generate a VR screenshot?
+            A_Console,    // Currently awkward due to a lack of virtual keyboard, but should be included when that's in place
+        */
+
+        getActionSet(ActionSet::Gameplay).createMWAction(VrControlType::Press, MWInput::A_GameMenu, "game_menu", "Game Menu");
+        getActionSet(ActionSet::Gameplay).createMWAction(VrControlType::Press, A_VrMetaMenu, "meta_menu", "Meta Menu");
+        getActionSet(ActionSet::Gameplay).createMWAction(VrControlType::LongPress, A_Recenter, "reposition_menu", "Reposition Menu");
+        getActionSet(ActionSet::Gameplay).createMWAction(VrControlType::Press, MWInput::A_Inventory, "inventory", "Inventory");
+        getActionSet(ActionSet::Gameplay).createMWAction(VrControlType::Press, MWInput::A_Activate, "activate", "Activate");
+        getActionSet(ActionSet::Gameplay).createMWAction(VrControlType::Hold, MWInput::A_Use, "use", "Use");
+        getActionSet(ActionSet::Gameplay).createMWAction(VrControlType::Hold, MWInput::A_Jump, "jump", "Jump");
+        getActionSet(ActionSet::Gameplay).createMWAction(VrControlType::Press, MWInput::A_ToggleWeapon, "weapon", "Weapon");
+        getActionSet(ActionSet::Gameplay).createMWAction(VrControlType::Press, MWInput::A_ToggleSpell, "spell", "Spell");
+        getActionSet(ActionSet::Gameplay).createMWAction(VrControlType::Press, MWInput::A_CycleSpellLeft, "cycle_spell_left", "Cycle Spell Left");
+        getActionSet(ActionSet::Gameplay).createMWAction(VrControlType::Press, MWInput::A_CycleSpellRight, "cycle_spell_right", "Cycle Spell Right");
+        getActionSet(ActionSet::Gameplay).createMWAction(VrControlType::Press, MWInput::A_CycleWeaponLeft, "cycle_weapon_left", "Cycle Weapon Left");
+        getActionSet(ActionSet::Gameplay).createMWAction(VrControlType::Press, MWInput::A_CycleWeaponRight, "cycle_weapon_right", "Cycle Weapon Right");
+        getActionSet(ActionSet::Gameplay).createMWAction(VrControlType::Hold, MWInput::A_Sneak, "sneak", "Sneak");
+        getActionSet(ActionSet::Gameplay).createMWAction(VrControlType::Press, MWInput::A_QuickKeysMenu, "quick_menu", "Quick Menu");
+        getActionSet(ActionSet::Gameplay).createMWAction(VrControlType::Axis, MWInput::A_LookLeftRight, "look_left_right", "Look Left Right");
+        getActionSet(ActionSet::Gameplay).createMWAction(VrControlType::Axis, MWInput::A_MoveForwardBackward, "move_forward_backward", "Move Forward Backward");
+        getActionSet(ActionSet::Gameplay).createMWAction(VrControlType::Axis, MWInput::A_MoveLeftRight, "move_left_right", "Move Left Right");
+        getActionSet(ActionSet::Gameplay).createMWAction(VrControlType::Press, MWInput::A_Journal, "journal_book", "Journal Book");
+        getActionSet(ActionSet::Gameplay).createMWAction(VrControlType::Press, MWInput::A_QuickSave, "quick_save", "Quick Save");
+        getActionSet(ActionSet::Gameplay).createMWAction(VrControlType::Press, MWInput::A_Rest, "rest", "Rest");
+        getActionSet(ActionSet::Gameplay).createMWAction(VrControlType::Axis, A_ActivateTouch, "activate_touched", "Activate Touch");
+        getActionSet(ActionSet::Gameplay).createMWAction(VrControlType::Press, MWInput::A_AlwaysRun, "always_run", "Always Run");
+        getActionSet(ActionSet::Gameplay).createMWAction(VrControlType::Press, MWInput::A_AutoMove, "auto_move", "Auto Move");
+        getActionSet(ActionSet::Gameplay).createMWAction(VrControlType::Press, MWInput::A_ToggleHUD, "toggle_hud", "Toggle HUD");
+        getActionSet(ActionSet::Gameplay).createMWAction(VrControlType::Press, MWInput::A_ToggleDebug, "toggle_debug", "Toggle the debug hud");
+
+        getActionSet(ActionSet::GUI).createMWAction(VrControlType::Press, MWInput::A_GameMenu, "game_menu", "Game Menu");
+        getActionSet(ActionSet::GUI).createMWAction(VrControlType::LongPress, A_Recenter, "reposition_menu", "Reposition Menu");
+        getActionSet(ActionSet::GUI).createMWAction(VrControlType::Axis, A_MenuUpDown, "menu_up_down", "Menu Up Down");
+        getActionSet(ActionSet::GUI).createMWAction(VrControlType::Axis, A_MenuLeftRight, "menu_left_right", "Menu Left Right");
+        getActionSet(ActionSet::GUI).createMWAction(VrControlType::Press, A_MenuSelect, "menu_select", "Menu Select");
+        getActionSet(ActionSet::GUI).createMWAction(VrControlType::Press, A_MenuBack, "menu_back", "Menu Back");
+        getActionSet(ActionSet::GUI).createMWAction(VrControlType::Hold, MWInput::A_Use, "use", "Use");
+
+        getActionSet(ActionSet::Tracking).createPoseAction(TrackedLimb::LEFT_HAND, "left_hand_pose", "Left Hand Pose");
+        getActionSet(ActionSet::Tracking).createPoseAction(TrackedLimb::RIGHT_HAND, "right_hand_pose", "Right Hand Pose");
+
+        getActionSet(ActionSet::Haptics).createHapticsAction(TrackedLimb::RIGHT_HAND, "right_hand_haptics", "Right Hand Haptics");
+        getActionSet(ActionSet::Haptics).createHapticsAction(TrackedLimb::LEFT_HAND, "left_hand_haptics", "Left Hand Haptics");
+
+
+        auto* xr = Environment::get().getManager();
+        auto* trackingManager = Environment::get().getTrackingManager();
+
+        auto leftHandPath = trackingManager->stringToVRPath("/user/hand/left/input/aim/pose");
+        auto rightHandPath = trackingManager->stringToVRPath("/user/hand/right/input/aim/pose");
+
+        xr->impl().tracker().addTrackingSpace(leftHandPath, getActionSet(ActionSet::Tracking).xrActionSpace(TrackedLimb::LEFT_HAND));
+        xr->impl().tracker().addTrackingSpace(rightHandPath, getActionSet(ActionSet::Tracking).xrActionSpace(TrackedLimb::RIGHT_HAND));
     };
 
     OpenXRActionSet& OpenXRInput::getActionSet(ActionSet actionSet)

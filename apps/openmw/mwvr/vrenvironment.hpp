@@ -4,9 +4,10 @@
 namespace MWVR
 {
     class VRAnimation;
+    class VRGUIManager;
     class VRInputManager;
     class VRSession;
-    class VRGUIManager;
+    class VRTrackingManager;
     class VRViewer;
     class OpenXRManager;
 
@@ -60,12 +61,16 @@ namespace MWVR
         MWVR::OpenXRManager* getManager() const;
         void setManager(MWVR::OpenXRManager* xrManager);
 
+        MWVR::VRTrackingManager* getTrackingManager() const;
+        void setTrackingManager(MWVR::VRTrackingManager* xrManager);
+
     private:
         MWVR::VRSession* mSession{ nullptr };
         MWVR::VRGUIManager* mGUIManager{ nullptr };
         MWVR::VRAnimation* mPlayerAnimation{ nullptr };
         MWVR::VRViewer* mViewer{ nullptr };
         MWVR::OpenXRManager* mOpenXRManager{ nullptr };
+        MWVR::VRTrackingManager* mTrackingManager{ nullptr };
     };
 }
 

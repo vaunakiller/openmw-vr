@@ -45,7 +45,7 @@ namespace MWVR
 
     Pose VRInputManager::getLimbPose(int64_t time, TrackedLimb limb)
     {
-        return activeActionSet().getLimbPose(time, limb);
+        return mXRInput->getActionSet(ActionSet::Tracking).getLimbPose(time, limb);
     }
 
     OpenXRActionSet& VRInputManager::activeActionSet()
@@ -151,7 +151,6 @@ namespace MWVR
                 }
                 else
                 {
-                    auto* world = MWBase::Environment::get().getWorld();
                     MWWorld::Player& player = world->getPlayer();
                     player.activate(ptr);
                 }
@@ -182,13 +181,13 @@ namespace MWVR
     void VRInputManager::applyHapticsLeftHand(float intensity)
     {
         if (mHapticsEnabled)
-            activeActionSet().applyHaptics(TrackedLimb::LEFT_HAND, intensity);
+            mXRInput->getActionSet(ActionSet::Haptics).applyHaptics(TrackedLimb::LEFT_HAND, intensity);
     }
 
     void VRInputManager::applyHapticsRightHand(float intensity)
     {
         if (mHapticsEnabled)
-            activeActionSet().applyHaptics(TrackedLimb::RIGHT_HAND, intensity);
+            mXRInput->getActionSet(ActionSet::Haptics).applyHaptics(TrackedLimb::RIGHT_HAND, intensity);
     }
 
     void VRInputManager::processChangedSettings(const std::set<std::pair<std::string, std::string>>& changed)
@@ -265,6 +264,8 @@ namespace MWVR
 
         readInteractionProfileActionSet(actionSetGameplay, ActionSet::Gameplay, interactionProfilePath);
         readInteractionProfileActionSet(actionSetGUI, ActionSet::GUI, interactionProfilePath);
+        mXRInput->suggestBindings(ActionSet::Tracking, interactionProfilePath, {});
+        mXRInput->suggestBindings(ActionSet::Haptics, interactionProfilePath, {});
     }
 
     void VRInputManager::readInteractionProfileActionSet(TiXmlElement* element, ActionSet actionSet, std::string interactionProfilePath)
@@ -414,8 +415,6 @@ namespace MWVR
         auto* session = Environment::get().getSession();
         if (!session)
             return;
-        
-        session->beginFrame();
 
         // The rest of this code assumes the game is running
         if (MWBase::Environment::get().getStateManager()->getState() == MWBase::StateManager::State_NoGame)
@@ -434,7 +433,10 @@ namespace MWVR
             auto& player = world->getPlayer();
             auto playerPtr = world->getPlayerPtr();
             if (!mRealisticCombat || mRealisticCombat->ptr() != playerPtr)
-                mRealisticCombat.reset(new RealisticCombat::StateMachine(playerPtr));
+            {
+                auto trackingPath = Environment::get().getTrackingManager()->stringToVRPath("/user/hand/right/input/aim/pose");
+                mRealisticCombat.reset(new RealisticCombat::StateMachine(playerPtr, trackingPath));
+            }
             bool enabled = !guiMode && player.getDrawState() == MWMechanics::DrawState_Weapon && !player.isDisabled();
             mRealisticCombat->update(dt, enabled);
         }

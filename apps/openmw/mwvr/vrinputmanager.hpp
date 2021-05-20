@@ -57,6 +57,9 @@ namespace MWVR
         /// Notify input manager that the active interaction profile has changed
         void notifyInteractionProfileChanged();
 
+        /// OpenXR input interface
+        OpenXRInput& xrInput() { return *mXRInput; }
+
     protected:
         void processAction(const class Action* action, float dt, bool disableControls);
 

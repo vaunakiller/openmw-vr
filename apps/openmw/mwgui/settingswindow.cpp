@@ -630,6 +630,7 @@ namespace MWGui
         if (MWBase::Environment::get().getVrMode())
         {
             MWVR::Environment::get().getSession()->processChangedSettings(changed);
+            MWVR::Environment::get().getTrackingManager()->processChangedSettings(changed);
             MWVR::Environment::get().getViewer()->processChangedSettings(changed);
             MWVR::Environment::get().getGUIManager()->processChangedSettings(changed);
         }

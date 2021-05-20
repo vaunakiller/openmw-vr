@@ -465,9 +465,6 @@ namespace Misc
 
     void StereoView::update()
     {
-        auto viewMatrix = mViewer->getCamera()->getViewMatrix();
-        auto projectionMatrix = mViewer->getCamera()->getProjectionMatrix();
-
         View left{};
         View right{};
         double near_ = 1.f;
@@ -478,6 +475,8 @@ namespace Misc
             return;
         }
         mUpdateViewCallback->updateView(left, right);
+        auto viewMatrix = mViewer->getCamera()->getViewMatrix();
+        auto projectionMatrix = mViewer->getCamera()->getProjectionMatrix();
         near_ = Settings::Manager::getFloat("near clip", "Camera");
         far_ = Settings::Manager::getFloat("viewing distance", "Camera");
 

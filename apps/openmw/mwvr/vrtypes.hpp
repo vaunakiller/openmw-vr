@@ -38,6 +38,8 @@ namespace MWVR
         RIGHT_SIDE = 1
     };
 
+    using DisplayTime = int64_t;
+
     ////! Represents the relative pose in space of some limb or eye.
     //struct Pose
     //{

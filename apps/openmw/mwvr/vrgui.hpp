@@ -12,8 +12,8 @@
 #include <osg/Camera>
 #include <osg/PositionAttitudeTransform>
 
-#include "vrview.hpp"
 #include "openxrmanager.hpp"
+#include "vrtracking.hpp"
 
 namespace MyGUI
 {
@@ -38,13 +38,6 @@ namespace MWVR
     class GUICamera;
     class VRGUIManager;
 
-    enum class TrackingMode
-    {
-        Menu, //!< Menu quads with fixed position based on head tracking.
-        HudLeftHand, //!< Hud quads tracking the left hand every frame
-        HudRightHand, //!< Hud quads tracking the right hand every frame
-    };
-
     // Some UI elements should occupy predefined geometries
     // Others should grow/shrink freely
     enum class SizingMode
@@ -66,10 +59,31 @@ namespace MWVR
         osg::Vec2i pixelResolution; //!< Pixel resolution of the RTT texture
         osg::Vec2 myGUIViewSize; //!< Resizable elements are resized to this (fraction of full view)
         SizingMode sizingMode; //!< How to size the layer
-        TrackingMode trackingMode; //!< Tracking mode
+        std::string trackingPath; //!< The path that will be used to read tracking data
         std::string extraLayers; //!< Additional layers to draw (list separated by any non-alphabetic)
 
         bool operator<(const LayerConfig& rhs) const { return priority < rhs.priority; }
+    };
+
+    //! Extends the tracking source with /ui/input/stationary/pose
+    //! \note reference space will be ignored when reading /ui/input/stationary/pose
+    class VRGUITracking : public VRTrackingSource
+    {
+    public:
+        VRGUITracking(const std::string& source);
+
+        virtual VRTrackingPose getTrackingPose(DisplayTime predictedDisplayTime, VRPath path, VRPath reference = 0) override;
+        virtual std::vector<VRPath> listSupportedTrackingPosePaths() const override;
+        virtual void updateTracking(DisplayTime predictedDisplayTime) override;
+        void resetStationaryPose();
+
+    private:
+        VRPath mStationaryPath = 0;
+        VRPath mHeadPath = 0;
+        VRTrackingPose mStationaryPose = VRTrackingPose();
+        VRTrackingSource* mSource = nullptr;
+
+        bool mShouldUpdateStationaryPose = true;
     };
 
     /// \brief A single VR GUI Quad.
@@ -77,7 +91,7 @@ namespace MWVR
     /// In VR menus are shown as quads within the game world.
     /// The behaviour of that quad is defined by the MWVR::LayerConfig struct
     /// Each instance of VRGUILayer is used to show one MYGUI layer.
-    class VRGUILayer
+    class VRGUILayer : public VRTrackingListener
     {
     public:
         VRGUILayer(
@@ -95,7 +109,6 @@ namespace MWVR
         osg::Camera* camera();
         osg::ref_ptr<osg::Texture2D> menuTexture();
         void setAngle(float angle);
-        void updateTracking(const Pose& headPose = {});
         void updatePose();
         void updateRect();
         void insertWidget(MWGui::Layout* widget);
@@ -103,7 +116,13 @@ namespace MWVR
         int  widgetCount() { return mWidgets.size(); }
         bool operator<(const VRGUILayer& rhs) const { return mConfig.priority < rhs.mConfig.priority; }
 
+        /// Update layer quads based on current tracking information
+        void onTrackingUpdated(VRTrackingSource& source, DisplayTime predictedDisplayTime) override;
+
     public:
+        VRPath      mTrackingPath = 0;
+        Pose        mTrackingPose = Pose();
+
         Pose mTrackedPose{};
         LayerConfig mConfig;
         std::string mLayerName;
@@ -132,7 +151,7 @@ namespace MWVR
     /// Constructs and destructs VRGUILayer objects in response to MWGui::Layout::setVisible calls.
     /// Layers can also be made visible directly by calling insertLayer() directly, e.g. to show
     /// the video player.
-    class VRGUIManager
+    class VRGUIManager : public VRTrackingListener
     {
     public:
         VRGUIManager(
@@ -151,17 +170,14 @@ namespace MWVR
         /// Remove the given layer quad
         void removeLayer(const std::string& name);
 
-        /// Update layer quads based on current camera
-        void updateTracking(void);
-
-        /// Set camera on which to base tracking
-        void setCamera(osg::Camera* camera);
-
         /// Check current pointer target and update focus layer
         bool updateFocus();
 
         /// Update traversal
         void update();
+
+        /// Update traversal
+        void updateTracking();
 
         /// Gui cursor coordinates to use to simulate a mouse press/move if the player is currently pointing at a vr gui layer
         osg::Vec2i guiCursor() { return mGuiCursor; };
@@ -199,15 +215,14 @@ namespace MWVR
         osg::ref_ptr<osg::Group> mGUICamerasRootNode{ nullptr };
         osg::ref_ptr<osg::Group> mGUICameras{ new osg::Group };
 
+        std::unique_ptr<VRGUITracking> mUiTracking = nullptr;
+
         std::map<std::string, std::shared_ptr<VRGUILayer>> mLayers;
         std::vector<std::shared_ptr<VRGUILayer> > mSideBySideLayers;
 
-        bool        mShouldUpdatePoses{ true };
-        Pose        mHeadPose{};
         osg::Vec2i  mGuiCursor{};
         VRGUILayer* mFocusLayer{ nullptr };
         MyGUI::Widget* mFocusWidget{ nullptr };
-        osg::observer_ptr<osg::Camera> mCamera{ nullptr };
         std::map<std::string, LayerConfig> mLayerConfigs{};
     };
 }

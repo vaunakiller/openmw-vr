@@ -105,3 +105,13 @@ void MWVR::Environment::setManager(MWVR::OpenXRManager* xrManager)
 {
     mOpenXRManager = xrManager;
 }
+
+MWVR::VRTrackingManager* MWVR::Environment::getTrackingManager() const
+{
+    return mTrackingManager;
+}
+
+void MWVR::Environment::setTrackingManager(MWVR::VRTrackingManager* trackingManager)
+{
+    mTrackingManager = trackingManager;
+}

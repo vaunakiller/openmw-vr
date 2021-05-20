@@ -42,6 +42,7 @@ RigGeometry::RigGeometry()
 {
     setNumChildrenRequiringUpdateTraversal(1);
     // update done in accept(NodeVisitor&)
+    setCullingActive(false);
 }
 
 RigGeometry::RigGeometry(const RigGeometry &copy, const osg::CopyOp &copyop)
@@ -194,6 +195,10 @@ void RigGeometry::cull(osg::NodeVisitor* nv)
     osg::Geometry& geom = *getGeometry(mLastFrameNumber);
 
     mSkeleton->updateBoneMatrices(traversalNumber);
+
+    // Tracking login in VR updates bone matrices out of order, and forces bounds to be recalculated during cull.
+    if (mSkeleton->isTracked())
+        updateBounds(nv);
 
     // skinning
     const osg::Vec3Array* positionSrc = static_cast<osg::Vec3Array*>(mSourceGeometry->getVertexArray());

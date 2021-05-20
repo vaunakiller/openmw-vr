@@ -46,13 +46,20 @@ namespace MWVR {
             }
         }
 
-        StateMachine::StateMachine(MWWorld::Ptr ptr) 
+        StateMachine::StateMachine(MWWorld::Ptr ptr, VRPath trackingPath)
             : mPtr(ptr) 
             , mMinVelocity(Settings::Manager::getFloat("realistic combat minimum swing velocity", "VR"))
             , mMaxVelocity(Settings::Manager::getFloat("realistic combat maximum swing velocity", "VR"))
+            , mTrackingPath(trackingPath)
         {
             Log(Debug::Verbose) << "realistic combat minimum swing velocity: " << mMinVelocity;
             Log(Debug::Verbose) << "realistic combat maximum swing velocity: " << mMaxVelocity;
+            Environment::get().getTrackingManager()->bind(this, "pcstage");
+        }
+
+        void StateMachine::onTrackingUpdated(VRTrackingSource& source, DisplayTime predictedDisplayTime)
+        {
+            mTrackingInput = source.getTrackingPose(predictedDisplayTime, mTrackingPath);
         }
 
         bool StateMachine::canSwing()
@@ -118,13 +125,12 @@ namespace MWVR {
 
         void StateMachine::update(float dt, bool enabled)
         {
-            auto* session = Environment::get().getSession();
             auto* world = MWBase::Environment::get().getWorld();
-            auto& predictedPoses = session->predictedPoses(VRSession::FramePhase::Update);
-            auto& handPose = predictedPoses.hands[(int)MWVR::Side::RIGHT_SIDE];
+            auto& handPose = mTrackingInput.pose;
             auto weaponType = world->getActiveWeaponType();
 
             enabled = enabled && isMeleeWeapon(weaponType);
+            enabled = enabled && !!mTrackingInput.status;
 
             if (mEnabled != enabled)
             {

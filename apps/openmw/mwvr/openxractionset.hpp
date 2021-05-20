@@ -31,13 +31,15 @@ namespace MWVR
         XrActionSet xrActionSet() { return mActionSet; };
         void suggestBindings(std::vector<XrActionSuggestedBinding>& xrSuggestedBindings, const SuggestedBindings& mwSuggestedBindings);
 
+        XrSpace xrActionSpace(TrackedLimb limb);
+
+        void createMWAction(VrControlType controlType, int openMWAction, const std::string& actionName, const std::string& localName);
+        void createPoseAction(TrackedLimb limb, const std::string& actionName, const std::string& localName);
+        void createHapticsAction(TrackedLimb limb, const std::string& actionName, const std::string& localName);
+
     protected:
         template<typename A>
         void createMWAction(int openMWAction, const std::string& actionName, const std::string& localName);
-        template<typename A>
-        void createMWAction(int openMWAction, const std::string& actionName, const std::string& localName, std::shared_ptr<AxisAction::Deadzone> deadzone);
-        void createPoseAction(TrackedLimb limb, const std::string& actionName, const std::string& localName);
-        void createHapticsAction(TrackedLimb limb, const std::string& actionName, const std::string& localName);
         std::unique_ptr<OpenXRAction> createXRAction(XrActionType actionType, const std::string& actionName, const std::string& localName);
         XrPath getXrPath(const std::string& path);
         XrActionSet createActionSet(const std::string& name);
@@ -49,6 +51,7 @@ namespace MWVR
         std::map<TrackedLimb, std::unique_ptr<PoseAction>> mTrackerMap;
         std::map<TrackedLimb, std::unique_ptr<HapticsAction>> mHapticsMap;
         std::deque<const Action*> mActionQueue{};
+        std::shared_ptr<AxisAction::Deadzone> mDeadzone;
     };
 }
 

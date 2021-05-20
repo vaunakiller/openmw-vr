@@ -2,6 +2,7 @@
 #include "openxrdebug.hpp"
 #include "vrenvironment.hpp"
 #include "openxrmanagerimpl.hpp"
+#include "openxrtypeconversions.hpp"
 
 #include <vector>
 #include <deque>
@@ -42,7 +43,7 @@ namespace MWVR
         mPrevious = mValue;
 
         auto* xr = Environment::get().getManager();
-        XrSpace referenceSpace = xr->impl().getReferenceSpace();
+        XrSpace referenceSpace = xr->impl().getReferenceSpace(ReferenceSpace::STAGE);
 
         XrSpaceLocation location{ XR_TYPE_SPACE_LOCATION };
         XrSpaceVelocity velocity{ XR_TYPE_SPACE_VELOCITY };

@@ -26,6 +26,16 @@ namespace MWVR
         A_VrLast
     };
 
+    enum class VrControlType
+    {
+        Press,
+        LongPress,
+        Hold,
+        Pose,
+        Haptic,
+        Axis
+    };
+
     /// \brief Suggest a binding by binding an action to a path on a given hand (left or right).
     struct SuggestedBinding
     {
@@ -40,6 +50,8 @@ namespace MWVR
     {
         GUI = 0,
         Gameplay = 1,
+        Tracking = 2,
+        Haptics = 3,
     };
 
     /// \brief Action for applying haptics
@@ -76,6 +88,9 @@ namespace MWVR
 
         //! Update pose value
         void update(long long time);
+
+        //! Action space
+        XrSpace xrSpace() { return mXRSpace; }
 
     private:
         std::unique_ptr<OpenXRAction> mXRAction;

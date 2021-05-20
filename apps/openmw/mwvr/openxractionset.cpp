@@ -24,75 +24,10 @@ namespace MWVR
         : mActionSet(nullptr)
         , mLocalizedName(actionSetName)
         , mInternalName(Misc::StringUtils::lowerCase(actionSetName))
+        , mDeadzone(deadzone)
     {
         mActionSet = createActionSet(actionSetName);
         // When starting to account for more devices than oculus touch, this section may need some expansion/redesign.
-
-        // Currently the set of action paths was determined using the oculus touch (i know nothing about the vive and the index).
-        // The set of action paths may therefore need expansion. E.g. /click vs /value may vary with controllers.
-
-
-        /*
-            // Applicable actions not (yet) included
-            A_QuickKey1,
-            A_QuickKey2,
-            A_QuickKey3,
-            A_QuickKey4,
-            A_QuickKey5,
-            A_QuickKey6,
-            A_QuickKey7,
-            A_QuickKey8,
-            A_QuickKey9,
-            A_QuickKey10,
-            A_QuickKeysMenu,
-            A_QuickLoad,
-            A_CycleSpellLeft,
-            A_CycleSpellRight,
-            A_CycleWeaponLeft,
-            A_CycleWeaponRight,
-            A_Screenshot, // Generate a VR screenshot?
-            A_Console,    // Currently awkward due to a lack of virtual keyboard, but should be included when that's in place
-        */
-
-        // To fit more actions onto controllers i created a system of short and long press actions. Allowing one action to activate
-        // on a short press, and another on long. Here, what actions are short press and what actions are long press is simply
-        // hardcoded at init, rather than interpreted from bindings. That's bad, and should be fixed, but that's hard to do
-        // while staying true to openxr's binding system, so if the system i wrote for the oculus touch isn't a good fit for
-        // the vive/index, we might want to rewrite this to handle bindings ourselves.
-        createMWAction<ButtonPressAction>(MWInput::A_GameMenu, "game_menu", "Game Menu");
-        createMWAction<ButtonPressAction>(A_VrMetaMenu, "meta_menu", "Meta Menu");
-        createMWAction<ButtonLongPressAction>(A_Recenter, "reposition_menu", "Reposition Menu");
-        createMWAction<ButtonPressAction>(MWInput::A_Inventory, "inventory", "Inventory");
-        createMWAction<ButtonPressAction>(MWInput::A_Activate, "activate", "Activate");
-        createMWAction<ButtonHoldAction>(MWInput::A_Use, "use", "Use");
-        createMWAction<ButtonHoldAction>(MWInput::A_Jump, "jump", "Jump");
-        createMWAction<ButtonPressAction>(MWInput::A_ToggleWeapon, "weapon", "Weapon");
-        createMWAction<ButtonPressAction>(MWInput::A_ToggleSpell, "spell", "Spell");
-        createMWAction<ButtonPressAction>(MWInput::A_CycleSpellLeft, "cycle_spell_left", "Cycle Spell Left");
-        createMWAction<ButtonPressAction>(MWInput::A_CycleSpellRight, "cycle_spell_right", "Cycle Spell Right");
-        createMWAction<ButtonPressAction>(MWInput::A_CycleWeaponLeft, "cycle_weapon_left", "Cycle Weapon Left");
-        createMWAction<ButtonPressAction>(MWInput::A_CycleWeaponRight, "cycle_weapon_right", "Cycle Weapon Right");
-        createMWAction<ButtonHoldAction>(MWInput::A_Sneak, "sneak", "Sneak");
-        createMWAction<ButtonPressAction>(MWInput::A_QuickKeysMenu, "quick_menu", "Quick Menu");
-        createMWAction<AxisAction>(MWInput::A_LookLeftRight, "look_left_right", "Look Left Right", deadzone);
-        createMWAction<AxisAction>(MWInput::A_MoveForwardBackward, "move_forward_backward", "Move Forward Backward", deadzone);
-        createMWAction<AxisAction>(MWInput::A_MoveLeftRight, "move_left_right", "Move Left Right", deadzone);
-        createMWAction<ButtonPressAction>(MWInput::A_Journal, "journal_book", "Journal Book");
-        createMWAction<ButtonPressAction>(MWInput::A_QuickSave, "quick_save", "Quick Save");
-        createMWAction<ButtonPressAction>(MWInput::A_Rest, "rest", "Rest");
-        createMWAction<AxisAction>(A_ActivateTouch, "activate_touched", "Activate Touch", deadzone);
-        createMWAction<ButtonPressAction>(MWInput::A_AlwaysRun, "always_run", "Always Run");
-        createMWAction<ButtonPressAction>(MWInput::A_AutoMove, "auto_move", "Auto Move");
-        createMWAction<ButtonPressAction>(MWInput::A_ToggleHUD, "toggle_hud", "Toggle HUD");
-        createMWAction<ButtonPressAction>(MWInput::A_ToggleDebug, "toggle_debug", "Toggle the debug hud");
-        createMWAction<AxisAction>(A_MenuUpDown, "menu_up_down", "Menu Up Down", deadzone);
-        createMWAction<AxisAction>(A_MenuLeftRight, "menu_left_right", "Menu Left Right", deadzone);
-        createMWAction<ButtonPressAction>(A_MenuSelect, "menu_select", "Menu Select");
-        createMWAction<ButtonPressAction>(A_MenuBack, "menu_back", "Menu Back");
-        createPoseAction(TrackedLimb::LEFT_HAND, "left_hand_pose", "Left Hand Pose");
-        createPoseAction(TrackedLimb::RIGHT_HAND, "right_hand_pose", "Right Hand Pose");
-        createHapticsAction(TrackedLimb::RIGHT_HAND, "right_hand_haptics", "Right Hand Haptics");
-        createHapticsAction(TrackedLimb::LEFT_HAND, "left_hand_haptics", "Left Hand Haptics");
     };
 
     void
@@ -113,6 +48,17 @@ namespace MWVR
         mHapticsMap.emplace(limb, new HapticsAction(std::move(createXRAction(XR_ACTION_TYPE_VIBRATION_OUTPUT, actionName, localName))));
     }
 
+    template<>
+    void
+        OpenXRActionSet::createMWAction<AxisAction>(
+            int openMWAction,
+            const std::string& actionName,
+            const std::string& localName)
+    {
+        auto xrAction = createXRAction(AxisAction::ActionType, mInternalName + "_" + actionName, mLocalizedName + " " + localName);
+        mActionMap.emplace(actionName, new AxisAction(openMWAction, std::move(xrAction), mDeadzone));
+    }
+
     template<typename A>
     void
         OpenXRActionSet::createMWAction(
@@ -124,18 +70,32 @@ namespace MWVR
         mActionMap.emplace(actionName, new A(openMWAction, std::move(xrAction)));
     }
 
-    template<typename A>
+
     void
         OpenXRActionSet::createMWAction(
+            VrControlType controlType,
             int openMWAction,
             const std::string& actionName,
-            const std::string& localName,
-            std::shared_ptr<AxisAction::Deadzone> deadzone)
+            const std::string& localName)
     {
-        auto xrAction = createXRAction(AxisAction::ActionType, mInternalName + "_" + actionName, mLocalizedName + " " + localName);
-        mActionMap.emplace(actionName, new AxisAction(openMWAction, std::move(xrAction), deadzone));
+        switch (controlType)
+        {
+        case VrControlType::Press:
+            return createMWAction<ButtonPressAction>(openMWAction, actionName, localName);
+        case VrControlType::LongPress:
+            return createMWAction<ButtonLongPressAction>(openMWAction, actionName, localName);
+        case VrControlType::Hold:
+            return createMWAction<ButtonHoldAction>(openMWAction, actionName, localName);
+        case VrControlType::Axis:
+            return createMWAction<AxisAction>(openMWAction, actionName, localName);
+        //case VrControlType::Pose:
+        //    return createMWAction<PoseAction>(openMWAction, actionName, localName);
+        //case VrControlType::Haptic:
+        //    return createMWAction<HapticsAction>(openMWAction, actionName, localName);
+        default:
+            Log(Debug::Warning) << "createMWAction: pose/haptics Not implemented here";
+        }
     }
-
 
 
     XrActionSet
@@ -156,12 +116,16 @@ namespace MWVR
 
     void OpenXRActionSet::suggestBindings(std::vector<XrActionSuggestedBinding>& xrSuggestedBindings, const SuggestedBindings& mwSuggestedBindings)
     {
-        std::vector<XrActionSuggestedBinding> suggestedBindings =
+        std::vector<XrActionSuggestedBinding> suggestedBindings;
+        if (!mTrackerMap.empty())
         {
-            {*mTrackerMap[TrackedLimb::LEFT_HAND], getXrPath("/user/hand/left/input/aim/pose")},
-            {*mTrackerMap[TrackedLimb::RIGHT_HAND], getXrPath("/user/hand/right/input/aim/pose")},
-            {*mHapticsMap[TrackedLimb::LEFT_HAND], getXrPath("/user/hand/left/output/haptic")},
-            {*mHapticsMap[TrackedLimb::RIGHT_HAND], getXrPath("/user/hand/right/output/haptic")},
+            suggestedBindings.emplace_back(XrActionSuggestedBinding{ *mTrackerMap[TrackedLimb::LEFT_HAND], getXrPath("/user/hand/left/input/aim/pose") });
+            suggestedBindings.emplace_back(XrActionSuggestedBinding{ *mTrackerMap[TrackedLimb::RIGHT_HAND], getXrPath("/user/hand/right/input/aim/pose") });
+        }
+        if(!mHapticsMap.empty())
+        {
+            suggestedBindings.emplace_back(XrActionSuggestedBinding{ *mHapticsMap[TrackedLimb::LEFT_HAND], getXrPath("/user/hand/left/output/haptic") });
+            suggestedBindings.emplace_back(XrActionSuggestedBinding{ *mHapticsMap[TrackedLimb::RIGHT_HAND], getXrPath("/user/hand/right/output/haptic") });
         };
 
         for (auto& mwSuggestedBinding : mwSuggestedBindings)
@@ -176,6 +140,11 @@ namespace MWVR
         }
 
         xrSuggestedBindings.insert(xrSuggestedBindings.end(), suggestedBindings.begin(), suggestedBindings.end());
+    }
+
+    XrSpace OpenXRActionSet::xrActionSpace(TrackedLimb limb)
+    {
+        return mTrackerMap[limb]->xrSpace();
     }
 
 
@@ -209,6 +178,7 @@ namespace MWVR
         syncInfo.activeActionSets = &activeActionSet;
         CHECK_XRCMD(xrSyncActions(xr->impl().xrSession(), &syncInfo));
 
+        mActionQueue.clear();
         for (auto& action : mActionMap)
             action.second->updateAndQueue(mActionQueue);
     }

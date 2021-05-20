@@ -10,7 +10,6 @@
 #include <osgViewer/Viewer>
 
 #include "openxrmanager.hpp"
-#include "vrshadow.hpp"
 
 #include <components/sceneutil/positionattitudetransform.hpp>
 #include <components/misc/stereo.hpp>

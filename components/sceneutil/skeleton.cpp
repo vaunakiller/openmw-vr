@@ -38,6 +38,7 @@ Skeleton::Skeleton()
     , mActive(Active)
     , mLastFrameNumber(0)
     , mLastCullFrameNumber(0)
+    , mTracked(false)
 {
 
 }
@@ -49,6 +50,7 @@ Skeleton::Skeleton(const Skeleton &copy, const osg::CopyOp &copyop)
     , mActive(copy.mActive)
     , mLastFrameNumber(0)
     , mLastCullFrameNumber(0)
+    , mTracked(false)
 {
 
 }
@@ -105,7 +107,7 @@ Bone* Skeleton::getBone(const std::string &name)
     return bone;
 }
 
-void Skeleton::updateBoneMatrices(unsigned int traversalNumber)
+bool Skeleton::updateBoneMatrices(unsigned int traversalNumber)
 {
     if (traversalNumber != mLastFrameNumber)
         mNeedToUpdateBoneMatrices = true;
@@ -121,7 +123,9 @@ void Skeleton::updateBoneMatrices(unsigned int traversalNumber)
         }
 
         mNeedToUpdateBoneMatrices = false;
+        return true;
     }
+    return false;
 }
 
 void Skeleton::setActive(ActiveType active)
@@ -139,6 +143,11 @@ void Skeleton::markDirty()
     mLastFrameNumber = 0;
     mBoneCache.clear();
     mBoneCacheInit = false;
+}
+
+void Skeleton::markBoneMatriceDirty()
+{
+    mNeedToUpdateBoneMatrices = true;
 }
 
 void Skeleton::traverse(osg::NodeVisitor& nv)

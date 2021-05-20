@@ -18,6 +18,7 @@
 #include <components/sceneutil/actorutil.hpp>
 #include <components/sceneutil/positionattitudetransform.hpp>
 #include <components/sceneutil/shadow.hpp>
+#include <components/sceneutil/skeleton.hpp>
 #include <components/resource/resourcesystem.hpp>
 #include <components/resource/scenemanager.hpp>
 
@@ -55,98 +56,6 @@ namespace MWVR
         return false;
     }
 
-    /// Implements VR control of the forearm, to control mesh/bone deformation of the hand.
-    class ForearmController : public osg::NodeCallback
-    {
-    public:
-        ForearmController() = default;
-        void setEnabled(bool enabled) { mEnabled = enabled; };
-        void operator()(osg::Node* node, osg::NodeVisitor* nv);
-
-    private:
-        bool mEnabled{ true };
-    };
-
-    void ForearmController::operator()(osg::Node* node, osg::NodeVisitor* nv)
-    {
-        if (!mEnabled)
-        {
-            traverse(node, nv);
-            return;
-        }
-
-        osg::MatrixTransform* transform = static_cast<osg::MatrixTransform*>(node);
-        auto* camera = MWBase::Environment::get().getWorld()->getRenderingManager().getCamera();
-
-        auto* session = Environment::get().getSession();
-        int side = (int)Side::RIGHT_SIDE;
-        if (node->getName().find_first_of("L") != std::string::npos)
-        {
-            side = (int)Side::LEFT_SIDE;
-            // We base ourselves on the world position of the camera
-            // Therefore we have to make sure the camera is updated for this frame first.
-            camera->updateCamera();
-        }
-
-        MWVR::Pose handStage = session->predictedPoses(VRSession::FramePhase::Update).hands[side];
-        MWVR::Pose headStage = session->predictedPoses(VRSession::FramePhase::Update).head;
-
-        auto orientation = handStage.orientation;
-
-        auto position = handStage.position - headStage.position;
-        position = position * Constants::UnitsPerMeter;
-
-        // Align orientation with the game world
-        auto stageRotation = reinterpret_cast<MWVR::VRCamera*>(MWBase::Environment::get().getWorld()->getRenderingManager().getCamera())->stageRotation();
-        position = stageRotation * position;
-        orientation = orientation * stageRotation;
-
-        // Add camera offset
-        osg::Vec3 viewPosition;
-        osg::Vec3 center; // dummy
-        osg::Vec3 up;     // dummy
-
-        auto viewMatrix = camera->getOsgCamera()->getViewMatrix();
-        viewMatrix.getLookAt(viewPosition, center, up, 1.0);
-        position += viewPosition;
-
-        // Morrowind's meshes do not point forward by default.
-        // Declare the offsets static since they do not need to be recomputed.
-        static float VRbias = osg::DegreesToRadians(-90.f);
-        static osg::Quat yaw(-VRbias, osg::Vec3f(0, 0, 1));
-        static osg::Quat pitch(2.f * VRbias, osg::Vec3f(0, 1, 0));
-        static osg::Quat roll(2 * VRbias, osg::Vec3f(1, 0, 0));
-        orientation = yaw * orientation;
-        if (side == (int)Side::LEFT_SIDE)
-            orientation = roll * orientation;
-
-        // Undo the wrist translate
-        auto* hand = transform->getChild(0);
-        auto handMatrix = hand->asTransform()->asMatrixTransform()->getMatrix();
-        position -= orientation * handMatrix.getTrans();
-
-        // Center hand mesh on tracking
-        // This is just an estimate from trial and error, any suggestion for improving this is welcome
-        position -= orientation * osg::Vec3{ 15,0,0 };
-
-        // Get current world transform of limb
-        osg::Matrix worldToLimb = osg::computeLocalToWorld(node->getParentalNodePaths()[0]);
-        // Get current world of the reference node
-        osg::Matrix worldReference = osg::Matrix::identity();
-        // New transform based on tracking.
-        worldReference.preMultTranslate(position);
-        worldReference.preMultRotate(orientation);
-
-        // Finally, set transform
-        transform->setMatrix(worldReference * osg::Matrix::inverse(worldToLimb) * transform->getMatrix());
-
-        // Omit nested callbacks to override animations of this node
-        osg::ref_ptr<osg::Callback> ncb = getNestedCallback();
-        setNestedCallback(nullptr);
-        traverse(node, nv);
-        setNestedCallback(ncb);
-    }
-
     /// Implements control of a finger by overriding rotation
     class FingerController : public osg::NodeCallback
     {
@@ -182,13 +91,6 @@ namespace MWVR
         setNestedCallback(nullptr);
         traverse(node, nv);
         setNestedCallback(ncb);
-
-        // Recompute pointer target
-        auto* anim = MWVR::Environment::get().getPlayerAnimation();
-        if (anim && node->getName() == "Bip01 R Finger1")
-        {
-            anim->updatePointerTarget();
-        }
     }
 
     /// Implements control of a finger by overriding rotation
@@ -362,6 +264,63 @@ namespace MWVR
         traverse(node, nv);
     }
 
+    class TrackingController : public VRTrackingListener
+    {
+    public:
+        TrackingController(VRPath trackingPath, osg::Vec3 baseOffset, osg::Quat baseOrientation)
+            : mTrackingPath(trackingPath)
+            , mTransform(nullptr)
+            , mBaseOffset(baseOffset)
+            , mBaseOrientation(baseOrientation)
+        {
+
+        }
+
+        void onTrackingUpdated(VRTrackingSource& source, DisplayTime predictedDisplayTime) override
+        {
+            if (!mTransform)
+                return;
+
+            auto tp = source.getTrackingPose(predictedDisplayTime, mTrackingPath, 0);
+            if (!tp.status)
+                return;
+
+            auto orientation = mBaseOrientation * tp.pose.orientation;
+
+            // Undo the wrist translate
+            // TODO: I'm sure this could bee a lot less hacky
+            // But i'll defer that to whenever we get inverse cinematics so i can track the hand directly.
+            auto* hand = mTransform->getChild(0);
+            auto handMatrix = hand->asTransform()->asMatrixTransform()->getMatrix();
+            auto position = tp.pose.position - (orientation * handMatrix.getTrans());
+
+            // Center hand mesh on tracking
+            // This is just an estimate from trial and error, any suggestion for improving this is welcome
+            position -= orientation * mBaseOffset;
+
+            // Get current world transform of limb
+            osg::Matrix worldToLimb = osg::computeWorldToLocal(mTransform->getParentalNodePaths()[0]);
+            // Get current world of the reference node
+            osg::Matrix worldReference = osg::Matrix::identity();
+            // New transform based on tracking.
+            worldReference.preMultTranslate(position);
+            worldReference.preMultRotate(orientation);
+
+            // Finally, set transform
+            mTransform->setMatrix(worldReference * worldToLimb * mTransform->getMatrix());
+        }
+
+        void setTransform(osg::MatrixTransform* transform)
+        {
+            mTransform = transform;
+        }
+
+        VRPath mTrackingPath;
+        osg::ref_ptr<osg::MatrixTransform> mTransform;
+        osg::Vec3 mBaseOffset;
+        osg::Quat mBaseOrientation;
+    };
+
     VRAnimation::VRAnimation(
         const MWWorld::Ptr& ptr, osg::ref_ptr<osg::Group> parentNode, Resource::ResourceSystem* resourceSystem,
         bool disableSounds, std::shared_ptr<VRSession> xrSession)
@@ -377,7 +336,6 @@ namespace MWVR
         for (int i = 0; i < 2; i++)
         {
             mIndexFingerControllers[i] = new FingerController;
-            mForearmControllers[i] = new ForearmController;
             mHandControllers[i] = new HandController;
         }
 
@@ -403,6 +361,32 @@ namespace MWVR
         mWeaponPointerTransform->setName("Weapon Pointer");
         mWeaponPointerTransform->setUpdateCallback(new WeaponPointerController);
         //mWeaponDirectionTransform->addChild(mWeaponPointerTransform);
+
+        auto vrTrackingManager = MWVR::Environment::get().getTrackingManager();
+        vrTrackingManager->bind(this, "pcworld");
+        auto* source = static_cast<VRTrackingToWorldBinding*>(vrTrackingManager->getSource("pcworld"));
+        source->setOriginNode(mObjectRoot->getParent(0));
+
+        // Morrowind's meshes do not point forward by default and need re-positioning and orientation.
+        float VRbias = osg::DegreesToRadians(-90.f);
+        osg::Quat yaw(-VRbias, osg::Vec3f(0, 0, 1));
+        osg::Quat roll(2 * VRbias, osg::Vec3f(1, 0, 0));
+        osg::Vec3 offset{ 15,0,0 };
+        auto* tm = Environment::get().getTrackingManager();
+
+        // Note that these controllers could be bound directly to source in the tracking manager.
+        // Instead we store them and update them manually to ensure order of operations.
+        {
+            auto path = tm->stringToVRPath("/user/hand/right/input/aim/pose");
+            auto orientation = yaw;
+            mVrControllers.emplace("bip01 r forearm", std::make_unique<TrackingController>(path, offset, orientation));
+        }
+
+        {
+            auto path = tm->stringToVRPath("/user/hand/left/input/aim/pose");
+            auto orientation = roll * yaw;
+            mVrControllers.emplace("bip01 l forearm", std::make_unique<TrackingController>(path, offset, orientation));
+        }
     }
 
     VRAnimation::~VRAnimation() {};
@@ -580,6 +564,7 @@ namespace MWVR
         stateset->setAttributeAndModes(material, osg::StateAttribute::ON);
 
         mResourceSystem->getSceneManager()->recreateShaders(geometry);
+        mSkeleton->setIsTracked(true);
 
         return geometry;
     }
@@ -587,6 +572,17 @@ namespace MWVR
     float VRAnimation::getVelocity(const std::string& groupname) const
     {
         return 0.0f;
+    }
+
+    void VRAnimation::onTrackingUpdated(VRTrackingSource& source, DisplayTime predictedDisplayTime)
+    {
+        for (auto& controller : mVrControllers)
+            controller.second->onTrackingUpdated(source, predictedDisplayTime);
+
+        if (mSkeleton)
+            mSkeleton->markBoneMatriceDirty();
+
+        updatePointerTarget();
     }
 
     osg::Vec3f VRAnimation::runAnimation(float timepassed)
@@ -603,9 +599,11 @@ namespace MWVR
             auto forearm = mNodeMap.find(i == 0 ? "bip01 l forearm" : "bip01 r forearm");
             if (forearm != mNodeMap.end())
             {
-                auto node = forearm->second;
-                node->removeUpdateCallback(mForearmControllers[i]);
-                node->addUpdateCallback(mForearmControllers[i]);
+                auto controller = mVrControllers.find(forearm->first);
+                if (controller != mVrControllers.end())
+                {
+                    controller->second->setTransform(forearm->second);
+                }
             }
 
             auto hand = mNodeMap.find(i == 0 ? "bip01 l hand" : "bip01 r hand");
@@ -629,15 +627,7 @@ namespace MWVR
             finger->second->removeChild(mPointerTransform);
             finger->second->addChild(mPointerTransform);
         }
-
-        auto parent = mObjectRoot->getParent(0);
-        if (parent->getName() == "Player Root")
-        {
-            auto group = parent->asGroup();
-            group->removeChildren(0, parent->getNumChildren());
-            group->addChild(mModelOffset);
-            mModelOffset->addChild(mObjectRoot);
-        }
+        mSkeleton->setIsTracked(true);
     }
     void VRAnimation::enableHeadAnimation(bool)
     {

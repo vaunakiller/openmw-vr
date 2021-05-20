@@ -42,9 +42,9 @@ namespace MWVR
 
         struct VRFrameMeta
         {
-            long long   mFrameNo{ 0 };
-            long long   mPredictedDisplayTime{ 0 };
-            PoseSet     mPredictedPoses{};
+            
+            DisplayTime mFrameNo{ 0 };
+            std::array<View, 2> mViews[2]{};
             bool        mShouldRender{ false };
             bool        mShouldSyncFrameLoop{ false };
             FrameInfo   mFrameInfo{};
@@ -56,13 +56,8 @@ namespace MWVR
 
         void swapBuffers(osg::GraphicsContext* gc, VRViewer& viewer);
 
-        const PoseSet& predictedPoses(FramePhase phase);
-
         //! Starts a new frame
         void prepareFrame();
-
-        //! Angles to be used for overriding movement direction
-        void movementAngles(float& yaw, float& pitch);
 
         void beginPhase(FramePhase phase);
         std::unique_ptr<VRFrameMeta>& getFrame(FramePhase phase);
@@ -73,10 +68,6 @@ namespace MWVR
 
         float eyeLevel() const { return mEyeLevel; }
         void setEyeLevel(float eyeLevel) { mEyeLevel = eyeLevel; }
-
-        osg::Matrix viewMatrix(osg::Vec3 position, osg::Quat orientation);
-        osg::Matrix viewMatrix(FramePhase phase, Side side, bool offset, bool glConvention);
-        osg::Matrix projectionMatrix(FramePhase phase, Side side);
 
         std::array<std::unique_ptr<VRFrameMeta>, (int)FramePhase::NumPhases> mFrame{ nullptr };
 
@@ -92,7 +83,6 @@ namespace MWVR
         std::mutex mMutex{};
         std::condition_variable mCondition{};
 
-        bool mHandDirectedMovement{ false };
         bool mSeatedPlay{ false };
         long long mFrames{ 0 };
         long long mLastRenderedFrame{ 0 };

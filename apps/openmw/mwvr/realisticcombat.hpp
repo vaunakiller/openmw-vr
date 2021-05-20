@@ -9,6 +9,7 @@
 
 #include "vrenvironment.hpp"
 #include "vrsession.hpp"
+#include "vrtracking.hpp"
 
 namespace MWVR {
     namespace RealisticCombat {
@@ -47,21 +48,22 @@ namespace MWVR {
         ///    Cooldown  -> Ready:       When the minimum period has passed since entering Cooldown state
         ///
         ///
-        struct StateMachine
+        struct StateMachine : public VRTrackingListener
         {
         public:
-            StateMachine(MWWorld::Ptr ptr);
+            StateMachine(MWWorld::Ptr ptr, VRPath trackingPath);
             void update(float dt, bool enabled);
             MWWorld::Ptr ptr() { return mPtr; }
 
         protected:
+            void onTrackingUpdated(VRTrackingSource& source, DisplayTime predictedDisplayTime) override;
+
             bool canSwing();
 
             void playSwish();
             void reset();
 
             void transition(SwingState newState);
-
 
             void update_cooldownState();
             void transition_cooldownToReady();
@@ -102,7 +104,9 @@ namespace MWVR {
 
             bool mEnabled = false;
 
-            osg::Vec3 mPreviousPosition{ 0.f,0.f,0.f };
+            osg::Vec3       mPreviousPosition{ 0.f,0.f,0.f };
+            VRTrackingPose  mTrackingInput = VRTrackingPose();
+            VRPath          mTrackingPath = 0;
         };
 
     }

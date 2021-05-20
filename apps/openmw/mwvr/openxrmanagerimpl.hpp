@@ -3,6 +3,7 @@
 
 #include "openxrmanager.hpp"
 #include "openxrplatform.hpp"
+#include "openxrtracker.hpp"
 #include "../mwinput/inputmanagerimp.hpp"
 
 #include <components/debug/debuglog.hpp>
@@ -20,21 +21,6 @@
 
 namespace MWVR
 {
-    /// Conversion methods from openxr types to osg/mwvr types. Includes managing the differing conventions.
-    MWVR::Pose          fromXR(XrPosef pose);
-    MWVR::FieldOfView   fromXR(XrFovf fov);
-    osg::Vec3           fromXR(XrVector3f);
-    osg::Quat           fromXR(XrQuaternionf quat);
-
-    /// Conversion methods from osg/mwvr types to openxr types. Includes managing the differing conventions.
-    XrPosef             toXR(MWVR::Pose pose);
-    XrFovf              toXR(MWVR::FieldOfView fov);
-    XrVector3f          toXR(osg::Vec3 v);
-    XrQuaternionf       toXR(osg::Quat quat);
-
-    XrCompositionLayerProjectionView toXR(MWVR::CompositionLayerProjectionView layer);
-    XrSwapchainSubImage toXR(MWVR::SubImage, bool depthImage);
-
     /// \brief Implementation of OpenXRManager
     class OpenXRManagerImpl
     {
@@ -56,7 +42,7 @@ namespace MWVR
         long long getLastPredictedDisplayTime();
         long long getLastPredictedDisplayPeriod();
         std::array<SwapchainConfig, 2> getRecommendedSwapchainConfig() const;
-        XrSpace getReferenceSpace();
+        XrSpace getReferenceSpace(ReferenceSpace space);
         XrSession xrSession() const { return mSession; };
         XrInstance xrInstance() const { return mInstance; };
         bool xrExtensionIsEnabled(const char* extensionName) const;
@@ -67,8 +53,9 @@ namespace MWVR
         int64_t selectColorFormat();
         int64_t selectDepthFormat();
         void eraseFormat(int64_t format);
-        OpenXRPlatform& platform() { return mPlatform; };
-
+        OpenXRPlatform& platform() { return mPlatform; }
+        OpenXRTracker& tracker() { return *mTracker; }
+        void initTracker();
 
     protected:
         void setupExtensionsAndLayers();
@@ -104,12 +91,13 @@ namespace MWVR
         XrSpace mReferenceSpaceView = XR_NULL_HANDLE;
         XrSpace mReferenceSpaceStage = XR_NULL_HANDLE;
         XrSpace mReferenceSpaceLocal = XR_NULL_HANDLE;
-        XrSpace mReferenceSpace = XR_NULL_HANDLE;
         XrFrameState mFrameState{};
         XrSessionState mSessionState = XR_SESSION_STATE_UNKNOWN;
         XrDebugUtilsMessengerEXT mDebugMessenger{ nullptr };
-
         OpenXRPlatform mPlatform;
+
+        std::unique_ptr<OpenXRTracker> mTracker{ nullptr };
+        std::unique_ptr<VRTrackingToWorldBinding> mTrackerToWorldBinding{ nullptr };
 
         bool mXrSessionShouldStop = false;
         bool mAppShouldSyncFrameLoop = false;

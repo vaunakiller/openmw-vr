@@ -5,16 +5,17 @@
 #include "../mwrender/renderingmanager.hpp"
 #include "openxrmanager.hpp"
 #include "vrsession.hpp"
+#include "vrtracking.hpp"
 
 namespace MWVR
 {
 
     class HandController;
     class FingerController;
-    class ForearmController;
+    class TrackingController;
 
     /// Subclassing NpcAnimation to implement VR related behaviour
-    class VRAnimation : public MWRender::NpcAnimation
+    class VRAnimation : public MWRender::NpcAnimation, public VRTrackingListener
     {
     protected:
         virtual void addControllers();
@@ -74,9 +75,11 @@ namespace MWVR
 
         float getVelocity(const std::string& groupname) const override;
 
+        void onTrackingUpdated(VRTrackingSource& source, DisplayTime predictedDisplayTime) override;
+
     protected:
         std::shared_ptr<VRSession> mSession;
-        osg::ref_ptr<ForearmController> mForearmControllers[2];
+        std::map<std::string, std::unique_ptr<TrackingController> > mVrControllers;
         osg::ref_ptr<HandController> mHandControllers[2];
         osg::ref_ptr<FingerController> mIndexFingerControllers[2];
         osg::ref_ptr<osg::MatrixTransform> mModelOffset;

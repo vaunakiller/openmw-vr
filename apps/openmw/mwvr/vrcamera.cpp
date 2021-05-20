@@ -24,13 +24,12 @@ namespace MWVR
 
     VRCamera::VRCamera(osg::Camera* camera)
         : MWRender::Camera(camera)
-        , mRoll(0.f)
     {
         mVanityAllowed = false;
         mFirstPersonView = true;
 
-        auto* vrGuiManager = MWVR::Environment::get().getGUIManager();
-        vrGuiManager->setCamera(camera);
+        auto vrTrackingManager = MWVR::Environment::get().getTrackingManager();
+        vrTrackingManager->bind(this, "pcworld");
     }
 
     VRCamera::~VRCamera()
@@ -49,24 +48,19 @@ namespace MWVR
 
         // Move position of head to center of character 
         // Z should not be affected
-        mHeadOffset.x() = 0;
-        mHeadOffset.y() = 0;
 
         auto* session = Environment::get().getSession();
 
-        if (mShouldResetZ)
-        {
-            if (session->seatedPlay())
-            {
-                // Adjust offset to place the current pose roughly at eye level
-                mHeadOffset.z() = session->eyeLevel() * Constants::UnitsPerMeter;
-            }
-            else
-            {
-                mHeadOffset.z() = mHeadPose.position.z();
-            }
-            mShouldResetZ = false;
-        }
+        auto* tm = Environment::get().getTrackingManager();
+        auto* ws = static_cast<VRTrackingToWorldBinding*>(tm->getSource("pcworld"));
+
+
+        ws->setSeatedPlay(session->seatedPlay());
+        ws->setEyeLevel(session->eyeLevel() * Constants::UnitsPerMeter);
+        ws->recenter(mShouldResetZ);
+
+
+
         mShouldRecenter = false;
         Log(Debug::Verbose) << "Recentered";
     }
@@ -77,14 +71,11 @@ namespace MWVR
 
         auto& player = world->getPlayer();
         auto playerPtr = player.getPlayer();
-        
-        osg::Quat orientation;
-        getOrientation(orientation);
 
         float yaw = 0.f;
         float pitch = 0.f;
         float roll = 0.f;
-        getEulerAngles(orientation, yaw, pitch, roll);
+        getEulerAngles(mHeadPose.orientation, yaw, pitch, roll);
 
         if (!player.isDisabled() && mTrackingNode)
         {
@@ -92,31 +83,21 @@ namespace MWVR
         }
     }
 
-    void VRCamera::updateTracking()
+    void VRCamera::onTrackingUpdated(VRTrackingSource& source, DisplayTime predictedDisplayTime)
     {
-        auto* session = Environment::get().getSession();
-        auto& frameMeta = session->getFrame(VRSession::FramePhase::Update);
-        // Only update tracking if rendering.
-        // OpenXR does not provide tracking information while not rendering.
-        if (frameMeta && frameMeta->mShouldRender)
+        auto path = Environment::get().getTrackingManager()->stringToVRPath("/user/head/input/pose");
+        auto tp = source.getTrackingPose(predictedDisplayTime, path);
+
+        if (!!tp.status)
         {
-            auto currentHeadPose = frameMeta->mPredictedPoses.head;
-            currentHeadPose.position *= Constants::UnitsPerMeter;
-            osg::Vec3 vrMovement = currentHeadPose.position - mHeadPose.position;
-            mHeadPose = currentHeadPose;
-            mHeadOffset += stageRotation() * vrMovement;
+            mHeadPose = tp.pose;
             mHasTrackingData = true;
         }
-    }
-
-    void VRCamera::updateCamera(osg::Camera* cam)
-    {
-        updateTracking();
 
         if (mShouldRecenter)
         {
             recenter();
-            Camera::updateCamera(cam);
+            Camera::updateCamera(mCamera);
             auto* vrGuiManager = MWVR::Environment::get().getGUIManager();
             vrGuiManager->updateTracking();
         }
@@ -125,8 +106,13 @@ namespace MWVR
             if (mShouldTrackPlayerCharacter && !MWBase::Environment::get().getWindowManager()->isGuiMode())
                 applyTracking();
 
-            Camera::updateCamera(cam);
+            Camera::updateCamera(mCamera);
         }
+    }
+
+    void VRCamera::updateCamera(osg::Camera* cam)
+    {
+        // The regular update call should do nothing while tracking the player
     }
 
     void VRCamera::updateCamera()
@@ -145,23 +131,11 @@ namespace MWVR
         {
             pitch += getPitch();
             yaw += getYaw();
-            roll += getRoll();
         }
         setYaw(yaw);
         setPitch(pitch);
-        setRoll(roll);
     }
 
-    void VRCamera::setRoll(float angle)
-    {
-        if (angle > osg::PI) {
-            angle -= osg::PI * 2;
-        }
-        else if (angle < -osg::PI) {
-            angle += osg::PI * 2;
-        }
-        mRoll = angle;
-    }
     void VRCamera::toggleViewMode(bool force)
     {
         mFirstPersonView = true;
@@ -178,12 +152,11 @@ namespace MWVR
     }
     void VRCamera::getPosition(osg::Vec3d& focal, osg::Vec3d& camera) const
     {
-        Camera::getPosition(focal, camera);
-        camera += mHeadOffset;
+        camera = focal = mHeadPose.position;
     }
     void VRCamera::getOrientation(osg::Quat& orientation) const
     {
-        orientation = mHeadPose.orientation * osg::Quat(-mYawOffset, osg::Vec3d(0, 0, 1));
+        orientation = mHeadPose.orientation;
     }
 
     void VRCamera::processViewChange()
@@ -197,10 +170,9 @@ namespace MWVR
         mHeightScale = 1.f;
     }
 
-    void VRCamera::rotateCameraToTrackingPtr()
+    void VRCamera::instantTransition()
     {
-        Camera::rotateCameraToTrackingPtr();
-        setRoll(-mTrackingPtr.getRefData().getPosition().rot[1] - mDeferredRotation.y());
+        Camera::instantTransition();
 
         // When the cell changes, openmw rotates the character.
         // To make sure the player faces the same direction regardless of current orientation,
@@ -209,12 +181,24 @@ namespace MWVR
         float pitch = 0.f;
         float roll = 0.f;
         getEulerAngles(mHeadPose.orientation, yaw, pitch, roll);
-        mYawOffset = -mYaw - yaw;
+        yaw = - mYaw - yaw;
+        auto* tm = Environment::get().getTrackingManager();
+        auto* ws = static_cast<VRTrackingToWorldBinding*>(tm->getSource("pcworld"));
+        ws->setWorldOrientation(yaw, true);
+    }
+
+    void VRCamera::rotateStage(float yaw)
+    {
+        auto* tm = Environment::get().getTrackingManager();
+        auto* ws = static_cast<VRTrackingToWorldBinding*>(tm->getSource("pcworld"));
+        ws->setWorldOrientation(yaw, true);
     }
 
     osg::Quat VRCamera::stageRotation()
     {
-        return osg::Quat(mYawOffset, osg::Vec3(0, 0, -1));
+        auto* tm = Environment::get().getTrackingManager();
+        auto* ws = static_cast<VRTrackingToWorldBinding*>(tm->getSource("pcworld"));
+        return ws->getWorldOrientation();
     }
 
     void VRCamera::requestRecenter(bool resetZ)

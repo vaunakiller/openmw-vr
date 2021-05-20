@@ -3,6 +3,7 @@
 #include "openxrplatform.hpp"
 #include "openxrswapchain.hpp"
 #include "openxrswapchainimpl.hpp"
+#include "openxrtypeconversions.hpp"
 #include "vrenvironment.hpp"
 #include "vrinputmanager.hpp"
 
@@ -64,12 +65,13 @@ namespace MWVR
         // TODO: Blend mode
         // setupBlendMode();
 
-        // Create session
         mSession = mPlatform.createXrSession(mInstance, mSystemId);
         
         LogReferenceSpaces();
 
         createReferenceSpaces();
+
+        initTracker();
 
         getSystemProperties();
     }
@@ -84,9 +86,6 @@ namespace MWVR
         CHECK_XRCMD(xrCreateReferenceSpace(mSession, &createInfo, &mReferenceSpaceStage));
         createInfo.referenceSpaceType = XR_REFERENCE_SPACE_TYPE_LOCAL;
         CHECK_XRCMD(xrCreateReferenceSpace(mSession, &createInfo, &mReferenceSpaceLocal));
-
-        // Default to using the stage
-        mReferenceSpace = mReferenceSpaceStage;
     }
 
     void OpenXRManagerImpl::getSystem()
@@ -290,33 +289,6 @@ namespace MWVR
         CHECK_XRCMD(xrBeginFrame(mSession, &frameBeginInfo));
     }
 
-    XrCompositionLayerProjectionView toXR(MWVR::CompositionLayerProjectionView layer)
-    {
-        XrCompositionLayerProjectionView xrLayer;
-        xrLayer.type = XR_TYPE_COMPOSITION_LAYER_PROJECTION_VIEW;
-        xrLayer.subImage = toXR(layer.subImage, false);
-        xrLayer.pose = toXR(layer.pose);
-        xrLayer.fov = toXR(layer.fov);
-        xrLayer.next = nullptr;
-
-        return xrLayer;
-    }
-
-    XrSwapchainSubImage toXR(MWVR::SubImage subImage, bool depthImage)
-    {
-        XrSwapchainSubImage xrSubImage{};
-        if(depthImage)
-            xrSubImage.swapchain = subImage.swapchain->impl().xrSwapchainDepth();
-        else
-            xrSubImage.swapchain = subImage.swapchain->impl().xrSwapchain();
-        xrSubImage.imageRect.extent.width = subImage.width;
-        xrSubImage.imageRect.extent.height = subImage.height;
-        xrSubImage.imageRect.offset.x = subImage.x;
-        xrSubImage.imageRect.offset.y = subImage.y;
-        xrSubImage.imageArrayIndex = 0;
-        return xrSubImage;
-    }
-
     void
         OpenXRManagerImpl::endFrame(FrameInfo frameInfo, const std::array<CompositionLayerProjectionView, 2>* layerStack)
     {
@@ -331,7 +303,7 @@ namespace MWVR
             compositionLayerProjectionViews[(int)Side::LEFT_SIDE] = toXR((*layerStack)[(int)Side::LEFT_SIDE]);
             compositionLayerProjectionViews[(int)Side::RIGHT_SIDE] = toXR((*layerStack)[(int)Side::RIGHT_SIDE]);
             layer.type = XR_TYPE_COMPOSITION_LAYER_PROJECTION;
-            layer.space = getReferenceSpace();
+            layer.space = mReferenceSpaceStage;
             layer.viewCount = 2;
             layer.views = compositionLayerProjectionViews.data();
             auto* xrLayerStack = reinterpret_cast<XrCompositionLayerBaseHeader*>(&layer);
@@ -368,11 +340,11 @@ namespace MWVR
             int64_t predictedDisplayTime,
             ReferenceSpace space)
     {
-        if (!mPredictionsEnabled)
-        {
-            Log(Debug::Error) << "Prediction out of order";
-            throw std::logic_error("Prediction out of order");
-        }
+        //if (!mPredictionsEnabled)
+        //{
+        //    Log(Debug::Error) << "Prediction out of order";
+        //    throw std::logic_error("Prediction out of order");
+        //}
         std::array<XrView, 2> xrViews{ {{XR_TYPE_VIEW}, {XR_TYPE_VIEW}} };
         XrViewState viewState{ XR_TYPE_VIEW_STATE };
         uint32_t viewCount = 2;
@@ -605,31 +577,6 @@ namespace MWVR
         }
     }
 
-    MWVR::Pose fromXR(XrPosef pose)
-    {
-        return MWVR::Pose{ fromXR(pose.position), fromXR(pose.orientation) };
-    }
-
-    XrPosef toXR(MWVR::Pose pose)
-    {
-        return XrPosef{ toXR(pose.orientation), toXR(pose.position) };
-    }
-
-    MWVR::FieldOfView fromXR(XrFovf fov)
-    {
-        return MWVR::FieldOfView{ fov.angleLeft, fov.angleRight, fov.angleUp, fov.angleDown };
-    }
-
-    XrFovf toXR(MWVR::FieldOfView fov)
-    {
-        return XrFovf{ fov.angleLeft, fov.angleRight, fov.angleUp, fov.angleDown };
-    }
-
-    XrSpace OpenXRManagerImpl::getReferenceSpace()
-    {
-        return mReferenceSpace;
-    }
-
     bool OpenXRManagerImpl::xrExtensionIsEnabled(const char* extensionName) const
     {
         return mPlatform.extensionEnabled(extensionName);
@@ -681,6 +628,16 @@ namespace MWVR
         mPlatform.eraseFormat(format);
     }
 
+    void OpenXRManagerImpl::initTracker()
+    {
+        auto* trackingManager = Environment::get().getTrackingManager();
+        auto headPath = trackingManager->stringToVRPath("/user/head/input/pose");
+
+        mTracker.reset(new OpenXRTracker("pcstage", mReferenceSpaceStage));
+        mTracker->addTrackingSpace(headPath, mReferenceSpaceView);
+        mTrackerToWorldBinding.reset(new VRTrackingToWorldBinding("pcworld", mTracker.get(), headPath));
+    }
+
     void OpenXRManagerImpl::enablePredictions()
     {
         mPredictionsEnabled = true;
@@ -714,25 +671,16 @@ namespace MWVR
         };
         return config;
     }
-
-    osg::Vec3 fromXR(XrVector3f v)
+    XrSpace OpenXRManagerImpl::getReferenceSpace(ReferenceSpace space)
     {
-        return osg::Vec3{ v.x, -v.z, v.y };
-    }
-
-    osg::Quat fromXR(XrQuaternionf quat)
-    {
-        return osg::Quat{ quat.x, -quat.z, quat.y, quat.w };
-    }
-
-    XrVector3f toXR(osg::Vec3 v)
-    {
-        return XrVector3f{ v.x(), v.z(), -v.y() };
-    }
-
-    XrQuaternionf toXR(osg::Quat quat)
-    {
-        return XrQuaternionf{ static_cast<float>(quat.x()), static_cast<float>(quat.z()), static_cast<float>(-quat.y()), static_cast<float>(quat.w()) };
+        switch (space)
+        {
+        case ReferenceSpace::STAGE:
+            return mReferenceSpaceStage;
+        case ReferenceSpace::VIEW:
+            return mReferenceSpaceView;
+        }
+        return XR_NULL_HANDLE;
     }
 }
 

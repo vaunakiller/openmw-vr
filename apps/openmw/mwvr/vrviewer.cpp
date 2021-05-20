@@ -5,7 +5,6 @@
 #include "vrenvironment.hpp"
 #include "vrsession.hpp"
 #include "vrframebuffer.hpp"
-#include "vrview.hpp"
 
 #include "../mwrender/vismask.hpp"
 
@@ -21,6 +20,7 @@
 #include <components/misc/stringops.hpp>
 #include <components/misc/stereo.hpp>
 #include <components/misc/callbackmanager.hpp>
+#include <components/misc/constants.hpp>
 
 #include <components/sdlutil/sdlgraphicswindow.hpp>
 
@@ -499,12 +499,17 @@ namespace MWVR
     {
         auto phase = VRSession::FramePhase::Update;
         auto session = Environment::get().getSession();
-        auto& frame = session->getFrame(phase);
 
+        std::array<View, 2> views;
+        MWVR::Environment::get().getTrackingManager()->updateTracking();
+
+        auto& frame = session->getFrame(phase);
         if (frame->mShouldRender)
         {
-            left = frame->mPredictedPoses.view[static_cast<int>(Side::LEFT_SIDE)];
-            right = frame->mPredictedPoses.view[static_cast<int>(Side::RIGHT_SIDE)];
+            left = frame->mViews[(int)ReferenceSpace::VIEW][(int)Side::LEFT_SIDE];
+            left.pose.position *= Constants::UnitsPerMeter * session->playerScale();
+            right = frame->mViews[(int)ReferenceSpace::VIEW][(int)Side::RIGHT_SIDE];
+            right.pose.position *= Constants::UnitsPerMeter * session->playerScale();
         }
     }
 

@@ -101,7 +101,7 @@ namespace MWRender
 
         void setFocalPointTransitionSpeed(float v) { mFocalPointTransitionSpeedCoef = v; }
         void setFocalPointTargetOffset(osg::Vec2d v);
-        void instantTransition();
+        virtual void instantTransition();
         void enableDynamicCameraDistance(bool v) { mDynamicCameraDistanceEnabled = v; }
         void enableCrosshairInThirdPersonMode(bool v) { mShowCrosshairInThirdPersonMode = v; }
 

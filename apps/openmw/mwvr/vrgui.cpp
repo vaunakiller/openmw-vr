@@ -138,24 +138,24 @@ namespace MWVR
     };
 
 
-    class LayerUpdateCallback : public osg::Callback
-    {
-    public:
-        LayerUpdateCallback(VRGUILayer* layer)
-            : mLayer(layer)
-        {
+    //class LayerUpdateCallback : public osg::Callback
+    //{
+    //public:
+    //    LayerUpdateCallback(VRGUILayer* layer)
+    //        : mLayer(layer)
+    //    {
 
-        }
+    //    }
 
-        bool run(osg::Object* object, osg::Object* data)
-        {
-            mLayer->update();
-            return traverse(object, data);
-        }
+    //    bool run(osg::Object* object, osg::Object* data)
+    //    {
+    //        mLayer->update();
+    //        return traverse(object, data);
+    //    }
 
-    private:
-        VRGUILayer* mLayer;
-    };
+    //private:
+    //    VRGUILayer* mLayer;
+    //};
 
     VRGUILayer::VRGUILayer(
         osg::ref_ptr<osg::Group> geometryRoot,
@@ -235,7 +235,11 @@ namespace MWVR
             mConfig.offset.y() -= 0.001f * static_cast<float>(mConfig.priority);
         }
 
-        mTransform->addUpdateCallback(new LayerUpdateCallback(this));
+        //mTransform->addUpdateCallback(new LayerUpdateCallback(this));
+
+        auto* tm = Environment::get().getTrackingManager();
+        mTrackingPath = tm->stringToVRPath(mConfig.trackingPath);
+        tm->bind(this, "uisource");
     }
 
     VRGUILayer::~VRGUILayer()
@@ -261,38 +265,16 @@ namespace MWVR
         updatePose();
     }
 
-    void VRGUILayer::updateTracking(const Pose& headPose)
+    void VRGUILayer::onTrackingUpdated(VRTrackingSource& source, DisplayTime predictedDisplayTime)
     {
-        if (mConfig.trackingMode == TrackingMode::Menu)
+        auto tp = source.getTrackingPose(predictedDisplayTime, mTrackingPath);
+        if (!!tp.status)
         {
-            mTrackedPose = headPose;
-        }
-        else
-        {
-            auto* anim = MWVR::Environment::get().getPlayerAnimation();
-            if (anim)
-            {
-                const osg::Node* hand = nullptr;
-                if (mConfig.trackingMode == TrackingMode::HudLeftHand)
-                    hand = anim->getNode("bip01 l hand");
-                else
-                    hand = anim->getNode("bip01 r hand");
-                if (hand)
-                {
-                    auto world = osg::computeLocalToWorld(hand->getParentalNodePaths()[0]);
-                    mTrackedPose.position = world.getTrans();
-                    mTrackedPose.orientation = world.getRotate();
-                    if (mConfig.trackingMode == TrackingMode::HudRightHand)
-                    {
-                        mTrackedPose.orientation = osg::Quat(osg::PI, osg::Vec3(1, 0, 0)) * mTrackedPose.orientation;
-                        mTrackedPose.orientation = osg::Quat(osg::PI_2, osg::Vec3(0, 0, 1)) * mTrackedPose.orientation;
-                    }
-                    mTrackedPose.orientation = osg::Quat(osg::PI, osg::Vec3(1, 0, 0)) * mTrackedPose.orientation;
-                }
-            }
+            mTrackedPose = tp.pose;
+            updatePose();
         }
 
-        updatePose();
+        update();
     }
 
     void VRGUILayer::updatePose()
@@ -300,15 +282,11 @@ namespace MWVR
 
         auto orientation = mRotation * mTrackedPose.orientation;
 
-        if (mConfig.trackingMode == TrackingMode::Menu)
+        if(mLayerName == "StatusHUD" || mLayerName == "VirtualKeyboard")
         {
-            // Force menu layers to be vertical
-            auto axis = osg::Z_AXIS;
-            osg::Quat vertical;
-            auto local = orientation * axis;
-            vertical.makeRotate(local, axis);
-            orientation = orientation * vertical;
+            orientation = osg::Quat(osg::PI_2, osg::Vec3(0, 0, 1)) * orientation;
         }
+
         // Orient the offset and move the layer
         auto position = mTrackedPose.position + orientation * mConfig.offset * Constants::UnitsPerMeter;
 
@@ -353,13 +331,6 @@ namespace MWVR
 
     void VRGUILayer::update()
     {
-        auto xr = MWVR::Environment::get().getManager();
-        if (!xr)
-            return;
-
-        if (mConfig.trackingMode != TrackingMode::Menu || !xr->appShouldRender())
-            updateTracking();
-
         if (mConfig.sideBySide)
         {
             // The side-by-side windows are also the resizable windows.
@@ -469,7 +440,7 @@ namespace MWVR
             osg::Vec2i(2048,2048), // Texture resolution
             osg::Vec2(1,1),
             sizingMode,
-            TrackingMode::Menu,
+            "/ui/input/stationary/pose",
             extraLayers
         };
     }
@@ -487,8 +458,8 @@ namespace MWVR
         return config;
     };
 
-    static osg::Vec3 gLeftHudOffsetTop = osg::Vec3(0.025f, -.05f, .066f);
-    static osg::Vec3 gLeftHudOffsetWrist = osg::Vec3(0.025f, -.090f, -.033f);
+    static osg::Vec3 gLeftHudOffsetTop = osg::Vec3(-0.200f, -.05f, .066f);
+    static osg::Vec3 gLeftHudOffsetWrist = osg::Vec3(-0.200f, -.090f, -.033f);
 
     void VRGUIManager::setGeometryRoot(osg::Group* root)
     {
@@ -512,6 +483,7 @@ namespace MWVR
         , mResourceSystem(resourceSystem)
         , mGeometriesRootNode(rootNode)
         , mGUICamerasRootNode(rootNode)
+        , mUiTracking(new VRGUITracking("pcworld"))
     {
         mGeometries->setName("VR GUI Geometry Root");
         mGeometries->setUpdateCallback(new VRGUIManagerUpdateCallback(this));
@@ -576,7 +548,7 @@ namespace MWVR
             osg::Vec2i(2048,2048), // Texture resolution
             osg::Vec2(1,1),
             SizingMode::Auto,
-            TrackingMode::HudLeftHand,
+            "/user/hand/left/input/aim/pose",
             ""
         };
         LayerConfig statusHUDConfig = LayerConfig
@@ -591,7 +563,7 @@ namespace MWVR
             osg::Vec2i(1024,1024),
             defaultConfig.myGUIViewSize,
             SizingMode::Auto,
-            TrackingMode::HudLeftHand,
+            "/user/hand/left/input/aim/pose",
             ""
         };
 
@@ -600,14 +572,14 @@ namespace MWVR
             0,
             false, // side-by-side
             osg::Vec4{0.f,0.f,0.f,0.f}, // background
-            osg::Vec3(-0.025f,.025f,.066f), // offset (meters)
+            osg::Vec3(-0.025f,-.200f,.066f), // offset (meters)
             osg::Vec2(0.f,0.5f), // center (model space)
             osg::Vec2(.1f, .1f), // extent (meters)
             1024, // resolution (pixels per meter)
             osg::Vec2i(2048,2048),
             defaultConfig.myGUIViewSize,
             SizingMode::Auto,
-            TrackingMode::HudRightHand,
+            "/user/hand/right/input/aim/pose",
             ""
         };
 
@@ -659,7 +631,9 @@ namespace MWVR
         float low = -span / 2;
 
         for (unsigned i = 0; i < mSideBySideLayers.size(); i++)
+        {
             mSideBySideLayers[i]->setAngle(low + static_cast<float>(i) * sSideBySideAzimuthInterval);
+        }
     }
 
     void VRGUIManager::insertLayer(const std::string& name)
@@ -692,9 +666,6 @@ namespace MWVR
             mSideBySideLayers.push_back(layer);
             updateSideBySideLayers();
         }
-
-        if (config.trackingMode == TrackingMode::Menu)
-            layer->updateTracking(mHeadPose);
 
         Resource::SceneManager* sceneManager = mResourceSystem->getSceneManager();
         sceneManager->recreateShaders(layer->mGeometry);
@@ -754,7 +725,6 @@ namespace MWVR
         auto it = mLayers.find(name);
         if (it == mLayers.end())
         {
-            //Log(Debug::Warning) << "Tried to remove widget from nonexistent layer " << name;
             return;
         }
 
@@ -783,45 +753,9 @@ namespace MWVR
             removeWidget(widget);
     }
 
-    void VRGUIManager::setCamera(osg::Camera* camera)
+    void VRGUIManager::updateTracking()
     {
-        mCamera = camera;
-        mShouldUpdatePoses = true;
-    }
-
-    void VRGUIManager::updateTracking(void)
-    {
-        // Get head pose by reading the camera view matrix to place the GUI in the world.
-        osg::Vec3 eye{};
-        osg::Vec3 center{};
-        osg::Vec3 up{};
-        Pose headPose{};
-
-        osg::ref_ptr<osg::Camera> camera;
-        mCamera.lock(camera);
-
-        if (!camera)
-        {
-            // If a camera is not available, use VR stage poses directly.
-            auto pose = MWVR::Environment::get().getSession()->predictedPoses(MWVR::VRSession::FramePhase::Update).head;
-            osg::Vec3 position = pose.position * Constants::UnitsPerMeter;
-            osg::Quat orientation = pose.orientation;
-            headPose.position = position;
-            headPose.orientation = orientation;
-        }
-        else
-        {
-            auto viewMatrix = camera->getViewMatrix();
-            viewMatrix.getLookAt(eye, center, up);
-            headPose.position = eye;
-            headPose.orientation = viewMatrix.getRotate();
-            headPose.orientation = headPose.orientation.inverse();
-        }
-
-        mHeadPose = headPose;
-
-        for (auto& layer : mLayers)
-            layer.second->updateTracking(mHeadPose);
+        mUiTracking->resetStationaryPose();
     }
 
     bool VRGUIManager::updateFocus()
@@ -851,18 +785,8 @@ namespace MWVR
     {
         auto xr = MWVR::Environment::get().getManager();
         if (xr)
-        {
-            if (xr->appShouldRender())
-            {
-                if (mShouldUpdatePoses)
-                {
-                    mShouldUpdatePoses = false;
-                    updateTracking();
-                }
-            }
-            else
-                mShouldUpdatePoses = true;
-        }
+            if (!xr->appShouldRender())
+                updateTracking();
     }
 
     void VRGUIManager::setFocusLayer(VRGUILayer* layer)
@@ -1042,6 +966,57 @@ namespace MWVR
         else
             setFocusWidget(nullptr);
 
+    }
+
+    VRGUITracking::VRGUITracking(const std::string& source)
+        : VRTrackingSource("uisource")
+    {
+        auto* tm = Environment::get().getTrackingManager();
+        mSource = tm->getSource(source);
+        mHeadPath = tm->stringToVRPath("/user/head/input/pose");
+        mStationaryPath = tm->stringToVRPath("/ui/input/stationary/pose");
+    }
+
+    VRTrackingPose VRGUITracking::getTrackingPose(DisplayTime predictedDisplayTime, VRPath path, VRPath reference)
+    {
+        if (path == mStationaryPath)
+            return mStationaryPose;
+        return mSource->getTrackingPose(predictedDisplayTime, path, reference);
+    }
+
+    std::vector<VRPath> VRGUITracking::listSupportedTrackingPosePaths() const
+    {
+        auto paths = mSource->listSupportedTrackingPosePaths();
+        paths.push_back(mStationaryPath);
+        return paths;
+    }
+
+    void VRGUITracking::updateTracking(DisplayTime predictedDisplayTime)
+    {
+        if (mSource->availablePosesChanged())
+            notifyAvailablePosesChanged();
+
+        if (mShouldUpdateStationaryPose)
+        {
+            auto tp = mSource->getTrackingPose(predictedDisplayTime, mHeadPath);
+            if (!!tp.status)
+            {
+                mShouldUpdateStationaryPose = false;
+                mStationaryPose = tp;
+
+                // Stationary UI elements should always be vertical
+                auto axis = osg::Z_AXIS;
+                osg::Quat vertical;
+                auto local = mStationaryPose.pose.orientation * axis;
+                vertical.makeRotate(local, axis);
+                mStationaryPose.pose.orientation = mStationaryPose.pose.orientation * vertical;
+            }
+        }
+    }
+
+    void VRGUITracking::resetStationaryPose()
+    {
+        mShouldUpdateStationaryPose = true;
     }
 
 }

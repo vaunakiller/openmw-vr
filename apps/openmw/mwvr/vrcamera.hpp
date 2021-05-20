@@ -9,13 +9,14 @@
 #include <osg/Quat>
 
 #include "../mwrender/camera.hpp"
+#include "openxrtracker.hpp"
 
 #include "vrtypes.hpp"
 
 namespace MWVR
 {
     /// \brief VR camera control
-    class VRCamera : public MWRender::Camera
+    class VRCamera : public MWRender::Camera, public VRTrackingListener
     {
     public:
 
@@ -35,9 +36,6 @@ namespace MWVR
         /// \param rot Rotation angles in radians
         void rotateCamera(float pitch, float roll, float yaw, bool adjust) override;
 
-        float getRoll() const { return mRoll; }
-        void setRoll(float angle);
-
         void toggleViewMode(bool force = false) override;
 
         bool toggleVanityMode(bool enable) override;
@@ -51,33 +49,27 @@ namespace MWVR
 
         void processViewChange() override;
 
-        void rotateCameraToTrackingPtr() override;
+        void instantTransition() override;
 
         osg::Quat stageRotation();
 
-        void rotateStage(float yaw) { mYawOffset += yaw; }
+        void rotateStage(float yaw);
 
         void requestRecenter(bool resetZ);
-
-        const osg::Vec3& headOffset() const { return mHeadOffset; }
-
-        void setHeadOffset(const osg::Vec3& headOffset) { mHeadOffset = headOffset; }
 
         void setShouldTrackPlayerCharacter(bool track);
 
     protected:
         void recenter();
         void applyTracking();
-        void updateTracking();
+
+        void onTrackingUpdated(VRTrackingSource& source, DisplayTime predictedDisplayTime) override;
 
     private:
-        float mRoll = 0.f;
         Pose mHeadPose{};
-        osg::Vec3 mHeadOffset{ 0,0,0 };
         bool mShouldRecenter{ true };
         bool mShouldResetZ{ true };
         bool mHasTrackingData{ false };
-        float mYawOffset{ 0.f };
         bool mShouldTrackPlayerCharacter{ false };
     };
 }

@@ -128,6 +128,7 @@
 #include "../mwvr/vrvirtualkeyboard.hpp"
 #include "../mwvr/vrviewer.hpp"
 #include "../mwvr/vrsession.hpp"
+#include "../mwvr/vrtracking.hpp"
 #endif
 
 namespace MWGui
@@ -2251,21 +2252,11 @@ namespace MWGui
 
     void WindowManager::viewerTraversals(bool updateWindowManager)
     {
-#ifdef USE_OPENXR
-        if (MWBase::Environment::get().getVrMode())
-            MWVR::Environment::get().getSession()->beginFrame();
-#endif
-
         mViewer->eventTraversal();
         mViewer->updateTraversal();
         if (updateWindowManager)
             MWBase::Environment::get().getWorld()->updateWindowManager();
         mViewer->renderingTraversals();
-
-#ifdef USE_OPENXR
-        if (MWBase::Environment::get().getVrMode())
-            MWVR::Environment::get().getSession()->endFrame();
-#endif
     }
 
     void WindowManager::GuiModeState::update(bool visible)
