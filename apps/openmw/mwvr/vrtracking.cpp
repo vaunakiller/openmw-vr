@@ -149,7 +149,7 @@ namespace MWVR
         return res.first->second;
     }
 
-    std::string VRTrackingManager::trackingPathToString(VRPath path)
+    std::string VRTrackingManager::VRPathToString(VRPath path)
     {
         // Find the identifier in the map and return the corresponding string.
         for (auto& e : mPathIdentifiers)
