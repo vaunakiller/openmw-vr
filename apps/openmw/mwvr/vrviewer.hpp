@@ -103,7 +103,6 @@ namespace MWVR
             VRViewer* mViewer;
         };
 
-        static const std::array<const char*, 2> sViewNames;
         enum class MirrorTextureEye
         {
             Left, 
@@ -147,7 +146,7 @@ namespace MWVR
         bool mRenderingReady{ false };
 
         std::unique_ptr<VRFramebuffer> mMirrorTexture;
-        std::vector<std::string> mMirrorTextureViews;
+        std::vector<Side> mMirrorTextureViews;
         bool mMirrorTextureShouldBeCleanedUp{ false };
         bool mMirrorTextureEnabled{ false };
         bool mFlipMirrorTextureOrder{ false };

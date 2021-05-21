@@ -26,12 +26,6 @@
 
 namespace MWVR
 {
-
-    const std::array<const char*, 2> VRViewer::sViewNames = {
-            "LeftEye",
-            "RightEye"
-    };
-
     // Callback to do construction with a graphics context
     class RealizeOperation : public osg::GraphicsOperation
     {
@@ -120,9 +114,13 @@ namespace MWVR
         xConfString[1] = Settings::Manager::getString("right eye resolution x", "VR");
         yConfString[1] = Settings::Manager::getString("right eye resolution y", "VR");
 
-        for (unsigned i = 0; i < sViewNames.size(); i++)
+        std::array<const char*, 2> viewNames = {
+                "LeftEye",
+                "RightEye"
+        };
+        for (unsigned i = 0; i < viewNames.size(); i++)
         {
-            auto name = sViewNames[i];
+            auto name = viewNames[i];
 
             mSwapchainConfig[i].selectedWidth = parseResolution(xConfString[i], mSwapchainConfig[i].recommendedWidth, mSwapchainConfig[i].maxWidth);
             mSwapchainConfig[i].selectedHeight = parseResolution(yConfString[i], mSwapchainConfig[i].recommendedHeight, mSwapchainConfig[i].maxHeight);
@@ -138,7 +136,7 @@ namespace MWVR
             Log(Debug::Verbose) << name << " resolution: Max x=" << mSwapchainConfig[i].maxWidth << ", y=" << mSwapchainConfig[i].maxHeight;
             Log(Debug::Verbose) << name << " resolution: Selected x=" << mSwapchainConfig[i].selectedWidth << ", y=" << mSwapchainConfig[i].selectedHeight;
 
-            mSwapchainConfig[i].name = sViewNames[i];
+            mSwapchainConfig[i].name = name;
             if (i > 0)
                 mSwapchainConfig[i].offsetWidth = mSwapchainConfig[i].selectedWidth + mSwapchainConfig[i].offsetWidth;
 
@@ -198,9 +196,9 @@ namespace MWVR
 
         mMirrorTextureViews.clear();
         if (mMirrorTextureEye == MirrorTextureEye::Left || mMirrorTextureEye == MirrorTextureEye::Both)
-            mMirrorTextureViews.push_back(sViewNames[(int)Side::LEFT_SIDE]);
+            mMirrorTextureViews.push_back(Side::LEFT_SIDE);
         if (mMirrorTextureEye == MirrorTextureEye::Right || mMirrorTextureEye == MirrorTextureEye::Both)
-            mMirrorTextureViews.push_back(sViewNames[(int)Side::RIGHT_SIDE]);
+            mMirrorTextureViews.push_back(Side::RIGHT_SIDE);
         if (mFlipMirrorTextureOrder)
             std::reverse(mMirrorTextureViews.begin(), mMirrorTextureViews.end());
         // TODO: If mirror is false either hide the window or paste something meaningful into it.
@@ -362,8 +360,6 @@ namespace MWVR
             mMirrorTexture = nullptr;
             mMirrorTextureShouldBeCleanedUp = false;
         }
-        if (!mMirrorTextureEnabled)
-            return;
 
         auto* state = info.getState();
         auto* gc = state->getGraphicsContext();
@@ -372,19 +368,7 @@ namespace MWVR
         auto* traits = SDLUtil::GraphicsWindowSDL2::findContext(*mViewer)->getTraits();
         int screenWidth = traits->width;
         int screenHeight = traits->height;
-        if (!mMirrorTexture)
-        {
-            mMirrorTexture.reset(new VRFramebuffer(state, 
-                screenWidth,
-                screenHeight,
-                0));
-            mMirrorTexture->createColorBuffer(gc);
-        }
 
-
-        int mirrorWidth = screenWidth / mMirrorTextureViews.size();
-
-        //// Since OpenXR does not include native support for mirror textures, we have to generate them ourselves
         mMsaaResolveTexture->bindFramebuffer(gc, GL_FRAMEBUFFER_EXT);
 
         mFramebuffer->blit(gc, 0, 0, mFramebuffer->width(), mFramebuffer->height(), 0, 0, mMsaaResolveTexture->width(), mMsaaResolveTexture->height(), GL_COLOR_BUFFER_BIT, GL_NEAREST);
@@ -399,10 +383,29 @@ namespace MWVR
         mGammaResolveTexture->bindFramebuffer(gc, GL_FRAMEBUFFER_EXT);
         mFramebuffer->blit(gc, 0, 0, mFramebuffer->width(), mFramebuffer->height(), 0, 0, mGammaResolveTexture->width(), mGammaResolveTexture->height(), GL_DEPTH_BUFFER_BIT, GL_NEAREST);
 
-        if (mMirrorTexture)
+        //// Since OpenXR does not include native support for mirror textures, we have to generate them ourselves
+        if (mMirrorTextureEnabled)
         {
+            if (!mMirrorTexture)
+            {
+                mMirrorTexture.reset(new VRFramebuffer(state,
+                    screenWidth,
+                    screenHeight,
+                    0));
+                mMirrorTexture->createColorBuffer(gc);
+            }
+
+            int dstWidth = screenWidth / mMirrorTextureViews.size();
+            int srcWidth = mGammaResolveTexture->width() / 2;
+            int dstX = 0;
             mMirrorTexture->bindFramebuffer(gc, GL_FRAMEBUFFER_EXT);
-            mGammaResolveTexture->blit(gc, 0, 0, mGammaResolveTexture->width(), mGammaResolveTexture->height(), 0, 0, screenWidth, screenHeight, GL_COLOR_BUFFER_BIT, GL_LINEAR);
+            for (auto viewId : mMirrorTextureViews)
+            {
+                int srcX = static_cast<int>(viewId) * srcWidth;
+                mGammaResolveTexture->blit(gc, srcX, 0, srcX + srcWidth, mGammaResolveTexture->height(), dstX, 0, dstX + dstWidth, screenHeight, GL_COLOR_BUFFER_BIT, GL_LINEAR);
+                dstX += dstWidth;
+            }
+
             gl->glBindFramebuffer(GL_FRAMEBUFFER_EXT, 0);
             mMirrorTexture->blit(gc, 0, 0, screenWidth, screenHeight, 0, 0, screenWidth, screenHeight, GL_COLOR_BUFFER_BIT, GL_NEAREST);
         }
