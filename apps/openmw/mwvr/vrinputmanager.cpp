@@ -1,11 +1,12 @@
 #include "vrinputmanager.hpp"
 
-#include "vrviewer.hpp"
-#include "vrcamera.hpp"
-#include "vrgui.hpp"
 #include "vranimation.hpp"
-#include "openxrinput.hpp"
+#include "vrcamera.hpp"
 #include "vrenvironment.hpp"
+#include "vrgui.hpp"
+#include "vrpointer.hpp"
+#include "vrviewer.hpp"
+#include "openxrinput.hpp"
 #include "openxrmanager.hpp"
 #include "openxrmanagerimpl.hpp"
 #include "openxraction.hpp"
@@ -86,11 +87,11 @@ namespace MWVR
         virtual MWWorld::Ptr copyItem(const MWGui::ItemStack& item, size_t count, bool /*allowAutoEquip*/)
         {
             MWBase::World* world = MWBase::Environment::get().getWorld();
-            MWVR::VRAnimation* anim = MWVR::Environment::get().getPlayerAnimation();
+            auto& pointer = world->getUserPointer();
 
             MWWorld::Ptr dropped;
-            if (anim->canPlaceObject())
-                dropped = world->placeObject(item.mBase, anim->getPointerTarget(), count);
+            if (pointer.canPlaceObject())
+                dropped = world->placeObject(item.mBase, pointer.getPointerTarget(), count);
             else
                 dropped = world->dropObjectOnGround(world->getPlayerPtr(), item.mBase, count);
             dropped.getCellRef().setOwner("");
@@ -112,11 +113,11 @@ namespace MWVR
     void VRInputManager::pointActivation(bool onPress)
     {
         auto* world = MWBase::Environment::get().getWorld();
-        auto* anim = MWVR::Environment::get().getPlayerAnimation();
-        if (world && anim && anim->getPointerTarget().mHit)
+        auto& pointer = world->getUserPointer();
+        if (world && pointer.getPointerTarget().mHit)
         {
-            auto* node = anim->getPointerTarget().mHitNode;
-            MWWorld::Ptr ptr = anim->getPointerTarget().mHitObject;
+            auto* node = pointer.getPointerTarget().mHitNode;
+            MWWorld::Ptr ptr = pointer.getPointerTarget().mHitObject;
             auto wm = MWBase::Environment::get().getWindowManager();
             auto& dnd = wm->getDragAndDrop();
 

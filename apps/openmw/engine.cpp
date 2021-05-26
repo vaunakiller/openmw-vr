@@ -698,6 +698,7 @@ void OMW::Engine::prepareEngine (Settings::Manager & settings)
         Settings::Manager::getString("texture mipmap", "General"),
         Settings::Manager::getInt("anisotropy", "General")
     );
+    mEnvironment.setResourceSystem(mResourceSystem.get());
 
     int numThreads = Settings::Manager::getInt("preload num threads", "Cells");
     if (numThreads <= 0)
@@ -858,7 +859,6 @@ void OMW::Engine::prepareEngine (Settings::Manager & settings)
     // Create dialog system
     mEnvironment.setJournal (new MWDialogue::Journal);
     mEnvironment.setDialogueManager (new MWDialogue::DialogueManager (mExtensions, mTranslationDataStorage));
-    mEnvironment.setResourceSystem(mResourceSystem.get());
 
     // scripts
     if (mCompileAll)

@@ -67,7 +67,7 @@ namespace MWVR
         return 0;
     }
 
-    VRTrackingPose OpenXRTracker::getTrackingPose(DisplayTime predictedDisplayTime, VRPath path, VRPath reference)
+    VRTrackingPose OpenXRTracker::getTrackingPoseImpl(DisplayTime predictedDisplayTime, VRPath path, VRPath reference)
     {
         VRTrackingPose pose;
         pose.status = TrackingStatus::Good;

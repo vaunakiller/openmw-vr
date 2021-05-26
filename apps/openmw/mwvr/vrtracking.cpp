@@ -201,6 +201,28 @@ namespace MWVR
         Environment::get().getTrackingManager()->unregisterTrackingSource(this);
     }
 
+    VRTrackingPose VRTrackingSource::getTrackingPose(DisplayTime predictedDisplayTime, VRPath path, VRPath reference)
+    {
+        auto it = mCache.find(std::pair(path, reference));
+        
+        if (it == mCache.end())
+        {
+            mCache[std::pair(path, reference)] = getTrackingPoseImpl(predictedDisplayTime, path, reference);
+            mCache[std::pair(path, reference)].time = predictedDisplayTime;
+        }
+
+        if (predictedDisplayTime <= it->second.time)
+            return it->second;
+
+        auto tp = getTrackingPoseImpl(predictedDisplayTime, path, reference);
+        tp.time = predictedDisplayTime;
+        if (!tp.status)
+            tp.pose = it->second.pose;
+        it->second = tp;
+
+        return tp;
+    }
+
     bool VRTrackingSource::availablePosesChanged() const
     {
         return mAvailablePosesChanged;
@@ -209,6 +231,11 @@ namespace MWVR
     void VRTrackingSource::clearAvailablePosesChanged()
     {
         mAvailablePosesChanged = false;
+    }
+
+    void VRTrackingSource::clearCache()
+    {
+        mCache.clear();
     }
 
     void VRTrackingSource::notifyAvailablePosesChanged()
@@ -262,7 +289,7 @@ namespace MWVR
         }
     }
 
-    VRTrackingPose VRTrackingToWorldBinding::getTrackingPose(DisplayTime predictedDisplayTime, VRPath path, VRPath reference)
+    VRTrackingPose VRTrackingToWorldBinding::getTrackingPoseImpl(DisplayTime predictedDisplayTime, VRPath path, VRPath reference)
     {
         auto tp = mSource->getTrackingPose(predictedDisplayTime, path, reference);
         tp.pose.position *= Constants::UnitsPerMeter;

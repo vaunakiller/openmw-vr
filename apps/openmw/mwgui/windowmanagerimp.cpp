@@ -604,7 +604,7 @@ namespace MWGui
 
         // VR mode needs to render the 3D gui
         if (MWBase::Environment::get().getVrMode())
-            disablemask = MWRender::Mask_3DGUI | MWRender::Mask_PreCompile | MWRender::Mask_RenderToTexture;
+            disablemask = MWRender::Mask_Pointer | MWRender::Mask_3DGUI | MWRender::Mask_PreCompile | MWRender::Mask_RenderToTexture;
 
         if (!enable && mViewer->getCamera()->getCullMask() != disablemask)
         {

@@ -72,10 +72,12 @@ namespace MWVR
     public:
         VRGUITracking(const std::string& source);
 
-        virtual VRTrackingPose getTrackingPose(DisplayTime predictedDisplayTime, VRPath path, VRPath reference = 0) override;
         virtual std::vector<VRPath> listSupportedTrackingPosePaths() const override;
         virtual void updateTracking(DisplayTime predictedDisplayTime) override;
         void resetStationaryPose();
+
+    protected:
+        virtual VRTrackingPose getTrackingPoseImpl(DisplayTime predictedDisplayTime, VRPath path, VRPath reference = 0) override;
 
     private:
         VRPath mStationaryPath = 0;

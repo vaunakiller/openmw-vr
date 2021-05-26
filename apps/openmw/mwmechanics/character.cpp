@@ -53,6 +53,7 @@
 #ifdef USE_OPENXR
 #include "../mwvr/vrenvironment.hpp"
 #include "../mwvr/vranimation.hpp"
+#include "../mwvr/vrutil.hpp"
 #endif
 
 namespace
@@ -1601,8 +1602,7 @@ bool CharacterController::updateWeaponState(CharacterState& idle)
                 std::string resultMessage, resultSound;
                 // TODO: this will only work for the player, and needs to be fixed if NPCs should ever use lockpicks/probes.
 #ifdef USE_OPENXR
-                auto* anim = MWVR::Environment::get().getPlayerAnimation();
-                auto target = anim->getTarget("weapon bone");
+                MWWorld::Ptr target = MWVR::Util::getWeaponTarget().first;
 #else
                 MWWorld::Ptr target = MWBase::Environment::get().getWorld()->getFacedObject();
 #endif

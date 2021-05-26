@@ -68,6 +68,11 @@ namespace DetourNavigator
     struct Settings;
 }
 
+namespace MWVR
+{
+    class UserPointer;
+}
+
 namespace MWRender
 {
     class GroundcoverUpdater;
@@ -250,6 +255,8 @@ namespace MWRender
         bool pagingUnlockCache();
         void getPagedRefnums(const osg::Vec4i &activeGrid, std::set<ESM::RefNum> &out);
 
+        MWVR::UserPointer& userPointer();
+
     private:
         void updateProjectionMatrix();
         void updateTextureFiltering();
@@ -302,6 +309,7 @@ namespace MWRender
         std::unique_ptr<Camera> mCamera;
         std::unique_ptr<ViewOverShoulderController> mViewOverShoulderController;
         osg::Vec3f mCurrentCameraPos;
+        std::shared_ptr<MWVR::UserPointer> mUserPointer;
 
         osg::ref_ptr<StateUpdater> mStateUpdater;
 

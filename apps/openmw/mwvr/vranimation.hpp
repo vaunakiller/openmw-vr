@@ -9,10 +9,10 @@
 
 namespace MWVR
 {
-
     class HandController;
     class FingerController;
     class TrackingController;
+    class UserPointer;
 
     /// Subclassing NpcAnimation to implement VR related behaviour
     class VRAnimation : public MWRender::NpcAnimation, public VRTrackingListener
@@ -31,7 +31,7 @@ namespace MWVR
          * @param xrSession        The XR session that shall be used to track limbs
          */
         VRAnimation(const MWWorld::Ptr& ptr, osg::ref_ptr<osg::Group> parentNode, Resource::ResourceSystem* resourceSystem,
-            bool disableSounds, std::shared_ptr<VRSession> xrSession);
+            bool disableSounds, std::shared_ptr<UserPointer> userPointer);
         virtual ~VRAnimation();
 
         /// Overridden to always be false
@@ -55,23 +55,10 @@ namespace MWVR
         /// @return Whether animation is currently in finger pointing mode
         bool fingerPointingMode() const { return mFingerPointingMode; }
 
-        /// @return true if it is possible to place on object where the player is currently pointing
-        bool canPlaceObject();
-
-        /// @return pointer to the object the player's melee weapon is currently intersecting.
-        const MWRender::RayResult& getPointerTarget() const;
-
-        /// Update what object this vr animation is currently pointing at.
-        void updatePointerTarget();
-
-        /// @return whatever ref is the current pointer target, if any
-        MWWorld::Ptr getTarget(const std::string& directorNode);
-
         /// @return world transform that yields the position and orientation of the current weapon
         osg::Matrix getWeaponTransformMatrix() const;
 
     protected:
-        osg::ref_ptr<osg::Geometry> createPointerGeometry(void);
 
         float getVelocity(const std::string& groupname) const override;
 
@@ -85,13 +72,9 @@ namespace MWVR
         osg::ref_ptr<osg::MatrixTransform> mModelOffset;
 
         bool mFingerPointingMode{ false };
-        osg::ref_ptr<osg::Geometry> mPointerGeometry{ nullptr };
-        osg::ref_ptr<osg::MatrixTransform> mPointerRescale{ nullptr };
-        osg::ref_ptr<osg::MatrixTransform> mPointerTransform{ nullptr };
+        std::shared_ptr<UserPointer> mUserPointer;
         osg::ref_ptr<osg::MatrixTransform> mWeaponDirectionTransform{ nullptr };
         osg::ref_ptr<osg::MatrixTransform> mWeaponPointerTransform{ nullptr };
-        MWRender::RayResult mPointerTarget{};
-        float mDistanceToPointerTarget{ -1.f };
     };
 
 }

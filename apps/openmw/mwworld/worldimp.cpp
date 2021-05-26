@@ -76,9 +76,11 @@
 #include "esmloader.hpp"
 
 #ifdef USE_OPENXR
-#include "../mwvr/vrenvironment.hpp"
 #include "../mwvr/vranimation.hpp"
+#include "../mwvr/vrenvironment.hpp"
 #include "../mwvr/vrinputmanager.hpp"
+#include "../mwvr/vrpointer.hpp"
+#include "../mwvr/vrutil.hpp"
 #endif
 
 namespace
@@ -1027,13 +1029,7 @@ namespace MWWorld
     MWWorld::Ptr World::getFacedObject()
     {
 #ifdef USE_OPENXR
-        // TODO: Rename this method to getTargetObject?
-        // "getFacedObject" doesn't make sense with finger pointing.
-        auto* anim = MWVR::Environment::get().getPlayerAnimation();
-        if (anim && anim->getPointerTarget().mHit)
-            return anim->getPointerTarget().mHitObject;
-        else
-            return MWWorld::Ptr();
+        return getPointerTarget();
 #endif
 
         MWWorld::Ptr facedObject;
@@ -3105,7 +3101,10 @@ namespace MWWorld
 
         // for player we can take faced object first
         MWWorld::Ptr target;
-#ifndef USE_OPENXR
+#ifdef USE_OPENXR
+        if (actor == MWMechanics::getPlayer())
+            target = MWVR::Util::getTouchTarget().first;
+#else
         // Does not apply to VR
         if (actor == MWMechanics::getPlayer())
             target = getFacedObject();
@@ -3154,6 +3153,8 @@ namespace MWWorld
                     orient = worldMatrix.getRotate();
                 }
 #endif
+                Log(Debug::Verbose) << "Origin: " << origin;
+                Log(Debug::Verbose) << "Orient: " << orient;
 
                 osg::Vec3f direction = orient * osg::Vec3f(0,1,0);
                 float distance = getMaxActivationDistance();
@@ -4030,35 +4031,14 @@ namespace MWWorld
         return btRayAabb(localFrom, localTo, aabbMin, aabbMax, hitDistance, hitNormal);
     }
 
-    float World::getTargetObject(MWRender::RayResult& result, osg::Transform* pointer)
+    float World::getTargetObject(MWRender::RayResult& result, const osg::Vec3f& origin, const osg::Quat& orientation, float maxDistance, bool ignorePlayer)
     {
-        result = {};
-        result.mHit = false;
-
-        auto* windowManager = MWBase::Environment::get().getWindowManager();
-
-        if (windowManager->isGuiMode() && windowManager->isConsoleMode())
-        {
-            return getTargetObject(result, pointer, getMaxActivationDistance() * 50, true);
-        }
-        else
-        {
-            float maxDistance = getActivationDistancePlusTelekinesis();
-            MWRender::RayResult rayToObject{};
-            float distance = getTargetObject(rayToObject, pointer, maxDistance, true);
-            auto ptr = rayToObject.mHitObject;
-            if (!ptr.isEmpty() && !ptr.getClass().allowTelekinesis(ptr)
-                && distance > getMaxActivationDistance() && !MWBase::Environment::get().getWindowManager()->isGuiMode())
-                return -1.f;
-            result = rayToObject;
-            return distance;
-        }
-        return -1.f;
-    }
-
-    float World::getTargetObject(MWRender::RayResult& result, osg::Transform* pointer, float maxDistance, bool ignorePlayer)
-    {
-        result = mRendering->castRay(pointer, maxDistance, ignorePlayer, false);
+        osg::Vec3f direction = orientation * osg::Vec3f(0, 1, 0);
+        direction.normalize();
+        osg::Vec3f end = origin + direction * maxDistance;
+        result = mRendering->castRay(origin, end, ignorePlayer);
+        if(!result.mHit)
+            return 0.f;
 
         MWWorld::Ptr facedObject = result.mHitObject;
         if (facedObject.isEmpty() && result.mHitRefnum.hasContentFile())
@@ -4071,9 +4051,17 @@ namespace MWWorld
         }
         result.mHitObject = facedObject;
 
-        if(result.mHit)
-            return result.mRatio * maxDistance;
-        return -1.f;
+        return result.mRatio * maxDistance;
+    }
+
+    MWVR::UserPointer& World::getUserPointer()
+    {
+        return mRendering->userPointer();
+    }
+
+    MWWorld::Ptr World::getPointerTarget()
+    {
+        return getUserPointer().getPointerTarget().mHitObject;
     }
 
     MWWorld::Ptr World::placeObject(const MWWorld::ConstPtr& object, const MWRender::RayResult& ray, int amount)

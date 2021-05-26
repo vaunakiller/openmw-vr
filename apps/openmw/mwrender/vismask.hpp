@@ -59,6 +59,7 @@ namespace MWRender
 
         // Vr masks
         Mask_3DGUI = (1 << 21),
+        Mask_Pointer = (1 << 22)
     };
 
 }

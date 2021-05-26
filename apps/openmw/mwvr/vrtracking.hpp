@@ -39,6 +39,7 @@ namespace MWVR
     {
         TrackingStatus status = TrackingStatus::Unknown; //!< State of the prediction. 
         Pose pose = {}; //!< The predicted pose. 
+        DisplayTime time; //!< The time for which the pose was predicted.
     };
 
     //! Source for tracking data. Converts paths to poses at predicted times.
@@ -59,12 +60,12 @@ namespace MWVR
 
         //! @brief Predicted pose of the given path at the predicted time
         //! 
-        //! \arg predictedDisplayTime[in] Time to predict. This is normally the predicted display time.
+        //! \arg predictedDisplayTime[in] Time to predict. This is normally the predicted display time. If time is 0, the last pose that was predicted is returned.
         //! \arg path[in] path of the pose requested. Should match an available pose path. 
         //! \arg reference[in] path of the pose to use as reference. If 0, pose is referenced to the VR stage.
         //! 
         //! \return A structure describing a pose and the tracking status.
-        virtual VRTrackingPose getTrackingPose(DisplayTime predictedDisplayTime, VRPath path, VRPath reference = 0) = 0;
+        VRTrackingPose getTrackingPose(DisplayTime predictedDisplayTime, VRPath path, VRPath reference = 0);
 
         //! List currently supported tracking paths.
         virtual std::vector<VRPath> listSupportedTrackingPosePaths() const = 0;
@@ -79,7 +80,13 @@ namespace MWVR
         //! \arg predictedDisplayTime [in] the predicted display time. The pose shall be predicted for this time based on current tracking data.
         virtual void updateTracking(DisplayTime predictedDisplayTime) = 0;
 
+        void clearCache();
+
     protected:
+        virtual VRTrackingPose getTrackingPoseImpl(DisplayTime predictedDisplayTime, VRPath path, VRPath reference = 0) = 0;
+
+        std::map<std::pair<VRPath, VRPath>, VRTrackingPose> mCache;
+
         void notifyAvailablePosesChanged();
 
         bool mAvailablePosesChanged = true;
@@ -119,7 +126,7 @@ namespace MWVR
 
     protected:
         //! Fetches a pose from the source, and then aligns it with the game world if the reference is 0 (stage). 
-        VRTrackingPose getTrackingPose(DisplayTime predictedDisplayTime, VRPath path, VRPath movementReference = 0) override;
+        VRTrackingPose getTrackingPoseImpl(DisplayTime predictedDisplayTime, VRPath path, VRPath movementReference = 0) override;
 
         //! List currently supported tracking paths.
         std::vector<VRPath> listSupportedTrackingPosePaths() const override;

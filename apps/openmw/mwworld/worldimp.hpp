@@ -177,7 +177,7 @@ namespace MWWorld
                 const std::vector<std::string>& content, const std::vector<std::string>& groundcover, ContentLoader& contentLoader);
 
             float feetToGameUnits(float feet);
-            float getActivationDistancePlusTelekinesis();
+            float getActivationDistancePlusTelekinesis() override;
 
             MWWorld::ConstPtr getClosestMarker( const MWWorld::Ptr &ptr, const std::string &id );
             MWWorld::ConstPtr getClosestMarkerFromExteriorPosition( const osg::Vec3f& worldPos, const std::string &id );
@@ -742,10 +742,12 @@ namespace MWWorld
 
             bool hasCollisionWithDoor(const MWWorld::ConstPtr& door, const osg::Vec3f& position, const osg::Vec3f& destination) const override;
 
-            /// @result pointer to the object and/or node the given node is currently pointing at
+            /// Intersects the scene from the origin, in the specified orientation and distance, storing the %result in the result structure.
             /// @Return distance to the target object, or -1 if no object was targeted / in range
-            float getTargetObject(MWRender::RayResult& result, osg::Transform* pointer) override;
-            float getTargetObject(MWRender::RayResult& result, osg::Transform* pointer, float maxDistance, bool ignorePlayer) override;
+            float getTargetObject(MWRender::RayResult& result, const osg::Vec3f& origin, const osg::Quat& orientation, float maxDistance, bool ignorePlayer) override;
+
+            MWVR::UserPointer& getUserPointer() override;
+            MWWorld::Ptr getPointerTarget() override;
 
             MWWorld::Ptr placeObject(const MWWorld::ConstPtr& object, const MWRender::RayResult& ray, int amount) override;
             ///< copy and place an object into the gameworld based on the given intersection

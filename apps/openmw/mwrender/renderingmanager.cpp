@@ -76,6 +76,7 @@
 
 #ifdef USE_OPENXR
 #include "../mwvr/vranimation.hpp"
+#include "../mwvr/vrpointer.hpp"
 #include "../mwvr/vrviewer.hpp"
 #include "../mwvr/vrenvironment.hpp"
 #include "../mwvr/vrcamera.hpp"
@@ -206,6 +207,7 @@ namespace MWRender
         , mWorkQueue(workQueue)
         , mUnrefQueue(new SceneUtil::UnrefQueue)
         , mNavigator(navigator)
+        , mUserPointer(new MWVR::UserPointer(rootNode))
         , mMinimumAmbientLuminance(0.f)
         , mNightEyeFactor(0.f)
         , mFieldOfViewOverridden(false)
@@ -942,9 +944,9 @@ namespace MWRender
         unsigned int mask = ~0u;
         mask &= ~(Mask_RenderToTexture|Mask_Sky|Mask_Debug|Mask_Effect|Mask_Water|Mask_SimpleWater|Mask_Groundcover);
         if (ignorePlayer)
-            mask &= ~(Mask_Player);
+            mask &= ~(Mask_Player|Mask_Pointer);
         if (ignoreActors)
-            mask &= ~(Mask_Actor|Mask_Player);
+            mask &= ~(Mask_Actor|Mask_Player|Mask_Pointer);
 
         mIntersectionVisitor->setTraversalMask(mask);
         return mIntersectionVisitor;
@@ -1022,6 +1024,8 @@ namespace MWRender
         notifyWorldSpaceChanged();
         if (mObjectPaging)
             mObjectPaging->clear();
+
+        mUserPointer->setParent(nullptr);
     }
 
     MWRender::Animation* RenderingManager::getAnimation(const MWWorld::Ptr &ptr)
@@ -1062,7 +1066,7 @@ namespace MWRender
     void RenderingManager::renderPlayer(const MWWorld::Ptr &player)
     {
 #ifdef USE_OPENXR
-        MWVR::Environment::get().setPlayerAnimation(new MWVR::VRAnimation(player, player.getRefData().getBaseNode(), mResourceSystem, false, nullptr));
+        MWVR::Environment::get().setPlayerAnimation(new MWVR::VRAnimation(player, player.getRefData().getBaseNode(), mResourceSystem, false, mUserPointer));
         mPlayerAnimation = MWVR::Environment::get().getPlayerAnimation();
 #else
         mPlayerAnimation = new NpcAnimation(player, player.getRefData().getBaseNode(), mResourceSystem, 0, NpcAnimation::VM_Normal,
@@ -1402,5 +1406,10 @@ namespace MWRender
     {
         if (mObjectPaging)
             mObjectPaging->getPagedRefnums(activeGrid, out);
+    }
+
+    MWVR::UserPointer& RenderingManager::userPointer()
+    {
+        return *mUserPointer;
     }
 }

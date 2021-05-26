@@ -22,10 +22,11 @@ namespace MWVR
         //! The base space used to reference everything else.
         void setReferenceSpace(XrSpace referenceSpace);
 
-        VRTrackingPose getTrackingPose(DisplayTime predictedDisplayTime, VRPath path, VRPath reference = 0) override;
-
         std::vector<VRPath> listSupportedTrackingPosePaths() const override;
         void updateTracking(DisplayTime predictedDisplayTime) override;
+
+    protected:
+        VRTrackingPose getTrackingPoseImpl(DisplayTime predictedDisplayTime, VRPath path, VRPath reference = 0) override;
 
     private:
         std::array<View, 2> locateViews(DisplayTime predictedDisplayTime, XrSpace reference);

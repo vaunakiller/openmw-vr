@@ -2,11 +2,12 @@
 
 #include <cmath>
 
-#include "vrenvironment.hpp"
-#include "vrsession.hpp"
-#include "openxrmanagerimpl.hpp"
-#include "openxrinput.hpp"
 #include "vranimation.hpp"
+#include "vrenvironment.hpp"
+#include "vrpointer.hpp"
+#include "vrsession.hpp"
+#include "openxrinput.hpp"
+#include "openxrmanagerimpl.hpp"
 
 #include <osg/Texture2D>
 #include <osg/ClipNode>
@@ -760,22 +761,26 @@ namespace MWVR
 
     bool VRGUIManager::updateFocus()
     {
-        auto* anim = MWVR::Environment::get().getPlayerAnimation();
-        if (anim && anim->getPointerTarget().mHit)
+        auto* world = MWBase::Environment::get().getWorld();
+        if (world)
         {
-            std::shared_ptr<VRGUILayer> newFocusLayer = nullptr;
-            auto* node = anim->getPointerTarget().mHitNode;
-            if (node->getName() == "VRGUILayer")
+            auto& pointer = world->getUserPointer();
+            if (pointer.getPointerTarget().mHit)
             {
-                VRGUILayerUserData* userData = static_cast<VRGUILayerUserData*>(node->getUserData());
-                newFocusLayer = userData->mLayer.lock();
-            }
+                std::shared_ptr<VRGUILayer> newFocusLayer = nullptr;
+                auto* node = pointer.getPointerTarget().mHitNode;
+                if (node->getName() == "VRGUILayer")
+                {
+                    VRGUILayerUserData* userData = static_cast<VRGUILayerUserData*>(node->getUserData());
+                    newFocusLayer = userData->mLayer.lock();
+                }
 
-            if (newFocusLayer && newFocusLayer->mLayerName != "Notification")
-            {
-                setFocusLayer(newFocusLayer.get());
-                computeGuiCursor(anim->getPointerTarget().mHitPointLocal);
-                return true;
+                if (newFocusLayer && newFocusLayer->mLayerName != "Notification")
+                {
+                    setFocusLayer(newFocusLayer.get());
+                    computeGuiCursor(pointer.getPointerTarget().mHitPointLocal);
+                    return true;
+                }
             }
         }
         return false;
@@ -802,8 +807,11 @@ namespace MWVR
         mFocusLayer = layer;
         if (mFocusLayer)
         {
-            Log(Debug::Verbose) << "Set focus layer to " << mFocusLayer->mWidgets.front()->mMainWidget->getLayer()->getName();
-            setPick(mFocusLayer->mWidgets.front(), true);
+            if (!mFocusLayer->mWidgets.empty())
+            {
+                Log(Debug::Verbose) << "Set focus layer to " << mFocusLayer->mWidgets.front()->mMainWidget->getLayer()->getName();
+                setPick(mFocusLayer->mWidgets.front(), true);
+            }
         }
         else
         {
@@ -977,7 +985,7 @@ namespace MWVR
         mStationaryPath = tm->stringToVRPath("/ui/input/stationary/pose");
     }
 
-    VRTrackingPose VRGUITracking::getTrackingPose(DisplayTime predictedDisplayTime, VRPath path, VRPath reference)
+    VRTrackingPose VRGUITracking::getTrackingPoseImpl(DisplayTime predictedDisplayTime, VRPath path, VRPath reference)
     {
         if (path == mStationaryPath)
             return mStationaryPose;

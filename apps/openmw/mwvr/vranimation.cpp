@@ -3,6 +3,8 @@
 #include "vrviewer.hpp"
 #include "vrinputmanager.hpp"
 #include "vrcamera.hpp"
+#include "vrutil.hpp"
+#include "vrpointer.hpp"
 
 #include <osg/MatrixTransform>
 #include <osg/PositionAttitudeTransform>
@@ -38,6 +40,7 @@
 
 #include "../mwrender/camera.hpp"
 #include "../mwrender/renderingmanager.hpp"
+#include "../mwrender/vismask.hpp"
 
 namespace MWVR
 {
@@ -323,15 +326,15 @@ namespace MWVR
 
     VRAnimation::VRAnimation(
         const MWWorld::Ptr& ptr, osg::ref_ptr<osg::Group> parentNode, Resource::ResourceSystem* resourceSystem,
-        bool disableSounds, std::shared_ptr<VRSession> xrSession)
+        bool disableSounds, std::shared_ptr<UserPointer> userPointer)
         // Note that i let it construct as 3rd person and then later update it to VM_VRFirstPerson
         // when the character controller updates
         : MWRender::NpcAnimation(ptr, parentNode, resourceSystem, disableSounds, VM_Normal, 55.f)
-        , mSession(xrSession)
         , mIndexFingerControllers{ nullptr, nullptr }
         // The player model needs to be pushed back a little to make sure the player's view point is naturally protruding 
         // Pushing the camera forward instead would produce an unnatural extra movement when rotating the player model.
         , mModelOffset(new osg::MatrixTransform(osg::Matrix::translate(osg::Vec3(0, -15, 0))))
+        , mUserPointer(userPointer)
     {
         for (int i = 0; i < 2; i++)
         {
@@ -344,17 +347,8 @@ namespace MWVR
         mWeaponDirectionTransform->setUpdateCallback(new WeaponDirectionController);
 
         mModelOffset->setName("ModelOffset");
-        mPointerGeometry = createPointerGeometry();
-        mPointerRescale = new osg::MatrixTransform();
-        mPointerRescale->addChild(mPointerGeometry);
-        mPointerTransform = new osg::MatrixTransform();
-        mPointerTransform->addChild(mPointerRescale);
-        mPointerTransform->setName("Pointer Transform");
-        // Morrowind's hands don't actually point forward, so we have to reorient the pointer.
-        mPointerTransform->setMatrix(osg::Matrix::rotate(osg::Quat(-osg::PI_2, osg::Vec3f(0, 0, 1))));
 
         mWeaponPointerTransform = new osg::MatrixTransform();
-        mWeaponPointerTransform->addChild(mPointerGeometry);
         mWeaponPointerTransform->setMatrix(
             osg::Matrix::scale(0.f, 0.f, 0.f)
         );
@@ -408,7 +402,7 @@ namespace MWVR
 
         if (mViewMode == VM_VRFirstPerson)
         {
-            // Hide everything other than the hands and feet.
+            // Hide everything other than hands
             removeIndividualPart(ESM::PartReferenceType::PRT_Hair);
             removeIndividualPart(ESM::PartReferenceType::PRT_Head);
             removeIndividualPart(ESM::PartReferenceType::PRT_LForearm);
@@ -478,95 +472,9 @@ namespace MWVR
             }
         }
 
-        mPointerTransform->removeChild(mPointerRescale);
-        if (enabled)
-        {
-            mPointerTransform->addChild(mPointerRescale);
-        }
-        else
-        {
-            mPointerTarget = MWRender::RayResult{};
-        }
+        mUserPointer->setEnabled(enabled);
 
         mFingerPointingMode = enabled;
-    }
-
-    osg::ref_ptr<osg::Geometry> VRAnimation::createPointerGeometry(void)
-    {
-        osg::ref_ptr<osg::Geometry> geometry = new osg::Geometry();
-
-        // Create pointer geometry, which will point from the tip of the player's finger.
-        // The geometry will be a Four sided pyramid, with the top at the player's fingers
-
-        osg::Vec3 vertices[]{
-            {0, 0, 0}, // origin
-            {-1, 1, -1}, // A
-            {-1, 1, 1}, //  B
-            {1, 1, 1}, //   C
-            {1, 1, -1}, //  D
-        };
-
-        osg::Vec4 colors[]{
-            osg::Vec4(1.0f, 0.0f, 0.0f, 0.0f),
-            osg::Vec4(1.0f, 0.0f, 0.0f, 1.0f),
-            osg::Vec4(1.0f, 0.0f, 0.0f, 1.0f),
-            osg::Vec4(1.0f, 0.0f, 0.0f, 1.0f),
-            osg::Vec4(1.0f, 0.0f, 0.0f, 1.0f),
-        };
-
-        const int O = 0;
-        const int A = 1;
-        const int B = 2;
-        const int C = 3;
-        const int D = 4;
-
-        const int triangles[] =
-        {
-            A,D,B,
-            B,D,C,
-            O,D,A,
-            O,C,D,
-            O,B,C,
-            O,A,B,
-        };
-        int numVertices = sizeof(triangles) / sizeof(*triangles);
-        osg::ref_ptr<osg::Vec3Array> vertexArray = new osg::Vec3Array(numVertices);
-        osg::ref_ptr<osg::Vec4Array> colorArray = new osg::Vec4Array(numVertices);
-        for (int i = 0; i < numVertices; i++)
-        {
-            (*vertexArray)[i] = vertices[triangles[i]];
-            (*colorArray)[i] = colors[triangles[i]];
-        }
-
-        geometry->setVertexArray(vertexArray);
-        geometry->setColorArray(colorArray, osg::Array::BIND_PER_VERTEX);
-        geometry->addPrimitiveSet(new osg::DrawArrays(osg::PrimitiveSet::TRIANGLES, 0, numVertices));
-        geometry->setSupportsDisplayList(false);
-        geometry->setDataVariance(osg::Object::STATIC);
-
-        auto stateset = geometry->getOrCreateStateSet();
-        stateset->setMode(GL_LIGHTING, osg::StateAttribute::OFF);
-        stateset->setMode(GL_BLEND, osg::StateAttribute::ON);
-        stateset->setAttributeAndModes(new osg::BlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA));
-        stateset->setRenderingHint(osg::StateSet::TRANSPARENT_BIN);
-        osg::ref_ptr<osg::Fog> fog(new osg::Fog);
-        fog->setStart(10000000);
-        fog->setEnd(10000000);
-        stateset->setAttributeAndModes(fog, osg::StateAttribute::OFF | osg::StateAttribute::OVERRIDE);
-
-        osg::ref_ptr<osg::LightModel> lightmodel = new osg::LightModel;
-        lightmodel->setAmbientIntensity(osg::Vec4(1.0, 1.0, 1.0, 1.0));
-        stateset->setAttributeAndModes(lightmodel, osg::StateAttribute::ON);
-        SceneUtil::ShadowManager::disableShadowsForStateSet(stateset);
-
-        osg::ref_ptr<osg::Material> material = new osg::Material;
-        material->setColorMode(osg::Material::ColorMode::AMBIENT_AND_DIFFUSE);
-        stateset->setAttributeAndModes(material, osg::StateAttribute::ON);
-
-        mResourceSystem->getSceneManager()->recreateShaders(geometry);
-        mSkeleton->setIsTracked(true);
-
-        return geometry;
     }
 
     float VRAnimation::getVelocity(const std::string& groupname) const
@@ -582,7 +490,7 @@ namespace MWVR
         if (mSkeleton)
             mSkeleton->markBoneMatriceDirty();
 
-        updatePointerTarget();
+        mUserPointer->updatePointerTarget();
     }
 
     osg::Vec3f VRAnimation::runAnimation(float timepassed)
@@ -624,8 +532,7 @@ namespace MWVR
         auto finger = mNodeMap.find("bip01 r finger11");
         if (finger != mNodeMap.end())
         {
-            finger->second->removeChild(mPointerTransform);
-            finger->second->addChild(mPointerTransform);
+            mUserPointer->setParent(finger->second);
         }
         mSkeleton->setIsTracked(true);
     }
@@ -638,56 +545,8 @@ namespace MWVR
         NpcAnimation::setAccurateAiming(false);
     }
 
-    bool VRAnimation::canPlaceObject()
-    {
-        const float maxDist = 200.f;
-        if (mPointerTarget.mHit)
-        {
-            // check if the wanted position is on a flat surface, and not e.g. against a vertical wall
-            if (std::acos((mPointerTarget.mHitNormalWorld / mPointerTarget.mHitNormalWorld.length()) * osg::Vec3f(0, 0, 1)) >= osg::DegreesToRadians(30.f))
-                return false;
-
-            return true;
-        }
-
-        return false;
-    }
-
-    const MWRender::RayResult& VRAnimation::getPointerTarget() const
-    {
-        return mPointerTarget;
-    }
-
-
-    MWWorld::Ptr VRAnimation::getTarget(const std::string& directorNode)
-    {
-        auto node = mNodeMap.find(directorNode);
-        auto* world = MWBase::Environment::get().getWorld();
-        MWRender::RayResult result{};
-        if (node != mNodeMap.end())
-            if (world)
-                world->getTargetObject(result, node->second);
-        return result.mHitObject;
-    }
-
     osg::Matrix VRAnimation::getWeaponTransformMatrix() const
     {
         return osg::computeLocalToWorld(mWeaponDirectionTransform->getParentalNodePaths()[0]);
     }
-
-    void VRAnimation::updatePointerTarget()
-    {
-        auto* world = MWBase::Environment::get().getWorld();
-        if (world)
-        {
-            mPointerRescale->setMatrix(osg::Matrix::scale(1, 1, 1));
-            mDistanceToPointerTarget = world->getTargetObject(mPointerTarget, mPointerTransform);
-
-            if (mDistanceToPointerTarget >= 0)
-                mPointerRescale->setMatrix(osg::Matrix::scale(0.25f, mDistanceToPointerTarget, 0.25f));
-            else
-                mPointerRescale->setMatrix(osg::Matrix::scale(0.25f, 10000.f, 0.25f));
-        }
-    }
-
 }

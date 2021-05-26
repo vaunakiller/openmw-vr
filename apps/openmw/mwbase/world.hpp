@@ -91,6 +91,11 @@ namespace MWWorld
     typedef std::vector<std::pair<MWWorld::Ptr,MWMechanics::Movement> > PtrMovementList;
 }
 
+namespace MWVR
+{
+    class UserPointer;
+}
+
 namespace MWBase
 {
     /// \brief Interface for the World (implemented in MWWorld)
@@ -271,6 +276,8 @@ namespace MWBase
             virtual float getDistanceToFacedObject() = 0;
 
             virtual float getMaxActivationDistance() = 0;
+
+            virtual float getActivationDistancePlusTelekinesis() = 0;
 
             /// Returns a pointer to the object the provided object would hit (if within the
             /// specified distance), and the point where the hit occurs. This will attempt to
@@ -667,8 +674,10 @@ namespace MWBase
 
             /// @result pointer to the object and/or node the given node is currently pointing at
             /// @Return distance to the target object, or -1 if no object was targeted / in range
-            virtual float getTargetObject(MWRender::RayResult& result, osg::Transform* pointer) = 0;
-            virtual float getTargetObject(MWRender::RayResult& result, osg::Transform* pointer, float maxDistance, bool ignorePlayer) = 0;
+            virtual float getTargetObject(MWRender::RayResult& result, const osg::Vec3f& origin, const osg::Quat& orientation, float maxDistance, bool ignorePlayer) = 0;
+
+            virtual MWVR::UserPointer& getUserPointer() = 0;
+            virtual MWWorld::Ptr getPointerTarget() = 0;
 
             /// @Return ESM::Weapon::Type enum describing the type of weapon currently drawn by the player.
             virtual int getActiveWeaponType(void) = 0;
