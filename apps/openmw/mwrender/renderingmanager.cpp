@@ -207,7 +207,9 @@ namespace MWRender
         , mWorkQueue(workQueue)
         , mUnrefQueue(new SceneUtil::UnrefQueue)
         , mNavigator(navigator)
+#ifdef USE_OPENXR
         , mUserPointer(new MWVR::UserPointer(rootNode))
+#endif
         , mMinimumAmbientLuminance(0.f)
         , mNightEyeFactor(0.f)
         , mFieldOfViewOverridden(false)
@@ -1025,7 +1027,9 @@ namespace MWRender
         if (mObjectPaging)
             mObjectPaging->clear();
 
+#ifdef USE_OPENXR
         mUserPointer->setParent(nullptr);
+#endif
     }
 
     MWRender::Animation* RenderingManager::getAnimation(const MWWorld::Ptr &ptr)
@@ -1408,8 +1412,10 @@ namespace MWRender
             mObjectPaging->getPagedRefnums(activeGrid, out);
     }
 
+#ifdef USE_OPENXR
     MWVR::UserPointer& RenderingManager::userPointer()
     {
         return *mUserPointer;
     }
+#endif
 }

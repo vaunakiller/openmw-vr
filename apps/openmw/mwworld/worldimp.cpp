@@ -4054,6 +4054,7 @@ namespace MWWorld
         return result.mRatio * maxDistance;
     }
 
+#ifdef USE_OPENXR
     MWVR::UserPointer& World::getUserPointer()
     {
         return mRendering->userPointer();
@@ -4063,6 +4064,7 @@ namespace MWWorld
     {
         return getUserPointer().getPointerTarget().mHitObject;
     }
+#endif
 
     MWWorld::Ptr World::placeObject(const MWWorld::ConstPtr& object, const MWRender::RayResult& ray, int amount)
     {

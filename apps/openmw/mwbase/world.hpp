@@ -676,8 +676,10 @@ namespace MWBase
             /// @Return distance to the target object, or -1 if no object was targeted / in range
             virtual float getTargetObject(MWRender::RayResult& result, const osg::Vec3f& origin, const osg::Quat& orientation, float maxDistance, bool ignorePlayer) = 0;
 
+#ifdef USE_OPENXR
             virtual MWVR::UserPointer& getUserPointer() = 0;
             virtual MWWorld::Ptr getPointerTarget() = 0;
+#endif
 
             /// @Return ESM::Weapon::Type enum describing the type of weapon currently drawn by the player.
             virtual int getActiveWeaponType(void) = 0;
