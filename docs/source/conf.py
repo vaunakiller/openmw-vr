@@ -147,7 +147,7 @@ html_theme = 'sphinx_rtd_theme'
 #html_css_files = 'figures.css'         use this once Sphinx 1.8 is released!!!
 
 def setup(app):
-    app.add_stylesheet('figures.css')
+    app.add_css_file('figures.css')
 
 
 # The name for this set of Sphinx documents.  If None, it defaults to
