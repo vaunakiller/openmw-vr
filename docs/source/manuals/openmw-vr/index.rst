@@ -20,4 +20,6 @@ few chapters to familiarise yourself with the VR interface.
     foreword
     getting_started
     controls
+    modding
+    versioning
     common-problems
