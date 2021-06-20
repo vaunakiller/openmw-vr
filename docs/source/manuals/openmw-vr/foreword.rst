@@ -19,7 +19,7 @@ A brief explanation of terms and abbreviation
  - Mirror texture: The motion picture shown on your pancake monitor when you are playing in VR
  - OpenXR: An Open Source interface for accessing AR/VR devices.
 
-    This is the VR equivalent of Vulkan, written by the same authors as Vulkan: Khronos. OpenXR, like Vulkan, is purely an interface and not an implementation.
+    This is the VR equivalent of Vulkan, developed by the same group as Vulkan: Khronos. OpenXR, like Vulkan, is purely an interface and not an implementation.
  - OpenXR Runtime: An implementation of the OpenXR standard.
  - VR Runtime: The software interfacing with your VR device. An OpenXR Runtime is a subset of a VR runtime.
  - Native Runtimes: The VR Runtime provided by your device drivers.
