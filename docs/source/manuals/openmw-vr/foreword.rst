@@ -30,6 +30,7 @@ OpenXR vs What you're used to
 Before moving on to the manual contents, I would like to note that OpenMW-VR uses the **OpenXR** API to access VR.
 
 Most VR games you've ever played use vendor-specific APIs, such as OpenVR (SteamVR), Oculus VR, WMR, etc. and not OpenXR.
+OpenXR is very new, with most vendors only releasing stable implementations this year (2021).
 This means that while playing OpenMW-VR you may see bugs originating from your VR runtime, that you don't see in other games.
 This will diminish in time as OpenXR runtimes mature.
 
