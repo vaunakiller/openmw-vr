@@ -55,7 +55,7 @@ namespace MWVR
         osg::Vec3 offset; //!< Offset from tracked node in meters
         osg::Vec2 center; //!< Model space centerpoint of menu geometry. All menu geometries have model space lengths of 1 in each dimension. Use this to affect how geometries grow with changing size.
         osg::Vec2 extent; //!< Spatial extent of the layer in meters when using Fixed sizing mode
-        int spatialResolution; //!< Pixels when using the Auto sizing mode. \note Meters per pixel of the GUI viewport, not the RTT texture.
+        int spatialResolution; //!< Pixels when using the Auto sizing mode. \note Pixels per meter of the GUI viewport, not the RTT texture.
         osg::Vec2i pixelResolution; //!< Pixel resolution of the RTT texture
         osg::Vec2 myGUIViewSize; //!< Resizable elements are resized to this (fraction of full view)
         SizingMode sizingMode; //!< How to size the layer
