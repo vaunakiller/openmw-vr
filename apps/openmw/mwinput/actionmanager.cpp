@@ -336,6 +336,13 @@ namespace MWInput
         const std::string& settingStr = Settings::Manager::getString("screenshot type", "Video");
         bool regularScreenshot = settingStr.size() == 0 || settingStr.compare("regular") == 0;
 
+        if (MWBase::Environment::get().getVrMode())
+        {
+            // TODO: Fixme
+            MWBase::Environment::get().getWindowManager()->messageBox("Screenshot feature is temporarily disabled");
+            return;
+        }
+
         if (regularScreenshot)
         {
             mScreenCaptureHandler->setFramesToCapture(1);
