@@ -62,8 +62,13 @@ namespace DetourNavigator
         return mImpl.isEmpty();
     }
 
-    void CachedRecastMeshManager::reportNavMeshChange(Version recastMeshVersion, Version navMeshVersion)
+    void CachedRecastMeshManager::reportNavMeshChange(const Version& recastMeshVersion, const Version& navMeshVersion)
     {
         mImpl.reportNavMeshChange(recastMeshVersion, navMeshVersion);
+    }
+
+    Version CachedRecastMeshManager::getVersion() const
+    {
+        return mImpl.getVersion();
     }
 }

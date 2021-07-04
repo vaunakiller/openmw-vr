@@ -6,6 +6,7 @@
 #include "tilecachedrecastmeshmanager.hpp"
 #include "tileposition.hpp"
 #include "navmeshtilescache.hpp"
+#include "waitconditiontype.hpp"
 
 #include <osg/Vec3f>
 
@@ -14,11 +15,17 @@
 #include <condition_variable>
 #include <memory>
 #include <mutex>
-#include <queue>
+#include <deque>
 #include <set>
 #include <thread>
+#include <tuple>
 
 class dtNavMesh;
+
+namespace Loading
+{
+    class Listener;
+}
 
 namespace DetourNavigator
 {
@@ -55,7 +62,7 @@ namespace DetourNavigator
         void post(const osg::Vec3f& agentHalfExtents, const SharedNavMeshCacheItem& mNavMeshCacheItem,
             const TilePosition& playerTile, const std::map<TilePosition, ChangeType>& changedTiles);
 
-        void wait();
+        void wait(Loading::Listener& listener, WaitConditionType waitConditionType);
 
         void reportStats(unsigned int frameNumber, osg::Stats& stats) const;
 
@@ -78,11 +85,11 @@ namespace DetourNavigator
 
             friend inline bool operator <(const Job& lhs, const Job& rhs)
             {
-                return lhs.getPriority() > rhs.getPriority();
+                return lhs.getPriority() < rhs.getPriority();
             }
         };
 
-        using Jobs = std::priority_queue<Job, std::deque<Job>>;
+        using Jobs = std::deque<Job>;
         using Pushed = std::map<osg::Vec3f, std::set<TilePosition>>;
 
         struct Queue
@@ -108,6 +115,7 @@ namespace DetourNavigator
         NavMeshTilesCache mNavMeshTilesCache;
         Misc::ScopeGuarded<std::map<osg::Vec3f, std::map<TilePosition, std::thread::id>>> mProcessingTiles;
         std::map<osg::Vec3f, std::map<TilePosition, std::chrono::steady_clock::time_point>> mLastUpdates;
+        std::set<std::tuple<osg::Vec3f, TilePosition>> mPresentTiles;
         std::map<std::thread::id, Queue> mThreadsQueues;
         std::vector<std::thread> mThreads;
 
@@ -131,9 +139,15 @@ namespace DetourNavigator
 
         void unlockTile(const osg::Vec3f& agentHalfExtents, const TilePosition& changedTile);
 
+        inline std::size_t getTotalJobs() const;
+
         inline std::size_t getTotalThreadJobsUnsafe() const;
 
         void cleanupLastUpdates();
+
+        int waitUntilJobsDoneForNotPresentTiles(const std::size_t initialJobsLeft, std::size_t& maxJobsLeft, Loading::Listener& listener);
+
+        void waitUntilAllJobsDone();
     };
 }
 

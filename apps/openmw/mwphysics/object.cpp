@@ -14,7 +14,7 @@
 
 namespace MWPhysics
 {
-    Object::Object(const MWWorld::Ptr& ptr, osg::ref_ptr<Resource::BulletShapeInstance> shapeInstance, int collisionType, PhysicsTaskScheduler* scheduler)
+    Object::Object(const MWWorld::Ptr& ptr, osg::ref_ptr<Resource::BulletShapeInstance> shapeInstance, osg::Quat rotation, int collisionType, PhysicsTaskScheduler* scheduler)
         : mShapeInstance(shapeInstance)
         , mSolid(true)
         , mTaskScheduler(scheduler)
@@ -27,7 +27,7 @@ namespace MWPhysics
         mCollisionObject->setUserPointer(this);
 
         setScale(ptr.getCellRef().getScale());
-        setRotation(Misc::Convert::toBullet(ptr.getRefData().getBaseNode()->getAttitude()));
+        setRotation(rotation);
         setOrigin(Misc::Convert::toBullet(ptr.getRefData().getPosition().asVec3()));
         commitPositionChange();
 
@@ -51,10 +51,10 @@ namespace MWPhysics
         mScaleUpdatePending = true;
     }
 
-    void Object::setRotation(const btQuaternion& quat)
+    void Object::setRotation(osg::Quat quat)
     {
         std::unique_lock<std::mutex> lock(mPositionMutex);
-        mLocalTransform.setRotation(quat);
+        mLocalTransform.setRotation(Misc::Convert::toBullet(quat));
         mTransformUpdatePending = true;
     }
 
@@ -108,7 +108,7 @@ namespace MWPhysics
 
     bool Object::isAnimated() const
     {
-        return !mShapeInstance->mAnimatedShapes.empty();
+        return mShapeInstance->isAnimated();
     }
 
     bool Object::animateCollisionShapes()
@@ -119,11 +119,8 @@ namespace MWPhysics
         assert (mShapeInstance->getCollisionShape()->isCompound());
 
         btCompoundShape* compound = static_cast<btCompoundShape*>(mShapeInstance->getCollisionShape());
-        for (const auto& shape : mShapeInstance->mAnimatedShapes)
+        for (const auto& [recIndex, shapeIndex] : mShapeInstance->mAnimatedShapes)
         {
-            int recIndex = shape.first;
-            int shapeIndex = shape.second;
-
             auto nodePathFound = mRecIndexToNodePath.find(recIndex);
             if (nodePathFound == mRecIndexToNodePath.end())
             {

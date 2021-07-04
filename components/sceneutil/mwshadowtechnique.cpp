@@ -568,8 +568,9 @@ MWShadowTechnique::ShadowData::ShadowData(MWShadowTechnique::ViewDependentData* 
     _camera = new osg::Camera;
     _camera->setName("ShadowCamera");
     _camera->setReferenceFrame(osg::Camera::ABSOLUTE_RF_INHERIT_VIEWPOINT);
+#ifndef __APPLE__ // workaround shadow issue on macOS, https://gitlab.com/OpenMW/openmw/-/issues/6057
     _camera->setImplicitBufferAttachmentMask(0, 0);
-
+#endif
     //_camera->setClearColor(osg::Vec4(1.0f,1.0f,1.0f,1.0f));
     _camera->setClearColor(osg::Vec4(0.0f,0.0f,0.0f,0.0f));
 
@@ -1380,7 +1381,7 @@ void SceneUtil::MWShadowTechnique::castShadows(osgUtil::CullVisitor& cv, ViewDep
             if (settings->getMultipleShadowMapHint() == ShadowSettings::CASCADED)
             {
                 cropShadowCameraToMainFrustum(frustum, camera, cascaseNear, cascadeFar, extraPlanes);
-                for (auto plane : extraPlanes)
+                for (const auto& plane : extraPlanes)
                     local_polytope.getPlaneList().push_back(plane);
                 local_polytope.setupMask();
             }
@@ -2147,22 +2148,22 @@ struct ConvexHull
         }
     };
 
-    Vertices findInternalEdges(osg::Vec3d mainVertex, Vertices connectedVertices)
+    Vertices findInternalEdges(const osg::Vec3d& mainVertex, const Vertices& connectedVertices)
     {
         Vertices internalEdgeVertices;
-        for (auto vertex : connectedVertices)
+        for (const auto& vertex : connectedVertices)
         {
             osg::Matrixd matrix;
             osg::Vec3d dir = vertex - mainVertex;
             matrix.makeLookAt(mainVertex, vertex, dir.z() == 0 ? osg::Vec3d(0, 0, 1) : osg::Vec3d(1, 0, 0));
             Vertices testVertices;
-            for (auto testVertex : connectedVertices)
+            for (const auto& testVertex : connectedVertices)
             {
                 if (vertex != testVertex)
                     testVertices.push_back(testVertex);
             }
             std::vector<double> bearings;
-            for (auto testVertex : testVertices)
+            for (const auto& testVertex : testVertices)
             {
                 osg::Vec3d transformedVertex = testVertex * matrix;
                 bearings.push_back(atan2(transformedVertex.y(), transformedVertex.x()));
@@ -2191,7 +2192,7 @@ struct ConvexHull
 
         // Collect the set of vertices
         VertexSet vertices;
-        for (Edge edge : _edges)
+        for (const Edge& edge : _edges)
         {
             vertices.insert(edge.first);
             vertices.insert(edge.second);
@@ -2221,7 +2222,7 @@ struct ConvexHull
         for (auto vertex : extremeVertices)
         {
             Vertices connectedVertices;
-            for (Edge edge : _edges)
+            for (const Edge& edge : _edges)
             {
                 if (edge.first == vertex)
                     connectedVertices.push_back(edge.second);
@@ -2259,13 +2260,13 @@ struct ConvexHull
             osg::Vec3d vertex = *unprocessedConnectedVertices.begin();
             unprocessedConnectedVertices.erase(unprocessedConnectedVertices.begin());
             connectedVertices.insert(vertex);
-            for (Edge edge : _edges)
+            for (const Edge& edge : _edges)
             {
                 osg::Vec3d otherEnd;
                 if (edge.first == vertex)
                     otherEnd = edge.second;
                 else if (edge.second == vertex)
-                    otherEnd - edge.first;
+                    otherEnd = edge.first;
                 else
                     continue;
 
@@ -2276,7 +2277,7 @@ struct ConvexHull
             }
         }
 
-        for (Edge edge : _edges)
+        for (const Edge& edge : _edges)
         {
             if (connectedVertices.count(edge.first) || connectedVertices.count(edge.second))
                 finalEdges.push_back(edge);

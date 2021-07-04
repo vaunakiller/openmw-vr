@@ -1,5 +1,7 @@
 #include "actors.hpp"
 
+#include <optional>
+
 #include <components/esm/esmreader.hpp>
 #include <components/esm/esmwriter.hpp>
 
@@ -40,7 +42,6 @@
 #include "aiwander.hpp"
 #include "actor.hpp"
 #include "summoning.hpp"
-#include "combat.hpp"
 #include "actorutil.hpp"
 #include "tickableeffects.hpp"
 
@@ -173,6 +174,15 @@ namespace MWMechanics
     static const int GREETING_SHOULD_END = 20;  // how many updates should pass before NPC stops turning to player
     static const int GREETING_COOLDOWN = 40;    // how many updates should pass before NPC can continue movement
     static const float DECELERATE_DISTANCE = 512.f;
+
+    namespace
+    {
+        float getTimeToDestination(const AiPackage& package, const osg::Vec3f& position, float speed, float duration, const osg::Vec3f& halfExtents)
+        {
+            const auto distanceToNextPathPoint = (package.getNextPathPoint(package.getDestination()) - position).length();
+            return (distanceToNextPathPoint - package.getNextPathPointTolerance(speed, duration, halfExtents)) / speed;
+        }
+    }
 
     class GetStuntedMagickaDuration : public MWMechanics::EffectSourceVisitor
     {
@@ -590,7 +600,8 @@ namespace MWMechanics
         {
             greetingTimer++;
 
-            if (greetingTimer <= GREETING_SHOULD_END || MWBase::Environment::get().getSoundManager()->sayActive(actor))
+            if (!stats.getMovementFlag(CreatureStats::Flag_ForceJump) && !stats.getMovementFlag(CreatureStats::Flag_ForceSneak)
+                && (greetingTimer <= GREETING_SHOULD_END || MWBase::Environment::get().getSoundManager()->sayActive(actor)))
                 turnActorToFacePlayer(actor, actorState, dir);
 
             if (greetingTimer >= GREETING_COOLDOWN)
@@ -1228,7 +1239,7 @@ namespace MWMechanics
         // Update bound effects
         // Note: in vanilla MW multiple bound items of the same type can be created by different spells.
         // As these extra copies are kinda useless this may or may not be important.
-        static std::map<int, std::string> boundItemsMap;
+        static std::map<ESM::MagicEffect::Effects, std::string> boundItemsMap;
         if (boundItemsMap.empty())
         {
             boundItemsMap[ESM::MagicEffect::BoundBattleAxe] = "sMagicBoundBattleAxeID";
@@ -1244,28 +1255,30 @@ namespace MWMechanics
             boundItemsMap[ESM::MagicEffect::BoundSpear] = "sMagicBoundSpearID";
         }
 
-        for (std::map<int, std::string>::iterator it = boundItemsMap.begin(); it != boundItemsMap.end(); ++it)
+        if(ptr.getClass().hasInventoryStore(ptr))
         {
-            bool found = creatureStats.mBoundItems.find(it->first) != creatureStats.mBoundItems.end();
-            float magnitude = effects.get(it->first).getMagnitude();
-            if (found != (magnitude > 0))
+            for (const auto& [effect, itemGmst] : boundItemsMap)
             {
-                if (magnitude > 0)
-                    creatureStats.mBoundItems.insert(it->first);
-                else
-                    creatureStats.mBoundItems.erase(it->first);
-
-                std::string itemGmst = it->second;
-                std::string item = MWBase::Environment::get().getWorld()->getStore().get<ESM::GameSetting>().find(
-                            itemGmst)->mValue.getString();
-
-                magnitude > 0 ? addBoundItem(item, ptr) : removeBoundItem(item, ptr);
-
-                if (it->first == ESM::MagicEffect::BoundGloves)
+                bool found = creatureStats.mBoundItems.find(effect) != creatureStats.mBoundItems.end();
+                float magnitude = effects.get(effect).getMagnitude();
+                if (found != (magnitude > 0))
                 {
-                    item = MWBase::Environment::get().getWorld()->getStore().get<ESM::GameSetting>().find(
-                                "sMagicBoundRightGauntletID")->mValue.getString();
+                    if (magnitude > 0)
+                        creatureStats.mBoundItems.insert(effect);
+                    else
+                        creatureStats.mBoundItems.erase(effect);
+
+                    std::string item = MWBase::Environment::get().getWorld()->getStore().get<ESM::GameSetting>().find(
+                                itemGmst)->mValue.getString();
+
                     magnitude > 0 ? addBoundItem(item, ptr) : removeBoundItem(item, ptr);
+
+                    if (effect == ESM::MagicEffect::BoundGloves)
+                    {
+                        item = MWBase::Environment::get().getWorld()->getStore().get<ESM::GameSetting>().find(
+                                    "sMagicBoundRightGauntletID")->mValue.getString();
+                        magnitude > 0 ? addBoundItem(item, ptr) : removeBoundItem(item, ptr);
+                    }
                 }
             }
         }
@@ -1654,7 +1667,7 @@ namespace MWMechanics
         }
     }
 
-    void Actors::castSpell(const MWWorld::Ptr& ptr, const std::string spellId, bool manualSpell)
+    void Actors::castSpell(const MWWorld::Ptr& ptr, const std::string& spellId, bool manualSpell)
     {
         PtrActorMap::iterator iter = mActors.find(ptr);
         if(iter != mActors.end())
@@ -1764,7 +1777,7 @@ namespace MWMechanics
 
     }
 
-    void Actors::predictAndAvoidCollisions()
+    void Actors::predictAndAvoidCollisions(float duration)
     {
         if (!MWBase::Environment::get().getMechanicsManager()->isAIActive())
             return;
@@ -1799,7 +1812,8 @@ namespace MWMechanics
             bool shouldAvoidCollision = isMoving;
             bool shouldTurnToApproachingActor = !isMoving;
             MWWorld::Ptr currentTarget; // Combat or pursue target (NPCs should not avoid collision with their targets).
-            for (const auto& package : ptr.getClass().getCreatureStats(ptr).getAiSequence())
+            const auto& aiSequence = ptr.getClass().getCreatureStats(ptr).getAiSequence();
+            for (const auto& package : aiSequence)
             {
                 if (package->getTypeId() == AiPackageTypeId::Follow)
                     shouldAvoidCollision = true;
@@ -1828,6 +1842,10 @@ namespace MWMechanics
             float timeToCollision = maxTimeToCheck;
             osg::Vec2f movementCorrection(0, 0);
             float angleToApproachingActor = 0;
+
+            const float timeToDestination = aiSequence.isEmpty()
+                    ? std::numeric_limits<float>::max()
+                    : getTimeToDestination(**aiSequence.begin(), basePos, maxSpeed, duration, halfExtents);
 
             // Iterate through all other actors and predict collisions.
             for(PtrActorMap::iterator otherIter(mActors.begin()); otherIter != mActors.end(); ++otherIter)
@@ -1865,7 +1883,7 @@ namespace MWMechanics
                     continue; // No solution; distance is always >= collisionDist.
                 float t = (-vr - std::sqrt(Dh)) / v2;
 
-                if (t < 0 || t > timeToCollision)
+                if (t < 0 || t > timeToCollision || t > timeToDestination)
                     continue;
 
                 // Check visibility and awareness last as it's expensive.
@@ -2075,7 +2093,7 @@ namespace MWMechanics
 
             static const bool avoidCollisions = Settings::Manager::getBool("NPCs avoid collisions", "Game");
             if (avoidCollisions)
-                predictAndAvoidCollisions();
+                predictAndAvoidCollisions(duration);
 
             timerUpdateHeadTrack += duration;
             timerUpdateEquippedLight += duration;
@@ -2378,9 +2396,15 @@ namespace MWMechanics
             float radius = std::min(fSneakUseDist, mActorsProcessingRange);
             getObjectsInRange(position, radius, observers);
 
+            std::set<MWWorld::Ptr> sidingActors;
+            getActorsSidingWith(player, sidingActors);
+
             for (const MWWorld::Ptr &observer : observers)
             {
                 if (observer == player || observer.getClass().getCreatureStats(observer).isDead())
+                    continue;
+
+                if (sidingActors.find(observer) != sidingActors.cend())
                     continue;
 
                 if (world->getLOS(player, observer))

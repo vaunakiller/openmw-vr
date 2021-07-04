@@ -41,6 +41,7 @@
 #include "../mwmechanics/creaturestats.hpp"
 #include "../mwmechanics/npcstats.hpp"
 #include "../mwmechanics/spellcasting.hpp"
+#include "../mwmechanics/spellutil.hpp"
 #include "../mwmechanics/levelledlist.hpp"
 #include "../mwmechanics/combat.hpp"
 #include "../mwmechanics/aiavoiddoor.hpp" //Used to tell actors to avoid doors
@@ -764,7 +765,7 @@ namespace MWWorld
 
         FindContainerVisitor(const ConstPtr& containedPtr) : mContainedPtr(containedPtr) {}
 
-        bool operator() (Ptr ptr)
+        bool operator() (const Ptr& ptr)
         {
             if (mContainedPtr.getContainerStore() == &ptr.getClass().getContainerStore(ptr))
             {
@@ -1291,12 +1292,12 @@ namespace MWWorld
         return moveObject(ptr, cell, x, y, z, movePhysics);
     }
 
-    MWWorld::Ptr World::moveObjectBy(const Ptr& ptr, osg::Vec3f vec, bool moveToActive)
+    MWWorld::Ptr World::moveObjectBy(const Ptr& ptr, osg::Vec3f vec, bool moveToActive, bool ignoreCollisions)
     {
         auto* actor = mPhysics->getActor(ptr);
         osg::Vec3f newpos = ptr.getRefData().getPosition().asVec3() + vec;
         if (actor)
-            actor->adjustPosition(vec);
+            actor->adjustPosition(vec, ignoreCollisions);
         if (ptr.getClass().isActor())
             return moveObject(ptr, newpos.x(), newpos.y(), newpos.z(), false, moveToActive && ptr != getPlayerPtr());
         return moveObject(ptr, newpos.x(), newpos.y(), newpos.z());
@@ -1458,7 +1459,7 @@ namespace MWWorld
             mWorldScene->removeFromPagedRefs(ptr);
 
             mRendering->rotateObject(ptr, rotate);
-            mPhysics->updateRotation(ptr);
+            mPhysics->updateRotation(ptr, rotate);
 
             if (const auto object = mPhysics->getObject(ptr))
                 updateNavigatorObject(object);
@@ -2361,7 +2362,7 @@ namespace MWWorld
             return false;
 
         const bool isPlayer = ptr == getPlayerConstPtr();
-        if (!(isPlayer && mGodMode) && stats.isParalyzed())
+        if (!(isPlayer && mGodMode) && stats.getMagicEffects().get(ESM::MagicEffect::Paralyze).getModifier() > 0)
             return false;
 
         if (ptr.getClass().canFly(ptr))
@@ -2589,7 +2590,14 @@ namespace MWWorld
 
     MWRender::Animation* World::getAnimation(const MWWorld::Ptr &ptr)
     {
-        return mRendering->getAnimation(ptr);
+        auto* animation = mRendering->getAnimation(ptr);
+        if(!animation) {
+            mWorldScene->removeFromPagedRefs(ptr);
+            animation = mRendering->getAnimation(ptr);
+            if(animation)
+                mRendering->pagingBlacklistObject(mStore.find(ptr.getCellRef().getRefId()), ptr);
+        }
+        return animation;
     }
 
     const MWRender::Animation* World::getAnimation(const MWWorld::ConstPtr &ptr) const
@@ -3055,11 +3063,12 @@ namespace MWWorld
         if (!selectedSpell.empty())
         {
             const ESM::Spell* spell = mStore.get<ESM::Spell>().find(selectedSpell);
+            int spellCost = MWMechanics::calcSpellCost(*spell);
 
             // Check mana
             bool godmode = (isPlayer && mGodMode);
             MWMechanics::DynamicStat<float> magicka = stats.getMagicka();
-            if (spell->mData.mCost > 0 && magicka.getCurrent() < spell->mData.mCost && !godmode)
+            if (spellCost > 0 && magicka.getCurrent() < spellCost && !godmode)
             {
                 message = "#{sMagicInsufficientSP}";
                 fail = true;
@@ -3075,7 +3084,7 @@ namespace MWWorld
             // Reduce mana
             if (!fail && !godmode)
             {
-                magicka.setCurrent(magicka.getCurrent() - spell->mData.mCost);
+                magicka.setCurrent(magicka.getCurrent() - spellCost);
                 stats.setMagicka(magicka);
             }
         }
@@ -3894,7 +3903,7 @@ namespace MWWorld
 
     struct ResetActorsVisitor
     {
-        bool operator() (Ptr ptr)
+        bool operator() (const Ptr& ptr)
         {
             if (ptr.getClass().isActor() && ptr.getCellRef().hasContentFile())
             {

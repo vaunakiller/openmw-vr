@@ -29,11 +29,11 @@ namespace DetourNavigator
         navigatorSettings.mRegionMergeSize = ::Settings::Manager::getInt("region merge size", "Navigator");
         navigatorSettings.mRegionMinSize = ::Settings::Manager::getInt("region min size", "Navigator");
         navigatorSettings.mTileSize = ::Settings::Manager::getInt("tile size", "Navigator");
+        navigatorSettings.mWaitUntilMinDistanceToPlayer = ::Settings::Manager::getInt("wait until min distance to player", "Navigator");
         navigatorSettings.mAsyncNavMeshUpdaterThreads = static_cast<std::size_t>(::Settings::Manager::getInt("async nav mesh updater threads", "Navigator"));
         navigatorSettings.mMaxNavMeshTilesCacheSize = static_cast<std::size_t>(::Settings::Manager::getInt("max nav mesh tiles cache size", "Navigator"));
         navigatorSettings.mMaxPolygonPathSize = static_cast<std::size_t>(::Settings::Manager::getInt("max polygon path size", "Navigator"));
         navigatorSettings.mMaxSmoothPathSize = static_cast<std::size_t>(::Settings::Manager::getInt("max smooth path size", "Navigator"));
-        navigatorSettings.mTrianglesPerChunk = static_cast<std::size_t>(::Settings::Manager::getInt("triangles per chunk", "Navigator"));
         navigatorSettings.mEnableWriteRecastMeshToFile = ::Settings::Manager::getBool("enable write recast mesh to file", "Navigator");
         navigatorSettings.mEnableWriteNavMeshToFile = ::Settings::Manager::getBool("enable write nav mesh to file", "Navigator");
         navigatorSettings.mRecastMeshPathPrefix = ::Settings::Manager::getString("recast mesh path prefix", "Navigator");

@@ -105,6 +105,7 @@ namespace MWRender
         bool mOptimizeBillboards = true;
         float mSqrDistance = 0.f;
         osg::Vec3f mViewVector;
+        osg::Node::NodeMask mCopyMask = ~0u;
         mutable std::vector<const osg::Node*> mNodePath;
 
         void copy(const osg::Node* toCopy, osg::Group* attachTo)
@@ -121,6 +122,9 @@ namespace MWRender
 
         osg::Node* operator() (const osg::Node* node) const override
         {
+            if (!(node->getNodeMask() & mCopyMask))
+                return nullptr;
+
             if (const osg::Drawable* d = node->asDrawable())
                 return operator()(d);
 
@@ -224,6 +228,9 @@ namespace MWRender
         }
         osg::Drawable* operator() (const osg::Drawable* drawable) const override
         {
+            if (!(drawable->getNodeMask() & mCopyMask))
+                return nullptr;
+
             if (dynamic_cast<const osgParticle::ParticleSystem*>(drawable))
                 return nullptr;
 
@@ -261,9 +268,11 @@ namespace MWRender
     class AnalyzeVisitor : public osg::NodeVisitor
     {
     public:
-        AnalyzeVisitor()
+        AnalyzeVisitor(osg::Node::NodeMask analyzeMask)
          : osg::NodeVisitor(TRAVERSE_ALL_CHILDREN)
-         , mCurrentStateSet(nullptr) {}
+         , mCurrentStateSet(nullptr)
+         , mCurrentDistance(0.f)
+         , mAnalyzeMask(analyzeMask) {}
 
         typedef std::unordered_map<osg::StateSet*, unsigned int> StateSetCounter;
         struct Result
@@ -274,12 +283,34 @@ namespace MWRender
 
         void apply(osg::Node& node) override
         {
+            if (!(node.getNodeMask() & mAnalyzeMask))
+                return;
+
             if (node.getStateSet())
                 mCurrentStateSet = node.getStateSet();
+
+            if (osg::Switch* sw = node.asSwitch())
+            {
+                for (unsigned int i=0; i<sw->getNumChildren(); ++i)
+                    if (sw->getValue(i))
+                        traverse(*sw->getChild(i));
+                return;
+            }
+            if (osg::LOD* lod = dynamic_cast<osg::LOD*>(&node))
+            {
+                for (unsigned int i=0; i<lod->getNumChildren(); ++i)
+                    if (lod->getMinRange(i) * lod->getMinRange(i) <= mCurrentDistance && mCurrentDistance < lod->getMaxRange(i) * lod->getMaxRange(i))
+                        traverse(*lod->getChild(i));
+                return;
+            }
+
             traverse(node);
         }
         void apply(osg::Geometry& geom) override
         {
+            if (!(geom.getNodeMask() & mAnalyzeMask))
+                return;
+
             if (osg::Array* array = geom.getVertexArray())
                 mResult.mNumVerts += array->getNumElements();
 
@@ -313,6 +344,8 @@ namespace MWRender
         Result mResult;
         osg::StateSet* mCurrentStateSet;
         StateSetCounter mGlobalStateSetCounter;
+        float mCurrentDistance;
+        osg::Node::NodeMask mAnalyzeMask;
     };
 
     class DebugVisitor : public osg::NodeVisitor
@@ -384,7 +417,7 @@ namespace MWRender
                 {
                     try
                     {
-                        unsigned int index = cell->mContextList.at(i).index;
+                        unsigned int index = cell->mContextList[i].index;
                         if (esm.size()<=index)
                             esm.resize(index+1);
                         cell->restore(esm[index], i);
@@ -393,13 +426,13 @@ namespace MWRender
                         bool deleted = false;
                         while(cell->getNextRef(esm[index], ref, deleted))
                         {
-                            Misc::StringUtils::lowerCaseInPlace(ref.mRefID);
                             if (std::find(cell->mMovedRefs.begin(), cell->mMovedRefs.end(), ref.mRefNum) != cell->mMovedRefs.end()) continue;
+                            Misc::StringUtils::lowerCaseInPlace(ref.mRefID);
                             int type = store.findStatic(ref.mRefID);
                             if (!typeFilter(type,size>=2)) continue;
                             if (deleted) { refs.erase(ref.mRefNum); continue; }
                             if (ref.mRefNum.fromGroundcoverFile()) continue;
-                            refs[ref.mRefNum] = ref;
+                            refs[ref.mRefNum] = std::move(ref);
                         }
                     }
                     catch (std::exception&)
@@ -407,15 +440,13 @@ namespace MWRender
                         continue;
                     }
                 }
-                for (ESM::CellRefTracker::const_iterator it = cell->mLeasedRefs.begin(); it != cell->mLeasedRefs.end(); ++it)
+                for (auto [ref, deleted] : cell->mLeasedRefs)
                 {
-                    ESM::CellRef ref = it->first;
-                    Misc::StringUtils::lowerCaseInPlace(ref.mRefID);
-                    bool deleted = it->second;
                     if (deleted) { refs.erase(ref.mRefNum); continue; }
+                    Misc::StringUtils::lowerCaseInPlace(ref.mRefID);
                     int type = store.findStatic(ref.mRefID);
                     if (!typeFilter(type,size>=2)) continue;
-                    refs[ref.mRefNum] = ref;
+                    refs[ref.mRefNum] = std::move(ref);
                 }
             }
         }
@@ -438,7 +469,16 @@ namespace MWRender
         typedef std::map<osg::ref_ptr<const osg::Node>, InstanceList> NodeMap;
         NodeMap nodes;
         osg::ref_ptr<RefnumSet> refnumSet = activeGrid ? new RefnumSet : nullptr;
-        AnalyzeVisitor analyzeVisitor;
+
+        // Mask_UpdateVisitor is used in such cases in NIF loader:
+        // 1. For collision nodes, which is not supposed to be rendered.
+        // 2. For nodes masked via Flag_Hidden (VisController can change this flag value at runtime).
+        // Since ObjectPaging does not handle VisController, we can just ignore both types of nodes.
+        constexpr auto copyMask = ~Mask_UpdateVisitor;
+
+        AnalyzeVisitor analyzeVisitor(copyMask);
+        osg::Vec3f center3 = { center.x(), center.y(), 0.f };
+        analyzeVisitor.mCurrentDistance = (viewPoint - center3).length2();
         float minSize = mMinSize;
         if (mMinSizeMergeFactor)
             minSize *= mMinSizeMergeFactor;
@@ -525,6 +565,7 @@ namespace MWRender
         osg::ref_ptr<Resource::TemplateMultiRef> templateRefs = new Resource::TemplateMultiRef;
         osgUtil::StateToCompile stateToCompile(0, nullptr);
         CopyOp copyop;
+        copyop.mCopyMask = copyMask;
         for (const auto& pair : nodes)
         {
             const osg::Node* cnode = pair.first;
@@ -611,6 +652,7 @@ namespace MWRender
             }
             optimizer.setIsOperationPermissibleForObjectCallback(new CanOptimizeCallback);
             unsigned int options = SceneUtil::Optimizer::FLATTEN_STATIC_TRANSFORMS|SceneUtil::Optimizer::REMOVE_REDUNDANT_NODES|SceneUtil::Optimizer::MERGE_GEOMETRY;
+            mSceneManager->shareState(mergeGroup);
             optimizer.optimize(mergeGroup, options);
 
             group->addChild(mergeGroup);
@@ -701,7 +743,7 @@ namespace MWRender
         ccf.mCell = cell;
         mCache->call(ccf);
         if (ccf.mToClear.empty()) return false;
-        for (auto chunk : ccf.mToClear)
+        for (const auto& chunk : ccf.mToClear)
             mCache->removeFromObjectCache(chunk);
         return true;
     }
@@ -723,7 +765,7 @@ namespace MWRender
         ccf.mActiveGridOnly = true;
         mCache->call(ccf);
         if (ccf.mToClear.empty()) return false;
-        for (auto chunk : ccf.mToClear)
+        for (const auto& chunk : ccf.mToClear)
             mCache->removeFromObjectCache(chunk);
         return true;
     }

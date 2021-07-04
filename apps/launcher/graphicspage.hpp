@@ -1,8 +1,6 @@
 #ifndef GRAPHICSPAGE_H
 #define GRAPHICSPAGE_H
 
-#include <QWidget>
-
 #include "ui_graphicspage.h"
 
 #include <components/settings/settings.hpp>
@@ -20,7 +18,7 @@ namespace Launcher
         Q_OBJECT
 
     public:
-        GraphicsPage(Settings::Manager &engineSettings, QWidget *parent = nullptr);
+        explicit GraphicsPage(QWidget *parent = nullptr);
 
         void saveSettings();
         bool loadSettings();
@@ -35,8 +33,6 @@ namespace Launcher
         void slotShadowDistLimitToggled(bool checked);
 
     private:
-        Settings::Manager &mEngineSettings;
-
         QVector<QStringList> mResolutionsPerScreen;
 
         static QStringList getAvailableResolutions(int screen);

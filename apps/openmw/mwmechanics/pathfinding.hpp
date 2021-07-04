@@ -7,6 +7,7 @@
 
 #include <components/detournavigator/flags.hpp>
 #include <components/detournavigator/areatype.hpp>
+#include <components/detournavigator/status.hpp>
 #include <components/esm/defs.hpp>
 #include <components/esm/loadpgrd.hpp>
 
@@ -107,7 +108,8 @@ namespace MWMechanics
 
             /// Remove front point if exist and within tolerance
             void update(const osg::Vec3f& position, float pointTolerance, float destinationTolerance,
-                        bool shortenIfAlmostStraight, bool canMoveByZ);
+                        bool shortenIfAlmostStraight, bool canMoveByZ, const osg::Vec3f& halfExtents,
+                        const DetourNavigator::Flags flags);
 
             bool checkPathCompleted() const
             {
@@ -166,7 +168,7 @@ namespace MWMechanics
             // Caller needs to be careful for very short distances (i.e. less than 1)
             // or when accumuating the results i.e. (a + b)^2 != a^2 + b^2
             //
-            static float distanceSquared(ESM::Pathgrid::Point point, const osg::Vec3f& pos)
+            static float distanceSquared(const ESM::Pathgrid::Point& point, const osg::Vec3f& pos)
             {
                 return (MWMechanics::PathFinder::makeOsgVec3(point) - pos).length2();
             }
@@ -208,9 +210,10 @@ namespace MWMechanics
             void buildPathByPathgridImpl(const osg::Vec3f& startPoint, const osg::Vec3f& endPoint,
                 const PathgridGraph& pathgridGraph, std::back_insert_iterator<std::deque<osg::Vec3f>> out);
 
-            bool buildPathByNavigatorImpl(const MWWorld::ConstPtr& actor, const osg::Vec3f& startPoint,
-                const osg::Vec3f& endPoint, const osg::Vec3f& halfExtents, const DetourNavigator::Flags flags,
-                const DetourNavigator::AreaCosts& areaCosts, std::back_insert_iterator<std::deque<osg::Vec3f>> out);
+            [[nodiscard]] DetourNavigator::Status buildPathByNavigatorImpl(const MWWorld::ConstPtr& actor,
+                const osg::Vec3f& startPoint, const osg::Vec3f& endPoint, const osg::Vec3f& halfExtents,
+                const DetourNavigator::Flags flags, const DetourNavigator::AreaCosts& areaCosts,
+                std::back_insert_iterator<std::deque<osg::Vec3f>> out);
     };
 }
 

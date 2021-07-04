@@ -1,7 +1,6 @@
 #ifndef ADVANCEDPAGE_H
 #define ADVANCEDPAGE_H
 
-#include <QWidget>
 #include <QCompleter>
 #include <QStringListModel>
 
@@ -18,8 +17,7 @@ namespace Launcher
         Q_OBJECT
 
     public:
-        AdvancedPage(Config::GameSettings &gameSettings,
-                     Settings::Manager &engineSettings, QWidget *parent = nullptr);
+        explicit AdvancedPage(Config::GameSettings &gameSettings, QWidget *parent = nullptr);
 
         bool loadSettings();
         void saveSettings();
@@ -35,7 +33,6 @@ namespace Launcher
 
     private:
         Config::GameSettings &mGameSettings;
-        Settings::Manager &mEngineSettings;
         QCompleter mCellNameCompleter;
         QStringListModel mCellNameCompleterModel;
 

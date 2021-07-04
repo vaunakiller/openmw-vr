@@ -103,7 +103,7 @@ namespace Compiler
         {
             blank();
 
-            char ch = in.peek();
+            char ch = static_cast<char>(in.peek());
 
             if (!in.good())
                 return false;
@@ -130,7 +130,7 @@ namespace Compiler
         {
             std::streampos p_orig = in.tellg();
 
-            char ch = in.peek();
+            char ch = static_cast<char>(in.peek());
 
             if (!in.good())
                 return false;
@@ -156,7 +156,7 @@ namespace Compiler
 
         void blank()
         {
-            std::fill(mData, mData + sizeof(mData), 0);
+            std::fill(std::begin(mData), std::end(mData), '\0');
             mLength = -1;
         }
 
@@ -193,6 +193,7 @@ namespace Compiler
             bool mStrictKeywords;
             bool mTolerantNames;
             bool mIgnoreNewline;
+            bool mExpectName;
 
         public:
 
@@ -286,6 +287,11 @@ namespace Compiler
             ///
             /// \attention This mode lasts only until the next newline is reached.
             void enableTolerantNames();
+
+            /// Treat '.' and '-' as the start of a name.
+            ///
+            /// \attention This mode lasts only until the next newline is reached or the call to scan ends.
+            void enableExpectName();
     };
 }
 

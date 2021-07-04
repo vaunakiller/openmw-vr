@@ -26,8 +26,6 @@
 #include "../mwbase/windowmanager.hpp"
 #include "../mwbase/inputmanager.hpp"
 
-#include "../mwrender/vismask.hpp"
-
 #include "backgroundimage.hpp"
 
 namespace MWGui
@@ -103,7 +101,7 @@ namespace MWGui
             Log(Debug::Warning) << "Warning: no splash screens found!";
     }
 
-    void LoadingScreen::setLabel(const std::string &label, bool important, bool center)
+    void LoadingScreen::setLabel(const std::string &label, bool important)
     {
         mImportantLabel = important;
 
@@ -113,7 +111,7 @@ namespace MWGui
         size.width = std::max(300, size.width);
         mLoadingBox->setSize(size);
 
-        if (center)
+        if (MWBase::Environment::get().getWindowManager()->getMessagesCount() > 0)
             mLoadingBox->setPosition(mMainWidget->getWidth()/2 - mLoadingBox->getWidth()/2, mMainWidget->getHeight()/2 - mLoadingBox->getHeight()/2);
         else
             mLoadingBox->setPosition(mMainWidget->getWidth()/2 - mLoadingBox->getWidth()/2, mMainWidget->getHeight() - mLoadingBox->getHeight() - 8);

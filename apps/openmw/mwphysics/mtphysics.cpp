@@ -106,16 +106,6 @@ namespace
         return actorData.mPosition * interpolationFactor + actorData.mActorRaw->getPreviousPosition() * (1.f - interpolationFactor);
     }
 
-    struct WorldFrameData
-    {
-        WorldFrameData() : mIsInStorm(MWBase::Environment::get().getWorld()->isInStorm())
-                         , mStormDirection(MWBase::Environment::get().getWorld()->getStormDirection())
-        {}
-
-        bool mIsInStorm;
-        osg::Vec3f mStormDirection;
-    };
-
     namespace Config
     {
         /// @return either the number of thread as configured by the user, or 1 if Bullet doesn't support multithreading
@@ -177,43 +167,11 @@ namespace MWPhysics
             mDeferAabbUpdate = false;
         }
 
-        mPreStepBarrier = std::make_unique<Misc::Barrier>(mNumThreads, [&]()
-            {
-            if (mDeferAabbUpdate)
-                updateAabbs();
-            if (!mRemainingSteps)
-                return;
-            for (auto& data : mActorsFrameData)
-                if (data.mActor.lock())
-                {
-                    std::unique_lock lock(mCollisionWorldMutex);
-                    MovementSolver::unstuck(data, mCollisionWorld);
-                }
-            });
+        mPreStepBarrier = std::make_unique<Misc::Barrier>(mNumThreads);
 
-        mPostStepBarrier = std::make_unique<Misc::Barrier>(mNumThreads, [&]()
-            {
-                if (mRemainingSteps)
-                {
-                    --mRemainingSteps;
-                    updateActorsPositions();
-                }
-                mNextJob.store(0, std::memory_order_release);
-            });
+        mPostStepBarrier = std::make_unique<Misc::Barrier>(mNumThreads);
 
-        mPostSimBarrier = std::make_unique<Misc::Barrier>(mNumThreads, [&]()
-            {
-                mNewFrame = false;
-                if (mLOSCacheExpiry >= 0)
-                {
-                    std::unique_lock lock(mLOSCacheMutex);
-                    mLOSCache.erase(
-                            std::remove_if(mLOSCache.begin(), mLOSCache.end(),
-                                [](const LOSRequest& req) { return req.mStale; }),
-                            mLOSCache.end());
-                }
-                mTimeEnd = mTimer->tick();
-            });
+        mPostSimBarrier = std::make_unique<Misc::Barrier>(mNumThreads);
     }
 
     PhysicsTaskScheduler::~PhysicsTaskScheduler()
@@ -361,7 +319,6 @@ namespace MWPhysics
         for (const auto& [_, actor] : actors)
         {
             actor->updatePosition();
-            actor->setSimulationPosition(actor->getWorldPosition()); // updatePosition skip next simulation, now we need to "consume" it
             actor->updateCollisionObjectPosition();
             mMovedActors.emplace_back(actor->getPtr());
         }
@@ -526,7 +483,7 @@ namespace MWPhysics
             if (!mNewFrame)
                 mHasJob.wait(lock, [&]() { return mQuit || mNewFrame; });
 
-            mPreStepBarrier->wait();
+            mPreStepBarrier->wait([this] { afterPreStep(); });
 
             int job = 0;
             while (mRemainingSteps && (job = mNextJob.fetch_add(1, std::memory_order_relaxed)) < mNumJobs)
@@ -538,7 +495,7 @@ namespace MWPhysics
                 }
             }
 
-            mPostStepBarrier->wait();
+            mPostStepBarrier->wait([this] { afterPostStep(); });
 
             if (!mRemainingSteps)
             {
@@ -553,7 +510,7 @@ namespace MWPhysics
 
                 if (mLOSCacheExpiry >= 0)
                     refreshLOSCache();
-                mPostSimBarrier->wait();
+                mPostSimBarrier->wait([this] { afterPostSim(); });
             }
         }
     }
@@ -633,5 +590,43 @@ namespace MWPhysics
     {
         std::shared_lock lock(mCollisionWorldMutex);
         mDebugDrawer->step();
+    }
+
+    void PhysicsTaskScheduler::afterPreStep()
+    {
+        if (mDeferAabbUpdate)
+            updateAabbs();
+        if (!mRemainingSteps)
+            return;
+        for (auto& data : mActorsFrameData)
+            if (data.mActor.lock())
+            {
+                std::unique_lock lock(mCollisionWorldMutex);
+                MovementSolver::unstuck(data, mCollisionWorld);
+            }
+    }
+
+    void PhysicsTaskScheduler::afterPostStep()
+    {
+        if (mRemainingSteps)
+        {
+            --mRemainingSteps;
+            updateActorsPositions();
+        }
+        mNextJob.store(0, std::memory_order_release);
+    }
+
+    void PhysicsTaskScheduler::afterPostSim()
+    {
+        mNewFrame = false;
+        if (mLOSCacheExpiry >= 0)
+        {
+            std::unique_lock lock(mLOSCacheMutex);
+            mLOSCache.erase(
+                    std::remove_if(mLOSCache.begin(), mLOSCache.end(),
+                        [](const LOSRequest& req) { return req.mStale; }),
+                    mLOSCache.end());
+        }
+        mTimeEnd = mTimer->tick();
     }
 }

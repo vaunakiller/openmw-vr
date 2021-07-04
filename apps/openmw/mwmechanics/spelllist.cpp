@@ -3,7 +3,6 @@
 #include <algorithm>
 
 #include <components/esm/loadspel.hpp>
-#include <components/misc/rng.hpp>
 
 #include "spells.hpp"
 
@@ -71,7 +70,7 @@ namespace MWMechanics
         auto& id = spell->mId;
         bool changed = withBaseRecord([&] (auto& spells)
         {
-            for(auto it : spells)
+            for(const auto& it : spells)
             {
                 if(Misc::StringUtils::ciEqual(id, it))
                     return false;

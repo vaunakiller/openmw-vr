@@ -14,6 +14,8 @@
 #include <gtest/gtest.h>
 #include <gmock/gmock.h>
 
+#include <array>
+
 namespace DetourNavigator
 {
     static inline bool operator ==(const RecastMesh::Water& lhs, const RecastMesh::Water& rhs)
@@ -37,7 +39,6 @@ namespace
         DetourNavigatorRecastMeshBuilderTest()
         {
             mSettings.mRecastScaleFactor = 1.0f;
-            mSettings.mTrianglesPerChunk = 256;
             mBounds.mMin = osg::Vec2f(-std::numeric_limits<float>::max() * std::numeric_limits<float>::epsilon(),
                                       -std::numeric_limits<float>::max() * std::numeric_limits<float>::epsilon());
             mBounds.mMax = osg::Vec2f(std::numeric_limits<float>::max() * std::numeric_limits<float>::epsilon(),

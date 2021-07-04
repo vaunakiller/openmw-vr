@@ -17,7 +17,6 @@
 #include "../../model/world/idtable.hpp"
 
 #include "../../model/prefs/shortcut.hpp"
-#include "../../model/prefs/shortcuteventhandler.hpp"
 #include "../../model/prefs/state.hpp"
 
 #include "../render/orbitcameramode.hpp"
@@ -593,7 +592,7 @@ void CSVRender::WorldspaceWidget::showToolTip()
         if (hit.tag)
         {
             bool hideBasics = CSMPrefs::get()["Tooltips"]["scene-hide-basic"].isTrue();
-            QToolTip::showText (pos, hit.tag->getToolTip (hideBasics), this);
+            QToolTip::showText(pos, hit.tag->getToolTip(hideBasics, hit), this);
         }
     }
 }

@@ -45,19 +45,19 @@ public:
     {
         // Russian alphabet
         if (ch >= 0x0410 && ch < 0x0430)
-            return ch += 0x20;
+            return ch + 0x20;
 
         // Cyrillic IO character
         if (ch == 0x0401)
-            return ch += 0x50;
+            return ch + 0x50;
 
         // Latin alphabet
         if (ch >= 0x41 && ch < 0x60)
-            return ch += 0x20;
+            return ch + 0x20;
 
         // Deutch characters
         if (ch == 0xc4 || ch == 0xd6 || ch == 0xdc)
-            return ch += 0x20;
+            return ch + 0x20;
         if (ch == 0x1e9e)
             return 0xdf;
 
@@ -66,7 +66,7 @@ public:
         return ch;
     }
 
-    static std::string lowerCaseUtf8(const std::string str)
+    static std::string lowerCaseUtf8(const std::string& str)
     {
         if (str.empty())
             return str;
@@ -292,7 +292,7 @@ public:
     // TODO: use the std::string_view once we will use the C++17.
     // It should allow us to avoid data copying while we still will support both string and literal arguments.
 
-    static inline void replaceAll(std::string& data, std::string toSearch, std::string replaceStr)
+    static inline void replaceAll(std::string& data, const std::string& toSearch, const std::string& replaceStr)
     {
         size_t pos = data.find(toSearch);
 
@@ -303,7 +303,7 @@ public:
         }
     }
 
-     static inline void replaceLast(std::string& str, std::string substr, std::string with)
+     static inline void replaceLast(std::string& str, const std::string& substr, const std::string& with)
      {
          size_t pos = str.rfind(substr);
          if (pos == std::string::npos)

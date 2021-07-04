@@ -1,6 +1,7 @@
 #ifndef OPENMW_ESM_COMMON_H
 #define OPENMW_ESM_COMMON_H
 
+#include <algorithm>
 #include <string>
 #include <cstring>
 #include <vector>
@@ -110,15 +111,7 @@ struct FIXED_STRING<4> : public FIXED_STRING_BASE<FIXED_STRING, 4>
     void assign(const std::string& value)
     {
         intval = 0;
-        size_t length = value.size();
-        if (length == 0) return;
-        data[0] = value[0];
-        if (length == 1) return;
-        data[1] = value[1];
-        if (length == 2) return;
-        data[2] = value[2];
-        if (length == 3) return;
-        data[3] = value[3];
+        std::memcpy(data, value.data(), std::min(value.size(), sizeof(data)));
     }
 
     char const* ro_data() const { return data; }

@@ -26,7 +26,6 @@
 
 #include "../../model/prefs/state.hpp"
 #include "../../model/prefs/shortcut.hpp"
-#include "../../model/prefs/shortcuteventhandler.hpp"
 
 #include "lighting.hpp"
 #include "mask.hpp"

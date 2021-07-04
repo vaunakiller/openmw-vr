@@ -378,7 +378,7 @@ namespace Resource
         Resource::ImageManager* mImageManager;
     };
 
-    osg::ref_ptr<osg::Node> load (Files::IStreamPtr file, const std::string& normalizedFilename, Resource::ImageManager* imageManager, Resource::NifFileManager* nifFileManager)
+    osg::ref_ptr<osg::Node> load (const std::string& normalizedFilename, const VFS::Manager* vfs, Resource::ImageManager* imageManager, Resource::NifFileManager* nifFileManager)
     {
         std::string ext = Resource::getFileExtension(normalizedFilename);
         if (ext == "nif")
@@ -400,7 +400,7 @@ namespace Resource
             options->setReadFileCallback(new ImageReadCallback(imageManager));
             if (ext == "dae") options->setOptionString("daeUseSequencedTextureUnits");
 
-            osgDB::ReaderWriter::ReadResult result = reader->readNode(*file, options);
+            osgDB::ReaderWriter::ReadResult result = reader->readNode(*vfs->get(normalizedFilename), options);
             if (!result.success())
             {
                 std::stringstream errormsg;
@@ -500,7 +500,7 @@ namespace Resource
         {
             std::string str(env);
 
-            if(str.find("OFF")!=std::string::npos || str.find("0")!= std::string::npos) options = 0;
+            if(str.find("OFF")!=std::string::npos || str.find('0')!= std::string::npos) options = 0;
 
             if(str.find("~FLATTEN_STATIC_TRANSFORMS")!=std::string::npos) options ^= Optimizer::FLATTEN_STATIC_TRANSFORMS;
             else if(str.find("FLATTEN_STATIC_TRANSFORMS")!=std::string::npos) options |= Optimizer::FLATTEN_STATIC_TRANSFORMS;
@@ -512,6 +512,12 @@ namespace Resource
             else if(str.find("MERGE_GEOMETRY")!=std::string::npos) options |= Optimizer::MERGE_GEOMETRY;
         }
         return options;
+    }
+
+    void SceneManager::shareState(osg::ref_ptr<osg::Node> node) {
+        mSharedStateMutex.lock();
+        mSharedStateManager->share(node.get());
+        mSharedStateMutex.unlock();
     }
 
     osg::ref_ptr<const osg::Node> SceneManager::getTemplate(const std::string &name, bool compile)
@@ -527,9 +533,7 @@ namespace Resource
             osg::ref_ptr<osg::Node> loaded;
             try
             {
-                Files::IStreamPtr file = mVFS->get(normalized);
-
-                loaded = load(file, normalized, mImageManager, mNifFileManager);
+                loaded = load(normalized, mVFS, mImageManager, mNifFileManager);
             }
             catch (std::exception& e)
             {
@@ -541,8 +545,7 @@ namespace Resource
                     if (mVFS->exists(normalized))
                     {
                         Log(Debug::Error) << "Failed to load '" << name << "': " << e.what() << ", using marker_error." << sMeshTypes[i] << " instead";
-                        Files::IStreamPtr file = mVFS->get(normalized);
-                        loaded = load(file, normalized, mImageManager, mNifFileManager);
+                        loaded = load(normalized, mVFS, mImageManager, mNifFileManager);
                         break;
                     }
                 }

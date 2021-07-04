@@ -173,7 +173,6 @@ add_component_dir(detournavigator
     navmeshmanager
     navigatorimpl
     asyncnavmeshupdater
-    chunkytrimesh
     recastmesh
     tilecachedrecastmeshmanager
     recastmeshobject
@@ -184,6 +183,7 @@ add_component_dir(detournavigator
     raycast
     navmeshtileview
     oscillatingrecastmeshobject
+    offmeshconnectionsmanager
     )
 
 set (ESM_UI ${CMAKE_SOURCE_DIR}/files/ui/contentselector.ui
@@ -252,13 +252,11 @@ target_link_libraries(components
     RecastNavigation::DebugUtils
     RecastNavigation::Detour
     RecastNavigation::Recast
+
+    Base64
     )
 
-if (BULLET_USE_DOUBLES AND (UBUNTU_FOUND OR DEBIAN_FOUND) AND OPENMW_USE_SYSTEM_BULLET)
-    target_link_libraries(components BulletCollision-float64 LinearMath-float64)
-else()
-    target_link_libraries(components ${BULLET_LIBRARIES})
-endif()
+target_link_libraries(components ${BULLET_LIBRARIES})
 
 if (WIN32)
     target_link_libraries(components
@@ -292,6 +290,4 @@ endif()
 # Make the variable accessible for other subdirectories
 set(COMPONENT_FILES ${COMPONENT_FILES} PARENT_SCOPE)
 
-if (BULLET_USE_DOUBLES)
-    target_compile_definitions(components PUBLIC BT_USE_DOUBLE_PRECISION)
-endif()
+target_compile_definitions(components PUBLIC BT_USE_DOUBLE_PRECISION)

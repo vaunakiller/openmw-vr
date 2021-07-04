@@ -310,7 +310,7 @@ namespace MWGui
         deleteLater();
         for (Link* link : mLinks)
             delete link;
-        for (auto link : mTopicLinks)
+        for (const auto& link : mTopicLinks)
             delete link.second;
         for (auto history : mHistoryContents)
             delete history;
@@ -492,7 +492,7 @@ namespace MWGui
         mHistoryContents.clear();
     }
 
-    bool DialogueWindow::setKeywords(std::list<std::string> keyWords)
+    bool DialogueWindow::setKeywords(const std::list<std::string>& keyWords)
     {
         if (mKeywords == keyWords && isCompanion() == mIsCompanion)
             return false;

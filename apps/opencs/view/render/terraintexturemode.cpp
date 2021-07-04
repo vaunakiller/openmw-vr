@@ -12,23 +12,17 @@
 
 #include <osg/Group>
 
-#include <components/esm/loadland.hpp>
-
 #include "../widget/modebutton.hpp"
 #include "../widget/scenetoolbar.hpp"
 #include "../widget/scenetooltexturebrush.hpp"
 
 #include "../../model/doc/document.hpp"
 #include "../../model/prefs/state.hpp"
-#include "../../model/world/columnbase.hpp"
-#include "../../model/world/commandmacro.hpp"
 #include "../../model/world/commands.hpp"
 #include "../../model/world/data.hpp"
 #include "../../model/world/idtable.hpp"
 #include "../../model/world/idtree.hpp"
-#include "../../model/world/land.hpp"
 #include "../../model/world/landtexture.hpp"
-#include "../../model/world/resourcetable.hpp"
 #include "../../model/world/tablemimedata.hpp"
 #include "../../model/world/universalid.hpp"
 #include "../widget/brushshapes.hpp"
@@ -332,7 +326,7 @@ void CSVRender::TerrainTextureMode::editTerrainTextureGrid(const WorldspaceHitRe
 
     int textureColumn = landTable.findColumnIndex(CSMWorld::Columns::ColumnId_LandTexturesIndex);
 
-    std::size_t hashlocation = mBrushTexture.find("#");
+    std::size_t hashlocation = mBrushTexture.find('#');
     std::string mBrushTextureInt = mBrushTexture.substr (hashlocation+1);
     int brushInt = stoi(mBrushTexture.substr (hashlocation+1))+1; // All indices are offset by +1
 

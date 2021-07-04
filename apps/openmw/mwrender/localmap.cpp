@@ -22,7 +22,6 @@
 #include <components/sceneutil/lightmanager.hpp>
 #include <components/files/memorystream.hpp>
 #include <components/resource/scenemanager.hpp>
-#include <components/resource/resourcesystem.hpp>
 
 #include "../mwbase/environment.hpp"
 #include "../mwbase/windowmanager.hpp"
@@ -672,11 +671,6 @@ void LocalMap::updatePlayer (const osg::Vec3f& position, const osg::Quat& orient
 LocalMap::MapSegment::MapSegment()
     : mHasFogState(false)
 {
-}
-
-LocalMap::MapSegment::~MapSegment()
-{
-
 }
 
 void LocalMap::MapSegment::createFogOfWarTexture()

@@ -46,7 +46,6 @@
 #include <components/sceneutil/shadow.hpp>
 
 #include <components/settings/settings.hpp>
-#include <components/misc/stringops.hpp>
 
 #include <components/nifosg/particle.hpp>
 
@@ -1315,7 +1314,8 @@ public:
 
                     while (callback)
                     {
-                        if ((composite = dynamic_cast<SceneUtil::CompositeStateSetUpdater*>(callback)))
+                        composite = dynamic_cast<SceneUtil::CompositeStateSetUpdater*>(callback);
+                        if (composite)
                             break;
 
                         callback = callback->getNestedCallback();

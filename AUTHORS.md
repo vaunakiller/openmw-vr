@@ -27,6 +27,7 @@ Programmers
     Alexander Olofsson (Ananace)
     Alex Rice
     Alex S (docwest)
+    Alexey Yaryshev (skeevert)
     Allofich
     Andrei Kortunov (akortunov)
     AnyOldName3
@@ -118,6 +119,7 @@ Programmers
     Kurnevsky Evgeny (kurnevsky)
     Lars Söderberg (Lazaroth)
     lazydev
+    Léo Peltier
     Leon Krieg (lkrieg)
     Leon Saunders (emoose)
     logzero

@@ -1,6 +1,5 @@
 #include "refcollection.hpp"
 
-#include <components/misc/stringops.hpp>
 #include <components/esm/loadcell.hpp>
 
 #include "ref.hpp"
@@ -109,11 +108,13 @@ void CSMWorld::RefCollection::load (ESM::ESMReader& reader, int cellIndex, bool 
 
             Record<CellRef> record;
             record.mState = base ? RecordBase::State_BaseOnly : RecordBase::State_ModifiedOnly;
-            (base ? record.mBase : record.mModified) = ref;
+            const ESM::RefNum refNum = ref.mRefNum;
+            std::string refId = ref.mId;
+            (base ? record.mBase : record.mModified) = std::move(ref);
 
             appendRecord (record);
 
-            cache.insert (std::make_pair (ref.mRefNum, ref.mId));
+            cache.emplace(refNum, std::move(refId));
         }
         else
         {
@@ -124,7 +125,7 @@ void CSMWorld::RefCollection::load (ESM::ESMReader& reader, int cellIndex, bool 
 
             Record<CellRef> record = getRecord (index);
             record.mState = base ? RecordBase::State_BaseOnly : RecordBase::State_Modified;
-            (base ? record.mBase : record.mModified) = ref;
+            (base ? record.mBase : record.mModified) = std::move(ref);
 
             setRecord (index, record);
         }

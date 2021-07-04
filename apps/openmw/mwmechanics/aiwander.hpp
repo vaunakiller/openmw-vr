@@ -5,8 +5,6 @@
 
 #include <vector>
 
-#include "../mwworld/timestamp.hpp"
-
 #include "pathfinding.hpp"
 #include "obstacle.hpp"
 #include "aistate.hpp"
@@ -128,7 +126,6 @@ namespace MWMechanics
             short unsigned getRandomIdle();
             void setPathToAnAllowedNode(const MWWorld::Ptr& actor, AiWanderStorage& storage, const ESM::Position& actorPos);
             void evadeObstacles(const MWWorld::Ptr& actor, AiWanderStorage& storage);
-            void turnActorToFacePlayer(const osg::Vec3f& actorPosition, const osg::Vec3f& playerPosition, AiWanderStorage& storage);
             void doPerFrameActionsForState(const MWWorld::Ptr& actor, float duration, AiWanderStorage& storage);
             void onIdleStatePerFrameActions(const MWWorld::Ptr& actor, float duration, AiWanderStorage& storage);
             void onWalkingStatePerFrameActions(const MWWorld::Ptr& actor, float duration, AiWanderStorage& storage);

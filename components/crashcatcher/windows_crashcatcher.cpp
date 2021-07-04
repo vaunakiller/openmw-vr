@@ -130,13 +130,13 @@ namespace Crash
         DWORD copied = 0;
         do {
             executablePath.resize(executablePath.size() + MAX_PATH);
-            copied = GetModuleFileNameW(nullptr, executablePath.data(), executablePath.size());
+            copied = GetModuleFileNameW(nullptr, executablePath.data(), static_cast<DWORD>(executablePath.size()));
         } while (copied >= executablePath.size());
         executablePath.resize(copied);
 
         memset(mShm->mStartup.mLogFilePath, 0, sizeof(mShm->mStartup.mLogFilePath));
-        int length = crashLogPath.length();
-        if (length > MAX_LONG_PATH) length = MAX_LONG_PATH;
+        size_t length = crashLogPath.length();
+        if (length >= MAX_LONG_PATH) length = MAX_LONG_PATH - 1;
         strncpy(mShm->mStartup.mLogFilePath, crashLogPath.c_str(), length);
         mShm->mStartup.mLogFilePath[length] = '\0';
 

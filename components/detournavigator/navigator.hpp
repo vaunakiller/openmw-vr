@@ -6,13 +6,18 @@
 #include "settings.hpp"
 #include "objectid.hpp"
 #include "navmeshcacheitem.hpp"
-#include "recastmesh.hpp"
 #include "recastmeshtiles.hpp"
+#include "waitconditiontype.hpp"
 
 namespace ESM
 {
     struct Cell;
     struct Pathgrid;
+}
+
+namespace Loading
+{
+    class Listener;
 }
 
 namespace DetourNavigator
@@ -150,10 +155,16 @@ namespace DetourNavigator
         virtual void removePathgrid(const ESM::Pathgrid& pathgrid) = 0;
 
         /**
-         * @brief update start background navmesh update using current scene state.
+         * @brief update starts background navmesh update using current scene state.
          * @param playerPosition setup initial point to order build tiles of navmesh.
          */
         virtual void update(const osg::Vec3f& playerPosition) = 0;
+
+        /**
+         * @brief updatePlayerPosition starts background navmesh update using current scene state only when player position has been changed.
+         * @param playerPosition setup initial point to order build tiles of navmesh.
+         */
+        virtual void updatePlayerPosition(const osg::Vec3f& playerPosition) = 0;
 
         /**
          * @brief disable navigator updates
@@ -161,9 +172,10 @@ namespace DetourNavigator
         virtual void setUpdatesEnabled(bool enabled) = 0;
 
         /**
-         * @brief wait locks thread until all tiles are updated from last update call.
+         * @brief wait locks thread until tiles are updated from last update call based on passed condition type.
+         * @param waitConditionType defines when waiting will stop
          */
-        virtual void wait() = 0;
+        virtual void wait(Loading::Listener& listener, WaitConditionType waitConditionType) = 0;
 
         /**
          * @brief findPath fills output iterator with points of scene surfaces to be used for actor to walk through.

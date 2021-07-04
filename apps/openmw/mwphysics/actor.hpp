@@ -10,7 +10,6 @@
 #include <LinearMath/btTransform.h>
 #include <osg/Vec3f>
 #include <osg/Quat>
-#include <osg/ref_ptr>
 
 class btCollisionShape;
 class btCollisionObject;
@@ -49,19 +48,12 @@ namespace MWPhysics
         void enableCollisionBody(bool collision);
 
         void updateScale();
-        void updateRotation();
+        void setRotation(osg::Quat quat);
 
         /**
          * Return true if the collision shape looks the same no matter how its Z rotated.
          */
         bool isRotationallyInvariant() const;
-
-        /**
-         * Set mWorldPosition to the position in the Ptr's RefData. This is used by the physics simulation to account for 
-         * when an object is "instantly" moved/teleported as opposed to being moved by the physics simulation.
-         */
-        void updateWorldPosition();
-        osg::Vec3f getWorldPosition() const;
 
         /**
         * Used by the physics simulation to store the simulation result. Used in conjunction with mWorldPosition
@@ -101,7 +93,7 @@ namespace MWPhysics
         void updatePosition();
 
         // register a position offset that will be applied during simulation.
-        void adjustPosition(const osg::Vec3f& offset);
+        void adjustPosition(const osg::Vec3f& offset, bool ignoreCollisions);
 
         // apply position offset. Can't be called during simulation
         void applyOffsetChange();
@@ -177,6 +169,11 @@ namespace MWPhysics
             mLastStuckPosition = position;
         }
 
+        bool skipCollisions();
+
+        void setVelocity(osg::Vec3f velocity);
+        osg::Vec3f velocity();
+
     private:
         MWWorld::Ptr mStandingOnPtr;
         /// Removes then re-adds the collision object to the dynamics world
@@ -200,13 +197,13 @@ namespace MWPhysics
 
         osg::Vec3f mScale;
         osg::Vec3f mRenderingScale;
-        osg::Vec3f mWorldPosition;
         osg::Vec3f mSimulationPosition;
         osg::Vec3f mPosition;
         osg::Vec3f mPreviousPosition;
         osg::Vec3f mPositionOffset;
+        osg::Vec3f mVelocity;
         bool mWorldPositionChanged;
-        bool mSkipSimulation;
+        bool mSkipCollisions;
         btTransform mLocalTransform;
         mutable std::mutex mPositionMutex;
 

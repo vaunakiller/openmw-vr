@@ -13,9 +13,6 @@ if(POLICY CMP0083)
   cmake_policy(SET CMP0083 NEW)
 endif()
 
-# Detect OS
-include(cmake/OSIdentity.cmake)
-
 option(OPENMW_GL4ES_MANUAL_INIT "Manually initialize gl4es. This is more reliable on platforms without a windowing system. Requires gl4es to be configured with -DNOEGL=ON -DNO_LOADER=ON -DNO_INIT_CONSTRUCTOR=ON." OFF)
 if(OPENMW_GL4ES_MANUAL_INIT)
     add_definitions(-DOPENMW_GL4ES_MANUAL_INIT)
@@ -35,7 +32,7 @@ option(BUILD_DOCS               "Build documentation." OFF )
 option(BUILD_OPENMW_VR          "Build VR support using OpenXR" ON)
 option(BUILD_WITH_CODE_COVERAGE "Enable code coverage with gconv" OFF)
 option(BUILD_UNITTESTS          "Enable Unittests with Google C++ Unittest" OFF)
-option(BULLET_USE_DOUBLES       "Use double precision for Bullet" ON)
+option(BUILD_BENCHMARKS         "Build benchmarks with Google Benchmark" OFF)
 
 set(OpenGL_GL_PREFERENCE LEGACY)  # Use LEGACY as we use GL2; GLNVD is for GL3 and up.
 
@@ -69,7 +66,7 @@ endif()
 message(STATUS "Configuring OpenMW...")
 
 set(OPENMW_VERSION_MAJOR 0)
-set(OPENMW_VERSION_MINOR 47)
+set(OPENMW_VERSION_MINOR 48)
 set(OPENMW_VERSION_RELEASE 0)
 
 set(OPENMW_VERSION_COMMITHASH "")
@@ -265,14 +262,14 @@ if(FFmpeg_FOUND)
             set(FFVER_OK FALSE)
         endif()
     endif()
+
+    if(NOT FFVER_OK AND NOT APPLE)  # unable to detect on version on MacOS < 11.0
+        message(FATAL_ERROR "FFmpeg version is too old, 3.2 is required" )
+    endif()
 endif()
 
 if(NOT FFmpeg_FOUND)
     message(FATAL_ERROR "FFmpeg was not found" )
-endif()
-
-if(NOT FFVER_OK)
-    message(FATAL_ERROR "FFmpeg version is too old, 3.2 is required" )
 endif()
 
 if(WIN32)
@@ -313,7 +310,31 @@ if(OPENMW_USE_SYSTEM_BULLET)
         set(REQUIRED_BULLET_VERSION 283) # but for build testing, 283 is fine
     endif()
 
+    # First, try BulletConfig-float64.cmake which comes with Debian derivatives.
+    # This file does not define the Bullet version in a CMake-friendly way.
+    find_package(Bullet CONFIGS BulletConfig-float64.cmake QUIET COMPONENTS BulletCollision LinearMath)
+    if (BULLET_FOUND)
+        string(REPLACE "." "" _bullet_version_num ${BULLET_VERSION_STRING})
+        if (_bullet_version_num VERSION_LESS REQUIRED_BULLET_VERSION)
+            message(FATAL_ERROR "System bullet version too old, OpenMW requires at least ${REQUIRED_BULLET_VERSION}, got ${_bullet_version_num}")
+        endif()
+        # Fix the relative include:
+        set(BULLET_INCLUDE_DIRS "${BULLET_ROOT_DIR}/${BULLET_INCLUDE_DIRS}")
+        include(FindPackageMessage)
+        find_package_message(Bullet "Found Bullet: ${BULLET_LIBRARIES} ${BULLET_VERSION_STRING}" "${BULLET_VERSION_STRING}-float64")
+    else()
     find_package(Bullet ${REQUIRED_BULLET_VERSION} REQUIRED COMPONENTS BulletCollision LinearMath)
+    endif()
+
+    # Only link the Bullet libraries that we need:
+    string(REGEX MATCHALL "((optimized|debug);)?[^;]*(BulletCollision|LinearMath)[^;]*" BULLET_LIBRARIES "${BULLET_LIBRARIES}")
+
+    include(cmake/CheckBulletPrecision.cmake)
+    if (HAS_DOUBLE_PRECISION_BULLET)
+        message(STATUS "Bullet uses double precision")
+    else()
+        message(FATAL_ERROR "Bullet does not uses double precision")
+    endif()
 endif()
 
 if (NOT WIN32 AND BUILD_WIZARD) # windows users can just run the morrowind installer
@@ -342,6 +363,11 @@ endif()
 
 if(OPENMW_USE_SYSTEM_OSG)
     find_package(OpenSceneGraph ${OSG_VERSION_REQUIRED} REQUIRED ${USED_OSG_COMPONENTS})
+
+    if (${OPENSCENEGRAPH_VERSION} VERSION_GREATER 3.6.2 AND ${OPENSCENEGRAPH_VERSION} VERSION_LESS 3.6.5)
+        message(FATAL_ERROR "OpenSceneGraph version ${OPENSCENEGRAPH_VERSION} has critical regressions which cause crashes. Please upgrade to 3.6.5 or later. We strongly recommend using the tip of the official 'OpenSceneGraph-3.6' branch or the tip of '3.6' OpenMW/osg (OSGoS).")
+    endif()
+
     if(OSG_STATIC)
         find_package(OSGPlugins REQUIRED COMPONENTS ${USED_OSG_PLUGINS})
     endif()
@@ -424,8 +450,8 @@ endif (APPLE)
 
 # Other files
 
-configure_resource_file(${OpenMW_SOURCE_DIR}/files/settings-default.cfg
-    "${OpenMW_BINARY_DIR}" "settings-default.cfg")
+pack_resource_file(${OpenMW_SOURCE_DIR}/files/settings-default.cfg
+    "${OpenMW_BINARY_DIR}" "defaults.bin")
 
 configure_resource_file(${OpenMW_SOURCE_DIR}/files/settings-overrides-vr.cfg
     "${OpenMW_BINARY_DIR}" "settings-overrides-vr.cfg")
@@ -443,8 +469,8 @@ else ()
         "${OpenMW_BINARY_DIR}/openmw.cfg")
 endif ()
 
-configure_resource_file(${OpenMW_SOURCE_DIR}/files/openmw-cs.cfg
-    "${OpenMW_BINARY_DIR}" "openmw-cs.cfg")
+pack_resource_file(${OpenMW_SOURCE_DIR}/files/openmw-cs.cfg
+    "${OpenMW_BINARY_DIR}" "defaults-cs.bin")
 
 # Needs the copy version because the configure version assumes the end of the file has been reached when a null character is reached and there are no CMake expressions to evaluate.
 copy_resource_file(${OpenMW_SOURCE_DIR}/files/opencs/defaultfilters
@@ -499,16 +525,13 @@ if (CMAKE_CXX_COMPILER_ID STREQUAL GNU OR CMAKE_CXX_COMPILER_ID STREQUAL Clang)
     if (CMAKE_CXX_COMPILER_ID STREQUAL GNU AND CMAKE_CXX_COMPILER_VERSION VERSION_GREATER 4.6 OR CMAKE_CXX_COMPILER_VERSION VERSION_EQUAL 4.6)
         set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wno-unused-but-set-parameter")
     endif()
-
-    if (CMAKE_CXX_COMPILER_ID STREQUAL GNU AND CMAKE_CXX_COMPILER_VERSION VERSION_GREATER 5.0 OR CMAKE_CXX_COMPILER_VERSION VERSION_EQUAL 5.0)
-        set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wsuggest-override")
-    endif()
 endif (CMAKE_CXX_COMPILER_ID STREQUAL GNU OR CMAKE_CXX_COMPILER_ID STREQUAL Clang)
 
 # Extern
 
 add_subdirectory (extern/osg-ffmpeg-videoplayer)
 add_subdirectory (extern/oics)
+add_subdirectory (extern/Base64)
 if (BUILD_OPENCS)
     add_subdirectory (extern/osgQt)
 endif()
@@ -559,6 +582,10 @@ if (BUILD_UNITTESTS)
   add_subdirectory( apps/openmw_test_suite )
 endif()
 
+if (BUILD_BENCHMARKS)
+  add_subdirectory(apps/benchmarks)
+endif()
+
 if (WIN32)
   if (MSVC)
     if (OPENMW_MP_BUILD)
@@ -606,63 +633,13 @@ if (WIN32)
 
     # Play a bit with the warning levels
 
-    set(WARNINGS "/Wall") # Since windows can only disable specific warnings, not enable them
+    set(WARNINGS "/W4")
 
     set(WARNINGS_DISABLE
-        # Warnings that aren't enabled normally and don't need to be enabled
-        # They're unneeded and sometimes completely retarded warnings that /Wall enables
-        # Not going to bother commenting them as they tend to warn on every standard library file
-        4061 4263 4264 4266 4350 4371 4435 4514 4548 4571 4582 4583 4610 4619 4623 4625
-        4626 4628 4640 4668 4710 4711 4768 4820 4826 4917 4946 5032 5039 5045 5219 5220
-
-        # Warnings that are thrown on standard libraries and not OpenMW
-        4347 # Non-template function with same name and parameter count as template function
-        4365 # Variable signed/unsigned mismatch
-        4510 4512 # Unable to generate copy constructor/assignment operator as it's not public in the base
-        4706 # Assignment in conditional expression
-        4738 # Storing 32-bit float result in memory, possible loss of performance
-        4774 # Format string expected in argument is not a string literal
-        4986 # Undocumented warning that occurs in the crtdbg.h file
-        4987 # nonstandard extension used (triggered by setjmp.h)
-        4996 # Function was declared deprecated
-
-        # caused by OSG
-        4589 # Constructor of abstract class 'osg::Operation' ignores initializer for virtual base class 'osg::Referenced' (False warning)
-
-        # caused by boost
-        4191 # 'type cast' : unsafe conversion (1.56, thread_primitives.hpp, normally off)
-        4643 # Forward declaring 'X' in namespace std is not permitted by the C++ Standard. (in *_std_fwd.h files)
-        5204 # Class has virtual functions, but its trivial destructor is not virtual
-
-        # caused by MyGUI
-        4297 # function assumed not to throw an exception but does
-
-        # OpenMW specific warnings
-        4099 # Type mismatch, declared class or struct is defined with other type
         4100 # Unreferenced formal parameter (-Wunused-parameter)
-        4101 # Unreferenced local variable (-Wunused-variable)
         4127 # Conditional expression is constant
-        4242 # Storing value in a variable of a smaller type, possible loss of data
-        4244 # Storing value of one type in variable of another (size_t in int, for example)
-        4245 # Signed/unsigned mismatch
-        4267 # Conversion from 'size_t' to 'int', possible loss of data
-        4305 # Truncating value (double to float, for example)
-        4309 # Variable overflow, trying to store 128 in a signed char for example
-        4351 # New behavior: elements of array 'array' will be default initialized (desired behavior)
-        4355 # Using 'this' in member initialization list
-        4464 # relative include path contains '..'
-        4505 # Unreferenced local function has been removed
-        4701 # Potentially uninitialized local variable used
-        4702 # Unreachable code
-        4714 # function 'QString QString::trimmed(void) &&' marked as __forceinline not inlined
-        4800 # Boolean optimization warning, e.g. myBool = (myInt != 0) instead of myBool = myInt
+        4996 # Function was declared deprecated
         )
-
-    if (MSVC_VERSION GREATER 1800)
-        set(WARNINGS_DISABLE ${WARNINGS_DISABLE} 5026 5027
-            5031 # #pragma warning(pop): likely mismatch, popping warning state pushed in different file (config_begin.hpp, config_end.hpp)
-        )
-    endif()
     
     if( "${MyGUI_VERSION}" VERSION_LESS_EQUAL "3.4.0" )
         set(WARNINGS_DISABLE ${WARNINGS_DISABLE}
@@ -729,6 +706,10 @@ if (WIN32)
 
     if (BUILD_WIZARD)
         set_target_properties(openmw-wizard PROPERTIES COMPILE_FLAGS "${WARNINGS} ${MT_BUILD}")
+    endif()
+
+    if (BUILD_BENCHMARKS)
+        set_target_properties(openmw_detournavigator_navmeshtilescache_benchmark PROPERTIES COMPILE_FLAGS "${WARNINGS} ${MT_BUILD}")
     endif()
   endif(MSVC)
 
@@ -869,7 +850,7 @@ elseif(NOT APPLE)
         INSTALL(FILES "${OpenMW_SOURCE_DIR}/README.md" DESTINATION "." RENAME "README.txt")
         INSTALL(FILES "${OpenMW_SOURCE_DIR}/LICENSE" DESTINATION "." RENAME "LICENSE.txt")
         INSTALL(FILES "${OpenMW_SOURCE_DIR}/files/mygui/DejaVuFontLicense.txt" DESTINATION ".")
-        INSTALL(FILES "${INSTALL_SOURCE}/settings-default.cfg" DESTINATION ".")
+        INSTALL(FILES "${INSTALL_SOURCE}/defaults.bin" DESTINATION ".")
         INSTALL(FILES "${INSTALL_SOURCE}/gamecontrollerdb.txt" DESTINATION ".")
         INSTALL(FILES "${INSTALL_SOURCE}/xrcontrollersuggestions.xml" DESTINATION ".")
 
@@ -912,13 +893,13 @@ elseif(NOT APPLE)
         SET(VCREDIST32 "${OpenMW_BINARY_DIR}/vcredist_x86.exe")
         if(EXISTS ${VCREDIST32})
             INSTALL(FILES ${VCREDIST32} DESTINATION "redist")
-            SET(CPACK_NSIS_EXTRA_INSTALL_COMMANDS "ExecWait '\\\"$INSTDIR\\\\redist\\\\vcredist_x86.exe\\\" /q'" )
+            SET(CPACK_NSIS_EXTRA_INSTALL_COMMANDS "ExecWait '\\\"$INSTDIR\\\\redist\\\\vcredist_x86.exe\\\" /q /norestart'" )
         endif(EXISTS ${VCREDIST32})
 
         SET(VCREDIST64 "${OpenMW_BINARY_DIR}/vcredist_x64.exe")
         if(EXISTS ${VCREDIST64})
             INSTALL(FILES ${VCREDIST64} DESTINATION "redist")
-            SET(CPACK_NSIS_EXTRA_INSTALL_COMMANDS "ExecWait '\\\"$INSTDIR\\\\redist\\\\vcredist_x64.exe\\\" /q'" )
+            SET(CPACK_NSIS_EXTRA_INSTALL_COMMANDS "ExecWait '\\\"$INSTDIR\\\\redist\\\\vcredist_x64.exe\\\" /q /norestart'" )
         endif(EXISTS ${VCREDIST64})
 
         SET(OALREDIST "${OpenMW_BINARY_DIR}/oalinst.exe")
@@ -978,14 +959,14 @@ elseif(NOT APPLE)
         ENDIF(BUILD_OPENCS)
 
         # Install global configuration files
-        INSTALL(FILES "${INSTALL_SOURCE}/settings-default.cfg" DESTINATION "${SYSCONFDIR}" COMPONENT "openmw")
+        INSTALL(FILES "${INSTALL_SOURCE}/defaults.bin" DESTINATION "${SYSCONFDIR}" COMPONENT "openmw")
         INSTALL(FILES "${INSTALL_SOURCE}/openmw.cfg.install" DESTINATION "${SYSCONFDIR}" RENAME "openmw.cfg" COMPONENT "openmw")
         INSTALL(FILES "${INSTALL_SOURCE}/resources/version" DESTINATION "${SYSCONFDIR}" COMPONENT "openmw")
         INSTALL(FILES "${INSTALL_SOURCE}/gamecontrollerdb.txt" DESTINATION "${SYSCONFDIR}" COMPONENT "openmw")
         INSTALL(FILES "${INSTALL_SOURCE}/xrcontrollersuggestions.xml" DESTINATION "${SYSCONFDIR}" COMPONENT "openmw")
 
         IF(BUILD_OPENCS)
-            INSTALL(FILES "${INSTALL_SOURCE}/openmw-cs.cfg" DESTINATION "${SYSCONFDIR}" COMPONENT "opencs")
+            INSTALL(FILES "${INSTALL_SOURCE}/defaults-cs.bin" DESTINATION "${SYSCONFDIR}" COMPONENT "opencs")
         ENDIF(BUILD_OPENCS)
 
         # Install resources

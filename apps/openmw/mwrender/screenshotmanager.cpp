@@ -8,8 +8,8 @@
 #include <osg/Texture2D>
 #include <osg/TextureCubeMap>
 
-#include <components/misc/stringops.hpp>
 #include <components/misc/callbackmanager.hpp>
+#include <components/misc/stringops.hpp>
 #include <components/resource/resourcesystem.hpp>
 #include <components/resource/scenemanager.hpp>
 #include <components/shader/shadermanager.hpp>
@@ -37,15 +37,15 @@ namespace MWRender
     class NotifyDrawCompletedCallback : public osg::Camera::DrawCallback
     {
     public:
-        NotifyDrawCompletedCallback(unsigned int frame)
-            : mDone(false), mFrame(frame)
+        NotifyDrawCompletedCallback()
+            : mDone(false), mFrame(0)
         {
         }
 
         void operator () (osg::RenderInfo& renderInfo) const override
         {
             std::lock_guard<std::mutex> lock(mMutex);
-            if (renderInfo.getState()->getFrameStamp()->getFrameNumber() >= mFrame)
+            if (renderInfo.getState()->getFrameStamp()->getFrameNumber() >= mFrame && !mDone)
             {
                 mDone = true;
                 mCondition.notify_one();
@@ -58,6 +58,13 @@ namespace MWRender
             if (mDone)
                 return;
             mCondition.wait(lock);
+        }
+
+        void reset(unsigned int frame)
+        {
+            std::lock_guard<std::mutex> lock(mMutex);
+            mDone = false;
+            mFrame = frame;
         }
 
         mutable std::condition_variable mCondition;
@@ -95,24 +102,26 @@ namespace MWRender
         : mViewer(viewer)
         , mRootNode(rootNode)
         , mSceneRoot(sceneRoot)
+        , mDrawCompleteCallback(new NotifyDrawCompletedCallback)
         , mResourceSystem(resourceSystem)
         , mWater(water)
     {
     }
 
+    ScreenshotManager::~ScreenshotManager()
+    {
+    }
+
     void ScreenshotManager::screenshot(osg::Image* image, int w, int h)
     {
-        osg::Camera * camera = mViewer->getCamera();
+        osg::Camera* camera = mViewer->getCamera();
         osg::ref_ptr<osg::Drawable> tempDrw = new osg::Drawable;
         tempDrw->setDrawCallback(new ReadImageFromFramebufferCallback(image, w, h));
         tempDrw->setCullingActive(false);
         tempDrw->getOrCreateStateSet()->setRenderBinDetails(100, "RenderBin", osg::StateSet::USE_RENDERBIN_DETAILS); // so its after all scene bins but before POST_RENDER gui camera
         camera->addChild(tempDrw);
-        osg::ref_ptr<NotifyDrawCompletedCallback> callback(new NotifyDrawCompletedCallback(mViewer->getFrameStamp()->getFrameNumber()));
-        Misc::CallbackManager::instance().addCallbackOneshot(Misc::CallbackManager::DrawStage::Final, callback);
-        MWBase::Environment::get().getWindowManager()->viewerTraversals(false);
-        Misc::CallbackManager::instance().waitCallbackOneshot(Misc::CallbackManager::DrawStage::Final, callback);
-                // now that we've "used up" the current frame, get a fresh frame number for the next frame() following after the screenshot is completed
+        traversalsAndWait(mViewer->getFrameStamp()->getFrameNumber());
+        // now that we've "used up" the current frame, get a fresh frame number for the next frame() following after the screenshot is completed
         mViewer->advance(mViewer->getFrameStamp()->getSimulationTime());
         camera->removeChild(tempDrw);
     }
@@ -255,6 +264,22 @@ namespace MWRender
         return true;
     }
 
+    void ScreenshotManager::traversalsAndWait(unsigned int frame)
+    {
+        // Ref https://gitlab.com/OpenMW/openmw/-/issues/6013
+        mDrawCompleteCallback->reset(frame);
+        //mViewer->getCamera()->setFinalDrawCallback(mDrawCompleteCallback);
+
+        //mViewer->eventTraversal();
+        //mViewer->updateTraversal();
+        //mViewer->renderingTraversals();
+        //mDrawCompleteCallback->waitTillDone();
+
+        Misc::CallbackManager::instance().addCallbackOneshot(Misc::CallbackManager::DrawStage::Final, mDrawCompleteCallback);
+        MWBase::Environment::get().getWindowManager()->viewerTraversals(false);
+        Misc::CallbackManager::instance().waitCallbackOneshot(Misc::CallbackManager::DrawStage::Final, mDrawCompleteCallback);
+    }
+
     void ScreenshotManager::renderCameraToImage(osg::Camera *camera, osg::Image *image, int w, int h)
     {
         camera->setNodeMask(Mask_RenderToTexture);
@@ -278,14 +303,10 @@ namespace MWRender
 
         mRootNode->addChild(camera);
 
-        // The draw needs to complete before we can copy back our image.
-        osg::ref_ptr<NotifyDrawCompletedCallback> callback (new NotifyDrawCompletedCallback(0));
-
         MWBase::Environment::get().getWindowManager()->getLoadingScreen()->loadingOn(false);
 
-        Misc::CallbackManager::instance().addCallbackOneshot(Misc::CallbackManager::DrawStage::Final, callback);
-        MWBase::Environment::get().getWindowManager()->viewerTraversals(false);
-        Misc::CallbackManager::instance().waitCallbackOneshot(Misc::CallbackManager::DrawStage::Final, callback);
+        // The draw needs to complete before we can copy back our image.
+        traversalsAndWait(0);
 
         MWBase::Environment::get().getWindowManager()->getLoadingScreen()->loadingOff();
 

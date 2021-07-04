@@ -4,7 +4,6 @@
 #include <osg/ref_ptr>
 
 #include <components/settings/settings.hpp>
-#include <components/fallback/fallback.hpp>
 
 #include "../mwbase/world.hpp"
 
@@ -382,7 +381,7 @@ namespace MWWorld
             MWWorld::Ptr moveObject (const Ptr& ptr, CellStore* newCell, float x, float y, float z, bool movePhysics=true) override;
             ///< @return an updated Ptr
 
-            MWWorld::Ptr moveObjectBy(const Ptr& ptr, osg::Vec3f vec, bool moveToActive) override;
+            MWWorld::Ptr moveObjectBy(const Ptr& ptr, osg::Vec3f vec, bool moveToActive, bool ignoreCollisions) override;
             ///< @return an updated Ptr
 
             void scaleObject (const Ptr& ptr, float scale) override;

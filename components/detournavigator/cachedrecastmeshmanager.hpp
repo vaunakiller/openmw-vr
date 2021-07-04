@@ -26,7 +26,9 @@ namespace DetourNavigator
 
         bool isEmpty() const;
 
-        void reportNavMeshChange(Version recastMeshVersion, Version navMeshVersion);
+        void reportNavMeshChange(const Version& recastMeshVersion, const Version& navMeshVersion);
+
+        Version getVersion() const;
 
     private:
         RecastMeshManager mImpl;

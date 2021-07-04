@@ -1,8 +1,6 @@
 #ifndef MAINDIALOG_H
 #define MAINDIALOG_H
 
-#include <QMainWindow>
-#include <QProcess>
 
 #ifndef Q_MOC_RUN
 #include <components/files/configurationmanager.hpp>
@@ -49,7 +47,7 @@ namespace Launcher
 
     public:
         explicit MainDialog(QWidget *parent = nullptr);
-        ~MainDialog();
+        ~MainDialog() override;
 
         FirstRunDialogResult showFirstRunDialog();
 

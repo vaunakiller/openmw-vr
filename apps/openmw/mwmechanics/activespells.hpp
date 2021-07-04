@@ -5,7 +5,6 @@
 #include <vector>
 #include <string>
 
-#include <components/esm/defs.hpp>
 #include <components/esm/activespells.hpp>
 
 #include "../mwworld/timestamp.hpp"
@@ -75,7 +74,7 @@ namespace MWMechanics
             /// \param effects
             /// \param displayName Name for display in magic menu.
             ///
-            void addSpell (const std::string& id, bool stack, std::vector<ActiveEffect> effects,
+            void addSpell (const std::string& id, bool stack, const std::vector<ActiveEffect>& effects,
                            const std::string& displayName, int casterActorId);
 
             /// Removes the active effects from this spell/potion/.. with \a id

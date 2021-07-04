@@ -44,7 +44,6 @@
 
 #include "../mwsound/sound.hpp"
 
-#include "../mwphysics/collisiontype.hpp"
 #include "../mwphysics/physicssystem.hpp"
 #include "../mwphysics/projectile.hpp"
 
@@ -334,13 +333,13 @@ namespace MWWorld
 
         // in case there are multiple effects, the model is a dummy without geometry. Use the second effect for physics shape
         if (state.mIdMagic.size() > 1)
-            model = "meshes\\" + MWBase::Environment::get().getWorld()->getStore().get<ESM::Weapon>().find(state.mIdMagic.at(1))->mModel;
+            model = "meshes\\" + MWBase::Environment::get().getWorld()->getStore().get<ESM::Weapon>().find(state.mIdMagic[1])->mModel;
         state.mProjectileId = mPhysics->addProjectile(caster, pos, model, true, false);
         state.mToDelete = false;
         mMagicBolts.push_back(state);
     }
 
-    void ProjectileManager::launchProjectile(Ptr actor, ConstPtr projectile, const osg::Vec3f &pos, const osg::Quat &orient, Ptr bow, float speed, float attackStrength)
+    void ProjectileManager::launchProjectile(const Ptr& actor, const ConstPtr& projectile, const osg::Vec3f &pos, const osg::Quat &orient, const Ptr& bow, float speed, float attackStrength)
     {
         ProjectileState state;
         state.mActorId = actor.getClass().getCreatureStats(actor).getActorId();

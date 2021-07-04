@@ -1,7 +1,5 @@
 #include "makenavmesh.hpp"
-#include "chunkytrimesh.hpp"
 #include "debug.hpp"
-#include "dtstatus.hpp"
 #include "exceptions.hpp"
 #include "recastmesh.hpp"
 #include "settings.hpp"
@@ -22,6 +20,7 @@
 #include <algorithm>
 #include <iomanip>
 #include <limits>
+#include <array>
 
 namespace
 {
@@ -178,65 +177,30 @@ namespace
     bool rasterizeSolidObjectsTriangles(rcContext& context, const RecastMesh& recastMesh, const rcConfig& config,
         rcHeightfield& solid)
     {
-        const auto& chunkyMesh = recastMesh.getChunkyTriMesh();
-        std::vector<unsigned char> areas(chunkyMesh.getMaxTrisPerChunk(), AreaType_null);
         const osg::Vec2f tileBoundsMin(config.bmin[0], config.bmin[2]);
         const osg::Vec2f tileBoundsMax(config.bmax[0], config.bmax[2]);
-        bool result = false;
+        std::vector<unsigned char> areas(recastMesh.getAreaTypes().begin(), recastMesh.getAreaTypes().end());
 
-        chunkyMesh.forEachChunksOverlappingRect(Rect {tileBoundsMin, tileBoundsMax},
-            [&] (const std::size_t cid)
-            {
-                const auto chunk = chunkyMesh.getChunk(cid);
+        rcClearUnwalkableTriangles(
+            &context,
+            config.walkableSlopeAngle,
+            recastMesh.getVertices().data(),
+            static_cast<int>(recastMesh.getVerticesCount()),
+            recastMesh.getIndices().data(),
+            static_cast<int>(areas.size()),
+            areas.data()
+        );
 
-                std::fill(
-                    areas.begin(),
-                    std::min(areas.begin() + static_cast<std::ptrdiff_t>(chunk.mSize),
-                    areas.end()),
-                    AreaType_null
-                );
-
-                rcMarkWalkableTriangles(
-                    &context,
-                    config.walkableSlopeAngle,
-                    recastMesh.getVertices().data(),
-                    static_cast<int>(recastMesh.getVerticesCount()),
-                    chunk.mIndices,
-                    static_cast<int>(chunk.mSize),
-                    areas.data()
-                );
-
-                for (std::size_t i = 0; i < chunk.mSize; ++i)
-                    areas[i] = chunk.mAreaTypes[i];
-
-                rcClearUnwalkableTriangles(
-                    &context,
-                    config.walkableSlopeAngle,
-                    recastMesh.getVertices().data(),
-                    static_cast<int>(recastMesh.getVerticesCount()),
-                    chunk.mIndices,
-                    static_cast<int>(chunk.mSize),
-                    areas.data()
-                );
-
-                const auto trianglesRasterized = rcRasterizeTriangles(
-                    &context,
-                    recastMesh.getVertices().data(),
-                    static_cast<int>(recastMesh.getVerticesCount()),
-                    chunk.mIndices,
-                    areas.data(),
-                    static_cast<int>(chunk.mSize),
-                    solid,
-                    config.walkableClimb
-                );
-
-                if (!trianglesRasterized)
-                    throw NavigatorException("Failed to create rasterize triangles from recast mesh for navmesh");
-
-                result = true;
-            });
-
-        return result;
+        return rcRasterizeTriangles(
+            &context,
+            recastMesh.getVertices().data(),
+            static_cast<int>(recastMesh.getVerticesCount()),
+            recastMesh.getIndices().data(),
+            areas.data(),
+            static_cast<int>(areas.size()),
+            solid,
+            config.walkableClimb
+        );
     }
 
     void rasterizeWaterTriangles(rcContext& context, const osg::Vec3f& agentHalfExtents, const RecastMesh& recastMesh,
@@ -425,7 +389,7 @@ namespace
 
         const auto offMeshConVerts = getOffMeshVerts(offMeshConnections);
         const std::vector<float> offMeshConRad(offMeshConnections.size(), getRadius(settings, agentHalfExtents));
-        const std::vector<unsigned char> offMeshConDir(offMeshConnections.size(), DT_OFFMESH_CON_BIDIR);
+        const std::vector<unsigned char> offMeshConDir(offMeshConnections.size(), 0);
         const std::vector<unsigned char> offMeshConAreas = getOffMeshConAreas(offMeshConnections);
         const std::vector<unsigned short> offMeshConFlags = getOffMeshFlags(offMeshConnections);
 
@@ -576,17 +540,8 @@ namespace DetourNavigator
                 return navMeshCacheItem->lock()->removeTile(changedTile);
             }
 
-            try
-            {
-                cachedNavMeshData = navMeshTilesCache.set(agentHalfExtents, changedTile, *recastMesh,
-                                                          offMeshConnections, std::move(navMeshData));
-            }
-            catch (const InvalidArgument&)
-            {
-                cachedNavMeshData = navMeshTilesCache.get(agentHalfExtents, changedTile, *recastMesh,
-                                                          offMeshConnections);
-                cached = static_cast<bool>(cachedNavMeshData);
-            }
+            cachedNavMeshData = navMeshTilesCache.set(agentHalfExtents, changedTile, *recastMesh,
+                                                      offMeshConnections, std::move(navMeshData));
 
             if (!cachedNavMeshData)
             {

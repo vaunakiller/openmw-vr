@@ -254,8 +254,7 @@ namespace NifOsg
             for (size_t i = 0; i < numRoots; ++i)
             {
                 const Nif::Record *r = nif->getRoot(i);
-                assert(r != nullptr);
-                if (r->recType == Nif::RC_NiSequenceStreamHelper)
+                if (r && r->recType == Nif::RC_NiSequenceStreamHelper)
                 {
                     seq = static_cast<const Nif::NiSequenceStreamHelper*>(r);
                     break;
@@ -312,8 +311,10 @@ namespace NifOsg
             for (size_t i = 0; i < numRoots; ++i)
             {
                 const Nif::Record* r = nif->getRoot(i);
-                const Nif::Node* nifNode = nullptr;
-                if ((nifNode = dynamic_cast<const Nif::Node*>(r)))
+                if (!r)
+                    continue;
+                const Nif::Node* nifNode = dynamic_cast<const Nif::Node*>(r);
+                if (nifNode)
                     roots.emplace_back(nifNode);
             }
             if (roots.empty())
@@ -609,7 +610,8 @@ namespace NifOsg
                 bool hasVisController = false;
                 for (Nif::ControllerPtr ctrl = nifNode->controller; !ctrl.empty(); ctrl = ctrl->next)
                 {
-                    if ((hasVisController |= (ctrl->recType == Nif::RC_NiVisController)))
+                    hasVisController |= (ctrl->recType == Nif::RC_NiVisController);
+                    if (hasVisController)
                         break;
                 }
 
@@ -952,13 +954,17 @@ namespace NifOsg
         }
 
         // Load the initial state of the particle system, i.e. the initial particles and their positions, velocity and colors.
-        void handleParticleInitialState(const Nif::Node* nifNode, osgParticle::ParticleSystem* partsys, const Nif::NiParticleSystemController* partctrl)
+        void handleParticleInitialState(const Nif::Node* nifNode, ParticleSystem* partsys, const Nif::NiParticleSystemController* partctrl)
         {
             auto particleNode = static_cast<const Nif::NiParticles*>(nifNode);
             if (particleNode->data.empty() || particleNode->data->recType != Nif::RC_NiParticlesData)
+            {
+                partsys->setQuota(partctrl->numParticles);
                 return;
+            }
 
             auto particledata = static_cast<const Nif::NiParticlesData*>(particleNode->data.getPtr());
+            partsys->setQuota(particledata->numParticles);
 
             osg::BoundingBox box;
 
@@ -1092,8 +1098,6 @@ namespace NifOsg
             partsys->setParticleScaleReferenceFrame(osgParticle::ParticleSystem::LOCAL_COORDINATES);
 
             handleParticleInitialState(nifNode, partsys, partctrl);
-
-            partsys->setQuota(partctrl->numParticles);
 
             partsys->getDefaultParticleTemplate().setSizeRange(osgParticle::rangef(partctrl->size, partctrl->size));
             partsys->getDefaultParticleTemplate().setColorRange(osgParticle::rangev4(osg::Vec4f(1.f,1.f,1.f,1.f), osg::Vec4f(1.f,1.f,1.f,1.f)));

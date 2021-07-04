@@ -73,9 +73,7 @@ CONFIGURATIONS=()
 TEST_FRAMEWORK=""
 GOOGLE_INSTALL_ROOT=""
 INSTALL_PREFIX="."
-BULLET_DOUBLE=true
-BULLET_DBL=""
-BULLET_DBL_DISPLAY="Single precision"
+BUILD_BENCHMARKS=""
 SKIP_VR=""
 
 ACTIVATE_MSVC=""
@@ -102,9 +100,6 @@ while [ $# -gt 0 ]; do
 
 			d )
 				SKIP_DOWNLOAD=true ;;
-
-			D )
-				BULLET_DOUBLE=true ;;
 
 			e )
 				SKIP_EXTRACT=true ;;
@@ -143,6 +138,9 @@ while [ $# -gt 0 ]; do
 				INSTALL_PREFIX=$(echo "$1" | sed 's;\\;/;g' | sed -E 's;/+;/;g')
 				shift ;;
 
+			b )
+				BUILD_BENCHMARKS=true ;;
+
 			h )
 				cat <<EOF
 Usage: $0 [-cdehkpuvVi]
@@ -153,8 +151,6 @@ Options:
 		For single-config generators, several configurations can be set up at once by specifying -c multiple times.
 	-d
 		Skip checking the downloads.
-	-D
-		Use double-precision Bullet
 	-e
 		Skip extracting dependencies.
 	-h
@@ -179,6 +175,8 @@ Options:
 		Run verbosely
 	-i
 		CMake install prefix
+	-b
+		Build benchmarks
 EOF
 				wrappedExit 0
 				;;
@@ -437,9 +435,6 @@ if [ -n "$SINGLE_CONFIG" ]; then
 		if [ -n "$SKIP_DOWNLOAD" ]; then
 			RECURSIVE_OPTIONS+=("-d")
 		fi
-		if [ -n "$BULLET_DOUBLE" ]; then
-			RECURSIVE_OPTIONS+=("-D")
-		fi
 		if [ -n "$SKIP_EXTRACT" ]; then
 			RECURSIVE_OPTIONS+=("-e")
 		fi
@@ -512,12 +507,6 @@ if ! [ -z $UNITY_BUILD ]; then
 	add_cmake_opts "-DOPENMW_UNITY_BUILD=True"
 fi
 
-if [ -n "$BULLET_DOUBLE" ]; then
-	BULLET_DBL="-double"
-	BULLET_DBL_DISPLAY="Double precision"
-	add_cmake_opts "-DBULLET_USE_DOUBLES=True"
-fi
-
 echo
 echo "==================================="
 echo "Starting prebuild on MSVC${MSVC_DISPLAY_YEAR} WIN${BITS}"
@@ -542,9 +531,9 @@ if [ -z $SKIP_DOWNLOAD ]; then
 	fi
 
 	# Bullet
-	download "Bullet 2.89 (${BULLET_DBL_DISPLAY})" \
-		"https://gitlab.com/OpenMW/openmw-deps/-/raw/main/windows/Bullet-2.89-msvc${MSVC_YEAR}-win${BITS}${BULLET_DBL}.7z" \
-		"Bullet-2.89-msvc${MSVC_YEAR}-win${BITS}${BULLET_DBL}.7z"
+	download "Bullet 2.89" \
+		"https://gitlab.com/OpenMW/openmw-deps/-/raw/main/windows/Bullet-2.89-msvc${MSVC_YEAR}-win${BITS}-double.7z" \
+		"Bullet-2.89-msvc${MSVC_YEAR}-win${BITS}-double.7z"
 
 	# FFmpeg
 	download "FFmpeg 4.2.2" \
@@ -554,14 +543,14 @@ if [ -z $SKIP_DOWNLOAD ]; then
 		"ffmpeg-4.2.2-dev-win${BITS}.zip"
 
 	# MyGUI
-	download "MyGUI 3.4.0" \
-		"https://gitlab.com/OpenMW/openmw-deps/-/raw/main/windows/MyGUI-3.4.0-msvc${MSVC_REAL_YEAR}-win${BITS}.7z" \
-		"MyGUI-3.4.0-msvc${MSVC_REAL_YEAR}-win${BITS}.7z"
+	download "MyGUI 3.4.1" \
+		"https://gitlab.com/OpenMW/openmw-deps/-/raw/main/windows/MyGUI-3.4.1-msvc${MSVC_REAL_YEAR}-win${BITS}.7z" \
+		"MyGUI-3.4.1-msvc${MSVC_REAL_YEAR}-win${BITS}.7z"
 
 	if [ -n "$PDBS" ]; then
 		download "MyGUI symbols" \
-			"https://gitlab.com/OpenMW/openmw-deps/-/raw/main/windows/MyGUI-3.4.0-msvc${MSVC_REAL_YEAR}-win${BITS}-sym.7z" \
-			"MyGUI-3.4.0-msvc${MSVC_REAL_YEAR}-win${BITS}-sym.7z"
+			"https://gitlab.com/OpenMW/openmw-deps/-/raw/main/windows/MyGUI-3.4.1-msvc${MSVC_REAL_YEAR}-win${BITS}-sym.7z" \
+			"MyGUI-3.4.1-msvc${MSVC_REAL_YEAR}-win${BITS}-sym.7z"
 	fi
 
 	# OpenAL
@@ -569,15 +558,15 @@ if [ -z $SKIP_DOWNLOAD ]; then
 	  "https://gitlab.com/OpenMW/openmw-deps/-/raw/main/windows/OpenAL-Soft-1.20.1.zip" \
 		"OpenAL-Soft-1.20.1.zip"
 
-	# OSG
-	download "OpenSceneGraph 3.6.x" \
-		"https://gitlab.com/madsbuvi/openmw-deps/-/raw/openmw-vr/windows/OSG-3.6.x-msvc${MSVC_REAL_YEAR}-win${BITS}.7z" \
-		"OSG-3.6.x-msvc${MSVC_REAL_YEAR}-win${BITS}.7z"
+	# OSGoS
+	download "OSGoS 3.6.5" \
+		"https://gitlab.com/OpenMW/openmw-deps/-/raw/main/windows/OSGoS-3.6.5-b02abe2-msvc${MSVC_REAL_YEAR}-win${BITS}.7z" \
+		"OSGoS-3.6.5-b02abe2-msvc${MSVC_REAL_YEAR}-win${BITS}.7z"
 
 	if [ -n "$PDBS" ]; then
-		download "OpenSceneGraph symbols" \
-			"https://gitlab.com/madsbuvi/openmw-deps/-/raw/openmw-vr/windows/OSG-3.6.x-msvc${MSVC_REAL_YEAR}-win${BITS}-sym.7z" \
-			"OSG-3.6.x-msvc${MSVC_REAL_YEAR}-win${BITS}-sym.7z"
+		download "OSGoS symbols" \
+			"https://gitlab.com/OpenMW/openmw-deps/-/raw/main/windows/OSGoS-3.6.5-b02abe2-msvc${MSVC_REAL_YEAR}-win${BITS}-sym.7z" \
+			"OSGoS-3.6.5-b02abe2-msvc${MSVC_REAL_YEAR}-win${BITS}-sym.7z"
 	fi
 
 	# SDL2
@@ -684,15 +673,15 @@ fi
 cd $DEPS
 echo
 # Bullet
-printf "Bullet 2.89 (${BULLET_DBL_DISPLAY})... "
+printf "Bullet 2.89... "
 {
 	cd $DEPS_INSTALL
 	if [ -d Bullet ]; then
 		printf -- "Exists. (No version checking) "
 	elif [ -z $SKIP_EXTRACT ]; then
 		rm -rf Bullet
-		eval 7z x -y "${DEPS}/Bullet-2.89-msvc${MSVC_YEAR}-win${BITS}${BULLET_DBL}.7z" $STRIP
-		mv "Bullet-2.89-msvc${MSVC_YEAR}-win${BITS}${BULLET_DBL}" Bullet
+		eval 7z x -y "${DEPS}/Bullet-2.89-msvc${MSVC_YEAR}-win${BITS}-double.7z" $STRIP
+		mv "Bullet-2.89-msvc${MSVC_YEAR}-win${BITS}-double" Bullet
 	fi
 	add_cmake_opts -DBULLET_ROOT="$(real_pwd)/Bullet"
 	echo Done.
@@ -725,20 +714,20 @@ printf "FFmpeg 4.2.2... "
 cd $DEPS
 echo
 # MyGUI
-printf "MyGUI 3.4.0... "
+printf "MyGUI 3.4.1... "
 {
 	cd $DEPS_INSTALL
 	if [ -d MyGUI ] && \
 		grep "MYGUI_VERSION_MAJOR 3" MyGUI/include/MYGUI/MyGUI_Prerequest.h > /dev/null && \
 		grep "MYGUI_VERSION_MINOR 4" MyGUI/include/MYGUI/MyGUI_Prerequest.h > /dev/null && \
-		grep "MYGUI_VERSION_PATCH 0" MyGUI/include/MYGUI/MyGUI_Prerequest.h > /dev/null
+		grep "MYGUI_VERSION_PATCH 1" MyGUI/include/MYGUI/MyGUI_Prerequest.h > /dev/null
 	then
 		printf "Exists. "
 	elif [ -z $SKIP_EXTRACT ]; then
 		rm -rf MyGUI
-		eval 7z x -y "${DEPS}/MyGUI-3.4.0-msvc${MSVC_REAL_YEAR}-win${BITS}.7z" $STRIP
-		[ -n "$PDBS" ] && eval 7z x -y "${DEPS}/MyGUI-3.4.0-msvc${MSVC_REAL_YEAR}-win${BITS}-sym.7z" $STRIP
-		mv "MyGUI-3.4.0-msvc${MSVC_REAL_YEAR}-win${BITS}" MyGUI
+		eval 7z x -y "${DEPS}/MyGUI-3.4.1-msvc${MSVC_REAL_YEAR}-win${BITS}.7z" $STRIP
+		[ -n "$PDBS" ] && eval 7z x -y "${DEPS}/MyGUI-3.4.1-msvc${MSVC_REAL_YEAR}-win${BITS}-sym.7z" $STRIP
+		mv "MyGUI-3.4.1-msvc${MSVC_REAL_YEAR}-win${BITS}" MyGUI
 	fi
 	export MYGUI_HOME="$(real_pwd)/MyGUI"
 	for CONFIGURATION in ${CONFIGURATIONS[@]}; do
@@ -774,8 +763,8 @@ printf "OpenAL-Soft 1.20.1... "
 }
 cd $DEPS
 echo
-# OSG
-printf "OSG 3.6.x... "
+# OSGoS
+printf "OSGoS 3.6.5... "
 {
 	cd $DEPS_INSTALL
 	if [ -d OSG ] && \
@@ -786,9 +775,9 @@ printf "OSG 3.6.x... "
 		printf "Exists. "
 	elif [ -z $SKIP_EXTRACT ]; then
 		rm -rf OSG
-		eval 7z x -y "${DEPS}/OSG-3.6.x-msvc${MSVC_REAL_YEAR}-win${BITS}.7z" $STRIP
-		[ -n "$PDBS" ] && eval 7z x -y "${DEPS}/OSG-3.6.x-msvc${MSVC_REAL_YEAR}-win${BITS}-sym.7z" $STRIP
-		mv "OSG-3.6.x-msvc${MSVC_REAL_YEAR}-win${BITS}" OSG
+		eval 7z x -y "${DEPS}/OSGoS-3.6.5-b02abe2-msvc${MSVC_REAL_YEAR}-win${BITS}.7z" $STRIP
+		[ -n "$PDBS" ] && eval 7z x -y "${DEPS}/OSGoS-3.6.5-b02abe2-msvc${MSVC_REAL_YEAR}-win${BITS}-sym.7z" $STRIP
+		mv "OSGoS-3.6.5-b02abe2-msvc${MSVC_REAL_YEAR}-win${BITS}" OSG
 	fi
 	OSG_SDK="$(real_pwd)/OSG"
 	add_cmake_opts -DOSG_DIR="$OSG_SDK"
@@ -1105,6 +1094,10 @@ fi
 		echo
 	done
 #fi
+
+if [ "${BUILD_BENCHMARKS}" ]; then
+	add_cmake_opts -DBUILD_BENCHMARKS=ON
+fi
 
 if [ -n "$ACTIVATE_MSVC" ]; then
 	echo -n "- Activating MSVC in the current shell... "
