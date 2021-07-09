@@ -17,6 +17,10 @@ OpenMW also comes with OpenMW-CS, a replacement for Bethesda's Construction Set.
 Font Licenses:
 * DejaVuLGCSansMono.ttf: custom (see [files/mygui/DejaVuFontLicense.txt](https://gitlab.com/OpenMW/openmw/-/raw/master/files/mygui/DejaVuFontLicense.txt) for more information)
 
+VR
+--
+[Read the docs](https://openmw-vr.readthedocs.io/en/latest/index.html) to get started with playing VR
+
 Current Status
 --------------
 
