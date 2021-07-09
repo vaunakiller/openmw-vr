@@ -787,7 +787,7 @@ printf "OSGoS 3.6.5... "
 		else
 			SUFFIX=""
 		fi
-		add_runtime_dlls $CONFIGURATION "$(pwd)/OSG/bin/"{OpenThreads,zlib,libpng16}${SUFFIX}.dll \
+		add_runtime_dlls $CONFIGURATION "$(pwd)/OSG/bin/"{OpenThreads,zlib,libpng}${SUFFIX}.dll \
 			"$(pwd)/OSG/bin/osg"{,Animation,DB,FX,GA,Particle,Text,Util,Viewer,Shadow}${SUFFIX}.dll
 		add_osg_dlls $CONFIGURATION "$(pwd)/OSG/bin/osgPlugins-3.6.5/osgdb_"{bmp,dds,freetype,jpeg,osg,png,tga}${SUFFIX}.dll
 		add_osg_dlls $CONFIGURATION "$(pwd)/OSG/bin/osgPlugins-3.6.5/osgdb_serializers_osg"{,animation,fx,ga,particle,text,util,viewer,shadow}${SUFFIX}.dll
