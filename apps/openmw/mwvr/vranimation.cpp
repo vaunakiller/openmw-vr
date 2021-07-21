@@ -267,7 +267,7 @@ namespace MWVR
         traverse(node, nv);
     }
 
-    class TrackingController : public VRTrackingListener
+    class TrackingController
     {
     public:
         TrackingController(VRPath trackingPath, osg::Vec3 baseOffset, osg::Quat baseOrientation)
@@ -279,12 +279,12 @@ namespace MWVR
 
         }
 
-        void onTrackingUpdated(VRTrackingSource& source, DisplayTime predictedDisplayTime) override
+        void onTrackingUpdated(VRTrackingManager& manager, DisplayTime predictedDisplayTime)
         {
             if (!mTransform)
                 return;
 
-            auto tp = source.getTrackingPose(predictedDisplayTime, mTrackingPath, 0);
+            auto tp = manager.locate(mTrackingPath, predictedDisplayTime);
             if (!tp.status)
                 return;
 
@@ -357,9 +357,9 @@ namespace MWVR
         //mWeaponDirectionTransform->addChild(mWeaponPointerTransform);
 
         auto vrTrackingManager = MWVR::Environment::get().getTrackingManager();
-        vrTrackingManager->bind(this, "pcworld");
-        auto* source = static_cast<VRTrackingToWorldBinding*>(vrTrackingManager->getSource("pcworld"));
-        source->setOriginNode(mObjectRoot->getParent(0));
+        auto path = vrTrackingManager->stringToVRPath("/world/user");
+        auto* stageToWorldBinding = static_cast<VRStageToWorldBinding*>(vrTrackingManager->getTrackingSource(path));
+        stageToWorldBinding->setOriginNode(mObjectRoot->getParent(0));
 
         // Morrowind's meshes do not point forward by default and need re-positioning and orientation.
         float VRbias = osg::DegreesToRadians(-90.f);
@@ -371,13 +371,13 @@ namespace MWVR
         // Note that these controllers could be bound directly to source in the tracking manager.
         // Instead we store them and update them manually to ensure order of operations.
         {
-            auto path = tm->stringToVRPath("/user/hand/right/input/aim/pose");
+            auto path = tm->stringToVRPath("/world/user/hand/right/input/aim/pose");
             auto orientation = yaw;
             mVrControllers.emplace("bip01 r forearm", std::make_unique<TrackingController>(path, offset, orientation));
         }
 
         {
-            auto path = tm->stringToVRPath("/user/hand/left/input/aim/pose");
+            auto path = tm->stringToVRPath("/world/user/hand/left/input/aim/pose");
             auto orientation = roll * yaw;
             mVrControllers.emplace("bip01 l forearm", std::make_unique<TrackingController>(path, offset, orientation));
         }
@@ -482,10 +482,10 @@ namespace MWVR
         return 0.0f;
     }
 
-    void VRAnimation::onTrackingUpdated(VRTrackingSource& source, DisplayTime predictedDisplayTime)
+    void VRAnimation::onTrackingUpdated(VRTrackingManager& manager, DisplayTime predictedDisplayTime)
     {
         for (auto& controller : mVrControllers)
-            controller.second->onTrackingUpdated(source, predictedDisplayTime);
+            controller.second->onTrackingUpdated(manager, predictedDisplayTime);
 
         if (mSkeleton)
             mSkeleton->markBoneMatriceDirty();

@@ -62,7 +62,7 @@ namespace MWVR
 
         float getVelocity(const std::string& groupname) const override;
 
-        void onTrackingUpdated(VRTrackingSource& source, DisplayTime predictedDisplayTime) override;
+        void onTrackingUpdated(VRTrackingManager& manager, DisplayTime predictedDisplayTime) override;
 
     protected:
         std::shared_ptr<VRSession> mSession;

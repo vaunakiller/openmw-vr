@@ -9,125 +9,80 @@
 
 namespace MWVR
 {
+    const VRTrackingView& VRView::locate(DisplayTime predictedDisplayTime)
+    {
+        if(predictedDisplayTime > mView.time)
+        {
+            VRTrackingView view = VRTrackingView();
+            view.status = TrackingStatus::Good;
+            view.time = predictedDisplayTime;
+            locateImpl(predictedDisplayTime, view);
+            if (!!view.status)
+                mView = view;
+        }
+        
+        return mView;
+    }
+
+    VRTrackingSource::VRTrackingSource(VRPath path)
+        : mPath(path)
+    {
+        Environment::get().getTrackingManager()->registerTrackingSource(this);
+    }
+
+    VRTrackingSource::~VRTrackingSource()
+    {
+        Environment::get().getTrackingManager()->unregisterTrackingSource(this);
+    }
+
+    bool VRTrackingSource::availablePosesChanged() const
+    {
+        return mAvailablePosesChanged;
+    }
+
+    void VRTrackingSource::clearAvailablePosesChanged()
+    {
+        mAvailablePosesChanged = false;
+    }
+
+    void VRTrackingSource::notifyAvailablePosesChanged()
+    {
+        mAvailablePosesChanged = true;
+    }
+
+    VRTrackingListener::VRTrackingListener()
+    {
+        auto* tm = Environment::get().getTrackingManager();
+        tm->addListener(this);
+    }
+
+    VRTrackingListener::~VRTrackingListener()
+    {
+        auto* tm = Environment::get().getTrackingManager();
+        tm->removeListener(this);
+    }
+
     VRTrackingManager::VRTrackingManager()
     {
         mHandDirectedMovement = Settings::Manager::getBool("hand directed movement", "VR");
-        mHeadPath = stringToVRPath("/user/head/input/pose");
-        mHandPath = stringToVRPath("/user/hand/left/input/aim/pose");
+        mHeadPath = stringToVRPath("/stage/user/head/input/pose");
+        mHandPath = stringToVRPath("/stage/user/hand/left/input/aim/pose");
     }
 
     VRTrackingManager::~VRTrackingManager()
     {
     }
 
-    void VRTrackingManager::registerTrackingSource(VRTrackingSource* source, const std::string& name)
+    void VRTrackingManager::addListener(VRTrackingListener* listener)
     {
-        mSources.emplace(name, source);
-        notifySourceChanged(name);
+        mListeners.push_back(listener);
     }
 
-    void VRTrackingManager::unregisterTrackingSource(VRTrackingSource* source)
+    void VRTrackingManager::removeListener(VRTrackingListener* listener)
     {
-        std::string name = "";
-        {
-            auto it = mSources.begin();
-            while (it->second != source) it++;
-            name = it->first;
-            mSources.erase(it);
-        }
-        notifySourceChanged(name);
-    }
-
-    VRTrackingSource* VRTrackingManager::getSource(const std::string& name)
-    {
-        auto it = mSources.find(name);
-        if (it != mSources.end())
-            return it->second;
-        return nullptr;
-    }
-
-    void VRTrackingManager::movementAngles(float& yaw, float& pitch)
-    {
-        yaw = mMovementYaw;
-        pitch = mMovementPitch;
-    }
-
-    void VRTrackingManager::processChangedSettings(const std::set<std::pair<std::string, std::string>>& changed)
-    {
-        mHandDirectedMovement = Settings::Manager::getBool("hand directed movement", "VR");
-    }
-
-    void VRTrackingManager::notifySourceChanged(const std::string& name)
-    {
-        auto* source = getSource(name);
-        for (auto& it : mBindings)
-        {
-            if (it.second == name)
-            {
-                if (source)
-                    it.first->onTrackingAttached(*source);
-                else
-                    it.first->onTrackingDetached();
-            }
-        }
-    }
-
-    void VRTrackingManager::updateMovementAngles(DisplayTime predictedDisplayTime)
-    {
-        if (mHandDirectedMovement)
-        {
-            float headYaw = 0.f;
-            float headPitch = 0.f;
-            float headsWillRoll = 0.f;
-
-            float handYaw = 0.f;
-            float handPitch = 0.f;
-            float handRoll = 0.f;
-
-            auto pcsource = getSource("pcstage");
-
-            if (pcsource)
-            {
-                auto tpHead = pcsource->getTrackingPose(predictedDisplayTime, mHeadPath);
-                auto tpHand = pcsource->getTrackingPose(predictedDisplayTime, mHandPath);
-
-                if (!!tpHead.status && !!tpHand.status)
-                {
-                    getEulerAngles(tpHead.pose.orientation, headYaw, headPitch, headsWillRoll);
-                    getEulerAngles(tpHand.pose.orientation, handYaw, handPitch, handRoll);
-
-                    mMovementYaw = handYaw - headYaw;
-                    mMovementPitch = handPitch - headPitch;
-                }
-            }
-        }
-        else
-        {
-            mMovementYaw = 0;
-            mMovementPitch = 0;
-        }
-    }
-
-    void VRTrackingManager::bind(VRTrackingListener* listener, std::string sourceName)
-    {
-        unbind(listener);
-        mBindings.emplace(listener, sourceName);
-        
-        auto* source = getSource(sourceName);
-        if (source)
-            listener->onTrackingAttached(*source);
-        else
-            listener->onTrackingDetached();
-    }
-
-    void VRTrackingManager::unbind(VRTrackingListener* listener)
-    {
-        auto it = mBindings.find(listener);
-        if (it != mBindings.end())
-        {
-            listener->onTrackingDetached();
-            mBindings.erase(listener);
-        }
+        for (auto it = mListeners.begin(); it != mListeners.end(); it++)
+            if (*it == listener)
+                it = mListeners.erase(it);
     }
 
     VRPath VRTrackingManager::stringToVRPath(const std::string& path)
@@ -136,7 +91,7 @@ namespace MWVR
         if (path.empty())
         {
             Log(Debug::Error) << "Empty path";
-            return 0;
+            return VRPath();
         }
 
         // Return path immediately if it already exists
@@ -145,8 +100,7 @@ namespace MWVR
             return it->second;
 
         // Add new path and return it
-        auto res = mPathIdentifiers.emplace(path, mPathIdentifiers.size() + 1);
-        return res.first->second;
+        return newPath(path);
     }
 
     std::string VRTrackingManager::VRPathToString(VRPath path)
@@ -161,102 +115,146 @@ namespace MWVR
         return "";
     }
 
+    void VRTrackingManager::movementAngles(float& yaw, float& pitch)
+    {
+        yaw = mMovementYaw;
+        pitch = mMovementPitch;
+    }
+
+    void VRTrackingManager::processChangedSettings(const std::set<std::pair<std::string, std::string>>& changed)
+    {
+        mHandDirectedMovement = Settings::Manager::getBool("hand directed movement", "VR");
+    }
+
+    VRTrackingPose VRTrackingManager::locate(VRPath path, DisplayTime predictedDisplayTime) const
+    {
+        auto it = mPathToSourceMap.find(path);
+        if (it != mPathToSourceMap.end())
+            return it->second->locate(path, predictedDisplayTime);
+
+        VRTrackingPose pose = VRTrackingPose();
+        pose.status = TrackingStatus::NotTracked;
+        return pose;
+    }
+
+    VRTrackingSource* VRTrackingManager::getTrackingSource(VRPath path) const
+    {
+        for (auto* source : mSources)
+            if (source->path() == path)
+                return source;
+        return nullptr;
+    }
+
+    const std::set<VRPath>& VRTrackingManager::availablePaths() const
+    {
+        return mAvailablePaths;
+    }
+
+    void VRTrackingManager::registerTrackingSource(VRTrackingSource* source)
+    {
+        mSources.emplace_back(source);
+    }
+
+    void VRTrackingManager::unregisterTrackingSource(VRTrackingSource* source)
+    {
+        for (auto it = mSources.begin(); it != mSources.end(); it++)
+            if (*it == source)
+                it = mSources.erase(it);
+    }
+
     void VRTrackingManager::updateTracking()
     {
+        // TODO: endFrame() call here should be moved into beginFrame()
         MWVR::Environment::get().getSession()->endFrame();
         MWVR::Environment::get().getSession()->beginFrame();
         auto& frame = Environment::get().getSession()->getFrame(VRSession::FramePhase::Update);
-
-        if (frame->mFrameInfo.runtimePredictedDisplayTime == 0)
+        auto predictedDisplayTime = frame->mFrameInfo.runtimePredictedDisplayTime;
+        if (predictedDisplayTime == 0)
             return;
 
-        for (auto source : mSources)
-            source.second->updateTracking(frame->mFrameInfo.runtimePredictedDisplayTime);
+        checkAvailablePathsChanged();
+        updateMovementAngles(predictedDisplayTime);
 
-        updateMovementAngles(frame->mFrameInfo.runtimePredictedDisplayTime);
+        for (auto* listener : mListeners)
+            listener->onTrackingUpdated(*this, predictedDisplayTime);
+    }
 
-        for (auto& binding : mBindings)
+    void VRTrackingManager::updateMovementAngles(DisplayTime predictedDisplayTime)
+    {
+        if (mHandDirectedMovement)
         {
-            auto* listener = binding.first;
-            auto* source = getSource(binding.second);
-            if (source)
+            auto tpHead = locate(mHeadPath, predictedDisplayTime);
+            auto tpHand = locate(mHandPath, predictedDisplayTime);
+
+            if (!!tpHead.status && !!tpHand.status)
             {
-                if (source->availablePosesChanged())
-                    listener->onAvailablePosesChanged(*source);
-                listener->onTrackingUpdated(*source, frame->mFrameInfo.runtimePredictedDisplayTime);
+                float headYaw = 0.f;
+                float headPitch = 0.f;
+                float headsWillRoll = 0.f;
+
+                float handYaw = 0.f;
+                float handPitch = 0.f;
+                float handRoll = 0.f;
+                getEulerAngles(tpHead.pose.orientation, headYaw, headPitch, headsWillRoll);
+                getEulerAngles(tpHand.pose.orientation, handYaw, handPitch, handRoll);
+
+                mMovementYaw = handYaw - headYaw;
+                mMovementPitch = handPitch - headPitch;
             }
         }
+        else
+        {
+            mMovementYaw = 0;
+            mMovementPitch = 0;
+        }
+    }
+
+    void VRTrackingManager::checkAvailablePathsChanged()
+    {
+        bool availablePosesChanged = false;
 
         for (auto source : mSources)
-            source.second->clearAvailablePosesChanged();
+            availablePosesChanged |= source->availablePosesChanged();
+
+        if (availablePosesChanged)
+            updateAvailablePaths();
+
+        for (auto source : mSources)
+            source->clearAvailablePosesChanged();
     }
 
-    VRTrackingSource::VRTrackingSource(const std::string& name)
+    void VRTrackingManager::updateAvailablePaths()
     {
-        Environment::get().getTrackingManager()->registerTrackingSource(this, name);
-    }
-
-    VRTrackingSource::~VRTrackingSource()
-    {
-        Environment::get().getTrackingManager()->unregisterTrackingSource(this);
-    }
-
-    VRTrackingPose VRTrackingSource::getTrackingPose(DisplayTime predictedDisplayTime, VRPath path, VRPath reference)
-    {
-        auto it = mCache.find(std::pair(path, reference));
-        
-        if (it == mCache.end())
+        mAvailablePaths.clear();
+        mPathToSourceMap.clear();
+        for (auto source : mSources)
         {
-            mCache[std::pair(path, reference)] = getTrackingPoseImpl(predictedDisplayTime, path, reference);
-            mCache[std::pair(path, reference)].time = predictedDisplayTime;
+            auto paths = source->listSupportedPaths();
+            mAvailablePaths.insert(paths.begin(), paths.end());
+            for (auto& path : paths)
+            {
+                mPathToSourceMap.emplace(path, source);
+            }
         }
-
-        if (predictedDisplayTime <= it->second.time)
-            return it->second;
-
-        auto tp = getTrackingPoseImpl(predictedDisplayTime, path, reference);
-        tp.time = predictedDisplayTime;
-        if (!tp.status)
-            tp.pose = it->second.pose;
-        it->second = tp;
-
-        return tp;
+        for (auto* listener : mListeners)
+            listener->onAvailablePathsChanged(mAvailablePaths);
     }
 
-    bool VRTrackingSource::availablePosesChanged() const
+    VRPath VRTrackingManager::newPath(const std::string& path)
     {
-        return mAvailablePosesChanged;
+        VRPath vrPath = mPathIdentifiers.size() + 1;
+        auto res = mPathIdentifiers.emplace(path, vrPath);
+        return res.first->second;
     }
 
-    void VRTrackingSource::clearAvailablePosesChanged()
-    {
-        mAvailablePosesChanged = false;
-    }
-
-    void VRTrackingSource::clearCache()
-    {
-        mCache.clear();
-    }
-
-    void VRTrackingSource::notifyAvailablePosesChanged()
-    {
-        mAvailablePosesChanged = true;
-    }
-
-    VRTrackingListener::~VRTrackingListener()
-    {
-        Environment::get().getTrackingManager()->unbind(this);
-    }
-
-    VRTrackingToWorldBinding::VRTrackingToWorldBinding(const std::string& name, VRTrackingSource* source, VRPath movementReference)
-        : VRTrackingSource(name)
+    VRStageToWorldBinding::VRStageToWorldBinding(VRPath path, std::shared_ptr<VRTrackingSource> source, VRPath movementReference)
+        : VRTrackingSource(path)
         , mMovementReference(movementReference)
         , mSource(source)
     {
     }
 
-
-    void VRTrackingToWorldBinding::setWorldOrientation(float yaw, bool adjust)
+    void VRStageToWorldBinding::setWorldOrientation(float yaw, bool adjust)
     {
         auto yawQuat = osg::Quat(yaw, osg::Vec3(0, 0, -1));
         if (adjust)
@@ -265,18 +263,13 @@ namespace MWVR
             mOrientation = yawQuat;
     }
 
-    osg::Vec3 VRTrackingToWorldBinding::movement() const
-    {
-        return mMovement;
-    }
-
-    void VRTrackingToWorldBinding::consumeMovement(const osg::Vec3& movement)
+    void VRStageToWorldBinding::consumeMovement(const osg::Vec3& movement)
     {
         mMovement.x() -= movement.x();
         mMovement.y() -= movement.y();
     }
 
-    void VRTrackingToWorldBinding::recenter(bool resetZ)
+    void VRStageToWorldBinding::recenter(bool resetZ)
     {
         mMovement.x() = 0;
         mMovement.y() = 0;
@@ -285,34 +278,59 @@ namespace MWVR
             if (mSeatedPlay)
                 mMovement.z() = mEyeLevel;
             else
-                mMovement.z() = mLastPose.position.z();
+                mMovement.z() = mLastPose.pose.position.z();
         }
     }
 
-    VRTrackingPose VRTrackingToWorldBinding::getTrackingPoseImpl(DisplayTime predictedDisplayTime, VRPath path, VRPath reference)
+    void VRStageToWorldBinding::bindPaths(VRPath worldPath, VRPath stagePath)
     {
-        auto tp = mSource->getTrackingPose(predictedDisplayTime, path, reference);
-        tp.pose.position *= Constants::UnitsPerMeter;
+        mBindings.emplace(worldPath, stagePath);
+        notifyAvailablePosesChanged();
+    }
 
-        if (reference == 0 && !!tp.status)
+    void VRStageToWorldBinding::unbindPath(VRPath worldPath)
+    {
+        mBindings.erase(worldPath);
+        notifyAvailablePosesChanged();
+    }
+
+    VRTrackingPose VRStageToWorldBinding::locate(VRPath path, DisplayTime predictedDisplayTime)
+    {
+        if (predictedDisplayTime > mLastPose.time)
+            updateTracking(predictedDisplayTime);
+
+        auto it = mBindings.find(path);
+        if (it == mBindings.end())
         {
-            tp.pose.position -= mLastPose.position;
-            tp.pose.position = mOrientation * tp.pose.position;
-            tp.pose.position += mMovement;
-            tp.pose.orientation = tp.pose.orientation * mOrientation;
-
-            if(mOrigin)
-                tp.pose.position += mOriginWorldPose.position;
+            Log(Debug::Error) << "Tried to locate invalid path " << path << ". This is a developer error. Please locate using TrackingManager::locate() only.";
+            throw std::logic_error("Invalid Argument");
         }
-        return tp;
+
+        auto* tm = Environment::get().getTrackingManager();
+        auto stagePose = tm->locate(it->second, predictedDisplayTime);
+
+        auto worldPose = stagePose;
+        worldPose.pose.position *= Constants::UnitsPerMeter;
+        worldPose.pose.position -= mLastPose.pose.position;
+        worldPose.pose.position = mOrientation * worldPose.pose.position;
+        worldPose.pose.position += mMovement;
+        worldPose.pose.orientation = worldPose.pose.orientation * mOrientation;
+
+        if (mOrigin)
+            worldPose.pose.position += mOriginWorldPose.position;
+        return worldPose;
+
     }
 
-    std::vector<VRPath> VRTrackingToWorldBinding::listSupportedTrackingPosePaths() const
+    std::vector<VRPath> VRStageToWorldBinding::listSupportedPaths() const
     {
-        return mSource->listSupportedTrackingPosePaths();
+        std::vector<VRPath> paths;
+        for (auto pose : mBindings)
+            paths.emplace_back(pose.first);
+        return paths;
     }
 
-    void VRTrackingToWorldBinding::updateTracking(DisplayTime predictedDisplayTime)
+    void VRStageToWorldBinding::updateTracking(DisplayTime predictedDisplayTime)
     {
         mOriginWorldPose = Pose();
         if (mOrigin)
@@ -321,22 +339,21 @@ namespace MWVR
             mOriginWorldPose.position = worldMatrix.getTrans();
             mOriginWorldPose.orientation = worldMatrix.getRotate();
         }
-
-        auto mtp = mSource->getTrackingPose(predictedDisplayTime, mMovementReference, 0);
+        auto* tm = Environment::get().getTrackingManager();
+        auto mtp = tm->locate(mMovementReference, predictedDisplayTime);
         if (!!mtp.status)
         {
             mtp.pose.position *= Constants::UnitsPerMeter;
-            osg::Vec3 vrMovement = mtp.pose.position - mLastPose.position;
-            mLastPose = mtp.pose;
+            osg::Vec3 vrMovement = mtp.pose.position - mLastPose.pose.position;
+            mLastPose = mtp;
             if (mHasTrackingData)
                 mMovement += mOrientation * vrMovement;
             else
-                mMovement.z() = mLastPose.position.z();
+                mMovement.z() = mLastPose.pose.position.z();
             mHasTrackingData = true;
         }
-
-        mAvailablePosesChanged = mSource->availablePosesChanged();
     }
+
 }
 
 

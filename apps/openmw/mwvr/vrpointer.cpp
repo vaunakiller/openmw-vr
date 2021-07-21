@@ -33,8 +33,7 @@ namespace MWVR
         mPointerTransform->setNodeMask(MWRender::VisMask::Mask_Pointer);
 
         auto tm = MWVR::Environment::get().getTrackingManager();
-        tm->bind(this, "pcworld");
-        mHandPath = tm->stringToVRPath("/user/hand/right/input/aim/pose");
+        mHandPath = tm->stringToVRPath("/world/user/hand/right/input/aim/pose");
 
         setEnabled(true);
     }
@@ -71,13 +70,13 @@ namespace MWVR
         mEnabled = enabled;
     }
 
-    void UserPointer::onTrackingUpdated(VRTrackingSource& source, DisplayTime predictedDisplayTime)
+    void UserPointer::onTrackingUpdated(VRTrackingManager& manager, DisplayTime predictedDisplayTime)
     {
         // If no parent is set, then the actor is currently unloaded
         // And we need to point directly from tracking data and the root
         if (!mParent)
         {
-            auto tp = source.getTrackingPose(predictedDisplayTime, mHandPath, 0);
+            auto tp = manager.locate(mHandPath, predictedDisplayTime);
             osg::Matrix worldReference = osg::Matrix::identity();
             worldReference.preMultTranslate(tp.pose.position);
             worldReference.preMultRotate(tp.pose.orientation);

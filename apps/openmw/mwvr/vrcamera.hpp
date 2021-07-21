@@ -63,7 +63,7 @@ namespace MWVR
         void recenter();
         void applyTracking();
 
-        void onTrackingUpdated(VRTrackingSource& source, DisplayTime predictedDisplayTime) override;
+        void onTrackingUpdated(VRTrackingManager& manager, DisplayTime predictedDisplayTime) override;
 
     private:
         Pose mHeadPose{};

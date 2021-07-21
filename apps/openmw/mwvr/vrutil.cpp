@@ -25,9 +25,9 @@ namespace MWVR
         {
             MWRender::RayResult result;
             auto* tm = Environment::get().getTrackingManager();
-            VRPath rightHandPath = tm->stringToVRPath("/user/hand/right/input/aim/pose");
-            auto* source = tm->getSource("pcworld");
-            auto distance = getPoseTarget(result, source->getTrackingPose(0, rightHandPath).pose, true);
+            VRPath rightHandPath = tm->stringToVRPath("/world/user/hand/right/input/aim/pose");
+            auto pose = tm->locate(rightHandPath, 0).pose;
+            auto distance = getPoseTarget(result, pose, true);
             return std::pair<MWWorld::Ptr, float>(result.mHitObject, distance);
         }
 

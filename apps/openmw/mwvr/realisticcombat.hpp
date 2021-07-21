@@ -56,7 +56,7 @@ namespace MWVR {
             MWWorld::Ptr ptr() { return mPtr; }
 
         protected:
-            void onTrackingUpdated(VRTrackingSource& source, DisplayTime predictedDisplayTime) override;
+            void onTrackingUpdated(VRTrackingManager& manager, DisplayTime predictedDisplayTime) override;
 
             bool canSwing();
 

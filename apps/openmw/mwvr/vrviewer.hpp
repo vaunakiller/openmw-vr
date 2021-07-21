@@ -17,7 +17,6 @@
 namespace MWVR
 {
     class VRFramebuffer;
-    class VRView;
     class OpenXRSwapchain;
 
     /// \brief Manages stereo rendering and mirror texturing.

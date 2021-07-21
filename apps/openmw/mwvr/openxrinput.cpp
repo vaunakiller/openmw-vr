@@ -89,11 +89,15 @@ namespace MWVR
         auto* xr = Environment::get().getManager();
         auto* trackingManager = Environment::get().getTrackingManager();
 
-        auto leftHandPath = trackingManager->stringToVRPath("/user/hand/left/input/aim/pose");
-        auto rightHandPath = trackingManager->stringToVRPath("/user/hand/right/input/aim/pose");
+        auto stageUserHandLeftPath = trackingManager->stringToVRPath("/stage/user/hand/left/input/aim/pose");
+        auto stageUserHandRightPath = trackingManager->stringToVRPath("/stage/user/hand/right/input/aim/pose");
+        auto worldUserHandLeftPath = trackingManager->stringToVRPath("/world/user/hand/left/input/aim/pose");
+        auto worldUserHandRightPath = trackingManager->stringToVRPath("/world/user/hand/right/input/aim/pose");
 
-        xr->impl().tracker().addTrackingSpace(leftHandPath, getActionSet(ActionSet::Tracking).xrActionSpace(TrackedLimb::LEFT_HAND));
-        xr->impl().tracker().addTrackingSpace(rightHandPath, getActionSet(ActionSet::Tracking).xrActionSpace(TrackedLimb::RIGHT_HAND));
+        xr->impl().tracker().addTrackingSpace(stageUserHandLeftPath, getActionSet(ActionSet::Tracking).xrActionSpace(TrackedLimb::LEFT_HAND));
+        xr->impl().tracker().addTrackingSpace(stageUserHandRightPath, getActionSet(ActionSet::Tracking).xrActionSpace(TrackedLimb::RIGHT_HAND));
+        xr->impl().stageToWorldBinding().bindPaths(worldUserHandLeftPath, stageUserHandLeftPath);
+        xr->impl().stageToWorldBinding().bindPaths(worldUserHandRightPath, stageUserHandRightPath);
     };
 
     OpenXRActionSet& OpenXRInput::getActionSet(ActionSet actionSet)

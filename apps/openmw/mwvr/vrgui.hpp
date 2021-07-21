@@ -70,20 +70,19 @@ namespace MWVR
     class VRGUITracking : public VRTrackingSource
     {
     public:
-        VRGUITracking(const std::string& source);
+        VRGUITracking();
 
-        virtual std::vector<VRPath> listSupportedTrackingPosePaths() const override;
-        virtual void updateTracking(DisplayTime predictedDisplayTime) override;
+        virtual std::vector<VRPath> listSupportedPaths() const override;
+        virtual void updateTracking(DisplayTime predictedDisplayTime);
         void resetStationaryPose();
 
     protected:
-        virtual VRTrackingPose getTrackingPoseImpl(DisplayTime predictedDisplayTime, VRPath path, VRPath reference = 0) override;
+        virtual VRTrackingPose locate(VRPath path, DisplayTime predictedDisplayTime) override;
 
     private:
         VRPath mStationaryPath = 0;
         VRPath mHeadPath = 0;
         VRTrackingPose mStationaryPose = VRTrackingPose();
-        VRTrackingSource* mSource = nullptr;
 
         bool mShouldUpdateStationaryPose = true;
     };
@@ -119,7 +118,7 @@ namespace MWVR
         bool operator<(const VRGUILayer& rhs) const { return mConfig.priority < rhs.mConfig.priority; }
 
         /// Update layer quads based on current tracking information
-        void onTrackingUpdated(VRTrackingSource& source, DisplayTime predictedDisplayTime) override;
+        void onTrackingUpdated(VRTrackingManager& manager, DisplayTime predictedDisplayTime) override;
 
     public:
         VRPath      mTrackingPath = 0;
@@ -153,7 +152,7 @@ namespace MWVR
     /// Constructs and destructs VRGUILayer objects in response to MWGui::Layout::setVisible calls.
     /// Layers can also be made visible directly by calling insertLayer() directly, e.g. to show
     /// the video player.
-    class VRGUIManager : public VRTrackingListener
+    class VRGUIManager
     {
     public:
         VRGUIManager(

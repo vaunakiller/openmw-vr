@@ -236,11 +236,8 @@ namespace MWVR
             mConfig.offset.y() -= 0.001f * static_cast<float>(mConfig.priority);
         }
 
-        //mTransform->addUpdateCallback(new LayerUpdateCallback(this));
-
         auto* tm = Environment::get().getTrackingManager();
         mTrackingPath = tm->stringToVRPath(mConfig.trackingPath);
-        tm->bind(this, "uisource");
     }
 
     VRGUILayer::~VRGUILayer()
@@ -266,9 +263,9 @@ namespace MWVR
         updatePose();
     }
 
-    void VRGUILayer::onTrackingUpdated(VRTrackingSource& source, DisplayTime predictedDisplayTime)
+    void VRGUILayer::onTrackingUpdated(VRTrackingManager& manager, DisplayTime predictedDisplayTime)
     {
-        auto tp = source.getTrackingPose(predictedDisplayTime, mTrackingPath);
+        auto tp = manager.locate(mTrackingPath, predictedDisplayTime);
         if (!!tp.status)
         {
             mTrackedPose = tp.pose;
@@ -441,7 +438,7 @@ namespace MWVR
             osg::Vec2i(2048,2048), // Texture resolution
             osg::Vec2(1,1),
             sizingMode,
-            "/ui/input/stationary/pose",
+            "/ui/stationary/menu_quad/pose",
             extraLayers
         };
     }
@@ -484,7 +481,7 @@ namespace MWVR
         , mResourceSystem(resourceSystem)
         , mGeometriesRootNode(rootNode)
         , mGUICamerasRootNode(rootNode)
-        , mUiTracking(new VRGUITracking("pcworld"))
+        , mUiTracking(new VRGUITracking())
     {
         mGeometries->setName("VR GUI Geometry Root");
         mGeometries->setUpdateCallback(new VRGUIManagerUpdateCallback(this));
@@ -549,7 +546,7 @@ namespace MWVR
             osg::Vec2i(2048,2048), // Texture resolution
             osg::Vec2(1,1),
             SizingMode::Auto,
-            "/user/hand/left/input/aim/pose",
+            "/world/user/hand/left/input/aim/pose",
             ""
         };
         LayerConfig statusHUDConfig = LayerConfig
@@ -564,7 +561,7 @@ namespace MWVR
             osg::Vec2i(1024,1024),
             defaultConfig.myGUIViewSize,
             SizingMode::Auto,
-            "/user/hand/left/input/aim/pose",
+            "/world/user/hand/left/input/aim/pose",
             ""
         };
 
@@ -580,7 +577,7 @@ namespace MWVR
             osg::Vec2i(2048,2048),
             defaultConfig.myGUIViewSize,
             SizingMode::Auto,
-            "/user/hand/right/input/aim/pose",
+            "/world/user/hand/right/input/aim/pose",
             ""
         };
 
@@ -788,10 +785,10 @@ namespace MWVR
 
     void VRGUIManager::update()
     {
-        auto xr = MWVR::Environment::get().getManager();
-        if (xr)
-            if (!xr->appShouldRender())
-                updateTracking();
+        //auto xr = MWVR::Environment::get().getManager();
+        //if (xr)
+        //    if (!xr->appShouldRender())
+        //        updateTracking();
     }
 
     void VRGUIManager::setFocusLayer(VRGUILayer* layer)
@@ -976,49 +973,51 @@ namespace MWVR
 
     }
 
-    VRGUITracking::VRGUITracking(const std::string& source)
-        : VRTrackingSource("uisource")
+    VRGUITracking::VRGUITracking()
+        : VRTrackingSource(Environment::get().getTrackingManager()->stringToVRPath("/ui"))
     {
         auto* tm = Environment::get().getTrackingManager();
-        mSource = tm->getSource(source);
-        mHeadPath = tm->stringToVRPath("/user/head/input/pose");
-        mStationaryPath = tm->stringToVRPath("/ui/input/stationary/pose");
+        mHeadPath = tm->stringToVRPath("/world/user/head/input/pose");
+        mStationaryPath = tm->stringToVRPath("/ui/stationary/menu_quad/pose");
+        //stringToVRPath("/ui/anchors/wrist_hud/left/pose");
+        //stringToVRPath("/ui/anchors/wrist_hud/right/pose");
+        //stringToVRPath("/ui/anchors/hand_top/left/pose");
+        //stringToVRPath("/ui/anchors/hand_top/right/pose");
     }
 
-    VRTrackingPose VRGUITracking::getTrackingPoseImpl(DisplayTime predictedDisplayTime, VRPath path, VRPath reference)
+    VRTrackingPose VRGUITracking::locate(VRPath path, DisplayTime predictedDisplayTime)
     {
+        if (mShouldUpdateStationaryPose)
+            updateTracking(predictedDisplayTime);
+
         if (path == mStationaryPath)
             return mStationaryPose;
-        return mSource->getTrackingPose(predictedDisplayTime, path, reference);
+
+        Log(Debug::Error) << "Tried to locate invalid path " << path << ". This is a developer error. Please locate using TrackingManager::locate() only.";
+        throw std::logic_error("Invalid Argument");
     }
 
-    std::vector<VRPath> VRGUITracking::listSupportedTrackingPosePaths() const
+    std::vector<VRPath> VRGUITracking::listSupportedPaths() const
     {
-        auto paths = mSource->listSupportedTrackingPosePaths();
-        paths.push_back(mStationaryPath);
-        return paths;
+        return { mStationaryPath };
     }
 
     void VRGUITracking::updateTracking(DisplayTime predictedDisplayTime)
     {
-        if (mSource->availablePosesChanged())
-            notifyAvailablePosesChanged();
-
-        if (mShouldUpdateStationaryPose)
+        auto* tm = Environment::get().getTrackingManager();
+        // All dependent sources were updated before this
+        auto tp = tm->locate(mHeadPath, predictedDisplayTime);
+        if (!!tp.status)
         {
-            auto tp = mSource->getTrackingPose(predictedDisplayTime, mHeadPath);
-            if (!!tp.status)
-            {
-                mShouldUpdateStationaryPose = false;
-                mStationaryPose = tp;
+            mShouldUpdateStationaryPose = false;
+            mStationaryPose = tp;
 
-                // Stationary UI elements should always be vertical
-                auto axis = osg::Z_AXIS;
-                osg::Quat vertical;
-                auto local = mStationaryPose.pose.orientation * axis;
-                vertical.makeRotate(local, axis);
-                mStationaryPose.pose.orientation = mStationaryPose.pose.orientation * vertical;
-            }
+            // Stationary UI elements should always be vertical
+            auto axis = osg::Z_AXIS;
+            osg::Quat vertical;
+            auto local = mStationaryPose.pose.orientation * axis;
+            vertical.makeRotate(local, axis);
+            mStationaryPose.pose.orientation = mStationaryPose.pose.orientation * vertical;
         }
     }
 

@@ -22,7 +22,7 @@ namespace MWVR
         void setParent(osg::Group* group);
         void setEnabled(bool enabled);
     protected:
-        void onTrackingUpdated(VRTrackingSource& source, DisplayTime predictedDisplayTime) override;
+        void onTrackingUpdated(VRTrackingManager& manager, DisplayTime predictedDisplayTime) override;
 
     private:
         osg::ref_ptr<osg::Geometry> createPointerGeometry();

@@ -54,12 +54,11 @@ namespace MWVR {
         {
             Log(Debug::Verbose) << "realistic combat minimum swing velocity: " << mMinVelocity;
             Log(Debug::Verbose) << "realistic combat maximum swing velocity: " << mMaxVelocity;
-            Environment::get().getTrackingManager()->bind(this, "pcstage");
         }
 
-        void StateMachine::onTrackingUpdated(VRTrackingSource& source, DisplayTime predictedDisplayTime)
+        void StateMachine::onTrackingUpdated(VRTrackingManager& manager, DisplayTime predictedDisplayTime)
         {
-            mTrackingInput = source.getTrackingPose(predictedDisplayTime, mTrackingPath);
+            mTrackingInput = manager.locate(mTrackingPath, predictedDisplayTime);
         }
 
         bool StateMachine::canSwing()

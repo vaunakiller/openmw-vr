@@ -56,6 +56,7 @@ namespace MWVR
         OpenXRPlatform& platform() { return mPlatform; }
         OpenXRTracker& tracker() { return *mTracker; }
         void initTracker();
+        VRStageToWorldBinding& stageToWorldBinding() { return *mTrackerToWorldBinding; }
 
     protected:
         void setupExtensionsAndLayers();
@@ -96,8 +97,8 @@ namespace MWVR
         XrDebugUtilsMessengerEXT mDebugMessenger{ nullptr };
         OpenXRPlatform mPlatform;
 
-        std::unique_ptr<OpenXRTracker> mTracker{ nullptr };
-        std::unique_ptr<VRTrackingToWorldBinding> mTrackerToWorldBinding{ nullptr };
+        std::shared_ptr<OpenXRTracker> mTracker{ nullptr };
+        std::unique_ptr<VRStageToWorldBinding> mTrackerToWorldBinding{ nullptr };
 
         bool mXrSessionShouldStop = false;
         bool mAppShouldSyncFrameLoop = false;

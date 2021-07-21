@@ -6,6 +6,7 @@
 #include <set>
 #include <vector>
 #include <mutex>
+#include <list>
 #include "vrtypes.hpp"
 
 namespace MWVR
@@ -18,9 +19,10 @@ namespace MWVR
         Unknown = 0, //!< No data has been written (default value)
         Good = 1,  //!< Accurate, up-to-date tracking data was used.
         Stale = 2, //!< Inaccurate, stale tracking data was used. This code is a status warning, not an error, and the tracking pose should be used.
-        NotTracked = -1, //!< No tracking data was returned because the tracking source does not track that
-        Lost = -2,  //!< No tracking data was returned because the tracking source could not be read (occluded controller, network connectivity issues, etc.).
-        RuntimeFailure = -3 //!< No tracking data was returned because of a runtime failure.
+        NotTracked = -1, //!< No tracking data was returned because no tracking source provides this path
+        TimeInvalid = -2, //!< No tracking data was returned because the provided time stamp was invalid
+        Lost = -3,  //!< No tracking data was returned because the tracking source could not be read (occluded controller, network connectivity issues, etc.).
+        RuntimeFailure = -4 //!< No tracking data was returned because of a runtime failure.
     };
 
     inline bool operator!(TrackingStatus status)
@@ -28,34 +30,49 @@ namespace MWVR
         return static_cast<signed>(status) < static_cast<signed>(TrackingStatus::Good);
     }
 
-    //! @brief An identifier representing an OpenXR path. 0 represents no path.
-    //! A VRPath can be optained from the string representation of a path using VRTrackingManager::getTrackingPath()
+    //! @brief An identifier representing an path, with 0 representing no path.
+    //! A VRPath can be optained from the string representation of a path using VRTrackingManager::stringToVRPath()
     //! \note Support is determined by each VRTrackingSource. ALL strings are convertible to VRPaths but won't be useful unless they match a supported string.
     //! \sa VRTrackingManager::getTrackingPath()
-    using VRPath = uint64_t;
+    using VRPath = uint32_t;
 
     //! A single tracked pose
     struct VRTrackingPose
     {
         TrackingStatus status = TrackingStatus::Unknown; //!< State of the prediction. 
         Pose pose = {}; //!< The predicted pose. 
-        DisplayTime time; //!< The time for which the pose was predicted.
+        DisplayTime time = 0; //!< The time for which the pose was predicted.
     };
 
-    //! Source for tracking data. Converts paths to poses at predicted times.
-    //! \par The following paths are compulsory and must be supported by the implementation.
-    //! - /user/head/input/pose
-    //! - /user/hand/left/input/aim/pose
-    //! - /user/hand/right/input/aim/pose
-    //! - /user/hand/left/input/grip/pose (Not actually implemented yet)
-    //! - /user/hand/right/input/grip/pose (Not actually implemented yet)
-    //! \note A path being *supported* does not guarantee tracking data will be available at any given time (or ever).
-    //! \note Implementations may expand this list.
-    //! \sa OpenXRTracker VRGUITracking OpenXRTrackingToWorldBinding
+    //! A stereo view
+    struct VRTrackingView
+    {
+        TrackingStatus status = TrackingStatus::Unknown; //!< State of the prediction. 
+        std::array<View, 2> view = {}; //!< The predicted view. 
+        DisplayTime time = 0; //!< The time for which the pose was predicted.
+    };
+
+    class VRView
+    {
+    public:
+        VRView() {};
+        virtual ~VRView() {};
+
+        const VRTrackingView& locate(DisplayTime predictedDisplayTime);
+
+    protected:
+        virtual void locateImpl(DisplayTime predictedDisplayTime, VRTrackingView& view) = 0;
+
+    private:
+        VRTrackingView mView;
+    };
+
+    //! A class that acts as locating source for a unique set of VRPath identifiers
+    //! A source is itself identified by a VRPath identifier
     class VRTrackingSource
     {
     public:
-        VRTrackingSource(const std::string& name);
+        VRTrackingSource(VRPath sourcePath);
         virtual ~VRTrackingSource();
 
         //! @brief Predicted pose of the given path at the predicted time
@@ -65,31 +82,24 @@ namespace MWVR
         //! \arg reference[in] path of the pose to use as reference. If 0, pose is referenced to the VR stage.
         //! 
         //! \return A structure describing a pose and the tracking status.
-        VRTrackingPose getTrackingPose(DisplayTime predictedDisplayTime, VRPath path, VRPath reference = 0);
+        virtual VRTrackingPose locate(VRPath path, DisplayTime predictedDisplayTime) = 0;
 
         //! List currently supported tracking paths.
-        virtual std::vector<VRPath> listSupportedTrackingPosePaths() const = 0;
+        virtual std::vector<VRPath> listSupportedPaths() const = 0;
 
         //! Returns true if the available poses changed since the last frame, false otherwise.
         bool availablePosesChanged() const;
 
         void clearAvailablePosesChanged();
 
-        //! Call once per frame, after (or at the end of) OSG update traversals and before cull traversals.
-        //! Predict tracked poses for the given display time.
-        //! \arg predictedDisplayTime [in] the predicted display time. The pose shall be predicted for this time based on current tracking data.
-        virtual void updateTracking(DisplayTime predictedDisplayTime) = 0;
-
-        void clearCache();
+        VRPath path() const { return mPath; }
 
     protected:
-        virtual VRTrackingPose getTrackingPoseImpl(DisplayTime predictedDisplayTime, VRPath path, VRPath reference = 0) = 0;
-
-        std::map<std::pair<VRPath, VRPath>, VRTrackingPose> mCache;
 
         void notifyAvailablePosesChanged();
 
         bool mAvailablePosesChanged = true;
+        VRPath mPath = 0;
     };
 
     //! Ties a tracking source to the game world.
@@ -97,10 +107,10 @@ namespace MWVR
     //! All poses are transformed in the horizontal plane by moving the x,y origin to the position of the reference pose, and then reoriented using the current orientation of the player character.
     //! The reference pose is effectively always at the x,y origin, and its movement is accumulated and can be read using the movement() call.
     //! If this movement is ever consumed (such as by moving the character to follow the player) the consumed movement must be reported using consumeMovement().
-    class VRTrackingToWorldBinding : public VRTrackingSource
+    class VRStageToWorldBinding : public VRTrackingSource
     {
     public:
-        VRTrackingToWorldBinding(const std::string& name, VRTrackingSource* source, VRPath reference);
+        VRStageToWorldBinding(VRPath sourcePath, std::shared_ptr<VRTrackingSource> source, VRPath movementReference);
 
         void setWorldOrientation(float yaw, bool adjust);
         osg::Quat getWorldOrientation() const { return mOrientation; }
@@ -112,7 +122,7 @@ namespace MWVR
         bool getSeatedPlay() const { return mSeatedPlay; }
 
         //! The player's movement within the VR stage. This accumulates until the movement has been consumed by calling consumeMovement()
-        osg::Vec3 movement() const;
+        osg::Vec3 movement() const { return mMovement; }
 
         //! Consume movement
         void consumeMovement(const osg::Vec3& movement);
@@ -124,47 +134,48 @@ namespace MWVR
         //! If no node is set, the world-aligned stage and the world correspond 1-1.
         void setOriginNode(osg::Node* origin) { mOrigin = origin; }
 
+        void bindPaths(VRPath worldPath, VRPath stagePath);
+        void unbindPath(VRPath worldPath);
+
     protected:
         //! Fetches a pose from the source, and then aligns it with the game world if the reference is 0 (stage). 
-        VRTrackingPose getTrackingPoseImpl(DisplayTime predictedDisplayTime, VRPath path, VRPath movementReference = 0) override;
+        VRTrackingPose locate(VRPath path, DisplayTime predictedDisplayTime) override;
 
         //! List currently supported tracking paths.
-        std::vector<VRPath> listSupportedTrackingPosePaths() const override;
+        std::vector<VRPath> listSupportedPaths() const override;
 
         //! Call once per frame, after (or at the end of) OSG update traversals and before cull traversals.
         //! Predict tracked poses for the given display time.
         //! \arg predictedDisplayTime [in] the predicted display time. The pose shall be predicted for this time based on current tracking data.
-        void updateTracking(DisplayTime predictedDisplayTime) override;
+        void updateTracking(DisplayTime predictedDisplayTime);
 
     private:
+        std::shared_ptr<VRTrackingSource> mSource;
         VRPath mMovementReference;
-        VRTrackingSource* mSource;
+        std::map<VRPath, VRPath> mBindings;
         osg::Node* mOrigin = nullptr;
         bool mSeatedPlay = false;
         bool mHasTrackingData = false;
         float mEyeLevel = 0;
         Pose mOriginWorldPose = Pose();
-        Pose mLastPose = Pose();
+        VRTrackingPose mLastPose = VRTrackingPose();
         osg::Vec3 mMovement = osg::Vec3(0, 0, 0);
         osg::Quat mOrientation = osg::Quat(0, 0, 0, 1);
     };
 
+    class VRTrackingManager;
+
     class VRTrackingListener
     {
     public:
+        VRTrackingListener();
         virtual ~VRTrackingListener();
 
         //! Notify that available tracking poses have changed.
-        virtual void onAvailablePosesChanged(VRTrackingSource& source) {};
+        virtual void onAvailablePathsChanged(const std::set<VRPath>& paths) {};
 
-        //! Notify that a tracking source has been attached
-        virtual void onTrackingAttached(VRTrackingSource& source) {};
-
-        //! Notify that a tracking source has been detached.
-        virtual void onTrackingDetached() {};
-
-        //! Called every frame after tracking poses have been updated
-        virtual void onTrackingUpdated(VRTrackingSource& source, DisplayTime predictedDisplayTime) {};
+        //! Called every frame, after tracking poses have been updated
+        virtual void onTrackingUpdated(VRTrackingManager& manager, DisplayTime predictedDisplayTime) = 0;
 
     private:
     };
@@ -182,10 +193,10 @@ namespace MWVR
 
         //! Bind listener to source, listener will receive tracking updates from source until unbound.
         //! \note A single listener can only receive tracking updates from one source.
-        void bind(VRTrackingListener* listener, std::string source);
+        void addListener(VRTrackingListener* listener);
 
         //! Unbind listener, listener will no longer receive tracking updates.
-        void unbind(VRTrackingListener* listener);
+        void removeListener(VRTrackingListener* listener);
 
         //! Converts a string representation of a path to a VRTrackerPath identifier
         VRPath stringToVRPath(const std::string& path);
@@ -193,28 +204,35 @@ namespace MWVR
         //! Converts a path identifier back to string. Returns an empty string if no such identifier exists.
         std::string VRPathToString(VRPath path);
 
-        //! Get a tracking source by name
-        VRTrackingSource* getSource(const std::string& name);
-
         //! Angles to be used for overriding movement direction
         void movementAngles(float& yaw, float& pitch);
 
         void processChangedSettings(const std::set< std::pair<std::string, std::string> >& changed);
 
+        VRTrackingPose locate(VRPath path, DisplayTime predictedDisplayTime) const;
+
+        VRTrackingSource* getTrackingSource(VRPath path) const;
+
+        const std::set<VRPath>& availablePaths() const;
+
     private:
         friend class VRTrackingSource;
-        void registerTrackingSource(VRTrackingSource* source, const std::string& name);
+        void registerTrackingSource(VRTrackingSource* source);
         void unregisterTrackingSource(VRTrackingSource* source);
-        void notifySourceChanged(const std::string& name);
         void updateMovementAngles(DisplayTime predictedDisplayTime);
+        void checkAvailablePathsChanged();
+        void updateAvailablePaths();
+        VRPath newPath(const std::string& path);
 
-        std::map<std::string, VRTrackingSource*> mSources;
-        std::map<VRTrackingListener*, std::string> mBindings;
+        std::vector<VRTrackingSource*> mSources;
+        std::map<VRPath, VRTrackingSource*> mPathToSourceMap;
+        std::set<VRPath> mAvailablePaths;
+        std::list<VRTrackingListener*> mListeners;
         std::map<std::string, VRPath> mPathIdentifiers;
 
         bool mHandDirectedMovement = 0.f;
-        VRPath mHeadPath = 0;
-        VRPath mHandPath = 0;
+        VRPath mHeadPath = VRPath();
+        VRPath mHandPath = VRPath();
         float mMovementYaw = 0.f;
         float mMovementPitch = 0.f;
     };

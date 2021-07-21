@@ -631,11 +631,16 @@ namespace MWVR
     void OpenXRManagerImpl::initTracker()
     {
         auto* trackingManager = Environment::get().getTrackingManager();
-        auto headPath = trackingManager->stringToVRPath("/user/head/input/pose");
+        auto stageUserPath = trackingManager->stringToVRPath("/stage/user");
+        auto stageUserHeadPath = trackingManager->stringToVRPath("/stage/user/head/input/pose");
 
-        mTracker.reset(new OpenXRTracker("pcstage", mReferenceSpaceStage));
-        mTracker->addTrackingSpace(headPath, mReferenceSpaceView);
-        mTrackerToWorldBinding.reset(new VRTrackingToWorldBinding("pcworld", mTracker.get(), headPath));
+        mTracker.reset(new OpenXRTracker(stageUserPath, mReferenceSpaceStage));
+        mTracker->addTrackingSpace(stageUserHeadPath, mReferenceSpaceView);
+
+        auto worldUserPath = trackingManager->stringToVRPath("/world/user");
+        auto worldUserHeadPath = trackingManager->stringToVRPath("/world/user/head/input/pose");
+        mTrackerToWorldBinding.reset(new VRStageToWorldBinding(worldUserPath, mTracker, stageUserHeadPath));
+        mTrackerToWorldBinding->bindPaths(worldUserHeadPath, stageUserHeadPath);
     }
 
     void OpenXRManagerImpl::enablePredictions()

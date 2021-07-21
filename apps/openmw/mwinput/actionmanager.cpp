@@ -339,6 +339,7 @@ namespace MWInput
         if (MWBase::Environment::get().getVrMode())
         {
             // TODO: Fixme
+            // This crashes because the screen capture operation overrides essential callbacks
             MWBase::Environment::get().getWindowManager()->messageBox("Screenshot feature is temporarily disabled");
             return;
         }
