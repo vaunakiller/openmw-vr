@@ -435,7 +435,7 @@ namespace MWVR
             auto playerPtr = world->getPlayerPtr();
             if (!mRealisticCombat || mRealisticCombat->ptr() != playerPtr)
             {
-                auto trackingPath = Environment::get().getTrackingManager()->stringToVRPath("/user/hand/right/input/aim/pose");
+                auto trackingPath = Environment::get().getTrackingManager()->stringToVRPath("/stage/user/hand/right/input/aim/pose");
                 mRealisticCombat.reset(new RealisticCombat::StateMachine(playerPtr, trackingPath));
             }
             bool enabled = !guiMode && player.getDrawState() == MWMechanics::DrawState_Weapon && !player.isDisabled();
