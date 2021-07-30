@@ -310,6 +310,7 @@ namespace MWVR
         auto stagePose = tm->locate(it->second, predictedDisplayTime);
 
         auto worldPose = stagePose;
+        worldPose.pose.position *= Environment::get().getSession()->playerScale();
         worldPose.pose.position *= Constants::UnitsPerMeter;
         worldPose.pose.position -= mLastPose.pose.position;
         worldPose.pose.position = mOrientation * worldPose.pose.position;
@@ -319,7 +320,6 @@ namespace MWVR
         if (mOrigin)
             worldPose.pose.position += mOriginWorldPose.position;
         return worldPose;
-
     }
 
     std::vector<VRPath> VRStageToWorldBinding::listSupportedPaths() const

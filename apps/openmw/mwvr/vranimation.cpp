@@ -442,12 +442,15 @@ namespace MWVR
             MWBase::Environment::get().getWorld()->getStore().get<ESM::Race>().find(ref->mBase->mRace);
         bool isMale = ref->mBase->isMale();
         float charHeightFactor = isMale ? race->mData.mHeight.mMale : race->mData.mHeight.mFemale;
-        float charHeightBase = 1.8288f; // Is this ~ the right value?
+        // Supposedly this is roughly the height of a 1.0 height race in meters.
+        //float charHeightBase = 1.8288f; 
+        // However, this is what gets me to eye level with them and must be closer to the correct value.
+        float charHeightBase = 1.975f;
         float charHeight = charHeightBase * charHeightFactor;
         float realHeight = Settings::Manager::getFloat("real height", "VR");
         float sizeFactor = charHeight / realHeight;
         Environment::get().getSession()->setPlayerScale(sizeFactor);
-        Environment::get().getSession()->setEyeLevel(charHeightBase - 0.15f); // approximation
+        Environment::get().getSession()->setEyeLevel(charHeight*0.8375f); // approximation
     }
 
     void VRAnimation::setFingerPointingMode(bool enabled)
