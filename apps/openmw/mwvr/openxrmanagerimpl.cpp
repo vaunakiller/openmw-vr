@@ -294,6 +294,7 @@ namespace MWVR
     {
         std::array<XrCompositionLayerProjectionView, 2> compositionLayerProjectionViews{};
         XrCompositionLayerProjection layer{};
+        auto* xrLayerStack = reinterpret_cast<XrCompositionLayerBaseHeader*>(&layer);
         std::array<XrCompositionLayerDepthInfoKHR, 2> compositionLayerDepth{};
         XrFrameEndInfo frameEndInfo{ XR_TYPE_FRAME_END_INFO };
         frameEndInfo.displayTime = frameInfo.runtimePredictedDisplayTime;
@@ -306,7 +307,6 @@ namespace MWVR
             layer.space = mReferenceSpaceStage;
             layer.viewCount = 2;
             layer.views = compositionLayerProjectionViews.data();
-            auto* xrLayerStack = reinterpret_cast<XrCompositionLayerBaseHeader*>(&layer);
 
             if (xrExtensionIsEnabled(XR_KHR_COMPOSITION_LAYER_DEPTH_EXTENSION_NAME))
             {
