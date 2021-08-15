@@ -1,5 +1,4 @@
 #include "openxrswapchain.hpp"
-#include "openxrswapchainimpl.hpp"
 #include "openxrmanager.hpp"
 #include "openxrmanagerimpl.hpp"
 #include "vrenvironment.hpp"
@@ -7,42 +6,70 @@
 #include <components/debug/debuglog.hpp>
 
 namespace MWVR {
-    OpenXRSwapchain::OpenXRSwapchain(osg::ref_ptr<osg::State> state, SwapchainConfig config)
-        : mPrivate(new OpenXRSwapchainImpl(state, config))
+    OpenXRSwapchain::OpenXRSwapchain(XrSwapchain swapchain, std::vector<uint64_t> images, uint32_t width, uint32_t height, uint32_t samples, uint32_t format)
+        : Swapchain(width, height, samples, format, false)
+        , mXrSwapchain(swapchain)
+        , mImages(images)
     {
     }
 
     OpenXRSwapchain::~OpenXRSwapchain()
     {
+        xrDestroySwapchain(mXrSwapchain);
     }
 
-    void OpenXRSwapchain::beginFrame(osg::GraphicsContext* gc)
+    uint64_t OpenXRSwapchain::beginFrame(osg::GraphicsContext* gc)
     {
-        return impl().beginFrame(gc);
+        if (!mIsAcquired)
+        {
+            acquire();
+        }
+        if (mIsAcquired && !mIsReady)
+        {
+            wait();
+        }
+
+        return mImages[mAcquiredIndex];
     }
 
-    void OpenXRSwapchain::endFrame(osg::GraphicsContext* gc, VRFramebuffer& readBuffer)
+    void OpenXRSwapchain::endFrame(osg::GraphicsContext* gc)
     {
-        return impl().endFrame(gc, readBuffer);
+        if (mIsReady)
+        {
+            release();
+        }
     }
 
-    int OpenXRSwapchain::width() const
+    void OpenXRSwapchain::acquire()
     {
-        return impl().width();
+        XrSwapchainImageAcquireInfo acquireInfo{ XR_TYPE_SWAPCHAIN_IMAGE_ACQUIRE_INFO };
+        mIsAcquired = XR_SUCCEEDED(CHECK_XRCMD(xrAcquireSwapchainImage(mXrSwapchain, &acquireInfo, &mAcquiredIndex)));
+        //if (mIsIndexAcquired)
+        // TODO:   xr->xrResourceAcquired();
     }
 
-    int OpenXRSwapchain::height() const
+    void OpenXRSwapchain::wait()
     {
-        return impl().height();
+        XrSwapchainImageWaitInfo waitInfo{ XR_TYPE_SWAPCHAIN_IMAGE_WAIT_INFO };
+        waitInfo.timeout = XR_INFINITE_DURATION;
+        mIsReady = XR_SUCCEEDED(CHECK_XRCMD(xrWaitSwapchainImage(mXrSwapchain, &waitInfo)));
     }
 
-    int OpenXRSwapchain::samples() const
+    void OpenXRSwapchain::release()
     {
-        return impl().samples();
+        XrSwapchainImageReleaseInfo releaseInfo{ XR_TYPE_SWAPCHAIN_IMAGE_RELEASE_INFO };
+        //mImages[mAcquiredIndex]->blit(gc, readBuffer, mConfig.offsetWidth, mConfig.offsetHeight);
+
+        mIsReady = !XR_SUCCEEDED(CHECK_XRCMD(xrReleaseSwapchainImage(mXrSwapchain, &releaseInfo)));
+        if (!mIsReady)
+        {
+            mIsAcquired = false;
+        // TODO:    xr->xrResourceReleased();
+        }
     }
 
-    bool OpenXRSwapchain::isAcquired() const
+    bool OpenXRSwapchain::isAcquired()
     {
-        return impl().isAcquired();
+        return mIsAcquired;
     }
 }

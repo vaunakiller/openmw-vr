@@ -8,6 +8,8 @@
 
 #include <openxr/openxr.h>
 
+#include <components/vr/directx.hpp>
+
 namespace MWVR
 {
     // Error management macros and functions. Should be used on every openxr call.
@@ -52,19 +54,21 @@ namespace MWVR
         void eraseFormat(int64_t format);
         std::vector<int64_t> mSwapchainFormats{};
 
-        /// Registers an object for sharing as if calling wglDXRegisterObjectNV requesting write access.
-        /// If ntShareHandle is not null, wglDXSetResourceShareHandleNV is called first to register the share handle
-        void* DXRegisterObject(void* dxResource, uint32_t glName, uint32_t glType, bool discard, void* ntShareHandle);
-        /// Unregisters an object from sharing as if calling wglDXUnregisterObjectNV
-        void  DXUnregisterObject(void* dxResourceShareHandle);
-        /// Locks a DX object for use by OpenGL as if calling wglDXLockObjectsNV
-        void  DXLockObject(void* dxResourceShareHandle);
-        /// Unlocks a DX object for use by DirectX as if calling wglDXUnlockObjectsNV
-        void  DXUnlockObject(void* dxResourceShareHandle);
+        ///// Registers an object for sharing as if calling wglDXRegisterObjectNV requesting write access.
+        ///// If ntShareHandle is not null, wglDXSetResourceShareHandleNV is called first to register the share handle
+        //void* DXRegisterObject(void* dxResource, uint32_t glName, uint32_t glType, bool discard, void* ntShareHandle);
+        ///// Unregisters an object from sharing as if calling wglDXUnregisterObjectNV
+        //void  DXUnregisterObject(void* dxResourceShareHandle);
+        ///// Locks a DX object for use by OpenGL as if calling wglDXLockObjectsNV
+        //void  DXLockObject(void* dxResourceShareHandle);
+        ///// Unlocks a DX object for use by DirectX as if calling wglDXUnlockObjectsNV
+        //void  DXUnlockObject(void* dxResourceShareHandle);
 
         std::string getInstanceName(XrInstance instance);
         XrVersion getInstanceVersion(XrInstance instance);
         void initFailure(XrResult, XrInstance);
+
+        std::shared_ptr<VR::DirectXWGLInterop> dxInterop();
 
     private:
         void enumerateExtensions(const char* layerName, int logIndent);
@@ -80,6 +84,7 @@ namespace MWVR
         const char* mGraphicsAPIExtension = nullptr;
 
         std::unique_ptr< OpenXRPlatformPrivate > mPrivate;
+        std::shared_ptr<VR::DirectXWGLInterop> mDxInterop = nullptr;
     };
 }
 

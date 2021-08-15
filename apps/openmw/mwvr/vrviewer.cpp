@@ -22,6 +22,8 @@
 #include <components/misc/callbackmanager.hpp>
 #include <components/misc/constants.hpp>
 
+#include <components/vr/layer.hpp>
+
 #include <components/sdlutil/sdlgraphicswindow.hpp>
 
 namespace MWVR
@@ -122,10 +124,10 @@ namespace MWVR
         {
             auto name = viewNames[i];
 
-            mSwapchainConfig[i].selectedWidth = parseResolution(xConfString[i], mSwapchainConfig[i].recommendedWidth, mSwapchainConfig[i].maxWidth);
-            mSwapchainConfig[i].selectedHeight = parseResolution(yConfString[i], mSwapchainConfig[i].recommendedHeight, mSwapchainConfig[i].maxHeight);
+            auto width = parseResolution(xConfString[i], mSwapchainConfig[i].recommendedWidth, mSwapchainConfig[i].maxWidth);
+            auto height = parseResolution(yConfString[i], mSwapchainConfig[i].recommendedHeight, mSwapchainConfig[i].maxHeight);
 
-            mSwapchainConfig[i].selectedSamples =
+            auto samples =
                 std::max(1, // OpenXR requires a non-zero value
                     std::min(mSwapchainConfig[i].maxSamples,
                         Settings::Manager::getInt("antialiasing", "Video")
@@ -134,22 +136,26 @@ namespace MWVR
 
             Log(Debug::Verbose) << name << " resolution: Recommended x=" << mSwapchainConfig[i].recommendedWidth << ", y=" << mSwapchainConfig[i].recommendedHeight;
             Log(Debug::Verbose) << name << " resolution: Max x=" << mSwapchainConfig[i].maxWidth << ", y=" << mSwapchainConfig[i].maxHeight;
-            Log(Debug::Verbose) << name << " resolution: Selected x=" << mSwapchainConfig[i].selectedWidth << ", y=" << mSwapchainConfig[i].selectedHeight;
+            Log(Debug::Verbose) << name << " resolution: Selected x=" << width << ", y=" << height;
 
             mSwapchainConfig[i].name = name;
             if (i > 0)
-                mSwapchainConfig[i].offsetWidth = mSwapchainConfig[i].selectedWidth + mSwapchainConfig[i].offsetWidth;
-
-            mSwapchain[i].reset(new OpenXRSwapchain(gc->getState(), mSwapchainConfig[i]));
-            mSubImages[i].width = mSwapchainConfig[i].selectedWidth;
-            mSubImages[i].height = mSwapchainConfig[i].selectedHeight;
+                mSwapchainConfig[i].offsetWidth = width + mSwapchainConfig[i].offsetWidth;
+            //XrSwapchain xrColorSwapchain = ;
+            //XrSwapchain xrDepthSwapchain = xr->impl().createXrSwapchain(mSwapchainConfig[i], OpenXRManagerImpl::SwapchainUse::Depth);
+            
+            mColorSwapchain[i].reset(xr->impl().createSwapchain(width, height, samples, OpenXRManagerImpl::SwapchainUse::Color, viewNames[i]));
+            mDepthSwapchain[i].reset(xr->impl().createSwapchain(width, height, samples, OpenXRManagerImpl::SwapchainUse::Depth, viewNames[i]));
+            mSubImages[i].width = width;
+            mSubImages[i].height = height;
             mSubImages[i].x = mSubImages[i].y = 0;
-            mSubImages[i].swapchain = mSwapchain[i].get();
+            mSubImages[i].colorSwapchain = mColorSwapchain[i].get();
+            mSubImages[i].depthSwapchain = mDepthSwapchain[i].get();
         }
 
         int width = mSubImages[0].width + mSubImages[1].width;
         int height = std::max(mSubImages[0].height, mSubImages[1].height);
-        int samples = std::max(mSwapchainConfig[0].selectedSamples, mSwapchainConfig[1].selectedSamples);
+        int samples = std::max(mColorSwapchain[0]->samples(), mColorSwapchain[1]->samples());
 
         mFramebuffer.reset(new VRFramebuffer(gc->getState(), width, height, samples));
         mFramebuffer->createColorBuffer(gc);
@@ -410,9 +416,60 @@ namespace MWVR
             mMirrorTexture->blit(gc, 0, 0, screenWidth, screenHeight, 0, 0, screenWidth, screenHeight, GL_COLOR_BUFFER_BIT, GL_NEAREST);
         }
 
-        mSwapchain[0]->endFrame(gc, *mGammaResolveTexture);
-        mSwapchain[1]->endFrame(gc, *mGammaResolveTexture);
+        uint32_t x0 = 0;
+        for (unsigned i = 0; i < 2; i++)
+        {
+            auto colorImage = mColorSwapchain[i]->beginFrame(gc);
+            auto depthImage = mDepthSwapchain[i]->beginFrame(gc);
+            auto x = mSubImages[i].x + x0;
+            auto y = mSubImages[i].y;
+            auto w = mSubImages[i].width;
+            auto h = mSubImages[i].height;
+            //blit(state, mGammaResolveTexture.get(), colorImage, x, y, w, h, GL_COLOR_BUFFER_BIT, mColorSwapchain[i]->mustFlipVertical());
+            //blit(state, mGammaResolveTexture.get(), depthImage, x, y, w, h, GL_DEPTH_BUFFER_BIT, mDepthSwapchain[i]->mustFlipVertical());
+
+            auto it = mSwapchainFramebuffers.find(colorImage);
+            if (it == mSwapchainFramebuffers.end())
+            {
+                mSwapchainFramebuffers[colorImage] = std::make_unique<VRFramebuffer>(state, w, h, 0);
+                it = mSwapchainFramebuffers.find(colorImage);
+                it->second->setColorBuffer(gc, colorImage, false);
+                it->second->setDepthBuffer(gc, depthImage, false);
+            }
+            it->second->bindFramebuffer(gc, GL_FRAMEBUFFER_EXT);
+            uint32_t y0 = 0;
+            uint32_t y1 = h;
+            if (mColorSwapchain[i]->mustFlipVertical())
+                std::swap(y0, y1);
+            mGammaResolveTexture->blit(gc, x, y, x + w, y + h, 0, y0, w, y1, GL_COLOR_BUFFER_BIT, GL_NEAREST);
+            gl->glBindFramebuffer(GL_FRAMEBUFFER_EXT, 0);
+
+            x0 += w;
+            mColorSwapchain[i]->endFrame(gc);
+            mDepthSwapchain[i]->endFrame(gc);
+        }
+
         gl->glBindFramebuffer(GL_FRAMEBUFFER_EXT, 0);
+    }
+
+    void VRViewer::blit(osg::State* state, VRFramebuffer* src, uint32_t target, uint32_t src_x, uint32_t src_y, uint32_t w, uint32_t h, uint32_t bits, bool flipVertical)
+    {
+        auto gc = state->getGraphicsContext();
+
+        auto it = mSwapchainFramebuffers.find(target);
+        if (it == mSwapchainFramebuffers.end())
+        {
+            mSwapchainFramebuffers[target] = std::make_unique<VRFramebuffer>(state, w, h, 0);
+            it = mSwapchainFramebuffers.find(target);
+            it->second->setColorBuffer(gc, target, false);
+        }
+
+        it->second->bindFramebuffer(gc, GL_FRAMEBUFFER_EXT);
+        uint32_t y0 = 0;
+        uint32_t y1 = h;
+        if(flipVertical)
+            std::swap(y0, y1);
+        //src->blit(gc, src_x, src_y, src_x + w, src_y + h, 0, y0, w, y1, bits, GL_NEAREST);
     }
 
     void
@@ -443,12 +500,14 @@ namespace MWVR
         if (mRenderingReady)
             return;
 
-        Environment::get().getSession()->beginPhase(VRSession::FramePhase::Draw);
-        if (Environment::get().getSession()->getFrame(VRSession::FramePhase::Draw)->mShouldRender)
         {
-            mSwapchain[0]->beginFrame(info.getState()->getGraphicsContext());
-            mSwapchain[1]->beginFrame(info.getState()->getGraphicsContext());
+            std::scoped_lock lock(mMutex);
+            mDrawFrame = mReadyFrames.front();
+            mReadyFrames.pop();
         }
+
+        Environment::get().getSession()->frameBeginRender(mDrawFrame);
+
         mViewer->getCamera()->setViewport(0, 0, mFramebuffer->width(), mFramebuffer->height());
 
         osg::GraphicsOperation* graphicsOperation = info.getCurrentCamera()->getRenderer();
@@ -464,56 +523,68 @@ namespace MWVR
 
     void VRViewer::preDrawCallback(osg::RenderInfo& info)
     {
-        if (Environment::get().getSession()->getFrame(VRSession::FramePhase::Draw)->mShouldRender)
+        if(mDrawFrame.shouldRender)
         {
             mFramebuffer->bindFramebuffer(info.getState()->getGraphicsContext(), GL_FRAMEBUFFER_EXT);
-            //mSwapchain->framebuffer()->bindFramebuffer(info.getState()->getGraphicsContext(), GL_FRAMEBUFFER_EXT);
         }
     }
 
     void VRViewer::postDrawCallback(osg::RenderInfo& info)
     {
-        auto* camera = info.getCurrentCamera();
-        auto name = camera->getName();
     }
 
     void VRViewer::finalDrawCallback(osg::RenderInfo& info)
     {
-        auto* session = Environment::get().getSession();
-        auto* frameMeta = session->getFrame(VRSession::FramePhase::Draw).get();
-
-        if (frameMeta->mShouldSyncFrameLoop)
+        if(mDrawFrame.shouldRender)
         {
-            if (frameMeta->mShouldRender)
-            {
-                blit(info);
-            }
+            blit(info);
         }
     }
 
     void VRViewer::swapBuffersCallback(osg::GraphicsContext* gc)
     {
         auto* session = Environment::get().getSession();
-        session->swapBuffers(gc, *this);
         mRenderingReady = false;
+
+        session->frameEnd(gc, *this, mDrawFrame);
     }
 
     void VRViewer::updateView(Misc::View& left, Misc::View& right)
     {
-        auto phase = VRSession::FramePhase::Update;
+        auto xr = Environment::get().getManager();
         auto session = Environment::get().getSession();
 
-        std::array<View, 2> views;
-        MWVR::Environment::get().getTrackingManager()->updateTracking();
+        auto frame = session->newFrame();
+        session->frameBeginUpdate(frame);
 
-        auto& frame = session->getFrame(phase);
-        if (frame->mShouldRender)
+        MWVR::Environment::get().getTrackingManager()->updateTracking(frame.runtimePredictedDisplayTime);
+
+        auto stageViews = xr->impl().getPredictedViews(frame.runtimePredictedDisplayTime, ReferenceSpace::STAGE);
+        auto views = xr->impl().getPredictedViews(frame.runtimePredictedDisplayTime, ReferenceSpace::VIEW);
+
+        if (frame.shouldRender)
         {
-            left = frame->mViews[(int)ReferenceSpace::VIEW][(int)Side::LEFT_SIDE];
+            left = views[(int)Side::LEFT_SIDE];
             left.pose.position *= Constants::UnitsPerMeter * session->playerScale();
-            right = frame->mViews[(int)ReferenceSpace::VIEW][(int)Side::RIGHT_SIDE];
+            right = views[(int)Side::RIGHT_SIDE];
             right.pose.position *= Constants::UnitsPerMeter * session->playerScale();
+
+            std::shared_ptr<VR::ProjectionLayer> layer = std::make_shared<VR::ProjectionLayer>();
+            for (uint32_t i = 0; i < 2; i++)
+            {
+                layer->views[i].colorSwapchain = mColorSwapchain[i];
+                layer->views[i].depthSwapchain = mDepthSwapchain[i];
+                layer->views[i].subImage.width = mColorSwapchain[i]->width();
+                layer->views[i].subImage.height = mColorSwapchain[i]->height();
+                layer->views[i].subImage.x = 0;
+                layer->views[i].subImage.y = 0;
+                layer->views[i].view = stageViews[i];
+            }
+            frame.layers.push_back(layer);
         }
+
+        std::unique_lock<std::mutex> lock(mMutex);
+        mReadyFrames.push(frame);
     }
 
     void VRViewer::UpdateViewCallback::updateView(Misc::View& left, Misc::View& right)

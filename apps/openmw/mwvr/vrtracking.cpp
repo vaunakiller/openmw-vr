@@ -162,13 +162,13 @@ namespace MWVR
                 it = mSources.erase(it);
     }
 
-    void VRTrackingManager::updateTracking()
+    void VRTrackingManager::updateTracking(DisplayTime predictedDisplayTime)
     {
         // TODO: endFrame() call here should be moved into beginFrame()
-        MWVR::Environment::get().getSession()->endFrame();
-        MWVR::Environment::get().getSession()->beginFrame();
-        auto& frame = Environment::get().getSession()->getFrame(VRSession::FramePhase::Update);
-        auto predictedDisplayTime = frame->mFrameInfo.runtimePredictedDisplayTime;
+        //MWVR::Environment::get().getSession()->endFrame();
+        //MWVR::Environment::get().getSession()->beginFrame();
+        //auto& frame = Environment::get().getSession()->getFrame(VRSession::FramePhase::Update);
+        //auto predictedDisplayTime = frame->mFrameInfo.runtimePredictedDisplayTime;
         if (predictedDisplayTime == 0)
             return;
 

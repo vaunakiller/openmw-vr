@@ -11,6 +11,7 @@
 #include <components/debug/debuglog.hpp>
 #include <components/sdlutil/sdlgraphicswindow.hpp>
 #include <components/settings/settings.hpp>
+#include <components/vr/frame.hpp>
 #include "openxrmanager.hpp"
 #include "vrviewer.hpp"
 
@@ -29,38 +30,10 @@ namespace MWVR
         using clock = std::chrono::steady_clock;
         using time_point = clock::time_point;
 
-        //! Describes different phases of updating/rendering each frame.
-        //! While two phases suffice for disambiguating current and next frame,
-        //! greater granularity allows better control of synchronization
-        //! with the VR runtime.
-        enum class FramePhase
-        {
-            Update = 0, //!< The frame currently in update traversals
-            Draw, //!< The frame currently in draw
-            NumPhases
-        };
-
-        struct VRFrameMeta
-        {
-            
-            DisplayTime mFrameNo{ 0 };
-            std::array<View, 2> mViews[2]{};
-            bool        mShouldRender{ false };
-            bool        mShouldSyncFrameLoop{ false };
-            FrameInfo   mFrameInfo{};
-        };
-
     public:
         VRSession();
         ~VRSession();
 
-        void swapBuffers(osg::GraphicsContext* gc, VRViewer& viewer);
-
-        //! Starts a new frame
-        void prepareFrame();
-
-        void beginPhase(FramePhase phase);
-        std::unique_ptr<VRFrameMeta>& getFrame(FramePhase phase);
         bool seatedPlay() const { return mSeatedPlay; }
 
         float playerScale() const { return mPlayerScale; }
@@ -69,20 +42,17 @@ namespace MWVR
         float eyeLevel() const { return mEyeLevel; }
         void setEyeLevel(float eyeLevel) { mEyeLevel = eyeLevel; }
 
-        std::array<std::unique_ptr<VRFrameMeta>, (int)FramePhase::NumPhases> mFrame{ nullptr };
-
         void processChangedSettings(const std::set< std::pair<std::string, std::string> >& changed);
 
-        void beginFrame();
-        void endFrame();
+        VR::Frame newFrame();
+        void frameBeginUpdate(VR::Frame& frame);
+        void frameBeginRender(VR::Frame& frame);
+        void frameEnd(osg::GraphicsContext* gc, VRViewer& viewer, VR::Frame& frame);
 
     protected:
         void setSeatedPlay(bool seatedPlay);
 
     private:
-        std::mutex mMutex{};
-        std::condition_variable mCondition{};
-
         bool mSeatedPlay{ false };
         long long mFrames{ 0 };
         long long mLastRenderedFrame{ 0 };

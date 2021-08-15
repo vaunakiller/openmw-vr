@@ -2,7 +2,6 @@
 #include "openxrdebug.hpp"
 #include "openxrplatform.hpp"
 #include "openxrswapchain.hpp"
-#include "openxrswapchainimpl.hpp"
 #include "openxrtypeconversions.hpp"
 #include "vrenvironment.hpp"
 #include "vrinputmanager.hpp"
@@ -10,6 +9,8 @@
 #include <components/debug/debuglog.hpp>
 #include <components/sdlutil/sdlgraphicswindow.hpp>
 #include <components/esm/loadrace.hpp>
+#include <components/vr/directx.hpp>
+#include <components/vr/layer.hpp>
 
 #include "../mwmechanics/actorutil.hpp"
 
@@ -20,6 +21,13 @@
 #include "../mwworld/player.hpp"
 #include "../mwworld/esmstore.hpp"
 
+#include <Windows.h>
+#include <objbase.h>
+
+#include <d3d11.h>
+#include <dxgi1_2.h>
+
+#include <openxr/openxr_platform.h>
 #include <openxr/openxr_reflection.h>
 
 #include <osg/Camera>
@@ -27,6 +35,7 @@
 #include <vector>
 #include <array>
 #include <iostream>
+#include <stdexcept>
 
 #define ENUM_CASE_STR(name, val) case name: return #name;
 #define MAKE_TO_STRING_FUNC(enumType)                  \
@@ -290,40 +299,77 @@ namespace MWVR
     }
 
     void
-        OpenXRManagerImpl::endFrame(FrameInfo frameInfo, const std::array<CompositionLayerProjectionView, 2>* layerStack)
+        OpenXRManagerImpl::endFrame(VR::Frame& frame)
     {
         std::array<XrCompositionLayerProjectionView, 2> compositionLayerProjectionViews{};
         XrCompositionLayerProjection layer{};
         auto* xrLayerStack = reinterpret_cast<XrCompositionLayerBaseHeader*>(&layer);
         std::array<XrCompositionLayerDepthInfoKHR, 2> compositionLayerDepth{};
         XrFrameEndInfo frameEndInfo{ XR_TYPE_FRAME_END_INFO };
-        frameEndInfo.displayTime = frameInfo.runtimePredictedDisplayTime;
+        frameEndInfo.displayTime = frame.runtimePredictedDisplayTime;
         frameEndInfo.environmentBlendMode = mEnvironmentBlendMode;
-        if (layerStack && frameInfo.runtimeRequestsRender)
+        if (frame.shouldRender && frame.layers.size() > 0)
         {
-            compositionLayerProjectionViews[(int)Side::LEFT_SIDE] = toXR((*layerStack)[(int)Side::LEFT_SIDE]);
-            compositionLayerProjectionViews[(int)Side::RIGHT_SIDE] = toXR((*layerStack)[(int)Side::RIGHT_SIDE]);
+            // For now, hardcode assumption that it's a projection layer
+            VR::ProjectionLayer* projectionLayer = static_cast<VR::ProjectionLayer*>(frame.layers[0].get());
+
+            //compositionLayerProjectionViews[(int)Side::LEFT_SIDE] = toXR(projectionLayer->mViews[(int)Side::LEFT_SIDE]);
+            //compositionLayerProjectionViews[(int)Side::RIGHT_SIDE] = toXR(projectionLayer->mViews[(int)Side::RIGHT_SIDE]);
             layer.type = XR_TYPE_COMPOSITION_LAYER_PROJECTION;
             layer.space = mReferenceSpaceStage;
             layer.viewCount = 2;
             layer.views = compositionLayerProjectionViews.data();
 
-            if (xrExtensionIsEnabled(XR_KHR_COMPOSITION_LAYER_DEPTH_EXTENSION_NAME))
+            //if (xrExtensionIsEnabled(XR_KHR_COMPOSITION_LAYER_DEPTH_EXTENSION_NAME))
+            //{
+            //    auto farClip = Settings::Manager::getFloat("viewing distance", "Camera");
+            //    // All values not set here are set previously as they are constant
+            //    compositionLayerDepth = mLayerDepth;
+            //    compositionLayerDepth[(int)Side::LEFT_SIDE].farZ = farClip;
+            //    compositionLayerDepth[(int)Side::RIGHT_SIDE].farZ = farClip;
+            //    compositionLayerDepth[(int)Side::LEFT_SIDE].subImage = toXR((*layerStack)[(int)Side::LEFT_SIDE].subImage, true);
+            //    compositionLayerDepth[(int)Side::RIGHT_SIDE].subImage = toXR((*layerStack)[(int)Side::RIGHT_SIDE].subImage, true);
+            //    if (compositionLayerDepth[(int)Side::LEFT_SIDE].subImage.swapchain != XR_NULL_HANDLE
+            //        && compositionLayerDepth[(int)Side::RIGHT_SIDE].subImage.swapchain != XR_NULL_HANDLE)
+            //    {
+            //        compositionLayerProjectionViews[(int)Side::LEFT_SIDE].next = &compositionLayerDepth[(int)Side::LEFT_SIDE];
+            //        compositionLayerProjectionViews[(int)Side::RIGHT_SIDE].next = &compositionLayerDepth[(int)Side::RIGHT_SIDE];
+            //    }
+            //}
+
+            bool includeDepth = xrExtensionIsEnabled(XR_KHR_COMPOSITION_LAYER_DEPTH_EXTENSION_NAME);
+            auto farClip = Settings::Manager::getFloat("viewing distance", "Camera");
+
+            for (uint32_t i = 0; i < 2; i++)
             {
-                auto farClip = Settings::Manager::getFloat("viewing distance", "Camera");
-                // All values not set here are set previously as they are constant
-                compositionLayerDepth = mLayerDepth;
-                compositionLayerDepth[(int)Side::LEFT_SIDE].farZ = farClip;
-                compositionLayerDepth[(int)Side::RIGHT_SIDE].farZ = farClip;
-                compositionLayerDepth[(int)Side::LEFT_SIDE].subImage = toXR((*layerStack)[(int)Side::LEFT_SIDE].subImage, true);
-                compositionLayerDepth[(int)Side::RIGHT_SIDE].subImage = toXR((*layerStack)[(int)Side::RIGHT_SIDE].subImage, true);
-                if (compositionLayerDepth[(int)Side::LEFT_SIDE].subImage.swapchain != XR_NULL_HANDLE
-                    && compositionLayerDepth[(int)Side::RIGHT_SIDE].subImage.swapchain != XR_NULL_HANDLE)
+                auto& xrView = compositionLayerProjectionViews[i];
+                auto& view = projectionLayer->views[i];
+                xrView.type = XR_TYPE_COMPOSITION_LAYER_PROJECTION_VIEW;
+                xrView.fov = toXR(view.view.fov);
+                xrView.pose = toXR(view.view.pose);
+                xrView.subImage.imageArrayIndex = 0;
+                xrView.subImage.imageRect.extent.width = view.subImage.width;
+                xrView.subImage.imageRect.extent.height = view.subImage.height;
+                xrView.subImage.imageRect.offset.x = view.subImage.x;
+                xrView.subImage.imageRect.offset.y = view.subImage.y;
+                xrView.subImage.swapchain = static_cast<XrSwapchain>(view.colorSwapchain->handle());
+
+                if (includeDepth && view.depthSwapchain)
                 {
-                    compositionLayerProjectionViews[(int)Side::LEFT_SIDE].next = &compositionLayerDepth[(int)Side::LEFT_SIDE];
-                    compositionLayerProjectionViews[(int)Side::RIGHT_SIDE].next = &compositionLayerDepth[(int)Side::RIGHT_SIDE];
+                    auto& xrDepth = compositionLayerDepth[i];
+                    xrDepth.minDepth = mLayerDepth[i].minDepth;
+                    xrDepth.maxDepth = mLayerDepth[i].maxDepth;
+                    xrDepth.nearZ = mLayerDepth[i].nearZ;
+                    xrDepth.farZ = farClip;
+                    xrDepth.subImage.imageArrayIndex = 0;
+                    xrDepth.subImage.imageRect.extent.width = view.subImage.width;
+                    xrDepth.subImage.imageRect.extent.height = view.subImage.height;
+                    xrDepth.subImage.imageRect.offset.x = view.subImage.x;
+                    xrDepth.subImage.imageRect.offset.y = view.subImage.y;
+                    xrDepth.subImage.swapchain = static_cast<XrSwapchain>(view.depthSwapchain->handle());
                 }
             }
+
             frameEndInfo.layerCount = 1;
             frameEndInfo.layers = &xrLayerStack;
         }
@@ -641,6 +687,127 @@ namespace MWVR
         auto worldUserHeadPath = trackingManager->stringToVRPath("/world/user/head/input/pose");
         mTrackerToWorldBinding.reset(new VRStageToWorldBinding(worldUserPath, mTracker, stageUserHeadPath));
         mTrackerToWorldBinding->bindPaths(worldUserHeadPath, stageUserHeadPath);
+    }
+
+    std::vector<uint64_t>
+        enumerateSwapchainImagesOpenGL(XrSwapchain swapchain)
+    {
+        uint32_t imageCount = 0;
+        std::vector<uint64_t> images;
+        std::vector<XrSwapchainImageOpenGLKHR> xrimages;
+        CHECK_XRCMD(xrEnumerateSwapchainImages(swapchain, 0, &imageCount, nullptr));
+        xrimages.resize(imageCount, { XR_TYPE_SWAPCHAIN_IMAGE_OPENGL_KHR });
+        CHECK_XRCMD(xrEnumerateSwapchainImages(swapchain, imageCount, &imageCount, reinterpret_cast<XrSwapchainImageBaseHeader*>(xrimages.data())));
+
+        for (auto& image : xrimages)
+        {
+            images.push_back(image.image);
+        }
+
+        return images;
+    }
+
+    std::vector<uint64_t>
+        enumerateSwapchainImagesDirectX(XrSwapchain swapchain)
+    {
+        uint32_t imageCount = 0;
+        std::vector<uint64_t> images;
+        std::vector<XrSwapchainImageD3D11KHR> xrimages;
+        CHECK_XRCMD(xrEnumerateSwapchainImages(swapchain, 0, &imageCount, nullptr));
+        xrimages.resize(imageCount, { XR_TYPE_SWAPCHAIN_IMAGE_D3D11_KHR});
+        CHECK_XRCMD(xrEnumerateSwapchainImages(swapchain, imageCount, &imageCount, reinterpret_cast<XrSwapchainImageBaseHeader*>(xrimages.data())));
+
+        for (auto& image : xrimages)
+        {
+            images.push_back(reinterpret_cast<uint64_t>(image.texture));
+        }
+
+        return images;
+    }
+
+    VR::Swapchain* OpenXRManagerImpl::createSwapchain(uint32_t width, uint32_t height, uint32_t samples, SwapchainUse use, const std::string& name)
+    {
+        auto* xr = Environment::get().getManager();
+        std::string typeString = use == SwapchainUse::Color ? "color" : "depth";
+
+        XrSwapchainCreateInfo swapchainCreateInfo{ XR_TYPE_SWAPCHAIN_CREATE_INFO };
+        swapchainCreateInfo.arraySize = 1;
+        swapchainCreateInfo.width = width;
+        swapchainCreateInfo.height = height;
+        swapchainCreateInfo.mipCount = 1;
+        swapchainCreateInfo.faceCount = 1;
+        if (use == SwapchainUse::Color)
+            swapchainCreateInfo.usageFlags = XR_SWAPCHAIN_USAGE_COLOR_ATTACHMENT_BIT;
+        else
+            swapchainCreateInfo.usageFlags = XR_SWAPCHAIN_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT;
+
+        XrSwapchain swapchain = XR_NULL_HANDLE;
+        int format = 0;
+
+        while (samples > 0 && swapchain == XR_NULL_HANDLE && format == 0)
+        {
+            // Select a swapchain format.
+            if (use == SwapchainUse::Color)
+                format = xr->selectColorFormat();
+            else
+                format = xr->selectDepthFormat();
+            if (format == 0) {
+                throw std::runtime_error(std::string("Swapchain ") + typeString + " format not supported");
+            }
+            Log(Debug::Verbose) << "Selected " << typeString << " format: " << std::dec << format << " (" << std::hex << format << ")" << std::dec;
+
+            // Now create the swapchain
+            Log(Debug::Verbose) << "Creating swapchain with dimensions Width=" << width << " Heigh=" << height << " SampleCount=" << samples;
+            swapchainCreateInfo.format = format;
+            swapchainCreateInfo.sampleCount = samples;
+            auto res = xrCreateSwapchain(xr->impl().xrSession(), &swapchainCreateInfo, &swapchain);
+
+            // Check errors and try again if possible
+            if (res == XR_ERROR_SWAPCHAIN_FORMAT_UNSUPPORTED)
+            {
+                // We only try swapchain formats enumerated by the runtime itself.
+                // This does not guarantee that that swapchain format is going to be supported for this specific usage.
+                Log(Debug::Verbose) << "Failed to create swapchain with Format=" << format << ": " << XrResultString(res);
+                xr->eraseFormat(format);
+                format = 0;
+                continue;
+            }
+            else if (!XR_SUCCEEDED(res))
+            {
+                Log(Debug::Verbose) << "Failed to create swapchain with SampleCount=" << samples << ": " << XrResultString(res);
+                samples /= 2;
+                if (samples == 0)
+                {
+                    CHECK_XRRESULT(res, "xrCreateSwapchain");
+                    throw std::runtime_error(XrResultString(res));
+                }
+                continue;
+            }
+
+            CHECK_XRRESULT(res, "xrCreateSwapchain");
+            if (use == SwapchainUse::Color)
+                VrDebug::setName(swapchain, "OpenMW XR Color Swapchain " + name);
+            else
+                VrDebug::setName(swapchain, "OpenMW XR Depth Swapchain " + name);
+
+            if (xrExtensionIsEnabled(XR_KHR_D3D11_ENABLE_EXTENSION_NAME))
+            {
+                auto images = enumerateSwapchainImagesDirectX(swapchain);
+                return new VR::DirectXSwapchain(std::make_shared<OpenXRSwapchain>(swapchain, images, width, height, samples, format), mPlatform.dxInterop());
+            }
+            else if (xrExtensionIsEnabled(XR_KHR_OPENGL_ENABLE_EXTENSION_NAME))
+            {
+                auto images = enumerateSwapchainImagesOpenGL(swapchain);
+                return new OpenXRSwapchain(swapchain, images, width, height, samples, format);
+            }
+            else
+            {
+                throw std::logic_error("Not implemented");
+            }
+        }
+
+        // Never actually reached
+        return nullptr;
     }
 
     void OpenXRManagerImpl::enablePredictions()

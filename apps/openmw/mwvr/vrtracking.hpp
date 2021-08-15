@@ -189,7 +189,7 @@ namespace MWVR
         //! Angles to be used for overriding movement direction
         //void movementAngles(float& yaw, float& pitch);
 
-        void updateTracking();
+        void updateTracking(DisplayTime predictedDisplayTime);
 
         //! Bind listener to source, listener will receive tracking updates from source until unbound.
         //! \note A single listener can only receive tracking updates from one source.

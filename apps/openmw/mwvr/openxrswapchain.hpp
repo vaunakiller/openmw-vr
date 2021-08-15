@@ -3,6 +3,9 @@
 
 #include "openxrmanager.hpp"
 
+#include <components/vr/swapchain.hpp>
+#include <openxr/openxr.h>
+
 struct XrSwapchainSubImage;
 
 namespace MWVR
@@ -10,43 +13,35 @@ namespace MWVR
     class OpenXRSwapchainImpl;
     class VRFramebuffer;
 
-    /// \brief Creation and management of openxr swapchains
-    class OpenXRSwapchain
+    class OpenXRSwapchain : public VR::Swapchain
     {
     public:
-        OpenXRSwapchain(osg::ref_ptr<osg::State> state, SwapchainConfig config);
-        ~OpenXRSwapchain();
+        OpenXRSwapchain(XrSwapchain swapchain, std::vector<uint64_t> images, uint32_t width, uint32_t height, uint32_t samples, uint32_t format);
+        ~OpenXRSwapchain() override;
 
-    public:
-        //! Prepare for render (set FBO)
-        void beginFrame(osg::GraphicsContext* gc);
-
-        //! Finalize render
-        void endFrame(osg::GraphicsContext* gc, VRFramebuffer& readBuffer);
-
-        //! Whether subchain is currently acquired (true) or released (false)
-        bool isAcquired() const;
-
-        //! Width of the view surface
-        int width() const;
-
-        //! Height of the view surface
-        int height() const;
-
-        //! Samples of the view surface
-        int samples() const;
-
-        //! Get the private implementation
-        OpenXRSwapchainImpl& impl() { return *mPrivate; }
-
-        //! Get the private implementation
-        const OpenXRSwapchainImpl& impl() const { return *mPrivate; }
+        XrSwapchain xrSwapchain() const { return mXrSwapchain; };
 
     protected:
-        OpenXRSwapchain(const OpenXRSwapchain&) = delete;
-        void operator=(const OpenXRSwapchain&) = delete;
+        //! Acquire a rendering surface from this swapchain
+        uint64_t beginFrame(osg::GraphicsContext* gc) override;
+
+        //! Release the rendering surface
+        void endFrame(osg::GraphicsContext* gc) override;
+
+        //! Return the xr swapchain
+        void* handle() const override { return mXrSwapchain; };
+
     private:
-        std::unique_ptr<OpenXRSwapchainImpl> mPrivate;
+        void acquire();
+        void wait();
+        void release();
+        bool isAcquired();
+
+        uint32_t mAcquiredIndex = 0;
+        bool mIsAcquired = false;
+        bool mIsReady = false;
+        XrSwapchain mXrSwapchain;
+        std::vector<uint64_t> mImages;
     };
 }
 

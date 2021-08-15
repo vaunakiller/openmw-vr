@@ -186,6 +186,25 @@ add_component_dir(detournavigator
     offmeshconnectionsmanager
     )
 
+if(BUILD_OPENMW_VR)
+    add_component_dir(vr
+        actionmanager
+        actionset
+        directx
+        frame
+        layer
+        session
+        space
+        swapchain
+        trackinglistener
+        trackingmanager
+        trackingpath
+        trackingsource
+        view
+        viewer
+    )
+endif()
+
 set (ESM_UI ${CMAKE_SOURCE_DIR}/files/ui/contentselector.ui
     )
 

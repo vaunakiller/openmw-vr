@@ -10,6 +10,7 @@
 #include <components/debug/debuglog.hpp>
 #include <components/sdlutil/sdlgraphicswindow.hpp>
 #include <components/settings/settings.hpp>
+#include <components/vr/frame.hpp>
 #include <osg/Camera>
 #include <osgViewer/Viewer>
 #include "vrtypes.hpp"
@@ -51,7 +52,7 @@ namespace MWVR
         void beginFrame();
 
         //! Forward call to xrEndFrame()
-        void endFrame(FrameInfo frameInfo, const std::array<CompositionLayerProjectionView, 2>* layerStack);
+        void endFrame(VR::Frame& frame);
 
         //! Whether the app should call the openxr frame sync functions ( xr*Frame() )
         bool appShouldSyncFrameLoop() const;

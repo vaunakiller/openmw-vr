@@ -93,9 +93,9 @@ namespace MWVR
 
         auto* xr = Environment::get().getManager();
         auto* session = Environment::get().getSession();
-        auto& frame = session->getFrame(VRSession::FramePhase::Update);
-        frame->mViews[(int)ReferenceSpace::STAGE] = locateViews(predictedDisplayTime, xr->impl().getReferenceSpace(ReferenceSpace::STAGE));
-        frame->mViews[(int)ReferenceSpace::VIEW] = locateViews(predictedDisplayTime, xr->impl().getReferenceSpace(ReferenceSpace::VIEW));
+        //auto& frame = session->getFrame(VRSession::FramePhase::Update);
+        //frame->mViews[(int)ReferenceSpace::STAGE] = locateViews(predictedDisplayTime, xr->impl().getReferenceSpace(ReferenceSpace::STAGE));
+        //frame->mViews[(int)ReferenceSpace::VIEW] = locateViews(predictedDisplayTime, xr->impl().getReferenceSpace(ReferenceSpace::VIEW));
     }
 
     VRTrackingPose OpenXRTracker::locate(VRPath path, DisplayTime predictedDisplayTime)

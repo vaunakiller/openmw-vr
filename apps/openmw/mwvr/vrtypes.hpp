@@ -8,6 +8,7 @@
 #include <components/sdlutil/sdlgraphicswindow.hpp>
 #include <components/settings/settings.hpp>
 #include <components/misc/stereo.hpp>
+#include <components/vr/swapchain.hpp>
 #include <osg/Camera>
 #include <osgViewer/Viewer>
 
@@ -99,11 +100,12 @@ namespace MWVR
 
     struct SubImage
     {
-        class OpenXRSwapchain* swapchain;
-        int32_t x;
-        int32_t y;
-        int32_t width;
-        int32_t height;
+        VR::Swapchain* colorSwapchain = nullptr;
+        VR::Swapchain* depthSwapchain = nullptr;
+        int32_t x = 0;
+        int32_t y = 0;
+        int32_t width = 0;
+        int32_t height = 0;
     };
 
     struct CompositionLayerProjectionView
@@ -121,9 +123,6 @@ namespace MWVR
         int maxWidth = -1;
         int maxHeight = -1;
         int maxSamples = -1;
-        int selectedWidth = -1;
-        int selectedHeight = -1;
-        int selectedSamples = -1;
         int offsetWidth = 0;
         int offsetHeight = 0;
         std::string name = "";

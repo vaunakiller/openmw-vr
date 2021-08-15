@@ -97,78 +97,79 @@ namespace MWVR
         ~OpenXRPlatformPrivate();
 
 #ifdef XR_USE_GRAPHICS_API_D3D11
-        typedef BOOL(WINAPI* P_wglDXSetResourceShareHandleNV)(void* dxObject, HANDLE shareHandle);
-        typedef HANDLE(WINAPI* P_wglDXOpenDeviceNV)(void* dxDevice);
-        typedef BOOL(WINAPI* P_wglDXCloseDeviceNV)(HANDLE hDevice);
-        typedef HANDLE(WINAPI* P_wglDXRegisterObjectNV)(HANDLE hDevice, void* dxObject,
-            GLuint name, GLenum type, GLenum access);
-        typedef BOOL(WINAPI* P_wglDXUnregisterObjectNV)(HANDLE hDevice, HANDLE hObject);
-        typedef BOOL(WINAPI* P_wglDXObjectAccessNV)(HANDLE hObject, GLenum access);
-        typedef BOOL(WINAPI* P_wglDXLockObjectsNV)(HANDLE hDevice, GLint count, HANDLE* hObjects);
-        typedef BOOL(WINAPI* P_wglDXUnlockObjectsNV)(HANDLE hDevice, GLint count, HANDLE* hObjects);
-
-        void initializeD3D11(XrGraphicsRequirementsD3D11KHR requirements)
-        {
-            mD3D11Dll = LoadLibrary("D3D11.dll");
-
-            if (!mD3D11Dll)
-                throw std::runtime_error("Current OpenXR runtime requires DirectX >= 11.0 but D3D11.dll was not found.");
-
-            pD3D11CreateDevice = reinterpret_cast<PFN_D3D11_CREATE_DEVICE>(GetProcAddress(mD3D11Dll, "D3D11CreateDevice"));
-
-            if (!pD3D11CreateDevice)
-                throw std::runtime_error("Symbol 'D3D11CreateDevice' not found in D3D11.dll");
-
-            // Create the device and device context objects
-            pD3D11CreateDevice(
-                nullptr,
-                D3D_DRIVER_TYPE_HARDWARE,
-                nullptr,
-                0,
-                nullptr,
-                0,
-                D3D11_SDK_VERSION,
-                &mD3D11Device,
-                nullptr,
-                &mD3D11ImmediateContext);
-
-            mD3D11bindings.device = mD3D11Device;
-
-            //typedef HANDLE (WINAPI* P_wglDXOpenDeviceNV)(void* dxDevice);
-            //P_wglDXOpenDeviceNV wglDXOpenDeviceNV = reinterpret_cast<P_wglDXOpenDeviceNV>(wglGetProcAddress("wglDXOpenDeviceNV"));
-            //P_wglDXOpenDeviceNV wglDXOpenDeviceNV = reinterpret_cast<P_wglDXOpenDeviceNV>(wglGetProcAddress("wglDXOpenDeviceNV"));
-
-#define LOAD_WGL(a) a = reinterpret_cast<decltype(a)>(wglGetProcAddress(#a)); if(!a) throw std::runtime_error("Extension WGL_NV_DX_interop2 required to run OpenMW VR via DirectX missing expected symbol '" #a "'.")
-            LOAD_WGL(wglDXSetResourceShareHandleNV);
-            LOAD_WGL(wglDXOpenDeviceNV);
-            LOAD_WGL(wglDXCloseDeviceNV);
-            LOAD_WGL(wglDXRegisterObjectNV);
-            LOAD_WGL(wglDXUnregisterObjectNV);
-            LOAD_WGL(wglDXObjectAccessNV);
-            LOAD_WGL(wglDXLockObjectsNV);
-            LOAD_WGL(wglDXUnlockObjectsNV);
-#undef LOAD_WGL
-
-            wglDXDevice = wglDXOpenDeviceNV(mD3D11Device);
-        }
+//        typedef BOOL(WINAPI* P_wglDXSetResourceShareHandleNV)(void* dxObject, HANDLE shareHandle);
+//        typedef HANDLE(WINAPI* P_wglDXOpenDeviceNV)(void* dxDevice);
+//        typedef BOOL(WINAPI* P_wglDXCloseDeviceNV)(HANDLE hDevice);
+//        typedef HANDLE(WINAPI* P_wglDXRegisterObjectNV)(HANDLE hDevice, void* dxObject,
+//            GLuint name, GLenum type, GLenum access);
+//        typedef BOOL(WINAPI* P_wglDXUnregisterObjectNV)(HANDLE hDevice, HANDLE hObject);
+//        typedef BOOL(WINAPI* P_wglDXObjectAccessNV)(HANDLE hObject, GLenum access);
+//        typedef BOOL(WINAPI* P_wglDXLockObjectsNV)(HANDLE hDevice, GLint count, HANDLE* hObjects);
+//        typedef BOOL(WINAPI* P_wglDXUnlockObjectsNV)(HANDLE hDevice, GLint count, HANDLE* hObjects);
+//
+//        void initializeD3D11(XrGraphicsRequirementsD3D11KHR requirements)
+//        {
+//            mD3D11Dll = LoadLibrary("D3D11.dll");
+//
+//            if (!mD3D11Dll)
+//                throw std::runtime_error("Current OpenXR runtime requires DirectX >= 11.0 but D3D11.dll was not found.");
+//
+//            pD3D11CreateDevice = reinterpret_cast<PFN_D3D11_CREATE_DEVICE>(GetProcAddress(mD3D11Dll, "D3D11CreateDevice"));
+//
+//            if (!pD3D11CreateDevice)
+//                throw std::runtime_error("Symbol 'D3D11CreateDevice' not found in D3D11.dll");
+//
+//            // Create the device and device context objects
+//            pD3D11CreateDevice(
+//                nullptr,
+//                D3D_DRIVER_TYPE_HARDWARE,
+//                nullptr,
+//                0,
+//                nullptr,
+//                0,
+//                D3D11_SDK_VERSION,
+//                &mD3D11Device,
+//                nullptr,
+//                &mD3D11ImmediateContext);
+//
+//            mD3D11bindings.device = mD3D11Device;
+//
+//            //typedef HANDLE (WINAPI* P_wglDXOpenDeviceNV)(void* dxDevice);
+//            //P_wglDXOpenDeviceNV wglDXOpenDeviceNV = reinterpret_cast<P_wglDXOpenDeviceNV>(wglGetProcAddress("wglDXOpenDeviceNV"));
+//            //P_wglDXOpenDeviceNV wglDXOpenDeviceNV = reinterpret_cast<P_wglDXOpenDeviceNV>(wglGetProcAddress("wglDXOpenDeviceNV"));
+//
+//#define LOAD_WGL(a) a = reinterpret_cast<decltype(a)>(wglGetProcAddress(#a)); if(!a) throw std::runtime_error("Extension WGL_NV_DX_interop2 required to run OpenMW VR via DirectX missing expected symbol '" #a "'.")
+//            LOAD_WGL(wglDXSetResourceShareHandleNV);
+//            LOAD_WGL(wglDXOpenDeviceNV);
+//            LOAD_WGL(wglDXCloseDeviceNV);
+//            LOAD_WGL(wglDXRegisterObjectNV);
+//            LOAD_WGL(wglDXUnregisterObjectNV);
+//            LOAD_WGL(wglDXObjectAccessNV);
+//            LOAD_WGL(wglDXLockObjectsNV);
+//            LOAD_WGL(wglDXUnlockObjectsNV);
+//#undef LOAD_WGL
+//
+//            wglDXDevice = wglDXOpenDeviceNV(mD3D11Device);
+//        }
+//
+//        XrGraphicsBindingD3D11KHR mD3D11bindings{ XR_TYPE_GRAPHICS_BINDING_D3D11_KHR };
+//        ID3D11Device* mD3D11Device = nullptr;
+//        ID3D11DeviceContext* mD3D11ImmediateContext = nullptr;
+//        HMODULE mD3D11Dll = nullptr;
+//        PFN_D3D11_CREATE_DEVICE pD3D11CreateDevice = nullptr;
+//
+//        P_wglDXSetResourceShareHandleNV wglDXSetResourceShareHandleNV = nullptr;
+//        P_wglDXOpenDeviceNV wglDXOpenDeviceNV = nullptr;
+//        P_wglDXCloseDeviceNV wglDXCloseDeviceNV = nullptr;
+//        P_wglDXRegisterObjectNV wglDXRegisterObjectNV = nullptr;
+//        P_wglDXUnregisterObjectNV wglDXUnregisterObjectNV = nullptr;
+//        P_wglDXObjectAccessNV wglDXObjectAccessNV = nullptr;
+//        P_wglDXLockObjectsNV wglDXLockObjectsNV = nullptr;
+//        P_wglDXUnlockObjectsNV wglDXUnlockObjectsNV = nullptr;
+//
+//        HANDLE wglDXDevice = nullptr;
 
         bool mWGL_NV_DX_interop2 = false;
-        XrGraphicsBindingD3D11KHR mD3D11bindings{ XR_TYPE_GRAPHICS_BINDING_D3D11_KHR };
-        ID3D11Device* mD3D11Device = nullptr;
-        ID3D11DeviceContext* mD3D11ImmediateContext = nullptr;
-        HMODULE mD3D11Dll = nullptr;
-        PFN_D3D11_CREATE_DEVICE pD3D11CreateDevice = nullptr;
-
-        P_wglDXSetResourceShareHandleNV wglDXSetResourceShareHandleNV = nullptr;
-        P_wglDXOpenDeviceNV wglDXOpenDeviceNV = nullptr;
-        P_wglDXCloseDeviceNV wglDXCloseDeviceNV = nullptr;
-        P_wglDXRegisterObjectNV wglDXRegisterObjectNV = nullptr;
-        P_wglDXUnregisterObjectNV wglDXUnregisterObjectNV = nullptr;
-        P_wglDXObjectAccessNV wglDXObjectAccessNV = nullptr;
-        P_wglDXLockObjectsNV wglDXLockObjectsNV = nullptr;
-        P_wglDXUnlockObjectsNV wglDXUnlockObjectsNV = nullptr;
-
-        HANDLE wglDXDevice = nullptr;
 #endif
     };
 
@@ -192,14 +193,14 @@ namespace MWVR
     OpenXRPlatformPrivate::~OpenXRPlatformPrivate()
     {
 #ifdef XR_USE_GRAPHICS_API_D3D11
-        if (wglDXDevice)
-            wglDXCloseDeviceNV(wglDXDevice);
-        if (mD3D11ImmediateContext)
-            mD3D11ImmediateContext->Release();
-        if (mD3D11Device)
-            mD3D11Device->Release();
-        if (mD3D11Dll)
-            FreeLibrary(mD3D11Dll);
+        //if (wglDXDevice)
+        //    wglDXCloseDeviceNV(wglDXDevice);
+        //if (mD3D11ImmediateContext)
+        //    mD3D11ImmediateContext->Release();
+        //if (mD3D11Device)
+        //    mD3D11Device->Release();
+        //if (mD3D11Dll)
+        //    FreeLibrary(mD3D11Dll);
 #endif
     }
 
@@ -458,14 +459,16 @@ namespace MWVR
 #ifdef XR_USE_GRAPHICS_API_D3D11
         else if(graphicsAPIExtension == XR_KHR_D3D11_ENABLE_EXTENSION_NAME)
         {
+            mDxInterop = std::make_shared<VR::DirectXWGLInterop>();
             PFN_xrGetD3D11GraphicsRequirementsKHR p_getRequirements = nullptr;
             CHECK_XRCMD(xrGetInstanceProcAddr(instance, "xrGetD3D11GraphicsRequirementsKHR", reinterpret_cast<PFN_xrVoidFunction*>(&p_getRequirements)));
             XrGraphicsRequirementsD3D11KHR requirements{ XR_TYPE_GRAPHICS_REQUIREMENTS_D3D11_KHR };
             CHECK_XRCMD(p_getRequirements(instance, systemId, &requirements));
-            mPrivate->initializeD3D11(requirements);
 
+            XrGraphicsBindingD3D11KHR d3D11bindings{ XR_TYPE_GRAPHICS_BINDING_D3D11_KHR };
+            d3D11bindings.device = reinterpret_cast<ID3D11Device*>(mDxInterop->d3d11DeviceHandle());
             XrSessionCreateInfo createInfo{ XR_TYPE_SESSION_CREATE_INFO };
-            createInfo.next = &mPrivate->mD3D11bindings;
+            createInfo.next = &d3D11bindings;
             createInfo.systemId = systemId;
             res = CHECK_XRCMD(xrCreateSession(instance, &createInfo, &session));
         }
@@ -661,36 +664,36 @@ namespace MWVR
         }
         return *it;
     }
-    void* OpenXRPlatform::DXRegisterObject(void* dxResource, uint32_t glName, uint32_t glType, bool discard, void* ntShareHandle)
-    {
-#ifdef XR_USE_GRAPHICS_API_D3D11
-        if (ntShareHandle)
-        {
-            mPrivate->wglDXSetResourceShareHandleNV(dxResource, ntShareHandle);
-        }
-        return mPrivate->wglDXRegisterObjectNV(mPrivate->wglDXDevice, dxResource, glName, glType, 1);
-#else
-        return nullptr;
-#endif
-    }
-    void OpenXRPlatform::DXUnregisterObject(void* dxResourceShareHandle)
-    {
-#ifdef XR_USE_GRAPHICS_API_D3D11
-        mPrivate->wglDXUnregisterObjectNV(mPrivate->wglDXDevice, dxResourceShareHandle);
-#endif
-    }
-    void OpenXRPlatform::DXLockObject(void* dxResourceShareHandle)
-    {
-#ifdef XR_USE_GRAPHICS_API_D3D11
-        mPrivate->wglDXLockObjectsNV(mPrivate->wglDXDevice, 1, &dxResourceShareHandle);
-#endif
-    }
-    void OpenXRPlatform::DXUnlockObject(void* dxResourceShareHandle)
-    {
-#ifdef XR_USE_GRAPHICS_API_D3D11
-        mPrivate->wglDXUnlockObjectsNV(mPrivate->wglDXDevice, 1, &dxResourceShareHandle);
-#endif
-    }
+//    void* OpenXRPlatform::DXRegisterObject(void* dxResource, uint32_t glName, uint32_t glType, bool discard, void* ntShareHandle)
+//    {
+//#ifdef XR_USE_GRAPHICS_API_D3D11
+//        if (ntShareHandle)
+//        {
+//            mPrivate->wglDXSetResourceShareHandleNV(dxResource, ntShareHandle);
+//        }
+//        return mPrivate->wglDXRegisterObjectNV(mPrivate->wglDXDevice, dxResource, glName, glType, 1);
+//#else
+//        return nullptr;
+//#endif
+//    }
+//    void OpenXRPlatform::DXUnregisterObject(void* dxResourceShareHandle)
+//    {
+//#ifdef XR_USE_GRAPHICS_API_D3D11
+//        mPrivate->wglDXUnregisterObjectNV(mPrivate->wglDXDevice, dxResourceShareHandle);
+//#endif
+//    }
+//    void OpenXRPlatform::DXLockObject(void* dxResourceShareHandle)
+//    {
+//#ifdef XR_USE_GRAPHICS_API_D3D11
+//        mPrivate->wglDXLockObjectsNV(mPrivate->wglDXDevice, 1, &dxResourceShareHandle);
+//#endif
+//    }
+//    void OpenXRPlatform::DXUnlockObject(void* dxResourceShareHandle)
+//    {
+//#ifdef XR_USE_GRAPHICS_API_D3D11
+//        mPrivate->wglDXUnlockObjectsNV(mPrivate->wglDXDevice, 1, &dxResourceShareHandle);
+//#endif
+//    }
 
     static XrInstanceProperties
         getInstanceProperties(XrInstance instance)
@@ -742,5 +745,9 @@ namespace MWVR
             ss << "Cause: Unknown. Make sure your device is plugged in and ready." << std::endl;
         }
         throw std::runtime_error(ss.str());
+    }
+    std::shared_ptr<VR::DirectXWGLInterop> OpenXRPlatform::dxInterop()
+    {
+        return mDxInterop;
     }
 }

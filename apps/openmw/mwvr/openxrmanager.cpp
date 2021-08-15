@@ -42,9 +42,9 @@ namespace MWVR
         return impl().beginFrame();
     }
 
-    void OpenXRManager::endFrame(FrameInfo frameInfo, const std::array<CompositionLayerProjectionView, 2>* layerStack)
+    void OpenXRManager::endFrame(VR::Frame& frame)
     {
-        return impl().endFrame(frameInfo, layerStack);
+        return impl().endFrame(frame);
     }
 
     bool OpenXRManager::appShouldSyncFrameLoop() const

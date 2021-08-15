@@ -4,6 +4,7 @@
 #include <memory>
 #include <array>
 #include <map>
+#include <queue>
 
 #include <osg/Group>
 #include <osg/Camera>
@@ -13,6 +14,7 @@
 
 #include <components/sceneutil/positionattitudetransform.hpp>
 #include <components/misc/stereo.hpp>
+#include <components/vr/frame.hpp>
 
 namespace MWVR
 {
@@ -132,6 +134,8 @@ namespace MWVR
         bool xrConfigured() { return mOpenXRConfigured; };
         bool callbacksConfigured() { return mCallbacksConfigured; };
 
+        void blit(osg::State* state, VRFramebuffer* src, uint32_t target, uint32_t src_x, uint32_t src_y, uint32_t w, uint32_t h, uint32_t bits, bool flipVertical);
+
     private:
         std::mutex mMutex{};
         bool mOpenXRConfigured{ false };
@@ -154,9 +158,15 @@ namespace MWVR
         std::unique_ptr<VRFramebuffer> mFramebuffer;
         std::unique_ptr<VRFramebuffer> mMsaaResolveTexture;
         std::unique_ptr<VRFramebuffer> mGammaResolveTexture;
-        std::array<std::unique_ptr<OpenXRSwapchain>, 2> mSwapchain;
+        std::array<std::shared_ptr<VR::Swapchain>, 2> mColorSwapchain;
+        std::array<std::shared_ptr<VR::Swapchain>, 2> mDepthSwapchain;
         std::array<SubImage, 2> mSubImages;
         std::array<SwapchainConfig, 2> mSwapchainConfig;
+
+        std::map<uint32_t, std::unique_ptr<VRFramebuffer> > mSwapchainFramebuffers;
+
+        std::queue<VR::Frame> mReadyFrames;
+        VR::Frame mDrawFrame;
     };
 }
 

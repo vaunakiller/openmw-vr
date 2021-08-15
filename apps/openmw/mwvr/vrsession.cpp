@@ -47,23 +47,45 @@ namespace MWVR
         setSeatedPlay(Settings::Manager::getBool("seated play", "VR"));
     }
 
-    void VRSession::beginFrame()
+    VR::Frame VRSession::newFrame()
     {
-        // Viewer traversals are sometimes entered without first updating the input manager.
-        if (getFrame(FramePhase::Update) == nullptr)
-        {
-            beginPhase(FramePhase::Update);
-        }
-
+        static uint64_t frameNo = 0;
+        VR::Frame frame;
+        frame.frameNumber = frameNo++;
+        return frame;
     }
 
-    void VRSession::endFrame()
+    void VRSession::frameBeginUpdate(VR::Frame& frame)
     {
-        // Make sure we don't continue until the render thread has moved the current update frame to its next phase.
-        std::unique_lock<std::mutex> lock(mMutex);
-        while (getFrame(FramePhase::Update))
+        mFrames++;
+
+        auto* xr = Environment::get().getManager();
+        xr->handleEvents();
+
+        frame.shouldSyncFrameLoop = xr->appShouldSyncFrameLoop();
+        if (frame.shouldSyncFrameLoop)
         {
-            mCondition.wait(lock);
+            auto info = xr->waitFrame();
+            frame.runtimePredictedDisplayTime = info.runtimePredictedDisplayTime;
+            frame.runtimePredictedDisplayPeriod = info.runtimePredictedDisplayPeriod;
+            frame.shouldRender = info.runtimeRequestsRender;
+        }
+    }
+
+    void VRSession::frameBeginRender(VR::Frame& frame)
+    {
+        if(frame.shouldSyncFrameLoop)
+            Environment::get().getManager()->beginFrame();
+    }
+
+    void VRSession::frameEnd(osg::GraphicsContext* gc, VRViewer& viewer, VR::Frame& frame)
+    {
+        auto* xr = Environment::get().getManager();
+
+        gc->swapBuffersImplementation();
+        if (frame.shouldSyncFrameLoop)
+        {
+            xr->endFrame(frame);
         }
     }
 
@@ -73,120 +95,6 @@ namespace MWVR
         if (mSeatedPlay != seatedPlay)
         {
             Environment::get().getInputManager()->requestRecenter(true);
-        }
-    }
-
-    static void swapConvention(osg::Vec3& v3)
-    {
-
-        float y = v3.y();
-        float z = v3.z();
-        v3.y() = z;
-        v3.z() = -y;
-    }
-
-    static void swapConvention(osg::Quat& q)
-    {
-        float y = q.y();
-        float z = q.z();
-        q.y() = z;
-        q.z() = -y;
-    }
-
-    void VRSession::swapBuffers(osg::GraphicsContext* gc, VRViewer& viewer)
-    {
-        auto* xr = Environment::get().getManager();
-
-        auto* frameMeta = getFrame(FramePhase::Draw).get();
-
-        if (frameMeta->mShouldSyncFrameLoop)
-        {
-            gc->swapBuffersImplementation();
-            if (frameMeta->mShouldRender)
-            {
-                std::array<CompositionLayerProjectionView, 2> layerStack{};
-                layerStack[(int)Side::LEFT_SIDE].subImage = viewer.subImage(Side::LEFT_SIDE);
-                layerStack[(int)Side::RIGHT_SIDE].subImage = viewer.subImage(Side::RIGHT_SIDE);
-                layerStack[(int)Side::LEFT_SIDE].pose = frameMeta->mViews[(int)ReferenceSpace::STAGE][(int)Side::LEFT_SIDE].pose;
-                layerStack[(int)Side::RIGHT_SIDE].pose = frameMeta->mViews[(int)ReferenceSpace::STAGE][(int)Side::RIGHT_SIDE].pose;
-                layerStack[(int)Side::LEFT_SIDE].fov = frameMeta->mViews[(int)ReferenceSpace::STAGE][(int)Side::LEFT_SIDE].fov;
-                layerStack[(int)Side::RIGHT_SIDE].fov = frameMeta->mViews[(int)ReferenceSpace::STAGE][(int)Side::RIGHT_SIDE].fov;
-                xr->endFrame(frameMeta->mFrameInfo, &layerStack);
-            }
-            else
-            {
-                xr->endFrame(frameMeta->mFrameInfo, nullptr);
-            }
-
-            xr->xrResourceReleased();
-        }
-
-        {
-            std::unique_lock<std::mutex> lock(mMutex);
-            mLastRenderedFrame = frameMeta->mFrameNo;
-            getFrame(FramePhase::Draw) = nullptr;
-        }
-
-        mCondition.notify_all();
-    }
-
-    void VRSession::beginPhase(FramePhase phase)
-    {
-        {
-            // TODO: Use a queue system
-            std::unique_lock<std::mutex> lock(mMutex);
-            while (getFrame(phase))
-            {
-                Log(Debug::Verbose) << "Warning: beginPhase called with a frame already in the target phase";
-                mCondition.wait(lock);
-            }
-        }
-
-        auto& frame = getFrame(phase);
-
-        if (phase == FramePhase::Update)
-        {
-            prepareFrame();
-        }
-        else
-        {
-            std::unique_lock<std::mutex> lock(mMutex);
-            frame = std::move(getFrame(FramePhase::Update));
-        }
-
-        mCondition.notify_all();
-
-        if (phase == FramePhase::Draw && frame->mShouldSyncFrameLoop)
-        {
-            Environment::get().getManager()->beginFrame();
-        }
-
-    }
-
-    std::unique_ptr<VRSession::VRFrameMeta>& VRSession::getFrame(FramePhase phase)
-    {
-        if ((unsigned int)phase >= mFrame.size())
-            throw std::logic_error("Invalid frame phase");
-        return mFrame[(int)phase];
-    }
-
-    void VRSession::prepareFrame()
-    {
-        mFrames++;
-
-        auto* xr = Environment::get().getManager();
-        xr->handleEvents();
-        auto& frame = getFrame(FramePhase::Update);
-        frame.reset(new VRFrameMeta);
-
-        frame->mFrameNo = mFrames;
-        frame->mShouldSyncFrameLoop = xr->appShouldSyncFrameLoop();
-        //frame->mShouldRender = xr->appShouldRender();
-        if (frame->mShouldSyncFrameLoop)
-        {
-            frame->mFrameInfo = xr->waitFrame();
-            frame->mShouldRender = frame->mFrameInfo.runtimeRequestsRender;
-            xr->xrResourceAcquired();
         }
     }
 
@@ -226,6 +134,5 @@ namespace MWVR
         pitch = angle_x;
         roll = angle_y;
     }
-
 }
 

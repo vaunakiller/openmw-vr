@@ -8,6 +8,8 @@
 
 #include <components/debug/debuglog.hpp>
 #include <components/sdlutil/sdlgraphicswindow.hpp>
+#include <components/vr/swapchain.hpp>
+#include <components/vr/directx.hpp>
 
 #include <openxr/openxr.h>
 
@@ -30,7 +32,7 @@ namespace MWVR
 
         FrameInfo waitFrame();
         void beginFrame();
-        void endFrame(FrameInfo frameInfo, const std::array<CompositionLayerProjectionView, 2>* layerStack);
+        void endFrame(VR::Frame& frame);
         bool appShouldSyncFrameLoop() const { return mAppShouldSyncFrameLoop; }
         bool appShouldRender() const { return mAppShouldRender; }
         bool appShouldReadInput() const { return mAppShouldReadInput; }
@@ -57,6 +59,13 @@ namespace MWVR
         OpenXRTracker& tracker() { return *mTracker; }
         void initTracker();
         VRStageToWorldBinding& stageToWorldBinding() { return *mTrackerToWorldBinding; }
+
+        enum class SwapchainUse
+        {
+            Color, 
+            Depth,
+        };
+        VR::Swapchain* createSwapchain(uint32_t width, uint32_t height, uint32_t samples, SwapchainUse use, const std::string& name);
 
     protected:
         void setupExtensionsAndLayers();
@@ -110,6 +119,7 @@ namespace MWVR
         std::queue<XrEventDataBuffer> mEventQueue;
 
         std::array<XrCompositionLayerDepthInfoKHR, 2> mLayerDepth;
+
     };
 }
 

@@ -1,7 +1,7 @@
 #include "openxrtypeconversions.hpp"
 #include "openxrswapchain.hpp"
-#include "openxrswapchainimpl.hpp"
 #include <iostream>
+#include <components/vr/layer.hpp>
 
 namespace MWVR
 {
@@ -45,32 +45,33 @@ namespace MWVR
         return XrFovf{ fov.angleLeft, fov.angleRight, fov.angleUp, fov.angleDown };
     }
 
-    XrCompositionLayerProjectionView toXR(MWVR::CompositionLayerProjectionView layer)
-    {
-        XrCompositionLayerProjectionView xrLayer;
-        xrLayer.type = XR_TYPE_COMPOSITION_LAYER_PROJECTION_VIEW;
-        xrLayer.subImage = toXR(layer.subImage, false);
-        xrLayer.pose = toXR(layer.pose);
-        xrLayer.fov = toXR(layer.fov);
-        xrLayer.next = nullptr;
+    //XrCompositionLayerProjectionView toXR(VR::ProjectionLayerView& layer)
+    //{
+    //    XrCompositionLayerProjectionView xrLayer;
+    //    xrLayer.type = XR_TYPE_COMPOSITION_LAYER_PROJECTION_VIEW;
+    //    xrLayer.subImage = toXR(layer.subImage, false);
+    //    xrLayer.pose = toXR(layer.pose);
+    //    xrLayer.fov = toXR(layer.fov);
+    //    xrLayer.next = nullptr;
 
-        return xrLayer;
-    }
+    //    return xrLayer;
+    //}
 
-    XrSwapchainSubImage toXR(MWVR::SubImage subImage, bool depthImage)
-    {
-        XrSwapchainSubImage xrSubImage{};
-        if (depthImage)
-            xrSubImage.swapchain = subImage.swapchain->impl().xrSwapchainDepth();
-        else
-            xrSubImage.swapchain = subImage.swapchain->impl().xrSwapchain();
-        xrSubImage.imageRect.extent.width = subImage.width;
-        xrSubImage.imageRect.extent.height = subImage.height;
-        xrSubImage.imageRect.offset.x = subImage.x;
-        xrSubImage.imageRect.offset.y = subImage.y;
-        xrSubImage.imageArrayIndex = 0;
-        return xrSubImage;
-    }
+    //XrSwapchainSubImage toXR(VR::SubImage subImage)
+    //{
+    //    XrSwapchainSubImage xrSubImage{};
+    //    //if (depthImage)
+    //    //    xrSubImage.swapchain = subImage.swapchain->impl().xrSwapchainDepth();
+    //    //else
+    //    //    xrSubImage.swapchain = subImage.swapchain->impl().xrSwapchain();
+    //    //xrSubImage.swapchain = subImage
+    //    xrSubImage.imageRect.extent.width = subImage.width;
+    //    xrSubImage.imageRect.extent.height = subImage.height;
+    //    xrSubImage.imageRect.offset.x = subImage.x;
+    //    xrSubImage.imageRect.offset.y = subImage.y;
+    //    xrSubImage.imageArrayIndex = 0;
+    //    return xrSubImage;
+    //}
 }
 
 
