@@ -1,4 +1,3 @@
-#include "openxrswapchainimage.hpp"
 #include "openxrmanagerimpl.hpp"
 #include "openxrplatform.hpp"
 #include "vrenvironment.hpp"

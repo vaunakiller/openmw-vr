@@ -9,6 +9,8 @@
 #include <list>
 #include "vrtypes.hpp"
 
+#include <components/vr/frame.hpp>
+
 namespace MWVR
 {
     class VRAnimation;
@@ -94,6 +96,8 @@ namespace MWVR
 
         VRPath path() const { return mPath; }
 
+        virtual void updateTracking(const VR::Frame& frame) = 0;
+
     protected:
 
         void notifyAvailablePosesChanged();
@@ -147,7 +151,7 @@ namespace MWVR
         //! Call once per frame, after (or at the end of) OSG update traversals and before cull traversals.
         //! Predict tracked poses for the given display time.
         //! \arg predictedDisplayTime [in] the predicted display time. The pose shall be predicted for this time based on current tracking data.
-        void updateTracking(DisplayTime predictedDisplayTime);
+        void updateTracking(const VR::Frame& frame) override;
 
     private:
         std::shared_ptr<VRTrackingSource> mSource;
@@ -189,7 +193,7 @@ namespace MWVR
         //! Angles to be used for overriding movement direction
         //void movementAngles(float& yaw, float& pitch);
 
-        void updateTracking(DisplayTime predictedDisplayTime);
+        void updateTracking(const VR::Frame& frame);
 
         //! Bind listener to source, listener will receive tracking updates from source until unbound.
         //! \note A single listener can only receive tracking updates from one source.

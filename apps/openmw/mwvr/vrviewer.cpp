@@ -506,7 +506,7 @@ namespace MWVR
             mReadyFrames.pop();
         }
 
-        Environment::get().getSession()->frameBeginRender(mDrawFrame);
+        Environment::get().getManager()->session().frameBeginRender(mDrawFrame);
 
         mViewer->getCamera()->setViewport(0, 0, mFramebuffer->width(), mFramebuffer->height());
 
@@ -543,31 +543,31 @@ namespace MWVR
 
     void VRViewer::swapBuffersCallback(osg::GraphicsContext* gc)
     {
-        auto* session = Environment::get().getSession();
+        auto& session = Environment::get().getManager()->session();
         mRenderingReady = false;
 
-        session->frameEnd(gc, *this, mDrawFrame);
+        session.frameEnd(gc, mDrawFrame);
     }
 
     void VRViewer::updateView(Misc::View& left, Misc::View& right)
     {
         auto xr = Environment::get().getManager();
-        auto session = Environment::get().getSession();
+        auto& session = Environment::get().getManager()->session();
 
-        auto frame = session->newFrame();
-        session->frameBeginUpdate(frame);
+        auto frame = session.newFrame();
+        session.frameBeginUpdate(frame);
 
-        MWVR::Environment::get().getTrackingManager()->updateTracking(frame.runtimePredictedDisplayTime);
+        MWVR::Environment::get().getTrackingManager()->updateTracking(frame);
 
-        auto stageViews = xr->impl().getPredictedViews(frame.runtimePredictedDisplayTime, ReferenceSpace::STAGE);
-        auto views = xr->impl().getPredictedViews(frame.runtimePredictedDisplayTime, ReferenceSpace::VIEW);
+        auto stageViews = xr->impl().getPredictedViews(frame.predictedDisplayTime, ReferenceSpace::STAGE);
+        auto views = xr->impl().getPredictedViews(frame.predictedDisplayTime, ReferenceSpace::VIEW);
 
         if (frame.shouldRender)
         {
             left = views[(int)Side::LEFT_SIDE];
-            left.pose.position *= Constants::UnitsPerMeter * session->playerScale();
+            left.pose.position *= Constants::UnitsPerMeter * session.playerScale();
             right = views[(int)Side::RIGHT_SIDE];
-            right.pose.position *= Constants::UnitsPerMeter * session->playerScale();
+            right.pose.position *= Constants::UnitsPerMeter * session.playerScale();
 
             std::shared_ptr<VR::ProjectionLayer> layer = std::make_shared<VR::ProjectionLayer>();
             for (uint32_t i = 0; i < 2; i++)

@@ -1,19 +1,11 @@
 #ifndef MWVR_OPENRXSESSION_H
 #define MWVR_OPENRXSESSION_H
 
-#include <memory>
 #include <mutex>
-#include <array>
-#include <chrono>
-#include <queue>
-#include <thread>
-#include <condition_variable>
-#include <components/debug/debuglog.hpp>
-#include <components/sdlutil/sdlgraphicswindow.hpp>
-#include <components/settings/settings.hpp>
-#include <components/vr/frame.hpp>
-#include "openxrmanager.hpp"
-#include "vrviewer.hpp"
+
+#include <components/vr/session.hpp>
+
+#include <openxr/openxr.h>
 
 namespace MWVR
 {
@@ -22,48 +14,44 @@ namespace MWVR
 
     /// \brief Manages VR logic, such as managing frames, predicting their poses, and handling frame synchronization with the VR runtime.
     /// Should not be confused with the openxr session object.
-    class VRSession
+    class OpenXRSession : public VR::Session
     {
     public:
-        using seconds = std::chrono::duration<double>;
-        using nanoseconds = std::chrono::nanoseconds;
-        using clock = std::chrono::steady_clock;
-        using time_point = clock::time_point;
+        OpenXRSession(XrSession session, XrInstance instance, XrViewConfigurationType viewConfigType = XR_VIEW_CONFIGURATION_TYPE_PRIMARY_STEREO);
+        ~OpenXRSession();
 
-    public:
-        VRSession();
-        ~VRSession();
-
-        bool seatedPlay() const { return mSeatedPlay; }
-
-        float playerScale() const { return mPlayerScale; }
-        void setPlayerScale(float scale) { mPlayerScale = scale; }
-
-        float eyeLevel() const { return mEyeLevel; }
-        void setEyeLevel(float eyeLevel) { mEyeLevel = eyeLevel; }
-
-        void processChangedSettings(const std::set< std::pair<std::string, std::string> >& changed);
-
-        VR::Frame newFrame();
-        void frameBeginUpdate(VR::Frame& frame);
-        void frameBeginRender(VR::Frame& frame);
-        void frameEnd(osg::GraphicsContext* gc, VRViewer& viewer, VR::Frame& frame);
+        void xrResourceAcquired();
+        void xrResourceReleased();
 
     protected:
-        void setSeatedPlay(bool seatedPlay);
+        void newFrame(uint64_t frameNo, bool& shouldSyncFrame, bool& shouldSyncInput) override;
+        void syncFrameUpdate(uint64_t frameNo, bool& shouldRender, uint64_t& predictedDisplayTime, uint64_t& predictedDisplayPeriod) override;
+        void syncFrameRender(VR::Frame& frame) override;
+        void syncFrameEnd(VR::Frame& frame) override;
+
+        void handleEvents();
+        bool xrNextEvent(XrEventDataBuffer& eventBuffer);
+        void xrQueueEvents();
+        const XrEventDataBaseHeader* nextEvent();
+        bool processEvent(const XrEventDataBaseHeader* header);
+        void popEvent();
+        bool handleSessionStateChanged(const XrEventDataSessionStateChanged& stateChangedEvent);
+        bool checkStopCondition();
 
     private:
-        bool mSeatedPlay{ false };
-        long long mFrames{ 0 };
-        long long mLastRenderedFrame{ 0 };
-        long long mLastPredictedDisplayTime{ 0 };
-        long long mLastPredictedDisplayPeriod{ 0 };
-        std::chrono::steady_clock::time_point mStart{ std::chrono::steady_clock::now() };
-        std::chrono::nanoseconds mLastFrameInterval{};
-        std::chrono::steady_clock::time_point mLastRenderedFrameTimestamp{ std::chrono::steady_clock::now() };
+        XrInstance mInstance;
+        XrSession mSession;
+        std::queue<XrEventDataBuffer> mEventQueue;
+        XrViewConfigurationType mViewConfigType;
+        XrSessionState mState = XR_SESSION_STATE_UNKNOWN;
 
-        float mPlayerScale{ 1.f };
-        float mEyeLevel{ 1.f };
+        std::mutex mMutex;
+        uint32_t mAcquiredResources = 0;
+
+        bool mXrSessionShouldStop = false;
+        bool mAppShouldSyncFrameLoop = false;
+        bool mAppShouldRender = false;
+        bool mAppShouldReadInput = false;
     };
 
 }

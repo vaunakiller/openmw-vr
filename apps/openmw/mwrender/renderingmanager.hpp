@@ -255,10 +255,6 @@ namespace MWRender
         bool pagingUnlockCache();
         void getPagedRefnums(const osg::Vec4i &activeGrid, std::set<ESM::RefNum> &out);
 
-#ifdef USE_OPENXR
-        MWVR::UserPointer& userPointer();
-#endif
-
     private:
         void updateProjectionMatrix();
         void updateTextureFiltering();
@@ -311,10 +307,6 @@ namespace MWRender
         std::unique_ptr<Camera> mCamera;
         std::unique_ptr<ViewOverShoulderController> mViewOverShoulderController;
         osg::Vec3f mCurrentCameraPos;
-
-#ifdef USE_OPENXR
-        std::shared_ptr<MWVR::UserPointer> mUserPointer;
-#endif
 
         osg::ref_ptr<StateUpdater> mStateUpdater;
 

@@ -79,29 +79,22 @@ namespace MWVR
         return paths;
     }
 
-    void OpenXRTracker::updateTracking(DisplayTime predictedDisplayTime)
+    void OpenXRTracker::updateTracking(const VR::Frame& frame)
     {
-        // TODO: sync tracking action set
-
-        mLastUpdate = predictedDisplayTime;
-        Environment::get().getInputManager()->xrInput().getActionSet(ActionSet::Tracking).updateControls();
+        mLastUpdate = frame.predictedDisplayTime;
+        if(frame.shouldSyncInput)
+            Environment::get().getInputManager()->xrInput().getActionSet(ActionSet::Tracking).updateControls();
 
         for (auto& space : mSpaces)
         {
-            update(space.second.second, space.second.first, predictedDisplayTime);
+            update(space.second.second, space.second.first, frame.predictedDisplayTime);
         }
-
-        auto* xr = Environment::get().getManager();
-        auto* session = Environment::get().getSession();
-        //auto& frame = session->getFrame(VRSession::FramePhase::Update);
-        //frame->mViews[(int)ReferenceSpace::STAGE] = locateViews(predictedDisplayTime, xr->impl().getReferenceSpace(ReferenceSpace::STAGE));
-        //frame->mViews[(int)ReferenceSpace::VIEW] = locateViews(predictedDisplayTime, xr->impl().getReferenceSpace(ReferenceSpace::VIEW));
     }
 
     VRTrackingPose OpenXRTracker::locate(VRPath path, DisplayTime predictedDisplayTime)
     {
-        if (predictedDisplayTime > mLastUpdate)
-            updateTracking(predictedDisplayTime);
+        if (predictedDisplayTime != mLastUpdate)
+            throw std::logic_error("Locate called out of order");
 
         auto it = mSpaces.find(path);
         if (it != mSpaces.end())

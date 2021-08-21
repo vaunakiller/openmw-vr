@@ -17,8 +17,9 @@ namespace VR
 
         bool     shouldSyncFrameLoop = false;
         bool     shouldRender = false;
-        uint64_t runtimePredictedDisplayTime = 0;
-        uint64_t runtimePredictedDisplayPeriod = 0;
+        bool     shouldSyncInput = false;
+        uint64_t predictedDisplayTime = 0;
+        uint64_t predictedDisplayPeriod = 0;
         uint64_t frameNumber = 0;
 
         std::vector<std::shared_ptr<Layer>> layers;

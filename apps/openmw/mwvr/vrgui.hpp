@@ -37,6 +37,7 @@ namespace MWVR
 {
     class GUICamera;
     class VRGUIManager;
+    class UserPointer;
 
     // Some UI elements should occupy predefined geometries
     // Others should grow/shrink freely
@@ -73,7 +74,7 @@ namespace MWVR
         VRGUITracking();
 
         virtual std::vector<VRPath> listSupportedPaths() const override;
-        virtual void updateTracking(DisplayTime predictedDisplayTime);
+        virtual void updateTracking(const VR::Frame& frame);
         void resetStationaryPose();
 
     protected:
@@ -198,6 +199,7 @@ namespace MWVR
 
         void setGeometryRoot(osg::Group* root);
         void setCameraRoot(osg::Group* root);
+        std::shared_ptr<UserPointer> getUserPointer();
 
     private:
         void computeGuiCursor(osg::Vec3 hitPoint);
@@ -208,22 +210,23 @@ namespace MWVR
         void setFocusWidget(MyGUI::Widget* widget);
         void configUpdated(const std::string& layer);
 
-        osg::ref_ptr<osgViewer::Viewer> mOsgViewer{ nullptr };
+        osg::ref_ptr<osgViewer::Viewer> mOsgViewer = nullptr;
         Resource::ResourceSystem* mResourceSystem;
+        std::shared_ptr<UserPointer> mUserPointer;
 
-        osg::ref_ptr<osg::Group> mGeometriesRootNode{ nullptr };
-        osg::ref_ptr<osg::Group> mGeometries{ new osg::Group };
-        osg::ref_ptr<osg::Group> mGUICamerasRootNode{ nullptr };
-        osg::ref_ptr<osg::Group> mGUICameras{ new osg::Group };
+        osg::ref_ptr<osg::Group> mGeometriesRootNode = nullptr;
+        osg::ref_ptr<osg::Group> mGeometries = new osg::Group;
+        osg::ref_ptr<osg::Group> mGUICamerasRootNode = nullptr;
+        osg::ref_ptr<osg::Group> mGUICameras = new osg::Group;
 
         std::unique_ptr<VRGUITracking> mUiTracking = nullptr;
 
-        std::map<std::string, std::shared_ptr<VRGUILayer>> mLayers;
-        std::vector<std::shared_ptr<VRGUILayer> > mSideBySideLayers;
+        std::map<std::string, std::shared_ptr<VRGUILayer>> mLayers{};
+        std::vector<std::shared_ptr<VRGUILayer> > mSideBySideLayers{};
 
-        osg::Vec2i  mGuiCursor{};
-        VRGUILayer* mFocusLayer{ nullptr };
-        MyGUI::Widget* mFocusWidget{ nullptr };
+        osg::Vec2i  mGuiCursor = osg::Vec2i();
+        VRGUILayer* mFocusLayer = nullptr;
+        MyGUI::Widget* mFocusWidget = nullptr;
         std::map<std::string, LayerConfig> mLayerConfigs{};
     };
 }

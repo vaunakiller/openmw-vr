@@ -82,6 +82,7 @@
 #include "../mwvr/vrinputmanager.hpp"
 #include "../mwvr/vrpointer.hpp"
 #include "../mwvr/vrutil.hpp"
+#include "../mwvr/vrgui.hpp"
 #endif
 
 namespace
@@ -1030,7 +1031,7 @@ namespace MWWorld
     MWWorld::Ptr World::getFacedObject()
     {
 #ifdef USE_OPENXR
-        return getPointerTarget();
+        return MWVR::Util::getPointerTarget().first;
 #endif
 
         MWWorld::Ptr facedObject;
@@ -4062,18 +4063,6 @@ namespace MWWorld
 
         return result.mRatio * maxDistance;
     }
-
-#ifdef USE_OPENXR
-    MWVR::UserPointer& World::getUserPointer()
-    {
-        return mRendering->userPointer();
-    }
-
-    MWWorld::Ptr World::getPointerTarget()
-    {
-        return getUserPointer().getPointerTarget().mHitObject;
-    }
-#endif
 
     MWWorld::Ptr World::placeObject(const MWWorld::ConstPtr& object, const MWRender::RayResult& ray, int amount)
     {

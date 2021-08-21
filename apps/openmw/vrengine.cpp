@@ -16,7 +16,6 @@ void OMW::Engine::initVr()
         throw std::logic_error("mViewer must be initialized before calling initVr()");
 
     mXrEnvironment.setManager(new MWVR::OpenXRManager);
-    mXrEnvironment.setSession(new MWVR::VRSession());
     mXrEnvironment.setViewer(new MWVR::VRViewer(mViewer));
     mXrEnvironment.setTrackingManager(new MWVR::VRTrackingManager());
 }

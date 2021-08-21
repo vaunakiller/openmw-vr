@@ -5,6 +5,7 @@
 #include "openxrtypeconversions.hpp"
 #include "vrenvironment.hpp"
 #include "vrinputmanager.hpp"
+#include "vrsession.hpp"
 
 #include <components/debug/debuglog.hpp>
 #include <components/sdlutil/sdlgraphicswindow.hpp>
@@ -37,25 +38,26 @@
 #include <iostream>
 #include <stdexcept>
 
+
+namespace MWVR
+{
 #define ENUM_CASE_STR(name, val) case name: return #name;
 #define MAKE_TO_STRING_FUNC(enumType)                  \
-    inline const char* to_string(enumType e) {         \
+    const char* to_string(enumType e) {         \
         switch (e) {                                   \
             XR_LIST_ENUM_##enumType(ENUM_CASE_STR)     \
             default: return "Unknown " #enumType;      \
         }                                              \
     }
 
-MAKE_TO_STRING_FUNC(XrReferenceSpaceType);
-MAKE_TO_STRING_FUNC(XrViewConfigurationType);
-MAKE_TO_STRING_FUNC(XrEnvironmentBlendMode);
-MAKE_TO_STRING_FUNC(XrSessionState);
-MAKE_TO_STRING_FUNC(XrResult);
-MAKE_TO_STRING_FUNC(XrFormFactor);
-MAKE_TO_STRING_FUNC(XrStructureType);
+    MAKE_TO_STRING_FUNC(XrReferenceSpaceType);
+    MAKE_TO_STRING_FUNC(XrViewConfigurationType);
+    MAKE_TO_STRING_FUNC(XrEnvironmentBlendMode);
+    MAKE_TO_STRING_FUNC(XrSessionState);
+    MAKE_TO_STRING_FUNC(XrResult);
+    MAKE_TO_STRING_FUNC(XrFormFactor);
+    MAKE_TO_STRING_FUNC(XrStructureType);
 
-namespace MWVR
-{
     OpenXRManagerImpl::OpenXRManagerImpl(osg::GraphicsContext* gc)
         : mPlatform(gc)
     {
@@ -83,6 +85,8 @@ namespace MWVR
         initTracker();
 
         getSystemProperties();
+
+        mVRSession = std::make_unique<OpenXRSession>(mSession, mInstance, mViewConfigType);
     }
 
     void OpenXRManagerImpl::createReferenceSpaces()
@@ -273,31 +277,6 @@ namespace MWVR
         Log(Debug::Verbose) << ss.str();
     }
 
-    FrameInfo
-        OpenXRManagerImpl::waitFrame()
-    {
-        XrFrameWaitInfo frameWaitInfo{ XR_TYPE_FRAME_WAIT_INFO };
-        XrFrameState frameState{ XR_TYPE_FRAME_STATE };
-
-        CHECK_XRCMD(xrWaitFrame(mSession, &frameWaitInfo, &frameState));
-        mFrameState = frameState;
-
-        FrameInfo frameInfo;
-
-        frameInfo.runtimePredictedDisplayTime = mFrameState.predictedDisplayTime;
-        frameInfo.runtimePredictedDisplayPeriod = mFrameState.predictedDisplayPeriod;
-        frameInfo.runtimeRequestsRender = !!mFrameState.shouldRender;
-
-        return frameInfo;
-    }
-
-    void
-        OpenXRManagerImpl::beginFrame()
-    {
-        XrFrameBeginInfo frameBeginInfo{ XR_TYPE_FRAME_BEGIN_INFO };
-        CHECK_XRCMD(xrBeginFrame(mSession, &frameBeginInfo));
-    }
-
     void
         OpenXRManagerImpl::endFrame(VR::Frame& frame)
     {
@@ -306,36 +285,17 @@ namespace MWVR
         auto* xrLayerStack = reinterpret_cast<XrCompositionLayerBaseHeader*>(&layer);
         std::array<XrCompositionLayerDepthInfoKHR, 2> compositionLayerDepth{};
         XrFrameEndInfo frameEndInfo{ XR_TYPE_FRAME_END_INFO };
-        frameEndInfo.displayTime = frame.runtimePredictedDisplayTime;
+        frameEndInfo.displayTime = frame.predictedDisplayTime;
         frameEndInfo.environmentBlendMode = mEnvironmentBlendMode;
         if (frame.shouldRender && frame.layers.size() > 0)
         {
             // For now, hardcode assumption that it's a projection layer
             VR::ProjectionLayer* projectionLayer = static_cast<VR::ProjectionLayer*>(frame.layers[0].get());
 
-            //compositionLayerProjectionViews[(int)Side::LEFT_SIDE] = toXR(projectionLayer->mViews[(int)Side::LEFT_SIDE]);
-            //compositionLayerProjectionViews[(int)Side::RIGHT_SIDE] = toXR(projectionLayer->mViews[(int)Side::RIGHT_SIDE]);
             layer.type = XR_TYPE_COMPOSITION_LAYER_PROJECTION;
             layer.space = mReferenceSpaceStage;
             layer.viewCount = 2;
             layer.views = compositionLayerProjectionViews.data();
-
-            //if (xrExtensionIsEnabled(XR_KHR_COMPOSITION_LAYER_DEPTH_EXTENSION_NAME))
-            //{
-            //    auto farClip = Settings::Manager::getFloat("viewing distance", "Camera");
-            //    // All values not set here are set previously as they are constant
-            //    compositionLayerDepth = mLayerDepth;
-            //    compositionLayerDepth[(int)Side::LEFT_SIDE].farZ = farClip;
-            //    compositionLayerDepth[(int)Side::RIGHT_SIDE].farZ = farClip;
-            //    compositionLayerDepth[(int)Side::LEFT_SIDE].subImage = toXR((*layerStack)[(int)Side::LEFT_SIDE].subImage, true);
-            //    compositionLayerDepth[(int)Side::RIGHT_SIDE].subImage = toXR((*layerStack)[(int)Side::RIGHT_SIDE].subImage, true);
-            //    if (compositionLayerDepth[(int)Side::LEFT_SIDE].subImage.swapchain != XR_NULL_HANDLE
-            //        && compositionLayerDepth[(int)Side::RIGHT_SIDE].subImage.swapchain != XR_NULL_HANDLE)
-            //    {
-            //        compositionLayerProjectionViews[(int)Side::LEFT_SIDE].next = &compositionLayerDepth[(int)Side::LEFT_SIDE];
-            //        compositionLayerProjectionViews[(int)Side::RIGHT_SIDE].next = &compositionLayerDepth[(int)Side::RIGHT_SIDE];
-            //    }
-            //}
 
             bool includeDepth = xrExtensionIsEnabled(XR_KHR_COMPOSITION_LAYER_DEPTH_EXTENSION_NAME);
             auto farClip = Settings::Manager::getFloat("viewing distance", "Camera");
@@ -453,193 +413,9 @@ namespace MWVR
         };
     }
 
-    void OpenXRManagerImpl::handleEvents()
-    {
-        std::unique_lock<std::mutex> lock(mMutex);
-
-        xrQueueEvents();
-
-        while (auto* event = nextEvent())
-        {
-            if (!processEvent(event))
-            {
-                // Do not consider processing an event optional.
-                // Retry once per frame until every event has been successfully processed
-                return;
-            }
-            popEvent();
-        }
-
-        if (mXrSessionShouldStop)
-        {
-            if (checkStopCondition())
-            {
-                CHECK_XRCMD(xrEndSession(mSession));
-                mXrSessionShouldStop = false;
-            }
-        }
-    }
-
-    const XrEventDataBaseHeader* OpenXRManagerImpl::nextEvent()
-    {
-        if (mEventQueue.size() > 0)
-            return reinterpret_cast<XrEventDataBaseHeader*> (&mEventQueue.front());
-        return nullptr;
-    }
-
-    bool OpenXRManagerImpl::processEvent(const XrEventDataBaseHeader* header)
-    {
-        Log(Debug::Verbose) << "OpenXR: Event received: " << to_string(header->type);
-        switch (header->type)
-        {
-        case XR_TYPE_EVENT_DATA_SESSION_STATE_CHANGED:
-        {
-            const auto* stateChangeEvent = reinterpret_cast<const XrEventDataSessionStateChanged*>(header);
-            return handleSessionStateChanged(*stateChangeEvent);
-            break;
-        }
-        case XR_TYPE_EVENT_DATA_INTERACTION_PROFILE_CHANGED:
-            MWVR::Environment::get().getInputManager()->notifyInteractionProfileChanged();
-            break;
-        case XR_TYPE_EVENT_DATA_INSTANCE_LOSS_PENDING:
-        case XR_TYPE_EVENT_DATA_REFERENCE_SPACE_CHANGE_PENDING:
-        default:
-        {
-            Log(Debug::Verbose) << "OpenXR: Event ignored";
-            break;
-        }
-        }
-        return true;
-    }
-
-    bool
-        OpenXRManagerImpl::handleSessionStateChanged(
-            const XrEventDataSessionStateChanged& stateChangedEvent)
-    {
-        Log(Debug::Verbose) << "XrEventDataSessionStateChanged: state " << to_string(mSessionState) << "->" << to_string(stateChangedEvent.state);
-        mSessionState = stateChangedEvent.state;
-
-        // Ref: https://www.khronos.org/registry/OpenXR/specs/1.0/html/xrspec.html#session-states
-        switch (mSessionState)
-        {
-        case XR_SESSION_STATE_IDLE:
-        {
-            mAppShouldSyncFrameLoop = false;
-            mAppShouldRender = false;
-            mAppShouldReadInput = false;
-            mXrSessionShouldStop = false;
-            break;
-        }
-        case XR_SESSION_STATE_READY:
-        {
-            mAppShouldSyncFrameLoop = true;
-            mAppShouldRender = false;
-            mAppShouldReadInput = false;
-            mXrSessionShouldStop = false;
-
-            XrSessionBeginInfo beginInfo{ XR_TYPE_SESSION_BEGIN_INFO };
-            beginInfo.primaryViewConfigurationType = mViewConfigType;
-            CHECK_XRCMD(xrBeginSession(mSession, &beginInfo));
-
-            break;
-        }
-        case XR_SESSION_STATE_STOPPING:
-        {
-            mAppShouldSyncFrameLoop = false;
-            mAppShouldRender = false;
-            mAppShouldReadInput = false;
-            mXrSessionShouldStop = true;
-            break;
-        }
-        case XR_SESSION_STATE_SYNCHRONIZED:
-        {
-            mAppShouldSyncFrameLoop = true;
-            mAppShouldRender = false;
-            mAppShouldReadInput = false;
-            mXrSessionShouldStop = false;
-            break;
-        }
-        case XR_SESSION_STATE_VISIBLE:
-        {
-            mAppShouldSyncFrameLoop = true;
-            mAppShouldRender = true;
-            mAppShouldReadInput = false;
-            mXrSessionShouldStop = false;
-            break;
-        }
-        case XR_SESSION_STATE_FOCUSED:
-        {
-            mAppShouldSyncFrameLoop = true;
-            mAppShouldRender = true;
-            mAppShouldReadInput = true;
-            mXrSessionShouldStop = false;
-            break;
-        }
-        default:
-            Log(Debug::Warning) << "XrEventDataSessionStateChanged: Ignoring new state " << to_string(mSessionState);
-        }
-
-        return true;
-    }
-
-    bool OpenXRManagerImpl::checkStopCondition()
-    {
-        return mAcquiredResources == 0;
-    }
-
-    bool OpenXRManagerImpl::xrNextEvent(XrEventDataBuffer& eventBuffer)
-    {
-        XrEventDataBaseHeader* baseHeader = reinterpret_cast<XrEventDataBaseHeader*>(&eventBuffer);
-        *baseHeader = { XR_TYPE_EVENT_DATA_BUFFER };
-        const XrResult result = xrPollEvent(mInstance, &eventBuffer);
-        if (result == XR_SUCCESS)
-        {
-            if (baseHeader->type == XR_TYPE_EVENT_DATA_EVENTS_LOST) {
-                const XrEventDataEventsLost* const eventsLost = reinterpret_cast<const XrEventDataEventsLost*>(baseHeader);
-                Log(Debug::Warning) << "OpenXRManagerImpl: Lost " << eventsLost->lostEventCount << " events";
-            }
-
-            return baseHeader;
-        }
-
-        if (result != XR_EVENT_UNAVAILABLE)
-            CHECK_XRRESULT(result, "xrPollEvent");
-        return false;
-    }
-
-    void OpenXRManagerImpl::popEvent()
-    {
-        if (mEventQueue.size() > 0)
-            mEventQueue.pop();
-    }
-
-    void
-        OpenXRManagerImpl::xrQueueEvents()
-    {
-        XrEventDataBuffer eventBuffer;
-        while (xrNextEvent(eventBuffer))
-        {
-            mEventQueue.push(eventBuffer);
-        }
-    }
-
     bool OpenXRManagerImpl::xrExtensionIsEnabled(const char* extensionName) const
     {
         return mPlatform.extensionEnabled(extensionName);
-    }
-
-    void OpenXRManagerImpl::xrResourceAcquired()
-    {
-        std::unique_lock<std::mutex> lock(mMutex);
-        mAcquiredResources++;
-    }
-
-    void OpenXRManagerImpl::xrResourceReleased()
-    {
-        std::unique_lock<std::mutex> lock(mMutex);
-        if (mAcquiredResources == 0)
-            throw std::logic_error("Releasing a nonexistent resource");
-        mAcquiredResources--;
     }
 
     void OpenXRManagerImpl::xrUpdateNames()

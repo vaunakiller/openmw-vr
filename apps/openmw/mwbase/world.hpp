@@ -91,11 +91,6 @@ namespace MWWorld
     typedef std::vector<std::pair<MWWorld::Ptr,MWMechanics::Movement> > PtrMovementList;
 }
 
-namespace MWVR
-{
-    class UserPointer;
-}
-
 namespace MWBase
 {
     /// \brief Interface for the World (implemented in MWWorld)
@@ -675,11 +670,6 @@ namespace MWBase
             /// @result pointer to the object and/or node the given node is currently pointing at
             /// @Return distance to the target object, or -1 if no object was targeted / in range
             virtual float getTargetObject(MWRender::RayResult& result, const osg::Vec3f& origin, const osg::Quat& orientation, float maxDistance, bool ignorePlayer) = 0;
-
-#ifdef USE_OPENXR
-            virtual MWVR::UserPointer& getUserPointer() = 0;
-            virtual MWWorld::Ptr getPointerTarget() = 0;
-#endif
 
             /// @Return ESM::Weapon::Type enum describing the type of weapon currently drawn by the player.
             virtual int getActiveWeaponType(void) = 0;

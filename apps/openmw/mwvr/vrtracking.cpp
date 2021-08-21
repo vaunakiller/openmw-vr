@@ -162,21 +162,24 @@ namespace MWVR
                 it = mSources.erase(it);
     }
 
-    void VRTrackingManager::updateTracking(DisplayTime predictedDisplayTime)
+    void VRTrackingManager::updateTracking(const VR::Frame& frame)
     {
         // TODO: endFrame() call here should be moved into beginFrame()
         //MWVR::Environment::get().getSession()->endFrame();
         //MWVR::Environment::get().getSession()->beginFrame();
         //auto& frame = Environment::get().getSession()->getFrame(VRSession::FramePhase::Update);
         //auto predictedDisplayTime = frame->mFrameInfo.runtimePredictedDisplayTime;
-        if (predictedDisplayTime == 0)
+        if (frame.predictedDisplayTime == 0)
             return;
 
         checkAvailablePathsChanged();
-        updateMovementAngles(predictedDisplayTime);
+        updateMovementAngles(frame.predictedDisplayTime);
+
+        for (auto* source : mSources)
+            source->updateTracking(frame);
 
         for (auto* listener : mListeners)
-            listener->onTrackingUpdated(*this, predictedDisplayTime);
+            listener->onTrackingUpdated(*this, frame.predictedDisplayTime);
     }
 
     void VRTrackingManager::updateMovementAngles(DisplayTime predictedDisplayTime)
@@ -296,8 +299,8 @@ namespace MWVR
 
     VRTrackingPose VRStageToWorldBinding::locate(VRPath path, DisplayTime predictedDisplayTime)
     {
-        if (predictedDisplayTime > mLastPose.time)
-            updateTracking(predictedDisplayTime);
+        if (predictedDisplayTime != mLastPose.time)
+            throw std::logic_error("locate called out of order");
 
         auto it = mBindings.find(path);
         if (it == mBindings.end())
@@ -310,7 +313,7 @@ namespace MWVR
         auto stagePose = tm->locate(it->second, predictedDisplayTime);
 
         auto worldPose = stagePose;
-        worldPose.pose.position *= Environment::get().getSession()->playerScale();
+        worldPose.pose.position *= Environment::get().getManager()->session().playerScale();
         worldPose.pose.position *= Constants::UnitsPerMeter;
         worldPose.pose.position -= mLastPose.pose.position;
         worldPose.pose.position = mOrientation * worldPose.pose.position;
@@ -330,7 +333,7 @@ namespace MWVR
         return paths;
     }
 
-    void VRStageToWorldBinding::updateTracking(DisplayTime predictedDisplayTime)
+    void VRStageToWorldBinding::updateTracking(const VR::Frame& frame)
     {
         mOriginWorldPose = Pose();
         if (mOrigin)
@@ -340,7 +343,7 @@ namespace MWVR
             mOriginWorldPose.orientation = worldMatrix.getRotate();
         }
         auto* tm = Environment::get().getTrackingManager();
-        auto mtp = tm->locate(mMovementReference, predictedDisplayTime);
+        auto mtp = tm->locate(mMovementReference, frame.predictedDisplayTime);
         if (!!mtp.status)
         {
             mtp.pose.position *= Constants::UnitsPerMeter;

@@ -169,8 +169,6 @@ namespace MWVR
         OpenXRActionSet::updateControls()
     {
         auto* xr = Environment::get().getManager();
-        if (!xr->impl().appShouldReadInput())
-            return;
 
         const XrActiveActionSet activeActionSet{ mActionSet, XR_NULL_PATH };
         XrActionsSyncInfo syncInfo{ XR_TYPE_ACTIONS_SYNC_INFO };

@@ -18,6 +18,7 @@ namespace MWVR
 {
     struct OpenXRInput;
     struct OpenXRActionSet;
+    class UserPointer;
 
     namespace RealisticCombat {
         class StateMachine;

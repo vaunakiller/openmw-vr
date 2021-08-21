@@ -629,7 +629,7 @@ namespace MWGui
 #ifdef USE_OPENXR
         if (MWBase::Environment::get().getVrMode())
         {
-            MWVR::Environment::get().getSession()->processChangedSettings(changed);
+            MWVR::Environment::get().getManager()->session().processChangedSettings(changed);
             MWVR::Environment::get().getTrackingManager()->processChangedSettings(changed);
             MWVR::Environment::get().getViewer()->processChangedSettings(changed);
             MWVR::Environment::get().getGUIManager()->processChangedSettings(changed);

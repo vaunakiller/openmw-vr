@@ -5,6 +5,7 @@
 #include "vrcamera.hpp"
 #include "vrutil.hpp"
 #include "vrpointer.hpp"
+#include "vrgui.hpp"
 
 #include <osg/MatrixTransform>
 #include <osg/PositionAttitudeTransform>
@@ -326,7 +327,7 @@ namespace MWVR
 
     VRAnimation::VRAnimation(
         const MWWorld::Ptr& ptr, osg::ref_ptr<osg::Group> parentNode, Resource::ResourceSystem* resourceSystem,
-        bool disableSounds, std::shared_ptr<UserPointer> userPointer)
+        bool disableSounds)
         // Note that i let it construct as 3rd person and then later update it to VM_VRFirstPerson
         // when the character controller updates
         : MWRender::NpcAnimation(ptr, parentNode, resourceSystem, disableSounds, VM_Normal, 55.f)
@@ -334,7 +335,7 @@ namespace MWVR
         // The player model needs to be pushed back a little to make sure the player's view point is naturally protruding 
         // Pushing the camera forward instead would produce an unnatural extra movement when rotating the player model.
         , mModelOffset(new osg::MatrixTransform(osg::Matrix::translate(osg::Vec3(0, -15, 0))))
-        , mUserPointer(userPointer)
+        , mUserPointer(Environment::get().getGUIManager()->getUserPointer())
     {
         for (int i = 0; i < 2; i++)
         {
@@ -449,8 +450,8 @@ namespace MWVR
         float charHeight = charHeightBase * charHeightFactor;
         float realHeight = Settings::Manager::getFloat("real height", "VR");
         float sizeFactor = charHeight / realHeight;
-        Environment::get().getSession()->setPlayerScale(sizeFactor);
-        Environment::get().getSession()->setEyeLevel(charHeight*0.8375f); // approximation
+        Environment::get().getManager()->session().setPlayerScale(sizeFactor);
+        Environment::get().getManager()->session().setEyeLevel(charHeight*0.8375f); // approximation
     }
 
     void VRAnimation::setFingerPointingMode(bool enabled)

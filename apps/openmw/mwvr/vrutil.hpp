@@ -13,6 +13,7 @@ namespace MWRender
 namespace MWVR
 {
     namespace Util {
+        std::pair<MWWorld::Ptr, float> getPointerTarget();
         std::pair<MWWorld::Ptr, float> getTouchTarget();
         std::pair<MWWorld::Ptr, float> getWeaponTarget();
         float getPoseTarget(MWRender::RayResult& result, const Pose& pose, bool allowTelekinesis);

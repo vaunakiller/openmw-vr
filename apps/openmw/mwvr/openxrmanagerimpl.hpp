@@ -30,15 +30,9 @@ namespace MWVR
         OpenXRManagerImpl(osg::GraphicsContext* gc);
         ~OpenXRManagerImpl(void);
 
-        FrameInfo waitFrame();
-        void beginFrame();
         void endFrame(VR::Frame& frame);
-        bool appShouldSyncFrameLoop() const { return mAppShouldSyncFrameLoop; }
-        bool appShouldRender() const { return mAppShouldRender; }
-        bool appShouldReadInput() const { return mAppShouldReadInput; }
         std::array<View, 2> getPredictedViews(int64_t predictedDisplayTime, ReferenceSpace space);
         MWVR::Pose getPredictedHeadPose(int64_t predictedDisplayTime, ReferenceSpace space);
-        void handleEvents();
         void enablePredictions();
         void disablePredictions();
         long long getLastPredictedDisplayTime();
@@ -48,8 +42,6 @@ namespace MWVR
         XrSession xrSession() const { return mSession; };
         XrInstance xrInstance() const { return mInstance; };
         bool xrExtensionIsEnabled(const char* extensionName) const;
-        void xrResourceAcquired();
-        void xrResourceReleased();
         void xrUpdateNames();
         PFN_xrVoidFunction xrGetFunction(const std::string& name);
         int64_t selectColorFormat();
@@ -67,18 +59,13 @@ namespace MWVR
         };
         VR::Swapchain* createSwapchain(uint32_t width, uint32_t height, uint32_t samples, SwapchainUse use, const std::string& name);
 
+        VR::Session& session() { return *mVRSession; };
+
     protected:
         void setupExtensionsAndLayers();
         void setupDebugMessenger(void);
         void LogInstanceInfo();
         void LogReferenceSpaces();
-        bool xrNextEvent(XrEventDataBuffer& eventBuffer);
-        void xrQueueEvents();
-        const XrEventDataBaseHeader* nextEvent();
-        bool processEvent(const XrEventDataBaseHeader* header);
-        void popEvent();
-        bool handleSessionStateChanged(const XrEventDataSessionStateChanged& stateChangedEvent);
-        bool checkStopCondition();
         void createReferenceSpaces();
         void getSystem();
         void getSystemProperties();
@@ -102,25 +89,26 @@ namespace MWVR
         XrSpace mReferenceSpaceStage = XR_NULL_HANDLE;
         XrSpace mReferenceSpaceLocal = XR_NULL_HANDLE;
         XrFrameState mFrameState{};
-        XrSessionState mSessionState = XR_SESSION_STATE_UNKNOWN;
         XrDebugUtilsMessengerEXT mDebugMessenger{ nullptr };
         OpenXRPlatform mPlatform;
 
         std::shared_ptr<OpenXRTracker> mTracker{ nullptr };
         std::unique_ptr<VRStageToWorldBinding> mTrackerToWorldBinding{ nullptr };
 
-        bool mXrSessionShouldStop = false;
-        bool mAppShouldSyncFrameLoop = false;
-        bool mAppShouldRender = false;
-        bool mAppShouldReadInput = false;
-
         uint32_t mAcquiredResources = 0;
         std::mutex mMutex{};
-        std::queue<XrEventDataBuffer> mEventQueue;
 
         std::array<XrCompositionLayerDepthInfoKHR, 2> mLayerDepth;
-
+        std::unique_ptr<VR::Session> mVRSession;
     };
+
+    extern const char* to_string(XrReferenceSpaceType e);
+    extern const char* to_string(XrViewConfigurationType e);
+    extern const char* to_string(XrEnvironmentBlendMode e);
+    extern const char* to_string(XrSessionState e);
+    extern const char* to_string(XrResult e);
+    extern const char* to_string(XrFormFactor e);
+    extern const char* to_string(XrStructureType e);
 }
 
 #endif 

@@ -26,46 +26,9 @@ namespace MWVR
         return !!mPrivate;
     }
 
-    void OpenXRManager::handleEvents()
-    {
-        if (realized())
-            return impl().handleEvents();
-    }
-
-    FrameInfo OpenXRManager::waitFrame()
-    {
-        return impl().waitFrame();
-    }
-
-    void OpenXRManager::beginFrame()
-    {
-        return impl().beginFrame();
-    }
-
     void OpenXRManager::endFrame(VR::Frame& frame)
     {
         return impl().endFrame(frame);
-    }
-
-    bool OpenXRManager::appShouldSyncFrameLoop() const
-    {
-        if (realized())
-            return impl().appShouldSyncFrameLoop();
-        return false;
-    }
-
-    bool OpenXRManager::appShouldRender() const
-    {
-        if (realized())
-            return impl().appShouldRender();
-        return false;
-    }
-
-    bool OpenXRManager::appShouldReadInput() const
-    {
-        if (realized())
-            return impl().appShouldReadInput();
-        return false;
     }
 
     void
@@ -88,16 +51,6 @@ namespace MWVR
     void OpenXRManager::disablePredictions()
     {
         return impl().disablePredictions();
-    }
-
-    void OpenXRManager::xrResourceAcquired()
-    {
-        return impl().xrResourceAcquired();
-    }
-
-    void OpenXRManager::xrResourceReleased()
-    {
-        return impl().xrResourceReleased();
     }
 
     std::array<View, 2> OpenXRManager::getPredictedViews(int64_t predictedDisplayTime, ReferenceSpace space)
@@ -143,6 +96,11 @@ namespace MWVR
     void OpenXRManager::eraseFormat(int64_t format)
     {
         return impl().eraseFormat(format);
+    }
+
+    VR::Session& OpenXRManager::session()
+    {
+        return impl().session();
     }
 
     void

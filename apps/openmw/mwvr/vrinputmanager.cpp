@@ -87,11 +87,11 @@ namespace MWVR
         virtual MWWorld::Ptr copyItem(const MWGui::ItemStack& item, size_t count, bool /*allowAutoEquip*/)
         {
             MWBase::World* world = MWBase::Environment::get().getWorld();
-            auto& pointer = world->getUserPointer();
+            auto pointer = Environment::get().getGUIManager()->getUserPointer();
 
             MWWorld::Ptr dropped;
-            if (pointer.canPlaceObject())
-                dropped = world->placeObject(item.mBase, pointer.getPointerTarget(), count);
+            if (pointer->canPlaceObject())
+                dropped = world->placeObject(item.mBase, pointer->getPointerTarget(), count);
             else
                 dropped = world->dropObjectOnGround(world->getPlayerPtr(), item.mBase, count);
             dropped.getCellRef().setOwner("");
@@ -112,12 +112,11 @@ namespace MWVR
 
     void VRInputManager::pointActivation(bool onPress)
     {
-        auto* world = MWBase::Environment::get().getWorld();
-        auto& pointer = world->getUserPointer();
-        if (world && pointer.getPointerTarget().mHit)
+        auto pointer = Environment::get().getGUIManager()->getUserPointer();
+        if (pointer->getPointerTarget().mHit)
         {
-            auto* node = pointer.getPointerTarget().mHitNode;
-            MWWorld::Ptr ptr = pointer.getPointerTarget().mHitObject;
+            auto* node = pointer->getPointerTarget().mHitNode;
+            MWWorld::Ptr ptr = pointer->getPointerTarget().mHitObject;
             auto wm = MWBase::Environment::get().getWindowManager();
             auto& dnd = wm->getDragAndDrop();
 
@@ -152,7 +151,7 @@ namespace MWVR
                 }
                 else
                 {
-                    MWWorld::Player& player = world->getPlayer();
+                    MWWorld::Player& player = MWBase::Environment::get().getWorld()->getPlayer();
                     player.activate(ptr);
                 }
             }
@@ -411,11 +410,6 @@ namespace MWVR
         updateActivationIndication();
 
         MWInput::InputManager::update(dt, disableControls, disableEvents);
-
-        // This is the first update that needs openxr tracking, so i begin the next frame here.
-        auto* session = Environment::get().getSession();
-        if (!session)
-            return;
 
         // The rest of this code assumes the game is running
         if (MWBase::Environment::get().getStateManager()->getState() == MWBase::StateManager::State_NoGame)

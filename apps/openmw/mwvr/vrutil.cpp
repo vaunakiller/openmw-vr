@@ -2,6 +2,8 @@
 #include "vrenvironment.hpp"
 #include "vrtracking.hpp"
 #include "vranimation.hpp"
+#include "vrgui.hpp"
+#include "vrpointer.hpp"
 
 #include "../mwbase/environment.hpp"
 #include "../mwbase/windowmanager.hpp"
@@ -16,9 +18,10 @@ namespace MWVR
 {
     namespace Util
     {
-        std::pair<MWWorld::Ptr, osg::Vec3f> getHitContact(float distance, std::vector<MWWorld::Ptr>& targets)
+        std::pair<MWWorld::Ptr, float> getPointerTarget()
         {
-            return std::pair<MWWorld::Ptr, osg::Vec3f>();
+            auto pointer = Environment::get().getGUIManager()->getUserPointer();
+            return std::pair<MWWorld::Ptr, float>(pointer->getPointerTarget().mHitObject, pointer->distanceToPointerTarget());
         }
 
         std::pair<MWWorld::Ptr, float> getTouchTarget()

@@ -36,7 +36,7 @@ namespace MWVR
         std::vector<VRPath> listSupportedPaths() const override;
 
     protected:
-        void updateTracking(DisplayTime predictedDisplayTime);
+        void updateTracking(const VR::Frame& frame) override;
         VRTrackingPose locate(VRPath path, DisplayTime predictedDisplayTime) override;
 
     private:

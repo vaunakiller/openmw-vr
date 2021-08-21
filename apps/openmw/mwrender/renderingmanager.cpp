@@ -77,6 +77,7 @@
 #include "../mwvr/vrviewer.hpp"
 #include "../mwvr/vrenvironment.hpp"
 #include "../mwvr/vrcamera.hpp"
+#include "../mwvr/vrgui.hpp"
 #endif
 
 
@@ -204,9 +205,6 @@ namespace MWRender
         , mWorkQueue(workQueue)
         , mUnrefQueue(new SceneUtil::UnrefQueue)
         , mNavigator(navigator)
-#ifdef USE_OPENXR
-        , mUserPointer(new MWVR::UserPointer(rootNode))
-#endif
         , mMinimumAmbientLuminance(0.f)
         , mNightEyeFactor(0.f)
         , mFieldOfViewOverridden(false)
@@ -1029,7 +1027,8 @@ namespace MWRender
             mObjectPaging->clear();
 
 #ifdef USE_OPENXR
-        mUserPointer->setParent(nullptr);
+        // TODO: Is this line necessary?
+        MWVR::Environment::get().getGUIManager()->getUserPointer()->setParent(nullptr);
 #endif
     }
 
@@ -1071,7 +1070,7 @@ namespace MWRender
     void RenderingManager::renderPlayer(const MWWorld::Ptr &player)
     {
 #ifdef USE_OPENXR
-        MWVR::Environment::get().setPlayerAnimation(new MWVR::VRAnimation(player, player.getRefData().getBaseNode(), mResourceSystem, false, mUserPointer));
+        MWVR::Environment::get().setPlayerAnimation(new MWVR::VRAnimation(player, player.getRefData().getBaseNode(), mResourceSystem, false));
         mPlayerAnimation = MWVR::Environment::get().getPlayerAnimation();
 #else
         mPlayerAnimation = new NpcAnimation(player, player.getRefData().getBaseNode(), mResourceSystem, 0, NpcAnimation::VM_Normal,
@@ -1410,11 +1409,4 @@ namespace MWRender
         if (mObjectPaging)
             mObjectPaging->getPagedRefnums(activeGrid, out);
     }
-
-#ifdef USE_OPENXR
-    MWVR::UserPointer& RenderingManager::userPointer()
-    {
-        return *mUserPointer;
-    }
-#endif
 }

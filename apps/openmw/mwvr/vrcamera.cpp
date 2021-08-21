@@ -46,14 +46,14 @@ namespace MWVR
         // Move position of head to center of character 
         // Z should not be affected
 
-        auto* session = Environment::get().getSession();
+        auto& session = Environment::get().getManager()->session();
 
         auto* tm = Environment::get().getTrackingManager();
         auto path = tm->stringToVRPath("/world/user");
         auto* stageToWorldBinding = static_cast<VRStageToWorldBinding*>(tm->getTrackingSource(path));
 
-        stageToWorldBinding->setSeatedPlay(session->seatedPlay());
-        stageToWorldBinding->setEyeLevel(session->eyeLevel() * Constants::UnitsPerMeter);
+        stageToWorldBinding->setSeatedPlay(session.seatedPlay());
+        stageToWorldBinding->setEyeLevel(session.eyeLevel() * Constants::UnitsPerMeter);
         stageToWorldBinding->recenter(mShouldResetZ);
 
         mShouldRecenter = false;

@@ -11,6 +11,7 @@
 #include <components/sdlutil/sdlgraphicswindow.hpp>
 #include <components/settings/settings.hpp>
 #include <components/vr/frame.hpp>
+#include <components/vr/session.hpp>
 #include <osg/Camera>
 #include <osgViewer/Viewer>
 #include "vrtypes.hpp"
@@ -45,26 +46,8 @@ namespace MWVR
         /// Manager has been initialized.
         bool realized() const;
 
-        //! Forward call to xrWaitFrame()
-        FrameInfo waitFrame();
-
-        //! Forward call to xrBeginFrame()
-        void beginFrame();
-
         //! Forward call to xrEndFrame()
         void endFrame(VR::Frame& frame);
-
-        //! Whether the app should call the openxr frame sync functions ( xr*Frame() )
-        bool appShouldSyncFrameLoop() const;
-
-        //! Whether the app should render anything.
-        bool appShouldRender() const;
-
-        //! Whether the session is focused and can read input
-        bool appShouldReadInput() const;
-
-        //! Process all openxr events
-        void handleEvents();
 
         //! Instantiate implementation
         void realize(osg::GraphicsContext* gc);
@@ -74,12 +57,6 @@ namespace MWVR
 
         //! Disable pose predictions.
         void disablePredictions();
-
-        //! Must be called every time an openxr resource is acquired to keep track
-        void xrResourceAcquired();
-
-        //! Must be called every time an openxr resource is released to keep track
-        void xrResourceReleased();
 
         //! Get poses and fov of both eyes at the predicted time, relative to the given reference space. \note Will throw if predictions are disabled.
         std::array<View, 2> getPredictedViews(int64_t predictedDisplayTime, ReferenceSpace space);
@@ -109,6 +86,8 @@ namespace MWVR
 
         //! Erase format from list of format candidates
         void eraseFormat(int64_t format);
+
+        VR::Session& session();
 
         OpenXRManagerImpl& impl() { return *mPrivate; }
         const OpenXRManagerImpl& impl() const { return *mPrivate; }

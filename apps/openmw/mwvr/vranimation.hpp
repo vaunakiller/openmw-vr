@@ -31,7 +31,7 @@ namespace MWVR
          * @param xrSession        The XR session that shall be used to track limbs
          */
         VRAnimation(const MWWorld::Ptr& ptr, osg::ref_ptr<osg::Group> parentNode, Resource::ResourceSystem* resourceSystem,
-            bool disableSounds, std::shared_ptr<UserPointer> userPointer);
+            bool disableSounds);
         virtual ~VRAnimation();
 
         /// Overridden to always be false
@@ -65,7 +65,6 @@ namespace MWVR
         void onTrackingUpdated(VRTrackingManager& manager, DisplayTime predictedDisplayTime) override;
 
     protected:
-        std::shared_ptr<VRSession> mSession;
         std::map<std::string, std::unique_ptr<TrackingController> > mVrControllers;
         osg::ref_ptr<HandController> mHandControllers[2];
         osg::ref_ptr<FingerController> mIndexFingerControllers[2];

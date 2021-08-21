@@ -12,7 +12,6 @@
 MWVR::Environment* MWVR::Environment::sThis = 0;
 
 MWVR::Environment::Environment()
-    : mSession(nullptr)
 {
     assert(!sThis);
     sThis = this;
@@ -26,9 +25,6 @@ MWVR::Environment::~Environment()
 
 void MWVR::Environment::cleanup()
 {
-    if (mSession)
-        delete mSession;
-    mSession = nullptr;
     if (mGUIManager)
         delete mGUIManager;
     mGUIManager = nullptr;
@@ -53,16 +49,6 @@ MWVR::VRInputManager* MWVR::Environment::getInputManager() const
     auto xrInputManager = dynamic_cast<MWVR::VRInputManager*>(inputManager);
     assert(xrInputManager);
     return xrInputManager;
-}
-
-MWVR::VRSession* MWVR::Environment::getSession() const
-{
-    return mSession;
-}
-
-void MWVR::Environment::setSession(MWVR::VRSession* xrSession)
-{
-    mSession = xrSession;
 }
 
 MWVR::VRGUIManager* MWVR::Environment::getGUIManager() const

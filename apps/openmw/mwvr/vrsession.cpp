@@ -1,103 +1,11 @@
 #include "vrsession.hpp"
-#include "vrgui.hpp"
+#include "openxrmanager.hpp"
+#include "openxrmanagerimpl.hpp"
 #include "vrenvironment.hpp"
 #include "vrinputmanager.hpp"
-#include "openxrmanager.hpp"
-#include "openxrswapchain.hpp"
-#include "../mwinput/inputmanagerimp.hpp"
-#include "../mwbase/environment.hpp"
-#include "../mwbase/statemanager.hpp"
-
-#include <components/debug/debuglog.hpp>
-#include <components/sdlutil/sdlgraphicswindow.hpp>
-#include <components/misc/stringops.hpp>
-#include <components/misc/constants.hpp>
-
-#include <osg/Camera>
-
-#include <algorithm>
-#include <vector>
-#include <array>
-#include <iostream>
-#include <time.h>
-#include <thread>
-#include <chrono>
-
-#ifdef max
-#undef max
-#endif
-
-#ifdef min
-#undef min
-#endif
 
 namespace MWVR
 {
-    VRSession::VRSession()
-    {
-        mSeatedPlay = Settings::Manager::getBool("seated play", "VR");
-    }
-
-    VRSession::~VRSession()
-    {
-    }
-
-    void VRSession::processChangedSettings(const std::set<std::pair<std::string, std::string>>& changed)
-    {
-        setSeatedPlay(Settings::Manager::getBool("seated play", "VR"));
-    }
-
-    VR::Frame VRSession::newFrame()
-    {
-        static uint64_t frameNo = 0;
-        VR::Frame frame;
-        frame.frameNumber = frameNo++;
-        return frame;
-    }
-
-    void VRSession::frameBeginUpdate(VR::Frame& frame)
-    {
-        mFrames++;
-
-        auto* xr = Environment::get().getManager();
-        xr->handleEvents();
-
-        frame.shouldSyncFrameLoop = xr->appShouldSyncFrameLoop();
-        if (frame.shouldSyncFrameLoop)
-        {
-            auto info = xr->waitFrame();
-            frame.runtimePredictedDisplayTime = info.runtimePredictedDisplayTime;
-            frame.runtimePredictedDisplayPeriod = info.runtimePredictedDisplayPeriod;
-            frame.shouldRender = info.runtimeRequestsRender;
-        }
-    }
-
-    void VRSession::frameBeginRender(VR::Frame& frame)
-    {
-        if(frame.shouldSyncFrameLoop)
-            Environment::get().getManager()->beginFrame();
-    }
-
-    void VRSession::frameEnd(osg::GraphicsContext* gc, VRViewer& viewer, VR::Frame& frame)
-    {
-        auto* xr = Environment::get().getManager();
-
-        gc->swapBuffersImplementation();
-        if (frame.shouldSyncFrameLoop)
-        {
-            xr->endFrame(frame);
-        }
-    }
-
-    void VRSession::setSeatedPlay(bool seatedPlay)
-    {
-        std::swap(mSeatedPlay, seatedPlay);
-        if (mSeatedPlay != seatedPlay)
-        {
-            Environment::get().getInputManager()->requestRecenter(true);
-        }
-    }
-
     // OSG doesn't provide API to extract euler angles from a quat, but i need it.
     // Credits goes to Dennis Bunfield, i just copied his formula https://narkive.com/v0re6547.4
     void getEulerAngles(const osg::Quat& quat, float& yaw, float& pitch, float& roll)
@@ -133,6 +41,229 @@ namespace MWVR
         yaw = angle_z;
         pitch = angle_x;
         roll = angle_y;
+    }
+
+    OpenXRSession::OpenXRSession(XrSession session, XrInstance instance, XrViewConfigurationType viewConfigType)
+        : mInstance(instance)
+        , mSession(session)
+        , mViewConfigType(viewConfigType)
+    {
+    }
+
+    OpenXRSession::~OpenXRSession()
+    {
+        xrDestroySession(mSession);
+    }
+
+    void OpenXRSession::xrResourceAcquired()
+    {
+        std::scoped_lock lock(mMutex);
+        mAcquiredResources++;
+    }
+
+    void OpenXRSession::xrResourceReleased()
+    {
+        assert(mAcquiredResources != 0);
+
+        std::scoped_lock lock(mMutex);
+        mAcquiredResources--;
+    }
+
+    void OpenXRSession::newFrame(uint64_t frameNo, bool& shouldSyncFrame, bool& shouldSyncInput)
+    {
+        handleEvents();
+        shouldSyncFrame = mAppShouldSyncFrameLoop;
+        shouldSyncInput = mAppShouldReadInput;
+    }
+
+    void OpenXRSession::syncFrameUpdate(uint64_t frameNo, bool& shouldRender, uint64_t& predictedDisplayTime, uint64_t& predictedDisplayPeriod)
+    {
+        XrFrameWaitInfo frameWaitInfo{ XR_TYPE_FRAME_WAIT_INFO };
+        XrFrameState frameState{ XR_TYPE_FRAME_STATE };
+
+        CHECK_XRCMD(xrWaitFrame(mSession, &frameWaitInfo, &frameState));
+        shouldRender = frameState.shouldRender && mAppShouldRender;
+        predictedDisplayTime = frameState.predictedDisplayTime;
+        predictedDisplayPeriod = frameState.predictedDisplayPeriod;
+    }
+
+    void OpenXRSession::syncFrameRender(VR::Frame& frame)
+    {
+        XrFrameBeginInfo frameBeginInfo{ XR_TYPE_FRAME_BEGIN_INFO };
+        CHECK_XRCMD(xrBeginFrame(mSession, &frameBeginInfo));
+    }
+
+    void OpenXRSession::syncFrameEnd(VR::Frame& frame)
+    {
+        Environment::get().getManager()->impl().endFrame(frame);
+    }
+
+    void OpenXRSession::handleEvents()
+    {
+        xrQueueEvents();
+
+        while (auto* event = nextEvent())
+        {
+            if (!processEvent(event))
+            {
+                // Do not consider processing an event optional.
+                // Retry once per frame until every event has been successfully processed
+                return;
+            }
+            popEvent();
+        }
+
+        if (mXrSessionShouldStop)
+        {
+            if (checkStopCondition())
+            {
+                CHECK_XRCMD(xrEndSession(mSession));
+                mXrSessionShouldStop = false;
+            }
+        }
+    }
+
+    const XrEventDataBaseHeader* OpenXRSession::nextEvent()
+    {
+        if (mEventQueue.size() > 0)
+            return reinterpret_cast<XrEventDataBaseHeader*> (&mEventQueue.front());
+        return nullptr;
+    }
+
+    bool OpenXRSession::processEvent(const XrEventDataBaseHeader* header)
+    {
+        Log(Debug::Verbose) << "OpenXR: Event received: " << to_string(header->type);
+        switch (header->type)
+        {
+        case XR_TYPE_EVENT_DATA_SESSION_STATE_CHANGED:
+        {
+            const auto* stateChangeEvent = reinterpret_cast<const XrEventDataSessionStateChanged*>(header);
+            return handleSessionStateChanged(*stateChangeEvent);
+            break;
+        }
+        case XR_TYPE_EVENT_DATA_INTERACTION_PROFILE_CHANGED:
+            MWVR::Environment::get().getInputManager()->notifyInteractionProfileChanged();
+            break;
+        case XR_TYPE_EVENT_DATA_INSTANCE_LOSS_PENDING:
+        case XR_TYPE_EVENT_DATA_REFERENCE_SPACE_CHANGE_PENDING:
+        default:
+        {
+            Log(Debug::Verbose) << "OpenXR: Event ignored";
+            break;
+        }
+        }
+        return true;
+    }
+
+    bool
+        OpenXRSession::handleSessionStateChanged(
+            const XrEventDataSessionStateChanged& stateChangedEvent)
+    {
+        Log(Debug::Verbose) << "XrEventDataSessionStateChanged: state " << to_string(mState) << "->" << to_string(stateChangedEvent.state);
+        mState = stateChangedEvent.state;
+
+        // Ref: https://www.khronos.org/registry/OpenXR/specs/1.0/html/xrspec.html#session-states
+        switch (mState)
+        {
+        case XR_SESSION_STATE_IDLE:
+        {
+            mAppShouldSyncFrameLoop = false;
+            mAppShouldRender = false;
+            mAppShouldReadInput = false;
+            mXrSessionShouldStop = false;
+            break;
+        }
+        case XR_SESSION_STATE_READY:
+        {
+            mAppShouldSyncFrameLoop = true;
+            mAppShouldRender = false;
+            mAppShouldReadInput = false;
+            mXrSessionShouldStop = false;
+
+            XrSessionBeginInfo beginInfo{ XR_TYPE_SESSION_BEGIN_INFO };
+            beginInfo.primaryViewConfigurationType = mViewConfigType;
+            CHECK_XRCMD(xrBeginSession(mSession, &beginInfo));
+
+            break;
+        }
+        case XR_SESSION_STATE_STOPPING:
+        {
+            mAppShouldSyncFrameLoop = false;
+            mAppShouldRender = false;
+            mAppShouldReadInput = false;
+            mXrSessionShouldStop = true;
+            break;
+        }
+        case XR_SESSION_STATE_SYNCHRONIZED:
+        {
+            mAppShouldSyncFrameLoop = true;
+            mAppShouldRender = false;
+            mAppShouldReadInput = false;
+            mXrSessionShouldStop = false;
+            break;
+        }
+        case XR_SESSION_STATE_VISIBLE:
+        {
+            mAppShouldSyncFrameLoop = true;
+            mAppShouldRender = true;
+            mAppShouldReadInput = false;
+            mXrSessionShouldStop = false;
+            break;
+        }
+        case XR_SESSION_STATE_FOCUSED:
+        {
+            mAppShouldSyncFrameLoop = true;
+            mAppShouldRender = true;
+            mAppShouldReadInput = true;
+            mXrSessionShouldStop = false;
+            break;
+        }
+        default:
+            Log(Debug::Warning) << "XrEventDataSessionStateChanged: Ignoring new state " << to_string(mState);
+        }
+
+        return true;
+    }
+
+    bool OpenXRSession::checkStopCondition()
+    {
+        return mAcquiredResources == 0;
+    }
+
+    bool OpenXRSession::xrNextEvent(XrEventDataBuffer& eventBuffer)
+    {
+        XrEventDataBaseHeader* baseHeader = reinterpret_cast<XrEventDataBaseHeader*>(&eventBuffer);
+        *baseHeader = { XR_TYPE_EVENT_DATA_BUFFER };
+        const XrResult result = xrPollEvent(mInstance, &eventBuffer);
+        if (result == XR_SUCCESS)
+        {
+            if (baseHeader->type == XR_TYPE_EVENT_DATA_EVENTS_LOST) {
+                const XrEventDataEventsLost* const eventsLost = reinterpret_cast<const XrEventDataEventsLost*>(baseHeader);
+                Log(Debug::Warning) << "OpenXRManagerImpl: Lost " << eventsLost->lostEventCount << " events";
+            }
+
+            return baseHeader;
+        }
+
+        if (result != XR_EVENT_UNAVAILABLE)
+            CHECK_XRRESULT(result, "xrPollEvent");
+        return false;
+    }
+
+    void OpenXRSession::popEvent()
+    {
+        if (mEventQueue.size() > 0)
+            mEventQueue.pop();
+    }
+
+    void
+        OpenXRSession::xrQueueEvents()
+    {
+        XrEventDataBuffer eventBuffer;
+        while (xrNextEvent(eventBuffer))
+        {
+            mEventQueue.push(eventBuffer);
+        }
     }
 }
 

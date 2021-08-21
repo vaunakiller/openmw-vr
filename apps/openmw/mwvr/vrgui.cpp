@@ -473,12 +473,18 @@ namespace MWVR
         mGUICamerasRootNode->addChild(mGUICameras);
     }
 
+    std::shared_ptr<UserPointer> VRGUIManager::getUserPointer()
+    {
+        return mUserPointer;
+    }
+
     VRGUIManager::VRGUIManager(
         osg::ref_ptr<osgViewer::Viewer> viewer,
         Resource::ResourceSystem* resourceSystem,
         osg::Group* rootNode)
         : mOsgViewer(viewer)
         , mResourceSystem(resourceSystem)
+        , mUserPointer(std::make_shared<UserPointer>(rootNode))
         , mGeometriesRootNode(rootNode)
         , mGUICamerasRootNode(rootNode)
         , mUiTracking(new VRGUITracking())
@@ -758,26 +764,21 @@ namespace MWVR
 
     bool VRGUIManager::updateFocus()
     {
-        auto* world = MWBase::Environment::get().getWorld();
-        if (world)
+        if (mUserPointer->getPointerTarget().mHit)
         {
-            auto& pointer = world->getUserPointer();
-            if (pointer.getPointerTarget().mHit)
+            std::shared_ptr<VRGUILayer> newFocusLayer = nullptr;
+            auto* node = mUserPointer->getPointerTarget().mHitNode;
+            if (node->getName() == "VRGUILayer")
             {
-                std::shared_ptr<VRGUILayer> newFocusLayer = nullptr;
-                auto* node = pointer.getPointerTarget().mHitNode;
-                if (node->getName() == "VRGUILayer")
-                {
-                    VRGUILayerUserData* userData = static_cast<VRGUILayerUserData*>(node->getUserData());
-                    newFocusLayer = userData->mLayer.lock();
-                }
+                VRGUILayerUserData* userData = static_cast<VRGUILayerUserData*>(node->getUserData());
+                newFocusLayer = userData->mLayer.lock();
+            }
 
-                if (newFocusLayer && newFocusLayer->mLayerName != "Notification")
-                {
-                    setFocusLayer(newFocusLayer.get());
-                    computeGuiCursor(pointer.getPointerTarget().mHitPointLocal);
-                    return true;
-                }
+            if (newFocusLayer && newFocusLayer->mLayerName != "Notification")
+            {
+                setFocusLayer(newFocusLayer.get());
+                computeGuiCursor(mUserPointer->getPointerTarget().mHitPointLocal);
+                return true;
             }
         }
         return false;
@@ -987,9 +988,6 @@ namespace MWVR
 
     VRTrackingPose VRGUITracking::locate(VRPath path, DisplayTime predictedDisplayTime)
     {
-        if (mShouldUpdateStationaryPose)
-            updateTracking(predictedDisplayTime);
-
         if (path == mStationaryPath)
             return mStationaryPose;
 
@@ -1002,22 +1000,25 @@ namespace MWVR
         return { mStationaryPath };
     }
 
-    void VRGUITracking::updateTracking(DisplayTime predictedDisplayTime)
+    void VRGUITracking::updateTracking(const VR::Frame& frame)
     {
-        auto* tm = Environment::get().getTrackingManager();
-        // All dependent sources were updated before this
-        auto tp = tm->locate(mHeadPath, predictedDisplayTime);
-        if (!!tp.status)
+        if (mShouldUpdateStationaryPose)
         {
-            mShouldUpdateStationaryPose = false;
-            mStationaryPose = tp;
+            auto* tm = Environment::get().getTrackingManager();
+            // All dependent sources were updated before this
+            auto tp = tm->locate(mHeadPath, frame.predictedDisplayTime);
+            if (!!tp.status)
+            {
+                mShouldUpdateStationaryPose = false;
+                mStationaryPose = tp;
 
-            // Stationary UI elements should always be vertical
-            auto axis = osg::Z_AXIS;
-            osg::Quat vertical;
-            auto local = mStationaryPose.pose.orientation * axis;
-            vertical.makeRotate(local, axis);
-            mStationaryPose.pose.orientation = mStationaryPose.pose.orientation * vertical;
+                // Stationary UI elements should always be vertical
+                auto axis = osg::Z_AXIS;
+                osg::Quat vertical;
+                auto local = mStationaryPose.pose.orientation * axis;
+                vertical.makeRotate(local, axis);
+                mStationaryPose.pose.orientation = mStationaryPose.pose.orientation * vertical;
+            }
         }
     }
 
