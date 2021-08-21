@@ -221,8 +221,8 @@ namespace MWRender
                             || Settings::Manager::getBool("force shaders", "Shaders")
                             || Settings::Manager::getBool("enable shadows", "Shadows")
                             || lightingMethod != SceneUtil::LightingMethod::FFP;
-        //resourceSystem->getSceneManager()->setForceShaders(forceShaders);
-        resourceSystem->getSceneManager()->setForceShaders(true);
+        resourceSystem->getSceneManager()->setForceShaders(forceShaders);
+         
         // FIXME: calling dummy method because terrain needs to know whether lighting is clamped
         resourceSystem->getSceneManager()->setClampLighting(Settings::Manager::getBool("clamp lighting", "Shaders"));
         resourceSystem->getSceneManager()->setAutoUseNormalMaps(Settings::Manager::getBool("auto use object normal maps", "Shaders"));
