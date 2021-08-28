@@ -3,9 +3,7 @@
 
 #include "../mwrender/npcanimation.hpp"
 #include "../mwrender/renderingmanager.hpp"
-#include "openxrmanager.hpp"
-#include "vrsession.hpp"
-#include "vrtracking.hpp"
+#include <components/vr/trackinglistener.hpp>
 
 namespace MWVR
 {
@@ -15,7 +13,7 @@ namespace MWVR
     class UserPointer;
 
     /// Subclassing NpcAnimation to implement VR related behaviour
-    class VRAnimation : public MWRender::NpcAnimation, public VRTrackingListener
+    class VRAnimation : public MWRender::NpcAnimation, public VR::TrackingListener
     {
     protected:
         virtual void addControllers();
@@ -62,7 +60,7 @@ namespace MWVR
 
         float getVelocity(const std::string& groupname) const override;
 
-        void onTrackingUpdated(VRTrackingManager& manager, DisplayTime predictedDisplayTime) override;
+        void onTrackingUpdated(VR::TrackingManager& manager, VR::DisplayTime predictedDisplayTime) override;
 
     protected:
         std::map<std::string, std::unique_ptr<TrackingController> > mVrControllers;

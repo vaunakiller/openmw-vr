@@ -14,11 +14,25 @@
 #include <time.h>
 #include <thread>
 #include <chrono>
+#include <cassert>
 
 namespace VR
 {
+    Session* sSession = nullptr;
+
+    Session& Session::instance()
+    {
+        assert(sSession);
+        return *sSession;
+    }
+
     Session::Session()
     {
+        if (!sSession)
+            sSession = this;
+        else
+            throw std::logic_error("Duplicated VR::Session singleton");
+
         mSeatedPlay = Settings::Manager::getBool("seated play", "VR");
     }
 

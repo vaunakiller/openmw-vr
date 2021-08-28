@@ -12,14 +12,14 @@
 
 #include "../mwworld/class.hpp"
 #include "../mwworld/esmstore.hpp"
+#include "../mwworld/player.hpp"
 #include "../mwworld/refdata.hpp"
 
 #ifdef USE_OPENXR
-#include "../mwvr/vrsession.hpp"
 #include "../mwvr/vrcamera.hpp"
 #include "../mwvr/vrenvironment.hpp"
 #include "../mwrender/renderingmanager.hpp"
-#include "../mwworld/player.hpp"
+#include <components/vr/trackingmanager.hpp>
 #endif
 #include "../mwmechanics/actorutil.hpp"
 
@@ -159,10 +159,9 @@ namespace MWPhysics
         // position in the VR stage, and just let it catch up at the character's own move speed, but it still needs to reach the position as exactly as possible.
         if (isPlayer)
         {
-            auto tm = MWVR::Environment::get().getTrackingManager();
             float pitch = 0.f;
             float yaw = 0.f;
-            tm->movementAngles(yaw, pitch);
+            VR::TrackingManager::instance().movementAngles(yaw, pitch);
             refpos.rot[0] += pitch;
             refpos.rot[2] += yaw;
         }

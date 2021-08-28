@@ -268,6 +268,7 @@ namespace MWRender
 
         void updateRecastMesh();
 
+
         osg::ref_ptr<osgUtil::IntersectionVisitor> getIntersectionVisitor(osgUtil::Intersector* intersector, bool ignorePlayer, bool ignoreActors);
 
         osg::ref_ptr<osgUtil::IntersectionVisitor> mIntersectionVisitor;
@@ -320,6 +321,8 @@ namespace MWRender
         float mFieldOfViewOverride;
         float mFieldOfView;
         float mFirstPersonFieldOfView;
+
+        std::shared_ptr<MWVR::UserPointer> mUserPointer;
 
         void operator = (const RenderingManager&);
         RenderingManager(const RenderingManager&);

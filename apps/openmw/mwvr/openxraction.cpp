@@ -1,11 +1,10 @@
 #include "openxraction.hpp"
-#include "openxrdebug.hpp"
-#include "vrenvironment.hpp"
-#include "openxrmanagerimpl.hpp"
+
+#include <components/xr/debug.hpp>
+#include <components/xr/instance.hpp>
 
 namespace MWVR
 {
-
     OpenXRAction::OpenXRAction(
         XrAction action,
         XrActionType actionType,
@@ -16,7 +15,7 @@ namespace MWVR
         , mName(actionName)
         , mLocalName(localName)
     {
-        VrDebug::setName(action, "OpenMW XR Action " + actionName);
+        XR::Debugging::setName(action, "OpenMW XR Action " + actionName);
     };
 
     OpenXRAction::~OpenXRAction() {
@@ -28,13 +27,12 @@ namespace MWVR
 
     bool OpenXRAction::getFloat(XrPath subactionPath, float& value)
     {
-        auto* xr = Environment::get().getManager();
         XrActionStateGetInfo getInfo{ XR_TYPE_ACTION_STATE_GET_INFO };
         getInfo.action = mAction;
         getInfo.subactionPath = subactionPath;
 
         XrActionStateFloat xrValue{ XR_TYPE_ACTION_STATE_FLOAT };
-        CHECK_XRCMD(xrGetActionStateFloat(xr->impl().xrSession(), &getInfo, &xrValue));
+        CHECK_XRCMD(xrGetActionStateFloat(XR::Instance::instance().xrSession(), &getInfo, &xrValue));
 
         if (xrValue.isActive)
             value = xrValue.currentState;
@@ -43,13 +41,12 @@ namespace MWVR
 
     bool OpenXRAction::getBool(XrPath subactionPath, bool& value)
     {
-        auto* xr = Environment::get().getManager();
         XrActionStateGetInfo getInfo{ XR_TYPE_ACTION_STATE_GET_INFO };
         getInfo.action = mAction;
         getInfo.subactionPath = subactionPath;
 
         XrActionStateBoolean xrValue{ XR_TYPE_ACTION_STATE_BOOLEAN };
-        CHECK_XRCMD(xrGetActionStateBoolean(xr->impl().xrSession(), &getInfo, &xrValue));
+        CHECK_XRCMD(xrGetActionStateBoolean(XR::Instance::instance().xrSession(), &getInfo, &xrValue));
 
         if (xrValue.isActive)
             value = xrValue.currentState;
@@ -59,13 +56,12 @@ namespace MWVR
     // Pose action only checks if the pose is active or not
     bool OpenXRAction::getPoseIsActive(XrPath subactionPath)
     {
-        auto* xr = Environment::get().getManager();
         XrActionStateGetInfo getInfo{ XR_TYPE_ACTION_STATE_GET_INFO };
         getInfo.action = mAction;
         getInfo.subactionPath = subactionPath;
 
         XrActionStatePose xrValue{ XR_TYPE_ACTION_STATE_POSE };
-        CHECK_XRCMD(xrGetActionStatePose(xr->impl().xrSession(), &getInfo, &xrValue));
+        CHECK_XRCMD(xrGetActionStatePose(XR::Instance::instance().xrSession(), &getInfo, &xrValue));
 
         return xrValue.isActive;
     }
@@ -74,7 +70,6 @@ namespace MWVR
     {
         amplitude = std::max(0.f, std::min(1.f, amplitude));
 
-        auto* xr = Environment::get().getManager();
         XrHapticVibration vibration{ XR_TYPE_HAPTIC_VIBRATION };
         vibration.amplitude = amplitude;
         vibration.duration = XR_MIN_HAPTIC_DURATION;
@@ -83,7 +78,7 @@ namespace MWVR
         XrHapticActionInfo hapticActionInfo{ XR_TYPE_HAPTIC_ACTION_INFO };
         hapticActionInfo.action = mAction;
         hapticActionInfo.subactionPath = subactionPath;
-        CHECK_XRCMD(xrApplyHapticFeedback(xr->impl().xrSession(), &hapticActionInfo, (XrHapticBaseHeader*)&vibration));
+        CHECK_XRCMD(xrApplyHapticFeedback(XR::Instance::instance().xrSession(), &hapticActionInfo, (XrHapticBaseHeader*)&vibration));
         return true;
     }
 }

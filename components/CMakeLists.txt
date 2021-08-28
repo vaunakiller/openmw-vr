@@ -190,6 +190,7 @@ if(BUILD_OPENMW_VR)
     add_component_dir(vr
         actionmanager
         actionset
+        constants
         directx
         frame
         layer
@@ -202,6 +203,18 @@ if(BUILD_OPENMW_VR)
         trackingsource
         view
         viewer
+    )
+    add_component_dir(xr
+        action
+        actionset
+        debug
+        input
+        instance
+        platform
+        session
+        swapchain
+        tracking
+        typeconversion
     )
 endif()
 
@@ -310,3 +323,27 @@ endif()
 set(COMPONENT_FILES ${COMPONENT_FILES} PARENT_SCOPE)
 
 target_compile_definitions(components PUBLIC BT_USE_DOUBLE_PRECISION)
+
+
+    
+if(BUILD_OPENMW_VR)
+    ########### Import the OpenXR SDK
+    # Force the openxr-sdk to use its bundled jsoncpp to avoid problems from system jsoncpp if present
+    set(BUILD_WITH_SYSTEM_JSONCPP off) 
+    include(FetchContent)
+    FetchContent_Declare( 
+        OpenXR 
+        GIT_REPOSITORY https://github.com/KhronosGroup/OpenXR-SDK.git
+        GIT_TAG release-1.0.15
+    )
+    FetchContent_MakeAvailable(OpenXR)
+
+    target_link_libraries(components openxr_loader)
+
+    # Preprocessor variables used to control code paths to vr code
+    if (WIN32)
+        target_compile_options(components PUBLIC -DUSE_OPENXR -DXR_USE_GRAPHICS_API_OPENGL -DXR_USE_GRAPHICS_API_D3D11 -DXR_USE_PLATFORM_WIN32)
+    elseif(UNIX)
+        target_compile_options(components PUBLIC -DUSE_OPENXR -DXR_USE_GRAPHICS_API_OPENGL -DXR_USE_PLATFORM_XLIB)
+    endif()
+endif()

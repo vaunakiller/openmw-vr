@@ -1,6 +1,5 @@
 #include "vrpointer.hpp"
 #include "vrutil.hpp"
-#include "vrenvironment.hpp"
 
 #include <osg/MatrixTransform>
 #include <osg/Drawable>
@@ -12,6 +11,8 @@
 #include <components/resource/scenemanager.hpp>
 
 #include <components/sceneutil/shadow.hpp>
+
+#include <components/vr/trackingmanager.hpp>
 
 #include "../mwbase/environment.hpp"
 #include "../mwbase/world.hpp"
@@ -32,8 +33,7 @@ namespace MWVR
         mPointerTransform->setName("Pointer Transform");
         mPointerTransform->setNodeMask(MWRender::VisMask::Mask_Pointer);
 
-        auto tm = MWVR::Environment::get().getTrackingManager();
-        mHandPath = tm->stringToVRPath("/world/user/hand/right/input/aim/pose");
+        mHandPath = VR::stringToVRPath("/world/user/hand/right/input/aim/pose");
 
         setEnabled(true);
     }
@@ -70,7 +70,7 @@ namespace MWVR
         mEnabled = enabled;
     }
 
-    void UserPointer::onTrackingUpdated(VRTrackingManager& manager, DisplayTime predictedDisplayTime)
+    void UserPointer::onTrackingUpdated(VR::TrackingManager& manager, VR::DisplayTime predictedDisplayTime)
     {
         // If no parent is set, then the actor is currently unloaded
         // And we need to point directly from tracking data and the root

@@ -260,9 +260,9 @@ if(BUILD_OPENMW_VR)
         vrengine.cpp
     )
     add_openmw_dir (mwvr
-         openxraction openxractionset openxrdebug openxrinput openxrmanager openxrmanagerimpl openxrplatform openxrswapchain openxrtracker openxrtypeconversions
+         openxraction openxractionset openxrinput
          realisticcombat 
-         vranimation vrcamera vrenvironment vrframebuffer vrgui vrinputmanager vrinput vrlistbox vrmetamenu vrpointer vrsession vrtracking vrtypes vrutil vrviewer vrvirtualkeyboard
+         vranimation vrcamera vrenvironment vrframebuffer vrgui vrinputmanager vrinput vrlistbox vrmetamenu vrpointer vrtracking vrtypes vrutil vrviewer vrvirtualkeyboard
         )
 
     openmw_add_executable(openmw_vr
@@ -274,21 +274,10 @@ if(BUILD_OPENMW_VR)
 
     configure_resource_file(${OpenMW_SOURCE_DIR}/files/xrcontrollersuggestions.xml
         "${OpenMW_BINARY_DIR}" "xrcontrollersuggestions.xml")
-    
-    ########### Import the OpenXR SDK
-    # Force the openxr-sdk to use its bundled jsoncpp to avoid problems from system jsoncpp if present
-    set(BUILD_WITH_SYSTEM_JSONCPP off) 
-    include(FetchContent)
-    FetchContent_Declare( 
-        OpenXR 
-        GIT_REPOSITORY https://github.com/KhronosGroup/OpenXR-SDK.git
-        GIT_TAG release-1.0.15
-    )
-    FetchContent_MakeAvailable(OpenXR)
 
     target_link_libraries(openmw_vr openxr_loader)
 
-    # Preprocessor variable used to control code paths to vr code
+    # Preprocessor variables used to control code paths to vr code
     if (WIN32)
         target_compile_options(openmw_vr PUBLIC -DUSE_OPENXR -DXR_USE_GRAPHICS_API_OPENGL -DXR_USE_GRAPHICS_API_D3D11 -DXR_USE_PLATFORM_WIN32)
     elseif(UNIX)

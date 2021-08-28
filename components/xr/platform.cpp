@@ -1,6 +1,5 @@
-#include "openxrmanagerimpl.hpp"
-#include "openxrplatform.hpp"
-#include "vrenvironment.hpp"
+#include "instance.hpp"
+#include "platform.hpp"
 
 // The OpenXR SDK's platform headers assume we've included platform headers
 #ifdef _WIN32
@@ -30,7 +29,7 @@
 #include <cassert>
 #include <optional>
 
-namespace MWVR
+namespace XR
 {
 
     XrResult CheckXrResult(XrResult res, const char* originator, const char* sourceLocation) {
@@ -69,7 +68,7 @@ namespace MWVR
         return res;
     }
 
-    void OpenXRPlatform::enumerateExtensions(const char* layerName, int logIndent)
+    void Platform::enumerateExtensions(const char* layerName, int logIndent)
     {
         uint32_t extensionCount = 0;
         std::vector<XrExtensionProperties> availableExtensions;
@@ -90,10 +89,10 @@ namespace MWVR
         }
     }
 
-    struct OpenXRPlatformPrivate
+    struct PlatformPrivate
     {
-        OpenXRPlatformPrivate(osg::GraphicsContext* gc);
-        ~OpenXRPlatformPrivate();
+        PlatformPrivate(osg::GraphicsContext* gc);
+        ~PlatformPrivate();
 
 #ifdef XR_USE_GRAPHICS_API_D3D11
 //        typedef BOOL(WINAPI* P_wglDXSetResourceShareHandleNV)(void* dxObject, HANDLE shareHandle);
@@ -172,7 +171,7 @@ namespace MWVR
 #endif
     };
 
-    OpenXRPlatformPrivate::OpenXRPlatformPrivate(osg::GraphicsContext* gc)
+    PlatformPrivate::PlatformPrivate(osg::GraphicsContext* gc)
     {
 #ifdef XR_USE_GRAPHICS_API_D3D11
         typedef const char* (WINAPI* PFNWGLGETEXTENSIONSSTRINGARBPROC) (HDC hdc);
@@ -189,7 +188,7 @@ namespace MWVR
 #endif
     }
 
-    OpenXRPlatformPrivate::~OpenXRPlatformPrivate()
+    PlatformPrivate::~PlatformPrivate()
     {
 #ifdef XR_USE_GRAPHICS_API_D3D11
         //if (wglDXDevice)
@@ -203,8 +202,8 @@ namespace MWVR
 #endif
     }
 
-    OpenXRPlatform::OpenXRPlatform(osg::GraphicsContext* gc)
-        : mPrivate(new OpenXRPlatformPrivate(gc))
+    Platform::Platform(osg::GraphicsContext* gc)
+        : mPrivate(new PlatformPrivate(gc))
     {
         // Enumerate layers and their extensions.
         uint32_t layerCount;
@@ -229,7 +228,7 @@ namespace MWVR
         setupExtensions();
     }
 
-    OpenXRPlatform::~OpenXRPlatform()
+    Platform::~Platform()
     {
     }
 
@@ -241,7 +240,7 @@ namespace MWVR
 
 #error "OpenXR extensions missing. Please upgrade your copy of the OpenXR SDK to 1.0.13 minimum"
 #endif
-    void OpenXRPlatform::setupExtensions()
+    void Platform::setupExtensions()
     {
         std::vector<const char*> optionalExtensions = {
             XR_EXT_HP_MIXED_REALITY_CONTROLLER_EXTENSION_NAME,
@@ -269,7 +268,7 @@ namespace MWVR
             enableExtension(optionalExtension, true);
     }
 
-    bool OpenXRPlatform::selectDirectX()
+    bool Platform::selectDirectX()
     {
 #ifdef XR_USE_GRAPHICS_API_D3D11
         if (mPrivate->mWGL_NV_DX_interop2)
@@ -288,7 +287,7 @@ namespace MWVR
         return false;
     }
 
-    bool OpenXRPlatform::selectOpenGL()
+    bool Platform::selectOpenGL()
     {
 #ifdef XR_USE_GRAPHICS_API_OPENGL
         if (mAvailableExtensions.count(XR_KHR_OPENGL_ENABLE_EXTENSION_NAME))
@@ -314,12 +313,12 @@ namespace MWVR
 #endif
 #endif
 
-    const char* OpenXRPlatform::graphicsAPIExtensionName()
+    const char* Platform::graphicsAPIExtensionName()
     {
         return mGraphicsAPIExtension;
     }
 
-    void OpenXRPlatform::selectGraphicsAPIExtension()
+    void Platform::selectGraphicsAPIExtension()
     {
         bool preferDirectX = Settings::Manager::getBool("Prefer DirectX swapchains", "VR");
 
@@ -333,29 +332,29 @@ namespace MWVR
         throw std::runtime_error("Error: No graphics API supported by OpenMW VR is supported by the OpenXR runtime.");
     }
 
-    bool OpenXRPlatform::supportsExtension(const std::string& extensionName) const
+    bool Platform::supportsExtension(const std::string& extensionName) const
     {
         return mAvailableExtensions.count(extensionName) > 0;
     }
 
-    bool OpenXRPlatform::supportsExtension(const std::string& extensionName, uint32_t minimumVersion) const
+    bool Platform::supportsExtension(const std::string& extensionName, uint32_t minimumVersion) const
     {
         auto it = mAvailableExtensions.find(extensionName);
         return it != mAvailableExtensions.end() && it->second.extensionVersion > minimumVersion;
     }
 
-    bool OpenXRPlatform::supportsLayer(const std::string& layerName) const
+    bool Platform::supportsLayer(const std::string& layerName) const
     {
         return mAvailableLayers.count(layerName) > 0;
     }
 
-    bool OpenXRPlatform::supportsLayer(const std::string& layerName, uint32_t minimumVersion) const
+    bool Platform::supportsLayer(const std::string& layerName, uint32_t minimumVersion) const
     {
         auto it = mAvailableLayers.find(layerName);
         return it != mAvailableLayers.end() && it->second.layerVersion > minimumVersion;
     }
 
-    bool OpenXRPlatform::enableExtension(const std::string& extensionName, bool optional)
+    bool Platform::enableExtension(const std::string& extensionName, bool optional)
     {
         auto it = mAvailableExtensions.find(extensionName);
         if (it != mAvailableExtensions.end())
@@ -375,7 +374,7 @@ namespace MWVR
         }
     }
 
-    bool OpenXRPlatform::enableExtension(const std::string& extensionName, bool optional, uint32_t minimumVersion)
+    bool Platform::enableExtension(const std::string& extensionName, bool optional, uint32_t minimumVersion)
     {
         auto it = mAvailableExtensions.find(extensionName);
         if (it != mAvailableExtensions.end() && it->second.extensionVersion > minimumVersion)
@@ -394,14 +393,14 @@ namespace MWVR
             return false;
         }
     }
-    bool OpenXRPlatform::extensionEnabled(const std::string& extensionName) const
+    bool Platform::extensionEnabled(const std::string& extensionName) const
     {
         for (auto* extension : mEnabledExtensions)
             if (extension == extensionName)
                 return true;
         return false;
     }
-    XrInstance OpenXRPlatform::createXrInstance(const std::string& name)
+    XrInstance Platform::createXrInstance(const std::string& name)
     {
         XrInstance instance = XR_NULL_HANDLE;
         XrInstanceCreateInfo createInfo{ XR_TYPE_INSTANCE_CREATE_INFO };
@@ -417,7 +416,7 @@ namespace MWVR
         return instance;
     }
 
-    XrSession OpenXRPlatform::createXrSession(XrInstance instance, XrSystemId systemId)
+    XrSession Platform::createXrSession(XrInstance instance, XrSystemId systemId)
     {
         XrSession session = XR_NULL_HANDLE;
         XrResult res = XR_SUCCESS;
@@ -556,7 +555,7 @@ namespace MWVR
                 0x18 , // DXGI_FORMAT_R10G10B10A2_UNORM
     */
 
-    int64_t OpenXRPlatform::selectColorFormat()
+    int64_t Platform::selectColorFormat()
     {
         std::string graphicsAPIExtension = graphicsAPIExtensionName();
         if (graphicsAPIExtension == XR_KHR_OPENGL_ENABLE_EXTENSION_NAME)
@@ -603,7 +602,7 @@ namespace MWVR
 
     }
 
-    int64_t OpenXRPlatform::selectDepthFormat()
+    int64_t Platform::selectDepthFormat()
     {
         std::string graphicsAPIExtension = graphicsAPIExtensionName();
         if (graphicsAPIExtension == XR_KHR_OPENGL_ENABLE_EXTENSION_NAME)
@@ -640,7 +639,7 @@ namespace MWVR
         }
     }
 
-    void OpenXRPlatform::eraseFormat(int64_t format)
+    void Platform::eraseFormat(int64_t format)
     {
         for (auto it = mSwapchainFormats.begin(); it != mSwapchainFormats.end(); it++)
         {
@@ -652,7 +651,7 @@ namespace MWVR
         }
     }
 
-    int64_t OpenXRPlatform::selectFormat(const std::vector<int64_t>& requestedFormats)
+    int64_t Platform::selectFormat(const std::vector<int64_t>& requestedFormats)
     {
         auto it =
             std::find_first_of(std::begin(requestedFormats), std::end(requestedFormats),
@@ -663,7 +662,7 @@ namespace MWVR
         }
         return *it;
     }
-//    void* OpenXRPlatform::DXRegisterObject(void* dxResource, uint32_t glName, uint32_t glType, bool discard, void* ntShareHandle)
+//    void* Platform::DXRegisterObject(void* dxResource, uint32_t glName, uint32_t glType, bool discard, void* ntShareHandle)
 //    {
 //#ifdef XR_USE_GRAPHICS_API_D3D11
 //        if (ntShareHandle)
@@ -675,19 +674,19 @@ namespace MWVR
 //        return nullptr;
 //#endif
 //    }
-//    void OpenXRPlatform::DXUnregisterObject(void* dxResourceShareHandle)
+//    void Platform::DXUnregisterObject(void* dxResourceShareHandle)
 //    {
 //#ifdef XR_USE_GRAPHICS_API_D3D11
 //        mPrivate->wglDXUnregisterObjectNV(mPrivate->wglDXDevice, dxResourceShareHandle);
 //#endif
 //    }
-//    void OpenXRPlatform::DXLockObject(void* dxResourceShareHandle)
+//    void Platform::DXLockObject(void* dxResourceShareHandle)
 //    {
 //#ifdef XR_USE_GRAPHICS_API_D3D11
 //        mPrivate->wglDXLockObjectsNV(mPrivate->wglDXDevice, 1, &dxResourceShareHandle);
 //#endif
 //    }
-//    void OpenXRPlatform::DXUnlockObject(void* dxResourceShareHandle)
+//    void Platform::DXUnlockObject(void* dxResourceShareHandle)
 //    {
 //#ifdef XR_USE_GRAPHICS_API_D3D11
 //        mPrivate->wglDXUnlockObjectsNV(mPrivate->wglDXDevice, 1, &dxResourceShareHandle);
@@ -703,20 +702,20 @@ namespace MWVR
         return properties;
     }
 
-    std::string OpenXRPlatform::getInstanceName(XrInstance instance)
+    std::string Platform::getInstanceName(XrInstance instance)
     {
         if (instance)
             return getInstanceProperties(instance).runtimeName;
         return "unknown";
     }
 
-    XrVersion OpenXRPlatform::getInstanceVersion(XrInstance instance)
+    XrVersion Platform::getInstanceVersion(XrInstance instance)
     {
         if (instance)
             return getInstanceProperties(instance).runtimeVersion;
         return 0;
     }
-    void OpenXRPlatform::initFailure(XrResult res, XrInstance instance)
+    void Platform::initFailure(XrResult res, XrInstance instance)
     {
         std::stringstream ss;
         std::string runtimeName = getInstanceName(instance);
@@ -745,7 +744,7 @@ namespace MWVR
         }
         throw std::runtime_error(ss.str());
     }
-    std::shared_ptr<VR::DirectXWGLInterop> OpenXRPlatform::dxInterop()
+    std::shared_ptr<VR::DirectXWGLInterop> Platform::dxInterop()
     {
         return mDxInterop;
     }

@@ -3,7 +3,7 @@
 
 #include "../mwworld/ptr.hpp"
 
-#include "vrtypes.hpp"
+#include <components/misc/stereo.hpp>
 
 namespace MWRender
 {
@@ -16,8 +16,8 @@ namespace MWVR
         std::pair<MWWorld::Ptr, float> getPointerTarget();
         std::pair<MWWorld::Ptr, float> getTouchTarget();
         std::pair<MWWorld::Ptr, float> getWeaponTarget();
-        float getPoseTarget(MWRender::RayResult& result, const Pose& pose, bool allowTelekinesis);
-        Pose getNodePose(const osg::Node* node);
+        float getPoseTarget(MWRender::RayResult& result, const Misc::Pose& pose, bool allowTelekinesis);
+        Misc::Pose getNodePose(const osg::Node* node);
     }
 
 }

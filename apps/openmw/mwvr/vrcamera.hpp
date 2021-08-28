@@ -9,14 +9,14 @@
 #include <osg/Quat>
 
 #include "../mwrender/camera.hpp"
-#include "openxrtracker.hpp"
+#include <components/vr/trackinglistener.hpp>
 
 #include "vrtypes.hpp"
 
 namespace MWVR
 {
     /// \brief VR camera control
-    class VRCamera : public MWRender::Camera, public VRTrackingListener
+    class VRCamera : public MWRender::Camera, public VR::TrackingListener
     {
     public:
 
@@ -51,10 +51,6 @@ namespace MWVR
 
         void instantTransition() override;
 
-        osg::Quat stageRotation();
-
-        void rotateStage(float yaw);
-
         void requestRecenter(bool resetZ);
 
         void setShouldTrackPlayerCharacter(bool track);
@@ -63,10 +59,10 @@ namespace MWVR
         void recenter();
         void applyTracking();
 
-        void onTrackingUpdated(VRTrackingManager& manager, DisplayTime predictedDisplayTime) override;
+        void onTrackingUpdated(VR::TrackingManager& manager, VR::DisplayTime predictedDisplayTime) override;
 
     private:
-        Pose mHeadPose{};
+        Misc::Pose mHeadPose{};
         bool mShouldRecenter{ true };
         bool mShouldResetZ{ true };
         bool mHasTrackingData{ false };

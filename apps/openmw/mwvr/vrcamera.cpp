@@ -1,12 +1,14 @@
 #include "vrcamera.hpp"
 #include "vrgui.hpp"
 #include "vrinputmanager.hpp"
-#include "vrenvironment.hpp"
 #include "vranimation.hpp"
+#include "vrenvironment.hpp"
 
 #include <components/sceneutil/visitor.hpp>
 
 #include <components/misc/constants.hpp>
+#include <components/vr/trackingmanager.hpp>
+#include <components/vr/session.hpp>
 
 #include "../mwbase/environment.hpp"
 #include "../mwbase/world.hpp"
@@ -21,6 +23,42 @@
 
 namespace MWVR
 {
+    // OSG doesn't provide API to extract euler angles from a quat, but i need it.
+    // Credits goes to Dennis Bunfield, i just copied his formula https://narkive.com/v0re6547.4
+    static inline void getEulerAngles(const osg::Quat& quat, float& yaw, float& pitch, float& roll)
+    {
+        // Now do the computation
+        osg::Matrixd m2(osg::Matrixd::rotate(quat));
+        double* mat = (double*)m2.ptr();
+        double angle_x = 0.0;
+        double angle_y = 0.0;
+        double angle_z = 0.0;
+        double D, C, tr_x, tr_y;
+        angle_y = D = asin(mat[2]); /* Calculate Y-axis angle */
+        C = cos(angle_y);
+        if (fabs(C) > 0.005) /* Test for Gimball lock? */
+        {
+            tr_x = mat[10] / C; /* No, so get X-axis angle */
+            tr_y = -mat[6] / C;
+            angle_x = atan2(tr_y, tr_x);
+            tr_x = mat[0] / C; /* Get Z-axis angle */
+            tr_y = -mat[1] / C;
+            angle_z = atan2(tr_y, tr_x);
+        }
+        else /* Gimball lock has occurred */
+        {
+            angle_x = 0; /* Set X-axis angle to zero
+            */
+            tr_x = mat[5]; /* And calculate Z-axis angle
+            */
+            tr_y = mat[4];
+            angle_z = atan2(tr_y, tr_x);
+        }
+
+        yaw = angle_z;
+        pitch = angle_x;
+        roll = angle_y;
+    }
 
     VRCamera::VRCamera(osg::Camera* camera)
         : MWRender::Camera(camera)
@@ -46,14 +84,11 @@ namespace MWVR
         // Move position of head to center of character 
         // Z should not be affected
 
-        auto& session = Environment::get().getManager()->session();
+        auto path = VR::stringToVRPath("/world/user");
+        auto* stageToWorldBinding = static_cast<VR::StageToWorldBinding*>(VR::TrackingManager::instance().getTrackingSource(path));
 
-        auto* tm = Environment::get().getTrackingManager();
-        auto path = tm->stringToVRPath("/world/user");
-        auto* stageToWorldBinding = static_cast<VRStageToWorldBinding*>(tm->getTrackingSource(path));
-
-        stageToWorldBinding->setSeatedPlay(session.seatedPlay());
-        stageToWorldBinding->setEyeLevel(session.eyeLevel() * Constants::UnitsPerMeter);
+        stageToWorldBinding->setSeatedPlay(VR::Session::instance().seatedPlay());
+        stageToWorldBinding->setEyeLevel(VR::Session::instance().eyeLevel() * Constants::UnitsPerMeter);
         stageToWorldBinding->recenter(mShouldResetZ);
 
         mShouldRecenter = false;
@@ -78,9 +113,9 @@ namespace MWVR
         }
     }
 
-    void VRCamera::onTrackingUpdated(VRTrackingManager& manager, DisplayTime predictedDisplayTime)
+    void VRCamera::onTrackingUpdated(VR::TrackingManager& manager, VR::DisplayTime predictedDisplayTime)
     {
-        auto path = manager.stringToVRPath("/world/user/head/input/pose");
+        auto path = VR::stringToVRPath("/world/user/head/input/pose");
         auto tp = manager.locate(path, predictedDisplayTime);
 
         if (!!tp.status)
@@ -177,26 +212,9 @@ namespace MWVR
         float roll = 0.f;
         getEulerAngles(mHeadPose.orientation, yaw, pitch, roll);
         yaw = - mYaw - yaw;
-        auto* tm = Environment::get().getTrackingManager();
-        auto path = tm->stringToVRPath("/world/user");
-        auto* stageToWorldBinding = static_cast<VRStageToWorldBinding*>(tm->getTrackingSource(path));
+        auto path = VR::stringToVRPath("/world/user");
+        auto* stageToWorldBinding = static_cast<VR::StageToWorldBinding*>(VR::TrackingManager::instance().getTrackingSource(path));
         stageToWorldBinding->setWorldOrientation(yaw, true);
-    }
-
-    void VRCamera::rotateStage(float yaw)
-    {
-        auto* tm = Environment::get().getTrackingManager();
-        auto path = tm->stringToVRPath("/world/user");
-        auto* stageToWorldBinding = static_cast<VRStageToWorldBinding*>(tm->getTrackingSource(path));
-        stageToWorldBinding->setWorldOrientation(yaw, true);
-    }
-
-    osg::Quat VRCamera::stageRotation()
-    {
-        auto* tm = Environment::get().getTrackingManager();
-        auto path = tm->stringToVRPath("/world/user");
-        auto* stageToWorldBinding = static_cast<VRStageToWorldBinding*>(tm->getTrackingSource(path));
-        return stageToWorldBinding->getWorldOrientation();
     }
 
     void VRCamera::requestRecenter(bool resetZ)

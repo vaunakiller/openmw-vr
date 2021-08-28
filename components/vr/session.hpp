@@ -20,6 +20,9 @@ namespace VR
     class Session
     {
     public:
+        static Session& instance();
+
+    public:
         Session();
         virtual ~Session();
 

@@ -12,8 +12,8 @@
 #include <osg/Camera>
 #include <osg/PositionAttitudeTransform>
 
-#include "openxrmanager.hpp"
-#include "vrtracking.hpp"
+#include <components/vr/trackingsource.hpp>
+#include <components/vr/trackinglistener.hpp>
 
 namespace MyGUI
 {
@@ -68,22 +68,22 @@ namespace MWVR
 
     //! Extends the tracking source with /ui/input/stationary/pose
     //! \note reference space will be ignored when reading /ui/input/stationary/pose
-    class VRGUITracking : public VRTrackingSource
+    class VRGUITracking : public VR::TrackingSource
     {
     public:
         VRGUITracking();
 
-        virtual std::vector<VRPath> listSupportedPaths() const override;
-        virtual void updateTracking(const VR::Frame& frame);
+        virtual std::vector<VR::VRPath> listSupportedPaths() const override;
+        virtual void updateTracking(VR::DisplayTime predictedDisplayTime);
         void resetStationaryPose();
 
     protected:
-        virtual VRTrackingPose locate(VRPath path, DisplayTime predictedDisplayTime) override;
+        virtual VR::TrackingPose locate(VR::VRPath path, VR::DisplayTime predictedDisplayTime) override;
 
     private:
-        VRPath mStationaryPath = 0;
-        VRPath mHeadPath = 0;
-        VRTrackingPose mStationaryPose = VRTrackingPose();
+        VR::VRPath mStationaryPath = 0;
+        VR::VRPath mHeadPath = 0;
+        VR::TrackingPose mStationaryPose = VR::TrackingPose();
 
         bool mShouldUpdateStationaryPose = true;
     };
@@ -93,7 +93,7 @@ namespace MWVR
     /// In VR menus are shown as quads within the game world.
     /// The behaviour of that quad is defined by the MWVR::LayerConfig struct
     /// Each instance of VRGUILayer is used to show one MYGUI layer.
-    class VRGUILayer : public VRTrackingListener
+    class VRGUILayer : public VR::TrackingListener
     {
     public:
         VRGUILayer(
@@ -119,13 +119,13 @@ namespace MWVR
         bool operator<(const VRGUILayer& rhs) const { return mConfig.priority < rhs.mConfig.priority; }
 
         /// Update layer quads based on current tracking information
-        void onTrackingUpdated(VRTrackingManager& manager, DisplayTime predictedDisplayTime) override;
+        void onTrackingUpdated(VR::TrackingManager& manager, VR::DisplayTime predictedDisplayTime) override;
 
     public:
-        VRPath      mTrackingPath = 0;
-        Pose        mTrackingPose = Pose();
+        VR::VRPath mTrackingPath = 0;
+        Misc::Pose mTrackingPose = Misc::Pose();
 
-        Pose mTrackedPose{};
+        Misc::Pose mTrackedPose{};
         LayerConfig mConfig;
         std::string mLayerName;
         std::vector<MWGui::Layout*> mWidgets;
@@ -200,6 +200,7 @@ namespace MWVR
         void setGeometryRoot(osg::Group* root);
         void setCameraRoot(osg::Group* root);
         std::shared_ptr<UserPointer> getUserPointer();
+        void setUserPointer(std::shared_ptr<UserPointer> userPointer);
 
     private:
         void computeGuiCursor(osg::Vec3 hitPoint);

@@ -2,14 +2,16 @@
 #define MWVR_REALISTICCOMBAT_H
 
 #include <components/esm/loadweap.hpp>
+#include <components/vr/trackinglistener.hpp>
 
 #include "../mwbase/world.hpp"
 #include "../mwworld/ptr.hpp"
 #include "../mwworld/class.hpp"
 
-#include "vrenvironment.hpp"
-#include "vrsession.hpp"
-#include "vrtracking.hpp"
+namespace VR
+{
+    class TrackingManager;
+}
 
 namespace MWVR {
     namespace RealisticCombat {
@@ -48,15 +50,15 @@ namespace MWVR {
         ///    Cooldown  -> Ready:       When the minimum period has passed since entering Cooldown state
         ///
         ///
-        struct StateMachine : public VRTrackingListener
+        struct StateMachine : public VR::TrackingListener
         {
         public:
-            StateMachine(MWWorld::Ptr ptr, VRPath trackingPath);
+            StateMachine(MWWorld::Ptr ptr, VR::VRPath trackingPath);
             void update(float dt, bool enabled);
             MWWorld::Ptr ptr() { return mPtr; }
 
         protected:
-            void onTrackingUpdated(VRTrackingManager& manager, DisplayTime predictedDisplayTime) override;
+            void onTrackingUpdated(VR::TrackingManager& manager, VR::DisplayTime predictedDisplayTime) override;
 
             bool canSwing();
 
@@ -105,8 +107,8 @@ namespace MWVR {
             bool mEnabled = false;
 
             osg::Vec3       mPreviousPosition{ 0.f,0.f,0.f };
-            VRTrackingPose  mTrackingInput = VRTrackingPose();
-            VRPath          mTrackingPath = 0;
+            VR::TrackingPose  mTrackingInput = VR::TrackingPose();
+            VR::VRPath          mTrackingPath = 0;
         };
 
     }

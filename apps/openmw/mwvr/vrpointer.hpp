@@ -3,14 +3,13 @@
 
 #include "../mwrender/npcanimation.hpp"
 #include "../mwrender/renderingmanager.hpp"
-#include "openxrmanager.hpp"
-#include "vrsession.hpp"
-#include "vrtracking.hpp"
+
+#include <components/vr/trackinglistener.hpp>
 
 namespace MWVR
 {
     //! Controls the beam used to target/select objects.
-    class UserPointer : public VRTrackingListener
+    class UserPointer : public VR::TrackingListener
     {
     public:
         UserPointer(osg::Group* root);
@@ -23,7 +22,7 @@ namespace MWVR
         void setEnabled(bool enabled);
         float distanceToPointerTarget() const { return mDistanceToPointerTarget; }
     protected:
-        void onTrackingUpdated(VRTrackingManager& manager, DisplayTime predictedDisplayTime) override;
+        void onTrackingUpdated(VR::TrackingManager& manager, VR::DisplayTime predictedDisplayTime) override;
 
     private:
         osg::ref_ptr<osg::Geometry> createPointerGeometry();
@@ -34,7 +33,7 @@ namespace MWVR
 
         osg::ref_ptr<osg::Group> mParent{ nullptr };
         osg::ref_ptr<osg::Group> mRoot{ nullptr };
-        VRPath mHandPath;
+        VR::VRPath mHandPath;
 
         bool mEnabled;
         MWRender::RayResult mPointerTarget{};

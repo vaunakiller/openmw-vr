@@ -1,8 +1,7 @@
 #include "vrinput.hpp"
-#include "openxrdebug.hpp"
-#include "vrenvironment.hpp"
-#include "openxrmanagerimpl.hpp"
-#include "openxrtypeconversions.hpp"
+
+#include <components/xr/debug.hpp>
+#include <components/xr/instance.hpp>
 
 #include <vector>
 #include <deque>
@@ -29,35 +28,12 @@ namespace MWVR
         : mXRAction(std::move(xrAction))
         , mXRSpace{ XR_NULL_HANDLE }
     {
-        auto* xr = Environment::get().getManager();
         XrActionSpaceCreateInfo createInfo{ XR_TYPE_ACTION_SPACE_CREATE_INFO };
         createInfo.action = *mXRAction;
         createInfo.poseInActionSpace.orientation.w = 1.f;
         createInfo.subactionPath = XR_NULL_PATH;
-        CHECK_XRCMD(xrCreateActionSpace(xr->impl().xrSession(), &createInfo, &mXRSpace));
-        VrDebug::setName(mXRSpace, "OpenMW XR Action Space " + mXRAction->mName);
-    }
-
-    void PoseAction::update(long long time)
-    {
-        mPrevious = mValue;
-
-        auto* xr = Environment::get().getManager();
-        XrSpace referenceSpace = xr->impl().getReferenceSpace(ReferenceSpace::STAGE);
-
-        XrSpaceLocation location{ XR_TYPE_SPACE_LOCATION };
-        XrSpaceVelocity velocity{ XR_TYPE_SPACE_VELOCITY };
-        location.next = &velocity;
-        CHECK_XRCMD(xrLocateSpace(mXRSpace, referenceSpace, time, &location));
-        if (!(location.locationFlags & XR_SPACE_LOCATION_ORIENTATION_VALID_BIT))
-            // Quat must have a magnitude of 1 but openxr sets it to 0 when tracking is unavailable.
-            // I want a no-track pose to still be a valid quat so osg won't throw errors
-            location.pose.orientation.w = 1;
-
-        mValue = Pose{
-            fromXR(location.pose.position),
-            fromXR(location.pose.orientation)
-        };
+        CHECK_XRCMD(xrCreateActionSpace(XR::Instance::instance().xrSession(), &createInfo, &mXRSpace));
+        XR::Debugging::setName(mXRSpace, "OpenMW XR Action Space " + mXRAction->mName);
     }
 
     void Action::updateAndQueue(std::deque<const Action*>& queue)

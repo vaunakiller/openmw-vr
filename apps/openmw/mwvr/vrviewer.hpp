@@ -10,16 +10,26 @@
 #include <osg/Camera>
 #include <osgViewer/Viewer>
 
-#include "openxrmanager.hpp"
-
 #include <components/sceneutil/positionattitudetransform.hpp>
 #include <components/misc/stereo.hpp>
+#include <components/vr/constants.hpp>
 #include <components/vr/frame.hpp>
+#include <components/vr/layer.hpp>
+
+namespace VR
+{
+    class Swapchain;
+    class TrackingManager;
+}
+
+namespace XR
+{
+    class Instance;
+}
 
 namespace MWVR
 {
     class VRFramebuffer;
-    class OpenXRSwapchain;
 
     /// \brief Manages stereo rendering and mirror texturing.
     ///
@@ -129,7 +139,7 @@ namespace MWVR
         void processChangedSettings(const std::set< std::pair<std::string, std::string> >& changed);
         void updateView(Misc::View& left, Misc::View& right);
 
-        SubImage subImage(Side side);
+        //SubImage subImage(Side side);
 
         bool xrConfigured() { return mOpenXRConfigured; };
         bool callbacksConfigured() { return mCallbacksConfigured; };
@@ -137,6 +147,9 @@ namespace MWVR
         void blit(osg::State* state, VRFramebuffer* src, uint32_t target, uint32_t src_x, uint32_t src_y, uint32_t w, uint32_t h, uint32_t bits, bool flipVertical);
 
     private:
+        std::unique_ptr<VR::TrackingManager> mTrackingManager;
+        std::unique_ptr<XR::Instance> mXrInstance = nullptr;
+
         std::mutex mMutex{};
         bool mOpenXRConfigured{ false };
         bool mCallbacksConfigured{ false };
@@ -149,7 +162,7 @@ namespace MWVR
         bool mRenderingReady{ false };
 
         std::unique_ptr<VRFramebuffer> mMirrorTexture;
-        std::vector<Side> mMirrorTextureViews;
+        std::vector<VR::Side> mMirrorTextureViews;
         bool mMirrorTextureShouldBeCleanedUp{ false };
         bool mMirrorTextureEnabled{ false };
         bool mFlipMirrorTextureOrder{ false };
@@ -160,8 +173,7 @@ namespace MWVR
         std::unique_ptr<VRFramebuffer> mGammaResolveTexture;
         std::array<std::shared_ptr<VR::Swapchain>, 2> mColorSwapchain;
         std::array<std::shared_ptr<VR::Swapchain>, 2> mDepthSwapchain;
-        std::array<SubImage, 2> mSubImages;
-        std::array<SwapchainConfig, 2> mSwapchainConfig;
+        std::array<VR::SubImage, 2> mSubImages;
 
         std::map<uint32_t, std::unique_ptr<VRFramebuffer> > mSwapchainFramebuffers;
 

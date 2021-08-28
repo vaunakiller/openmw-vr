@@ -1,13 +1,12 @@
 #include "openxrinput.hpp"
 
 #include "vrenvironment.hpp"
-#include "openxrmanager.hpp"
-#include "openxrmanagerimpl.hpp"
 #include "openxraction.hpp"
 
 #include <openxr/openxr.h>
 
 #include <components/misc/stringops.hpp>
+#include <components/xr/instance.hpp>
 
 #include <iostream>
 
@@ -79,25 +78,21 @@ namespace MWVR
         getActionSet(ActionSet::GUI).createMWAction(VrControlType::Press, A_MenuBack, "menu_back", "Menu Back");
         getActionSet(ActionSet::GUI).createMWAction(VrControlType::Hold, MWInput::A_Use, "use", "Use");
 
-        getActionSet(ActionSet::Tracking).createPoseAction(TrackedLimb::LEFT_HAND, "left_hand_pose", "Left Hand Pose");
-        getActionSet(ActionSet::Tracking).createPoseAction(TrackedLimb::RIGHT_HAND, "right_hand_pose", "Right Hand Pose");
+        getActionSet(ActionSet::Tracking).createPoseAction(VR::Side_Left, "left_hand_pose", "Left Hand Pose");
+        getActionSet(ActionSet::Tracking).createPoseAction(VR::Side_Right, "right_hand_pose", "Right Hand Pose");
 
-        getActionSet(ActionSet::Haptics).createHapticsAction(TrackedLimb::RIGHT_HAND, "right_hand_haptics", "Right Hand Haptics");
-        getActionSet(ActionSet::Haptics).createHapticsAction(TrackedLimb::LEFT_HAND, "left_hand_haptics", "Left Hand Haptics");
+        getActionSet(ActionSet::Haptics).createHapticsAction(VR::Side_Left, "left_hand_haptics", "Left Hand Haptics");
+        getActionSet(ActionSet::Haptics).createHapticsAction(VR::Side_Right, "right_hand_haptics", "Right Hand Haptics");
 
+        auto stageUserHandLeftPath = VR::stringToVRPath("/stage/user/hand/left/input/aim/pose");
+        auto stageUserHandRightPath = VR::stringToVRPath("/stage/user/hand/right/input/aim/pose");
+        auto worldUserHandLeftPath = VR::stringToVRPath("/world/user/hand/left/input/aim/pose");
+        auto worldUserHandRightPath = VR::stringToVRPath("/world/user/hand/right/input/aim/pose");
 
-        auto* xr = Environment::get().getManager();
-        auto* trackingManager = Environment::get().getTrackingManager();
-
-        auto stageUserHandLeftPath = trackingManager->stringToVRPath("/stage/user/hand/left/input/aim/pose");
-        auto stageUserHandRightPath = trackingManager->stringToVRPath("/stage/user/hand/right/input/aim/pose");
-        auto worldUserHandLeftPath = trackingManager->stringToVRPath("/world/user/hand/left/input/aim/pose");
-        auto worldUserHandRightPath = trackingManager->stringToVRPath("/world/user/hand/right/input/aim/pose");
-
-        xr->impl().tracker().addTrackingSpace(stageUserHandLeftPath, getActionSet(ActionSet::Tracking).xrActionSpace(TrackedLimb::LEFT_HAND));
-        xr->impl().tracker().addTrackingSpace(stageUserHandRightPath, getActionSet(ActionSet::Tracking).xrActionSpace(TrackedLimb::RIGHT_HAND));
-        xr->impl().stageToWorldBinding().bindPaths(worldUserHandLeftPath, stageUserHandLeftPath);
-        xr->impl().stageToWorldBinding().bindPaths(worldUserHandRightPath, stageUserHandRightPath);
+        XR::Instance::instance().tracker().addTrackingSpace(stageUserHandLeftPath, getActionSet(ActionSet::Tracking).xrActionSpace(VR::Side_Left));
+        XR::Instance::instance().tracker().addTrackingSpace(stageUserHandRightPath, getActionSet(ActionSet::Tracking).xrActionSpace(VR::Side_Right));
+        XR::Instance::instance().stageToWorldBinding().bindPaths(worldUserHandLeftPath, stageUserHandLeftPath);
+        XR::Instance::instance().stageToWorldBinding().bindPaths(worldUserHandRightPath, stageUserHandRightPath);
     };
 
     OpenXRActionSet& OpenXRInput::getActionSet(ActionSet actionSet)
@@ -115,19 +110,17 @@ namespace MWVR
 
     void OpenXRInput::attachActionSets()
     {
-        auto* xr = Environment::get().getManager();
-
         // Suggest bindings before attaching
         for (auto& profile : mSuggestedBindings)
         {
             XrPath profilePath = 0;
             CHECK_XRCMD(
-                xrStringToPath(xr->impl().xrInstance(), profile.first.c_str(), &profilePath));
+                xrStringToPath(XR::Instance::instance().xrInstance(), profile.first.c_str(), &profilePath));
             XrInteractionProfileSuggestedBinding xrProfileSuggestedBindings{ XR_TYPE_INTERACTION_PROFILE_SUGGESTED_BINDING };
             xrProfileSuggestedBindings.interactionProfile = profilePath;
             xrProfileSuggestedBindings.suggestedBindings = profile.second.data();
             xrProfileSuggestedBindings.countSuggestedBindings = (uint32_t)profile.second.size();
-            CHECK_XRCMD(xrSuggestInteractionProfileBindings(xr->impl().xrInstance(), &xrProfileSuggestedBindings));
+            CHECK_XRCMD(xrSuggestInteractionProfileBindings(XR::Instance::instance().xrInstance(), &xrProfileSuggestedBindings));
             mInteractionProfileNames[profilePath] = profile.first;
             mInteractionProfilePaths[profile.first] = profilePath;
         }
@@ -142,14 +135,11 @@ namespace MWVR
         XrSessionActionSetsAttachInfo attachInfo{ XR_TYPE_SESSION_ACTION_SETS_ATTACH_INFO };
         attachInfo.countActionSets = actionSets.size();
         attachInfo.actionSets = actionSets.data();
-        CHECK_XRCMD(xrAttachSessionActionSets(xr->impl().xrSession(), &attachInfo));
+        CHECK_XRCMD(xrAttachSessionActionSets(XR::Instance::instance().xrSession(), &attachInfo));
     }
 
     void OpenXRInput::notifyInteractionProfileChanged()
     {
-        auto xr = MWVR::Environment::get().getManager();
-        xr->impl().xrSession();
-
         // Unfortunately, openxr does not tell us WHICH profile has changed.
         std::array<std::string, 5> topLevelUserPaths =
         {
@@ -167,7 +157,7 @@ namespace MWVR
             {
                 XrPath xrUserPath = XR_NULL_PATH;
                 CHECK_XRCMD(
-                    xrStringToPath(xr->impl().xrInstance(), userPath.c_str(), &xrUserPath));
+                    xrStringToPath(XR::Instance::instance().xrInstance(), userPath.c_str(), &xrUserPath));
                 mInteractionProfilePaths[userPath] = xrUserPath;
                 pathIt = mInteractionProfilePaths.find(userPath);
             }
@@ -176,7 +166,7 @@ namespace MWVR
                 XR_TYPE_INTERACTION_PROFILE_STATE
             };
 
-            xrGetCurrentInteractionProfile(xr->impl().xrSession(), pathIt->second, &interactionProfileState);
+            xrGetCurrentInteractionProfile(XR::Instance::instance().xrSession(), pathIt->second, &interactionProfileState);
             if (interactionProfileState.interactionProfile)
             {
                 auto activeProfileIt = mActiveInteractionProfiles.find(pathIt->second);

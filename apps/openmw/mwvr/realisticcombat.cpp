@@ -6,6 +6,7 @@
 #include "../mwmechanics/weapontype.hpp"
 
 #include <components/debug/debuglog.hpp>
+#include <components/vr/trackingmanager.hpp>
 
 #include <iomanip>
 
@@ -46,7 +47,7 @@ namespace MWVR {
             }
         }
 
-        StateMachine::StateMachine(MWWorld::Ptr ptr, VRPath trackingPath)
+        StateMachine::StateMachine(MWWorld::Ptr ptr, VR::VRPath trackingPath)
             : mPtr(ptr) 
             , mMinVelocity(Settings::Manager::getFloat("realistic combat minimum swing velocity", "VR"))
             , mMaxVelocity(Settings::Manager::getFloat("realistic combat maximum swing velocity", "VR"))
@@ -56,7 +57,7 @@ namespace MWVR {
             Log(Debug::Verbose) << "realistic combat maximum swing velocity: " << mMaxVelocity;
         }
 
-        void StateMachine::onTrackingUpdated(VRTrackingManager& manager, DisplayTime predictedDisplayTime)
+        void StateMachine::onTrackingUpdated(VR::TrackingManager& manager, VR::DisplayTime predictedDisplayTime)
         {
             mTrackingInput = manager.locate(mTrackingPath, predictedDisplayTime);
         }

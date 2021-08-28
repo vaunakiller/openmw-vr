@@ -29,6 +29,9 @@
 
 #include <components/misc/constants.hpp>
 
+#include <components/vr/trackingmanager.hpp>
+#include <components/vr/session.hpp>
+
 #include "../mwworld/esmstore.hpp"
 
 #include "../mwmechanics/npcstats.hpp"
@@ -271,7 +274,7 @@ namespace MWVR
     class TrackingController
     {
     public:
-        TrackingController(VRPath trackingPath, osg::Vec3 baseOffset, osg::Quat baseOrientation)
+        TrackingController(VR::VRPath trackingPath, osg::Vec3 baseOffset, osg::Quat baseOrientation)
             : mTrackingPath(trackingPath)
             , mTransform(nullptr)
             , mBaseOffset(baseOffset)
@@ -280,7 +283,7 @@ namespace MWVR
 
         }
 
-        void onTrackingUpdated(VRTrackingManager& manager, DisplayTime predictedDisplayTime)
+        void onTrackingUpdated(VR::TrackingManager& manager, VR::DisplayTime predictedDisplayTime)
         {
             if (!mTransform)
                 return;
@@ -319,7 +322,7 @@ namespace MWVR
             mTransform = transform;
         }
 
-        VRPath mTrackingPath;
+        VR::VRPath mTrackingPath;
         osg::ref_ptr<osg::MatrixTransform> mTransform;
         osg::Vec3 mBaseOffset;
         osg::Quat mBaseOrientation;
@@ -357,9 +360,8 @@ namespace MWVR
         mWeaponPointerTransform->setUpdateCallback(new WeaponPointerController);
         //mWeaponDirectionTransform->addChild(mWeaponPointerTransform);
 
-        auto vrTrackingManager = MWVR::Environment::get().getTrackingManager();
-        auto path = vrTrackingManager->stringToVRPath("/world/user");
-        auto* stageToWorldBinding = static_cast<VRStageToWorldBinding*>(vrTrackingManager->getTrackingSource(path));
+        auto worldPath = VR::stringToVRPath("/world/user");
+        auto* stageToWorldBinding = static_cast<VR::StageToWorldBinding*>(VR::TrackingManager::instance().getTrackingSource(worldPath));
         stageToWorldBinding->setOriginNode(mObjectRoot->getParent(0));
 
         // Morrowind's meshes do not point forward by default and need re-positioning and orientation.
@@ -367,18 +369,17 @@ namespace MWVR
         osg::Quat yaw(-VRbias, osg::Vec3f(0, 0, 1));
         osg::Quat roll(2 * VRbias, osg::Vec3f(1, 0, 0));
         osg::Vec3 offset{ 15,0,0 };
-        auto* tm = Environment::get().getTrackingManager();
 
         // Note that these controllers could be bound directly to source in the tracking manager.
         // Instead we store them and update them manually to ensure order of operations.
         {
-            auto path = tm->stringToVRPath("/world/user/hand/right/input/aim/pose");
+            auto path = VR::stringToVRPath("/world/user/hand/right/input/aim/pose");
             auto orientation = yaw;
             mVrControllers.emplace("bip01 r forearm", std::make_unique<TrackingController>(path, offset, orientation));
         }
 
         {
-            auto path = tm->stringToVRPath("/world/user/hand/left/input/aim/pose");
+            auto path = VR::stringToVRPath("/world/user/hand/left/input/aim/pose");
             auto orientation = roll * yaw;
             mVrControllers.emplace("bip01 l forearm", std::make_unique<TrackingController>(path, offset, orientation));
         }
@@ -450,8 +451,8 @@ namespace MWVR
         float charHeight = charHeightBase * charHeightFactor;
         float realHeight = Settings::Manager::getFloat("real height", "VR");
         float sizeFactor = charHeight / realHeight;
-        Environment::get().getManager()->session().setPlayerScale(sizeFactor);
-        Environment::get().getManager()->session().setEyeLevel(charHeight*0.8375f); // approximation
+        VR::Session::instance().setPlayerScale(sizeFactor);
+        VR::Session::instance().setEyeLevel(charHeight*0.8375f); // approximation
     }
 
     void VRAnimation::setFingerPointingMode(bool enabled)
@@ -486,7 +487,7 @@ namespace MWVR
         return 0.0f;
     }
 
-    void VRAnimation::onTrackingUpdated(VRTrackingManager& manager, DisplayTime predictedDisplayTime)
+    void VRAnimation::onTrackingUpdated(VR::TrackingManager& manager, VR::DisplayTime predictedDisplayTime)
     {
         for (auto& controller : mVrControllers)
             controller.second->onTrackingUpdated(manager, predictedDisplayTime);

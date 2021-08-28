@@ -1,9 +1,6 @@
 #include "vrviewer.hpp"
 
-#include "openxrmanagerimpl.hpp"
-#include "openxrswapchain.hpp"
 #include "vrenvironment.hpp"
-#include "vrsession.hpp"
 #include "vrframebuffer.hpp"
 
 #include "../mwrender/vismask.hpp"
@@ -23,6 +20,10 @@
 #include <components/misc/constants.hpp>
 
 #include <components/vr/layer.hpp>
+#include <components/vr/session.hpp>
+#include <components/vr/trackingmanager.hpp>
+#include <components/xr/instance.hpp>
+#include <components/xr/swapchain.hpp>
 
 #include <components/sdlutil/sdlgraphicswindow.hpp>
 
@@ -41,7 +42,8 @@ namespace MWVR
 
     VRViewer::VRViewer(
         osg::ref_ptr<osgViewer::Viewer> viewer)
-        : mViewer(viewer)
+        : mTrackingManager(std::make_unique<VR::TrackingManager>())
+        , mViewer(viewer)
         , mPreDraw(new PredrawCallback(this))
         , mPostDraw(new PostdrawCallback(this))
         , mFinalDraw(new FinaldrawCallback(this))
@@ -101,12 +103,10 @@ namespace MWVR
             return;
         }
 
-
-        auto* xr = Environment::get().getManager();
-        xr->realize(gc);
+        mXrInstance = std::make_unique<XR::Instance>(gc);
 
         // Set up swapchain config
-        mSwapchainConfig = xr->getRecommendedSwapchainConfig();
+        auto swapchainConfigs = XR::Instance::instance().getRecommendedSwapchainConfig();
 
         std::array<std::string, 2> xConfString;
         std::array<std::string, 2> yConfString;
@@ -124,33 +124,33 @@ namespace MWVR
         {
             auto name = viewNames[i];
 
-            auto width = parseResolution(xConfString[i], mSwapchainConfig[i].recommendedWidth, mSwapchainConfig[i].maxWidth);
-            auto height = parseResolution(yConfString[i], mSwapchainConfig[i].recommendedHeight, mSwapchainConfig[i].maxHeight);
+            auto width = parseResolution(xConfString[i], swapchainConfigs[i].recommendedWidth, swapchainConfigs[i].maxWidth);
+            auto height = parseResolution(yConfString[i], swapchainConfigs[i].recommendedHeight, swapchainConfigs[i].maxHeight);
 
             auto samples =
                 std::max(1, // OpenXR requires a non-zero value
-                    std::min(mSwapchainConfig[i].maxSamples,
+                    std::min(swapchainConfigs[i].maxSamples,
                         Settings::Manager::getInt("antialiasing", "Video")
                     )
                 );
 
-            Log(Debug::Verbose) << name << " resolution: Recommended x=" << mSwapchainConfig[i].recommendedWidth << ", y=" << mSwapchainConfig[i].recommendedHeight;
-            Log(Debug::Verbose) << name << " resolution: Max x=" << mSwapchainConfig[i].maxWidth << ", y=" << mSwapchainConfig[i].maxHeight;
+            Log(Debug::Verbose) << name << " resolution: Recommended x=" << swapchainConfigs[i].recommendedWidth << ", y=" << swapchainConfigs[i].recommendedHeight;
+            Log(Debug::Verbose) << name << " resolution: Max x=" << swapchainConfigs[i].maxWidth << ", y=" << swapchainConfigs[i].maxHeight;
             Log(Debug::Verbose) << name << " resolution: Selected x=" << width << ", y=" << height;
 
-            mSwapchainConfig[i].name = name;
-            if (i > 0)
-                mSwapchainConfig[i].offsetWidth = width + mSwapchainConfig[i].offsetWidth;
+            //swapchainConfigs[i].name = name;
+            //if (i > 0)
+                //swapchainConfigs[i].offsetWidth = width + mSwapchainConfig[i].offsetWidth;
             //XrSwapchain xrColorSwapchain = ;
             //XrSwapchain xrDepthSwapchain = xr->impl().createXrSwapchain(mSwapchainConfig[i], OpenXRManagerImpl::SwapchainUse::Depth);
             
-            mColorSwapchain[i].reset(xr->impl().createSwapchain(width, height, samples, OpenXRManagerImpl::SwapchainUse::Color, viewNames[i]));
-            mDepthSwapchain[i].reset(xr->impl().createSwapchain(width, height, samples, OpenXRManagerImpl::SwapchainUse::Depth, viewNames[i]));
+            mColorSwapchain[i].reset(XR::Instance::instance().createSwapchain(width, height, samples, XR::Instance::SwapchainUse::Color, viewNames[i]));
+            mDepthSwapchain[i].reset(XR::Instance::instance().createSwapchain(width, height, samples, XR::Instance::SwapchainUse::Depth, viewNames[i]));
             mSubImages[i].width = width;
             mSubImages[i].height = height;
             mSubImages[i].x = mSubImages[i].y = 0;
-            mSubImages[i].colorSwapchain = mColorSwapchain[i].get();
-            mSubImages[i].depthSwapchain = mDepthSwapchain[i].get();
+            //mSubImages[i].colorSwapchain = mColorSwapchain[i].get();
+            //mSubImages[i].depthSwapchain = mDepthSwapchain[i].get();
         }
 
         int width = mSubImages[0].width + mSubImages[1].width;
@@ -202,13 +202,11 @@ namespace MWVR
 
         mMirrorTextureViews.clear();
         if (mMirrorTextureEye == MirrorTextureEye::Left || mMirrorTextureEye == MirrorTextureEye::Both)
-            mMirrorTextureViews.push_back(Side::LEFT_SIDE);
+            mMirrorTextureViews.push_back(VR::Side_Left);
         if (mMirrorTextureEye == MirrorTextureEye::Right || mMirrorTextureEye == MirrorTextureEye::Both)
-            mMirrorTextureViews.push_back(Side::RIGHT_SIDE);
+            mMirrorTextureViews.push_back(VR::Side_Right);
         if (mFlipMirrorTextureOrder)
             std::reverse(mMirrorTextureViews.begin(), mMirrorTextureViews.end());
-        // TODO: If mirror is false either hide the window or paste something meaningful into it.
-        // E.g. Fanart of Dagoth UR wearing a VR headset
     }
 
     void VRViewer::processChangedSettings(const std::set<std::pair<std::string, std::string>>& changed)
@@ -234,10 +232,10 @@ namespace MWVR
             setupMirrorTexture();
     }
 
-    SubImage VRViewer::subImage(Side side)
-    {
-        return mSubImages[static_cast<int>(side)];
-    }
+    //SubImage VRViewer::subImage(VR::Side side)
+    //{
+    //    return mSubImages[static_cast<int>(side)];
+    //}
 
     static GLuint createShader(osg::GLExtensions* gl, const char* source, GLenum type)
     {
@@ -506,7 +504,7 @@ namespace MWVR
             mReadyFrames.pop();
         }
 
-        Environment::get().getManager()->session().frameBeginRender(mDrawFrame);
+        XR::Instance::instance().session().frameBeginRender(mDrawFrame);
 
         mViewer->getCamera()->setViewport(0, 0, mFramebuffer->width(), mFramebuffer->height());
 
@@ -543,30 +541,28 @@ namespace MWVR
 
     void VRViewer::swapBuffersCallback(osg::GraphicsContext* gc)
     {
-        auto& session = Environment::get().getManager()->session();
         mRenderingReady = false;
 
-        session.frameEnd(gc, mDrawFrame);
+        XR::Instance::instance().session().frameEnd(gc, mDrawFrame);
     }
 
     void VRViewer::updateView(Misc::View& left, Misc::View& right)
     {
-        auto xr = Environment::get().getManager();
-        auto& session = Environment::get().getManager()->session();
+        auto& session = XR::Instance::instance().session();
 
         auto frame = session.newFrame();
         session.frameBeginUpdate(frame);
 
-        MWVR::Environment::get().getTrackingManager()->updateTracking(frame);
+        VR::TrackingManager::instance().updateTracking(frame);
 
-        auto stageViews = xr->impl().getPredictedViews(frame.predictedDisplayTime, ReferenceSpace::STAGE);
-        auto views = xr->impl().getPredictedViews(frame.predictedDisplayTime, ReferenceSpace::VIEW);
+        auto stageViews = XR::Instance::instance().getPredictedViews(frame.predictedDisplayTime, VR::ReferenceSpace::Stage);
+        auto views = XR::Instance::instance().getPredictedViews(frame.predictedDisplayTime, VR::ReferenceSpace::View);
 
         if (frame.shouldRender)
         {
-            left = views[(int)Side::LEFT_SIDE];
+            left = views[VR::Side_Left];
             left.pose.position *= Constants::UnitsPerMeter * session.playerScale();
-            right = views[(int)Side::RIGHT_SIDE];
+            right = views[VR::Side_Right];
             right.pose.position *= Constants::UnitsPerMeter * session.playerScale();
 
             std::shared_ptr<VR::ProjectionLayer> layer = std::make_shared<VR::ProjectionLayer>();

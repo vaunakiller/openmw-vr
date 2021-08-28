@@ -125,8 +125,6 @@
 #include "../mwvr/vrgui.hpp"
 #include "../mwvr/vrvirtualkeyboard.hpp"
 #include "../mwvr/vrviewer.hpp"
-#include "../mwvr/vrsession.hpp"
-#include "../mwvr/vrtracking.hpp"
 #endif
 
 namespace MWGui

@@ -1,0 +1,165 @@
+#include "input.hpp"
+#include "instance.hpp"
+#include "platform.hpp"
+#include "tracking.hpp"
+#include "typeconversion.hpp"
+//#include "vrenvironment.hpp"
+//#include "vrinputmanager.hpp"
+//#include "vrsession.hpp"
+
+#include <components/misc/constants.hpp>
+
+#include <components/vr/frame.hpp>
+
+namespace XR
+{
+    //OpenXRView::OpenXRView(XrSession session, XrSpace reference)
+    //    : mSession(session)
+    //    , mReference(reference)
+    //{
+    //    if (!session || !reference)
+    //        throw std::logic_error("Invalid argument to OpenXRSpace::OpenXRSpace()");
+    //}
+
+    //void OpenXRView::locateImpl(DisplayTime predictedDisplayTime, VRTrackingView& view)
+    //{
+    //    std::array<XrView, 2> xrViews{ {{XR_TYPE_VIEW}, {XR_TYPE_VIEW}} };
+    //    XrViewState viewState{ XR_TYPE_VIEW_STATE };
+    //    uint32_t viewCount = 2;
+
+    //    XrViewLocateInfo viewLocateInfo{ XR_TYPE_VIEW_LOCATE_INFO };
+    //    viewLocateInfo.viewConfigurationType = XR_VIEW_CONFIGURATION_TYPE_PRIMARY_STEREO;
+    //    viewLocateInfo.displayTime = predictedDisplayTime;
+    //    viewLocateInfo.space = mReference;
+
+    //    auto* xr = Environment::get().getManager();
+    //    auto res = xrLocateViews(xr->impl().xrSession(), &viewLocateInfo, &viewState, viewCount, &viewCount, xrViews.data());
+    //    if (XR_FAILED(res))
+    //    {
+    //        // Call failed, exit.
+    //        CHECK_XRRESULT(res, "xrLocateViews");
+    //        if (res == XR_ERROR_TIME_INVALID)
+    //            view.status = TrackingStatus::TimeInvalid;
+    //        else
+    //            view.status = TrackingStatus::RuntimeFailure;
+    //        return;
+    //    }
+
+    //    std::array<View, 2> vrViews{};
+    //    view.view[(int)Side::LEFT_SIDE].pose = fromXR(xrViews[(int)Side::LEFT_SIDE].pose);
+    //    view.view[(int)Side::RIGHT_SIDE].pose = fromXR(xrViews[(int)Side::RIGHT_SIDE].pose);
+    //    view.view[(int)Side::LEFT_SIDE].fov = fromXR(xrViews[(int)Side::LEFT_SIDE].fov);
+    //    view.view[(int)Side::RIGHT_SIDE].fov = fromXR(xrViews[(int)Side::RIGHT_SIDE].fov);
+    //}
+
+    Tracker::Tracker(VR::VRPath path, XrSpace referenceSpace)
+        : VR::TrackingSource(path)
+        , mReferenceSpace(referenceSpace)
+    {
+
+    }
+
+    Tracker::~Tracker()
+    {
+    }
+
+    void Tracker::addTrackingSpace(VR::VRPath path, XrSpace space)
+    {
+        mSpaces.emplace(path, std::pair(space, VR::TrackingPose()));
+    }
+
+    void Tracker::deleteTrackingSpace(VR::VRPath path)
+    {
+        mSpaces.erase(path);
+    }
+
+    std::vector<VR::VRPath> Tracker::listSupportedPaths() const
+    {
+        std::vector<VR::VRPath> paths;
+        for (auto space : mSpaces)
+            paths.emplace_back(space.first);
+        return paths;
+    }
+
+    void Tracker::updateTracking(VR::DisplayTime predictedDisplayTime)
+    {
+        mLastUpdate = predictedDisplayTime;
+        // TODO:
+        //if(frame.shouldSyncInput)
+        //    Environment::get().getInputManager()->xrInput().getActionSet(ActionSet::Tracking).updateControls();
+
+        for (auto& space : mSpaces)
+        {
+            update(space.second.second, space.second.first, predictedDisplayTime);
+        }
+    }
+
+    VR::TrackingPose Tracker::locate(VR::VRPath path, VR::DisplayTime predictedDisplayTime)
+    {
+        if (predictedDisplayTime != mLastUpdate)
+            updateTracking(predictedDisplayTime);
+
+        auto it = mSpaces.find(path);
+        if (it != mSpaces.end())
+            return it->second.second;
+
+        Log(Debug::Error) << "Tried to locate invalid path " << path << ". This is a developer error. Please locate using TrackingManager::locate() only.";
+        throw std::logic_error("Invalid Argument");
+    }
+
+    std::array<Misc::View, 2> Tracker::locateViews(VR::DisplayTime predictedDisplayTime, XrSpace reference, XrSession session)
+    {
+        std::array<XrView, 2> xrViews{ {{XR_TYPE_VIEW}, {XR_TYPE_VIEW}} };
+        XrViewState viewState{ XR_TYPE_VIEW_STATE };
+        uint32_t viewCount = 2;
+
+        XrViewLocateInfo viewLocateInfo{ XR_TYPE_VIEW_LOCATE_INFO };
+        viewLocateInfo.viewConfigurationType = XR_VIEW_CONFIGURATION_TYPE_PRIMARY_STEREO;
+        viewLocateInfo.displayTime = predictedDisplayTime;
+        viewLocateInfo.space = reference;
+
+        CHECK_XRCMD(xrLocateViews(session, &viewLocateInfo, &viewState, viewCount, &viewCount, xrViews.data()));
+
+        std::array<Misc::View, 2> vrViews{};
+        for (auto side : { VR::Side_Left, VR::Side_Right })
+        {
+            vrViews[side].pose = fromXR(xrViews[side].pose);
+            vrViews[side].fov = fromXR(xrViews[side].fov);
+        }
+        return vrViews;
+    }
+
+    void Tracker::update(VR::TrackingPose& pose, XrSpace space, VR::DisplayTime predictedDisplayTime)
+    {
+        pose.status = VR::TrackingStatus::Good;
+        pose.time = predictedDisplayTime;
+        XrSpaceLocation location{ XR_TYPE_SPACE_LOCATION };
+        auto res = xrLocateSpace(space, mReferenceSpace, predictedDisplayTime, &location);
+
+        if (XR_FAILED(res))
+        {
+            // Call failed, exit.
+            CHECK_XRRESULT(res, "xrLocateSpace");
+            pose.status = VR::TrackingStatus::RuntimeFailure;
+            return;
+        }
+
+        // Check that everything is being tracked
+        if (!(location.locationFlags & (XR_SPACE_LOCATION_ORIENTATION_TRACKED_BIT | XR_SPACE_LOCATION_POSITION_TRACKED_BIT)))
+        {
+            // It's not, data is stale
+            pose.status = VR::TrackingStatus::Stale;
+        }
+
+        // Check that data is valid
+        if (!(location.locationFlags & (XR_SPACE_LOCATION_ORIENTATION_VALID_BIT | XR_SPACE_LOCATION_POSITION_VALID_BIT)))
+        {
+            // It's not, we've lost tracking
+            pose.status = VR::TrackingStatus::Lost;
+            return;
+        }
+
+        pose.pose = fromXR(location.pose);
+    }
+
+}

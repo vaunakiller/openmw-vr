@@ -4,7 +4,6 @@
 
 #include "vranimation.hpp"
 #include "vrinputmanager.hpp"
-#include "vrsession.hpp"
 #include "vrgui.hpp"
 
 #include "../mwbase/environment.hpp"
@@ -31,9 +30,6 @@ void MWVR::Environment::cleanup()
     if (mViewer)
         delete mViewer;
     mViewer = nullptr;
-    if (mOpenXRManager)
-        delete mOpenXRManager;
-    mOpenXRManager = nullptr;
 }
 
 MWVR::Environment& MWVR::Environment::get()
@@ -80,24 +76,4 @@ MWVR::VRViewer* MWVR::Environment::getViewer() const
 void MWVR::Environment::setViewer(MWVR::VRViewer* xrViewer)
 {
     mViewer = xrViewer;
-}
-
-MWVR::OpenXRManager* MWVR::Environment::getManager() const
-{
-    return mOpenXRManager;
-}
-
-void MWVR::Environment::setManager(MWVR::OpenXRManager* xrManager)
-{
-    mOpenXRManager = xrManager;
-}
-
-MWVR::VRTrackingManager* MWVR::Environment::getTrackingManager() const
-{
-    return mTrackingManager;
-}
-
-void MWVR::Environment::setTrackingManager(MWVR::VRTrackingManager* trackingManager)
-{
-    mTrackingManager = trackingManager;
 }

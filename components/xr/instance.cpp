@@ -1,26 +1,27 @@
-#include "openxrmanagerimpl.hpp"
-#include "openxrdebug.hpp"
-#include "openxrplatform.hpp"
-#include "openxrswapchain.hpp"
-#include "openxrtypeconversions.hpp"
-#include "vrenvironment.hpp"
-#include "vrinputmanager.hpp"
-#include "vrsession.hpp"
+#include "instance.hpp"
+#include "debug.hpp"
+#include "platform.hpp"
+#include "swapchain.hpp"
+#include "typeconversion.hpp"
+//#include "vrenvironment.hpp"
+//#include "vrinputmanager.hpp"
+#include "session.hpp"
 
 #include <components/debug/debuglog.hpp>
 #include <components/sdlutil/sdlgraphicswindow.hpp>
 #include <components/esm/loadrace.hpp>
 #include <components/vr/directx.hpp>
 #include <components/vr/layer.hpp>
+#include <components/vr/trackingmanager.hpp>
 
-#include "../mwmechanics/actorutil.hpp"
-
-#include "../mwbase/world.hpp"
-#include "../mwbase/environment.hpp"
-
-#include "../mwworld/class.hpp"
-#include "../mwworld/player.hpp"
-#include "../mwworld/esmstore.hpp"
+//#include "../mwmechanics/actorutil.hpp"
+//
+//#include "../mwbase/world.hpp"
+//#include "../mwbase/environment.hpp"
+//
+//#include "../mwworld/class.hpp"
+//#include "../mwworld/player.hpp"
+//#include "../mwworld/esmstore.hpp"
 
 #include <Windows.h>
 #include <objbase.h>
@@ -37,9 +38,10 @@
 #include <array>
 #include <iostream>
 #include <stdexcept>
+#include <cassert>
 
 
-namespace MWVR
+namespace XR
 {
 #define ENUM_CASE_STR(name, val) case name: return #name;
 #define MAKE_TO_STRING_FUNC(enumType)                  \
@@ -58,10 +60,23 @@ namespace MWVR
     MAKE_TO_STRING_FUNC(XrFormFactor);
     MAKE_TO_STRING_FUNC(XrStructureType);
 
-    OpenXRManagerImpl::OpenXRManagerImpl(osg::GraphicsContext* gc)
+    Instance* sInstance = nullptr;
+
+    Instance& Instance::instance()
+    {
+        assert(sInstance);
+        return *sInstance;
+    }
+
+    Instance::Instance(osg::GraphicsContext* gc)
         : mPlatform(gc)
     {
-        mInstance = mPlatform.createXrInstance("openmw_vr");
+        if (!sInstance)
+            sInstance = this;
+        else
+            throw std::logic_error("Duplicated XR::Instance singleton");
+
+        mXrInstance = mPlatform.createXrInstance("openmw_vr");
 
         LogInstanceInfo();
 
@@ -76,8 +91,8 @@ namespace MWVR
         // TODO: Blend mode
         // setupBlendMode();
 
-        mSession = mPlatform.createXrSession(mInstance, mSystemId);
-        
+        mXrSession = mPlatform.createXrSession(mXrInstance, mSystemId);
+
         LogReferenceSpaces();
 
         createReferenceSpaces();
@@ -86,33 +101,33 @@ namespace MWVR
 
         getSystemProperties();
 
-        mVRSession = std::make_unique<OpenXRSession>(mSession, mInstance, mViewConfigType);
+        mVRSession = std::make_unique<Session>(mXrSession, mXrInstance, mViewConfigType);
     }
 
-    void OpenXRManagerImpl::createReferenceSpaces()
+    void Instance::createReferenceSpaces()
     {
         XrReferenceSpaceCreateInfo createInfo{ XR_TYPE_REFERENCE_SPACE_CREATE_INFO };
         createInfo.poseInReferenceSpace.orientation.w = 1.f; // Identity pose
         createInfo.referenceSpaceType = XR_REFERENCE_SPACE_TYPE_VIEW;
-        CHECK_XRCMD(xrCreateReferenceSpace(mSession, &createInfo, &mReferenceSpaceView));
+        CHECK_XRCMD(xrCreateReferenceSpace(mXrSession, &createInfo, &mReferenceSpaceView));
         createInfo.referenceSpaceType = XR_REFERENCE_SPACE_TYPE_STAGE;
-        CHECK_XRCMD(xrCreateReferenceSpace(mSession, &createInfo, &mReferenceSpaceStage));
+        CHECK_XRCMD(xrCreateReferenceSpace(mXrSession, &createInfo, &mReferenceSpaceStage));
         createInfo.referenceSpaceType = XR_REFERENCE_SPACE_TYPE_LOCAL;
-        CHECK_XRCMD(xrCreateReferenceSpace(mSession, &createInfo, &mReferenceSpaceLocal));
+        CHECK_XRCMD(xrCreateReferenceSpace(mXrSession, &createInfo, &mReferenceSpaceLocal));
     }
 
-    void OpenXRManagerImpl::getSystem()
+    void Instance::getSystem()
     {
         XrSystemGetInfo systemInfo{ XR_TYPE_SYSTEM_GET_INFO };
         systemInfo.formFactor = mFormFactor = XR_FORM_FACTOR_HEAD_MOUNTED_DISPLAY;
-        auto res = CHECK_XRCMD(xrGetSystem(mInstance, &systemInfo, &mSystemId));
+        auto res = CHECK_XRCMD(xrGetSystem(mXrInstance, &systemInfo, &mSystemId));
         if (!XR_SUCCEEDED(res))
-            mPlatform.initFailure(res, mInstance);
+            mPlatform.initFailure(res, mXrInstance);
     }
 
-    void OpenXRManagerImpl::getSystemProperties()
+    void Instance::getSystemProperties()
     {// Read and log graphics properties for the swapchain
-        CHECK_XRCMD(xrGetSystemProperties(mInstance, mSystemId, &mSystemProperties));
+        CHECK_XRCMD(xrGetSystemProperties(mXrInstance, mSystemId, &mSystemProperties));
 
         // Log system properties.
         {
@@ -127,10 +142,10 @@ namespace MWVR
         }
     }
 
-    void OpenXRManagerImpl::enumerateViews()
+    void Instance::enumerateViews()
     {
         uint32_t viewCount = 0;
-        CHECK_XRCMD(xrEnumerateViewConfigurationViews(mInstance, mSystemId, mViewConfigType, 2, &viewCount, mConfigViews.data()));
+        CHECK_XRCMD(xrEnumerateViewConfigurationViews(mXrInstance, mSystemId, mViewConfigType, 2, &viewCount, mConfigViews.data()));
 
         if (viewCount != 2)
         {
@@ -140,7 +155,7 @@ namespace MWVR
         }
     }
 
-    void OpenXRManagerImpl::setupLayerDepth()
+    void Instance::setupLayerDepth()
     {
         // Layer depth is enabled, cache the invariant values
         if (xrExtensionIsEnabled(XR_KHR_COMPOSITION_LAYER_DEPTH_EXTENSION_NAME))
@@ -165,12 +180,12 @@ namespace MWVR
         return to_string(res);
     }
 
-    OpenXRManagerImpl::~OpenXRManagerImpl()
+    Instance::~Instance()
     {
 
     }
 
-    void OpenXRManagerImpl::setupExtensionsAndLayers()
+    void Instance::setupExtensionsAndLayers()
     {
 
     }
@@ -180,7 +195,7 @@ namespace MWVR
         const XrDebugUtilsMessengerCallbackDataEXT* callbackData,
         void* userData)
     {
-        OpenXRManagerImpl* manager = reinterpret_cast<OpenXRManagerImpl*>(userData);
+        Instance* manager = reinterpret_cast<Instance*>(userData);
         (void)manager;
         std::string severityStr = "";
         std::string typeStr = "";
@@ -218,7 +233,7 @@ namespace MWVR
         return XR_FALSE;
     }
 
-    void OpenXRManagerImpl::setupDebugMessenger(void)
+    void Instance::setupDebugMessenger(void)
     {
         if (xrExtensionIsEnabled(XR_EXT_DEBUG_UTILS_EXTENSION_NAME))
         {
@@ -249,25 +264,25 @@ namespace MWVR
 
             PFN_xrCreateDebugUtilsMessengerEXT createDebugUtilsMessenger = reinterpret_cast<PFN_xrCreateDebugUtilsMessengerEXT>(xrGetFunction("xrCreateDebugUtilsMessengerEXT"));
             assert(createDebugUtilsMessenger);
-            CHECK_XRCMD(createDebugUtilsMessenger(mInstance, &createInfo, &mDebugMessenger));
+            CHECK_XRCMD(createDebugUtilsMessenger(mXrInstance, &createInfo, &mDebugMessenger));
         }
     }
 
     void
-        OpenXRManagerImpl::LogInstanceInfo() {
+        Instance::LogInstanceInfo() {
 
         XrInstanceProperties instanceProperties{ XR_TYPE_INSTANCE_PROPERTIES };
-        CHECK_XRCMD(xrGetInstanceProperties(mInstance, &instanceProperties));
+        CHECK_XRCMD(xrGetInstanceProperties(mXrInstance, &instanceProperties));
         Log(Debug::Verbose) << "Instance RuntimeName=" << instanceProperties.runtimeName << " RuntimeVersion=" << instanceProperties.runtimeVersion;
     }
 
     void
-        OpenXRManagerImpl::LogReferenceSpaces() {
+        Instance::LogReferenceSpaces() {
 
         uint32_t spaceCount = 0;
-        CHECK_XRCMD(xrEnumerateReferenceSpaces(mSession, 0, &spaceCount, nullptr));
+        CHECK_XRCMD(xrEnumerateReferenceSpaces(mXrSession, 0, &spaceCount, nullptr));
         std::vector<XrReferenceSpaceType> spaces(spaceCount);
-        CHECK_XRCMD(xrEnumerateReferenceSpaces(mSession, spaceCount, &spaceCount, spaces.data()));
+        CHECK_XRCMD(xrEnumerateReferenceSpaces(mXrSession, spaceCount, &spaceCount, spaces.data()));
 
         std::stringstream ss;
         ss << "Available reference spaces=" << spaceCount << std::endl;
@@ -278,7 +293,7 @@ namespace MWVR
     }
 
     void
-        OpenXRManagerImpl::endFrame(VR::Frame& frame)
+        Instance::endFrame(VR::Frame& frame)
     {
         std::array<XrCompositionLayerProjectionView, 2> compositionLayerProjectionViews{};
         XrCompositionLayerProjection layer{};
@@ -338,19 +353,14 @@ namespace MWVR
             frameEndInfo.layerCount = 0;
             frameEndInfo.layers = nullptr;
         }
-        CHECK_XRCMD(xrEndFrame(mSession, &frameEndInfo));
+        CHECK_XRCMD(xrEndFrame(mXrSession, &frameEndInfo));
     }
 
-    std::array<View, 2>
-        OpenXRManagerImpl::getPredictedViews(
+    std::array<Misc::View, 2>
+        Instance::getPredictedViews(
             int64_t predictedDisplayTime,
-            ReferenceSpace space)
+            VR::ReferenceSpace space)
     {
-        //if (!mPredictionsEnabled)
-        //{
-        //    Log(Debug::Error) << "Prediction out of order";
-        //    throw std::logic_error("Prediction out of order");
-        //}
         std::array<XrView, 2> xrViews{ {{XR_TYPE_VIEW}, {XR_TYPE_VIEW}} };
         XrViewState viewState{ XR_TYPE_VIEW_STATE };
         uint32_t viewCount = 2;
@@ -360,26 +370,27 @@ namespace MWVR
         viewLocateInfo.displayTime = predictedDisplayTime;
         switch (space)
         {
-        case ReferenceSpace::STAGE:
+        case VR::ReferenceSpace::Stage:
             viewLocateInfo.space = mReferenceSpaceStage;
             break;
-        case ReferenceSpace::VIEW:
+        case VR::ReferenceSpace::View:
             viewLocateInfo.space = mReferenceSpaceView;
             break;
         }
-        CHECK_XRCMD(xrLocateViews(mSession, &viewLocateInfo, &viewState, viewCount, &viewCount, xrViews.data()));
+        CHECK_XRCMD(xrLocateViews(mXrSession, &viewLocateInfo, &viewState, viewCount, &viewCount, xrViews.data()));
 
-        std::array<View, 2> vrViews{};
-        vrViews[(int)Side::LEFT_SIDE].pose = fromXR(xrViews[(int)Side::LEFT_SIDE].pose);
-        vrViews[(int)Side::RIGHT_SIDE].pose = fromXR(xrViews[(int)Side::RIGHT_SIDE].pose);
-        vrViews[(int)Side::LEFT_SIDE].fov = fromXR(xrViews[(int)Side::LEFT_SIDE].fov);
-        vrViews[(int)Side::RIGHT_SIDE].fov = fromXR(xrViews[(int)Side::RIGHT_SIDE].fov);
+        std::array<Misc::View, 2> vrViews{};
+        for (auto side : { VR::Side_Left, VR::Side_Right })
+        {
+            vrViews[side].pose = fromXR(xrViews[side].pose);
+            vrViews[side].fov = fromXR(xrViews[side].fov);
+        }
         return vrViews;
     }
 
-    MWVR::Pose OpenXRManagerImpl::getPredictedHeadPose(
+    Misc::Pose Instance::getPredictedHeadPose(
         int64_t predictedDisplayTime,
-        ReferenceSpace space)
+        VR::ReferenceSpace space)
     {
         if (!mPredictionsEnabled)
         {
@@ -392,10 +403,10 @@ namespace MWVR
 
         switch (space)
         {
-        case ReferenceSpace::STAGE:
+        case VR::ReferenceSpace::Stage:
             referenceSpace = mReferenceSpaceStage;
             break;
-        case ReferenceSpace::VIEW:
+        case VR::ReferenceSpace::View:
             referenceSpace = mReferenceSpaceView;
             break;
         }
@@ -407,61 +418,60 @@ namespace MWVR
             // I want a no-track pose to still be valid
             location.pose.orientation.w = 1;
         }
-        return MWVR::Pose{
+        return Misc::Pose{
             fromXR(location.pose.position),
             fromXR(location.pose.orientation)
         };
     }
 
-    bool OpenXRManagerImpl::xrExtensionIsEnabled(const char* extensionName) const
+    bool Instance::xrExtensionIsEnabled(const char* extensionName) const
     {
         return mPlatform.extensionEnabled(extensionName);
     }
 
-    void OpenXRManagerImpl::xrUpdateNames()
+    void Instance::xrUpdateNames()
     {
-        VrDebug::setName(mInstance, "OpenMW XR Instance");
-        VrDebug::setName(mSession, "OpenMW XR Session");
-        VrDebug::setName(mReferenceSpaceStage, "OpenMW XR Reference Space Stage");
-        VrDebug::setName(mReferenceSpaceView, "OpenMW XR Reference Space Stage");
+        Debugging::setName(mXrInstance, "OpenMW XR Instance");
+        Debugging::setName(mXrSession, "OpenMW XR Session");
+        Debugging::setName(mReferenceSpaceStage, "OpenMW XR Reference Space Stage");
+        Debugging::setName(mReferenceSpaceView, "OpenMW XR Reference Space Stage");
     }
 
-    PFN_xrVoidFunction OpenXRManagerImpl::xrGetFunction(const std::string& name)
+    PFN_xrVoidFunction Instance::xrGetFunction(const std::string& name)
     {
         PFN_xrVoidFunction function = nullptr;
-        xrGetInstanceProcAddr(mInstance, name.c_str(), &function);
+        xrGetInstanceProcAddr(mXrInstance, name.c_str(), &function);
         return function;
     }
 
-    int64_t OpenXRManagerImpl::selectColorFormat()
+    int64_t Instance::selectColorFormat()
     {
         // Find supported color swapchain format.
         return mPlatform.selectColorFormat();
     }
 
-    int64_t OpenXRManagerImpl::selectDepthFormat()
+    int64_t Instance::selectDepthFormat()
     {
         // Find supported depth swapchain format.
         return mPlatform.selectDepthFormat();
     }
 
-    void OpenXRManagerImpl::eraseFormat(int64_t format)
+    void Instance::eraseFormat(int64_t format)
     {
         mPlatform.eraseFormat(format);
     }
 
-    void OpenXRManagerImpl::initTracker()
+    void Instance::initTracker()
     {
-        auto* trackingManager = Environment::get().getTrackingManager();
-        auto stageUserPath = trackingManager->stringToVRPath("/stage/user");
-        auto stageUserHeadPath = trackingManager->stringToVRPath("/stage/user/head/input/pose");
+        auto stageUserPath = VR::stringToVRPath("/stage/user");
+        auto stageUserHeadPath = VR::stringToVRPath("/stage/user/head/input/pose");
 
-        mTracker.reset(new OpenXRTracker(stageUserPath, mReferenceSpaceStage));
+        mTracker.reset(new Tracker(stageUserPath, mReferenceSpaceStage));
         mTracker->addTrackingSpace(stageUserHeadPath, mReferenceSpaceView);
 
-        auto worldUserPath = trackingManager->stringToVRPath("/world/user");
-        auto worldUserHeadPath = trackingManager->stringToVRPath("/world/user/head/input/pose");
-        mTrackerToWorldBinding.reset(new VRStageToWorldBinding(worldUserPath, mTracker, stageUserHeadPath));
+        auto worldUserPath = VR::stringToVRPath("/world/user");
+        auto worldUserHeadPath = VR::stringToVRPath("/world/user/head/input/pose");
+        mTrackerToWorldBinding.reset(new VR::StageToWorldBinding(worldUserPath, mTracker, stageUserHeadPath));
         mTrackerToWorldBinding->bindPaths(worldUserHeadPath, stageUserHeadPath);
     }
 
@@ -490,7 +500,7 @@ namespace MWVR
         std::vector<uint64_t> images;
         std::vector<XrSwapchainImageD3D11KHR> xrimages;
         CHECK_XRCMD(xrEnumerateSwapchainImages(swapchain, 0, &imageCount, nullptr));
-        xrimages.resize(imageCount, { XR_TYPE_SWAPCHAIN_IMAGE_D3D11_KHR});
+        xrimages.resize(imageCount, { XR_TYPE_SWAPCHAIN_IMAGE_D3D11_KHR });
         CHECK_XRCMD(xrEnumerateSwapchainImages(swapchain, imageCount, &imageCount, reinterpret_cast<XrSwapchainImageBaseHeader*>(xrimages.data())));
 
         for (auto& image : xrimages)
@@ -501,9 +511,8 @@ namespace MWVR
         return images;
     }
 
-    VR::Swapchain* OpenXRManagerImpl::createSwapchain(uint32_t width, uint32_t height, uint32_t samples, SwapchainUse use, const std::string& name)
+    VR::Swapchain* Instance::createSwapchain(uint32_t width, uint32_t height, uint32_t samples, SwapchainUse use, const std::string& name)
     {
-        auto* xr = Environment::get().getManager();
         std::string typeString = use == SwapchainUse::Color ? "color" : "depth";
 
         XrSwapchainCreateInfo swapchainCreateInfo{ XR_TYPE_SWAPCHAIN_CREATE_INFO };
@@ -524,9 +533,9 @@ namespace MWVR
         {
             // Select a swapchain format.
             if (use == SwapchainUse::Color)
-                format = xr->selectColorFormat();
+                format = selectColorFormat();
             else
-                format = xr->selectDepthFormat();
+                format = selectDepthFormat();
             if (format == 0) {
                 throw std::runtime_error(std::string("Swapchain ") + typeString + " format not supported");
             }
@@ -536,7 +545,7 @@ namespace MWVR
             Log(Debug::Verbose) << "Creating swapchain with dimensions Width=" << width << " Heigh=" << height << " SampleCount=" << samples;
             swapchainCreateInfo.format = format;
             swapchainCreateInfo.sampleCount = samples;
-            auto res = xrCreateSwapchain(xr->impl().xrSession(), &swapchainCreateInfo, &swapchain);
+            auto res = xrCreateSwapchain(xrSession(), &swapchainCreateInfo, &swapchain);
 
             // Check errors and try again if possible
             if (res == XR_ERROR_SWAPCHAIN_FORMAT_UNSUPPORTED)
@@ -544,7 +553,7 @@ namespace MWVR
                 // We only try swapchain formats enumerated by the runtime itself.
                 // This does not guarantee that that swapchain format is going to be supported for this specific usage.
                 Log(Debug::Verbose) << "Failed to create swapchain with Format=" << format << ": " << XrResultString(res);
-                xr->eraseFormat(format);
+                eraseFormat(format);
                 format = 0;
                 continue;
             }
@@ -562,19 +571,19 @@ namespace MWVR
 
             CHECK_XRRESULT(res, "xrCreateSwapchain");
             if (use == SwapchainUse::Color)
-                VrDebug::setName(swapchain, "OpenMW XR Color Swapchain " + name);
+                Debugging::setName(swapchain, "OpenMW XR Color Swapchain " + name);
             else
-                VrDebug::setName(swapchain, "OpenMW XR Depth Swapchain " + name);
+                Debugging::setName(swapchain, "OpenMW XR Depth Swapchain " + name);
 
             if (xrExtensionIsEnabled(XR_KHR_D3D11_ENABLE_EXTENSION_NAME))
             {
                 auto images = enumerateSwapchainImagesDirectX(swapchain);
-                return new VR::DirectXSwapchain(std::make_shared<OpenXRSwapchain>(swapchain, images, width, height, samples, format), mPlatform.dxInterop());
+                return new VR::DirectXSwapchain(std::make_shared<Swapchain>(swapchain, images, width, height, samples, format), mPlatform.dxInterop());
             }
             else if (xrExtensionIsEnabled(XR_KHR_OPENGL_ENABLE_EXTENSION_NAME))
             {
                 auto images = enumerateSwapchainImagesOpenGL(swapchain);
-                return new OpenXRSwapchain(swapchain, images, width, height, samples, format);
+                return new Swapchain(swapchain, images, width, height, samples, format);
             }
             else
             {
@@ -586,26 +595,26 @@ namespace MWVR
         return nullptr;
     }
 
-    void OpenXRManagerImpl::enablePredictions()
+    void Instance::enablePredictions()
     {
         mPredictionsEnabled = true;
     }
 
-    void OpenXRManagerImpl::disablePredictions()
+    void Instance::disablePredictions()
     {
         mPredictionsEnabled = false;
     }
 
-    long long OpenXRManagerImpl::getLastPredictedDisplayTime()
+    long long Instance::getLastPredictedDisplayTime()
     {
         return mFrameState.predictedDisplayTime;
     }
 
-    long long OpenXRManagerImpl::getLastPredictedDisplayPeriod()
+    long long Instance::getLastPredictedDisplayPeriod()
     {
         return mFrameState.predictedDisplayPeriod;
     }
-    std::array<SwapchainConfig, 2> OpenXRManagerImpl::getRecommendedSwapchainConfig() const
+    std::array<SwapchainConfig, 2> Instance::getRecommendedSwapchainConfig() const
     {
         std::array<SwapchainConfig, 2> config{};
         for (uint32_t i = 0; i < 2; i++)
@@ -619,13 +628,13 @@ namespace MWVR
         };
         return config;
     }
-    XrSpace OpenXRManagerImpl::getReferenceSpace(ReferenceSpace space)
+    XrSpace Instance::getReferenceSpace(VR::ReferenceSpace space)
     {
         switch (space)
         {
-        case ReferenceSpace::STAGE:
+        case VR::ReferenceSpace::Stage:
             return mReferenceSpaceStage;
-        case ReferenceSpace::VIEW:
+        case VR::ReferenceSpace::View:
             return mReferenceSpaceView;
         }
         return XR_NULL_HANDLE;

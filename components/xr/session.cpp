@@ -1,10 +1,9 @@
-#include "vrsession.hpp"
-#include "openxrmanager.hpp"
-#include "openxrmanagerimpl.hpp"
-#include "vrenvironment.hpp"
-#include "vrinputmanager.hpp"
+#include "session.hpp"
+#include "instance.hpp"
 
-namespace MWVR
+#include <cassert>
+
+namespace XR
 {
     // OSG doesn't provide API to extract euler angles from a quat, but i need it.
     // Credits goes to Dennis Bunfield, i just copied his formula https://narkive.com/v0re6547.4
@@ -43,25 +42,25 @@ namespace MWVR
         roll = angle_y;
     }
 
-    OpenXRSession::OpenXRSession(XrSession session, XrInstance instance, XrViewConfigurationType viewConfigType)
+    Session::Session(XrSession session, XrInstance instance, XrViewConfigurationType viewConfigType)
         : mInstance(instance)
         , mSession(session)
         , mViewConfigType(viewConfigType)
     {
     }
 
-    OpenXRSession::~OpenXRSession()
+    Session::~Session()
     {
         xrDestroySession(mSession);
     }
 
-    void OpenXRSession::xrResourceAcquired()
+    void Session::xrResourceAcquired()
     {
         std::scoped_lock lock(mMutex);
         mAcquiredResources++;
     }
 
-    void OpenXRSession::xrResourceReleased()
+    void Session::xrResourceReleased()
     {
         assert(mAcquiredResources != 0);
 
@@ -69,14 +68,14 @@ namespace MWVR
         mAcquiredResources--;
     }
 
-    void OpenXRSession::newFrame(uint64_t frameNo, bool& shouldSyncFrame, bool& shouldSyncInput)
+    void Session::newFrame(uint64_t frameNo, bool& shouldSyncFrame, bool& shouldSyncInput)
     {
         handleEvents();
         shouldSyncFrame = mAppShouldSyncFrameLoop;
         shouldSyncInput = mAppShouldReadInput;
     }
 
-    void OpenXRSession::syncFrameUpdate(uint64_t frameNo, bool& shouldRender, uint64_t& predictedDisplayTime, uint64_t& predictedDisplayPeriod)
+    void Session::syncFrameUpdate(uint64_t frameNo, bool& shouldRender, uint64_t& predictedDisplayTime, uint64_t& predictedDisplayPeriod)
     {
         XrFrameWaitInfo frameWaitInfo{ XR_TYPE_FRAME_WAIT_INFO };
         XrFrameState frameState{ XR_TYPE_FRAME_STATE };
@@ -87,18 +86,18 @@ namespace MWVR
         predictedDisplayPeriod = frameState.predictedDisplayPeriod;
     }
 
-    void OpenXRSession::syncFrameRender(VR::Frame& frame)
+    void Session::syncFrameRender(VR::Frame& frame)
     {
         XrFrameBeginInfo frameBeginInfo{ XR_TYPE_FRAME_BEGIN_INFO };
         CHECK_XRCMD(xrBeginFrame(mSession, &frameBeginInfo));
     }
 
-    void OpenXRSession::syncFrameEnd(VR::Frame& frame)
+    void Session::syncFrameEnd(VR::Frame& frame)
     {
-        Environment::get().getManager()->impl().endFrame(frame);
+        Instance::instance().endFrame(frame);
     }
 
-    void OpenXRSession::handleEvents()
+    void Session::handleEvents()
     {
         xrQueueEvents();
 
@@ -123,14 +122,14 @@ namespace MWVR
         }
     }
 
-    const XrEventDataBaseHeader* OpenXRSession::nextEvent()
+    const XrEventDataBaseHeader* Session::nextEvent()
     {
         if (mEventQueue.size() > 0)
             return reinterpret_cast<XrEventDataBaseHeader*> (&mEventQueue.front());
         return nullptr;
     }
 
-    bool OpenXRSession::processEvent(const XrEventDataBaseHeader* header)
+    bool Session::processEvent(const XrEventDataBaseHeader* header)
     {
         Log(Debug::Verbose) << "OpenXR: Event received: " << to_string(header->type);
         switch (header->type)
@@ -142,7 +141,8 @@ namespace MWVR
             break;
         }
         case XR_TYPE_EVENT_DATA_INTERACTION_PROFILE_CHANGED:
-            MWVR::Environment::get().getInputManager()->notifyInteractionProfileChanged();
+            // TODO:
+            //MWVR::Environment::get().getInputManager()->notifyInteractionProfileChanged();
             break;
         case XR_TYPE_EVENT_DATA_INSTANCE_LOSS_PENDING:
         case XR_TYPE_EVENT_DATA_REFERENCE_SPACE_CHANGE_PENDING:
@@ -156,7 +156,7 @@ namespace MWVR
     }
 
     bool
-        OpenXRSession::handleSessionStateChanged(
+        Session::handleSessionStateChanged(
             const XrEventDataSessionStateChanged& stateChangedEvent)
     {
         Log(Debug::Verbose) << "XrEventDataSessionStateChanged: state " << to_string(mState) << "->" << to_string(stateChangedEvent.state);
@@ -225,12 +225,12 @@ namespace MWVR
         return true;
     }
 
-    bool OpenXRSession::checkStopCondition()
+    bool Session::checkStopCondition()
     {
         return mAcquiredResources == 0;
     }
 
-    bool OpenXRSession::xrNextEvent(XrEventDataBuffer& eventBuffer)
+    bool Session::xrNextEvent(XrEventDataBuffer& eventBuffer)
     {
         XrEventDataBaseHeader* baseHeader = reinterpret_cast<XrEventDataBaseHeader*>(&eventBuffer);
         *baseHeader = { XR_TYPE_EVENT_DATA_BUFFER };
@@ -250,14 +250,14 @@ namespace MWVR
         return false;
     }
 
-    void OpenXRSession::popEvent()
+    void Session::popEvent()
     {
         if (mEventQueue.size() > 0)
             mEventQueue.pop();
     }
 
     void
-        OpenXRSession::xrQueueEvents()
+        Session::xrQueueEvents()
     {
         XrEventDataBuffer eventBuffer;
         while (xrNextEvent(eventBuffer))

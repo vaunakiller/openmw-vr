@@ -5,9 +5,9 @@
 
 #include <string>
 
-namespace MWVR
+namespace XR
 {
-    namespace VrDebug
+    namespace Debugging
     {
         //! Translates an OpenXR object to the associated XrObjectType enum value
         template<typename T> XrObjectType getObjectType(T t);
@@ -20,52 +20,52 @@ namespace MWVR
     }
 }
 
-template<typename T> inline void MWVR::VrDebug::setName(T t, const std::string& name)
+template<typename T> inline void XR::Debugging::setName(T t, const std::string& name)
 {
     setName(reinterpret_cast<uint64_t>(t), getObjectType(t), name);
 }
 
-template<> inline XrObjectType MWVR::VrDebug::getObjectType<XrInstance>(XrInstance)
+template<> inline XrObjectType XR::Debugging::getObjectType<XrInstance>(XrInstance)
 {
     return XR_OBJECT_TYPE_INSTANCE;
 }
 
-template<> inline XrObjectType MWVR::VrDebug::getObjectType<XrSession>(XrSession)
+template<> inline XrObjectType XR::Debugging::getObjectType<XrSession>(XrSession)
 {
     return XR_OBJECT_TYPE_SESSION;
 }
 
-template<> inline XrObjectType MWVR::VrDebug::getObjectType<XrSpace>(XrSpace)
+template<> inline XrObjectType XR::Debugging::getObjectType<XrSpace>(XrSpace)
 {
     return XR_OBJECT_TYPE_SPACE;
 }
 
-template<> inline XrObjectType MWVR::VrDebug::getObjectType<XrActionSet>(XrActionSet)
+template<> inline XrObjectType XR::Debugging::getObjectType<XrActionSet>(XrActionSet)
 {
     return XR_OBJECT_TYPE_ACTION_SET;
 }
 
-template<> inline XrObjectType MWVR::VrDebug::getObjectType<XrAction>(XrAction)
+template<> inline XrObjectType XR::Debugging::getObjectType<XrAction>(XrAction)
 {
     return XR_OBJECT_TYPE_ACTION;
 }
 
-template<> inline XrObjectType MWVR::VrDebug::getObjectType<XrDebugUtilsMessengerEXT>(XrDebugUtilsMessengerEXT)
+template<> inline XrObjectType XR::Debugging::getObjectType<XrDebugUtilsMessengerEXT>(XrDebugUtilsMessengerEXT)
 {
     return XR_OBJECT_TYPE_DEBUG_UTILS_MESSENGER_EXT;
 }
 
-template<> inline XrObjectType MWVR::VrDebug::getObjectType<XrSpatialAnchorMSFT>(XrSpatialAnchorMSFT)
+template<> inline XrObjectType XR::Debugging::getObjectType<XrSpatialAnchorMSFT>(XrSpatialAnchorMSFT)
 {
     return XR_OBJECT_TYPE_SPATIAL_ANCHOR_MSFT;
 }
 
-template<> inline XrObjectType MWVR::VrDebug::getObjectType<XrHandTrackerEXT>(XrHandTrackerEXT)
+template<> inline XrObjectType XR::Debugging::getObjectType<XrHandTrackerEXT>(XrHandTrackerEXT)
 {
     return XR_OBJECT_TYPE_HAND_TRACKER_EXT;
 }
 
-template<typename T> inline XrObjectType MWVR::VrDebug::getObjectType(T t)
+template<typename T> inline XrObjectType XR::Debugging::getObjectType(T t)
 {
     return XR_OBJECT_TYPE_UNKNOWN;
 }

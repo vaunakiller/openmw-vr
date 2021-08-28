@@ -1,5 +1,5 @@
-#ifndef OPENXR_PLATFORM_HPP
-#define OPENXR_PLATFORM_HPP
+#ifndef XR_PLATFORM_HPP
+#define XR_PLATFORM_HPP
 
 #include <vector>
 #include <memory>
@@ -10,20 +10,20 @@
 
 #include <components/vr/directx.hpp>
 
-namespace MWVR
+namespace XR
 {
     // Error management macros and functions. Should be used on every openxr call.
 #define CHK_STRINGIFY(x) #x
 #define TOSTRING(x) CHK_STRINGIFY(x)
 #define FILE_AND_LINE __FILE__ ":" TOSTRING(__LINE__)
-#define CHECK_XRCMD(cmd) CheckXrResult(cmd, #cmd, FILE_AND_LINE)
-#define CHECK_XRRESULT(res, cmdStr) CheckXrResult(res, cmdStr, FILE_AND_LINE)
+#define CHECK_XRCMD(cmd) ::XR::CheckXrResult(cmd, #cmd, FILE_AND_LINE)
+#define CHECK_XRRESULT(res, cmdStr) ::XR::CheckXrResult(res, cmdStr, FILE_AND_LINE)
     XrResult CheckXrResult(XrResult res, const char* originator = nullptr, const char* sourceLocation = nullptr);
     std::string XrResultString(XrResult res);
 
-    struct OpenXRPlatformPrivate;
+    struct PlatformPrivate;
 
-    class OpenXRPlatform
+    class Platform
     {
     public:
         using ExtensionMap = std::map<std::string, XrExtensionProperties>;
@@ -31,8 +31,8 @@ namespace MWVR
         using LayerExtensionMap = std::map<std::string, ExtensionMap>;
 
     public:
-        OpenXRPlatform(osg::GraphicsContext* gc);
-        ~OpenXRPlatform();
+        Platform(osg::GraphicsContext* gc);
+        ~Platform();
 
         const char* graphicsAPIExtensionName();
         bool supportsExtension(const std::string& extensionName) const;
@@ -83,7 +83,7 @@ namespace MWVR
         std::vector<const char*> mEnabledExtensions;
         const char* mGraphicsAPIExtension = nullptr;
 
-        std::unique_ptr< OpenXRPlatformPrivate > mPrivate;
+        std::unique_ptr< PlatformPrivate > mPrivate;
         std::shared_ptr<VR::DirectXWGLInterop> mDxInterop = nullptr;
     };
 }

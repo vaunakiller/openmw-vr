@@ -5,9 +5,7 @@
 #include "vranimation.hpp"
 #include "vrenvironment.hpp"
 #include "vrpointer.hpp"
-#include "vrsession.hpp"
 #include "openxrinput.hpp"
-#include "openxrmanagerimpl.hpp"
 
 #include <osg/Texture2D>
 #include <osg/ClipNode>
@@ -30,6 +28,7 @@
 #include <components/resource/resourcesystem.hpp>
 #include <components/resource/scenemanager.hpp>
 #include <components/shader/shadermanager.hpp>
+#include <components/vr/trackingmanager.hpp>
 
 #include "../mwrender/util.hpp"
 #include "../mwrender/renderbin.hpp"
@@ -236,8 +235,7 @@ namespace MWVR
             mConfig.offset.y() -= 0.001f * static_cast<float>(mConfig.priority);
         }
 
-        auto* tm = Environment::get().getTrackingManager();
-        mTrackingPath = tm->stringToVRPath(mConfig.trackingPath);
+        mTrackingPath = VR::stringToVRPath(mConfig.trackingPath);
     }
 
     VRGUILayer::~VRGUILayer()
@@ -263,7 +261,7 @@ namespace MWVR
         updatePose();
     }
 
-    void VRGUILayer::onTrackingUpdated(VRTrackingManager& manager, DisplayTime predictedDisplayTime)
+    void VRGUILayer::onTrackingUpdated(VR::TrackingManager& manager, VR::DisplayTime predictedDisplayTime)
     {
         auto tp = manager.locate(mTrackingPath, predictedDisplayTime);
         if (!!tp.status)
@@ -478,13 +476,18 @@ namespace MWVR
         return mUserPointer;
     }
 
+    void VRGUIManager::setUserPointer(std::shared_ptr<UserPointer> userPointer)
+    {
+        mUserPointer = userPointer;
+    }
+
     VRGUIManager::VRGUIManager(
         osg::ref_ptr<osgViewer::Viewer> viewer,
         Resource::ResourceSystem* resourceSystem,
         osg::Group* rootNode)
         : mOsgViewer(viewer)
         , mResourceSystem(resourceSystem)
-        , mUserPointer(std::make_shared<UserPointer>(rootNode))
+        , mUserPointer(nullptr)
         , mGeometriesRootNode(rootNode)
         , mGUICamerasRootNode(rootNode)
         , mUiTracking(new VRGUITracking())
@@ -764,6 +767,9 @@ namespace MWVR
 
     bool VRGUIManager::updateFocus()
     {
+        if (!mUserPointer)
+            return false;
+
         if (mUserPointer->getPointerTarget().mHit)
         {
             std::shared_ptr<VRGUILayer> newFocusLayer = nullptr;
@@ -975,19 +981,20 @@ namespace MWVR
     }
 
     VRGUITracking::VRGUITracking()
-        : VRTrackingSource(Environment::get().getTrackingManager()->stringToVRPath("/ui"))
+        : VR::TrackingSource(VR::stringToVRPath("/ui"))
     {
-        auto* tm = Environment::get().getTrackingManager();
-        mHeadPath = tm->stringToVRPath("/world/user/head/input/pose");
-        mStationaryPath = tm->stringToVRPath("/ui/stationary/menu_quad/pose");
+        mHeadPath = VR::stringToVRPath("/world/user/head/input/pose");
+        mStationaryPath = VR::stringToVRPath("/ui/stationary/menu_quad/pose");
         //stringToVRPath("/ui/anchors/wrist_hud/left/pose");
         //stringToVRPath("/ui/anchors/wrist_hud/right/pose");
         //stringToVRPath("/ui/anchors/hand_top/left/pose");
         //stringToVRPath("/ui/anchors/hand_top/right/pose");
     }
 
-    VRTrackingPose VRGUITracking::locate(VRPath path, DisplayTime predictedDisplayTime)
+    VR::TrackingPose VRGUITracking::locate(VR::VRPath path, VR::DisplayTime predictedDisplayTime)
     {
+        updateTracking(predictedDisplayTime);
+
         if (path == mStationaryPath)
             return mStationaryPose;
 
@@ -995,18 +1002,17 @@ namespace MWVR
         throw std::logic_error("Invalid Argument");
     }
 
-    std::vector<VRPath> VRGUITracking::listSupportedPaths() const
+    std::vector<VR::VRPath> VRGUITracking::listSupportedPaths() const
     {
         return { mStationaryPath };
     }
 
-    void VRGUITracking::updateTracking(const VR::Frame& frame)
+    void VRGUITracking::updateTracking(VR::DisplayTime predictedDisplayTime)
     {
         if (mShouldUpdateStationaryPose)
         {
-            auto* tm = Environment::get().getTrackingManager();
             // All dependent sources were updated before this
-            auto tp = tm->locate(mHeadPath, frame.predictedDisplayTime);
+            auto tp = VR::TrackingManager::instance().locate(mHeadPath, predictedDisplayTime);
             if (!!tp.status)
             {
                 mShouldUpdateStationaryPose = false;

@@ -39,7 +39,7 @@ namespace Compiler
 
 namespace Misc
 {
-    class StereoView;
+    struct StereoView;
     class CallbackManager;
 }
 

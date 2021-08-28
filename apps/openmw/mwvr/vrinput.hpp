@@ -77,17 +77,8 @@ namespace MWVR
     public:
         PoseAction(std::unique_ptr<OpenXRAction> xrAction);
 
-        //! Current value of an axis or lever action
-        Pose value() const { return mValue; }
-
-        //! Previous value
-        Pose previousValue() const { return mPrevious; }
-
         //! Convenience
         operator XrAction() { return *mXRAction; }
-
-        //! Update pose value
-        void update(long long time);
 
         //! Action space
         XrSpace xrSpace() { return mXRSpace; }
@@ -95,8 +86,6 @@ namespace MWVR
     private:
         std::unique_ptr<OpenXRAction> mXRAction;
         XrSpace mXRSpace;
-        Pose mValue{};
-        Pose mPrevious{};
     };
 
     /// \brief Generic action

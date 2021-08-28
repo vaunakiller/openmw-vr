@@ -1,15 +1,15 @@
-#ifndef OPENXR_MANAGER_IMPL_HPP
-#define OPENXR_MANAGER_IMPL_HPP
+#ifndef XR_INSTANCE_HPP
+#define XR_INSTANCE_HPP
 
-#include "openxrmanager.hpp"
-#include "openxrplatform.hpp"
-#include "openxrtracker.hpp"
-#include "../mwinput/inputmanagerimp.hpp"
+#include "platform.hpp"
+#include "tracking.hpp"
 
 #include <components/debug/debuglog.hpp>
 #include <components/sdlutil/sdlgraphicswindow.hpp>
-#include <components/vr/swapchain.hpp>
+#include <components/misc/stereo.hpp>
 #include <components/vr/directx.hpp>
+#include <components/vr/directx.hpp>
+#include <components/vr/constants.hpp>
 
 #include <openxr/openxr.h>
 
@@ -21,40 +21,59 @@
 #include <chrono>
 #include <queue>
 
-namespace MWVR
+namespace VR
 {
-    /// \brief Implementation of OpenXRManager
-    class OpenXRManagerImpl
+    class Session;
+}
+
+namespace XR
+{
+
+    struct SwapchainConfig
+    {
+        int recommendedWidth = -1;
+        int recommendedHeight = -1;
+        int recommendedSamples = -1;
+        int maxWidth = -1;
+        int maxHeight = -1;
+        int maxSamples = -1;
+    };
+
+    /// \brief Instantiates and manages and openxr instance.
+    class Instance
     {
     public:
-        OpenXRManagerImpl(osg::GraphicsContext* gc);
-        ~OpenXRManagerImpl(void);
+        static Instance& instance();
+
+    public:
+        Instance(osg::GraphicsContext* gc);
+        ~Instance(void);
 
         void endFrame(VR::Frame& frame);
-        std::array<View, 2> getPredictedViews(int64_t predictedDisplayTime, ReferenceSpace space);
-        MWVR::Pose getPredictedHeadPose(int64_t predictedDisplayTime, ReferenceSpace space);
+        std::array<Misc::View, 2> getPredictedViews(int64_t predictedDisplayTime, VR::ReferenceSpace space);
+        Misc::Pose getPredictedHeadPose(int64_t predictedDisplayTime, VR::ReferenceSpace space);
         void enablePredictions();
         void disablePredictions();
         long long getLastPredictedDisplayTime();
         long long getLastPredictedDisplayPeriod();
         std::array<SwapchainConfig, 2> getRecommendedSwapchainConfig() const;
-        XrSpace getReferenceSpace(ReferenceSpace space);
-        XrSession xrSession() const { return mSession; };
-        XrInstance xrInstance() const { return mInstance; };
+        XrSpace getReferenceSpace(VR::ReferenceSpace space);
+        XrSession xrSession() const { return mXrSession; };
+        XrInstance xrInstance() const { return mXrInstance; };
         bool xrExtensionIsEnabled(const char* extensionName) const;
         void xrUpdateNames();
         PFN_xrVoidFunction xrGetFunction(const std::string& name);
         int64_t selectColorFormat();
         int64_t selectDepthFormat();
         void eraseFormat(int64_t format);
-        OpenXRPlatform& platform() { return mPlatform; }
-        OpenXRTracker& tracker() { return *mTracker; }
+        XR::Platform& platform() { return mPlatform; }
+        XR::Tracker& tracker() { return *mTracker; }
         void initTracker();
-        VRStageToWorldBinding& stageToWorldBinding() { return *mTrackerToWorldBinding; }
+        VR::StageToWorldBinding& stageToWorldBinding() { return *mTrackerToWorldBinding; }
 
         enum class SwapchainUse
         {
-            Color, 
+            Color,
             Depth,
         };
         VR::Swapchain* createSwapchain(uint32_t width, uint32_t height, uint32_t samples, SwapchainUse use, const std::string& name);
@@ -76,8 +95,8 @@ namespace MWVR
 
         bool initialized = false;
         bool mPredictionsEnabled = false;
-        XrInstance mInstance = XR_NULL_HANDLE;
-        XrSession mSession = XR_NULL_HANDLE;
+        XrInstance mXrInstance = XR_NULL_HANDLE;
+        XrSession mXrSession = XR_NULL_HANDLE;
         XrSpace mSpace = XR_NULL_HANDLE;
         XrFormFactor mFormFactor = XR_FORM_FACTOR_HEAD_MOUNTED_DISPLAY;
         XrViewConfigurationType mViewConfigType = XR_VIEW_CONFIGURATION_TYPE_PRIMARY_STEREO;
@@ -90,10 +109,10 @@ namespace MWVR
         XrSpace mReferenceSpaceLocal = XR_NULL_HANDLE;
         XrFrameState mFrameState{};
         XrDebugUtilsMessengerEXT mDebugMessenger{ nullptr };
-        OpenXRPlatform mPlatform;
+        Platform mPlatform;
 
-        std::shared_ptr<OpenXRTracker> mTracker{ nullptr };
-        std::unique_ptr<VRStageToWorldBinding> mTrackerToWorldBinding{ nullptr };
+        std::shared_ptr<XR::Tracker> mTracker{ nullptr };
+        std::unique_ptr<VR::StageToWorldBinding> mTrackerToWorldBinding{ nullptr };
 
         uint32_t mAcquiredResources = 0;
         std::mutex mMutex{};

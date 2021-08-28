@@ -7,12 +7,12 @@
 #include "vrpointer.hpp"
 #include "vrviewer.hpp"
 #include "openxrinput.hpp"
-#include "openxrmanager.hpp"
-#include "openxrmanagerimpl.hpp"
 #include "openxraction.hpp"
 #include "realisticcombat.hpp"
 
 #include <components/debug/debuglog.hpp>
+#include <components/xr/instance.hpp>
+#include <components/vr/trackingmanager.hpp>
 
 #include <MyGUI_InputManager.h>
 
@@ -43,12 +43,6 @@
 
 namespace MWVR
 {
-
-    Pose VRInputManager::getLimbPose(int64_t time, TrackedLimb limb)
-    {
-        return mXRInput->getActionSet(ActionSet::Tracking).getLimbPose(time, limb);
-    }
-
     OpenXRActionSet& VRInputManager::activeActionSet()
     {
         bool guiMode = MWBase::Environment::get().getWindowManager()->isGuiMode();
@@ -181,13 +175,13 @@ namespace MWVR
     void VRInputManager::applyHapticsLeftHand(float intensity)
     {
         if (mHapticsEnabled)
-            mXRInput->getActionSet(ActionSet::Haptics).applyHaptics(TrackedLimb::LEFT_HAND, intensity);
+            mXRInput->getActionSet(ActionSet::Haptics).applyHaptics(VR::Side_Left, intensity);
     }
 
     void VRInputManager::applyHapticsRightHand(float intensity)
     {
         if (mHapticsEnabled)
-            mXRInput->getActionSet(ActionSet::Haptics).applyHaptics(TrackedLimb::RIGHT_HAND, intensity);
+            mXRInput->getActionSet(ActionSet::Haptics).applyHaptics(VR::Side_Right, intensity);
     }
 
     void VRInputManager::processChangedSettings(const std::set<std::pair<std::string, std::string>>& changed)
@@ -235,8 +229,7 @@ namespace MWVR
         if (extensionElement)
         {
             std::string extension = requireAttribute(extensionElement, "Name");
-            auto xr = MWVR::Environment::get().getManager();
-            if (!xr->xrExtensionIsEnabled(extension.c_str()))
+            if (!XR::Instance::instance().xrExtensionIsEnabled(extension.c_str()))
             {
                 Log(Debug::Verbose) << "  Required extension '" << extension << "' not supported. Skipping interaction profile.";
                 return;
@@ -429,7 +422,7 @@ namespace MWVR
             auto playerPtr = world->getPlayerPtr();
             if (!mRealisticCombat || mRealisticCombat->ptr() != playerPtr)
             {
-                auto trackingPath = Environment::get().getTrackingManager()->stringToVRPath("/stage/user/hand/right/input/aim/pose");
+                auto trackingPath = VR::stringToVRPath("/stage/user/hand/right/input/aim/pose");
                 mRealisticCombat.reset(new RealisticCombat::StateMachine(playerPtr, trackingPath));
             }
             bool enabled = !guiMode && player.getDrawState() == MWMechanics::DrawState_Weapon && !player.isDisabled();
@@ -603,7 +596,9 @@ namespace MWVR
             {
                 float yaw = osg::DegreesToRadians(action->value()) * 200.f * dt;
                 // TODO: Hack, should have a cleaner way of accessing this
-                reinterpret_cast<VRCamera*>(MWBase::Environment::get().getWorld()->getRenderingManager().getCamera())->rotateStage(yaw);
+                auto path = VR::stringToVRPath("/world/user");
+                auto* stageToWorldBinding = static_cast<VR::StageToWorldBinding*>(VR::TrackingManager::instance().getTrackingSource(path));
+                stageToWorldBinding->setWorldOrientation(yaw, true);
                 break;
             }
             case MWInput::A_MoveLeftRight:

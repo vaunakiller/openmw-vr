@@ -32,8 +32,9 @@
 #include "confirmationdialog.hpp"
 
 #ifdef USE_OPENXR
+#include <components/vr/session.hpp>
+#include <components/vr/trackingmanager.hpp>
 #include "../mwvr/vrenvironment.hpp"
-#include "../mwvr/vrsession.hpp"
 #include "../mwvr/vrviewer.hpp"
 #include "../mwvr/vrgui.hpp"
 #include "../mwvr/vrinputmanager.hpp"
@@ -629,8 +630,8 @@ namespace MWGui
 #ifdef USE_OPENXR
         if (MWBase::Environment::get().getVrMode())
         {
-            MWVR::Environment::get().getManager()->session().processChangedSettings(changed);
-            MWVR::Environment::get().getTrackingManager()->processChangedSettings(changed);
+            VR::Session::instance().processChangedSettings(changed);
+            VR::TrackingManager::instance().processChangedSettings(changed);
             MWVR::Environment::get().getViewer()->processChangedSettings(changed);
             MWVR::Environment::get().getGUIManager()->processChangedSettings(changed);
         }

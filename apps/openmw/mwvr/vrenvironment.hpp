@@ -6,9 +6,7 @@ namespace MWVR
     class VRAnimation;
     class VRGUIManager;
     class VRInputManager;
-    class VRTrackingManager;
     class VRViewer;
-    class OpenXRManager;
 
     /// \brief Central hub for mw vr/openxr subsystems
     ///
@@ -54,18 +52,10 @@ namespace MWVR
         MWVR::VRViewer* getViewer() const;
         void setViewer(MWVR::VRViewer* xrViewer);
 
-        MWVR::OpenXRManager* getManager() const;
-        void setManager(MWVR::OpenXRManager* xrManager);
-
-        MWVR::VRTrackingManager* getTrackingManager() const;
-        void setTrackingManager(MWVR::VRTrackingManager* xrManager);
-
     private:
         MWVR::VRGUIManager* mGUIManager{ nullptr };
         MWVR::VRAnimation* mPlayerAnimation{ nullptr };
         MWVR::VRViewer* mViewer{ nullptr };
-        MWVR::OpenXRManager* mOpenXRManager{ nullptr };
-        MWVR::VRTrackingManager* mTrackingManager{ nullptr };
     };
 }
 

@@ -6,8 +6,6 @@
 #include <osg/Camera>
 #include <osgViewer/Viewer>
 
-#include "openxrmanager.hpp"
-
 namespace MWVR
 {
     /// \brief Manages an opengl framebuffer

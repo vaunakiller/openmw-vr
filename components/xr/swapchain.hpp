@@ -1,23 +1,22 @@
 #ifndef OPENXR_SWAPCHAIN_HPP
 #define OPENXR_SWAPCHAIN_HPP
 
-#include "openxrmanager.hpp"
-
+#include "instance.hpp"
 #include <components/vr/swapchain.hpp>
 #include <openxr/openxr.h>
 
 struct XrSwapchainSubImage;
 
-namespace MWVR
+namespace XR
 {
     class OpenXRSwapchainImpl;
     class VRFramebuffer;
 
-    class OpenXRSwapchain : public VR::Swapchain
+    class Swapchain : public VR::Swapchain
     {
     public:
-        OpenXRSwapchain(XrSwapchain swapchain, std::vector<uint64_t> images, uint32_t width, uint32_t height, uint32_t samples, uint32_t format);
-        ~OpenXRSwapchain() override;
+        Swapchain(XrSwapchain swapchain, std::vector<uint64_t> images, uint32_t width, uint32_t height, uint32_t samples, uint32_t format);
+        ~Swapchain() override;
 
         XrSwapchain xrSwapchain() const { return mXrSwapchain; };
 

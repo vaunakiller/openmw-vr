@@ -7,18 +7,18 @@
 
 #include <openxr/openxr.h>
 
-namespace MWVR
+namespace XR
 {
 
     extern void getEulerAngles(const osg::Quat& quat, float& yaw, float& pitch, float& roll);
 
     /// \brief Manages VR logic, such as managing frames, predicting their poses, and handling frame synchronization with the VR runtime.
     /// Should not be confused with the openxr session object.
-    class OpenXRSession : public VR::Session
+    class Session : public VR::Session
     {
     public:
-        OpenXRSession(XrSession session, XrInstance instance, XrViewConfigurationType viewConfigType = XR_VIEW_CONFIGURATION_TYPE_PRIMARY_STEREO);
-        ~OpenXRSession();
+        Session(XrSession session, XrInstance instance, XrViewConfigurationType viewConfigType = XR_VIEW_CONFIGURATION_TYPE_PRIMARY_STEREO);
+        ~Session();
 
         void xrResourceAcquired();
         void xrResourceReleased();
