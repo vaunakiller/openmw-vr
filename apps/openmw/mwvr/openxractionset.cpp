@@ -26,7 +26,6 @@ namespace MWVR
         , mDeadzone(deadzone)
     {
         mActionSet = createActionSet(actionSetName);
-        // When starting to account for more devices than oculus touch, this section may need some expansion/redesign.
     };
 
     void
@@ -117,13 +116,13 @@ namespace MWVR
         std::vector<XrActionSuggestedBinding> suggestedBindings;
         if (!mTrackerMap.empty())
         {
-            suggestedBindings.emplace_back(XrActionSuggestedBinding{ *mTrackerMap[VR::Side_Left], getXrPath("/user/hand/left/input/aim/pose") });
-            suggestedBindings.emplace_back(XrActionSuggestedBinding{ *mTrackerMap[VR::Side_Right], getXrPath("/user/hand/right/input/aim/pose") });
+            suggestedBindings.emplace_back(XrActionSuggestedBinding{ mTrackerMap[VR::Side_Left]->xrAction(), getXrPath("/user/hand/left/input/aim/pose") });
+            suggestedBindings.emplace_back(XrActionSuggestedBinding{ mTrackerMap[VR::Side_Right]->xrAction(), getXrPath("/user/hand/right/input/aim/pose") });
         }
         if(!mHapticsMap.empty())
         {
-            suggestedBindings.emplace_back(XrActionSuggestedBinding{ *mHapticsMap[VR::Side_Left], getXrPath("/user/hand/left/output/haptic") });
-            suggestedBindings.emplace_back(XrActionSuggestedBinding{ *mHapticsMap[VR::Side_Right], getXrPath("/user/hand/right/output/haptic") });
+            suggestedBindings.emplace_back(XrActionSuggestedBinding{ mHapticsMap[VR::Side_Left]->xrAction(), getXrPath("/user/hand/left/output/haptic") });
+            suggestedBindings.emplace_back(XrActionSuggestedBinding{ mHapticsMap[VR::Side_Right]->xrAction(), getXrPath("/user/hand/right/output/haptic") });
         };
 
         for (auto& mwSuggestedBinding : mwSuggestedBindings)
@@ -134,7 +133,7 @@ namespace MWVR
                 Log(Debug::Error) << "OpenXRActionSet: Unknown action " << mwSuggestedBinding.action;
                 continue;
             }
-            suggestedBindings.push_back({ *xrAction->second, getXrPath(mwSuggestedBinding.path) });
+            suggestedBindings.push_back({ xrAction->second->xrAction(), getXrPath(mwSuggestedBinding.path) });
         }
 
         xrSuggestedBindings.insert(xrSuggestedBindings.end(), suggestedBindings.begin(), suggestedBindings.end());
@@ -146,7 +145,7 @@ namespace MWVR
     }
 
 
-    std::unique_ptr<OpenXRAction>
+    std::unique_ptr<XR::Action>
         OpenXRActionSet::createXRAction(
             XrActionType actionType,
             const std::string& actionName,
@@ -160,7 +159,7 @@ namespace MWVR
 
         XrAction action = XR_NULL_HANDLE;
         CHECK_XRCMD(xrCreateAction(mActionSet, &createInfo, &action));
-        return std::unique_ptr<OpenXRAction>{new OpenXRAction{ action, actionType, actionName, localName }};
+        return std::unique_ptr<XR::Action>{new XR::Action{ action, actionType, actionName, localName }};
     }
 
     void

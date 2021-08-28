@@ -5,11 +5,23 @@
 
 #include <components/vr/constants.hpp>
 
+#include <components/xr/action.hpp>
+
 #include <vector>
 #include <array>
 
 namespace MWVR
 {
+
+    /// \brief Suggest a binding by binding an action to a path on a given hand (left or right).
+    struct SuggestedBinding
+    {
+        std::string path;
+        std::string action;
+    };
+
+    using SuggestedBindings = std::vector<SuggestedBinding>;
+
     /// \brief Generates and manages an OpenXR ActionSet and associated actions.
     class OpenXRActionSet
     {
@@ -39,7 +51,7 @@ namespace MWVR
     protected:
         template<typename A>
         void createMWAction(int openMWAction, const std::string& actionName, const std::string& localName);
-        std::unique_ptr<OpenXRAction> createXRAction(XrActionType actionType, const std::string& actionName, const std::string& localName);
+        std::unique_ptr<XR::Action> createXRAction(XrActionType actionType, const std::string& actionName, const std::string& localName);
         XrPath getXrPath(const std::string& path);
         XrActionSet createActionSet(const std::string& name);
 

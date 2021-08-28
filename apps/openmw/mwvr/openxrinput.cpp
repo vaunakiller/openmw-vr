@@ -10,17 +10,34 @@
 
 #include <iostream>
 
+#include <extern/oics/tinyxml.h>
+
 namespace MWVR
 {
 
-    OpenXRInput::OpenXRInput(std::shared_ptr<AxisAction::Deadzone> deadzone)
+    OpenXRInput::OpenXRInput(std::shared_ptr<AxisAction::Deadzone> deadzone, const std::string& xrControllerSuggestionsFile)
+        : mDeadzone(deadzone)
+        , mXrControllerSuggestionsFile(xrControllerSuggestionsFile)
     {
-        mActionSets.emplace(ActionSet::Gameplay, OpenXRActionSet("Gameplay", deadzone));
-        mActionSets.emplace(ActionSet::GUI, OpenXRActionSet("GUI", deadzone));
-        mActionSets.emplace(ActionSet::Tracking, OpenXRActionSet("Tracking", deadzone));
-        mActionSets.emplace(ActionSet::Haptics, OpenXRActionSet("Haptics", deadzone));
+        createActionSets();
+        createGameplayActions();
+        createGUIActions();
+        createPoseActions();
+        createHapticActions();
+        readXrControllerSuggestions();
+        attachActionSets();
+    }
 
+    void OpenXRInput::createActionSets()
+    {
+        mActionSets.emplace(ActionSet::Gameplay, OpenXRActionSet("Gameplay", mDeadzone));
+        mActionSets.emplace(ActionSet::GUI, OpenXRActionSet("GUI", mDeadzone));
+        mActionSets.emplace(ActionSet::Tracking, OpenXRActionSet("Tracking", mDeadzone));
+        mActionSets.emplace(ActionSet::Haptics, OpenXRActionSet("Haptics", mDeadzone));
+    }
 
+    void OpenXRInput::createGameplayActions()
+    {
         /*
             // Applicable actions not (yet) included
             A_QuickKey1,
@@ -39,10 +56,9 @@ namespace MWVR
             A_CycleSpellRight,
             A_CycleWeaponLeft,
             A_CycleWeaponRight,
-            A_Screenshot, // Generate a VR screenshot?
-            A_Console,    // Currently awkward due to a lack of virtual keyboard, but should be included when that's in place
+            A_Screenshot, // Generate a VR screenshot? Currently not applicable because the screenshot function crashes the viewer.
+            A_Console,    
         */
-
         getActionSet(ActionSet::Gameplay).createMWAction(VrControlType::Press, MWInput::A_GameMenu, "game_menu", "Game Menu");
         getActionSet(ActionSet::Gameplay).createMWAction(VrControlType::Press, A_VrMetaMenu, "meta_menu", "Meta Menu");
         getActionSet(ActionSet::Gameplay).createMWAction(VrControlType::LongPress, A_Recenter, "reposition_menu", "Reposition Menu");
@@ -69,7 +85,10 @@ namespace MWVR
         getActionSet(ActionSet::Gameplay).createMWAction(VrControlType::Press, MWInput::A_AutoMove, "auto_move", "Auto Move");
         getActionSet(ActionSet::Gameplay).createMWAction(VrControlType::Press, MWInput::A_ToggleHUD, "toggle_hud", "Toggle HUD");
         getActionSet(ActionSet::Gameplay).createMWAction(VrControlType::Press, MWInput::A_ToggleDebug, "toggle_debug", "Toggle the debug hud");
+    }
 
+    void OpenXRInput::createGUIActions()
+    {
         getActionSet(ActionSet::GUI).createMWAction(VrControlType::Press, MWInput::A_GameMenu, "game_menu", "Game Menu");
         getActionSet(ActionSet::GUI).createMWAction(VrControlType::LongPress, A_Recenter, "reposition_menu", "Reposition Menu");
         getActionSet(ActionSet::GUI).createMWAction(VrControlType::Axis, A_MenuUpDown, "menu_up_down", "Menu Up Down");
@@ -77,12 +96,12 @@ namespace MWVR
         getActionSet(ActionSet::GUI).createMWAction(VrControlType::Press, A_MenuSelect, "menu_select", "Menu Select");
         getActionSet(ActionSet::GUI).createMWAction(VrControlType::Press, A_MenuBack, "menu_back", "Menu Back");
         getActionSet(ActionSet::GUI).createMWAction(VrControlType::Hold, MWInput::A_Use, "use", "Use");
+    }
 
+    void OpenXRInput::createPoseActions()
+    {
         getActionSet(ActionSet::Tracking).createPoseAction(VR::Side_Left, "left_hand_pose", "Left Hand Pose");
         getActionSet(ActionSet::Tracking).createPoseAction(VR::Side_Right, "right_hand_pose", "Right Hand Pose");
-
-        getActionSet(ActionSet::Haptics).createHapticsAction(VR::Side_Left, "left_hand_haptics", "Left Hand Haptics");
-        getActionSet(ActionSet::Haptics).createHapticsAction(VR::Side_Right, "right_hand_haptics", "Right Hand Haptics");
 
         auto stageUserHandLeftPath = VR::stringToVRPath("/stage/user/hand/left/input/aim/pose");
         auto stageUserHandRightPath = VR::stringToVRPath("/stage/user/hand/right/input/aim/pose");
@@ -93,7 +112,55 @@ namespace MWVR
         XR::Instance::instance().tracker().addTrackingSpace(stageUserHandRightPath, getActionSet(ActionSet::Tracking).xrActionSpace(VR::Side_Right));
         XR::Instance::instance().stageToWorldBinding().bindPaths(worldUserHandLeftPath, stageUserHandLeftPath);
         XR::Instance::instance().stageToWorldBinding().bindPaths(worldUserHandRightPath, stageUserHandRightPath);
-    };
+    }
+
+    void OpenXRInput::createHapticActions()
+    {
+        getActionSet(ActionSet::Haptics).createHapticsAction(VR::Side_Left, "left_hand_haptics", "Left Hand Haptics");
+        getActionSet(ActionSet::Haptics).createHapticsAction(VR::Side_Right, "right_hand_haptics", "Right Hand Haptics");
+    }
+
+    void OpenXRInput::readXrControllerSuggestions()
+    {
+        if (mXrControllerSuggestionsFile.empty())
+            throw std::runtime_error("No interaction profiles available (xrcontrollersuggestions.xml not found)");
+
+        Log(Debug::Verbose) << "Reading Input Profile Path suggestions from " << mXrControllerSuggestionsFile;
+
+        TiXmlDocument* xmlDoc = nullptr;
+        TiXmlElement* xmlRoot = nullptr;
+
+        xmlDoc = new TiXmlDocument(mXrControllerSuggestionsFile.c_str());
+        xmlDoc->LoadFile();
+
+        if (xmlDoc->Error())
+        {
+            std::ostringstream message;
+            message << "TinyXml reported an error reading \"" + mXrControllerSuggestionsFile + "\". Row " <<
+                (int)xmlDoc->ErrorRow() << ", Col " << (int)xmlDoc->ErrorCol() << ": " <<
+                xmlDoc->ErrorDesc();
+            Log(Debug::Error) << message.str();
+            throw std::runtime_error(message.str());
+
+            delete xmlDoc;
+            return;
+        }
+
+        xmlRoot = xmlDoc->RootElement();
+        if (std::string(xmlRoot->Value()) != "Root") {
+            Log(Debug::Verbose) << "Error: Invalid xr controllers file. Missing <Root> element.";
+            delete xmlDoc;
+            return;
+        }
+
+        TiXmlElement* profile = xmlRoot->FirstChildElement("Profile");
+        while (profile)
+        {
+            readInteractionProfile(profile);
+            profile = profile->NextSiblingElement("Profile");
+        }
+    }
+    ;
 
     OpenXRActionSet& OpenXRInput::getActionSet(ActionSet actionSet)
     {
@@ -178,5 +245,89 @@ namespace MWVR
                 }
             }
         }
+    }
+
+
+    void OpenXRInput::throwDocumentError(TiXmlElement* element, std::string error)
+    {
+        std::stringstream ss;
+        ss << mXrControllerSuggestionsFile << "." << element->Row() << "." << element->Value();
+        ss << ": " << error;
+        throw std::runtime_error(ss.str());
+    }
+
+    std::string OpenXRInput::requireAttribute(TiXmlElement* element, std::string attribute)
+    {
+        const char* value = element->Attribute(attribute.c_str());
+        if (!value)
+            throwDocumentError(element, std::string() + "Missing attribute '" + attribute + "'");
+        return value;
+    }
+
+    void OpenXRInput::readInteractionProfile(TiXmlElement* element)
+    {
+        std::string interactionProfilePath = requireAttribute(element, "Path");
+        mInteractionProfileLocalNames[interactionProfilePath] = requireAttribute(element, "LocalName");
+
+        Log(Debug::Verbose) << "Configuring interaction profile '" << interactionProfilePath << "' (" << mInteractionProfileLocalNames[interactionProfilePath] << ")";
+
+        // Check extension if present
+        TiXmlElement* extensionElement = element->FirstChildElement("Extension");
+        if (extensionElement)
+        {
+            std::string extension = requireAttribute(extensionElement, "Name");
+            if (!XR::Instance::instance().xrExtensionIsEnabled(extension.c_str()))
+            {
+                Log(Debug::Verbose) << "  Required extension '" << extension << "' not supported. Skipping interaction profile.";
+                return;
+            }
+        }
+
+        TiXmlElement* actionSetGameplay = nullptr;
+        TiXmlElement* actionSetGUI = nullptr;
+        TiXmlElement* child = element->FirstChildElement("ActionSet");
+        while (child)
+        {
+            std::string name = requireAttribute(child, "Name");
+            if (name == "Gameplay")
+                actionSetGameplay = child;
+            else if (name == "GUI")
+                actionSetGUI = child;
+
+            child = child->NextSiblingElement("ActionSet");
+        }
+
+        if (!actionSetGameplay)
+            throwDocumentError(element, "Gameplay action set missing");
+        if (!actionSetGUI)
+            throwDocumentError(element, "GUI action set missing");
+
+        readInteractionProfileActionSet(actionSetGameplay, ActionSet::Gameplay, interactionProfilePath);
+        readInteractionProfileActionSet(actionSetGUI, ActionSet::GUI, interactionProfilePath);
+        suggestBindings(ActionSet::Tracking, interactionProfilePath, {});
+        suggestBindings(ActionSet::Haptics, interactionProfilePath, {});
+    }
+
+    void OpenXRInput::readInteractionProfileActionSet(TiXmlElement* element, ActionSet actionSet, std::string interactionProfilePath)
+    {
+        SuggestedBindings suggestedBindings;
+
+        TiXmlElement* child = element->FirstChildElement("Binding");
+        while (child)
+        {
+            std::string action = requireAttribute(child, "ActionName");
+            std::string path = requireAttribute(child, "Path");
+
+            suggestedBindings.push_back(
+                SuggestedBinding{
+                    path, action
+                });
+
+            Log(Debug::Debug) << "  " << action << ": " << path;
+
+            child = child->NextSiblingElement("Binding");
+        }
+
+        suggestBindings(actionSet, interactionProfilePath, suggestedBindings);
     }
 }

@@ -1,31 +1,14 @@
 #ifndef VR_INPUT_HPP
 #define VR_INPUT_HPP
 
-#include "vrviewer.hpp"
-#include "openxraction.hpp"
+#include <components/xr/action.hpp>
+
+#include <chrono>
 
 #include "../mwinput/inputmanagerimp.hpp"
 
 namespace MWVR
 {
-    /// Extension of MWInput's set of actions.
-    enum VrActions
-    {
-        A_VrFirst = MWInput::A_Last + 1,
-        A_VrMetaMenu,
-        A_ActivateTouch,
-        A_HapticsLeft,
-        A_HapticsRight,
-        A_HandPoseLeft,
-        A_HandPoseRight,
-        A_MenuUpDown,
-        A_MenuLeftRight,
-        A_MenuSelect,
-        A_MenuBack,
-        A_Recenter,
-        A_VrLast
-    };
-
     enum class VrControlType
     {
         Press,
@@ -36,38 +19,20 @@ namespace MWVR
         Axis
     };
 
-    /// \brief Suggest a binding by binding an action to a path on a given hand (left or right).
-    struct SuggestedBinding
-    {
-        std::string path;
-        std::string action;
-    };
-
-    using SuggestedBindings = std::vector<SuggestedBinding>;
-
-    /// \brief Enumeration of action sets
-    enum class ActionSet
-    {
-        GUI = 0,
-        Gameplay = 1,
-        Tracking = 2,
-        Haptics = 3,
-    };
-
     /// \brief Action for applying haptics
     class HapticsAction
     {
     public:
-        HapticsAction(std::unique_ptr<OpenXRAction> xrAction) : mXRAction{ std::move(xrAction) } {};
+        HapticsAction(std::unique_ptr<XR::Action> xrAction) : mXRAction{ std::move(xrAction) } {};
 
         //! Apply vibration at the given amplitude
         void apply(float amplitude);
 
         //! Convenience
-        operator XrAction() { return *mXRAction; }
+        XrAction xrAction() { return mXRAction->xrAction(); }
 
     private:
-        std::unique_ptr<OpenXRAction> mXRAction;
+        std::unique_ptr<XR::Action> mXRAction;
         float mAmplitude{ 0.f };
     };
 
@@ -75,16 +40,16 @@ namespace MWVR
     class PoseAction
     {
     public:
-        PoseAction(std::unique_ptr<OpenXRAction> xrAction);
+        PoseAction(std::unique_ptr<XR::Action> xrAction);
 
         //! Convenience
-        operator XrAction() { return *mXRAction; }
+        XrAction xrAction() { return mXRAction->xrAction(); }
 
         //! Action space
         XrSpace xrSpace() { return mXRSpace; }
 
     private:
-        std::unique_ptr<OpenXRAction> mXRAction;
+        std::unique_ptr<XR::Action> mXRAction;
         XrSpace mXRSpace;
     };
 
@@ -93,7 +58,7 @@ namespace MWVR
     class Action
     {
     public:
-        Action(int openMWAction, std::unique_ptr<OpenXRAction> xrAction) : mXRAction(std::move(xrAction)), mOpenMWAction(openMWAction) {}
+        Action(int openMWAction, std::unique_ptr<XR::Action> xrAction) : mXRAction(std::move(xrAction)), mOpenMWAction(openMWAction) {}
         virtual ~Action() {};
 
         //! True if action changed to being released in the last update
@@ -122,13 +87,13 @@ namespace MWVR
         virtual bool shouldQueue() const = 0;
 
         //! Convenience
-        operator XrAction() { return *mXRAction; }
+        XrAction xrAction() { return mXRAction->xrAction(); }
 
         //! Update and queue action if applicable
         void updateAndQueue(std::deque<const Action*>& queue);
 
     protected:
-        std::unique_ptr<OpenXRAction> mXRAction;
+        std::unique_ptr<XR::Action> mXRAction;
         int mOpenMWAction;
         float mValue{ 0.f };
         float mPrevious{ 0.f };
@@ -210,7 +175,7 @@ namespace MWVR
         };
 
     public:
-        AxisAction(int openMWAction, std::unique_ptr<OpenXRAction> xrAction, std::shared_ptr<AxisAction::Deadzone> deadzone);
+        AxisAction(int openMWAction, std::unique_ptr<XR::Action> xrAction, std::shared_ptr<AxisAction::Deadzone> deadzone);
 
         static const XrActionType ActionType = XR_ACTION_TYPE_FLOAT_INPUT;
 

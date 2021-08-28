@@ -71,22 +71,15 @@ namespace MWVR
         void applyHapticsRightHand(float intensity) override;
         void processChangedSettings(const std::set< std::pair<std::string, std::string> >& changed) override;
 
-        void throwDocumentError(TiXmlElement* element, std::string error);
-        std::string requireAttribute(TiXmlElement* element, std::string attribute);
-        void readInteractionProfile(TiXmlElement* element);
-        void readInteractionProfileActionSet(TiXmlElement* element, ActionSet actionSet, std::string profilePath);
-
         void setThumbstickDeadzone(float deadzoneRadius);
 
     private:
         std::shared_ptr<AxisAction::Deadzone> mAxisDeadzone{ new AxisAction::Deadzone };
         std::unique_ptr<OpenXRInput> mXRInput;
         std::unique_ptr<RealisticCombat::StateMachine> mRealisticCombat;
-        std::string mXrControllerSuggestionsFile;
         bool mActivationIndication{ false };
         bool mHapticsEnabled{ true };
 
-        std::map<std::string, std::string> mInteractionProfileLocalNames;
     };
 }
 

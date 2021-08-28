@@ -24,12 +24,12 @@ namespace MWVR
         mXRAction->applyHaptics(XR_NULL_PATH, mAmplitude);
     }
 
-    PoseAction::PoseAction(std::unique_ptr<OpenXRAction> xrAction)
+    PoseAction::PoseAction(std::unique_ptr<XR::Action> xrAction)
         : mXRAction(std::move(xrAction))
         , mXRSpace{ XR_NULL_HANDLE }
     {
         XrActionSpaceCreateInfo createInfo{ XR_TYPE_ACTION_SPACE_CREATE_INFO };
-        createInfo.action = *mXRAction;
+        createInfo.action = mXRAction->xrAction();
         createInfo.poseInActionSpace.orientation.w = 1.f;
         createInfo.subactionPath = XR_NULL_PATH;
         CHECK_XRCMD(xrCreateActionSpace(XR::Instance::instance().xrSession(), &createInfo, &mXRSpace));
@@ -109,7 +109,7 @@ namespace MWVR
     }
 
 
-    AxisAction::AxisAction(int openMWAction, std::unique_ptr<OpenXRAction> xrAction, std::shared_ptr<AxisAction::Deadzone> deadzone)
+    AxisAction::AxisAction(int openMWAction, std::unique_ptr<XR::Action> xrAction, std::shared_ptr<AxisAction::Deadzone> deadzone)
         : Action(openMWAction, std::move(xrAction))
         , mDeadzone(deadzone)
     {

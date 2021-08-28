@@ -201,89 +201,6 @@ namespace MWVR
         }
     }
 
-    void VRInputManager::throwDocumentError(TiXmlElement* element, std::string error)
-    {
-        std::stringstream ss;
-        ss << mXrControllerSuggestionsFile << "." << element->Row() << "." << element->Value();
-        ss << ": " << error;
-        throw std::runtime_error(ss.str());
-    }
-
-    std::string VRInputManager::requireAttribute(TiXmlElement* element, std::string attribute)
-    {
-        const char* value = element->Attribute(attribute.c_str());
-        if (!value)
-            throwDocumentError(element, std::string() + "Missing attribute '" + attribute + "'");
-        return value;
-    }
-
-    void VRInputManager::readInteractionProfile(TiXmlElement* element)
-    {
-        std::string interactionProfilePath = requireAttribute(element, "Path");
-        mInteractionProfileLocalNames[interactionProfilePath] = requireAttribute(element, "LocalName");
-
-        Log(Debug::Verbose) << "Configuring interaction profile '" << interactionProfilePath << "' (" << mInteractionProfileLocalNames[interactionProfilePath] << ")";
-
-        // Check extension if present
-        TiXmlElement* extensionElement = element->FirstChildElement("Extension");
-        if (extensionElement)
-        {
-            std::string extension = requireAttribute(extensionElement, "Name");
-            if (!XR::Instance::instance().xrExtensionIsEnabled(extension.c_str()))
-            {
-                Log(Debug::Verbose) << "  Required extension '" << extension << "' not supported. Skipping interaction profile.";
-                return;
-            }
-        }
-
-        TiXmlElement* actionSetGameplay = nullptr;
-        TiXmlElement* actionSetGUI = nullptr;
-        TiXmlElement* child = element->FirstChildElement("ActionSet");
-        while (child)
-        {
-            std::string name = requireAttribute(child, "Name");
-            if (name == "Gameplay")
-                actionSetGameplay = child;
-            else if (name == "GUI")
-                actionSetGUI = child;
-
-            child = child->NextSiblingElement("ActionSet");
-        }
-
-        if (!actionSetGameplay)
-            throwDocumentError(element, "Gameplay action set missing");
-        if (!actionSetGUI)
-            throwDocumentError(element, "GUI action set missing");
-
-        readInteractionProfileActionSet(actionSetGameplay, ActionSet::Gameplay, interactionProfilePath);
-        readInteractionProfileActionSet(actionSetGUI, ActionSet::GUI, interactionProfilePath);
-        mXRInput->suggestBindings(ActionSet::Tracking, interactionProfilePath, {});
-        mXRInput->suggestBindings(ActionSet::Haptics, interactionProfilePath, {});
-    }
-
-    void VRInputManager::readInteractionProfileActionSet(TiXmlElement* element, ActionSet actionSet, std::string interactionProfilePath)
-    {
-        SuggestedBindings suggestedBindings;
-
-        TiXmlElement* child = element->FirstChildElement("Binding");
-        while (child)
-        {
-            std::string action = requireAttribute(child, "ActionName");
-            std::string path = requireAttribute(child, "Path");
-
-            suggestedBindings.push_back(
-                SuggestedBinding{
-                    path, action
-                });
-
-            Log(Debug::Debug) << "  " << action << ": " << path;
-
-            child = child->NextSiblingElement("Binding");
-        }
-
-        mXRInput->suggestBindings(actionSet, interactionProfilePath, suggestedBindings);
-    }
-
     void VRInputManager::setThumbstickDeadzone(float deadzoneRadius)
     {
         mAxisDeadzone->setDeadzoneRadius(deadzoneRadius);
@@ -316,49 +233,9 @@ namespace MWVR
             userControllerBindingsFile,
             controllerBindingsFile,
             grab)
-        , mXRInput(new OpenXRInput(mAxisDeadzone))
-        , mXrControllerSuggestionsFile(xrControllerSuggestionsFile)
+        , mXRInput(new OpenXRInput(mAxisDeadzone, xrControllerSuggestionsFile))
         , mHapticsEnabled{ Settings::Manager::getBool("haptics enabled", "VR") }
     {
-        if (xrControllerSuggestionsFile.empty())
-            throw std::runtime_error("No interaction profiles available (xrcontrollersuggestions.xml not found)");
-
-        Log(Debug::Verbose) << "Reading Input Profile Path suggestions from " << xrControllerSuggestionsFile;
-
-        TiXmlDocument* xmlDoc = nullptr;
-        TiXmlElement* xmlRoot = nullptr;
-
-        xmlDoc = new TiXmlDocument(xrControllerSuggestionsFile.c_str());
-        xmlDoc->LoadFile();
-
-        if (xmlDoc->Error())
-        {
-            std::ostringstream message;
-            message << "TinyXml reported an error reading \"" + xrControllerSuggestionsFile + "\". Row " <<
-                (int)xmlDoc->ErrorRow() << ", Col " << (int)xmlDoc->ErrorCol() << ": " <<
-                xmlDoc->ErrorDesc();
-            Log(Debug::Error) << message.str();
-            throw std::runtime_error(message.str());
-
-            delete xmlDoc;
-            return;
-        }
-
-        xmlRoot = xmlDoc->RootElement();
-        if (std::string(xmlRoot->Value()) != "Root") {
-            Log(Debug::Verbose) << "Error: Invalid xr controllers file. Missing <Root> element.";
-            delete xmlDoc;
-            return;
-        }
-
-        TiXmlElement* profile = xmlRoot->FirstChildElement("Profile");
-        while (profile)
-        {
-            readInteractionProfile(profile);
-            profile = profile->NextSiblingElement("Profile");
-        }
-
-        mXRInput->attachActionSets();
         setThumbstickDeadzone(Settings::Manager::getFloat("joystick dead zone", "Input"));
     }
 
