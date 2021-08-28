@@ -1,8 +1,11 @@
 #ifndef OPENXR_INPUT_HPP
 #define OPENXR_INPUT_HPP
 
+#include "../mwinput/actions.hpp"
+
 #include "vrinput.hpp"
-#include "openxractionset.hpp"
+#include <components/xr/action.hpp>
+#include <components/xr/actionset.hpp>
 
 #include <vector>
 #include <array>
@@ -30,7 +33,7 @@ namespace MWVR
     };
 
     /// \brief Enumeration of action sets
-    enum class ActionSet
+    enum class MWActionSet
     {
         GUI = 0,
         Gameplay = 1,
@@ -46,7 +49,7 @@ namespace MWVR
         using XrProfileSuggestedBindings = std::map<std::string, XrSuggestedBindings>;
 
         //! Default constructor, creates two ActionSets: Gameplay and GUI
-        OpenXRInput(std::shared_ptr<AxisAction::Deadzone> deadzone, const std::string& xrControllerSuggestionsFile);
+        OpenXRInput(const std::string& xrControllerSuggestionsFile);
         void createActionSets();
         void createGameplayActions();
         void createGUIActions();
@@ -56,10 +59,10 @@ namespace MWVR
         void readXrControllerSuggestions();
 
         //! Get the specified actionSet.
-        OpenXRActionSet& getActionSet(ActionSet actionSet);
+        XR::ActionSet& getActionSet(MWActionSet actionSet);
 
         //! Suggest bindings for the specific actionSet and profile pair. Call things after calling attachActionSets is an error.
-        void suggestBindings(ActionSet actionSet, std::string profile, const SuggestedBindings& mwSuggestedBindings);
+        void suggestBindings(MWActionSet actionSet, std::string profile, const XR::SuggestedBindings& mwSuggestedBindings);
 
         //! Set bindings and attach actionSets to the session.
         void attachActionSets();
@@ -70,13 +73,15 @@ namespace MWVR
         void throwDocumentError(TiXmlElement* element, std::string error);
         std::string requireAttribute(TiXmlElement* element, std::string attribute);
         void readInteractionProfile(TiXmlElement* element);
-        void readInteractionProfileActionSet(TiXmlElement* element, ActionSet actionSet, std::string profilePath);
+        void readInteractionProfileActionSet(TiXmlElement* element, MWActionSet actionSet, std::string profilePath);
+
+        void setThumbstickDeadzone(float deadzoneRadius);
 
     protected:
-        std::shared_ptr<AxisAction::Deadzone> mDeadzone;
         std::string mXrControllerSuggestionsFile;
+        std::shared_ptr<XR::AxisAction::Deadzone> mDeadzone{ std::make_shared<XR::AxisAction::Deadzone>() };
         std::map<std::string, std::string> mInteractionProfileLocalNames{};
-        std::map<ActionSet, OpenXRActionSet> mActionSets{};
+        std::map<MWActionSet, XR::ActionSet> mActionSets{};
         std::map<XrPath, std::string> mInteractionProfileNames{};
         std::map<std::string, XrPath> mInteractionProfilePaths{};
         std::map<XrPath, XrPath> mActiveInteractionProfiles;

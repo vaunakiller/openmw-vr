@@ -5,6 +5,7 @@
 #include "vranimation.hpp"
 #include "vrinputmanager.hpp"
 #include "vrgui.hpp"
+#include "vrviewer.hpp"
 
 #include "../mwbase/environment.hpp"
 

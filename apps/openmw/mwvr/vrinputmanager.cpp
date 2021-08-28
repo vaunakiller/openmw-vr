@@ -7,11 +7,12 @@
 #include "vrpointer.hpp"
 #include "vrviewer.hpp"
 #include "openxrinput.hpp"
-#include "openxraction.hpp"
 #include "realisticcombat.hpp"
 
 #include <components/debug/debuglog.hpp>
 #include <components/xr/instance.hpp>
+#include <components/xr/action.hpp>
+#include <components/xr/actionset.hpp>
 #include <components/vr/trackingmanager.hpp>
 
 #include <MyGUI_InputManager.h>
@@ -37,21 +38,20 @@
 #include "../mwrender/camera.hpp"
 
 #include <extern/oics/ICSInputControlSystem.h>
-#include <extern/oics/tinyxml.h>
 
 #include <iostream>
 
 namespace MWVR
 {
-    OpenXRActionSet& VRInputManager::activeActionSet()
+    XR::ActionSet& VRInputManager::activeActionSet()
     {
         bool guiMode = MWBase::Environment::get().getWindowManager()->isGuiMode();
         guiMode = guiMode || (MWBase::Environment::get().getStateManager()->getState() == MWBase::StateManager::State_NoGame);
         if (guiMode)
         {
-            return mXRInput->getActionSet(ActionSet::GUI);
+            return mXRInput->getActionSet(MWActionSet::GUI);
         }
-        return mXRInput->getActionSet(ActionSet::Gameplay);
+        return mXRInput->getActionSet(MWActionSet::Gameplay);
     }
 
     void VRInputManager::notifyInteractionProfileChanged()
@@ -175,13 +175,13 @@ namespace MWVR
     void VRInputManager::applyHapticsLeftHand(float intensity)
     {
         if (mHapticsEnabled)
-            mXRInput->getActionSet(ActionSet::Haptics).applyHaptics(VR::Side_Left, intensity);
+            mXRInput->getActionSet(MWActionSet::Haptics).applyHaptics(VR::Side_Left, intensity);
     }
 
     void VRInputManager::applyHapticsRightHand(float intensity)
     {
         if (mHapticsEnabled)
-            mXRInput->getActionSet(ActionSet::Haptics).applyHaptics(VR::Side_Right, intensity);
+            mXRInput->getActionSet(MWActionSet::Haptics).applyHaptics(VR::Side_Right, intensity);
     }
 
     void VRInputManager::processChangedSettings(const std::set<std::pair<std::string, std::string>>& changed)
@@ -203,7 +203,7 @@ namespace MWVR
 
     void VRInputManager::setThumbstickDeadzone(float deadzoneRadius)
     {
-        mAxisDeadzone->setDeadzoneRadius(deadzoneRadius);
+        mXRInput->setThumbstickDeadzone(deadzoneRadius);
     }
 
     void VRInputManager::requestRecenter(bool resetZ)
@@ -233,7 +233,7 @@ namespace MWVR
             userControllerBindingsFile,
             controllerBindingsFile,
             grab)
-        , mXRInput(new OpenXRInput(mAxisDeadzone, xrControllerSuggestionsFile))
+        , mXRInput(new OpenXRInput(xrControllerSuggestionsFile))
         , mHapticsEnabled{ Settings::Manager::getBool("haptics enabled", "VR") }
     {
         setThumbstickDeadzone(Settings::Manager::getFloat("joystick dead zone", "Input"));
@@ -320,7 +320,7 @@ namespace MWVR
         auto elapsed = std::chrono::duration_cast<std::chrono::microseconds>(end - begin);
     }
 
-    void VRInputManager::processAction(const Action* action, float dt, bool disableControls)
+    void VRInputManager::processAction(const XR::InputAction* action, float dt, bool disableControls)
     {
         static const bool isToggleSneak = Settings::Manager::getBool("toggle sneak", "Input");
         auto* vrGuiManager = Environment::get().getGUIManager();

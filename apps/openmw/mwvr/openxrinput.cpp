@@ -1,7 +1,6 @@
 #include "openxrinput.hpp"
 
 #include "vrenvironment.hpp"
-#include "openxraction.hpp"
 
 #include <openxr/openxr.h>
 
@@ -15,9 +14,8 @@
 namespace MWVR
 {
 
-    OpenXRInput::OpenXRInput(std::shared_ptr<AxisAction::Deadzone> deadzone, const std::string& xrControllerSuggestionsFile)
-        : mDeadzone(deadzone)
-        , mXrControllerSuggestionsFile(xrControllerSuggestionsFile)
+    OpenXRInput::OpenXRInput(const std::string& xrControllerSuggestionsFile)
+        : mXrControllerSuggestionsFile(xrControllerSuggestionsFile)
     {
         createActionSets();
         createGameplayActions();
@@ -30,10 +28,10 @@ namespace MWVR
 
     void OpenXRInput::createActionSets()
     {
-        mActionSets.emplace(ActionSet::Gameplay, OpenXRActionSet("Gameplay", mDeadzone));
-        mActionSets.emplace(ActionSet::GUI, OpenXRActionSet("GUI", mDeadzone));
-        mActionSets.emplace(ActionSet::Tracking, OpenXRActionSet("Tracking", mDeadzone));
-        mActionSets.emplace(ActionSet::Haptics, OpenXRActionSet("Haptics", mDeadzone));
+        mActionSets.emplace(MWActionSet::Gameplay, XR::ActionSet("Gameplay", mDeadzone));
+        mActionSets.emplace(MWActionSet::GUI, XR::ActionSet("GUI", mDeadzone));
+        mActionSets.emplace(MWActionSet::Tracking, XR::ActionSet("Tracking", mDeadzone));
+        mActionSets.emplace(MWActionSet::Haptics, XR::ActionSet("Haptics", mDeadzone));
     }
 
     void OpenXRInput::createGameplayActions()
@@ -59,65 +57,65 @@ namespace MWVR
             A_Screenshot, // Generate a VR screenshot? Currently not applicable because the screenshot function crashes the viewer.
             A_Console,    
         */
-        getActionSet(ActionSet::Gameplay).createMWAction(VrControlType::Press, MWInput::A_GameMenu, "game_menu", "Game Menu");
-        getActionSet(ActionSet::Gameplay).createMWAction(VrControlType::Press, A_VrMetaMenu, "meta_menu", "Meta Menu");
-        getActionSet(ActionSet::Gameplay).createMWAction(VrControlType::LongPress, A_Recenter, "reposition_menu", "Reposition Menu");
-        getActionSet(ActionSet::Gameplay).createMWAction(VrControlType::Press, MWInput::A_Inventory, "inventory", "Inventory");
-        getActionSet(ActionSet::Gameplay).createMWAction(VrControlType::Press, MWInput::A_Activate, "activate", "Activate");
-        getActionSet(ActionSet::Gameplay).createMWAction(VrControlType::Hold, MWInput::A_Use, "use", "Use");
-        getActionSet(ActionSet::Gameplay).createMWAction(VrControlType::Hold, MWInput::A_Jump, "jump", "Jump");
-        getActionSet(ActionSet::Gameplay).createMWAction(VrControlType::Press, MWInput::A_ToggleWeapon, "weapon", "Weapon");
-        getActionSet(ActionSet::Gameplay).createMWAction(VrControlType::Press, MWInput::A_ToggleSpell, "spell", "Spell");
-        getActionSet(ActionSet::Gameplay).createMWAction(VrControlType::Press, MWInput::A_CycleSpellLeft, "cycle_spell_left", "Cycle Spell Left");
-        getActionSet(ActionSet::Gameplay).createMWAction(VrControlType::Press, MWInput::A_CycleSpellRight, "cycle_spell_right", "Cycle Spell Right");
-        getActionSet(ActionSet::Gameplay).createMWAction(VrControlType::Press, MWInput::A_CycleWeaponLeft, "cycle_weapon_left", "Cycle Weapon Left");
-        getActionSet(ActionSet::Gameplay).createMWAction(VrControlType::Press, MWInput::A_CycleWeaponRight, "cycle_weapon_right", "Cycle Weapon Right");
-        getActionSet(ActionSet::Gameplay).createMWAction(VrControlType::Hold, MWInput::A_Sneak, "sneak", "Sneak");
-        getActionSet(ActionSet::Gameplay).createMWAction(VrControlType::Press, MWInput::A_QuickKeysMenu, "quick_menu", "Quick Menu");
-        getActionSet(ActionSet::Gameplay).createMWAction(VrControlType::Axis, MWInput::A_LookLeftRight, "look_left_right", "Look Left Right");
-        getActionSet(ActionSet::Gameplay).createMWAction(VrControlType::Axis, MWInput::A_MoveForwardBackward, "move_forward_backward", "Move Forward Backward");
-        getActionSet(ActionSet::Gameplay).createMWAction(VrControlType::Axis, MWInput::A_MoveLeftRight, "move_left_right", "Move Left Right");
-        getActionSet(ActionSet::Gameplay).createMWAction(VrControlType::Press, MWInput::A_Journal, "journal_book", "Journal Book");
-        getActionSet(ActionSet::Gameplay).createMWAction(VrControlType::Press, MWInput::A_QuickSave, "quick_save", "Quick Save");
-        getActionSet(ActionSet::Gameplay).createMWAction(VrControlType::Press, MWInput::A_Rest, "rest", "Rest");
-        getActionSet(ActionSet::Gameplay).createMWAction(VrControlType::Axis, A_ActivateTouch, "activate_touched", "Activate Touch");
-        getActionSet(ActionSet::Gameplay).createMWAction(VrControlType::Press, MWInput::A_AlwaysRun, "always_run", "Always Run");
-        getActionSet(ActionSet::Gameplay).createMWAction(VrControlType::Press, MWInput::A_AutoMove, "auto_move", "Auto Move");
-        getActionSet(ActionSet::Gameplay).createMWAction(VrControlType::Press, MWInput::A_ToggleHUD, "toggle_hud", "Toggle HUD");
-        getActionSet(ActionSet::Gameplay).createMWAction(VrControlType::Press, MWInput::A_ToggleDebug, "toggle_debug", "Toggle the debug hud");
+        getActionSet(MWActionSet::Gameplay).createMWAction(XR::ControlType::Press, MWInput::A_GameMenu, "game_menu", "Game Menu");
+        getActionSet(MWActionSet::Gameplay).createMWAction(XR::ControlType::Press, A_VrMetaMenu, "meta_menu", "Meta Menu");
+        getActionSet(MWActionSet::Gameplay).createMWAction(XR::ControlType::LongPress, A_Recenter, "reposition_menu", "Reposition Menu");
+        getActionSet(MWActionSet::Gameplay).createMWAction(XR::ControlType::Press, MWInput::A_Inventory, "inventory", "Inventory");
+        getActionSet(MWActionSet::Gameplay).createMWAction(XR::ControlType::Press, MWInput::A_Activate, "activate", "Activate");
+        getActionSet(MWActionSet::Gameplay).createMWAction(XR::ControlType::Hold, MWInput::A_Use, "use", "Use");
+        getActionSet(MWActionSet::Gameplay).createMWAction(XR::ControlType::Hold, MWInput::A_Jump, "jump", "Jump");
+        getActionSet(MWActionSet::Gameplay).createMWAction(XR::ControlType::Press, MWInput::A_ToggleWeapon, "weapon", "Weapon");
+        getActionSet(MWActionSet::Gameplay).createMWAction(XR::ControlType::Press, MWInput::A_ToggleSpell, "spell", "Spell");
+        getActionSet(MWActionSet::Gameplay).createMWAction(XR::ControlType::Press, MWInput::A_CycleSpellLeft, "cycle_spell_left", "Cycle Spell Left");
+        getActionSet(MWActionSet::Gameplay).createMWAction(XR::ControlType::Press, MWInput::A_CycleSpellRight, "cycle_spell_right", "Cycle Spell Right");
+        getActionSet(MWActionSet::Gameplay).createMWAction(XR::ControlType::Press, MWInput::A_CycleWeaponLeft, "cycle_weapon_left", "Cycle Weapon Left");
+        getActionSet(MWActionSet::Gameplay).createMWAction(XR::ControlType::Press, MWInput::A_CycleWeaponRight, "cycle_weapon_right", "Cycle Weapon Right");
+        getActionSet(MWActionSet::Gameplay).createMWAction(XR::ControlType::Hold, MWInput::A_Sneak, "sneak", "Sneak");
+        getActionSet(MWActionSet::Gameplay).createMWAction(XR::ControlType::Press, MWInput::A_QuickKeysMenu, "quick_menu", "Quick Menu");
+        getActionSet(MWActionSet::Gameplay).createMWAction(XR::ControlType::Axis, MWInput::A_LookLeftRight, "look_left_right", "Look Left Right");
+        getActionSet(MWActionSet::Gameplay).createMWAction(XR::ControlType::Axis, MWInput::A_MoveForwardBackward, "move_forward_backward", "Move Forward Backward");
+        getActionSet(MWActionSet::Gameplay).createMWAction(XR::ControlType::Axis, MWInput::A_MoveLeftRight, "move_left_right", "Move Left Right");
+        getActionSet(MWActionSet::Gameplay).createMWAction(XR::ControlType::Press, MWInput::A_Journal, "journal_book", "Journal Book");
+        getActionSet(MWActionSet::Gameplay).createMWAction(XR::ControlType::Press, MWInput::A_QuickSave, "quick_save", "Quick Save");
+        getActionSet(MWActionSet::Gameplay).createMWAction(XR::ControlType::Press, MWInput::A_Rest, "rest", "Rest");
+        getActionSet(MWActionSet::Gameplay).createMWAction(XR::ControlType::Axis, A_ActivateTouch, "activate_touched", "Activate Touch");
+        getActionSet(MWActionSet::Gameplay).createMWAction(XR::ControlType::Press, MWInput::A_AlwaysRun, "always_run", "Always Run");
+        getActionSet(MWActionSet::Gameplay).createMWAction(XR::ControlType::Press, MWInput::A_AutoMove, "auto_move", "Auto Move");
+        getActionSet(MWActionSet::Gameplay).createMWAction(XR::ControlType::Press, MWInput::A_ToggleHUD, "toggle_hud", "Toggle HUD");
+        getActionSet(MWActionSet::Gameplay).createMWAction(XR::ControlType::Press, MWInput::A_ToggleDebug, "toggle_debug", "Toggle the debug hud");
     }
 
     void OpenXRInput::createGUIActions()
     {
-        getActionSet(ActionSet::GUI).createMWAction(VrControlType::Press, MWInput::A_GameMenu, "game_menu", "Game Menu");
-        getActionSet(ActionSet::GUI).createMWAction(VrControlType::LongPress, A_Recenter, "reposition_menu", "Reposition Menu");
-        getActionSet(ActionSet::GUI).createMWAction(VrControlType::Axis, A_MenuUpDown, "menu_up_down", "Menu Up Down");
-        getActionSet(ActionSet::GUI).createMWAction(VrControlType::Axis, A_MenuLeftRight, "menu_left_right", "Menu Left Right");
-        getActionSet(ActionSet::GUI).createMWAction(VrControlType::Press, A_MenuSelect, "menu_select", "Menu Select");
-        getActionSet(ActionSet::GUI).createMWAction(VrControlType::Press, A_MenuBack, "menu_back", "Menu Back");
-        getActionSet(ActionSet::GUI).createMWAction(VrControlType::Hold, MWInput::A_Use, "use", "Use");
+        getActionSet(MWActionSet::GUI).createMWAction(XR::ControlType::Press, MWInput::A_GameMenu, "game_menu", "Game Menu");
+        getActionSet(MWActionSet::GUI).createMWAction(XR::ControlType::LongPress, A_Recenter, "reposition_menu", "Reposition Menu");
+        getActionSet(MWActionSet::GUI).createMWAction(XR::ControlType::Axis, A_MenuUpDown, "menu_up_down", "Menu Up Down");
+        getActionSet(MWActionSet::GUI).createMWAction(XR::ControlType::Axis, A_MenuLeftRight, "menu_left_right", "Menu Left Right");
+        getActionSet(MWActionSet::GUI).createMWAction(XR::ControlType::Press, A_MenuSelect, "menu_select", "Menu Select");
+        getActionSet(MWActionSet::GUI).createMWAction(XR::ControlType::Press, A_MenuBack, "menu_back", "Menu Back");
+        getActionSet(MWActionSet::GUI).createMWAction(XR::ControlType::Hold, MWInput::A_Use, "use", "Use");
     }
 
     void OpenXRInput::createPoseActions()
     {
-        getActionSet(ActionSet::Tracking).createPoseAction(VR::Side_Left, "left_hand_pose", "Left Hand Pose");
-        getActionSet(ActionSet::Tracking).createPoseAction(VR::Side_Right, "right_hand_pose", "Right Hand Pose");
+        getActionSet(MWActionSet::Tracking).createPoseAction(VR::Side_Left, "left_hand_pose", "Left Hand Pose");
+        getActionSet(MWActionSet::Tracking).createPoseAction(VR::Side_Right, "right_hand_pose", "Right Hand Pose");
 
         auto stageUserHandLeftPath = VR::stringToVRPath("/stage/user/hand/left/input/aim/pose");
         auto stageUserHandRightPath = VR::stringToVRPath("/stage/user/hand/right/input/aim/pose");
         auto worldUserHandLeftPath = VR::stringToVRPath("/world/user/hand/left/input/aim/pose");
         auto worldUserHandRightPath = VR::stringToVRPath("/world/user/hand/right/input/aim/pose");
 
-        XR::Instance::instance().tracker().addTrackingSpace(stageUserHandLeftPath, getActionSet(ActionSet::Tracking).xrActionSpace(VR::Side_Left));
-        XR::Instance::instance().tracker().addTrackingSpace(stageUserHandRightPath, getActionSet(ActionSet::Tracking).xrActionSpace(VR::Side_Right));
+        XR::Instance::instance().tracker().addTrackingSpace(stageUserHandLeftPath, getActionSet(MWActionSet::Tracking).xrActionSpace(VR::Side_Left));
+        XR::Instance::instance().tracker().addTrackingSpace(stageUserHandRightPath, getActionSet(MWActionSet::Tracking).xrActionSpace(VR::Side_Right));
         XR::Instance::instance().stageToWorldBinding().bindPaths(worldUserHandLeftPath, stageUserHandLeftPath);
         XR::Instance::instance().stageToWorldBinding().bindPaths(worldUserHandRightPath, stageUserHandRightPath);
     }
 
     void OpenXRInput::createHapticActions()
     {
-        getActionSet(ActionSet::Haptics).createHapticsAction(VR::Side_Left, "left_hand_haptics", "Left Hand Haptics");
-        getActionSet(ActionSet::Haptics).createHapticsAction(VR::Side_Right, "right_hand_haptics", "Right Hand Haptics");
+        getActionSet(MWActionSet::Haptics).createHapticsAction(VR::Side_Left, "left_hand_haptics", "Left Hand Haptics");
+        getActionSet(MWActionSet::Haptics).createHapticsAction(VR::Side_Right, "right_hand_haptics", "Right Hand Haptics");
     }
 
     void OpenXRInput::readXrControllerSuggestions()
@@ -162,7 +160,7 @@ namespace MWVR
     }
     ;
 
-    OpenXRActionSet& OpenXRInput::getActionSet(ActionSet actionSet)
+    XR::ActionSet& OpenXRInput::getActionSet(MWActionSet actionSet)
     {
         auto it = mActionSets.find(actionSet);
         if (it == mActionSets.end())
@@ -170,7 +168,7 @@ namespace MWVR
         return it->second;
     }
 
-    void OpenXRInput::suggestBindings(ActionSet actionSet, std::string profilePath, const SuggestedBindings& mwSuggestedBindings)
+    void OpenXRInput::suggestBindings(MWActionSet actionSet, std::string profilePath, const XR::SuggestedBindings& mwSuggestedBindings)
     {
         getActionSet(actionSet).suggestBindings(mSuggestedBindings[profilePath], mwSuggestedBindings);
     }
@@ -302,15 +300,15 @@ namespace MWVR
         if (!actionSetGUI)
             throwDocumentError(element, "GUI action set missing");
 
-        readInteractionProfileActionSet(actionSetGameplay, ActionSet::Gameplay, interactionProfilePath);
-        readInteractionProfileActionSet(actionSetGUI, ActionSet::GUI, interactionProfilePath);
-        suggestBindings(ActionSet::Tracking, interactionProfilePath, {});
-        suggestBindings(ActionSet::Haptics, interactionProfilePath, {});
+        readInteractionProfileActionSet(actionSetGameplay, MWActionSet::Gameplay, interactionProfilePath);
+        readInteractionProfileActionSet(actionSetGUI, MWActionSet::GUI, interactionProfilePath);
+        suggestBindings(MWActionSet::Tracking, interactionProfilePath, {});
+        suggestBindings(MWActionSet::Haptics, interactionProfilePath, {});
     }
 
-    void OpenXRInput::readInteractionProfileActionSet(TiXmlElement* element, ActionSet actionSet, std::string interactionProfilePath)
+    void OpenXRInput::readInteractionProfileActionSet(TiXmlElement* element, MWActionSet actionSet, std::string interactionProfilePath)
     {
-        SuggestedBindings suggestedBindings;
+        XR::SuggestedBindings suggestedBindings;
 
         TiXmlElement* child = element->FirstChildElement("Binding");
         while (child)
@@ -319,7 +317,7 @@ namespace MWVR
             std::string path = requireAttribute(child, "Path");
 
             suggestedBindings.push_back(
-                SuggestedBinding{
+                XR::SuggestedBinding{
                     path, action
                 });
 
@@ -329,5 +327,10 @@ namespace MWVR
         }
 
         suggestBindings(actionSet, interactionProfilePath, suggestedBindings);
+    }
+
+    void OpenXRInput::setThumbstickDeadzone(float deadzoneRadius)
+    {
+        mDeadzone->setDeadzoneRadius(deadzoneRadius);
     }
 }

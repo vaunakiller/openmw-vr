@@ -1,9 +1,6 @@
 #ifndef VR_INPUT_MANAGER_HPP
 #define VR_INPUT_MANAGER_HPP
 
-#include "vrtypes.hpp"
-#include "vrinput.hpp"
-
 #include "../mwinput/inputmanagerimp.hpp"
 
 #include <vector>
@@ -12,12 +9,15 @@
 
 #include "../mwworld/ptr.hpp"
 
-class TiXmlElement;
+namespace XR
+{
+    class ActionSet;
+    class InputAction;
+}
 
 namespace MWVR
 {
     struct OpenXRInput;
-    struct OpenXRActionSet;
     class UserPointer;
 
     namespace RealisticCombat {
@@ -50,7 +50,7 @@ namespace MWVR
         void requestRecenter(bool resetZ);
 
         /// Currently active action set
-        OpenXRActionSet& activeActionSet();
+        XR::ActionSet& activeActionSet();
 
         /// Notify input manager that the active interaction profile has changed
         void notifyInteractionProfileChanged();
@@ -59,7 +59,7 @@ namespace MWVR
         OpenXRInput& xrInput() { return *mXRInput; }
 
     protected:
-        void processAction(const class Action* action, float dt, bool disableControls);
+        void processAction(const class XR::InputAction* action, float dt, bool disableControls);
 
         void updateActivationIndication(void);
         void pointActivation(bool onPress);
@@ -74,7 +74,6 @@ namespace MWVR
         void setThumbstickDeadzone(float deadzoneRadius);
 
     private:
-        std::shared_ptr<AxisAction::Deadzone> mAxisDeadzone{ new AxisAction::Deadzone };
         std::unique_ptr<OpenXRInput> mXRInput;
         std::unique_ptr<RealisticCombat::StateMachine> mRealisticCombat;
         bool mActivationIndication{ false };

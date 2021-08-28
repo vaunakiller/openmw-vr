@@ -31,25 +31,6 @@ namespace VR
         RuntimeFailure = -4 //!< No tracking data was returned because of a runtime failure.
     };
 
-    enum class ActionType
-    {
-        Press,
-        LongPress,
-        Hold,
-        Pose,
-        Haptic,
-        Axis
-    };
-
-    /// \brief Enumeration of action sets
-    enum class ActionSet
-    {
-        GUI = 0,
-        Gameplay = 1,
-        Tracking = 2,
-        Haptics = 3,
-    };
-
     //! Returns false if status is not a success state
     inline bool operator!(TrackingStatus status)
     {
