@@ -33,10 +33,9 @@ namespace VR
         mAvailablePosesChanged = true;
     }
 
-    StageToWorldBinding::StageToWorldBinding(VRPath path, std::shared_ptr<TrackingSource> source, VRPath movementReference)
+    StageToWorldBinding::StageToWorldBinding(VRPath path, VRPath movementReference)
         : TrackingSource(path)
         , mMovementReference(movementReference)
-        , mSource(source)
     {
     }
 

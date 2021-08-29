@@ -13,45 +13,6 @@
 
 namespace XR
 {
-    //OpenXRView::OpenXRView(XrSession session, XrSpace reference)
-    //    : mSession(session)
-    //    , mReference(reference)
-    //{
-    //    if (!session || !reference)
-    //        throw std::logic_error("Invalid argument to OpenXRSpace::OpenXRSpace()");
-    //}
-
-    //void OpenXRView::locateImpl(DisplayTime predictedDisplayTime, VRTrackingView& view)
-    //{
-    //    std::array<XrView, 2> xrViews{ {{XR_TYPE_VIEW}, {XR_TYPE_VIEW}} };
-    //    XrViewState viewState{ XR_TYPE_VIEW_STATE };
-    //    uint32_t viewCount = 2;
-
-    //    XrViewLocateInfo viewLocateInfo{ XR_TYPE_VIEW_LOCATE_INFO };
-    //    viewLocateInfo.viewConfigurationType = XR_VIEW_CONFIGURATION_TYPE_PRIMARY_STEREO;
-    //    viewLocateInfo.displayTime = predictedDisplayTime;
-    //    viewLocateInfo.space = mReference;
-
-    //    auto* xr = Environment::get().getManager();
-    //    auto res = xrLocateViews(xr->impl().xrSession(), &viewLocateInfo, &viewState, viewCount, &viewCount, xrViews.data());
-    //    if (XR_FAILED(res))
-    //    {
-    //        // Call failed, exit.
-    //        CHECK_XRRESULT(res, "xrLocateViews");
-    //        if (res == XR_ERROR_TIME_INVALID)
-    //            view.status = TrackingStatus::TimeInvalid;
-    //        else
-    //            view.status = TrackingStatus::RuntimeFailure;
-    //        return;
-    //    }
-
-    //    std::array<View, 2> vrViews{};
-    //    view.view[(int)Side::LEFT_SIDE].pose = fromXR(xrViews[(int)Side::LEFT_SIDE].pose);
-    //    view.view[(int)Side::RIGHT_SIDE].pose = fromXR(xrViews[(int)Side::RIGHT_SIDE].pose);
-    //    view.view[(int)Side::LEFT_SIDE].fov = fromXR(xrViews[(int)Side::LEFT_SIDE].fov);
-    //    view.view[(int)Side::RIGHT_SIDE].fov = fromXR(xrViews[(int)Side::RIGHT_SIDE].fov);
-    //}
-
     Tracker::Tracker(VR::VRPath path, XrSpace referenceSpace)
         : VR::TrackingSource(path)
         , mReferenceSpace(referenceSpace)
@@ -84,9 +45,6 @@ namespace XR
     void Tracker::updateTracking(VR::DisplayTime predictedDisplayTime)
     {
         mLastUpdate = predictedDisplayTime;
-        // TODO:
-        //if(frame.shouldSyncInput)
-        //    Environment::get().getInputManager()->xrInput().getActionSet(ActionSet::Tracking).updateControls();
 
         for (auto& space : mSpaces)
         {

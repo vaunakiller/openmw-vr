@@ -2,6 +2,8 @@
 
 #include "vrenvironment.hpp"
 #include "vrframebuffer.hpp"
+#include "vrinputmanager.hpp"
+#include "openxrinput.hpp"
 
 #include "../mwrender/vismask.hpp"
 
@@ -23,6 +25,7 @@
 #include <components/vr/session.hpp>
 #include <components/vr/trackingmanager.hpp>
 #include <components/xr/instance.hpp>
+#include <components/xr/session.hpp>
 #include <components/xr/swapchain.hpp>
 
 #include <components/sdlutil/sdlgraphicswindow.hpp>
@@ -144,8 +147,8 @@ namespace MWVR
             //XrSwapchain xrColorSwapchain = ;
             //XrSwapchain xrDepthSwapchain = xr->impl().createXrSwapchain(mSwapchainConfig[i], OpenXRManagerImpl::SwapchainUse::Depth);
             
-            mColorSwapchain[i].reset(XR::Instance::instance().createSwapchain(width, height, samples, XR::Instance::SwapchainUse::Color, viewNames[i]));
-            mDepthSwapchain[i].reset(XR::Instance::instance().createSwapchain(width, height, samples, XR::Instance::SwapchainUse::Depth, viewNames[i]));
+            mColorSwapchain[i].reset(XR::Instance::instance().platform().createSwapchain(width, height, samples, XR::Platform::SwapchainUse::Color, viewNames[i]));
+            mDepthSwapchain[i].reset(XR::Instance::instance().platform().createSwapchain(width, height, samples, XR::Platform::SwapchainUse::Depth, viewNames[i]));
             mSubImages[i].width = width;
             mSubImages[i].height = height;
             mSubImages[i].x = mSubImages[i].y = 0;
@@ -504,7 +507,7 @@ namespace MWVR
             mReadyFrames.pop();
         }
 
-        XR::Instance::instance().session().frameBeginRender(mDrawFrame);
+        VR::Session::instance().frameBeginRender(mDrawFrame);
 
         mViewer->getCamera()->setViewport(0, 0, mFramebuffer->width(), mFramebuffer->height());
 
@@ -543,20 +546,23 @@ namespace MWVR
     {
         mRenderingReady = false;
 
-        XR::Instance::instance().session().frameEnd(gc, mDrawFrame);
+        VR::Session::instance().frameEnd(gc, mDrawFrame);
     }
 
     void VRViewer::updateView(Misc::View& left, Misc::View& right)
     {
-        auto& session = XR::Instance::instance().session();
+        auto& session = VR::Session::instance();
 
         auto frame = session.newFrame();
         session.frameBeginUpdate(frame);
 
+        // TODO:
+        if(frame.shouldSyncInput)
+            Environment::get().getInputManager()->xrInput().getActionSet(MWActionSet::Tracking).updateControls();
         VR::TrackingManager::instance().updateTracking(frame);
 
-        auto stageViews = XR::Instance::instance().getPredictedViews(frame.predictedDisplayTime, VR::ReferenceSpace::Stage);
-        auto views = XR::Instance::instance().getPredictedViews(frame.predictedDisplayTime, VR::ReferenceSpace::View);
+        auto stageViews = XR::Session::instance().getPredictedViews(frame.predictedDisplayTime, VR::ReferenceSpace::Stage);
+        auto views = XR::Session::instance().getPredictedViews(frame.predictedDisplayTime, VR::ReferenceSpace::View);
 
         if (frame.shouldRender)
         {

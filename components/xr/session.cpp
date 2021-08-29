@@ -1,5 +1,11 @@
 #include "session.hpp"
 #include "instance.hpp"
+#include "debug.hpp"
+#include "typeconversion.hpp"
+
+#include <components/vr/trackingsource.hpp>
+#include <components/vr/frame.hpp>
+#include <components/vr/layer.hpp>
 
 #include <cassert>
 
@@ -42,16 +48,32 @@ namespace XR
         roll = angle_y;
     }
 
-    Session::Session(XrSession session, XrInstance instance, XrViewConfigurationType viewConfigType)
-        : mInstance(instance)
-        , mSession(session)
-        , mViewConfigType(viewConfigType)
+    static Session* sSession = nullptr;
+
+    Session& Session::instance()
     {
+        assert(sSession);
+        return *sSession;
+    }
+
+    Session::Session(XrSession session, XrViewConfigurationType viewConfigType)
+        : mXrSession(session)
+        , mViewConfigType(viewConfigType)
+        , mTracker(nullptr)
+    {
+        if (!sSession)
+            sSession = this;
+        else
+            throw std::logic_error("Duplicated VR::Session singleton");
+
+        Debugging::setName(mXrSession, "OpenMW XR Session");
+
+        init();
     }
 
     Session::~Session()
     {
-        xrDestroySession(mSession);
+        cleanup();
     }
 
     void Session::xrResourceAcquired()
@@ -80,7 +102,7 @@ namespace XR
         XrFrameWaitInfo frameWaitInfo{ XR_TYPE_FRAME_WAIT_INFO };
         XrFrameState frameState{ XR_TYPE_FRAME_STATE };
 
-        CHECK_XRCMD(xrWaitFrame(mSession, &frameWaitInfo, &frameState));
+        CHECK_XRCMD(xrWaitFrame(mXrSession, &frameWaitInfo, &frameState));
         shouldRender = frameState.shouldRender && mAppShouldRender;
         predictedDisplayTime = frameState.predictedDisplayTime;
         predictedDisplayPeriod = frameState.predictedDisplayPeriod;
@@ -89,12 +111,82 @@ namespace XR
     void Session::syncFrameRender(VR::Frame& frame)
     {
         XrFrameBeginInfo frameBeginInfo{ XR_TYPE_FRAME_BEGIN_INFO };
-        CHECK_XRCMD(xrBeginFrame(mSession, &frameBeginInfo));
+        CHECK_XRCMD(xrBeginFrame(mXrSession, &frameBeginInfo));
     }
 
     void Session::syncFrameEnd(VR::Frame& frame)
     {
-        Instance::instance().endFrame(frame);
+        std::array<XrCompositionLayerProjectionView, 2> compositionLayerProjectionViews{};
+        XrCompositionLayerProjection layer{};
+        auto* xrLayerStack = reinterpret_cast<XrCompositionLayerBaseHeader*>(&layer);
+        std::array<XrCompositionLayerDepthInfoKHR, 2> compositionLayerDepth{};
+        XrFrameEndInfo frameEndInfo{ XR_TYPE_FRAME_END_INFO };
+        frameEndInfo.displayTime = frame.predictedDisplayTime;
+        frameEndInfo.environmentBlendMode = XR_ENVIRONMENT_BLEND_MODE_OPAQUE;
+        if (frame.shouldRender && frame.layers.size() > 0)
+        {
+            // For now, hardcode assumption that it's a projection layer
+            VR::ProjectionLayer* projectionLayer = static_cast<VR::ProjectionLayer*>(frame.layers[0].get());
+
+            layer.type = XR_TYPE_COMPOSITION_LAYER_PROJECTION;
+            layer.space = mReferenceSpaceStage;
+            layer.viewCount = 2;
+            layer.views = compositionLayerProjectionViews.data();
+
+            for (uint32_t i = 0; i < 2; i++)
+            {
+                auto& xrView = compositionLayerProjectionViews[i];
+                auto& view = projectionLayer->views[i];
+                xrView.type = XR_TYPE_COMPOSITION_LAYER_PROJECTION_VIEW;
+                xrView.fov = toXR(view.view.fov);
+                xrView.pose = toXR(view.view.pose);
+                xrView.subImage.imageArrayIndex = 0;
+                xrView.subImage.imageRect.extent.width = view.subImage.width;
+                xrView.subImage.imageRect.extent.height = view.subImage.height;
+                xrView.subImage.imageRect.offset.x = view.subImage.x;
+                xrView.subImage.imageRect.offset.y = view.subImage.y;
+                xrView.subImage.swapchain = static_cast<XrSwapchain>(view.colorSwapchain->handle());
+            }
+
+            bool includeDepth = XR::Instance::instance().xrExtensionIsEnabled(XR_KHR_COMPOSITION_LAYER_DEPTH_EXTENSION_NAME);
+
+            if (includeDepth)
+            {
+                // TODO: Cache these values instead?
+                GLfloat depthRange[2] = { 0.f, 1.f };
+                glGetFloatv(GL_DEPTH_RANGE, depthRange);
+                auto nearClip = Settings::Manager::getFloat("near clip", "Camera");
+                auto farClip = Settings::Manager::getFloat("viewing distance", "Camera");
+                for (uint32_t i = 0; i < 2; i++)
+                {
+
+                    auto& view = projectionLayer->views[i];
+                    if (!view.depthSwapchain)
+                        continue;
+
+                    auto& xrDepth = compositionLayerDepth[i];
+                    xrDepth.minDepth = depthRange[0];
+                    xrDepth.maxDepth = depthRange[1];
+                    xrDepth.nearZ = nearClip;
+                    xrDepth.farZ = farClip;
+                    xrDepth.subImage.imageArrayIndex = 0;
+                    xrDepth.subImage.imageRect.extent.width = view.subImage.width;
+                    xrDepth.subImage.imageRect.extent.height = view.subImage.height;
+                    xrDepth.subImage.imageRect.offset.x = view.subImage.x;
+                    xrDepth.subImage.imageRect.offset.y = view.subImage.y;
+                    xrDepth.subImage.swapchain = static_cast<XrSwapchain>(view.depthSwapchain->handle());
+                }
+            }
+
+            frameEndInfo.layerCount = 1;
+            frameEndInfo.layers = &xrLayerStack;
+        }
+        else
+        {
+            frameEndInfo.layerCount = 0;
+            frameEndInfo.layers = nullptr;
+        }
+        CHECK_XRCMD(xrEndFrame(mXrSession, &frameEndInfo));
     }
 
     void Session::handleEvents()
@@ -116,7 +208,7 @@ namespace XR
         {
             if (checkStopCondition())
             {
-                CHECK_XRCMD(xrEndSession(mSession));
+                CHECK_XRCMD(xrEndSession(mXrSession));
                 mXrSessionShouldStop = false;
             }
         }
@@ -182,7 +274,7 @@ namespace XR
 
             XrSessionBeginInfo beginInfo{ XR_TYPE_SESSION_BEGIN_INFO };
             beginInfo.primaryViewConfigurationType = mViewConfigType;
-            CHECK_XRCMD(xrBeginSession(mSession, &beginInfo));
+            CHECK_XRCMD(xrBeginSession(mXrSession, &beginInfo));
 
             break;
         }
@@ -230,11 +322,54 @@ namespace XR
         return mAcquiredResources == 0;
     }
 
+    void Session::init()
+    {
+        createXrReferenceSpaces();
+        createXrTracker();
+    }
+
+    void Session::cleanup()
+    {
+        destroyXrReferenceSpaces();
+        destroyXrSession();
+    }
+
+    void Session::destroyXrReferenceSpaces()
+    {
+        for (auto space : { mReferenceSpaceLocal, mReferenceSpaceStage, mReferenceSpaceView })
+        {
+            if (space)
+            {
+                CHECK_XRCMD(xrDestroySpace(space));
+            }
+        }
+    }
+
+    void Session::destroyXrSession()
+    {
+        if (mXrSession)
+            CHECK_XRCMD(xrDestroySession(mXrSession));
+    }
+
+    void Session::createXrTracker()
+    {
+        auto stageUserPath = VR::stringToVRPath("/stage/user");
+        auto stageUserHeadPath = VR::stringToVRPath("/stage/user/head/input/pose");
+
+        mTracker.reset(new Tracker(stageUserPath, mReferenceSpaceStage));
+        mTracker->addTrackingSpace(stageUserHeadPath, mReferenceSpaceView);
+
+        auto worldUserPath = VR::stringToVRPath("/world/user");
+        auto worldUserHeadPath = VR::stringToVRPath("/world/user/head/input/pose");
+        mTrackerToWorldBinding = std::make_unique<VR::StageToWorldBinding>(worldUserPath, stageUserHeadPath);
+        mTrackerToWorldBinding->bindPaths(worldUserHeadPath, stageUserHeadPath);
+    }
+
     bool Session::xrNextEvent(XrEventDataBuffer& eventBuffer)
     {
         XrEventDataBaseHeader* baseHeader = reinterpret_cast<XrEventDataBaseHeader*>(&eventBuffer);
         *baseHeader = { XR_TYPE_EVENT_DATA_BUFFER };
-        const XrResult result = xrPollEvent(mInstance, &eventBuffer);
+        const XrResult result = xrPollEvent(Instance::instance().xrInstance(), &eventBuffer);
         if (result == XR_SUCCESS)
         {
             if (baseHeader->type == XR_TYPE_EVENT_DATA_EVENTS_LOST) {
@@ -264,6 +399,84 @@ namespace XR
         {
             mEventQueue.push(eventBuffer);
         }
+    }
+
+    void Session::createXrReferenceSpaces()
+    {
+        XrReferenceSpaceCreateInfo createInfo{ XR_TYPE_REFERENCE_SPACE_CREATE_INFO };
+        createInfo.poseInReferenceSpace.orientation.w = 1.f; // Identity pose
+
+        createInfo.referenceSpaceType = XR_REFERENCE_SPACE_TYPE_VIEW;
+        CHECK_XRCMD(xrCreateReferenceSpace(mXrSession, &createInfo, &mReferenceSpaceView));
+        Debugging::setName(mReferenceSpaceView, "OpenMW XR Reference Space View");
+
+        createInfo.referenceSpaceType = XR_REFERENCE_SPACE_TYPE_STAGE;
+        CHECK_XRCMD(xrCreateReferenceSpace(mXrSession, &createInfo, &mReferenceSpaceStage));
+        Debugging::setName(mReferenceSpaceStage, "OpenMW XR Reference Space Stage");
+
+        createInfo.referenceSpaceType = XR_REFERENCE_SPACE_TYPE_LOCAL;
+        CHECK_XRCMD(xrCreateReferenceSpace(mXrSession, &createInfo, &mReferenceSpaceLocal));
+        Debugging::setName(mReferenceSpaceLocal, "OpenMW XR Reference Space Local");
+
+    }
+
+    void Session::logXrReferenceSpaces() {
+        uint32_t spaceCount = 0;
+        CHECK_XRCMD(xrEnumerateReferenceSpaces(mXrSession, 0, &spaceCount, nullptr));
+        std::vector<XrReferenceSpaceType> spaces(spaceCount);
+        CHECK_XRCMD(xrEnumerateReferenceSpaces(mXrSession, spaceCount, &spaceCount, spaces.data()));
+
+        std::stringstream ss;
+        ss << "Available reference spaces=" << spaceCount << std::endl;
+
+        for (XrReferenceSpaceType space : spaces)
+            ss << "  Name: " << to_string(space) << std::endl;
+        Log(Debug::Verbose) << ss.str();
+    }
+
+    XrSpace Session::getReferenceSpace(VR::ReferenceSpace space)
+    {
+        switch (space)
+        {
+        case VR::ReferenceSpace::Stage:
+            return mReferenceSpaceStage;
+        case VR::ReferenceSpace::View:
+            return mReferenceSpaceView;
+        }
+        return XR_NULL_HANDLE;
+    }
+
+
+    std::array<Misc::View, 2>
+        Session::getPredictedViews(
+            int64_t predictedDisplayTime,
+            VR::ReferenceSpace space)
+    {
+        std::array<XrView, 2> xrViews{ {{XR_TYPE_VIEW}, {XR_TYPE_VIEW}} };
+        XrViewState viewState{ XR_TYPE_VIEW_STATE };
+        uint32_t viewCount = 2;
+
+        XrViewLocateInfo viewLocateInfo{ XR_TYPE_VIEW_LOCATE_INFO };
+        viewLocateInfo.viewConfigurationType = mViewConfigType;
+        viewLocateInfo.displayTime = predictedDisplayTime;
+        switch (space)
+        {
+        case VR::ReferenceSpace::Stage:
+            viewLocateInfo.space = mReferenceSpaceStage;
+            break;
+        case VR::ReferenceSpace::View:
+            viewLocateInfo.space = mReferenceSpaceView;
+            break;
+        }
+        CHECK_XRCMD(xrLocateViews(mXrSession, &viewLocateInfo, &viewState, viewCount, &viewCount, xrViews.data()));
+
+        std::array<Misc::View, 2> vrViews{};
+        for (auto side : { VR::Side_Left, VR::Side_Right })
+        {
+            vrViews[side].pose = fromXR(xrViews[side].pose);
+            vrViews[side].fov = fromXR(xrViews[side].fov);
+        }
+        return vrViews;
     }
 }
 

@@ -5,6 +5,8 @@
 #include <openxr/openxr.h>
 
 #include <components/misc/stringops.hpp>
+#include <components/vr/trackingmanager.hpp>
+#include <components/xr/session.hpp>
 #include <components/xr/instance.hpp>
 
 #include <iostream>
@@ -28,10 +30,10 @@ namespace MWVR
 
     void OpenXRInput::createActionSets()
     {
-        mActionSets.emplace(MWActionSet::Gameplay, XR::ActionSet("Gameplay", mDeadzone));
-        mActionSets.emplace(MWActionSet::GUI, XR::ActionSet("GUI", mDeadzone));
-        mActionSets.emplace(MWActionSet::Tracking, XR::ActionSet("Tracking", mDeadzone));
-        mActionSets.emplace(MWActionSet::Haptics, XR::ActionSet("Haptics", mDeadzone));
+        mActionSets.emplace(std::piecewise_construct, std::forward_as_tuple(MWActionSet::Gameplay), std::forward_as_tuple("Gameplay", mDeadzone));
+        mActionSets.emplace(std::piecewise_construct, std::forward_as_tuple(MWActionSet::GUI), std::forward_as_tuple("GUI", mDeadzone));
+        mActionSets.emplace(std::piecewise_construct, std::forward_as_tuple(MWActionSet::Tracking), std::forward_as_tuple("Tracking", mDeadzone));
+        mActionSets.emplace(std::piecewise_construct, std::forward_as_tuple(MWActionSet::Haptics), std::forward_as_tuple("Haptics", mDeadzone));
     }
 
     void OpenXRInput::createGameplayActions()
@@ -106,10 +108,10 @@ namespace MWVR
         auto worldUserHandLeftPath = VR::stringToVRPath("/world/user/hand/left/input/aim/pose");
         auto worldUserHandRightPath = VR::stringToVRPath("/world/user/hand/right/input/aim/pose");
 
-        XR::Instance::instance().tracker().addTrackingSpace(stageUserHandLeftPath, getActionSet(MWActionSet::Tracking).xrActionSpace(VR::Side_Left));
-        XR::Instance::instance().tracker().addTrackingSpace(stageUserHandRightPath, getActionSet(MWActionSet::Tracking).xrActionSpace(VR::Side_Right));
-        XR::Instance::instance().stageToWorldBinding().bindPaths(worldUserHandLeftPath, stageUserHandLeftPath);
-        XR::Instance::instance().stageToWorldBinding().bindPaths(worldUserHandRightPath, stageUserHandRightPath);
+        XR::Session::instance().tracker().addTrackingSpace(stageUserHandLeftPath, getActionSet(MWActionSet::Tracking).xrActionSpace(VR::Side_Left));
+        XR::Session::instance().tracker().addTrackingSpace(stageUserHandRightPath, getActionSet(MWActionSet::Tracking).xrActionSpace(VR::Side_Right));
+        XR::Session::instance().stageToWorldBinding().bindPaths(worldUserHandLeftPath, stageUserHandLeftPath);
+        XR::Session::instance().stageToWorldBinding().bindPaths(worldUserHandRightPath, stageUserHandRightPath);
     }
 
     void OpenXRInput::createHapticActions()
@@ -200,7 +202,7 @@ namespace MWVR
         XrSessionActionSetsAttachInfo attachInfo{ XR_TYPE_SESSION_ACTION_SETS_ATTACH_INFO };
         attachInfo.countActionSets = actionSets.size();
         attachInfo.actionSets = actionSets.data();
-        CHECK_XRCMD(xrAttachSessionActionSets(XR::Instance::instance().xrSession(), &attachInfo));
+        CHECK_XRCMD(xrAttachSessionActionSets(XR::Session::instance().xrSession(), &attachInfo));
     }
 
     void OpenXRInput::notifyInteractionProfileChanged()
@@ -231,7 +233,7 @@ namespace MWVR
                 XR_TYPE_INTERACTION_PROFILE_STATE
             };
 
-            xrGetCurrentInteractionProfile(XR::Instance::instance().xrSession(), pathIt->second, &interactionProfileState);
+            xrGetCurrentInteractionProfile(XR::Session::instance().xrSession(), pathIt->second, &interactionProfileState);
             if (interactionProfileState.interactionProfile)
             {
                 auto activeProfileIt = mActiveInteractionProfiles.find(pathIt->second);

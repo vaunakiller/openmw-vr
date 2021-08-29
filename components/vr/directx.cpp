@@ -65,15 +65,12 @@ namespace VR
         std::shared_ptr<DirectXWGLInterop> mWglInterop;
         ID3D11Device* mDevice = nullptr;
         ID3D11DeviceContext* mDeviceContext = nullptr;
-        //D3D11_TEXTURE2D_DESC mDesc;
-        //D3D11_TEXTURE2D_DESC mSharedTextureDesc;
         ID3D11Texture2D* mSharedTexture = nullptr;
         uint32_t mGlTextureName = 0;
         void* mDxResourceShareHandle = nullptr;
 
         ID3D11Texture2D* mDxImage;
         uint32_t mBufferBits;
-        //std::unique_ptr<VRFramebuffer> mFramebuffer;
     };
 
     DirectXSwapchain::DirectXSwapchain(std::shared_ptr<Swapchain> swapchain, std::shared_ptr<DirectXWGLInterop> wglInterop)
@@ -124,7 +121,7 @@ namespace VR
         glGenTextures(1, &mGlTextureName);
 
         //auto* xr = Environment::get().getManager();
-        //mDxResourceShareHandle = mWglInterop->DXRegisterObject(mDxImage, mGlTextureName, GL_TEXTURE_2D, true, nullptr);
+        mDxResourceShareHandle = mWglInterop->DXRegisterObject(mDxImage, mGlTextureName, GL_TEXTURE_2D, true, nullptr);
 
         if (!mDxResourceShareHandle)
         {
@@ -146,23 +143,9 @@ namespace VR
             sharedTextureDesc.MiscFlags = 0;;
 
             mDevice->CreateTexture2D(&sharedTextureDesc, nullptr, &mSharedTexture);
-            //mDxImage->GetDesc(&mSharedTextureDesc);
+
             mDxResourceShareHandle = mWglInterop->DXRegisterObject(mSharedTexture, mGlTextureName, GL_TEXTURE_2D, true, nullptr);
         }
-
-        // Set up shared texture as blit target
-        //mFramebuffer.reset(new VRFramebuffer(gc->getState(), swapchainCreateInfo.width, swapchainCreateInfo.height, swapchainCreateInfo.sampleCount));
-
-        //if (swapchainCreateInfo.usageFlags & XR_SWAPCHAIN_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT)
-        //{
-        //    mFramebuffer->setDepthBuffer(gc, mGlTextureName, false);
-        //    mBufferBits = GL_DEPTH_BUFFER_BIT;
-        //}
-        //else
-        //{
-        //    mFramebuffer->setColorBuffer(gc, mGlTextureName, false);
-        //    mBufferBits = GL_COLOR_BUFFER_BIT;
-        //}
     }
 
     DirectXSharedImage::~DirectXSharedImage()

@@ -3,12 +3,20 @@
 
 #include <mutex>
 
+#include <components/misc/stereo.hpp>
 #include <components/vr/session.hpp>
+#include <components/vr/constants.hpp>
 
 #include <openxr/openxr.h>
 
+namespace VR
+{
+    class StageToWorldBinding;
+}
+
 namespace XR
 {
+    class Tracker;
 
     extern void getEulerAngles(const osg::Quat& quat, float& yaw, float& pitch, float& roll);
 
@@ -17,11 +25,24 @@ namespace XR
     class Session : public VR::Session
     {
     public:
-        Session(XrSession session, XrInstance instance, XrViewConfigurationType viewConfigType = XR_VIEW_CONFIGURATION_TYPE_PRIMARY_STEREO);
+        static Session& instance();
+
+    public:
+        Session(XrSession session, XrViewConfigurationType viewConfigType = XR_VIEW_CONFIGURATION_TYPE_PRIMARY_STEREO);
         ~Session();
 
         void xrResourceAcquired();
         void xrResourceReleased();
+
+        XrSession xrSession() { return mXrSession; };
+
+        XrSpace getReferenceSpace(VR::ReferenceSpace space);
+
+        XR::Tracker& tracker() { return *mTracker; }
+        VR::StageToWorldBinding& stageToWorldBinding() { return *mTrackerToWorldBinding; }
+        std::array<Misc::View, 2> getPredictedViews(int64_t predictedDisplayTime, VR::ReferenceSpace space);
+
+        void xrDebugSetNames();
 
     protected:
         void newFrame(uint64_t frameNo, bool& shouldSyncFrame, bool& shouldSyncInput) override;
@@ -38,12 +59,29 @@ namespace XR
         bool handleSessionStateChanged(const XrEventDataSessionStateChanged& stateChangedEvent);
         bool checkStopCondition();
 
+        void init();
+        void cleanup();
+
+        void createXrReferenceSpaces();
+        void destroyXrReferenceSpaces();
+        void logXrReferenceSpaces();
+
+        void createXrTracker();
+
+        void destroyXrSession();
+
     private:
-        XrInstance mInstance;
-        XrSession mSession;
+        XrSession mXrSession;
         std::queue<XrEventDataBuffer> mEventQueue;
         XrViewConfigurationType mViewConfigType;
         XrSessionState mState = XR_SESSION_STATE_UNKNOWN;
+
+        XrSpace mReferenceSpaceView = XR_NULL_HANDLE;
+        XrSpace mReferenceSpaceStage = XR_NULL_HANDLE;
+        XrSpace mReferenceSpaceLocal = XR_NULL_HANDLE;
+
+        std::unique_ptr<XR::Tracker> mTracker;
+        std::unique_ptr<VR::StageToWorldBinding> mTrackerToWorldBinding{ nullptr };
 
         std::mutex mMutex;
         uint32_t mAcquiredResources = 0;

@@ -24,8 +24,11 @@ namespace XR
     /// \brief Generates and manages an OpenXR ActionSet and associated actions.
     class ActionSet
     {
+        ActionSet(const ActionSet&) = delete;
+        void operator=(const ActionSet&) = delete;
     public:
         ActionSet(const std::string& actionSetName, std::shared_ptr<AxisAction::Deadzone> deadzone);
+        ~ActionSet();
 
         //! Update all controls and queue any actions
         void updateControls();

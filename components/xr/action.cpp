@@ -1,5 +1,5 @@
 #include "action.hpp"
-
+#include "session.hpp"
 #include <components/xr/debug.hpp>
 #include <components/xr/instance.hpp>
 
@@ -34,7 +34,7 @@ namespace XR
         getInfo.subactionPath = subactionPath;
 
         XrActionStateFloat xrValue{ XR_TYPE_ACTION_STATE_FLOAT };
-        CHECK_XRCMD(xrGetActionStateFloat(XR::Instance::instance().xrSession(), &getInfo, &xrValue));
+        CHECK_XRCMD(xrGetActionStateFloat(XR::Session::instance().xrSession(), &getInfo, &xrValue));
 
         if (xrValue.isActive)
             value = xrValue.currentState;
@@ -48,7 +48,7 @@ namespace XR
         getInfo.subactionPath = subactionPath;
 
         XrActionStateBoolean xrValue{ XR_TYPE_ACTION_STATE_BOOLEAN };
-        CHECK_XRCMD(xrGetActionStateBoolean(XR::Instance::instance().xrSession(), &getInfo, &xrValue));
+        CHECK_XRCMD(xrGetActionStateBoolean(XR::Session::instance().xrSession(), &getInfo, &xrValue));
 
         if (xrValue.isActive)
             value = xrValue.currentState;
@@ -63,7 +63,7 @@ namespace XR
         getInfo.subactionPath = subactionPath;
 
         XrActionStatePose xrValue{ XR_TYPE_ACTION_STATE_POSE };
-        CHECK_XRCMD(xrGetActionStatePose(XR::Instance::instance().xrSession(), &getInfo, &xrValue));
+        CHECK_XRCMD(xrGetActionStatePose(XR::Session::instance().xrSession(), &getInfo, &xrValue));
 
         return xrValue.isActive;
     }
@@ -80,7 +80,7 @@ namespace XR
         XrHapticActionInfo hapticActionInfo{ XR_TYPE_HAPTIC_ACTION_INFO };
         hapticActionInfo.action = mAction;
         hapticActionInfo.subactionPath = subactionPath;
-        CHECK_XRCMD(xrApplyHapticFeedback(XR::Instance::instance().xrSession(), &hapticActionInfo, (XrHapticBaseHeader*)&vibration));
+        CHECK_XRCMD(xrApplyHapticFeedback(XR::Session::instance().xrSession(), &hapticActionInfo, (XrHapticBaseHeader*)&vibration));
         return true;
     }
 
@@ -104,7 +104,7 @@ namespace XR
         createInfo.action = mXRAction->xrAction();
         createInfo.poseInActionSpace.orientation.w = 1.f;
         createInfo.subactionPath = XR_NULL_PATH;
-        CHECK_XRCMD(xrCreateActionSpace(XR::Instance::instance().xrSession(), &createInfo, &mXRSpace));
+        CHECK_XRCMD(xrCreateActionSpace(XR::Session::instance().xrSession(), &createInfo, &mXRSpace));
         XR::Debugging::setName(mXRSpace, "OpenMW XR Action Space " + mXRAction->mName);
     }
 

@@ -1,4 +1,5 @@
 #include "actionset.hpp"
+#include "session.hpp"
 
 #include <openxr/openxr.h>
 
@@ -24,7 +25,15 @@ namespace XR
         , mDeadzone(deadzone)
     {
         mActionSet = createActionSet(actionSetName);
-    };
+    }
+
+    ActionSet::~ActionSet()
+    {
+        if (mActionSet)
+        {
+            CHECK_XRCMD(xrDestroyActionSet(mActionSet));
+        }
+    }
 
     void
         ActionSet::createPoseAction(
@@ -164,7 +173,7 @@ namespace XR
         XrActionsSyncInfo syncInfo{ XR_TYPE_ACTIONS_SYNC_INFO };
         syncInfo.countActiveActionSets = 1;
         syncInfo.activeActionSets = &activeActionSet;
-        CHECK_XRCMD(xrSyncActions(XR::Instance::instance().xrSession(), &syncInfo));
+        CHECK_XRCMD(xrSyncActions(XR::Session::instance().xrSession(), &syncInfo));
 
         mActionQueue.clear();
         for (auto& action : mActionMap)

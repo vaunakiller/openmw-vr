@@ -54,7 +54,7 @@ namespace VR
     class StageToWorldBinding : public TrackingSource
     {
     public:
-        StageToWorldBinding(VRPath sourcePath, std::shared_ptr<TrackingSource> source, VRPath movementReference);
+        StageToWorldBinding(VRPath sourcePath, VRPath movementReference);
 
         void setWorldOrientation(float yaw, bool adjust);
         osg::Quat getWorldOrientation() const { return mOrientation; }
@@ -97,7 +97,6 @@ namespace VR
         void updateTracking(VR::DisplayTime predictedDisplayTime) override;
 
     private:
-        std::shared_ptr<TrackingSource> mSource;
         VRPath mMovementReference;
         std::map<VRPath, VRPath> mBindings;
         osg::Node* mOrigin = nullptr;

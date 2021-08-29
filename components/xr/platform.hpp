@@ -70,6 +70,13 @@ namespace XR
 
         std::shared_ptr<VR::DirectXWGLInterop> dxInterop();
 
+        enum class SwapchainUse
+        {
+            Color,
+            Depth,
+        };
+        VR::Swapchain* createSwapchain(uint32_t width, uint32_t height, uint32_t samples, SwapchainUse use, const std::string& name);
+
     private:
         void enumerateExtensions(const char* layerName, int logIndent);
         void setupExtensions();
