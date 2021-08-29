@@ -64,7 +64,7 @@ namespace XR
         if (!sSession)
             sSession = this;
         else
-            throw std::logic_error("Duplicated VR::Session singleton");
+            throw std::logic_error("Duplicated XR::Session singleton");
 
         Debugging::setName(mXrSession, "OpenMW XR Session");
 
@@ -148,7 +148,7 @@ namespace XR
                 xrView.subImage.swapchain = static_cast<XrSwapchain>(view.colorSwapchain->handle());
             }
 
-            bool includeDepth = XR::Instance::instance().xrExtensionIsEnabled(XR_KHR_COMPOSITION_LAYER_DEPTH_EXTENSION_NAME);
+            bool includeDepth = XR::Extensions::instance().extensionEnabled(XR_KHR_COMPOSITION_LAYER_DEPTH_EXTENSION_NAME);
 
             if (includeDepth)
             {

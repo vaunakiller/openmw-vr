@@ -1,6 +1,7 @@
 #ifndef XR_INSTANCE_HPP
 #define XR_INSTANCE_HPP
 
+#include "extensions.hpp"
 #include "platform.hpp"
 #include "tracking.hpp"
 
@@ -50,16 +51,13 @@ namespace XR
         ~Instance(void);
 
         void endFrame(VR::Frame& frame);
-        long long getLastPredictedDisplayTime();
-        long long getLastPredictedDisplayPeriod();
         std::array<SwapchainConfig, 2> getRecommendedSwapchainConfig() const;
         XrInstance xrInstance() const { return mXrInstance; };
-        bool xrExtensionIsEnabled(const char* extensionName) const;
         PFN_xrVoidFunction xrGetFunction(const std::string& name);
         int64_t selectColorFormat();
         int64_t selectDepthFormat();
         void eraseFormat(int64_t format);
-        XR::Platform& platform() { return mPlatform; }
+        XR::Platform& platform();
 
         VR::Session& session() { return *mVRSession; };
 
@@ -78,15 +76,13 @@ namespace XR
 
         bool initialized = false;
         XrInstance mXrInstance = XR_NULL_HANDLE;
-        XrSpace mSpace = XR_NULL_HANDLE;
-        XrFormFactor mFormFactor = XR_FORM_FACTOR_HEAD_MOUNTED_DISPLAY;
         XrViewConfigurationType mViewConfigType = XR_VIEW_CONFIGURATION_TYPE_PRIMARY_STEREO;
         XrSystemId mSystemId = XR_NULL_SYSTEM_ID;
         XrSystemProperties mSystemProperties{ XR_TYPE_SYSTEM_PROPERTIES };
         std::array<XrViewConfigurationView, 2> mConfigViews{ { {XR_TYPE_VIEW_CONFIGURATION_VIEW}, {XR_TYPE_VIEW_CONFIGURATION_VIEW} } };
-        XrFrameState mFrameState{};
         XrDebugUtilsMessengerEXT mDebugMessenger{ nullptr };
-        Platform mPlatform;
+        std::unique_ptr<Extensions> mExtensions;
+        std::unique_ptr<Platform> mPlatform;
 
         uint32_t mAcquiredResources = 0;
         std::mutex mMutex{};

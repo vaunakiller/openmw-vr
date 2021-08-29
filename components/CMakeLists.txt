@@ -208,6 +208,7 @@ if(BUILD_OPENMW_VR)
         action
         actionset
         debug
+        extensions
         input
         instance
         platform

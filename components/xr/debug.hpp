@@ -7,6 +7,10 @@
 
 namespace XR
 {
+    std::string getInstanceName(XrInstance instance);
+    XrVersion getInstanceVersion(XrInstance instance);
+    void initFailure(XrResult res, XrInstance instance);
+
     namespace Debugging
     {
         //! Translates an OpenXR object to the associated XrObjectType enum value
@@ -18,6 +22,15 @@ namespace XR
         //! Associates a name with an OpenXR symbol if XR_EXT_debug_utils is enabled
         void setName(uint64_t handle, XrObjectType type, const std::string& name);
     }
+
+    // Error management macros and functions. Should be used on every openxr call.
+#define CHK_STRINGIFY(x) #x
+#define TOSTRING(x) CHK_STRINGIFY(x)
+#define FILE_AND_LINE __FILE__ ":" TOSTRING(__LINE__)
+#define CHECK_XRCMD(cmd) ::XR::CheckXrResult(cmd, #cmd, FILE_AND_LINE)
+#define CHECK_XRRESULT(res, cmdStr) ::XR::CheckXrResult(res, cmdStr, FILE_AND_LINE)
+    XrResult CheckXrResult(XrResult res, const char* originator = nullptr, const char* sourceLocation = nullptr);
+    std::string XrResultString(XrResult res);
 }
 
 template<typename T> inline void XR::Debugging::setName(T t, const std::string& name)

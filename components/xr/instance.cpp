@@ -69,14 +69,16 @@ namespace XR
     }
 
     Instance::Instance(osg::GraphicsContext* gc)
-        : mPlatform(gc)
     {
         if (!sInstance)
             sInstance = this;
         else
             throw std::logic_error("Duplicated XR::Instance singleton");
 
-        mXrInstance = mPlatform.createXrInstance("openmw_vr");
+        mExtensions = std::make_unique<Extensions>();
+        mPlatform = std::make_unique<Platform>(gc);
+        mPlatform->selectGraphicsAPIExtension();
+        mXrInstance = mExtensions->createXrInstance("openmw_vr");
         Debugging::setName(mXrInstance, "OpenMW XR Instance");
 
         LogInstanceInfo();
@@ -90,7 +92,7 @@ namespace XR
         // TODO: Blend mode
         // setupBlendMode();
 
-        auto xrSession = mPlatform.createXrSession(mXrInstance, mSystemId);
+        auto xrSession = mPlatform->createXrSession(mXrInstance, mSystemId);
         mVRSession = std::make_unique<Session>(xrSession, mViewConfigType);
 
         getSystemProperties();
@@ -99,10 +101,10 @@ namespace XR
     void Instance::getSystem()
     {
         XrSystemGetInfo systemInfo{ XR_TYPE_SYSTEM_GET_INFO };
-        systemInfo.formFactor = mFormFactor = XR_FORM_FACTOR_HEAD_MOUNTED_DISPLAY;
+        systemInfo.formFactor = XR_FORM_FACTOR_HEAD_MOUNTED_DISPLAY;
         auto res = CHECK_XRCMD(xrGetSystem(mXrInstance, &systemInfo, &mSystemId));
         if (!XR_SUCCEEDED(res))
-            mPlatform.initFailure(res, mXrInstance);
+            initFailure(res, mXrInstance);
     }
 
     void Instance::getSystemProperties()
@@ -206,7 +208,7 @@ namespace XR
 
     void Instance::setupDebugMessenger(void)
     {
-        if (xrExtensionIsEnabled(XR_EXT_DEBUG_UTILS_EXTENSION_NAME))
+        if (mExtensions->extensionEnabled(XR_EXT_DEBUG_UTILS_EXTENSION_NAME))
         {
             XrDebugUtilsMessengerCreateInfoEXT createInfo{ XR_TYPE_DEBUG_UTILS_MESSENGER_CREATE_INFO_EXT, nullptr };
 
@@ -252,11 +254,6 @@ namespace XR
     {
     }
 
-    bool Instance::xrExtensionIsEnabled(const char* extensionName) const
-    {
-        return mPlatform.extensionEnabled(extensionName);
-    }
-
     PFN_xrVoidFunction Instance::xrGetFunction(const std::string& name)
     {
         PFN_xrVoidFunction function = nullptr;
@@ -267,29 +264,25 @@ namespace XR
     int64_t Instance::selectColorFormat()
     {
         // Find supported color swapchain format.
-        return mPlatform.selectColorFormat();
+        return mPlatform->selectColorFormat();
     }
 
     int64_t Instance::selectDepthFormat()
     {
         // Find supported depth swapchain format.
-        return mPlatform.selectDepthFormat();
+        return mPlatform->selectDepthFormat();
     }
 
     void Instance::eraseFormat(int64_t format)
     {
-        mPlatform.eraseFormat(format);
+        mPlatform->eraseFormat(format);
     }
 
-    long long Instance::getLastPredictedDisplayTime()
+    XR::Platform& Instance::platform()
     {
-        return mFrameState.predictedDisplayTime;
+        return *mPlatform;
     }
 
-    long long Instance::getLastPredictedDisplayPeriod()
-    {
-        return mFrameState.predictedDisplayPeriod;
-    }
     std::array<SwapchainConfig, 2> Instance::getRecommendedSwapchainConfig() const
     {
         std::array<SwapchainConfig, 2> config{};

@@ -8,6 +8,7 @@
 #include <components/vr/trackingmanager.hpp>
 #include <components/xr/session.hpp>
 #include <components/xr/instance.hpp>
+#include <components/xr/debug.hpp>
 
 #include <iostream>
 
@@ -276,7 +277,7 @@ namespace MWVR
         if (extensionElement)
         {
             std::string extension = requireAttribute(extensionElement, "Name");
-            if (!XR::Instance::instance().xrExtensionIsEnabled(extension.c_str()))
+            if (!XR::Extensions::instance().extensionEnabled(extension.c_str()))
             {
                 Log(Debug::Verbose) << "  Required extension '" << extension << "' not supported. Skipping interaction profile.";
                 return;

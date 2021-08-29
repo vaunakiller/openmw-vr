@@ -1,11 +1,8 @@
 #include "input.hpp"
 #include "instance.hpp"
-#include "platform.hpp"
 #include "tracking.hpp"
+#include "debug.hpp"
 #include "typeconversion.hpp"
-//#include "vrenvironment.hpp"
-//#include "vrinputmanager.hpp"
-//#include "vrsession.hpp"
 
 #include <components/misc/constants.hpp>
 

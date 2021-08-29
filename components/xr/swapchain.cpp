@@ -1,4 +1,5 @@
-#include "Swapchain.hpp"
+#include "swapchain.hpp"
+#include "debug.hpp"
 
 #include <components/debug/debuglog.hpp>
 
