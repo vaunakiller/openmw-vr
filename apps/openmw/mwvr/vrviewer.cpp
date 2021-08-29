@@ -107,6 +107,7 @@ namespace MWVR
         }
 
         mXrInstance = std::make_unique<XR::Instance>(gc);
+        mVrSession = mXrInstance->createSession();
 
         // Set up swapchain config
         auto swapchainConfigs = XR::Instance::instance().getRecommendedSwapchainConfig();
@@ -141,19 +142,12 @@ namespace MWVR
             Log(Debug::Verbose) << name << " resolution: Max x=" << swapchainConfigs[i].maxWidth << ", y=" << swapchainConfigs[i].maxHeight;
             Log(Debug::Verbose) << name << " resolution: Selected x=" << width << ", y=" << height;
 
-            //swapchainConfigs[i].name = name;
-            //if (i > 0)
-                //swapchainConfigs[i].offsetWidth = width + mSwapchainConfig[i].offsetWidth;
-            //XrSwapchain xrColorSwapchain = ;
-            //XrSwapchain xrDepthSwapchain = xr->impl().createXrSwapchain(mSwapchainConfig[i], OpenXRManagerImpl::SwapchainUse::Depth);
-            
-            mColorSwapchain[i].reset(XR::Instance::instance().platform().createSwapchain(width, height, samples, XR::Platform::SwapchainUse::Color, viewNames[i]));
-            mDepthSwapchain[i].reset(XR::Instance::instance().platform().createSwapchain(width, height, samples, XR::Platform::SwapchainUse::Depth, viewNames[i]));
+            mColorSwapchain[i].reset(mVrSession->createSwapchain(width, height, samples, VR::SwapchainUse::Color, viewNames[i]));
+            mDepthSwapchain[i].reset(mVrSession->createSwapchain(width, height, samples, VR::SwapchainUse::Depth, viewNames[i]));
+
             mSubImages[i].width = width;
             mSubImages[i].height = height;
             mSubImages[i].x = mSubImages[i].y = 0;
-            //mSubImages[i].colorSwapchain = mColorSwapchain[i].get();
-            //mSubImages[i].depthSwapchain = mDepthSwapchain[i].get();
         }
 
         int width = mSubImages[0].width + mSubImages[1].width;
@@ -233,34 +227,6 @@ namespace MWVR
 
         if (mirrorTextureChanged)
             setupMirrorTexture();
-    }
-
-    //SubImage VRViewer::subImage(VR::Side side)
-    //{
-    //    return mSubImages[static_cast<int>(side)];
-    //}
-
-    static GLuint createShader(osg::GLExtensions* gl, const char* source, GLenum type)
-    {
-        GLint len = strlen(source);
-        GLuint shader = gl->glCreateShader(type);
-        gl->glShaderSource(shader, 1, &source, &len);
-        gl->glCompileShader(shader);
-        GLint isCompiled = 0;
-        gl->glGetShaderiv(shader, GL_COMPILE_STATUS, &isCompiled);
-        if (isCompiled == GL_FALSE)
-        {
-            GLint maxLength = 0;
-            gl->glGetShaderiv(shader, GL_INFO_LOG_LENGTH, &maxLength);
-            std::vector<GLchar> infoLog(maxLength);
-            gl->glGetShaderInfoLog(shader, maxLength, &maxLength, &infoLog[0]);
-            gl->glDeleteShader(shader);
-
-            Log(Debug::Error) << "Failed to compile shader: " << infoLog.data();
-
-            return 0;
-        }
-        return shader;
     }
 
     static bool applyGamma(osg::RenderInfo& info, VRFramebuffer& target, VRFramebuffer& source)

@@ -31,6 +31,12 @@ namespace VR
         RuntimeFailure = -4 //!< No tracking data was returned because of a runtime failure.
     };
 
+    enum class SwapchainUse
+    {
+        Color,
+        Depth,
+    };
+
     //! Returns false if status is not a success state
     inline bool operator!(TrackingStatus status)
     {

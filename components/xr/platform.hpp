@@ -8,6 +8,7 @@
 
 #include <openxr/openxr.h>
 
+#include <components/vr/constants.hpp>
 #include <components/vr/directx.hpp>
 
 namespace XR
@@ -36,12 +37,7 @@ namespace XR
 
         std::shared_ptr<VR::DirectXWGLInterop> dxInterop();
 
-        enum class SwapchainUse
-        {
-            Color,
-            Depth,
-        };
-        VR::Swapchain* createSwapchain(uint32_t width, uint32_t height, uint32_t samples, SwapchainUse use, const std::string& name);
+        VR::Swapchain* createSwapchain(uint32_t width, uint32_t height, uint32_t samples, VR::SwapchainUse use, const std::string& name);
 
     private:
         bool selectDirectX();

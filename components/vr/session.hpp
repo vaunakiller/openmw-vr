@@ -11,10 +11,13 @@
 #include <components/debug/debuglog.hpp>
 #include <components/sdlutil/sdlgraphicswindow.hpp>
 #include <components/settings/settings.hpp>
+#include <components/vr/constants.hpp>
 #include <components/vr/frame.hpp>
 
 namespace VR
 {
+    class Swapchain;
+
     /// \brief Manages VR logic, such as managing frames, predicting their poses, and handling frame synchronization with the VR runtime.
     /// Should not be confused with the openxr session object.
     class Session
@@ -40,6 +43,8 @@ namespace VR
         void frameBeginUpdate(VR::Frame& frame);
         void frameBeginRender(VR::Frame& frame);
         void frameEnd(osg::GraphicsContext* gc, VR::Frame& frame);
+
+        virtual VR::Swapchain* createSwapchain(uint32_t width, uint32_t height, uint32_t samples, SwapchainUse use, const std::string& name) = 0;
 
     protected:
         void setSeatedPlay(bool seatedPlay);

@@ -1,5 +1,5 @@
-#ifndef MWVR_OPENRXSESSION_H
-#define MWVR_OPENRXSESSION_H
+#ifndef XR_SESSION_H
+#define XR_SESSION_H
 
 #include <mutex>
 
@@ -69,6 +69,8 @@ namespace XR
         void createXrTracker();
 
         void destroyXrSession();
+
+        VR::Swapchain* createSwapchain(uint32_t width, uint32_t height, uint32_t samples, VR::SwapchainUse use, const std::string& name) override;
 
     private:
         XrSession mXrSession;

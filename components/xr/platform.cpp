@@ -423,9 +423,9 @@ namespace XR
     }
 #endif
 
-    VR::Swapchain* Platform::createSwapchain(uint32_t width, uint32_t height, uint32_t samples, SwapchainUse use, const std::string& name)
+    VR::Swapchain* Platform::createSwapchain(uint32_t width, uint32_t height, uint32_t samples, VR::SwapchainUse use, const std::string& name)
     {
-        std::string typeString = use == SwapchainUse::Color ? "color" : "depth";
+        std::string typeString = use == VR::SwapchainUse::Color ? "color" : "depth";
 
         XrSwapchainCreateInfo swapchainCreateInfo{ XR_TYPE_SWAPCHAIN_CREATE_INFO };
         swapchainCreateInfo.arraySize = 1;
@@ -433,7 +433,7 @@ namespace XR
         swapchainCreateInfo.height = height;
         swapchainCreateInfo.mipCount = 1;
         swapchainCreateInfo.faceCount = 1;
-        if (use == SwapchainUse::Color)
+        if (use == VR::SwapchainUse::Color)
             swapchainCreateInfo.usageFlags = XR_SWAPCHAIN_USAGE_COLOR_ATTACHMENT_BIT;
         else
             swapchainCreateInfo.usageFlags = XR_SWAPCHAIN_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT;
@@ -444,7 +444,7 @@ namespace XR
         while (samples > 0 && swapchain == XR_NULL_HANDLE && format == 0)
         {
             // Select a swapchain format.
-            if (use == SwapchainUse::Color)
+            if (use == VR::SwapchainUse::Color)
                 format = selectColorFormat();
             else
                 format = selectDepthFormat();
@@ -482,7 +482,7 @@ namespace XR
             }
 
             CHECK_XRRESULT(res, "xrCreateSwapchain");
-            if (use == SwapchainUse::Color)
+            if (use == VR::SwapchainUse::Color)
                 Debugging::setName(swapchain, "OpenMW XR Color Swapchain " + name);
             else
                 Debugging::setName(swapchain, "OpenMW XR Depth Swapchain " + name);

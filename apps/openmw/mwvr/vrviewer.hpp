@@ -20,6 +20,7 @@ namespace VR
 {
     class Swapchain;
     class TrackingManager;
+    class Session;
 }
 
 namespace XR
@@ -149,6 +150,7 @@ namespace MWVR
     private:
         std::unique_ptr<VR::TrackingManager> mTrackingManager;
         std::unique_ptr<XR::Instance> mXrInstance = nullptr;
+        std::unique_ptr<VR::Session> mVrSession = nullptr;
 
         std::mutex mMutex{};
         bool mOpenXRConfigured{ false };

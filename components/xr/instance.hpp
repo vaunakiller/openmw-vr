@@ -59,7 +59,7 @@ namespace XR
         void eraseFormat(int64_t format);
         XR::Platform& platform();
 
-        VR::Session& session() { return *mVRSession; };
+        std::unique_ptr<VR::Session> createSession();
 
     protected:
         void setupExtensionsAndLayers();
@@ -86,8 +86,6 @@ namespace XR
 
         uint32_t mAcquiredResources = 0;
         std::mutex mMutex{};
-
-        std::unique_ptr<VR::Session> mVRSession;
     };
 
     extern const char* to_string(XrReferenceSpaceType e);

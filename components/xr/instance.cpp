@@ -82,20 +82,13 @@ namespace XR
         Debugging::setName(mXrInstance, "OpenMW XR Instance");
 
         LogInstanceInfo();
-
         setupDebugMessenger();
-
         getSystem();
-
+        getSystemProperties();
         enumerateViews();
 
         // TODO: Blend mode
         // setupBlendMode();
-
-        auto xrSession = mPlatform->createXrSession(mXrInstance, mSystemId);
-        mVRSession = std::make_unique<Session>(xrSession, mViewConfigType);
-
-        getSystemProperties();
     }
 
     void Instance::getSystem()
@@ -139,7 +132,6 @@ namespace XR
 
     void Instance::cleanup()
     {
-        mVRSession = nullptr;
         destroyXrInstance();
     }
 
@@ -281,6 +273,12 @@ namespace XR
     XR::Platform& Instance::platform()
     {
         return *mPlatform;
+    }
+
+    std::unique_ptr<VR::Session> Instance::createSession()
+    {
+        auto xrSession = mPlatform->createXrSession(mXrInstance, mSystemId);
+        return std::make_unique<Session>(xrSession, mViewConfigType);
     }
 
     std::array<SwapchainConfig, 2> Instance::getRecommendedSwapchainConfig() const

@@ -365,6 +365,11 @@ namespace XR
         mTrackerToWorldBinding->bindPaths(worldUserHeadPath, stageUserHeadPath);
     }
 
+    VR::Swapchain* Session::createSwapchain(uint32_t width, uint32_t height, uint32_t samples, VR::SwapchainUse use, const std::string& name)
+    {
+        return Instance::instance().platform().createSwapchain(width, height, samples, use, name);
+    }
+
     bool Session::xrNextEvent(XrEventDataBuffer& eventBuffer)
     {
         XrEventDataBaseHeader* baseHeader = reinterpret_cast<XrEventDataBaseHeader*>(&eventBuffer);
