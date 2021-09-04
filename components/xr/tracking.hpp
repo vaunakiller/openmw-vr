@@ -10,18 +10,7 @@
 
 namespace XR
 {
-    //class OpenXRView : VRView
-    //{
-    //public:
-    //    OpenXRView(XrSession session, XrSpace reference);
-
-    //protected:
-    //    void locateImpl(DisplayTime predictedDisplayTime, VRTrackingView& view) override;
-
-    //private:
-    //    XrSession mSession;
-    //    XrSpace mReference;
-    //};
+    class ActionSet;
 
     //! Serves as a C++ wrapper of openxr spaces
     //! Provides tracking of the following paths:
@@ -35,7 +24,11 @@ namespace XR
         Tracker(VR::VRPath path, XrSpace referenceSpace);
         ~Tracker();
 
+        //! If not NULL, this action set will be updated during updateTracking()
+        void setTrackingActionSet(ActionSet* actionSet);
+
         void addTrackingSpace(VR::VRPath path, XrSpace space);
+
         void deleteTrackingSpace(VR::VRPath path);
 
         std::vector<VR::VRPath> listSupportedPaths() const override;
@@ -50,6 +43,7 @@ namespace XR
 
         XrSpace mReferenceSpace;
         VR::DisplayTime mLastUpdate = 0;
+        ActionSet* mTrackingActionSet = nullptr;
 
         std::map<VR::VRPath, std::pair<XrSpace, VR::TrackingPose> > mSpaces;
     };

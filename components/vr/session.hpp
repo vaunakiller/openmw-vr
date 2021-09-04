@@ -9,6 +9,7 @@
 #include <thread>
 #include <condition_variable>
 #include <components/debug/debuglog.hpp>
+#include <components/misc/stereo.hpp>
 #include <components/sdlutil/sdlgraphicswindow.hpp>
 #include <components/settings/settings.hpp>
 #include <components/vr/constants.hpp>
@@ -45,6 +46,8 @@ namespace VR
         void frameEnd(osg::GraphicsContext* gc, VR::Frame& frame);
 
         virtual VR::Swapchain* createSwapchain(uint32_t width, uint32_t height, uint32_t samples, SwapchainUse use, const std::string& name) = 0;
+
+        virtual std::array<Misc::View, 2> getPredictedViews(int64_t predictedDisplayTime, VR::ReferenceSpace space) = 0;
 
     protected:
         void setSeatedPlay(bool seatedPlay);

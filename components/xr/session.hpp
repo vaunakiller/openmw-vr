@@ -1,5 +1,5 @@
-#ifndef XR_SESSION_H
-#define XR_SESSION_H
+#ifndef XR_SESSION_HPP
+#define XR_SESSION_HPP
 
 #include <mutex>
 
@@ -40,7 +40,7 @@ namespace XR
 
         XR::Tracker& tracker() { return *mTracker; }
         VR::StageToWorldBinding& stageToWorldBinding() { return *mTrackerToWorldBinding; }
-        std::array<Misc::View, 2> getPredictedViews(int64_t predictedDisplayTime, VR::ReferenceSpace space);
+        std::array<Misc::View, 2> getPredictedViews(int64_t predictedDisplayTime, VR::ReferenceSpace space) override;
 
         void xrDebugSetNames();
 

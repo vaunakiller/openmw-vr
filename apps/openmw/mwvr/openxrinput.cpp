@@ -109,6 +109,8 @@ namespace MWVR
         auto worldUserHandLeftPath = VR::stringToVRPath("/world/user/hand/left/input/aim/pose");
         auto worldUserHandRightPath = VR::stringToVRPath("/world/user/hand/right/input/aim/pose");
 
+        XR::Session::instance().tracker().setTrackingActionSet(&getActionSet(MWActionSet::Tracking));
+
         XR::Session::instance().tracker().addTrackingSpace(stageUserHandLeftPath, getActionSet(MWActionSet::Tracking).xrActionSpace(VR::Side_Left));
         XR::Session::instance().tracker().addTrackingSpace(stageUserHandRightPath, getActionSet(MWActionSet::Tracking).xrActionSpace(VR::Side_Right));
         XR::Session::instance().stageToWorldBinding().bindPaths(worldUserHandLeftPath, stageUserHandLeftPath);

@@ -3,6 +3,7 @@
 #include "tracking.hpp"
 #include "debug.hpp"
 #include "typeconversion.hpp"
+#include "actionset.hpp"
 
 #include <components/misc/constants.hpp>
 
@@ -19,6 +20,11 @@ namespace XR
 
     Tracker::~Tracker()
     {
+    }
+
+    void Tracker::setTrackingActionSet(ActionSet* actionSet)
+    {
+        mTrackingActionSet = actionSet;
     }
 
     void Tracker::addTrackingSpace(VR::VRPath path, XrSpace space)
@@ -42,6 +48,9 @@ namespace XR
     void Tracker::updateTracking(VR::DisplayTime predictedDisplayTime)
     {
         mLastUpdate = predictedDisplayTime;
+
+        if (mTrackingActionSet)
+            mTrackingActionSet->updateControls();
 
         for (auto& space : mSpaces)
         {

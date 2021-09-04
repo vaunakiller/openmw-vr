@@ -168,16 +168,28 @@ namespace XR
     void
         ActionSet::updateControls()
     {
+        mActionQueue.clear();
 
         const XrActiveActionSet activeActionSet{ mActionSet, XR_NULL_PATH };
         XrActionsSyncInfo syncInfo{ XR_TYPE_ACTIONS_SYNC_INFO };
         syncInfo.countActiveActionSets = 1;
         syncInfo.activeActionSets = &activeActionSet;
-        CHECK_XRCMD(xrSyncActions(XR::Session::instance().xrSession(), &syncInfo));
 
-        mActionQueue.clear();
-        for (auto& action : mActionMap)
-            action.second->updateAndQueue(mActionQueue);
+        auto res = xrSyncActions(XR::Session::instance().xrSession(), &syncInfo);
+        if (XR_FAILED(res))
+        {
+            CHECK_XRRESULT(res, "xrSyncActions");
+            return;
+        }
+        else if (res == XR_SUCCESS)
+        {
+            for (auto& action : mActionMap)
+                action.second->updateAndQueue(mActionQueue);
+        }
+        else
+        {
+            // Do nothing if xrSyncActions returned XR_SESSION_NOT_FOCUSED or XR_SESSION_LOSS_PENDING
+        }
     }
 
     XrPath ActionSet::getXrPath(const std::string& path)

@@ -1,9 +1,5 @@
 #include "vrviewer.hpp"
 
-#include "vrenvironment.hpp"
-#include "vrinputmanager.hpp"
-#include "openxrinput.hpp"
-
 #include "../mwrender/vismask.hpp"
 
 #include <osgViewer/Renderer>
@@ -32,11 +28,12 @@ namespace MWVR
     class RealizeOperation : public osg::GraphicsOperation
     {
     public:
-        RealizeOperation() : osg::GraphicsOperation("VRRealizeOperation", false) {};
+        RealizeOperation(VRViewer* viewer) : osg::GraphicsOperation("VRRealizeOperation", false), mViewer(viewer) {};
         void operator()(osg::GraphicsContext* gc) override;
         bool realized();
 
     private:
+        VRViewer* mViewer;
     };
 
     VRViewer::VRViewer(
@@ -50,7 +47,7 @@ namespace MWVR
         , mOpenXRConfigured(false)
         , mCallbacksConfigured(false)
     {
-        mViewer->setRealizeOperation(new RealizeOperation());
+        mViewer->setRealizeOperation(new RealizeOperation(this));
     }
 
     VRViewer::~VRViewer(void)
@@ -495,13 +492,13 @@ namespace MWVR
         if (Debug::shouldDebugOpenGL())
             Debug::EnableGLDebugOperation()(gc);
 
-        Environment::get().getViewer()->configureXR(gc);
+        mViewer->configureXR(gc);
     }
 
     bool
         RealizeOperation::realized()
     {
-        return Environment::get().getViewer()->xrConfigured();
+        return mViewer->xrConfigured();
     }
 
     void VRViewer::initialDrawCallback(osg::RenderInfo& info)
@@ -561,9 +558,6 @@ namespace MWVR
         auto frame = session.newFrame();
         session.frameBeginUpdate(frame);
 
-        // TODO:
-        if(frame.shouldSyncInput)
-            Environment::get().getInputManager()->xrInput().getActionSet(MWActionSet::Tracking).updateControls();
         VR::TrackingManager::instance().updateTracking(frame);
 
         auto stageViews = VR::Session::instance().getPredictedViews(frame.predictedDisplayTime, VR::ReferenceSpace::Stage);
