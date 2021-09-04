@@ -262,7 +262,7 @@ if(BUILD_OPENMW_VR)
     add_openmw_dir (mwvr
          openxrinput
          realisticcombat 
-         vranimation vrcamera vrenvironment vrframebuffer vrgui vrinputmanager vrinput vrlistbox vrmetamenu vrpointer vrtracking vrtypes vrutil vrviewer vrvirtualkeyboard
+         vranimation vrcamera vrenvironment vrgui vrinputmanager vrinput vrlistbox vrmetamenu vrpointer vrtracking vrtypes vrutil vrviewer vrvirtualkeyboard
         )
 
     openmw_add_executable(openmw_vr

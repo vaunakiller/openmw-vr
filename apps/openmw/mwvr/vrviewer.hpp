@@ -140,12 +140,17 @@ namespace MWVR
         void processChangedSettings(const std::set< std::pair<std::string, std::string> >& changed);
         void updateView(Misc::View& left, Misc::View& right);
 
-        //SubImage subImage(Side side);
-
         bool xrConfigured() { return mOpenXRConfigured; };
         bool callbacksConfigured() { return mCallbacksConfigured; };
 
-        void blit(osg::State* state, VRFramebuffer* src, uint32_t target, uint32_t src_x, uint32_t src_y, uint32_t w, uint32_t h, uint32_t bits, bool flipVertical);
+        bool applyGamma(osg::RenderInfo& info);
+
+    private:
+        osg::ref_ptr<osg::FrameBufferObject> getXrFramebuffer(uint32_t view, osg::State* state);
+        void blitXrFramebuffers(osg::State* state);
+        void blitMirrorTexture(osg::State* state);
+        void resolveMSAA(osg::State* state);
+        void resolveGamma(osg::RenderInfo& info);
 
     private:
         std::unique_ptr<VR::TrackingManager> mTrackingManager;
@@ -163,21 +168,25 @@ namespace MWVR
         std::shared_ptr<UpdateViewCallback> mUpdateViewCallback{ nullptr };
         bool mRenderingReady{ false };
 
-        std::unique_ptr<VRFramebuffer> mMirrorTexture;
+        osg::ref_ptr<osg::FrameBufferObject> mMirrorFramebuffer;
         std::vector<VR::Side> mMirrorTextureViews;
         bool mMirrorTextureShouldBeCleanedUp{ false };
         bool mMirrorTextureEnabled{ false };
         bool mFlipMirrorTextureOrder{ false };
         MirrorTextureEye mMirrorTextureEye{ MirrorTextureEye::Both };
 
-        std::unique_ptr<VRFramebuffer> mFramebuffer;
-        std::unique_ptr<VRFramebuffer> mMsaaResolveTexture;
-        std::unique_ptr<VRFramebuffer> mGammaResolveTexture;
+        osg::ref_ptr<osg::FrameBufferObject> mDrawFramebuffer;
+        osg::ref_ptr<osg::FrameBufferObject> mMsaaResolveFramebuffer;
+        osg::ref_ptr<osg::FrameBufferObject> mGammaResolveFramebuffer;
+        osg::ref_ptr<osg::Texture2D> mMsaaResolveTexture;
+        int mFramebufferWidth = 0;
+        int mFramebufferHeight = 0;
+
         std::array<std::shared_ptr<VR::Swapchain>, 2> mColorSwapchain;
         std::array<std::shared_ptr<VR::Swapchain>, 2> mDepthSwapchain;
         std::array<VR::SubImage, 2> mSubImages;
 
-        std::map<uint32_t, std::unique_ptr<VRFramebuffer> > mSwapchainFramebuffers;
+        std::map<uint64_t, osg::ref_ptr<osg::FrameBufferObject> > mSwapchainFramebuffers;
 
         std::queue<VR::Frame> mReadyFrames;
         VR::Frame mDrawFrame;
