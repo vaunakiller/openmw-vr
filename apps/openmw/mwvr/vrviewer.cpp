@@ -1,7 +1,5 @@
 #include "vrviewer.hpp"
 
-#include "../mwrender/vismask.hpp"
-
 #include <osgViewer/Renderer>
 #include <osg/StateAttribute>
 #include <osg/BufferObject>
@@ -181,10 +179,6 @@ namespace MWVR
         Misc::CallbackManager::instance().addCallback(Misc::CallbackManager::DrawStage::PreDraw, mPreDraw);
         Misc::CallbackManager::instance().addCallback(Misc::CallbackManager::DrawStage::PostDraw, mPostDraw);
         Misc::CallbackManager::instance().addCallback(Misc::CallbackManager::DrawStage::Final, mFinalDraw);
-        auto cullMask = ~(MWRender::VisMask::Mask_UpdateVisitor | MWRender::VisMask::Mask_SimpleWater);
-        cullMask &= ~MWRender::VisMask::Mask_GUI;
-        cullMask |= MWRender::VisMask::Mask_3DGUI;
-        Misc::StereoView::instance().setCullMask(cullMask);
 
         mCallbacksConfigured = true;
     }

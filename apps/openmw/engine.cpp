@@ -782,7 +782,6 @@ void OMW::Engine::prepareEngine (Settings::Manager & settings)
     // Create sound system
     mEnvironment.setSoundManager (new MWSound::SoundManager(mVFS.get(), mUseSound));
 
-
     if (mStereoEnabled)
     {
         // Set up stereo
@@ -795,7 +794,10 @@ void OMW::Engine::prepareEngine (Settings::Manager & settings)
 #ifdef USE_OPENXR
     mXrEnvironment.setGUIManager(new MWVR::VRGUIManager(mViewer, mResourceSystem.get(), rootNode));
     mXrEnvironment.getViewer()->configureCallbacks();
-    mStereoView->setCullMask(mStereoView->getCullMask() & ~MWRender::VisMask::Mask_GUI);
+    auto cullMask = ~(MWRender::VisMask::Mask_UpdateVisitor | MWRender::VisMask::Mask_SimpleWater);
+    cullMask &= ~MWRender::VisMask::Mask_GUI;
+    cullMask |= MWRender::VisMask::Mask_3DGUI;
+    mStereoView->setCullMask(cullMask);
 #endif
 
     
