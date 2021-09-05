@@ -15,42 +15,11 @@
 #include <components/vr/layer.hpp>
 #include <components/vr/session.hpp>
 #include <components/vr/trackingmanager.hpp>
-#include <components/xr/instance.hpp>
-#include <components/xr/swapchain.hpp>
 
 #include <components/sdlutil/sdlgraphicswindow.hpp>
 
 namespace MWVR
 {
-    // Callback to do construction with a graphics context
-    class RealizeOperation : public osg::GraphicsOperation
-    {
-    public:
-        RealizeOperation(VRViewer* viewer) : osg::GraphicsOperation("VRRealizeOperation", false), mViewer(viewer) {};
-        void operator()(osg::GraphicsContext* gc) override;
-        bool realized();
-
-    private:
-        VRViewer* mViewer;
-    };
-
-    VRViewer::VRViewer(
-        osg::ref_ptr<osgViewer::Viewer> viewer)
-        : mTrackingManager(std::make_unique<VR::TrackingManager>())
-        , mViewer(viewer)
-        , mPreDraw(new PredrawCallback(this))
-        , mPostDraw(new PostdrawCallback(this))
-        , mFinalDraw(new FinaldrawCallback(this))
-        , mUpdateViewCallback(new UpdateViewCallback(this))
-        , mOpenXRConfigured(false)
-        , mCallbacksConfigured(false)
-    {
-        mViewer->setRealizeOperation(new RealizeOperation(this));
-    }
-
-    VRViewer::~VRViewer(void)
-    {
-    }
 
     int parseResolution(std::string conf, int recommended, int max)
     {
@@ -75,34 +44,21 @@ namespace MWVR
         return recommended;
     }
 
-    static VRViewer::MirrorTextureEye mirrorTextureEyeFromString(const std::string& str)
+    VRViewer::VRViewer(
+        std::unique_ptr<VR::Session> session,
+        osg::ref_ptr<osgViewer::Viewer> viewer)
+        : mSession(std::move(session))
+        , mViewer(viewer)
+        , mPreDraw(new PredrawCallback(this))
+        , mPostDraw(new PostdrawCallback(this))
+        , mFinalDraw(new FinaldrawCallback(this))
+        , mUpdateViewCallback(new UpdateViewCallback(this))
+        , mCallbacksConfigured(false)
     {
-        if (Misc::StringUtils::ciEqual(str, "left"))
-            return VRViewer::MirrorTextureEye::Left;
-        if (Misc::StringUtils::ciEqual(str, "right"))
-            return VRViewer::MirrorTextureEye::Right;
-        if (Misc::StringUtils::ciEqual(str, "both"))
-            return VRViewer::MirrorTextureEye::Both;
-        return VRViewer::MirrorTextureEye::Both;
-    }
-
-    void VRViewer::configureXR(osg::GraphicsContext* gc)
-    {
-        std::unique_lock<std::mutex> lock(mMutex);
-
-        if (mOpenXRConfigured)
-        {
-            return;
-        }
-
-        // Initialize OpenXR
-        mXrInstance = std::make_unique<XR::Instance>(gc);
-        mVrSession = mXrInstance->createSession();
-
         // Read swapchain configs
         std::array<std::string, 2> xConfString;
         std::array<std::string, 2> yConfString;
-        auto swapchainConfigs = XR::Instance::instance().getRecommendedSwapchainConfig();
+        auto swapchainConfigs = VR::Session::instance().getRecommendedSwapchainConfig();
         xConfString[0] = Settings::Manager::getString("left eye resolution x", "VR");
         yConfString[0] = Settings::Manager::getString("left eye resolution y", "VR");
         xConfString[1] = Settings::Manager::getString("right eye resolution x", "VR");
@@ -126,8 +82,8 @@ namespace MWVR
             Log(Debug::Verbose) << viewNames[i] << " resolution: Max x=" << swapchainConfigs[i].maxWidth << ", y=" << swapchainConfigs[i].maxHeight;
             Log(Debug::Verbose) << viewNames[i] << " resolution: Selected x=" << width << ", y=" << height;
 
-            mColorSwapchain[i].reset(mVrSession->createSwapchain(width, height, samples, VR::SwapchainUse::Color, viewNames[i]));
-            mDepthSwapchain[i].reset(mVrSession->createSwapchain(width, height, samples, VR::SwapchainUse::Depth, viewNames[i]));
+            mColorSwapchain[i].reset(VR::Session::instance().createSwapchain(width, height, samples, VR::SwapchainUse::Color, viewNames[i]));
+            mDepthSwapchain[i].reset(VR::Session::instance().createSwapchain(width, height, samples, VR::SwapchainUse::Depth, viewNames[i]));
 
             mSubImages[i].width = width;
             mSubImages[i].height = height;
@@ -164,8 +120,21 @@ namespace MWVR
         mViewer->getCamera()->getGraphicsContext()->setSwapCallback(new VRViewer::SwapBuffersCallback(this));
 
         setupMirrorTexture();
-        Log(Debug::Verbose) << "XR configured";
-        mOpenXRConfigured = true;
+    }
+
+    VRViewer::~VRViewer(void)
+    {
+    }
+
+    static VRViewer::MirrorTextureEye mirrorTextureEyeFromString(const std::string& str)
+    {
+        if (Misc::StringUtils::ciEqual(str, "left"))
+            return VRViewer::MirrorTextureEye::Left;
+        if (Misc::StringUtils::ciEqual(str, "right"))
+            return VRViewer::MirrorTextureEye::Right;
+        if (Misc::StringUtils::ciEqual(str, "both"))
+            return VRViewer::MirrorTextureEye::Both;
+        return VRViewer::MirrorTextureEye::Both;
     }
 
     void VRViewer::configureCallbacks()
@@ -477,22 +446,6 @@ namespace MWVR
             osg::GraphicsContext* gc)
     {
         mViewer->swapBuffersCallback(gc);
-    }
-
-    void
-        RealizeOperation::operator()(
-            osg::GraphicsContext* gc)
-    {
-        if (Debug::shouldDebugOpenGL())
-            Debug::EnableGLDebugOperation()(gc);
-
-        mViewer->configureXR(gc);
-    }
-
-    bool
-        RealizeOperation::realized()
-    {
-        return mViewer->xrConfigured();
     }
 
     void VRViewer::initialDrawCallback(osg::RenderInfo& info)

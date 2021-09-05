@@ -281,19 +281,9 @@ namespace XR
         return std::make_unique<Session>(xrSession, mViewConfigType);
     }
 
-    std::array<SwapchainConfig, 2> Instance::getRecommendedSwapchainConfig() const
+    std::array<XrViewConfigurationView, 2> Instance::getRecommendedXrSwapchainConfig() const
     {
-        std::array<SwapchainConfig, 2> config{};
-        for (uint32_t i = 0; i < 2; i++)
-            config[i] = SwapchainConfig{
-                (int)mConfigViews[i].recommendedImageRectWidth,
-                (int)mConfigViews[i].recommendedImageRectHeight,
-                (int)mConfigViews[i].recommendedSwapchainSampleCount,
-                (int)mConfigViews[i].maxImageRectWidth,
-                (int)mConfigViews[i].maxImageRectHeight,
-                (int)mConfigViews[i].maxSwapchainSampleCount,
-        };
-        return config;
+        return mConfigViews;
     }
 }
 

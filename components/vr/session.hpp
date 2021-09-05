@@ -8,12 +8,18 @@
 #include <queue>
 #include <thread>
 #include <condition_variable>
+
 #include <components/debug/debuglog.hpp>
+
 #include <components/misc/stereo.hpp>
+
 #include <components/sdlutil/sdlgraphicswindow.hpp>
+
 #include <components/settings/settings.hpp>
+
 #include <components/vr/constants.hpp>
 #include <components/vr/frame.hpp>
+#include <components/vr/swapchain.hpp>
 
 namespace VR
 {
@@ -48,6 +54,8 @@ namespace VR
         virtual VR::Swapchain* createSwapchain(uint32_t width, uint32_t height, uint32_t samples, SwapchainUse use, const std::string& name) = 0;
 
         virtual std::array<Misc::View, 2> getPredictedViews(int64_t predictedDisplayTime, VR::ReferenceSpace space) = 0;
+
+        virtual std::array<SwapchainConfig, 2> getRecommendedSwapchainConfig() const = 0;
 
     protected:
         void setSeatedPlay(bool seatedPlay);

@@ -45,6 +45,10 @@
 
 #include <components/misc/frameratelimiter.hpp>
 
+#include <components/vr/session.hpp>
+#include <components/vr/trackingmanager.hpp>
+#include <components/xr/instance.hpp>
+
 #include "mwinput/inputmanagerimp.hpp"
 
 #include "mwgui/windowmanagerimp.hpp"
@@ -80,6 +84,34 @@
 
 namespace
 {
+#ifdef USE_OPENXR
+    // Callback to do construction with a graphics context
+    class VRRealizeOperation : public osg::GraphicsOperation
+    {
+    public:
+        VRRealizeOperation(OMW::Engine* engine, osg::ref_ptr<osg::GraphicsOperation> nestedOp);
+        void operator()(osg::GraphicsContext* gc) override;
+
+    private:
+        OMW::Engine* mEngine;
+        osg::ref_ptr<osg::GraphicsOperation> mNestedOp;
+    };
+
+    VRRealizeOperation::VRRealizeOperation(OMW::Engine* engine, osg::ref_ptr<osg::GraphicsOperation> nestedOp)
+        : osg::GraphicsOperation("VRRealizeOperation", false)
+        , mEngine(engine)
+        , mNestedOp(nestedOp)
+    {
+    }
+
+    void VRRealizeOperation::operator()(osg::GraphicsContext* gc)
+    {
+        mEngine->configureVR(gc);
+        if (mNestedOp)
+            mNestedOp->operator()(gc);
+    }
+#endif
+
     void checkSDLError(int ret)
     {
         if (ret != 0)
@@ -642,7 +674,9 @@ void OMW::Engine::createWindow(Settings::Manager& settings)
         mViewer->setRealizeOperation(new Debug::EnableGLDebugOperation());
 
 #ifdef USE_OPENXR
-    initVr();
+    // Set up the VR realize operation, with nesting of any other realize operations.
+    osg::ref_ptr<osg::GraphicsOperation> op = dynamic_cast<osg::GraphicsOperation*>(mViewer->getRealizeOperation());
+    mViewer->setRealizeOperation(new VRRealizeOperation(this, op));
 #endif
 
     mViewer->realize();
@@ -1151,4 +1185,11 @@ void OMW::Engine::setSaveGameFile(const std::string &savegame)
 void OMW::Engine::setRandomSeed(unsigned int seed)
 {
     mRandomSeed = seed;
+}
+
+void OMW::Engine::configureVR(osg::GraphicsContext* gc)
+{
+    mVrTrackingManager = std::make_unique<VR::TrackingManager>();
+    mXrInstance = std::make_unique<XR::Instance>(gc);
+    mXrEnvironment.setViewer(new MWVR::VRViewer(mXrInstance->createSession(), mViewer));
 }

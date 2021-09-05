@@ -30,15 +30,6 @@ namespace VR
 namespace XR
 {
 
-    struct SwapchainConfig
-    {
-        int recommendedWidth = -1;
-        int recommendedHeight = -1;
-        int recommendedSamples = -1;
-        int maxWidth = -1;
-        int maxHeight = -1;
-        int maxSamples = -1;
-    };
 
     /// \brief Instantiates and manages and openxr instance.
     class Instance
@@ -51,7 +42,7 @@ namespace XR
         ~Instance(void);
 
         void endFrame(VR::Frame& frame);
-        std::array<SwapchainConfig, 2> getRecommendedSwapchainConfig() const;
+        std::array<XrViewConfigurationView, 2> getRecommendedXrSwapchainConfig() const;
         XrInstance xrInstance() const { return mXrInstance; };
         PFN_xrVoidFunction xrGetFunction(const std::string& name);
         int64_t selectColorFormat();

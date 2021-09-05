@@ -53,6 +53,17 @@ namespace osgViewer
     class ScreenCaptureHandler;
 }
 
+namespace VR
+{
+    class Session;
+    class TrackingManager;
+}
+
+namespace XR
+{
+    class Instance;
+}
+
 struct SDL_Window;
 
 namespace OMW
@@ -200,13 +211,17 @@ namespace OMW
 
             void setRandomSeed(unsigned int seed);
 
+#ifdef USE_OPENXR
+            void configureVR(osg::GraphicsContext* gc);
+#endif
+
         private:
             Files::ConfigurationManager& mCfgMgr;
 
 #ifdef USE_OPENXR
             MWVR::Environment mXrEnvironment;
-
-            void initVr();
+            std::unique_ptr<VR::TrackingManager> mVrTrackingManager = nullptr;
+            std::unique_ptr<XR::Instance> mXrInstance = nullptr;
 #endif
     };
 }

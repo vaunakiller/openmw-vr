@@ -44,6 +44,8 @@ namespace XR
 
         void xrDebugSetNames();
 
+        std::array<VR::SwapchainConfig, 2> getRecommendedSwapchainConfig() const override;
+
     protected:
         void newFrame(uint64_t frameNo, bool& shouldSyncFrame, bool& shouldSyncInput) override;
         void syncFrameUpdate(uint64_t frameNo, bool& shouldRender, uint64_t& predictedDisplayTime, uint64_t& predictedDisplayPeriod) override;

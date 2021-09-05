@@ -23,10 +23,6 @@ namespace VR
     class Session;
 }
 
-namespace XR
-{
-    class Instance;
-}
 
 namespace MWVR
 {
@@ -124,6 +120,7 @@ namespace MWVR
 
     public:
         VRViewer(
+            std::unique_ptr<VR::Session> session,
             osg::ref_ptr<osgViewer::Viewer> viewer);
 
         ~VRViewer(void);
@@ -134,13 +131,11 @@ namespace MWVR
         void postDrawCallback(osg::RenderInfo& info);
         void finalDrawCallback(osg::RenderInfo& info);
         void blit(osg::RenderInfo& gc);
-        void configureXR(osg::GraphicsContext* gc);
         void configureCallbacks();
         void setupMirrorTexture();
         void processChangedSettings(const std::set< std::pair<std::string, std::string> >& changed);
         void updateView(Misc::View& left, Misc::View& right);
 
-        bool xrConfigured() { return mOpenXRConfigured; };
         bool callbacksConfigured() { return mCallbacksConfigured; };
 
         bool applyGamma(osg::RenderInfo& info);
@@ -153,15 +148,11 @@ namespace MWVR
         void resolveGamma(osg::RenderInfo& info);
 
     private:
-        std::unique_ptr<VR::TrackingManager> mTrackingManager;
-        std::unique_ptr<XR::Instance> mXrInstance = nullptr;
-        std::unique_ptr<VR::Session> mVrSession = nullptr;
-
         std::mutex mMutex{};
-        bool mOpenXRConfigured{ false };
         bool mCallbacksConfigured{ false };
 
-        osg::ref_ptr<osgViewer::Viewer> mViewer = nullptr;
+        std::unique_ptr<VR::Session> mSession;
+        osg::ref_ptr<osgViewer::Viewer> mViewer;
         osg::ref_ptr<PredrawCallback> mPreDraw{ nullptr };
         osg::ref_ptr<PostdrawCallback> mPostDraw{ nullptr };
         osg::ref_ptr<FinaldrawCallback> mFinalDraw{ nullptr };

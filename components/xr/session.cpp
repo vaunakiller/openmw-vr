@@ -483,5 +483,22 @@ namespace XR
         }
         return vrViews;
     }
+
+    std::array<VR::SwapchainConfig, 2> Session::getRecommendedSwapchainConfig() const
+    {
+        auto xrConfigs = Instance::instance().getRecommendedXrSwapchainConfig();
+        std::array<VR::SwapchainConfig, 2> configs{};
+        for (uint32_t i = 0; i < 2; i++)
+        {
+            configs[i].recommendedWidth = xrConfigs[i].recommendedImageRectWidth;
+            configs[i].recommendedHeight = xrConfigs[i].recommendedImageRectHeight;
+            configs[i].recommendedSamples = xrConfigs[i].recommendedSwapchainSampleCount;
+            configs[i].maxWidth = xrConfigs[i].maxImageRectWidth;
+            configs[i].maxHeight = xrConfigs[i].maxImageRectHeight;
+            configs[i].maxSamples = xrConfigs[i].maxSwapchainSampleCount;
+        }
+
+        return configs;
+    }
 }
 

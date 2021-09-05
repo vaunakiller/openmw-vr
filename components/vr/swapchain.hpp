@@ -10,6 +10,16 @@ namespace osg
 
 namespace VR
 {
+    struct SwapchainConfig
+    {
+        uint32_t recommendedWidth = 0;
+        uint32_t recommendedHeight = 0;
+        uint32_t recommendedSamples = 0;
+        uint32_t maxWidth = 0;
+        uint32_t maxHeight = 0;
+        uint32_t maxSamples = 0;
+    };
+
     class Swapchain
     {
     public:
