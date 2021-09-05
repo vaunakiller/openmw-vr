@@ -379,10 +379,6 @@ namespace XR
         }
         return *it;
     }
-    std::shared_ptr<VR::DirectXWGLInterop> Platform::dxInterop()
-    {
-        return mDxInterop;
-    }
 
 
     std::vector<uint64_t>

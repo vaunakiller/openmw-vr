@@ -1,6 +1,5 @@
-
 #include "directx.hpp"
-
+#ifdef _WIN32
 
 #include <Windows.h>
 #include <objbase.h>
@@ -251,3 +250,4 @@ namespace VR
         return mPrivate->mD3D11Device;
     }
 }
+#endif

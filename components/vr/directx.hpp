@@ -1,6 +1,7 @@
 #ifndef VR_DIRECTX_H
 #define VR_DIRECTX_H
 
+#ifdef _WIN32
 // This header contains classes and methods for sharing directx surfaces with OpenGL
 // for use on platforms that offer directx surfaces but not opengl surfaces
 
@@ -65,5 +66,10 @@ namespace VR
     private:
     };
 }
+
+#else
+class DirectXWGLInterop
+{};
+#endif
 
 #endif

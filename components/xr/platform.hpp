@@ -35,8 +35,6 @@ namespace XR
         void eraseFormat(int64_t format);
         std::vector<int64_t> mSwapchainFormats{};
 
-        std::shared_ptr<VR::DirectXWGLInterop> dxInterop();
-
         VR::Swapchain* createSwapchain(uint32_t width, uint32_t height, uint32_t samples, VR::SwapchainUse use, const std::string& name);
 
     private:
