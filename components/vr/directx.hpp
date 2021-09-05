@@ -68,8 +68,11 @@ namespace VR
 }
 
 #else
-class DirectXWGLInterop
-{};
+namespace VR
+{
+    class DirectXWGLInterop
+    {};
+}
 #endif
 
 #endif
