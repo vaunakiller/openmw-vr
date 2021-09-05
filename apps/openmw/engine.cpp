@@ -47,6 +47,7 @@
 
 #include <components/vr/session.hpp>
 #include <components/vr/trackingmanager.hpp>
+#include <components/vr/viewer.hpp>
 #include <components/xr/instance.hpp>
 
 #include "mwinput/inputmanagerimp.hpp"
@@ -77,7 +78,6 @@
 
 #ifdef USE_OPENXR
 #include "mwvr/vrinputmanager.hpp"
-#include "mwvr/vrviewer.hpp"
 #include "mwvr/vrgui.hpp"
 #include "mwvr/vrcamera.hpp"
 #endif
@@ -1191,5 +1191,5 @@ void OMW::Engine::configureVR(osg::GraphicsContext* gc)
 {
     mVrTrackingManager = std::make_unique<VR::TrackingManager>();
     mXrInstance = std::make_unique<XR::Instance>(gc);
-    mXrEnvironment.setViewer(new MWVR::VRViewer(mXrInstance->createSession(), mViewer));
+    mXrEnvironment.setViewer(new VR::Viewer(mXrInstance->createSession(), mViewer));
 }

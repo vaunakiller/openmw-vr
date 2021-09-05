@@ -5,7 +5,6 @@
 #include "vrenvironment.hpp"
 #include "vrgui.hpp"
 #include "vrpointer.hpp"
-#include "vrviewer.hpp"
 #include "openxrinput.hpp"
 #include "realisticcombat.hpp"
 

@@ -1,12 +1,16 @@
 #ifndef MWVR_ENVIRONMENT_H
 #define MWVR_ENVIRONMENT_H
 
+namespace VR
+{
+    class Viewer;
+}
+
 namespace MWVR
 {
     class VRAnimation;
     class VRGUIManager;
     class VRInputManager;
-    class VRViewer;
 
     /// \brief Central hub for mw vr/openxr subsystems
     ///
@@ -49,13 +53,13 @@ namespace MWVR
         MWVR::VRAnimation* getPlayerAnimation() const;
         void setPlayerAnimation(MWVR::VRAnimation* xrAnimation);
 
-        MWVR::VRViewer* getViewer() const;
-        void setViewer(MWVR::VRViewer* xrViewer);
+        VR::Viewer* getViewer() const;
+        void setViewer(VR::Viewer* xrViewer);
 
     private:
         MWVR::VRGUIManager* mGUIManager{ nullptr };
         MWVR::VRAnimation* mPlayerAnimation{ nullptr };
-        MWVR::VRViewer* mViewer{ nullptr };
+        VR::Viewer* mViewer{ nullptr };
     };
 }
 

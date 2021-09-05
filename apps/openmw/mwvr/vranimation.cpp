@@ -1,6 +1,5 @@
 #include "vranimation.hpp"
 #include "vrenvironment.hpp"
-#include "vrviewer.hpp"
 #include "vrinputmanager.hpp"
 #include "vrcamera.hpp"
 #include "vrutil.hpp"

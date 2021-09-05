@@ -5,7 +5,8 @@
 #include "vranimation.hpp"
 #include "vrinputmanager.hpp"
 #include "vrgui.hpp"
-#include "vrviewer.hpp"
+
+#include <components/vr/viewer.hpp>
 
 #include "../mwbase/environment.hpp"
 
@@ -69,12 +70,12 @@ void MWVR::Environment::setPlayerAnimation(MWVR::VRAnimation* xrAnimation)
 }
 
 
-MWVR::VRViewer* MWVR::Environment::getViewer() const
+VR::Viewer* MWVR::Environment::getViewer() const
 {
     return mViewer;
 }
 
-void MWVR::Environment::setViewer(MWVR::VRViewer* xrViewer)
+void MWVR::Environment::setViewer(VR::Viewer* xrViewer)
 {
     mViewer = xrViewer;
 }

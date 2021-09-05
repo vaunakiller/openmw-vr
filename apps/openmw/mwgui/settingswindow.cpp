@@ -34,8 +34,8 @@
 #ifdef USE_OPENXR
 #include <components/vr/session.hpp>
 #include <components/vr/trackingmanager.hpp>
+#include <components/vr/viewer.hpp>
 #include "../mwvr/vrenvironment.hpp"
-#include "../mwvr/vrviewer.hpp"
 #include "../mwvr/vrgui.hpp"
 #include "../mwvr/vrinputmanager.hpp"
 #endif
