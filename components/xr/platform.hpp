@@ -10,6 +10,7 @@
 
 #include <components/vr/constants.hpp>
 #include <components/vr/directx.hpp>
+#include <components/vr/swapchain.hpp>
 
 #include <osg/GraphicsContext>
 
