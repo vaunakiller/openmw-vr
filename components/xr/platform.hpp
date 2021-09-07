@@ -11,6 +11,8 @@
 #include <components/vr/constants.hpp>
 #include <components/vr/directx.hpp>
 
+#include <osg/GraphicsContext>
+
 namespace XR
 {
     struct PlatformPrivate;
