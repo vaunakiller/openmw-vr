@@ -74,9 +74,7 @@
 #ifdef USE_OPENXR
 #include "../mwvr/vranimation.hpp"
 #include "../mwvr/vrpointer.hpp"
-#include "../mwvr/vrviewer.hpp"
 #include "../mwvr/vrenvironment.hpp"
-#include "../mwvr/vrcamera.hpp"
 #include "../mwvr/vrgui.hpp"
 #endif
 

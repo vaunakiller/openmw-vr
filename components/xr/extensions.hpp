@@ -5,6 +5,7 @@
 #include <memory>
 #include <set>
 #include <string>
+#include <map>
 
 #include <openxr/openxr.h>
 

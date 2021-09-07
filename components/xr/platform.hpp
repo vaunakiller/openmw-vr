@@ -18,11 +18,6 @@ namespace XR
     class Platform
     {
     public:
-        using ExtensionMap = std::map<std::string, XrExtensionProperties>;
-        using LayerMap = std::map<std::string, XrApiLayerProperties>;
-        using LayerExtensionMap = std::map<std::string, ExtensionMap>;
-
-    public:
         Platform(osg::GraphicsContext* gc);
         ~Platform();
 
