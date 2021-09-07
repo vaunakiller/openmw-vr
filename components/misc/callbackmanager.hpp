@@ -47,7 +47,7 @@ namespace Misc
         struct DrawCallback
         {
         public:
-        public:
+            virtual ~DrawCallback() {}
 
             virtual void run(osg::RenderInfo& info, View view) const = 0;
 
