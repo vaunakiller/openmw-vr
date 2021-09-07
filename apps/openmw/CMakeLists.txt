@@ -256,9 +256,6 @@ if(BUILD_OPENMW_VR)
 # TODO: Openmw and openmw_vr should preferrably share game code as a static or shared library
 # instead of being compiled separately, though for now that's not possible as i depend on
 # USE_OPENXR preprocessor switches.
-    set(OPENMW_VR_FILES
-        vrengine.cpp
-    )
     add_openmw_dir (mwvr
          openxrinput
          realisticcombat 
@@ -267,7 +264,6 @@ if(BUILD_OPENMW_VR)
 
     openmw_add_executable(openmw_vr
         ${OPENMW_FILES}
-        ${OPENMW_VR_FILES}
         ${GAME} ${GAME_HEADER}
         ${APPLE_BUNDLE_RESOURCES}
     )
