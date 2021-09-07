@@ -14,22 +14,6 @@
 #include <components/vr/layer.hpp>
 #include <components/vr/trackingmanager.hpp>
 
-//#include "../mwmechanics/actorutil.hpp"
-//
-//#include "../mwbase/world.hpp"
-//#include "../mwbase/environment.hpp"
-//
-//#include "../mwworld/class.hpp"
-//#include "../mwworld/player.hpp"
-//#include "../mwworld/esmstore.hpp"
-
-#include <Windows.h>
-#include <objbase.h>
-
-#include <d3d11.h>
-#include <dxgi1_2.h>
-
-#include <openxr/openxr_platform.h>
 #include <openxr/openxr_reflection.h>
 
 #include <osg/Camera>
