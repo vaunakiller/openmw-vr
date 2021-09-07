@@ -34,7 +34,7 @@ namespace MWRender
         RawCubemap
     };
 
-    class NotifyDrawCompletedCallback : public osg::Camera::DrawCallback
+    class NotifyDrawCompletedCallback : public Misc::CallbackManager::DrawCallback
     {
     public:
         NotifyDrawCompletedCallback()
@@ -42,8 +42,11 @@ namespace MWRender
         {
         }
 
-        void operator () (osg::RenderInfo& renderInfo) const override
+        void run(osg::RenderInfo& renderInfo, Misc::CallbackManager::View view) const override
         {
+            if (view == Misc::CallbackManager::View::Left)
+                return;
+
             std::lock_guard<std::mutex> lock(mMutex);
             if (renderInfo.getState()->getFrameStamp()->getFrameNumber() >= mFrame && !mDone)
             {

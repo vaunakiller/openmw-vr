@@ -20,7 +20,6 @@
 
 namespace VR
 {
-
     int parseResolution(std::string conf, int recommended, int max)
     {
         if (Misc::StringUtils::isNumber(conf))
@@ -49,6 +48,7 @@ namespace VR
         osg::ref_ptr<osgViewer::Viewer> viewer)
         : mSession(std::move(session))
         , mViewer(viewer)
+        , mInitialDraw(new InitialDrawCallback(this))
         , mPreDraw(new PredrawCallback(this))
         , mPostDraw(new PostdrawCallback(this))
         , mFinalDraw(new FinaldrawCallback(this))
@@ -144,7 +144,7 @@ namespace VR
 
         // Give the main camera an initial draw callback that disables camera setup (we don't want it)
         Misc::StereoView::instance().setUpdateViewCallback(mUpdateViewCallback);
-        Misc::CallbackManager::instance().addCallback(Misc::CallbackManager::DrawStage::Initial, new InitialDrawCallback(this));
+        Misc::CallbackManager::instance().addCallback(Misc::CallbackManager::DrawStage::Initial, mInitialDraw);
         Misc::CallbackManager::instance().addCallback(Misc::CallbackManager::DrawStage::PreDraw, mPreDraw);
         Misc::CallbackManager::instance().addCallback(Misc::CallbackManager::DrawStage::PostDraw, mPostDraw);
         Misc::CallbackManager::instance().addCallback(Misc::CallbackManager::DrawStage::Final, mFinalDraw);
@@ -428,7 +428,6 @@ namespace VR
 
     void Viewer::blit(osg::RenderInfo& info)
     {
-
         auto* state = info.getState();
         auto* gl = osg::GLExtensions::Get(state->getContextID(), false);
 
@@ -448,9 +447,10 @@ namespace VR
         mViewer->swapBuffersCallback(gc);
     }
 
-    void Viewer::initialDrawCallback(osg::RenderInfo& info)
+    void Viewer::initialDrawCallback(osg::RenderInfo& info, Misc::CallbackManager::View view)
     {
-        if (mRenderingReady)
+        // Should only activate on the first callback
+        if (view == Misc::CallbackManager::View::Right)
             return;
 
         {
@@ -470,21 +470,26 @@ namespace VR
             // Disable normal OSG FBO camera setup
             renderer->setCameraRequiresSetUp(false);
         }
-
-        mRenderingReady = true;
     }
 
-    void Viewer::preDrawCallback(osg::RenderInfo& info)
+    void Viewer::preDrawCallback(osg::RenderInfo& info, Misc::CallbackManager::View view)
     {
+        // Should only activate on the first callback
+        if (view == Misc::CallbackManager::View::Right)
+            return;
         mDrawFramebuffer->apply(*info.getState());
     }
 
-    void Viewer::postDrawCallback(osg::RenderInfo& info)
+    void Viewer::postDrawCallback(osg::RenderInfo& info, Misc::CallbackManager::View view)
     {
+        // Nothing to do
     }
 
-    void Viewer::finalDrawCallback(osg::RenderInfo& info)
+    void Viewer::finalDrawCallback(osg::RenderInfo& info, Misc::CallbackManager::View view)
     {
+        // Should only activate on the last callback
+        if (view == Misc::CallbackManager::View::Left)
+            return;
         if (mDrawFrame.shouldRender)
         {
             blit(info);
@@ -493,8 +498,6 @@ namespace VR
 
     void Viewer::swapBuffersCallback(osg::GraphicsContext* gc)
     {
-        mRenderingReady = false;
-
         VR::Session::instance().frameEnd(gc, mDrawFrame);
     }
 
@@ -538,11 +541,5 @@ namespace VR
     void Viewer::UpdateViewCallback::updateView(Misc::View& left, Misc::View& right)
     {
         mViewer->updateView(left, right);
-    }
-
-    void Viewer::FinaldrawCallback::operator()(osg::RenderInfo& info, Misc::StereoView::StereoDrawCallback::View view) const
-    {
-        if (view != Misc::StereoView::StereoDrawCallback::View::Left)
-            mViewer->finalDrawCallback(info);
     }
 }

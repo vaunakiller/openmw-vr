@@ -6,6 +6,7 @@
 #include <osg/ViewportIndexed>
 
 #include <osgUtil/CullVisitor>
+#include <osgUtil/RenderStage>
 
 #include <osgViewer/Renderer>
 #include <osgViewer/Viewer>
@@ -23,6 +24,7 @@
 
 namespace Misc
 {
+
     Pose Pose::operator+(const Pose& rhs)
     {
         Pose pose = *this;
@@ -281,7 +283,7 @@ namespace Misc
         mStereoRoot->addCullCallback(new StereoStatesetUpdateCallback(this));
 
         if (sInstance)
-            throw std::logic_error("Double instance og StereoView");
+            throw std::logic_error("Double instance of StereoView");
         sInstance = this;
 
         auto* ds = osg::DisplaySettings::instance().get();
@@ -378,19 +380,6 @@ namespace Misc
         // Inject self as the root of the scene graph
         mStereoGeometryShaderRoot->addChild(mRoot);
         mViewer->setSceneData(mStereoRoot);
-    }
-
-    static void removeSlave(osgViewer::Viewer* viewer, osg::Camera* camera)
-    {
-        for (unsigned int i = 0; i < viewer->getNumSlaves(); i++)
-        {
-            auto& slave = viewer->getSlave(i);
-            if (slave._camera == camera)
-            {
-                viewer->removeSlave(i);
-                return;
-            }
-        }
     }
 
     void StereoView::removeBruteForceTechnique()
@@ -712,48 +701,5 @@ namespace Misc
     osg::Matrixd StereoView::computeRightEyeView(const osg::Matrixd& view) const
     {
         return mRightCamera->getViewMatrix();
-    }
-    void StereoView::StereoDrawCallback::operator()(osg::RenderInfo& info) const
-    {
-        // OSG does not give any information about stereo in these callbacks so i have to infer this myself.
-        // And hopefully OSG won't change this behaviour.
-
-        View view = View::Both;
-
-        auto camera = info.getCurrentCamera();
-        auto viewport = camera->getViewport();
-
-        // Find the current scene view. 
-        osg::GraphicsOperation* graphicsOperation = info.getCurrentCamera()->getRenderer();
-        osgViewer::Renderer* renderer = dynamic_cast<osgViewer::Renderer*>(graphicsOperation);
-        for (int i = 0; i < 2; i++) // OSG alternates between two sceneviews.
-        {
-            auto* sceneView = renderer->getSceneView(i);
-            // The render info argument is a member of scene view, allowing me to identify it.
-            if (&sceneView->getRenderInfo() == &info)
-            {
-                // Now i can simply examine the viewport.
-                auto activeViewport = static_cast<osg::Viewport*>(sceneView->getLocalStateSet()->getAttribute(osg::StateAttribute::Type::VIEWPORT, 0));
-                if (activeViewport)
-                {
-                    if (activeViewport->width() == viewport->width() && activeViewport->height() == viewport->height())
-                        view = View::Both;
-                    else if (activeViewport->x() == viewport->x() && activeViewport->y() == viewport->y())
-                        view = View::Left;
-                    else
-                        view = View::Right;
-                }
-                else
-                {
-                    // OSG always sets a viewport in the local stateset if osg's stereo is enabled.
-                    // If it isn't, assume both.
-                    view = View::Both;
-                }
-
-                break;
-            }
-        }
-
-        operator()(info, view);
     }
 }

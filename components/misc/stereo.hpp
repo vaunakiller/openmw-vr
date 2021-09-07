@@ -89,29 +89,6 @@ namespace Misc
             GeometryShader_IndexedViewports, //!< Frustum camera culls and draws stereo into indexed viewports using an automatically generated geometry shader.
         };
 
-        //! A draw callback that adds stereo information to the operator.
-        //! The stereo information is an enum describing which of the views the callback concerns.
-        //! With some stereo methods, there is only one callback, in which case the enum will be 'Both'.
-        //! 
-        //! A typical use case of this callback is to prevent firing callbacks twice and correctly identifying the last/first callback.
-        struct StereoDrawCallback : public osg::Camera::DrawCallback
-        {
-        public:
-            enum class View
-            {
-                Both, Left, Right
-            };
-        public:
-            StereoDrawCallback()
-            {}
-
-            void operator()(osg::RenderInfo& info) const override;
-
-            virtual void operator()(osg::RenderInfo& info, View view) const = 0;
-
-        private:
-        };
-
         static StereoView& instance();
 
         //! Adds two cameras in stereo to the mainCamera.

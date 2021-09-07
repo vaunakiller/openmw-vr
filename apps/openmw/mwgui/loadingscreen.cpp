@@ -133,7 +133,7 @@ namespace MWGui
             return mTargetFrameRate;
     }
 
-    class CopyFramebufferToTextureCallback : public osg::Camera::DrawCallback
+    class CopyFramebufferToTextureCallback : public Misc::CallbackManager::DrawCallback
     {
     public:
         CopyFramebufferToTextureCallback(osg::Texture2D* texture)
@@ -142,8 +142,11 @@ namespace MWGui
         {
         }
 
-        void operator () (osg::RenderInfo& renderInfo) const override
+        void run(osg::RenderInfo& renderInfo, Misc::CallbackManager::View view) const override
         {
+            if (view == Misc::CallbackManager::View::Right)
+                return;
+
             int w = renderInfo.getCurrentCamera()->getViewport()->width();
             int h = renderInfo.getCurrentCamera()->getViewport()->height();
             mTexture->copyTexImage2D(*renderInfo.getState(), 0, 0, w, h);
@@ -329,7 +332,7 @@ namespace MWGui
 
         if (!mCopyFramebufferToTextureCallback)
         {
-            mCopyFramebufferToTextureCallback = new CopyFramebufferToTextureCallback(mTexture);
+            mCopyFramebufferToTextureCallback = std::make_shared<CopyFramebufferToTextureCallback>(mTexture);
         }
 
         Misc::CallbackManager::instance().addCallbackOneshot(Misc::CallbackManager::DrawStage::Initial, mCopyFramebufferToTextureCallback);

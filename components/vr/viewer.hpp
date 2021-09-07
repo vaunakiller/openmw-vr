@@ -9,9 +9,11 @@
 #include <osg/Group>
 #include <osg/Camera>
 #include <osgViewer/Viewer>
+#include <osg/RenderInfo>
 
 #include <components/sceneutil/positionattitudetransform.hpp>
 #include <components/misc/stereo.hpp>
+#include <components/misc/callbackmanager.hpp>
 #include <components/vr/constants.hpp>
 #include <components/vr/frame.hpp>
 #include <components/vr/layer.hpp>
@@ -49,56 +51,56 @@ namespace VR
             Viewer* mViewer;
         };
 
-        class PredrawCallback : public osg::Camera::DrawCallback
+        class PredrawCallback : public Misc::CallbackManager::DrawCallback
         {
         public:
             PredrawCallback(Viewer* viewer)
                 : mViewer(viewer)
             {}
 
-            void operator()(osg::RenderInfo& info) const override { mViewer->preDrawCallback(info); };
+            void run(osg::RenderInfo& info, Misc::CallbackManager::View view) const override { mViewer->preDrawCallback(info, view); };
 
         private:
 
             Viewer* mViewer;
         };
 
-        class PostdrawCallback : public osg::Camera::DrawCallback
+        class PostdrawCallback : public Misc::CallbackManager::DrawCallback
         {
         public:
             PostdrawCallback(Viewer* viewer)
                 : mViewer(viewer)
             {}
 
-            void operator()(osg::RenderInfo& info) const override { mViewer->postDrawCallback(info); };
+            void run(osg::RenderInfo& info, Misc::CallbackManager::View view) const override { mViewer->postDrawCallback(info, view); };
 
         private:
 
             Viewer* mViewer;
         };
 
-        class InitialDrawCallback : public osg::Camera::DrawCallback
+        class InitialDrawCallback : public Misc::CallbackManager::DrawCallback
         {
         public:
             InitialDrawCallback(Viewer* viewer)
                 : mViewer(viewer)
             {}
 
-            void operator()(osg::RenderInfo& info) const override { mViewer->initialDrawCallback(info); };
+            void run(osg::RenderInfo& info, Misc::CallbackManager::View view) const override { mViewer->initialDrawCallback(info, view); };
 
         private:
 
             Viewer* mViewer;
         };
 
-        class FinaldrawCallback : public Misc::StereoView::StereoDrawCallback
+        class FinaldrawCallback : public Misc::CallbackManager::DrawCallback
         {
         public:
             FinaldrawCallback(Viewer* viewer)
                 : mViewer(viewer)
             {}
 
-            void operator()(osg::RenderInfo& info, Misc::StereoView::StereoDrawCallback::View view) const override;
+            void run(osg::RenderInfo& info, Misc::CallbackManager::View view) const override { mViewer->finalDrawCallback(info, view); };
 
         private:
 
@@ -120,10 +122,10 @@ namespace VR
         ~Viewer(void);
 
         void swapBuffersCallback(osg::GraphicsContext* gc);
-        void initialDrawCallback(osg::RenderInfo& info);
-        void preDrawCallback(osg::RenderInfo& info);
-        void postDrawCallback(osg::RenderInfo& info);
-        void finalDrawCallback(osg::RenderInfo& info);
+        void initialDrawCallback(osg::RenderInfo& info, Misc::CallbackManager::View view);
+        void preDrawCallback(osg::RenderInfo& info, Misc::CallbackManager::View view);
+        void postDrawCallback(osg::RenderInfo& info, Misc::CallbackManager::View view);
+        void finalDrawCallback(osg::RenderInfo& info, Misc::CallbackManager::View view);
         void blit(osg::RenderInfo& gc);
         void configureCallbacks();
         void setupMirrorTexture();
@@ -147,11 +149,11 @@ namespace VR
 
         std::unique_ptr<VR::Session> mSession;
         osg::ref_ptr<osgViewer::Viewer> mViewer;
-        osg::ref_ptr<PredrawCallback> mPreDraw{ nullptr };
-        osg::ref_ptr<PostdrawCallback> mPostDraw{ nullptr };
-        osg::ref_ptr<FinaldrawCallback> mFinalDraw{ nullptr };
+        std::shared_ptr<InitialDrawCallback> mInitialDraw{ nullptr };
+        std::shared_ptr<PredrawCallback> mPreDraw{ nullptr };
+        std::shared_ptr<PostdrawCallback> mPostDraw{ nullptr };
+        std::shared_ptr<FinaldrawCallback> mFinalDraw{ nullptr };
         std::shared_ptr<UpdateViewCallback> mUpdateViewCallback{ nullptr };
-        bool mRenderingReady{ false };
 
         osg::ref_ptr<osg::FrameBufferObject> mMirrorFramebuffer;
         std::vector<VR::Side> mMirrorTextureViews;
