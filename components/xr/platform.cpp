@@ -483,16 +483,16 @@ namespace XR
             else
                 Debugging::setName(swapchain, "OpenMW XR Depth Swapchain " + name);
 
+#ifdef _WIN32
             if (Extensions::instance().extensionEnabled(XR_KHR_D3D11_ENABLE_EXTENSION_NAME))
             {
-#ifdef _WIN32
                 auto images = enumerateSwapchainImagesDirectX(swapchain);
                 return new VR::DirectXSwapchain(std::make_shared<Swapchain>(swapchain, images, width, height, samples, format), mDxInterop);
-#else
                 throw std::logic_error("Not implemented");
-#endif
             }
-            else if (Extensions::instance().extensionEnabled(XR_KHR_OPENGL_ENABLE_EXTENSION_NAME))
+            else
+#endif
+            if (Extensions::instance().extensionEnabled(XR_KHR_OPENGL_ENABLE_EXTENSION_NAME))
             {
                 auto images = enumerateSwapchainImagesOpenGL(swapchain);
                 return new Swapchain(swapchain, images, width, height, samples, format);
