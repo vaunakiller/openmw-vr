@@ -220,8 +220,8 @@ namespace OMW
 
 #ifdef USE_OPENXR
             MWVR::Environment mXrEnvironment;
-            std::unique_ptr<VR::TrackingManager> mVrTrackingManager = nullptr;
-            std::unique_ptr<XR::Instance> mXrInstance = nullptr;
+            std::unique_ptr<VR::TrackingManager> mVrTrackingManager;
+            std::unique_ptr<XR::Instance> mXrInstance;
 #endif
     };
 }

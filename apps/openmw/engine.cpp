@@ -437,6 +437,8 @@ OMW::Engine::Engine(Files::ConfigurationManager& configurationManager)
   , mScriptBlacklistUse (true)
   , mNewGame (false)
   , mCfgMgr(configurationManager)
+  , mVrTrackingManager(nullptr)
+  , mXrInstance(nullptr)
 {
     SDL_SetHint(SDL_HINT_ACCELEROMETER_AS_JOYSTICK, "0"); // We use only gamepads
 
