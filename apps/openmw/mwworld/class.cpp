@@ -25,19 +25,18 @@ namespace MWWorld
 {
     std::map<std::string, std::shared_ptr<Class> > Class::sClasses;
 
-    Class::Class() {}
-
-    Class::~Class() {}
-
     void Class::insertObjectRendering (const Ptr& ptr, const std::string& mesh, MWRender::RenderingInterface& renderingInterface) const
     {
 
     }
 
-    void Class::insertObject(const Ptr& ptr, const std::string& mesh, MWPhysics::PhysicsSystem& physics) const
+    void Class::insertObject(const Ptr& ptr, const std::string& mesh, const osg::Quat& rotation, MWPhysics::PhysicsSystem& physics, bool skipAnimated) const
     {
 
     }
+
+    void Class::insertObjectPhysics(const Ptr& ptr, const std::string& mesh, const osg::Quat& rotation, MWPhysics::PhysicsSystem& physics, bool skipAnimated) const
+    {}
 
     bool Class::apply (const MWWorld::Ptr& ptr, const std::string& id,  const MWWorld::Ptr& actor) const
     {
@@ -159,7 +158,12 @@ namespace MWWorld
         return "";
     }
 
-    float Class::getSpeed (const Ptr& ptr) const
+    float Class::getMaxSpeed (const Ptr& ptr) const
+    {
+        return 0;
+    }
+    
+    float Class::getCurrentSpeed (const Ptr& ptr) const
     {
         return 0;
     }
@@ -520,6 +524,11 @@ namespace MWWorld
     void Class::setBaseAISetting(const std::string& id, MWMechanics::CreatureStats::AiSetting setting, int value) const
     {
         throw std::runtime_error ("class does not have creature stats");
+    }
+
+    void Class::modifyBaseInventory(const std::string& actorId, const std::string& itemId, int amount) const
+    {
+        throw std::runtime_error ("class does not have an inventory store");
     }
 
     float Class::getWalkSpeed(const Ptr& /*ptr*/) const

@@ -12,20 +12,20 @@
 #include "shortcutsetting.hpp"
 #include "modifiersetting.hpp"
 
-CSMPrefs::State *CSMPrefs::State::sThis = 0;
+CSMPrefs::State *CSMPrefs::State::sThis = nullptr;
 
 void CSMPrefs::State::load()
 {
     // default settings file
-    boost::filesystem::path local = mConfigurationManager.getLocalPath() / mConfigFile;
-    boost::filesystem::path global = mConfigurationManager.getGlobalPath() / mConfigFile;
+    boost::filesystem::path local = mConfigurationManager.getLocalPath() / mDefaultConfigFile;
+    boost::filesystem::path global = mConfigurationManager.getGlobalPath() / mDefaultConfigFile;
 
     if (boost::filesystem::exists (local))
         mSettings.loadDefault (local.string());
     else if (boost::filesystem::exists (global))
         mSettings.loadDefault (global.string());
     else
-        throw std::runtime_error ("No default settings file found! Make sure the file \"openmw-cs.cfg\" was properly installed.");
+        throw std::runtime_error ("No default settings file found! Make sure the file \"" + mDefaultConfigFile + "\" was properly installed.");
 
     // user settings file
     boost::filesystem::path user = mConfigurationManager.getUserConfigPath() / mConfigFile;
@@ -210,6 +210,19 @@ void CSMPrefs::State::declare()
         setTooltip("Size of the orthographic frustum, greater value will allow the camera to see more of the world.").
         setRange(10, 10000);
     declareDouble ("object-marker-alpha", "Object Marker Transparency", 0.5).setPrecision(2).setRange(0,1);
+    declareBool("scene-use-gradient", "Use Gradient Background", true);
+    declareColour ("scene-day-background-colour", "Day Background Colour", QColor (110, 120, 128, 255));
+    declareColour ("scene-day-gradient-colour", "Day Gradient  Colour", QColor (47, 51, 51, 255)).
+        setTooltip("Sets the gradient color to use in conjunction with the day background color. Ignored if "
+                   "the gradient option is disabled.");
+    declareColour ("scene-bright-background-colour", "Scene Bright Background Colour", QColor (79, 87, 92, 255));
+    declareColour ("scene-bright-gradient-colour", "Scene Bright Gradient Colour", QColor (47, 51, 51, 255)).
+        setTooltip("Sets the gradient color to use in conjunction with the bright background color. Ignored if "
+            "the gradient option is disabled.");
+    declareColour ("scene-night-background-colour", "Scene Night Background Colour", QColor (64, 77, 79, 255));
+    declareColour ("scene-night-gradient-colour", "Scene Night Gradient Colour", QColor (47, 51, 51, 255)).
+        setTooltip("Sets the gradient color to use in conjunction with the night background color. Ignored if "
+            "the gradient option is disabled.");
 
     declareCategory ("Tooltips");
     declareBool ("scene", "Show Tooltips in 3D scenes", true);
@@ -233,6 +246,15 @@ void CSMPrefs::State::declare()
     landeditOutsideCell.add (createAndLandEdit).add (dontLandEdit);
     EnumValues landeditOutsideVisibleCell;
     landeditOutsideVisibleCell.add (showAndLandEdit).add (dontLandEdit);
+
+    EnumValue SelectOnly ("Select only");
+    EnumValue SelectAdd ("Add to selection");
+    EnumValue SelectRemove ("Remove from selection");
+    EnumValue selectInvert ("Invert selection");
+    EnumValues primarySelectAction;
+    primarySelectAction.add (SelectOnly).add (SelectAdd).add (SelectRemove).add (selectInvert);
+    EnumValues secondarySelectAction;
+    secondarySelectAction.add (SelectOnly).add (SelectAdd).add (SelectRemove).add (selectInvert);
 
     declareCategory ("3D Scene Editing");
     declareInt ("distance", "Drop Distance", 50).
@@ -263,6 +285,12 @@ void CSMPrefs::State::declare()
     declareBool ("open-list-view", "Open displays list view", false).
         setTooltip ("When opening a reference from the scene view, it will open the"
         " instance list view instead of the individual instance record view.");
+    declareEnum ("primary-select-action", "Action for primary select", SelectOnly).
+        setTooltip("Selection can be chosen between select only, add to selection, remove from selection and invert selection.").
+        addValues (primarySelectAction);
+    declareEnum ("secondary-select-action", "Action for secondary select", SelectAdd).
+        setTooltip("Selection can be chosen between select only, add to selection, remove from selection and invert selection.").
+        addValues (secondarySelectAction);
 
     declareCategory ("Key Bindings");
 
@@ -393,6 +421,16 @@ void CSMPrefs::State::declare()
     declareSubcategory ("Script Editor");
     declareShortcut ("script-editor-comment", "Comment Selection", QKeySequence());
     declareShortcut ("script-editor-uncomment", "Uncomment Selection", QKeySequence());
+
+    declareCategory ("Models");
+    declareString ("baseanim", "base animations", "meshes/base_anim.nif").
+        setTooltip("3rd person base model with textkeys-data");
+    declareString ("baseanimkna", "base animations, kna", "meshes/base_animkna.nif").
+        setTooltip("3rd person beast race base model with textkeys-data");
+    declareString ("baseanimfemale", "base animations, female", "meshes/base_anim_female.nif").
+        setTooltip("3rd person female base model with textkeys-data");
+    declareString ("wolfskin", "base animations, wolf", "meshes/wolf/skin.nif").
+        setTooltip("3rd person werewolf skin");
 }
 
 void CSMPrefs::State::declareCategory (const std::string& key)
@@ -529,6 +567,24 @@ CSMPrefs::ShortcutSetting& CSMPrefs::State::declareShortcut (const std::string& 
     return *setting;
 }
 
+CSMPrefs::StringSetting& CSMPrefs::State::declareString (const std::string& key, const std::string& label, std::string default_)
+{
+    if (mCurrentCategory==mCategories.end())
+        throw std::logic_error ("no category for setting");
+
+    setDefault (key, default_);
+
+    default_ = mSettings.getString (key, mCurrentCategory->second.getKey());
+
+    CSMPrefs::StringSetting *setting =
+        new CSMPrefs::StringSetting (&mCurrentCategory->second, &mSettings, &mMutex, key, label,
+        default_);
+
+    mCurrentCategory->second.addSetting (setting);
+
+    return *setting;
+}
+
 CSMPrefs::ModifierSetting& CSMPrefs::State::declareModifier(const std::string& key, const std::string& label,
     int default_)
 {
@@ -585,7 +641,7 @@ void CSMPrefs::State::setDefault (const std::string& key, const std::string& def
 }
 
 CSMPrefs::State::State (const Files::ConfigurationManager& configurationManager)
-: mConfigFile ("openmw-cs.cfg"), mConfigurationManager (configurationManager),
+: mConfigFile ("openmw-cs.cfg"), mDefaultConfigFile("defaults-cs.bin"), mConfigurationManager (configurationManager),
   mCurrentCategory (mCategories.end())
 {
     if (sThis)
@@ -599,7 +655,7 @@ CSMPrefs::State::State (const Files::ConfigurationManager& configurationManager)
 
 CSMPrefs::State::~State()
 {
-    sThis = 0;
+    sThis = nullptr;
 }
 
 void CSMPrefs::State::save()

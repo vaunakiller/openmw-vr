@@ -1,6 +1,5 @@
 #include "actor.hpp"
 
-#include <BulletCollision/CollisionShapes/btCapsuleShape.h>
 #include <BulletCollision/CollisionShapes/btBoxShape.h>
 #include <BulletCollision/CollisionDispatch/btCollisionWorld.h>
 
@@ -12,79 +11,73 @@
 #include "../mwworld/class.hpp"
 
 #include "collisiontype.hpp"
+#include "mtphysics.hpp"
+
+#include <cmath>
 
 namespace MWPhysics
 {
 
 
-Actor::Actor(const MWWorld::Ptr& ptr, osg::ref_ptr<const Resource::BulletShape> shape, btCollisionWorld* world)
-  : mCanWaterWalk(false), mWalkingOnWater(false)
-  , mCollisionObject(nullptr), mForce(0.f, 0.f, 0.f), mOnGround(true), mOnSlope(false)
+Actor::Actor(const MWWorld::Ptr& ptr, const Resource::BulletShape* shape, PhysicsTaskScheduler* scheduler, bool canWaterWalk)
+  : mStandingOnPtr(nullptr), mCanWaterWalk(canWaterWalk), mWalkingOnWater(false)
+  , mMeshTranslation(shape->mCollisionBox.center), mOriginalHalfExtents(shape->mCollisionBox.extents)
+  , mVelocity(0,0,0), mStuckFrames(0), mLastStuckPosition{0, 0, 0}
+  , mForce(0.f, 0.f, 0.f), mOnGround(true), mOnSlope(false)
   , mInternalCollisionMode(true)
   , mExternalCollisionMode(true)
-  , mCollisionWorld(world)
+  , mTaskScheduler(scheduler)
 {
     mPtr = ptr;
-
-    mHalfExtents = shape->mCollisionBoxHalfExtents;
-    mMeshTranslation = shape->mCollisionBoxTranslate;
 
     // We can not create actor without collisions - he will fall through the ground.
     // In this case we should autogenerate collision box based on mesh shape
     // (NPCs have bodyparts and use a different approach)
-    if (!ptr.getClass().isNpc() && mHalfExtents.length2() == 0.f)
+    if (!ptr.getClass().isNpc() && mOriginalHalfExtents.length2() == 0.f)
     {
-        const Resource::BulletShape* collisionShape = shape.get();
-        if (collisionShape && collisionShape->mCollisionShape)
+        if (shape->mCollisionShape)
         {
             btTransform transform;
             transform.setIdentity();
             btVector3 min;
             btVector3 max;
 
-            collisionShape->mCollisionShape->getAabb(transform, min, max);
-            mHalfExtents.x() = (max[0] - min[0])/2.f;
-            mHalfExtents.y() = (max[1] - min[1])/2.f;
-            mHalfExtents.z() = (max[2] - min[2])/2.f;
+            shape->mCollisionShape->getAabb(transform, min, max);
+            mOriginalHalfExtents.x() = (max[0] - min[0])/2.f;
+            mOriginalHalfExtents.y() = (max[1] - min[1])/2.f;
+            mOriginalHalfExtents.z() = (max[2] - min[2])/2.f;
 
-            mMeshTranslation = osg::Vec3f(0.f, 0.f, mHalfExtents.z());
+            mMeshTranslation = osg::Vec3f(0.f, 0.f, mOriginalHalfExtents.z());
         }
 
-        if (mHalfExtents.length2() == 0.f)
+        if (mOriginalHalfExtents.length2() == 0.f)
             Log(Debug::Error) << "Error: Failed to calculate bounding box for actor \"" << ptr.getCellRef().getRefId() << "\".";
     }
 
-    // Use capsule shape only if base is square (nonuniform scaling apparently doesn't work on it)
-    if (std::abs(mHalfExtents.x()-mHalfExtents.y())<mHalfExtents.x()*0.05 && mHalfExtents.z() >= mHalfExtents.x())
-    {
-        mShape.reset(new btCapsuleShapeZ(mHalfExtents.x(), 2*mHalfExtents.z() - 2*mHalfExtents.x()));
-        mRotationallyInvariant = true;
-    }
-    else
-    {
-        mShape.reset(new btBoxShape(Misc::Convert::toBullet(mHalfExtents)));
-        mRotationallyInvariant = false;
-    }
+    mShape.reset(new btBoxShape(Misc::Convert::toBullet(mOriginalHalfExtents)));
+    mRotationallyInvariant = (mMeshTranslation.x() == 0.0 && mMeshTranslation.y() == 0.0) && std::fabs(mOriginalHalfExtents.x() - mOriginalHalfExtents.y()) < 2.2;
 
     mConvexShape = static_cast<btConvexShape*>(mShape.get());
 
-    mCollisionObject.reset(new btCollisionObject);
+    mCollisionObject = std::make_unique<btCollisionObject>();
     mCollisionObject->setCollisionFlags(btCollisionObject::CF_KINEMATIC_OBJECT);
     mCollisionObject->setActivationState(DISABLE_DEACTIVATION);
     mCollisionObject->setCollisionShape(mShape.get());
-    mCollisionObject->setUserPointer(static_cast<PtrHolder*>(this));
+    mCollisionObject->setUserPointer(this);
 
-    updateRotation();
     updateScale();
-    updatePosition();
 
+    if(!mRotationallyInvariant)
+        setRotation(mPtr.getRefData().getBaseNode()->getAttitude());
+
+    updatePosition();
     addCollisionMask(getCollisionMask());
+    updateCollisionObjectPosition();
 }
 
 Actor::~Actor()
 {
-    if (mCollisionObject.get())
-        mCollisionWorld->removeCollisionObject(mCollisionObject.get());
+    mTaskScheduler->removeCollisionObject(mCollisionObject.get());
 }
 
 void Actor::enableCollisionMode(bool collision)
@@ -103,16 +96,15 @@ void Actor::enableCollisionBody(bool collision)
 
 void Actor::addCollisionMask(int collisionMask)
 {
-    mCollisionWorld->addCollisionObject(mCollisionObject.get(), CollisionType_Actor, collisionMask);
+    mTaskScheduler->addCollisionObject(mCollisionObject.get(), CollisionType_Actor, collisionMask);
 }
 
 void Actor::updateCollisionMask()
 {
-    mCollisionWorld->removeCollisionObject(mCollisionObject.get());
-    addCollisionMask(getCollisionMask());
+    mTaskScheduler->setCollisionFilterMask(mCollisionObject.get(), getCollisionMask());
 }
 
-int Actor::getCollisionMask()
+int Actor::getCollisionMask() const
 {
     int collisionMask = CollisionType_World | CollisionType_HeightMap;
     if (mExternalCollisionMode)
@@ -120,39 +112,83 @@ int Actor::getCollisionMask()
     if (mCanWaterWalk)
         collisionMask |= CollisionType_Water;
     return collisionMask;
-    
 }
 
 void Actor::updatePosition()
 {
-    osg::Vec3f position = mPtr.getRefData().getPosition().asVec3();
+    std::scoped_lock lock(mPositionMutex);
+    const auto worldPosition = mPtr.getRefData().getPosition().asVec3();
+    mPreviousPosition = worldPosition;
+    mPosition = worldPosition;
+    mSimulationPosition = worldPosition;
+    mPositionOffset = osg::Vec3f();
+    mStandingOnPtr = nullptr;
+    mSkipCollisions = true;
+    mSkipSimulation = true;
+}
 
-    mPosition = position;
-    mPreviousPosition = position;
+void Actor::setSimulationPosition(const osg::Vec3f& position)
+{
+    if (!std::exchange(mSkipSimulation, false))
+        mSimulationPosition = position;
+}
 
-    updateCollisionObjectPosition();
+osg::Vec3f Actor::getSimulationPosition() const
+{
+    return mSimulationPosition;
+}
+
+osg::Vec3f Actor::getScaledMeshTranslation() const
+{
+    return mRotation * osg::componentMultiply(mMeshTranslation, mScale);
 }
 
 void Actor::updateCollisionObjectPosition()
 {
-    btTransform tr = mCollisionObject->getWorldTransform();
-    osg::Vec3f scaledTranslation = mRotation * osg::componentMultiply(mMeshTranslation, mScale);
-    osg::Vec3f newPosition = scaledTranslation + mPosition;
-    tr.setOrigin(Misc::Convert::toBullet(newPosition));
-    mCollisionObject->setWorldTransform(tr);
+    std::scoped_lock lock(mPositionMutex);
+    mShape->setLocalScaling(Misc::Convert::toBullet(mScale));
+    osg::Vec3f newPosition = getScaledMeshTranslation() + mPosition;
+
+    auto& trans = mCollisionObject->getWorldTransform();
+    trans.setOrigin(Misc::Convert::toBullet(newPosition));
+    trans.setRotation(Misc::Convert::toBullet(mRotation));
+    mCollisionObject->setWorldTransform(trans);
+
+    mWorldPositionChanged = false;
 }
 
 osg::Vec3f Actor::getCollisionObjectPosition() const
 {
-    return Misc::Convert::toOsg(mCollisionObject->getWorldTransform().getOrigin());
+    std::scoped_lock lock(mPositionMutex);
+    return getScaledMeshTranslation() + mPosition;
 }
 
-void Actor::setPosition(const osg::Vec3f &position)
+bool Actor::setPosition(const osg::Vec3f& position)
 {
+    std::scoped_lock lock(mPositionMutex);
+    applyOffsetChange();
+    bool hasChanged = mPosition != position || mWorldPositionChanged;
     mPreviousPosition = mPosition;
-
     mPosition = position;
-    updateCollisionObjectPosition();
+    return hasChanged;
+}
+
+void Actor::adjustPosition(const osg::Vec3f& offset, bool ignoreCollisions)
+{
+    std::scoped_lock lock(mPositionMutex);
+    mPositionOffset += offset;
+    mSkipCollisions = mSkipCollisions || ignoreCollisions;
+}
+
+void Actor::applyOffsetChange()
+{
+    if (mPositionOffset.length() == 0)
+        return;
+    mPosition += mPositionOffset;
+    mPreviousPosition += mPositionOffset;
+    mSimulationPosition += mPositionOffset;
+    mPositionOffset = osg::Vec3f();
+    mWorldPositionChanged = true;
 }
 
 osg::Vec3f Actor::getPosition() const
@@ -165,14 +201,10 @@ osg::Vec3f Actor::getPreviousPosition() const
     return mPreviousPosition;
 }
 
-void Actor::updateRotation ()
+void Actor::setRotation(osg::Quat quat)
 {
-    btTransform tr = mCollisionObject->getWorldTransform();
-    mRotation = mPtr.getRefData().getBaseNode()->getAttitude();
-    tr.setRotation(Misc::Convert::toBullet(mRotation));
-    mCollisionObject->setWorldTransform(tr);
-
-    updateCollisionObjectPosition();
+    std::scoped_lock lock(mPositionMutex);
+    mRotation = quat;
 }
 
 bool Actor::isRotationallyInvariant() const
@@ -182,33 +214,32 @@ bool Actor::isRotationallyInvariant() const
 
 void Actor::updateScale()
 {
+    std::scoped_lock lock(mPositionMutex);
     float scale = mPtr.getCellRef().getScale();
     osg::Vec3f scaleVec(scale,scale,scale);
 
     mPtr.getClass().adjustScale(mPtr, scaleVec, false);
     mScale = scaleVec;
-    mShape->setLocalScaling(Misc::Convert::toBullet(mScale));
+    mHalfExtents = osg::componentMultiply(mOriginalHalfExtents, scaleVec);
 
     scaleVec = osg::Vec3f(scale,scale,scale);
     mPtr.getClass().adjustScale(mPtr, scaleVec, true);
-    mRenderingScale = scaleVec;
-
-    updateCollisionObjectPosition();
+    mRenderingHalfExtents = osg::componentMultiply(mOriginalHalfExtents, scaleVec);
 }
 
 osg::Vec3f Actor::getHalfExtents() const
 {
-    return osg::componentMultiply(mHalfExtents, mScale);
+    return mHalfExtents;
 }
 
 osg::Vec3f Actor::getOriginalHalfExtents() const
 {
-    return mHalfExtents;
+    return mOriginalHalfExtents;
 }
 
 osg::Vec3f Actor::getRenderingHalfExtents() const
 {
-    return osg::componentMultiply(mHalfExtents, mRenderingScale);
+    return mRenderingHalfExtents;
 }
 
 void Actor::setInertialForce(const osg::Vec3f &force)
@@ -243,6 +274,33 @@ void Actor::setCanWaterWalk(bool waterWalk)
         mCanWaterWalk = waterWalk;
         updateCollisionMask();
     }
+}
+
+MWWorld::Ptr Actor::getStandingOnPtr() const
+{
+    std::scoped_lock lock(mPositionMutex);
+    return mStandingOnPtr;
+}
+
+void Actor::setStandingOnPtr(const MWWorld::Ptr& ptr)
+{
+    std::scoped_lock lock(mPositionMutex);
+    mStandingOnPtr = ptr;
+}
+
+bool Actor::skipCollisions()
+{
+    return std::exchange(mSkipCollisions, false);
+}
+
+void Actor::setVelocity(osg::Vec3f velocity)
+{
+    mVelocity = velocity;
+}
+
+osg::Vec3f Actor::velocity()
+{
+    return std::exchange(mVelocity, osg::Vec3f());
 }
 
 }

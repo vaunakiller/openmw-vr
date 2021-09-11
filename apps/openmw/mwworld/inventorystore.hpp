@@ -42,29 +42,29 @@ namespace MWWorld
     {
         public:
 
-            static const int Slot_Helmet = 0;
-            static const int Slot_Cuirass = 1;
-            static const int Slot_Greaves = 2;
-            static const int Slot_LeftPauldron = 3;
-            static const int Slot_RightPauldron = 4;
-            static const int Slot_LeftGauntlet = 5;
-            static const int Slot_RightGauntlet = 6;
-            static const int Slot_Boots = 7;
-            static const int Slot_Shirt = 8;
-            static const int Slot_Pants = 9;
-            static const int Slot_Skirt = 10;
-            static const int Slot_Robe = 11;
-            static const int Slot_LeftRing = 12;
-            static const int Slot_RightRing = 13;
-            static const int Slot_Amulet = 14;
-            static const int Slot_Belt = 15;
-            static const int Slot_CarriedRight = 16;
-            static const int Slot_CarriedLeft = 17;
-            static const int Slot_Ammunition = 18;
+            static constexpr int Slot_Helmet = 0;
+            static constexpr int Slot_Cuirass = 1;
+            static constexpr int Slot_Greaves = 2;
+            static constexpr int Slot_LeftPauldron = 3;
+            static constexpr int Slot_RightPauldron = 4;
+            static constexpr int Slot_LeftGauntlet = 5;
+            static constexpr int Slot_RightGauntlet = 6;
+            static constexpr int Slot_Boots = 7;
+            static constexpr int Slot_Shirt = 8;
+            static constexpr int Slot_Pants = 9;
+            static constexpr int Slot_Skirt = 10;
+            static constexpr int Slot_Robe = 11;
+            static constexpr int Slot_LeftRing = 12;
+            static constexpr int Slot_RightRing = 13;
+            static constexpr int Slot_Amulet = 14;
+            static constexpr int Slot_Belt = 15;
+            static constexpr int Slot_CarriedRight = 16;
+            static constexpr int Slot_CarriedLeft = 17;
+            static constexpr int Slot_Ammunition = 18;
 
-            static const int Slots = 19;
+            static constexpr int Slots = 19;
 
-            static const int Slot_NoSlot = -1;
+            static constexpr int Slot_NoSlot = -1;
 
         private:
 
@@ -110,8 +110,8 @@ namespace MWWorld
 
             void fireEquipmentChangedEvent(const Ptr& actor);
 
-            virtual void storeEquipmentState (const MWWorld::LiveCellRefBase& ref, int index, ESM::InventoryState& inventory) const;
-            virtual void readEquipmentState (const MWWorld::ContainerStoreIterator& iter, int index, const ESM::InventoryState& inventory);
+            void storeEquipmentState (const MWWorld::LiveCellRefBase& ref, int index, ESM::InventoryState& inventory) const override;
+            void readEquipmentState (const MWWorld::ContainerStoreIterator& iter, int index, const ESM::InventoryState& inventory) override;
 
             ContainerStoreIterator findSlot (int slot) const;
 
@@ -123,9 +123,9 @@ namespace MWWorld
 
             InventoryStore& operator= (const InventoryStore& store);
 
-            virtual InventoryStore* clone() { return new InventoryStore(*this); }
+            std::unique_ptr<ContainerStore> clone() override { return std::make_unique<InventoryStore>(*this); }
 
-            virtual ContainerStoreIterator add (const Ptr& itemPtr, int count, const Ptr& actorPtr, bool allowAutoEquip = true);
+            ContainerStoreIterator add (const Ptr& itemPtr, int count, const Ptr& actorPtr, bool allowAutoEquip = true, bool resolve = true) override;
             ///< Add the item pointed to by \a ptr to this container. (Stacks automatically if needed)
             /// Auto-equip items if specific conditions are fulfilled and allowAutoEquip is true (see the implementation).
             ///
@@ -153,6 +153,8 @@ namespace MWWorld
             ContainerStoreIterator getSlot (int slot);
             ConstContainerStoreIterator getSlot(int slot) const;
 
+            ContainerStoreIterator getPreferredShield(const MWWorld::Ptr& actor);
+
             void unequipAll(const MWWorld::Ptr& actor);
             ///< Unequip all currently equipped items.
 
@@ -162,19 +164,16 @@ namespace MWWorld
             const MWMechanics::MagicEffects& getMagicEffects() const;
             ///< Return magic effects from worn items.
 
-            virtual bool stacks (const ConstPtr& ptr1, const ConstPtr& ptr2) const;
+            bool stacks (const ConstPtr& ptr1, const ConstPtr& ptr2) const override;
             ///< @return true if the two specified objects can stack with each other
 
-            virtual int remove(const std::string& itemId, int count, const Ptr& actor);
-            virtual int remove(const std::string& itemId, int count, const Ptr& actor, bool equipReplacement);
-
-            virtual int remove(const Ptr& item, int count, const Ptr& actor);
-            virtual int remove(const Ptr& item, int count, const Ptr& actor, bool equipReplacement);
+            using ContainerStore::remove;
+            int remove(const Ptr& item, int count, const Ptr& actor, bool equipReplacement = 0, bool resolve = true) override;
             ///< Remove \a count item(s) designated by \a item from this inventory.
             ///
             /// @return the number of items actually removed
 
-            ContainerStoreIterator unequipSlot(int slot, const Ptr& actor, bool fireEvent=true);
+            ContainerStoreIterator unequipSlot(int slot, const Ptr& actor, bool applyUpdates = true);
             ///< Unequip \a slot.
             ///
             /// @return an iterator to the item that was previously in the slot
@@ -206,15 +205,15 @@ namespace MWWorld
             void purgeEffect (short effectId, bool wholeSpell = false);
             ///< Remove a magic effect
 
-            void purgeEffect (short effectId, const std::string& sourceId, bool wholeSpell = false);
+            void purgeEffect (short effectId, const std::string& sourceId, bool wholeSpell = false, int effectIndex=-1);
             ///< Remove a magic effect
 
-            virtual void clear();
+            void clear() override;
             ///< Empty container.
 
-            virtual void writeState (ESM::InventoryState& state) const;
+            void writeState (ESM::InventoryState& state) const override;
 
-            virtual void readState (const ESM::InventoryState& state);
+            void readState (const ESM::InventoryState& state) override;
     };
 }
 

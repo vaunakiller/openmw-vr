@@ -42,6 +42,18 @@ Increasing this value may decrease performance.
     This condition is always true: ``max tiles number * max polygons per tile <= 4194304``.
     It's a limitation of `Recastnavigation <https://github.com/recastnavigation/recastnavigation>`_ library.
 
+wait until min distance to player
+------------------------------
+
+:Type:		integer
+:Range:		>= 0
+:Default:	5
+
+Distance in navmesh tiles around the player to keep loading screen until navigation mesh is generated.
+Allows to complete cell loading only when minimal navigation mesh area is generated to correctly find path for actors
+nearby the player. Increasing this value will keep loading screen longer but will slightly increase nav mesh generation
+speed on systems bound by CPU. Zero means no waiting.
+
 Advanced settings
 *****************
 
@@ -231,15 +243,6 @@ max smooth path size
 
 Maximum size of smoothed path.
 
-triangles per chunk
--------------------
-
-:Type:		integer
-:Range:		> 0
-:Default:	256
-
-Maximum number of triangles in each node of mesh AABB tree.
-
 Expert Recastnavigation related settings
 ****************************************
 
@@ -305,7 +308,7 @@ tile size
 
 :Type:		integer
 :Range:		> 0
-:Default:	64
+:Default:	128
 
 The width and height of each tile.
 

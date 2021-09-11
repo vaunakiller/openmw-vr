@@ -54,6 +54,11 @@ struct Position
     {
         return osg::Vec3f(pos[0], pos[1], pos[2]);
     }
+
+    osg::Vec3f asRotationVec3() const
+    {
+        return osg::Vec3f(rot[0], rot[1], rot[2]);
+    }
 };
 #pragma pack(pop)
 
@@ -80,7 +85,7 @@ bool inline operator!= (const Position& left, const Position& right) noexcept
 template <int a, int b, int c, int d>
 struct FourCC
 {
-    static const unsigned int value = (((((d << 8) | c) << 8) | b) << 8) | a;
+    static constexpr unsigned int value = (((((d << 8) | c) << 8) | b) << 8) | a;
 };
 
 enum RecNameInts
@@ -159,7 +164,10 @@ enum RecNameInts
 
     // format 1
     REC_FILT = FourCC<'F','I','L','T'>::value,
-    REC_DBGP = FourCC<'D','B','G','P'>::value ///< only used in project files
+    REC_DBGP = FourCC<'D','B','G','P'>::value, ///< only used in project files
+
+    // format 16 - Lua scripts in saved games
+    REC_LUAM = FourCC<'L','U','A','M'>::value,  // LuaManager data
 };
 
 /// Common subrecords

@@ -11,7 +11,6 @@
 #include <components/resource/resourcesystem.hpp>
 #include <components/resource/scenemanager.hpp>
 
-#include <components/sceneutil/attach.hpp>
 #include <components/sceneutil/lightmanager.hpp>
 #include <components/sceneutil/lightutil.hpp>
 #include <components/sceneutil/visitor.hpp>
@@ -68,16 +67,13 @@ ActorAnimation::~ActorAnimation()
 
 PartHolderPtr ActorAnimation::attachMesh(const std::string& model, const std::string& bonename, bool enchantedGlow, osg::Vec4f* glowColor)
 {
-    osg::Group* parent = getBoneByName(bonename);
-    if (!parent)
-        return nullptr;
-
-    osg::ref_ptr<osg::Node> instance = mResourceSystem->getSceneManager()->getInstance(model, parent);
-
     const NodeMap& nodeMap = getNodeMap();
     NodeMap::const_iterator found = nodeMap.find(Misc::StringUtils::lowerCase(bonename));
     if (found == nodeMap.end())
         return PartHolderPtr();
+
+    osg::Group* parent = found->second;
+    osg::ref_ptr<osg::Node> instance = mResourceSystem->getSceneManager()->getInstance(model, parent);
 
     if (enchantedGlow)
         mGlowUpdater = SceneUtil::addEnchantedGlow(instance, mResourceSystem, *glowColor);
@@ -85,7 +81,7 @@ PartHolderPtr ActorAnimation::attachMesh(const std::string& model, const std::st
     return PartHolderPtr(new PartHolder(instance));
 }
 
-std::string ActorAnimation::getShieldMesh(MWWorld::ConstPtr shield) const
+std::string ActorAnimation::getShieldMesh(const MWWorld::ConstPtr& shield) const
 {
     std::string mesh = shield.getClass().getModel(shield);
     const ESM::Armor *armor = shield.get<ESM::Armor>()->mBase;
@@ -137,9 +133,9 @@ bool ActorAnimation::updateCarriedLeftVisible(const int weaptype) const
         MWMechanics::CreatureStats &stats = cls.getCreatureStats(mPtr);
         if (cls.hasInventoryStore(mPtr) && weaptype != ESM::Weapon::Spell)
         {
-            SceneUtil::FindByNameVisitor findVisitor ("Bip01 AttachShield");
-            mObjectRoot->accept(findVisitor);
-            if (findVisitor.mFoundNode || (mPtr == MWMechanics::getPlayer() && mPtr.isInCell() && MWBase::Environment::get().getWorld()->isFirstPerson()))
+            osg::Group* foundNode = getBoneByName ("Bip01 AttachShield");
+
+            if (foundNode || (mPtr == MWMechanics::getPlayer() && mPtr.isInCell() && MWBase::Environment::get().getWorld()->isFirstPerson()))
             {
                 const MWWorld::InventoryStore& inv = cls.getInventoryStore(mPtr);
                 const MWWorld::ConstContainerStoreIterator weapon = inv.getSlot(MWWorld::InventoryStore::Slot_CarriedRight);
@@ -272,15 +268,16 @@ bool ActorAnimation::useShieldAnimations() const
     return false;
 }
 
-osg::Group* ActorAnimation::getBoneByName(const std::string& boneName)
+osg::Group* ActorAnimation::getBoneByName(const std::string& boneName) const
 {
     if (!mObjectRoot)
         return nullptr;
 
-    SceneUtil::FindByNameVisitor findVisitor (boneName);
-    mObjectRoot->accept(findVisitor);
-
-    return findVisitor.mFoundNode;
+    const NodeMap& nodeMap = getNodeMap();
+    NodeMap::const_iterator found = nodeMap.find(Misc::StringUtils::lowerCase(boneName));
+    if (found == nodeMap.end())
+        return nullptr;
+    return found->second;
 }
 
 std::string ActorAnimation::getHolsteredWeaponBoneName(const MWWorld::ConstPtr& weapon)
@@ -358,6 +355,8 @@ void ActorAnimation::updateHolsteredWeapon(bool showHolsteredWeapons)
     }
 
     mScabbard = attachMesh(scabbardName, boneName);
+    if (mScabbard)
+        resetControllers(mScabbard->getNode());
 
     osg::Group* weaponNode = getBoneByName("Bip01 Weapon");
     if (!weaponNode)

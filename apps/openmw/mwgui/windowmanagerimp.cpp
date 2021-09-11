@@ -1,5 +1,6 @@
 #include "windowmanagerimp.hpp"
 
+#include <algorithm>
 #include <cassert>
 #include <chrono>
 #include <thread>
@@ -8,7 +9,6 @@
 
 #include <MyGUI_UString.h>
 #include <MyGUI_IPointer.h>
-#include <MyGUI_TextureUtility.h>
 #include <MyGUI_FactoryManager.h>
 #include <MyGUI_LanguageManager.h>
 #include <MyGUI_PointerManager.h>
@@ -35,6 +35,7 @@
 
 #include <components/resource/resourcesystem.hpp>
 #include <components/resource/imagemanager.hpp>
+#include <components/resource/scenemanager.hpp>
 
 #include <components/sceneutil/workqueue.hpp>
 
@@ -50,6 +51,7 @@
 #include <components/widgets/tags.hpp>
 
 #include <components/misc/resourcehelpers.hpp>
+#include <components/misc/frameratelimiter.hpp>
 
 #include "../mwbase/inputmanager.hpp"
 #include "../mwbase/statemanager.hpp"
@@ -63,7 +65,6 @@
 #include "../mwworld/cellstore.hpp"
 #include "../mwworld/esmstore.hpp"
 
-#include "../mwmechanics/stat.hpp"
 #include "../mwmechanics/npcstats.hpp"
 #include "../mwmechanics/actorutil.hpp"
 
@@ -124,7 +125,7 @@ namespace MWGui
     WindowManager::WindowManager(
             SDL_Window* window, osgViewer::Viewer* viewer, osg::Group* guiRoot, Resource::ResourceSystem* resourceSystem, SceneUtil::WorkQueue* workQueue,
             const std::string& logpath, const std::string& resourcePath, bool consoleOnlyScripts, Translation::Storage& translationDataStorage,
-            ToUTF8::FromType encoding, bool exportFonts, const std::string& versionDescription, const std::string& userDataPath)
+            ToUTF8::FromType encoding, bool exportFonts, const std::string& versionDescription, const std::string& userDataPath, bool useShaders)
       : mOldUpdateMask(0)
       , mOldCullMask(0)
       , mStore(nullptr)
@@ -171,7 +172,7 @@ namespace MWGui
       , mWerewolfOverlayEnabled(Settings::Manager::getBool ("werewolf overlay", "GUI"))
       , mHudEnabled(true)
       , mCursorVisible(true)
-      , mCursorActive(false)
+      , mCursorActive(true)
       , mPlayerBounty(-1)
       , mGui(nullptr)
       , mGuiModes()
@@ -186,9 +187,9 @@ namespace MWGui
       , mVersionDescription(versionDescription)
       , mWindowVisible(true)
     {
-        float uiScale = Settings::Manager::getFloat("scaling factor", "GUI");
-        mGuiPlatform = new osgMyGUI::Platform(viewer, guiRoot, resourceSystem->getImageManager(), uiScale);
-        mGuiPlatform->initialise(resourcePath, logpath);
+        mScalingFactor = std::clamp(Settings::Manager::getFloat("scaling factor", "GUI"), 0.5f, 8.f);
+        mGuiPlatform = new osgMyGUI::Platform(viewer, guiRoot, resourceSystem->getImageManager(), mScalingFactor);
+        mGuiPlatform->initialise(resourcePath, (boost::filesystem::path(logpath) / "MyGUI.log").generic_string());
 
         mGui = new MyGUI::Gui;
         mGui->initialise("");
@@ -198,7 +199,7 @@ namespace MWGui
         MyGUI::LanguageManager::getInstance().eventRequestTag = MyGUI::newDelegate(this, &WindowManager::onRetrieveTag);
 
         // Load fonts
-        mFontLoader.reset(new Gui::FontLoader(encoding, resourceSystem->getVFS(), userDataPath));
+        mFontLoader.reset(new Gui::FontLoader(encoding, resourceSystem->getVFS(), userDataPath, mScalingFactor));
         mFontLoader->loadBitmapFonts(exportFonts);
 
         //Register own widgets with MyGUI
@@ -274,6 +275,9 @@ namespace MWGui
         mVideoWrapper = new SDLUtil::VideoWrapper(window, viewer);
         mVideoWrapper->setGammaContrast(Settings::Manager::getFloat("gamma", "Video"),
                                         Settings::Manager::getFloat("contrast", "Video"));
+
+        if (useShaders)
+            mGuiPlatform->getRenderManagerPtr()->enableShaders(mResourceSystem->getSceneManager()->getShaderManager());
 
         mStatsWatcher.reset(new StatsWatcher());
     }
@@ -494,6 +498,8 @@ namespace MWGui
         }
         else
             allow(GW_ALL);
+
+        mStatsWatcher->forceUpdate();
     }
 
     WindowManager::~WindowManager()
@@ -501,8 +507,6 @@ namespace MWGui
         try
         {
             mStatsWatcher.reset();
-
-            mKeyboardNavigation.reset();
 
             MyGUI::LanguageManager::getInstance().eventRequestTag.clear();
             MyGUI::PointerManager::getInstance().eventChangeMousePointer.clear();
@@ -521,6 +525,8 @@ namespace MWGui
             delete mSoulgemDialog;
             delete mCursorManager;
             delete mToolTips;
+
+            mKeyboardNavigation.reset();
 
             cleanupGarbage();
 
@@ -710,12 +716,11 @@ namespace MWGui
 
         if (block)
         {
-            osg::Timer frameTimer;
+            Misc::FrameRateLimiter frameRateLimiter = Misc::makeFrameRateLimiter(MWBase::Environment::get().getFrameRateLimit());
             while (mMessageBoxManager->readPressedButton(false) == -1
                    && !MWBase::Environment::get().getStateManager()->hasQuitRequest())
             {
-                double dt = frameTimer.time_s();
-                frameTimer.setStartTick();
+                const double dt = std::chrono::duration_cast<std::chrono::duration<double>>(frameRateLimiter.getLastFrameDuration()).count();
 
                 mKeyboardNavigation->onFrame();
                 mMessageBoxManager->onFrame(dt);
@@ -734,7 +739,7 @@ namespace MWGui
                 // refer to the advance() and frame() order in Engine::go()
                 mViewer->advance(mViewer->getFrameStamp()->getSimulationTime());
 
-                MWBase::Environment::get().limitFrameRate(frameTimer.time_s());
+                frameRateLimiter.limit();
             }
         }
     }
@@ -746,6 +751,11 @@ namespace MWGui
         } else if (showInDialogueMode != MWGui::ShowInDialogueMode_Only) {
             mMessageBoxManager->createMessageBox(message);
         }
+    }
+
+    void WindowManager::scheduleMessageBox(std::string message, enum MWGui::ShowInDialogueMode showInDialogueMode)
+    {
+        mScheduledMessageBoxes.lock()->emplace_back(std::move(message), showInDialogueMode);
     }
 
     void WindowManager::staticMessageBox(const std::string& message)
@@ -802,6 +812,8 @@ namespace MWGui
 
     void WindowManager::update (float frameDuration)
     {
+        handleScheduledMessageBoxes();
+
         bool gameRunning = MWBase::Environment::get().getStateManager()->getState()!=
             MWBase::StateManager::State_NoGame;
 
@@ -1014,8 +1026,9 @@ namespace MWGui
         if(tag.compare(0, MyGuiPrefixLength, MyGuiPrefix) == 0)
         {
             tag = tag.substr(MyGuiPrefixLength, tag.length());
-            std::string settingSection = tag.substr(0, tag.find(","));
-            std::string settingTag = tag.substr(tag.find(",")+1, tag.length());
+            size_t comma_pos = tag.find(',');
+            std::string settingSection = tag.substr(0, comma_pos);
+            std::string settingTag = tag.substr(comma_pos+1, tag.length());
             
             _result = Settings::Manager::getString(settingTag, settingSection);            
         }
@@ -1324,6 +1337,11 @@ namespace MWGui
         return mHud->getWorldMouseOver();
     }
 
+    float WindowManager::getScalingFactor() const
+    {
+        return mScalingFactor;
+    }
+
     void WindowManager::executeInConsole (const std::string& path)
     {
         mConsole->executeFile (path);
@@ -1485,6 +1503,7 @@ namespace MWGui
     {
         mHudEnabled = !mHudEnabled;
         updateVisible();
+        mMessageBoxManager->setVisible(mHudEnabled);
         return mHudEnabled;
     }
 
@@ -1750,11 +1769,10 @@ namespace MWGui
                 ~MWSound::Type::Movie & MWSound::Type::Mask
             );
 
-        osg::Timer frameTimer;
+        Misc::FrameRateLimiter frameRateLimiter = Misc::makeFrameRateLimiter(MWBase::Environment::get().getFrameRateLimit());
         while (mVideoWidget->update() && !MWBase::Environment::get().getStateManager()->hasQuitRequest())
         {
-            double dt = frameTimer.time_s();
-            frameTimer.setStartTick();
+            const double dt = std::chrono::duration_cast<std::chrono::duration<double>>(frameRateLimiter.getLastFrameDuration()).count();
 
             MWBase::Environment::get().getInputManager()->update(dt, true, false);
 
@@ -1777,7 +1795,7 @@ namespace MWGui
             // refer to the advance() and frame() order in Engine::go()
             mViewer->advance(mViewer->getFrameStamp()->getSimulationTime());
 
-            MWBase::Environment::get().limitFrameRate(frameTimer.time_s());
+            frameRateLimiter.limit();
         }
         mVideoWidget->stop();
 
@@ -1957,7 +1975,7 @@ namespace MWGui
     {
         if (_type != "Text")
             return;
-        char* text=0;
+        char* text=nullptr;
         text = SDL_GetClipboardText();
         if (text)
             _data = MyGUI::TextIterator::toTagsString(text);
@@ -2192,5 +2210,24 @@ namespace MWGui
     MWWorld::Ptr WindowManager::getWatchedActor() const
     {
         return mStatsWatcher->getWatchedActor();
+    }
+
+    const std::string& WindowManager::getVersionDescription() const
+    {
+        return mVersionDescription;
+    }
+
+    void WindowManager::handleScheduledMessageBoxes()
+    {
+        const auto scheduledMessageBoxes = mScheduledMessageBoxes.lock();
+        for (const ScheduledMessageBox& v : *scheduledMessageBoxes)
+            messageBox(v.mMessage, v.mShowInDialogueMode);
+        scheduledMessageBoxes->clear();
+    }
+
+    void WindowManager::onDeleteCustomData(const MWWorld::Ptr& ptr)
+    {
+        for(auto* window : mWindows)
+            window->onDeleteCustomData(ptr);
     }
 }

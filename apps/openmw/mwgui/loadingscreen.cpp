@@ -1,10 +1,12 @@
 #include "loadingscreen.hpp"
 
 #include <array>
+#include <condition_variable>
 
 #include <osgViewer/Viewer>
 
 #include <osg/Texture2D>
+#include <osg/Version>
 
 #include <MyGUI_RenderManager.h>
 #include <MyGUI_ScrollBar.h>
@@ -22,8 +24,6 @@
 #include "../mwbase/statemanager.hpp"
 #include "../mwbase/windowmanager.hpp"
 #include "../mwbase/inputmanager.hpp"
-
-#include "../mwrender/vismask.hpp"
 
 #include "backgroundimage.hpp"
 
@@ -100,7 +100,7 @@ namespace MWGui
             Log(Debug::Warning) << "Warning: no splash screens found!";
     }
 
-    void LoadingScreen::setLabel(const std::string &label, bool important, bool center)
+    void LoadingScreen::setLabel(const std::string &label, bool important)
     {
         mImportantLabel = important;
 
@@ -110,7 +110,7 @@ namespace MWGui
         size.width = std::max(300, size.width);
         mLoadingBox->setSize(size);
 
-        if (center)
+        if (MWBase::Environment::get().getWindowManager()->getMessagesCount() > 0)
             mLoadingBox->setPosition(mMainWidget->getWidth()/2 - mLoadingBox->getWidth()/2, mMainWidget->getHeight()/2 - mLoadingBox->getHeight()/2);
         else
             mLoadingBox->setPosition(mMainWidget->getWidth()/2 - mLoadingBox->getWidth()/2, mMainWidget->getHeight() - mLoadingBox->getHeight() - 8);
@@ -136,30 +136,34 @@ namespace MWGui
     {
     public:
         CopyFramebufferToTextureCallback(osg::Texture2D* texture)
-            : mTexture(texture)
-            , oneshot(true)
+            : mOneshot(true)
+            , mTexture(texture)
         {
         }
 
-        virtual void operator () (osg::RenderInfo& renderInfo) const
+        void operator () (osg::RenderInfo& renderInfo) const override
         {
-            if (!oneshot)
-                return;
-            oneshot = false;
             int w = renderInfo.getCurrentCamera()->getViewport()->width();
             int h = renderInfo.getCurrentCamera()->getViewport()->height();
             mTexture->copyTexImage2D(*renderInfo.getState(), 0, 0, w, h);
+
+            mOneshot = false;
+        }
+
+        void reset()
+        {
+            mOneshot = true;
         }
 
     private:
+        mutable bool mOneshot;
         osg::ref_ptr<osg::Texture2D> mTexture;
-        mutable bool oneshot;
     };
 
     class DontComputeBoundCallback : public osg::Node::ComputeBoundingSphereCallback
     {
     public:
-        virtual osg::BoundingSphere computeBound(const osg::Node&) const { return osg::BoundingSphere(); }
+        osg::BoundingSphere computeBound(const osg::Node&) const override { return osg::BoundingSphere(); }
     };
 
     void LoadingScreen::loadingOn(bool visible)
@@ -322,9 +326,18 @@ namespace MWGui
             mGuiTexture.reset(new osgMyGUI::OSGTexture(mTexture));
         }
 
-        // Notice that the next time this is called, the current CopyFramebufferToTextureCallback will be deleted
-        // so there's no memory leak as at most one object of type CopyFramebufferToTextureCallback is allocated at a time.
-        mViewer->getCamera()->setInitialDrawCallback(new CopyFramebufferToTextureCallback(mTexture));
+        if (!mCopyFramebufferToTextureCallback)
+        {
+            mCopyFramebufferToTextureCallback = new CopyFramebufferToTextureCallback(mTexture);
+        }
+
+#if OSG_VERSION_GREATER_OR_EQUAL(3, 5, 10)
+        mViewer->getCamera()->removeInitialDrawCallback(mCopyFramebufferToTextureCallback);
+        mViewer->getCamera()->addInitialDrawCallback(mCopyFramebufferToTextureCallback);
+#else
+        mViewer->getCamera()->setInitialDrawCallback(mCopyFramebufferToTextureCallback);
+#endif
+        mCopyFramebufferToTextureCallback->reset();
 
         mBackgroundImage->setBackgroundImage("");
         mBackgroundImage->setVisible(false);

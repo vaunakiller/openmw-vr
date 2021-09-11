@@ -2,7 +2,6 @@
 #define MWGUI_SPELLWINDOW_H
 
 #include "windowpinnablebase.hpp"
-#include "../mwworld/ptr.hpp"
 
 #include "spellmodel.hpp"
 
@@ -19,7 +18,7 @@ namespace MWGui
 
         void updateSpells();
 
-        void onFrame(float dt);
+        void onFrame(float dt) override;
 
         /// Cycle to next/previous spell
         void cycle(bool next);
@@ -37,9 +36,9 @@ namespace MWGui
         void onDeleteSpellAccept();
         void askDeleteSpell(const std::string& spellId);
 
-        virtual void onPinToggled();
-        virtual void onTitleDoubleClicked();
-        virtual void onOpen();
+        void onPinToggled() override;
+        void onTitleDoubleClicked() override;
+        void onOpen() override;
 
         SpellView* mSpellView;
         SpellIcons* mSpellIcons;

@@ -29,6 +29,7 @@
 
 #include "../mwmechanics/actorutil.hpp"
 #include "../mwmechanics/creaturestats.hpp"
+#include "../mwmechanics/npcstats.hpp"
 
 #include "itemview.hpp"
 #include "inventoryitemmodel.hpp"
@@ -67,13 +68,8 @@ namespace MWGui
         , mLastYSize(0)
         , mPreview(new MWRender::InventoryPreview(parent, resourceSystem, MWMechanics::getPlayer()))
         , mTrading(false)
-        , mScaleFactor(1.0f)
         , mUpdateTimer(0.f)
     {
-        float uiScale = Settings::Manager::getFloat("scaling factor", "GUI");
-        if (uiScale > 1.0)
-            mScaleFactor = uiScale;
-
         mPreviewTexture.reset(new osgMyGUI::OSGTexture(mPreview->getTexture()));
         mPreview->rebuild();
 
@@ -466,13 +462,10 @@ namespace MWGui
 
     void InventoryWindow::updatePreviewSize()
     {
-        MyGUI::IntSize size = mAvatarImage->getSize();
-        int width = std::min(mPreview->getTextureWidth(), size.width);
-        int height = std::min(mPreview->getTextureHeight(), size.height);
-        mPreview->setViewport(int(width*mScaleFactor), int(height*mScaleFactor));
-
+        const MyGUI::IntSize viewport = getPreviewViewportSize();
+        mPreview->setViewport(viewport.width, viewport.height);
         mAvatarImage->getSubWidgetMain()->_setUVSet(MyGUI::FloatRect(0.f, 0.f,
-                                                                     width*mScaleFactor/float(mPreview->getTextureWidth()), height*mScaleFactor/float(mPreview->getTextureHeight())));
+                                                                     viewport.width / float(mPreview->getTextureWidth()), viewport.height / float(mPreview->getTextureHeight())));
     }
 
     void InventoryWindow::onNameFilterChanged(MyGUI::EditBox* _sender)
@@ -633,14 +626,8 @@ namespace MWGui
 
     MWWorld::Ptr InventoryWindow::getAvatarSelectedItem(int x, int y)
     {
-        // convert to OpenGL lower-left origin
-        y = (mAvatarImage->getHeight()-1) - y;
-
-        // Scale coordinates
-        x = int(x*mScaleFactor);
-        y = int(y*mScaleFactor);
-
-        int slot = mPreview->getSlotSelected (x, y);
+        const osg::Vec2f viewport_coords = mapPreviewWindowToViewport(x, y);
+        int slot = mPreview->getSlotSelected(viewport_coords.x(), viewport_coords.y());
 
         if (slot == -1)
             return MWWorld::Ptr();
@@ -717,7 +704,7 @@ namespace MWGui
         if (!MWBase::Environment::get().getWindowManager()->isAllowed(GW_Inventory))
             return;
         // make sure the object is of a type that can be picked up
-        std::string type = object.getTypeName();
+        const std::string& type = object.getTypeName();
         if ( (type != typeid(ESM::Apparatus).name())
             && (type != typeid(ESM::Armor).name())
             && (type != typeid(ESM::Book).name())
@@ -744,6 +731,12 @@ namespace MWGui
         MWBase::Environment::get().getWorld()->breakInvisibility(player);
         
         if (!object.getRefData().activate())
+            return;
+
+        // Player must not be paralyzed, knocked down, or dead to pick up an item.
+        const MWMechanics::NpcStats& playerStats = player.getClass().getNpcStats(player);
+        bool godmode = MWBase::Environment::get().getWorld()->getGodModeState();
+        if ((!godmode && playerStats.isParalyzed()) || playerStats.getKnockedDown() || playerStats.isDead())
             return;
 
         MWBase::Environment::get().getMechanicsManager()->itemTaken(player, object, MWWorld::Ptr(), count);
@@ -778,7 +771,8 @@ namespace MWGui
             return;
 
         const MWMechanics::CreatureStats &stats = player.getClass().getCreatureStats(player);
-        if (stats.isParalyzed() || stats.getKnockedDown() || stats.isDead() || stats.getHitRecovery())
+        bool godmode = MWBase::Environment::get().getWorld()->getGodModeState();
+        if ((!godmode && stats.isParalyzed()) || stats.getKnockedDown() || stats.isDead() || stats.getHitRecovery())
             return;
 
         ItemModel::ModelIndex selected = -1;
@@ -833,5 +827,27 @@ namespace MWGui
     void InventoryWindow::rebuildAvatar()
     {
         mPreview->rebuild();
+    }
+
+    MyGUI::IntSize InventoryWindow::getPreviewViewportSize() const
+    {
+        const MyGUI::IntSize previewWindowSize = mAvatarImage->getSize();
+        const float scale = MWBase::Environment::get().getWindowManager()->getScalingFactor();
+
+        return MyGUI::IntSize(std::min<int>(mPreview->getTextureWidth(), previewWindowSize.width * scale),
+                              std::min<int>(mPreview->getTextureHeight(), previewWindowSize.height * scale));
+    }
+
+    osg::Vec2f InventoryWindow::mapPreviewWindowToViewport(int x, int y) const
+    {
+        const MyGUI::IntSize previewWindowSize = mAvatarImage->getSize();
+        const float normalisedX = x / std::max<float>(1.0f, previewWindowSize.width);
+        const float normalisedY = y / std::max<float>(1.0f, previewWindowSize.height);
+
+        const MyGUI::IntSize viewport = getPreviewViewportSize();
+        return osg::Vec2f(
+            normalisedX * float(viewport.width - 1),
+            (1.0 - normalisedY) * float(viewport.height - 1)
+        );
     }
 }

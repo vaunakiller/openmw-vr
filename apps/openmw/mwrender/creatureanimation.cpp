@@ -10,7 +10,7 @@
 #include <components/sceneutil/visitor.hpp>
 #include <components/sceneutil/positionattitudetransform.hpp>
 #include <components/sceneutil/skeleton.hpp>
-
+#include <components/settings/settings.hpp>
 #include <components/misc/stringops.hpp>
 
 #include "../mwbase/environment.hpp"
@@ -35,7 +35,7 @@ CreatureAnimation::CreatureAnimation(const MWWorld::Ptr &ptr,
         setObjectRoot(model, false, false, true);
 
         if((ref->mBase->mFlags&ESM::Creature::Bipedal))
-            addAnimSource("meshes\\xbase_anim.nif", model);
+            addAnimSource(Settings::Manager::getString("xbaseanim", "Models"), model);
         addAnimSource(model, model);
     }
 }
@@ -54,7 +54,7 @@ CreatureWeaponAnimation::CreatureWeaponAnimation(const MWWorld::Ptr &ptr, const 
 
         if((ref->mBase->mFlags&ESM::Creature::Bipedal))
         {
-            addAnimSource("meshes\\xbase_anim.nif", model);
+            addAnimSource(Settings::Manager::getString("xbaseanim", "Models"), model);
         }
         addAnimSource(model, model);
 
@@ -158,7 +158,7 @@ void CreatureWeaponAnimation::updatePart(PartHolderPtr& scene, int slot)
 
     try
     {
-        osg::ref_ptr<osg::Node> node = mResourceSystem->getSceneManager()->getInstance(itemModel);
+        osg::ref_ptr<const osg::Node> node = mResourceSystem->getSceneManager()->getTemplate(itemModel);
 
         const NodeMap& nodeMap = getNodeMap();
         NodeMap::const_iterator found = nodeMap.find(Misc::StringUtils::lowerCase(bonename));
@@ -208,6 +208,12 @@ bool CreatureWeaponAnimation::isArrowAttached() const
     return mAmmunition != nullptr;
 }
 
+void CreatureWeaponAnimation::detachArrow()
+{
+    WeaponAnimation::detachArrow(mPtr);
+    updateQuiver();
+}
+
 void CreatureWeaponAnimation::attachArrow()
 {
     WeaponAnimation::attachArrow(mPtr);
@@ -246,11 +252,15 @@ osg::Group *CreatureWeaponAnimation::getArrowBone()
     int type = weapon->get<ESM::Weapon>()->mBase->mData.mType;
     int ammoType = MWMechanics::getWeaponType(type)->mAmmoType;
 
-    SceneUtil::FindByNameVisitor findVisitor (MWMechanics::getWeaponType(ammoType)->mAttachBone);
-
-    mWeapon->getNode()->accept(findVisitor);
-
-    return findVisitor.mFoundNode;
+    // Try to find and attachment bone in actor's skeleton, otherwise fall back to the ArrowBone in weapon's mesh
+    osg::Group* bone = getBoneByName(MWMechanics::getWeaponType(ammoType)->mAttachBone);
+    if (bone == nullptr)
+    {
+        SceneUtil::FindByNameVisitor findVisitor ("ArrowBone");
+        mWeapon->getNode()->accept(findVisitor);
+        bone = findVisitor.mFoundNode;
+    }
+    return bone;
 }
 
 osg::Node *CreatureWeaponAnimation::getWeaponNode()

@@ -22,7 +22,7 @@ class Application : public QApplication
 {
     private:
 
-        bool notify (QObject *receiver, QEvent *event)
+        bool notify (QObject *receiver, QEvent *event) override
         {
             try
             {
@@ -47,9 +47,6 @@ int runApplication(int argc, char *argv[])
     setenv("OSG_GL_TEXTURE_STORAGE", "OFF", 0);
 #endif
 
-    // To allow background thread drawing in OSG
-    QApplication::setAttribute(Qt::AA_X11InitThreads, true);
-
     Q_INIT_RESOURCE (resources);
 
     qRegisterMetaType<std::string> ("std::string");
@@ -66,6 +63,9 @@ int runApplication(int argc, char *argv[])
     application.setWindowIcon (QIcon (":./openmw-cs.png"));
 
     CS::Editor editor(argc, argv);
+#ifdef __linux__
+    setlocale(LC_NUMERIC,"C");
+#endif
 
     if(!editor.makeIPCServer())
     {

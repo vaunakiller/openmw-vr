@@ -10,7 +10,7 @@ namespace Compiler
 {
     // Report the error and throw an exception.
 
-    void Parser::reportSeriousError (const std::string& message, const TokenLoc& loc)
+    [[noreturn]] void Parser::reportSeriousError (const std::string& message, const TokenLoc& loc)
     {
         mErrorHandler.error (message, loc);
         throw SourceException();
@@ -25,7 +25,7 @@ namespace Compiler
 
     // Report an unexpected EOF condition.
 
-    void Parser::reportEOF()
+    [[noreturn]] void Parser::reportEOF()
     {
         mErrorHandler.endOfFile();
         throw EOFException();
@@ -58,7 +58,7 @@ namespace Compiler
 
     // destructor
 
-    Parser::~Parser() {}
+    Parser::~Parser() = default;
 
     // Handle an int token.
     // \return fetch another token?

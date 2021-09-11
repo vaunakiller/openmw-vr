@@ -15,6 +15,11 @@ namespace osg
     class Texture2D;
 }
 
+#if defined(_MSC_VER)
+    #pragma warning (push)
+    #pragma warning (disable : 4244)
+#endif
+
 extern "C"
 {
 #include <libavcodec/avcodec.h>
@@ -27,6 +32,10 @@ extern "C"
 // https://ffmpeg.zeranoe.com/forum/viewtopic.php?f=15&t=872
 #include <libswresample/swresample.h>
 }
+
+#if defined(_MSC_VER)
+    #pragma warning (pop)
+#endif
 
 #include "videodefs.hpp"
 
@@ -71,7 +80,7 @@ struct ExternalClock
 
 struct PacketQueue {
     PacketQueue()
-      : first_pkt(NULL), last_pkt(NULL), flushing(false), nb_packets(0), size(0)
+      : first_pkt(nullptr), last_pkt(nullptr), flushing(false), nb_packets(0), size(0)
     { }
     ~PacketQueue()
     { clear(); }
@@ -95,7 +104,16 @@ struct VideoPicture {
     VideoPicture() : pts(0.0)
     { }
 
-    std::vector<uint8_t> data;
+    struct AVFrameDeleter {
+        void operator()(AVFrame* frame) const;
+    };
+
+    // Sets frame dimensions.
+    // Must be called before writing to `rgbaFrame`.
+    // Return -1 on error.
+    int set_dimensions(int w, int h);
+
+    std::unique_ptr<AVFrame, AVFrameDeleter> rgbaFrame;
     double pts;
 };
 
@@ -123,8 +141,8 @@ struct VideoState {
     void video_display(VideoPicture* vp);
     void video_refresh();
 
-    int queue_picture(AVFrame *pFrame, double pts);
-    double synchronize_video(AVFrame *src_frame, double pts);
+    int queue_picture(const AVFrame &pFrame, double pts);
+    double synchronize_video(const AVFrame &src_frame, double pts);
 
     double get_audio_clock();
     double get_video_clock();
@@ -159,8 +177,8 @@ struct VideoState {
     double      video_clock; ///<pts of last decoded frame / predicted pts of next decoded frame
     PacketQueue videoq;
     SwsContext*  sws_context;
+    int sws_context_w, sws_context_h;
     VideoPicture pictq[VIDEO_PICTURE_ARRAY_SIZE];
-    AVFrame*     rgbaFrame; // used as buffer for the frame converted from its native format to RGBA
     int          pictq_size, pictq_rindex, pictq_windex;
     std::mutex pictq_mutex;
     std::condition_variable pictq_cond;

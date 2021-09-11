@@ -24,7 +24,7 @@
 #ifndef BSA_BSA_FILE_H
 #define BSA_BSA_FILE_H
 
-#include <stdint.h>
+#include <cstdint>
 #include <string>
 #include <vector>
 #include <map>
@@ -43,20 +43,42 @@ namespace Bsa
 class BSAFile
 {
 public:
+
+    #pragma pack(push)
+    #pragma pack(1)
+    struct Hash
+    {
+        uint32_t low, high;
+    };
+    #pragma pack(pop)
+
     /// Represents one file entry in the archive
     struct FileStruct
     {
+        void setNameInfos(size_t index,
+            std::vector<char>* stringBuf
+        ) {
+            namesOffset = static_cast<uint32_t>(index);
+            namesBuffer = stringBuf;
+        }
+
         // File size and offset in file. We store the offset from the
         // beginning of the file, not the offset into the data buffer
         // (which is what is stored in the archive.)
         uint32_t fileSize, offset;
+        Hash hash;
 
         // Zero-terminated file name
-        const char *name;
+        const char* name() const { return &(*namesBuffer)[namesOffset]; };
+
+        uint32_t namesOffset = 0;
+        std::vector<char>* namesBuffer = nullptr;
     };
     typedef std::vector<FileStruct> FileList;
 
 protected:
+    bool mHasChanged = false;
+
     /// Table of files in this archive
     FileList mFiles;
 
@@ -72,7 +94,7 @@ protected:
     /// Case insensitive string comparison
     struct iltstr
     {
-        bool operator()(const char *s1, const char *s2) const
+        bool operator()(const std::string& s1, const std::string& s2) const
         { return Misc::StringUtils::ciLess(s1, s2); }
     };
 
@@ -80,17 +102,15 @@ protected:
         the files[] vector above. The iltstr ensures that file name
         checks are case insensitive.
     */
-    typedef std::map<const char*, int, iltstr> Lookup;
+    typedef std::map<std::string, size_t, iltstr> Lookup;
     Lookup mLookup;
 
     /// Error handling
-    void fail(const std::string &msg);
+    [[noreturn]] void fail(const std::string &msg);
 
     /// Read header information from the input source
     virtual void readHeader();
-
-    /// Read header information from the input source
-
+    virtual void writeHeader();
 
     /// Get the index of a given file name, or -1 if not found
     /// @note Thread safe.
@@ -107,10 +127,14 @@ public:
     { }
 
     virtual ~BSAFile()
-    { }
+    {
+        close();
+    }
 
     /// Open an archive file.
     void open(const std::string &file);
+
+    void close();
 
     /* -----------------------------------
      * Archive file routines
@@ -132,10 +156,17 @@ public:
     */
     virtual Files::IStreamPtr getFile(const FileStruct* file);
 
+    virtual void addFile(const std::string& filename, std::istream& file);
+
     /// Get a list of all files
     /// @note Thread safe.
     const FileList &getList() const
     { return mFiles; }
+
+    const std::string& getFilename() const
+    {
+        return mFilename;
+    }
 };
 
 }

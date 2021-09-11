@@ -1,3 +1,23 @@
+project(OpenMW)
+cmake_minimum_required(VERSION 3.1.0)
+set(CMAKE_CXX_STANDARD 17)
+set(CMAKE_CXX_STANDARD_REQUIRED ON)
+
+# for link time optimization, remove if cmake version is >= 3.9
+if(POLICY CMP0069) # LTO
+  cmake_policy(SET CMP0069 NEW)
+endif()
+
+# for position-independent executable, remove if cmake version is >= 3.14
+if(POLICY CMP0083)
+  cmake_policy(SET CMP0083 NEW)
+endif()
+
+option(OPENMW_GL4ES_MANUAL_INIT "Manually initialize gl4es. This is more reliable on platforms without a windowing system. Requires gl4es to be configured with -DNOEGL=ON -DNO_LOADER=ON -DNO_INIT_CONSTRUCTOR=ON." OFF)
+if(OPENMW_GL4ES_MANUAL_INIT)
+    add_definitions(-DOPENMW_GL4ES_MANUAL_INIT)
+endif()
+
 # Apps and tools
 option(BUILD_OPENMW             "Build OpenMW" ON)
 option(BUILD_LAUNCHER           "Build Launcher" ON)
@@ -11,18 +31,15 @@ option(BUILD_NIFTEST            "Build nif file tester" ON)
 option(BUILD_DOCS               "Build documentation." OFF )
 option(BUILD_WITH_CODE_COVERAGE "Enable code coverage with gconv" OFF)
 option(BUILD_UNITTESTS          "Enable Unittests with Google C++ Unittest" OFF)
-option(BULLET_USE_DOUBLES       "Use double precision for Bullet" OFF)
+option(BUILD_BENCHMARKS         "Build benchmarks with Google Benchmark" OFF)
+
+set(OpenGL_GL_PREFERENCE LEGACY)  # Use LEGACY as we use GL2; GLNVD is for GL3 and up.
 
 if (NOT BUILD_LAUNCHER AND NOT BUILD_OPENCS AND NOT BUILD_WIZARD)
    set(USE_QT FALSE)
 else()
    set(USE_QT TRUE)
 endif()
-
-# set the minimum required version across the board
-cmake_minimum_required(VERSION 3.1.0)
-
-project(OpenMW)
 
 # If the user doesn't supply a CMAKE_BUILD_TYPE via command line, choose one for them.
 IF(NOT CMAKE_BUILD_TYPE)
@@ -42,14 +59,13 @@ set(CMAKE_MODULE_PATH ${CMAKE_SOURCE_DIR}/cmake/)
 
 if (ANDROID)
     set(CMAKE_FIND_ROOT_PATH ${OPENMW_DEPENDENCIES_DIR} "${CMAKE_FIND_ROOT_PATH}")
-    set (OSG_PLUGINS_DIR CACHE STRING "")
 endif()
 
 # Version
 message(STATUS "Configuring OpenMW...")
 
 set(OPENMW_VERSION_MAJOR 0)
-set(OPENMW_VERSION_MINOR 47)
+set(OPENMW_VERSION_MINOR 48)
 set(OPENMW_VERSION_RELEASE 0)
 
 set(OPENMW_VERSION_COMMITHASH "")
@@ -58,7 +74,7 @@ set(OPENMW_VERSION_COMMITDATE "")
 
 set(OPENMW_VERSION "${OPENMW_VERSION_MAJOR}.${OPENMW_VERSION_MINOR}.${OPENMW_VERSION_RELEASE}")
 
-set(OPENMW_DOC_BASEURL "https://openmw.readthedocs.io/en/master/")
+set(OPENMW_DOC_BASEURL "https://openmw.readthedocs.io/en/stable/")
 
 set(GIT_CHECKOUT FALSE)
 if(EXISTS ${PROJECT_SOURCE_DIR}/.git)
@@ -85,18 +101,51 @@ endif(EXISTS ${PROJECT_SOURCE_DIR}/.git)
 
 # Macros
 include(OpenMWMacros)
+include(WholeArchive)
 
 # doxygen main page
 
 configure_file ("${OpenMW_SOURCE_DIR}/docs/mainpage.hpp.cmake" "${OpenMW_BINARY_DIR}/docs/mainpage.hpp")
 
-option(MYGUI_STATIC "Link static build of Mygui into the binaries" FALSE)
 option(BOOST_STATIC "Link static build of Boost into the binaries" FALSE)
 option(SDL2_STATIC "Link static build of SDL into the binaries" FALSE)
-option(OSG_STATIC "Link static build of OpenSceneGraph into the binaries" FALSE)
 option(QT_STATIC "Link static build of QT into the binaries" FALSE)
 
+option(OPENMW_USE_SYSTEM_BULLET "Use system provided bullet physics library" ON)
+if(OPENMW_USE_SYSTEM_BULLET)
+    set(_bullet_static_default OFF)
+else()
+    set(_bullet_static_default ON)
+endif()
+option(BULLET_STATIC "Link static build of Bullet into the binaries" ${_bullet_static_default})
+
+option(OPENMW_USE_SYSTEM_OSG "Use system provided OpenSceneGraph libraries" ON)
+if(OPENMW_USE_SYSTEM_OSG)
+    set(_osg_static_default OFF)
+else()
+    set(_osg_static_default ON)
+endif()
+option(OSG_STATIC "Link static build of OpenSceneGraph into the binaries" ${_osg_static_default})
+
+option(OPENMW_USE_SYSTEM_MYGUI "Use system provided mygui library" ON)
+if(OPENMW_USE_SYSTEM_MYGUI)
+    set(_mygui_static_default OFF)
+else()
+    set(_mygui_static_default ON)
+endif()
+option(MYGUI_STATIC "Link static build of Mygui into the binaries" ${_mygui_static_default})
+
+option(OPENMW_USE_SYSTEM_RECASTNAVIGATION "Use system provided recastnavigation library" OFF)
+if(OPENMW_USE_SYSTEM_RECASTNAVIGATION)
+    set(_recastnavigation_static_default OFF)
+    find_package(RecastNavigation REQUIRED)
+else()
+    set(_recastnavigation_static_default ON)
+endif()
+option(RECASTNAVIGATION_STATIC "Build recastnavigation static libraries" ${_recastnavigation_static_default})
+
 option(OPENMW_UNITY_BUILD "Use fewer compilation units to speed up compile time" FALSE)
+option(OPENMW_LTO_BUILD "Build OpenMW with Link-Time Optimization (Needs ~2GB of RAM)" OFF)
 
 # what is necessary to build documentation
 IF( BUILD_DOCS )
@@ -110,7 +159,6 @@ option(OPENMW_OSX_DEPLOYMENT OFF)
 
 if (MSVC)
     option(OPENMW_MP_BUILD "Build OpenMW with /MP flag" OFF)
-    option(OPENMW_LTO_BUILD "Build OpenMW with Link-Time Optimization (Needs ~2GB of RAM)" OFF)
 endif()
 
 # Set up common paths
@@ -147,6 +195,8 @@ endif()
 # Dependencies
 find_package(OpenGL REQUIRED)
 
+find_package(LZ4 REQUIRED)
+
 if (USE_QT)
     find_package(Qt5Core 5.12 REQUIRED)
     find_package(Qt5Widgets REQUIRED)
@@ -155,6 +205,28 @@ if (USE_QT)
     # Instruct CMake to run moc automatically when needed.
     #set(CMAKE_AUTOMOC ON)
 endif()
+
+set(USED_OSG_COMPONENTS
+    osgDB
+    osgViewer
+    osgText
+    osgGA
+    osgParticle
+    osgUtil
+    osgFX
+    osgShadow
+    osgAnimation)
+set(USED_OSG_PLUGINS
+    osgdb_bmp
+    osgdb_dds
+    osgdb_freetype
+    osgdb_jpeg
+    osgdb_osg
+    osgdb_png
+    osgdb_serializers_osg
+    osgdb_tga)
+
+add_subdirectory(extern)
 
 # Sound setup
 
@@ -189,14 +261,14 @@ if(FFmpeg_FOUND)
             set(FFVER_OK FALSE)
         endif()
     endif()
+
+    if(NOT FFVER_OK AND NOT APPLE)  # unable to detect on version on MacOS < 11.0
+        message(FATAL_ERROR "FFmpeg version is too old, 3.2 is required" )
+    endif()
 endif()
 
 if(NOT FFmpeg_FOUND)
     message(FATAL_ERROR "FFmpeg was not found" )
-endif()
-
-if(NOT FFVER_OK)
-    message(FATAL_ERROR "FFmpeg version is too old, 3.2 is required" )
 endif()
 
 if(WIN32)
@@ -231,6 +303,39 @@ if (WIN32)
     add_definitions(-DNOMINMAX -DWIN32_LEAN_AND_MEAN)
 endif()
 
+if(OPENMW_USE_SYSTEM_BULLET)
+    set(REQUIRED_BULLET_VERSION 286) # Bullet 286 required due to runtime bugfixes for btCapsuleShape
+    if (DEFINED ENV{TRAVIS_BRANCH} OR DEFINED ENV{APPVEYOR})
+        set(REQUIRED_BULLET_VERSION 283) # but for build testing, 283 is fine
+    endif()
+
+    # First, try BulletConfig-float64.cmake which comes with Debian derivatives.
+    # This file does not define the Bullet version in a CMake-friendly way.
+    find_package(Bullet CONFIGS BulletConfig-float64.cmake QUIET COMPONENTS BulletCollision LinearMath)
+    if (BULLET_FOUND)
+        string(REPLACE "." "" _bullet_version_num ${BULLET_VERSION_STRING})
+        if (_bullet_version_num VERSION_LESS REQUIRED_BULLET_VERSION)
+            message(FATAL_ERROR "System bullet version too old, OpenMW requires at least ${REQUIRED_BULLET_VERSION}, got ${_bullet_version_num}")
+        endif()
+        # Fix the relative include:
+        set(BULLET_INCLUDE_DIRS "${BULLET_ROOT_DIR}/${BULLET_INCLUDE_DIRS}")
+        include(FindPackageMessage)
+        find_package_message(Bullet "Found Bullet: ${BULLET_LIBRARIES} ${BULLET_VERSION_STRING}" "${BULLET_VERSION_STRING}-float64")
+    else()
+        find_package(Bullet ${REQUIRED_BULLET_VERSION} REQUIRED COMPONENTS BulletCollision LinearMath)
+    endif()
+
+    # Only link the Bullet libraries that we need:
+    string(REGEX MATCHALL "((optimized|debug);)?[^;]*(BulletCollision|LinearMath)[^;]*" BULLET_LIBRARIES "${BULLET_LIBRARIES}")
+
+    include(cmake/CheckBulletPrecision.cmake)
+    if (HAS_DOUBLE_PRECISION_BULLET)
+        message(STATUS "Bullet uses double precision")
+    else()
+        message(FATAL_ERROR "Bullet does not uses double precision")
+    endif()
+endif()
+
 if (NOT WIN32 AND BUILD_WIZARD) # windows users can just run the morrowind installer
     find_package(LIBUNSHIELD REQUIRED) # required only for non win32 when building openmw-wizard
     set(OPENMW_USE_UNSHIELD TRUE)
@@ -249,42 +354,30 @@ if(NOT HAVE_STDINT_H)
     message(FATAL_ERROR "stdint.h was not found" )
 endif()
 
+if(OPENMW_USE_SYSTEM_OSG)
+    find_package(OpenSceneGraph 3.4.0 REQUIRED ${USED_OSG_COMPONENTS})
+    if (${OPENSCENEGRAPH_VERSION} VERSION_GREATER 3.6.2 AND ${OPENSCENEGRAPH_VERSION} VERSION_LESS 3.6.5)
+        message(FATAL_ERROR "OpenSceneGraph version ${OPENSCENEGRAPH_VERSION} has critical regressions which cause crashes. Please upgrade to 3.6.5 or later. We strongly recommend using the tip of the official 'OpenSceneGraph-3.6' branch or the tip of '3.6' OpenMW/osg (OSGoS).")
+    endif()
 
-find_package(OpenSceneGraph 3.3.4 REQUIRED osgDB osgViewer osgText osgGA osgParticle osgUtil osgFX osgShadow)
-include_directories(SYSTEM ${OPENSCENEGRAPH_INCLUDE_DIRS})
+    if(OSG_STATIC)
+        find_package(OSGPlugins REQUIRED COMPONENTS ${USED_OSG_PLUGINS})
+    endif()
+endif()
 
-set(USED_OSG_PLUGINS
-                    osgdb_bmp
-                    osgdb_dds
-                    osgdb_freetype
-                    osgdb_jpeg
-                    osgdb_osg
-                    osgdb_png
-                    osgdb_serializers_osg
-                    osgdb_tga
-                  )
-
-set(OSGPlugins_LIB_DIR "")
-foreach(OSGDB_LIB ${OSGDB_LIBRARY})
-	# Skip library type names
-	if(EXISTS ${OSGDB_LIB} AND NOT IS_DIRECTORY ${OSGDB_LIB})
-		get_filename_component(OSG_LIB_DIR ${OSGDB_LIB} DIRECTORY)
-		list(APPEND OSGPlugins_LIB_DIR "${OSG_LIB_DIR}/osgPlugins-${OPENSCENEGRAPH_VERSION}")
-	endif()
-endforeach(OSGDB_LIB)
+include_directories(BEFORE SYSTEM ${OPENSCENEGRAPH_INCLUDE_DIRS})
 
 if(OSG_STATIC)
     add_definitions(-DOSG_LIBRARY_STATIC)
-
-    find_package(OSGPlugins REQUIRED COMPONENTS ${USED_OSG_PLUGINS})
-    list(APPEND OPENSCENEGRAPH_LIBRARIES ${OSGPlugins_LIBRARIES})
 endif()
 
 set(BOOST_COMPONENTS system filesystem program_options iostreams)
 if(WIN32)
     set(BOOST_COMPONENTS ${BOOST_COMPONENTS} locale)
     if(MSVC)
-        set(BOOST_COMPONENTS ${BOOST_COMPONENTS} zlib)
+        # boost-zlib is not present (nor needed) in vcpkg version of boost.
+        # there, it is part of boost-iostreams instead.
+        set(BOOST_OPTIONAL_COMPONENTS zlib)
     endif(MSVC)
 endif(WIN32)
 
@@ -292,26 +385,39 @@ IF(BOOST_STATIC)
     set(Boost_USE_STATIC_LIBS   ON)
 endif()
 
-set(REQUIRED_BULLET_VERSION 286) # Bullet 286 required due to runtime bugfixes for btCapsuleShape
-if (DEFINED ENV{TRAVIS_BRANCH} OR DEFINED ENV{APPVEYOR})
-    set(REQUIRED_BULLET_VERSION 283) # but for build testing, 283 is fine
-endif()
-
 set(Boost_NO_BOOST_CMAKE ON)
 
-find_package(Boost REQUIRED COMPONENTS ${BOOST_COMPONENTS})
-find_package(MyGUI 3.2.2 REQUIRED)
+find_package(Boost 1.6.2 REQUIRED COMPONENTS ${BOOST_COMPONENTS} OPTIONAL_COMPONENTS ${BOOST_OPTIONAL_COMPONENTS})
+if(OPENMW_USE_SYSTEM_MYGUI)
+    find_package(MyGUI 3.2.2 REQUIRED)
+endif()
 find_package(SDL2 2.0.9 REQUIRED)
 find_package(OpenAL REQUIRED)
-find_package(Bullet ${REQUIRED_BULLET_VERSION} REQUIRED COMPONENTS BulletCollision LinearMath)
 
-include_directories("."
-    SYSTEM
+option(USE_LUAJIT "Switch Lua/LuaJit (TRUE is highly recommended)" TRUE)
+if(USE_LUAJIT)
+   find_package(LuaJit REQUIRED)
+   set(LUA_INCLUDE_DIR ${LuaJit_INCLUDE_DIR})
+   set(LUA_LIBRARIES ${LuaJit_LIBRARIES})
+else(USE_LUAJIT)
+   find_package(Lua REQUIRED)
+   add_compile_definitions(NO_LUAJIT)
+endif(USE_LUAJIT)
+
+# C++ library binding to Lua
+set(SOL_INCLUDE_DIRS ${OpenMW_SOURCE_DIR}/extern/sol3.2.2 ${OpenMW_SOURCE_DIR}/extern/sol_config)
+
+include_directories(
+    BEFORE SYSTEM
+    "."
     ${SDL2_INCLUDE_DIR}
     ${Boost_INCLUDE_DIR}
     ${MyGUI_INCLUDE_DIRS}
     ${OPENAL_INCLUDE_DIR}
+    ${OPENGL_INCLUDE_DIR}
     ${BULLET_INCLUDE_DIRS}
+    ${LUA_INCLUDE_DIR}
+    ${SOL_INCLUDE_DIRS}
 )
 
 link_directories(${SDL2_LIBRARY_DIRS} ${Boost_LIBRARY_DIRS})
@@ -351,8 +457,8 @@ endif (APPLE)
 
 # Other files
 
-configure_resource_file(${OpenMW_SOURCE_DIR}/files/settings-default.cfg
-    "${OpenMW_BINARY_DIR}" "settings-default.cfg")
+pack_resource_file(${OpenMW_SOURCE_DIR}/files/settings-default.cfg
+    "${OpenMW_BINARY_DIR}" "defaults.bin")
 
 configure_resource_file(${OpenMW_SOURCE_DIR}/files/openmw.appdata.xml
     "${OpenMW_BINARY_DIR}" "openmw.appdata.xml")
@@ -367,8 +473,8 @@ else ()
         "${OpenMW_BINARY_DIR}/openmw.cfg")
 endif ()
 
-configure_resource_file(${OpenMW_SOURCE_DIR}/files/openmw-cs.cfg
-    "${OpenMW_BINARY_DIR}" "openmw-cs.cfg")
+pack_resource_file(${OpenMW_SOURCE_DIR}/files/openmw-cs.cfg
+    "${OpenMW_BINARY_DIR}" "defaults-cs.bin")
 
 # Needs the copy version because the configure version assumes the end of the file has been reached when a null character is reached and there are no CMake expressions to evaluate.
 copy_resource_file(${OpenMW_SOURCE_DIR}/files/opencs/defaultfilters
@@ -386,10 +492,27 @@ if (NOT WIN32 AND NOT APPLE)
         "${OpenMW_BINARY_DIR}/org.openmw.cs.desktop")
 endif()
 
-# CXX Compiler settings
-set(CMAKE_CXX_STANDARD 14)
+if(OPENMW_LTO_BUILD)
+    if(NOT CMAKE_VERSION VERSION_LESS 3.9)
+        include(CheckIPOSupported)
+        check_ipo_supported(RESULT HAVE_IPO OUTPUT HAVE_IPO_OUTPUT)
+        if(HAVE_IPO)
+            message(STATUS "LTO enabled for Release configuration.")
+            set(CMAKE_INTERPROCEDURAL_OPTIMIZATION_RELEASE TRUE)
+        else()
+            message(WARNING "Requested option OPENMW_LTO_BUILD not supported by this compiler: ${HAVE_IPO_OUTPUT}")
+            if(MSVC)
+                message(STATUS "Note: Flags used to be set manually for this setting with MSVC. We now rely on CMake for this. Upgrade CMake to at least 3.13 to re-enable this setting.")
+            endif()
+        endif()
+    else()
+        message(WARNING "Requested option OPENMW_LTO_BUILD not supported by this cmake version: ${CMAKE_VERSION}. Upgrade CMake to at least 3.9 to enable support for certain compilers. Newer CMake versions support more compilers.")
+    endif()
+endif()
+
+
 if (CMAKE_CXX_COMPILER_ID STREQUAL GNU OR CMAKE_CXX_COMPILER_ID STREQUAL Clang)
-    set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wall -Wextra -Wundef -Wno-unused-parameter -std=c++14 -pedantic -Wno-long-long")
+    set(CMAKE_CXX_FLAGS "-Wall -Wextra -Wundef -Wno-unused-parameter -pedantic -Wno-long-long ${CMAKE_CXX_FLAGS}")
     add_definitions( -DBOOST_NO_CXX11_SCOPED_ENUMS=ON )
 
     if (APPLE)
@@ -406,179 +529,19 @@ if (CMAKE_CXX_COMPILER_ID STREQUAL GNU OR CMAKE_CXX_COMPILER_ID STREQUAL Clang)
     if (CMAKE_CXX_COMPILER_ID STREQUAL GNU AND CMAKE_CXX_COMPILER_VERSION VERSION_GREATER 4.6 OR CMAKE_CXX_COMPILER_VERSION VERSION_EQUAL 4.6)
         set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wno-unused-but-set-parameter")
     endif()
-elseif (MSVC)
-    # Enable link-time code generation globally for all linking
-    if (OPENMW_LTO_BUILD)
-        set(CMAKE_CXX_FLAGS_RELEASE "${CMAKE_CXX_FLAGS_RELEASE} /GL")
-        set(CMAKE_EXE_LINKER_FLAGS_RELEASE "${CMAKE_EXE_LINKER_FLAGS_RELEASE} /LTCG")
-        set(CMAKE_SHARED_LINKER_FLAGS_RELEASE "${CMAKE_SHARED_LINKER_FLAGS_RELEASE} /LTCG")
-        set(CMAKE_STATIC_LINKER_FLAGS_RELEASE "${CMAKE_STATIC_LINKER_FLAGS_RELEASE} /LTCG")
-    endif()
-
-    set(CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} /FORCE:MULTIPLE")
 endif (CMAKE_CXX_COMPILER_ID STREQUAL GNU OR CMAKE_CXX_COMPILER_ID STREQUAL Clang)
 
-IF(NOT WIN32 AND NOT APPLE)
-    # Linux installation
-
-    # Install binaries
-    IF(BUILD_OPENMW)
-        INSTALL(PROGRAMS "${OpenMW_BINARY_DIR}/openmw" DESTINATION "${BINDIR}" )
-    ENDIF(BUILD_OPENMW)
-    IF(BUILD_LAUNCHER)
-        INSTALL(PROGRAMS "${OpenMW_BINARY_DIR}/openmw-launcher" DESTINATION "${BINDIR}" )
-    ENDIF(BUILD_LAUNCHER)
-    IF(BUILD_BSATOOL)
-        INSTALL(PROGRAMS "${OpenMW_BINARY_DIR}/bsatool" DESTINATION "${BINDIR}" )
-    ENDIF(BUILD_BSATOOL)
-    IF(BUILD_ESMTOOL)
-        INSTALL(PROGRAMS "${OpenMW_BINARY_DIR}/esmtool" DESTINATION "${BINDIR}" )
-    ENDIF(BUILD_ESMTOOL)
-    IF(BUILD_NIFTEST)
-        INSTALL(PROGRAMS "${OpenMW_BINARY_DIR}/niftest" DESTINATION "${BINDIR}" )
-    ENDIF(BUILD_NIFTEST)
-    IF(BUILD_MWINIIMPORTER)
-        INSTALL(PROGRAMS "${OpenMW_BINARY_DIR}/openmw-iniimporter" DESTINATION "${BINDIR}" )
-    ENDIF(BUILD_MWINIIMPORTER)
-    IF(BUILD_ESSIMPORTER)
-        INSTALL(PROGRAMS "${OpenMW_BINARY_DIR}/openmw-essimporter" DESTINATION "${BINDIR}" )
-    ENDIF(BUILD_ESSIMPORTER)
-    IF(BUILD_OPENCS)
-        INSTALL(PROGRAMS "${OpenMW_BINARY_DIR}/openmw-cs" DESTINATION "${BINDIR}" )
-    ENDIF(BUILD_OPENCS)
-    IF(BUILD_WIZARD)
-        INSTALL(PROGRAMS "${OpenMW_BINARY_DIR}/openmw-wizard" DESTINATION "${BINDIR}" )
-    ENDIF(BUILD_WIZARD)
-
-    # Install licenses
-    INSTALL(FILES "files/mygui/DejaVu Font License.txt" DESTINATION "${LICDIR}" )
-
-    # Install icon and desktop file
-    INSTALL(FILES "${OpenMW_BINARY_DIR}/org.openmw.launcher.desktop" DESTINATION "${DATAROOTDIR}/applications" COMPONENT "openmw")
-    INSTALL(FILES "${OpenMW_SOURCE_DIR}/files/launcher/images/openmw.png" DESTINATION "${ICONDIR}" COMPONENT "openmw")
-    INSTALL(FILES "${OpenMW_BINARY_DIR}/openmw.appdata.xml" DESTINATION "${DATAROOTDIR}/metainfo" COMPONENT "openmw")
-    IF(BUILD_OPENCS)
-        INSTALL(FILES "${OpenMW_BINARY_DIR}/org.openmw.cs.desktop" DESTINATION "${DATAROOTDIR}/applications" COMPONENT "opencs")
-        INSTALL(FILES "${OpenMW_SOURCE_DIR}/files/opencs/openmw-cs.png" DESTINATION "${ICONDIR}" COMPONENT "opencs")
-    ENDIF(BUILD_OPENCS)
-
-    # Install global configuration files
-    INSTALL(FILES "${OpenMW_BINARY_DIR}/settings-default.cfg" DESTINATION "${SYSCONFDIR}" COMPONENT "openmw")
-    INSTALL(FILES "${OpenMW_BINARY_DIR}/openmw.cfg.install" DESTINATION "${SYSCONFDIR}" RENAME "openmw.cfg" COMPONENT "openmw")
-    INSTALL(FILES "${OpenMW_BINARY_DIR}/resources/version" DESTINATION "${SYSCONFDIR}" COMPONENT "openmw")
-    INSTALL(FILES "${OpenMW_BINARY_DIR}/gamecontrollerdb.txt" DESTINATION "${SYSCONFDIR}" COMPONENT "openmw")
-
-    IF(BUILD_OPENCS)
-        INSTALL(FILES "${OpenMW_BINARY_DIR}/openmw-cs.cfg" DESTINATION "${SYSCONFDIR}" COMPONENT "opencs")
-    ENDIF(BUILD_OPENCS)
-
-    # Install resources
-    INSTALL(DIRECTORY "${OpenMW_BINARY_DIR}/resources" DESTINATION "${DATADIR}" COMPONENT "Resources")
-    INSTALL(DIRECTORY DESTINATION "${DATADIR}/data" COMPONENT "Resources")
-ENDIF(NOT WIN32 AND NOT APPLE)
-
-if(WIN32)
-    FILE(GLOB dll_files_debug "${OpenMW_BINARY_DIR}/Debug/*.dll")
-    FILE(GLOB dll_files_release "${OpenMW_BINARY_DIR}/Release/*.dll")
-    INSTALL(FILES ${dll_files_debug} DESTINATION "." CONFIGURATIONS Debug)
-    INSTALL(FILES ${dll_files_release} DESTINATION "." CONFIGURATIONS Release;RelWithDebInfo;MinSizeRel)
-    INSTALL(FILES "${OpenMW_BINARY_DIR}/Debug/openmw.cfg.install" DESTINATION "." RENAME "openmw.cfg" CONFIGURATIONS Debug)
-    INSTALL(FILES "${OpenMW_BINARY_DIR}/Release/openmw.cfg.install" DESTINATION "." RENAME "openmw.cfg" CONFIGURATIONS Release;RelWithDebInfo;MinSizeRel)
-    INSTALL(FILES "${OpenMW_SOURCE_DIR}/CHANGELOG.md" DESTINATION "." RENAME "CHANGELOG.txt")
-    INSTALL(FILES "${OpenMW_SOURCE_DIR}/README.md" DESTINATION "." RENAME "README.txt")
-    INSTALL(FILES "${OpenMW_SOURCE_DIR}/LICENSE" DESTINATION "." RENAME "LICENSE.txt")
-    INSTALL(FILES
-        "${OpenMW_SOURCE_DIR}/files/mygui/DejaVu Font License.txt"
-        DESTINATION ".")
-    INSTALL(FILES "${OpenMW_BINARY_DIR}/Debug/settings-default.cfg" DESTINATION "." CONFIGURATIONS Debug)
-    INSTALL(FILES "${OpenMW_BINARY_DIR}/Release/settings-default.cfg" DESTINATION "." CONFIGURATIONS Release;RelWithDebInfo;MinSizeRel)
-    INSTALL(FILES "${OpenMW_BINARY_DIR}/Debug/gamecontrollerdb.txt" DESTINATION "." CONFIGURATIONS Debug)
-    INSTALL(FILES "${OpenMW_BINARY_DIR}/Release/gamecontrollerdb.txt" DESTINATION "." CONFIGURATIONS Release;RelWithDebInfo;MinSizeRel)
-
-    INSTALL(DIRECTORY "${OpenMW_BINARY_DIR}/Debug/platforms" DESTINATION "." CONFIGURATIONS Debug)
-    INSTALL(DIRECTORY "${OpenMW_BINARY_DIR}/Release/platforms" DESTINATION "." CONFIGURATIONS Release;RelWithDebInfo;MinSizeRel)
-
-    INSTALL(DIRECTORY "${OpenMW_BINARY_DIR}/Debug/resources" DESTINATION "." CONFIGURATIONS Debug)
-    INSTALL(DIRECTORY "${OpenMW_BINARY_DIR}/Release/resources" DESTINATION "." CONFIGURATIONS Release;RelWithDebInfo;MinSizeRel)
-
-    FILE(GLOB plugin_dir_debug "${OpenMW_BINARY_DIR}/Debug/osgPlugins-*")
-    FILE(GLOB plugin_dir_release "${OpenMW_BINARY_DIR}/Release/osgPlugins-*")
-    INSTALL(DIRECTORY ${plugin_dir_debug} DESTINATION "." CONFIGURATIONS Debug)
-    INSTALL(DIRECTORY ${plugin_dir_release} DESTINATION "." CONFIGURATIONS Release;RelWithDebInfo;MinSizeRel)
-
-    SET(CPACK_GENERATOR "NSIS")
-    SET(CPACK_PACKAGE_NAME "OpenMW")
-    SET(CPACK_PACKAGE_VENDOR "OpenMW.org")
-    SET(CPACK_PACKAGE_VERSION ${OPENMW_VERSION})
-    SET(CPACK_PACKAGE_VERSION_MAJOR ${OPENMW_VERSION_MAJOR})
-    SET(CPACK_PACKAGE_VERSION_MINOR ${OPENMW_VERSION_MINOR})
-    SET(CPACK_PACKAGE_VERSION_PATCH ${OPENMW_VERSION_RELEASE})
-    SET(CPACK_PACKAGE_EXECUTABLES "openmw;OpenMW")
-    IF(BUILD_LAUNCHER)
-        SET(CPACK_PACKAGE_EXECUTABLES "${CPACK_PACKAGE_EXECUTABLES};openmw-launcher;OpenMW Launcher")
-    ENDIF(BUILD_LAUNCHER)
-    IF(BUILD_OPENCS)
-        SET(CPACK_PACKAGE_EXECUTABLES "${CPACK_PACKAGE_EXECUTABLES};openmw-cs;OpenMW Construction Set")
-    ENDIF(BUILD_OPENCS)
-    IF(BUILD_WIZARD)
-        SET(CPACK_PACKAGE_EXECUTABLES "${CPACK_PACKAGE_EXECUTABLES};openmw-wizard;OpenMW Wizard")
-    ENDIF(BUILD_WIZARD)
-    SET(CPACK_NSIS_CREATE_ICONS_EXTRA "CreateShortCut '\$SMPROGRAMS\\\\$STARTMENU_FOLDER\\\\Readme.lnk' '\$INSTDIR\\\\README.txt'")
-    SET(CPACK_NSIS_DELETE_ICONS_EXTRA "
-        !insertmacro MUI_STARTMENU_GETFOLDER Application $MUI_TEMP
-        Delete \\\"$SMPROGRAMS\\\\$MUI_TEMP\\\\Readme.lnk\\\"
-        ")
-    SET(CPACK_RESOURCE_FILE_README "${OpenMW_SOURCE_DIR}/README.md")
-    SET(CPACK_PACKAGE_DESCRIPTION_FILE "${OpenMW_SOURCE_DIR}/README.md")
-    SET(CPACK_NSIS_EXECUTABLES_DIRECTORY ".")
-    SET(CPACK_NSIS_DISPLAY_NAME "OpenMW ${OPENMW_VERSION}")
-    SET(CPACK_NSIS_HELP_LINK "https:\\\\\\\\www.openmw.org")
-    SET(CPACK_NSIS_URL_INFO_ABOUT "https:\\\\\\\\www.openmw.org")
-    SET(CPACK_NSIS_INSTALLED_ICON_NAME "openmw-launcher.exe")
-    SET(CPACK_NSIS_MUI_FINISHPAGE_RUN "openmw-launcher.exe")
-    SET(CPACK_NSIS_MUI_ICON "${OpenMW_SOURCE_DIR}/files/windows/openmw.ico")
-    SET(CPACK_NSIS_MUI_UNIICON "${OpenMW_SOURCE_DIR}/files/windows/openmw.ico")
-    SET(CPACK_PACKAGE_ICON "${OpenMW_SOURCE_DIR}\\\\files\\\\openmw.bmp")
-
-    SET(VCREDIST32 "${OpenMW_BINARY_DIR}/vcredist_x86.exe")
-    if(EXISTS ${VCREDIST32})
-        INSTALL(FILES ${VCREDIST32} DESTINATION "redist")
-        SET(CPACK_NSIS_EXTRA_INSTALL_COMMANDS "ExecWait '\\\"$INSTDIR\\\\redist\\\\vcredist_x86.exe\\\" /q'" )
-    endif(EXISTS ${VCREDIST32})
-
-    SET(VCREDIST64 "${OpenMW_BINARY_DIR}/vcredist_x64.exe")
-    if(EXISTS ${VCREDIST64})
-        INSTALL(FILES ${VCREDIST64} DESTINATION "redist")
-        SET(CPACK_NSIS_EXTRA_INSTALL_COMMANDS "ExecWait '\\\"$INSTDIR\\\\redist\\\\vcredist_x64.exe\\\" /q'" )
-    endif(EXISTS ${VCREDIST64})
-
-    SET(OALREDIST "${OpenMW_BINARY_DIR}/oalinst.exe")
-    if(EXISTS ${OALREDIST})
-        INSTALL(FILES ${OALREDIST} DESTINATION "redist")
-        SET(CPACK_NSIS_EXTRA_INSTALL_COMMANDS "${CPACK_NSIS_EXTRA_INSTALL_COMMANDS}
-            ExecWait '\\\"$INSTDIR\\\\redist\\\\oalinst.exe\\\" /s'" )
-    endif(EXISTS ${OALREDIST})
-
-    if(CMAKE_CL_64)
-        SET(CPACK_NSIS_INSTALL_ROOT "$PROGRAMFILES64")
-    endif()
-
-    include(CPack)
-endif(WIN32)
-
 # Extern
-set(RECASTNAVIGATION_STATIC ON CACHE BOOL "Build recastnavigation static libraries")
 
-add_subdirectory (extern/recastnavigation EXCLUDE_FROM_ALL)
 add_subdirectory (extern/osg-ffmpeg-videoplayer)
 add_subdirectory (extern/oics)
+add_subdirectory (extern/Base64)
 if (BUILD_OPENCS)
     add_subdirectory (extern/osgQt)
 endif()
 
 # Components
 add_subdirectory (components)
-target_compile_definitions(components PRIVATE OPENMW_DOC_BASEURL="${OPENMW_DOC_BASEURL}")
 
 # Apps and tools
 if (BUILD_OPENMW)
@@ -622,6 +585,10 @@ if (BUILD_UNITTESTS)
   add_subdirectory( apps/openmw_test_suite )
 endif()
 
+if (BUILD_BENCHMARKS)
+  add_subdirectory(apps/benchmarks)
+endif()
+
 if (WIN32)
   if (MSVC)
     if (OPENMW_MP_BUILD)
@@ -652,62 +619,23 @@ if (WIN32)
 
     # Play a bit with the warning levels
 
-    set(WARNINGS "/Wall") # Since windows can only disable specific warnings, not enable them
+    set(WARNINGS "/W4")
 
     set(WARNINGS_DISABLE
-        # Warnings that aren't enabled normally and don't need to be enabled
-        # They're unneeded and sometimes completely retarded warnings that /Wall enables
-        # Not going to bother commenting them as they tend to warn on every standard library file
-        4061 4263 4264 4266 4350 4371 4435 4514 4548 4571 4610 4619 4623 4625
-        4626 4628 4640 4668 4710 4711 4768 4820 4826 4917 4946 5032 5039 5045
-
-        # Warnings that are thrown on standard libraries and not OpenMW
-        4347 # Non-template function with same name and parameter count as template function
-        4365 # Variable signed/unsigned mismatch
-        4510 4512 # Unable to generate copy constructor/assignment operator as it's not public in the base
-        4706 # Assignment in conditional expression
-        4738 # Storing 32-bit float result in memory, possible loss of performance
-        4774 # Format string expected in argument is not a string literal
-        4986 # Undocumented warning that occurs in the crtdbg.h file
-        4987 # nonstandard extension used (triggered by setjmp.h)
-        4996 # Function was declared deprecated
-
-        # caused by OSG
-        4589 # Constructor of abstract class 'osg::Operation' ignores initializer for virtual base class 'osg::Referenced' (False warning)
-
-        # caused by boost
-        4191 # 'type cast' : unsafe conversion (1.56, thread_primitives.hpp, normally off)
-        4643 # Forward declaring 'X' in namespace std is not permitted by the C++ Standard. (in *_std_fwd.h files)
-        5204 # Class has virtual functions, but its trivial destructor is not virtual
-
-        # caused by MyGUI
-        4275 # non dll-interface class 'std::exception' used as base for dll-interface class 'MyGUI::Exception'
-        4297 # function assumed not to throw an exception but does
-
-        # OpenMW specific warnings
-        4099 # Type mismatch, declared class or struct is defined with other type
         4100 # Unreferenced formal parameter (-Wunused-parameter)
-        4101 # Unreferenced local variable (-Wunused-variable)
         4127 # Conditional expression is constant
-        4242 # Storing value in a variable of a smaller type, possible loss of data
-        4244 # Storing value of one type in variable of another (size_t in int, for example)
-        4245 # Signed/unsigned mismatch
-        4267 # Conversion from 'size_t' to 'int', possible loss of data
-        4305 # Truncating value (double to float, for example)
-        4309 # Variable overflow, trying to store 128 in a signed char for example
-        4351 # New behavior: elements of array 'array' will be default initialized (desired behavior)
-        4355 # Using 'this' in member initialization list
-        4464 # relative include path contains '..'
-        4505 # Unreferenced local function has been removed
-        4701 # Potentially uninitialized local variable used
-        4702 # Unreachable code
-        4714 # function 'QString QString::trimmed(void) &&' marked as __forceinline not inlined
-        4800 # Boolean optimization warning, e.g. myBool = (myInt != 0) instead of myBool = myInt
+        4996 # Function was declared deprecated
         )
+    
+    if( "${MyGUI_VERSION}" VERSION_LESS_EQUAL "3.4.0" )
+        set(WARNINGS_DISABLE ${WARNINGS_DISABLE}
+        4866 # compiler may not enforce left-to-right evaluation order for call
+        )
+    endif()
 
-    if (MSVC_VERSION GREATER 1800)
-        set(WARNINGS_DISABLE ${WARNINGS_DISABLE} 5026 5027
-            5031 # #pragma warning(pop): likely mismatch, popping warning state pushed in different file (config_begin.hpp, config_end.hpp)
+    if( "${MyGUI_VERSION}" VERSION_LESS_EQUAL "3.4.1" )
+        set(WARNINGS_DISABLE ${WARNINGS_DISABLE}
+        4275 # non dll-interface class 'MyGUI::delegates::IDelegateUnlink' used as base for dll-interface class 'MyGUI::Widget'
         )
     endif()
 
@@ -717,6 +645,10 @@ if (WIN32)
 
     set_target_properties(components PROPERTIES COMPILE_FLAGS "${WARNINGS} ${MT_BUILD}")
     set_target_properties(osg-ffmpeg-videoplayer PROPERTIES COMPILE_FLAGS "${WARNINGS} ${MT_BUILD}")
+    
+    if (MSVC_VERSION GREATER_EQUAL 1915 AND MSVC_VERSION LESS 1920)
+        target_compile_definitions(components INTERFACE _ENABLE_EXTENDED_ALIGNED_STORAGE)
+    endif()
 
     if (BUILD_BSATOOL)
         set_target_properties(bsatool PROPERTIES COMPILE_FLAGS "${WARNINGS} ${MT_BUILD}")
@@ -743,21 +675,29 @@ if (WIN32)
     endif()
 
     if (BUILD_OPENMW)
-        if (OPENMW_UNITY_BUILD)
-            set_target_properties(openmw PROPERTIES COMPILE_FLAGS "${WARNINGS} ${MT_BUILD} /bigobj")
-        else()
-            set_target_properties(openmw PROPERTIES COMPILE_FLAGS "${WARNINGS} ${MT_BUILD}")
-        endif()
+        # \bigobj is required:
+        #  1) for OPENMW_UNITY_BUILD;
+        #  2) to compile lua bindings, because sol3 is heavily templated.
+        set_target_properties(openmw PROPERTIES COMPILE_FLAGS "${WARNINGS} ${MT_BUILD} /bigobj")
     endif()
 
     if (BUILD_WIZARD)
         set_target_properties(openmw-wizard PROPERTIES COMPILE_FLAGS "${WARNINGS} ${MT_BUILD}")
+    endif()
+
+    if (BUILD_BENCHMARKS)
+        set_target_properties(openmw_detournavigator_navmeshtilescache_benchmark PROPERTIES COMPILE_FLAGS "${WARNINGS} ${MT_BUILD}")
     endif()
   endif(MSVC)
 
   # TODO: At some point release builds should not use the console but rather write to a log file
   #set_target_properties(openmw PROPERTIES LINK_FLAGS_RELEASE "/SUBSYSTEM:WINDOWS")
   #set_target_properties(openmw PROPERTIES LINK_FLAGS_MINSIZEREL "/SUBSYSTEM:WINDOWS")
+endif()
+
+if (BUILD_OPENMW AND APPLE)
+    # Without these flags LuaJit crashes on startup on OSX
+    set_target_properties(openmw PROPERTIES LINK_FLAGS "-pagezero_size 10000 -image_base 100000000")
 endif()
 
 # Apple bundling
@@ -860,7 +800,160 @@ if (OPENMW_OSX_DEPLOYMENT AND APPLE)
         fixup_bundle(\"${INSTALLED_OPENCS_APP}\" \"${OPENCS_PLUGINS}\" \"\")
         " COMPONENT Runtime)
     include(CPack)
-endif ()
+elseif(NOT APPLE)
+    get_generator_is_multi_config(multi_config)
+    if (multi_config)
+        SET(INSTALL_SOURCE "${OpenMW_BINARY_DIR}/$<CONFIG>")
+    else ()
+        SET(INSTALL_SOURCE "${OpenMW_BINARY_DIR}")
+    endif ()
+
+    if(WIN32)
+        INSTALL(DIRECTORY "${INSTALL_SOURCE}/" DESTINATION "." FILES_MATCHING PATTERN "*.dll"
+                                                                              PATTERN "deps" EXCLUDE
+                                                                              PATTERN "apps" EXCLUDE
+                                                                              PATTERN "CMakeFiles" EXCLUDE
+                                                                              PATTERN "components" EXCLUDE
+                                                                              PATTERN "docs" EXCLUDE
+                                                                              PATTERN "extern" EXCLUDE
+                                                                              PATTERN "files" EXCLUDE
+                                                                              PATTERN "Testing" EXCLUDE)
+        INSTALL(DIRECTORY "${INSTALL_SOURCE}/" DESTINATION "." CONFIGURATIONS Debug;RelWithDebInfo FILES_MATCHING PATTERN "*.pdb"
+                                                                                                                  PATTERN "deps" EXCLUDE
+                                                                                                                  PATTERN "apps" EXCLUDE
+                                                                                                                  PATTERN "CMakeFiles" EXCLUDE
+                                                                                                                  PATTERN "components" EXCLUDE
+                                                                                                                  PATTERN "docs" EXCLUDE
+                                                                                                                  PATTERN "extern" EXCLUDE
+                                                                                                                  PATTERN "files" EXCLUDE
+                                                                                                                  PATTERN "Testing" EXCLUDE)
+        INSTALL(FILES "${INSTALL_SOURCE}/openmw.cfg.install" DESTINATION "." RENAME "openmw.cfg")
+        INSTALL(FILES "${OpenMW_SOURCE_DIR}/CHANGELOG.md" DESTINATION "." RENAME "CHANGELOG.txt")
+        INSTALL(FILES "${OpenMW_SOURCE_DIR}/README.md" DESTINATION "." RENAME "README.txt")
+        INSTALL(FILES "${OpenMW_SOURCE_DIR}/LICENSE" DESTINATION "." RENAME "LICENSE.txt")
+        INSTALL(FILES "${OpenMW_SOURCE_DIR}/files/mygui/DejaVuFontLicense.txt" DESTINATION ".")
+        INSTALL(FILES "${INSTALL_SOURCE}/defaults.bin" DESTINATION ".")
+        INSTALL(FILES "${INSTALL_SOURCE}/gamecontrollerdb.txt" DESTINATION ".")
+
+        INSTALL(DIRECTORY "${INSTALL_SOURCE}/resources" DESTINATION ".")
+
+        SET(CPACK_GENERATOR "NSIS")
+        SET(CPACK_PACKAGE_NAME "OpenMW")
+        SET(CPACK_PACKAGE_VENDOR "OpenMW.org")
+        SET(CPACK_PACKAGE_VERSION ${OPENMW_VERSION})
+        SET(CPACK_PACKAGE_VERSION_MAJOR ${OPENMW_VERSION_MAJOR})
+        SET(CPACK_PACKAGE_VERSION_MINOR ${OPENMW_VERSION_MINOR})
+        SET(CPACK_PACKAGE_VERSION_PATCH ${OPENMW_VERSION_RELEASE})
+        SET(CPACK_PACKAGE_EXECUTABLES "openmw;OpenMW")
+        IF(BUILD_LAUNCHER)
+            SET(CPACK_PACKAGE_EXECUTABLES "${CPACK_PACKAGE_EXECUTABLES};openmw-launcher;OpenMW Launcher")
+        ENDIF(BUILD_LAUNCHER)
+        IF(BUILD_OPENCS)
+            SET(CPACK_PACKAGE_EXECUTABLES "${CPACK_PACKAGE_EXECUTABLES};openmw-cs;OpenMW Construction Set")
+        ENDIF(BUILD_OPENCS)
+        IF(BUILD_WIZARD)
+            SET(CPACK_PACKAGE_EXECUTABLES "${CPACK_PACKAGE_EXECUTABLES};openmw-wizard;OpenMW Wizard")
+        ENDIF(BUILD_WIZARD)
+        SET(CPACK_NSIS_CREATE_ICONS_EXTRA "CreateShortCut '\$SMPROGRAMS\\\\$STARTMENU_FOLDER\\\\Readme.lnk' '\$INSTDIR\\\\README.txt'")
+        SET(CPACK_NSIS_DELETE_ICONS_EXTRA "
+            !insertmacro MUI_STARTMENU_GETFOLDER Application $MUI_TEMP
+            Delete \\\"$SMPROGRAMS\\\\$MUI_TEMP\\\\Readme.lnk\\\"
+            ")
+        SET(CPACK_RESOURCE_FILE_README "${OpenMW_SOURCE_DIR}/README.md")
+        SET(CPACK_PACKAGE_DESCRIPTION_FILE "${OpenMW_SOURCE_DIR}/README.md")
+        SET(CPACK_NSIS_EXECUTABLES_DIRECTORY ".")
+        SET(CPACK_NSIS_DISPLAY_NAME "OpenMW ${OPENMW_VERSION}")
+        SET(CPACK_NSIS_HELP_LINK "https:\\\\\\\\www.openmw.org")
+        SET(CPACK_NSIS_URL_INFO_ABOUT "https:\\\\\\\\www.openmw.org")
+        SET(CPACK_NSIS_INSTALLED_ICON_NAME "openmw-launcher.exe")
+        SET(CPACK_NSIS_MUI_FINISHPAGE_RUN "openmw-launcher.exe")
+        SET(CPACK_NSIS_MUI_ICON "${OpenMW_SOURCE_DIR}/files/windows/openmw.ico")
+        SET(CPACK_NSIS_MUI_UNIICON "${OpenMW_SOURCE_DIR}/files/windows/openmw.ico")
+        SET(CPACK_PACKAGE_ICON "${OpenMW_SOURCE_DIR}\\\\files\\\\openmw.bmp")
+
+        SET(VCREDIST32 "${OpenMW_BINARY_DIR}/vcredist_x86.exe")
+        if(EXISTS ${VCREDIST32})
+            INSTALL(FILES ${VCREDIST32} DESTINATION "redist")
+            SET(CPACK_NSIS_EXTRA_INSTALL_COMMANDS "ExecWait '\\\"$INSTDIR\\\\redist\\\\vcredist_x86.exe\\\" /q /norestart'" )
+        endif(EXISTS ${VCREDIST32})
+
+        SET(VCREDIST64 "${OpenMW_BINARY_DIR}/vcredist_x64.exe")
+        if(EXISTS ${VCREDIST64})
+            INSTALL(FILES ${VCREDIST64} DESTINATION "redist")
+            SET(CPACK_NSIS_EXTRA_INSTALL_COMMANDS "ExecWait '\\\"$INSTDIR\\\\redist\\\\vcredist_x64.exe\\\" /q /norestart'" )
+        endif(EXISTS ${VCREDIST64})
+
+        SET(OALREDIST "${OpenMW_BINARY_DIR}/oalinst.exe")
+        if(EXISTS ${OALREDIST})
+            INSTALL(FILES ${OALREDIST} DESTINATION "redist")
+            SET(CPACK_NSIS_EXTRA_INSTALL_COMMANDS "${CPACK_NSIS_EXTRA_INSTALL_COMMANDS}
+                ExecWait '\\\"$INSTDIR\\\\redist\\\\oalinst.exe\\\" /s'" )
+        endif(EXISTS ${OALREDIST})
+
+        if(CMAKE_CL_64)
+            SET(CPACK_NSIS_INSTALL_ROOT "$PROGRAMFILES64")
+        endif()
+
+        include(CPack)
+    else(WIN32)
+        # Linux installation
+
+        # Install binaries
+        IF(BUILD_OPENMW)
+            INSTALL(PROGRAMS "$<TARGET_FILE:openmw>" DESTINATION "${BINDIR}" )
+        ENDIF(BUILD_OPENMW)
+        IF(BUILD_LAUNCHER)
+            INSTALL(PROGRAMS "${INSTALL_SOURCE}/openmw-launcher" DESTINATION "${BINDIR}" )
+        ENDIF(BUILD_LAUNCHER)
+        IF(BUILD_BSATOOL)
+            INSTALL(PROGRAMS "${INSTALL_SOURCE}/bsatool" DESTINATION "${BINDIR}" )
+        ENDIF(BUILD_BSATOOL)
+        IF(BUILD_ESMTOOL)
+            INSTALL(PROGRAMS "${INSTALL_SOURCE}/esmtool" DESTINATION "${BINDIR}" )
+        ENDIF(BUILD_ESMTOOL)
+        IF(BUILD_NIFTEST)
+            INSTALL(PROGRAMS "${INSTALL_SOURCE}/niftest" DESTINATION "${BINDIR}" )
+        ENDIF(BUILD_NIFTEST)
+        IF(BUILD_MWINIIMPORTER)
+            INSTALL(PROGRAMS "${INSTALL_SOURCE}/openmw-iniimporter" DESTINATION "${BINDIR}" )
+        ENDIF(BUILD_MWINIIMPORTER)
+        IF(BUILD_ESSIMPORTER)
+            INSTALL(PROGRAMS "${INSTALL_SOURCE}/openmw-essimporter" DESTINATION "${BINDIR}" )
+        ENDIF(BUILD_ESSIMPORTER)
+        IF(BUILD_OPENCS)
+            INSTALL(PROGRAMS "${INSTALL_SOURCE}/openmw-cs" DESTINATION "${BINDIR}" )
+        ENDIF(BUILD_OPENCS)
+        IF(BUILD_WIZARD)
+            INSTALL(PROGRAMS "${INSTALL_SOURCE}/openmw-wizard" DESTINATION "${BINDIR}" )
+        ENDIF(BUILD_WIZARD)
+
+        # Install licenses
+        INSTALL(FILES "files/mygui/DejaVuFontLicense.txt" DESTINATION "${LICDIR}" )
+
+        # Install icon and desktop file
+        INSTALL(FILES "${OpenMW_BINARY_DIR}/org.openmw.launcher.desktop" DESTINATION "${DATAROOTDIR}/applications" COMPONENT "openmw")
+        INSTALL(FILES "${OpenMW_SOURCE_DIR}/files/launcher/images/openmw.png" DESTINATION "${ICONDIR}" COMPONENT "openmw")
+        INSTALL(FILES "${OpenMW_BINARY_DIR}/openmw.appdata.xml" DESTINATION "${DATAROOTDIR}/metainfo" COMPONENT "openmw")
+        IF(BUILD_OPENCS)
+            INSTALL(FILES "${OpenMW_BINARY_DIR}/org.openmw.cs.desktop" DESTINATION "${DATAROOTDIR}/applications" COMPONENT "opencs")
+            INSTALL(FILES "${OpenMW_SOURCE_DIR}/files/opencs/openmw-cs.png" DESTINATION "${ICONDIR}" COMPONENT "opencs")
+        ENDIF(BUILD_OPENCS)
+
+        # Install global configuration files
+        INSTALL(FILES "${INSTALL_SOURCE}/defaults.bin" DESTINATION "${SYSCONFDIR}" COMPONENT "openmw")
+        INSTALL(FILES "${INSTALL_SOURCE}/openmw.cfg.install" DESTINATION "${SYSCONFDIR}" RENAME "openmw.cfg" COMPONENT "openmw")
+        INSTALL(FILES "${INSTALL_SOURCE}/resources/version" DESTINATION "${SYSCONFDIR}" COMPONENT "openmw")
+        INSTALL(FILES "${INSTALL_SOURCE}/gamecontrollerdb.txt" DESTINATION "${SYSCONFDIR}" COMPONENT "openmw")
+
+        IF(BUILD_OPENCS)
+            INSTALL(FILES "${INSTALL_SOURCE}/defaults-cs.bin" DESTINATION "${SYSCONFDIR}" COMPONENT "opencs")
+        ENDIF(BUILD_OPENCS)
+
+        # Install resources
+        INSTALL(DIRECTORY "${INSTALL_SOURCE}/resources" DESTINATION "${DATADIR}" COMPONENT "Resources")
+        INSTALL(DIRECTORY DESTINATION "${DATADIR}/data" COMPONENT "Resources")
+    endif(WIN32)
+endif(OPENMW_OSX_DEPLOYMENT AND APPLE)
 
 # Doxygen Target -- simply run 'make doc' or 'make doc_pages'
 # output directory for 'make doc'       is "${OpenMW_BINARY_DIR}/docs/Doxygen"

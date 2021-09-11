@@ -4,9 +4,7 @@
 
 namespace MWMechanics
 {
-    static const ESM::WeaponType *sWeaponTypeListEnd = &sWeaponTypeList[sizeof(sWeaponTypeList)/sizeof(sWeaponTypeList[0])];
-
-    MWWorld::ContainerStoreIterator getActiveWeapon(MWWorld::Ptr actor, int *weaptype)
+    MWWorld::ContainerStoreIterator getActiveWeapon(const MWWorld::Ptr& actor, int *weaptype)
     {
         MWWorld::InventoryStore &inv = actor.getClass().getInventoryStore(actor);
         CreatureStats &stats = actor.getClass().getCreatureStats(actor);

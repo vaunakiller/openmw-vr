@@ -3,9 +3,10 @@
 
 #include <MyGUI_DataManager.h>
 
+#include "myguicompat.h"
+
 namespace osgMyGUI
 {
-
 
 class DataManager : public MyGUI::DataManager
 {
@@ -18,28 +19,28 @@ public:
     /** Get data stream from specified resource name.
         @param _name Resource name (usually file name).
     */
-    virtual MyGUI::IDataStream* getData(const std::string& _name);
+    MyGUI::IDataStream* getData(const std::string& _name) OPENMW_MYGUI_CONST_GETTER_3_4_1 override;
 
     /** Free data stream.
         @param _data Data stream.
     */
-    virtual void freeData(MyGUI::IDataStream* _data);
+    void freeData(MyGUI::IDataStream* _data) override;
 
     /** Is data with specified name exist.
         @param _name Resource name.
     */
-    virtual bool isDataExist(const std::string& _name);
+    bool isDataExist(const std::string& _name) OPENMW_MYGUI_CONST_GETTER_3_4_1 override;
 
     /** Get all data names with names that matches pattern.
         @param _pattern Pattern to match (for example "*.layout").
     */
-    virtual const MyGUI::VectorString& getDataListNames(const std::string& _pattern);
+    const MyGUI::VectorString& getDataListNames(const std::string& _pattern) OPENMW_MYGUI_CONST_GETTER_3_4_1 override;
 
     /** Get full path to data.
         @param _name Resource name.
         @return Return full path to specified data.
     */
-    virtual const std::string& getDataPath(const std::string& _name);
+    const std::string& getDataPath(const std::string& _name) OPENMW_MYGUI_CONST_GETTER_3_4_1 override;
 
 private:
     std::string mResourcePath;

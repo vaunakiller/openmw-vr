@@ -21,7 +21,7 @@ namespace MWMechanics
     /// Call when \a actor has got in contact with \a carrier (e.g. hit by him, or loots him)
     /// @param actor The actor that will potentially catch diseases. Currently only the player can catch diseases.
     /// @param carrier The disease carrier.
-    inline void diseaseContact (MWWorld::Ptr actor, MWWorld::Ptr carrier)
+    inline void diseaseContact (const MWWorld::Ptr& actor, const MWWorld::Ptr& carrier)
     {
         if (!carrier.getClass().isActor() || actor != getPlayer())
             return;
@@ -40,7 +40,7 @@ namespace MWMechanics
                 continue;
 
             float resist = 0.f;
-            if (spells.hasCorprusEffect(spell))
+            if (Spells::hasCorprusEffect(spell))
                 resist = 1.f - 0.01f * (actorEffects.get(ESM::MagicEffect::ResistCorprusDisease).getMagnitude()
                                         - actorEffects.get(ESM::MagicEffect::WeaknessToCorprusDisease).getMagnitude());
             else if (spell->mData.mType == ESM::Spell::ST_Disease)

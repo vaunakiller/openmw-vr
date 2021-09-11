@@ -1,5 +1,7 @@
 #include "creature.hpp"
 
+#include <climits> // INT_MIN
+
 #include <components/misc/rng.hpp>
 #include <components/debug/debuglog.hpp>
 #include <components/esm/loadcrea.hpp>
@@ -25,7 +27,6 @@
 #include "../mwworld/failedaction.hpp"
 #include "../mwworld/customdata.hpp"
 #include "../mwworld/containerstore.hpp"
-#include "../mwphysics/physicssystem.hpp"
 #include "../mwworld/cellstore.hpp"
 #include "../mwworld/localscripts.hpp"
 
@@ -51,33 +52,32 @@ namespace
 namespace MWClass
 {
 
-    class CreatureCustomData : public MWWorld::CustomData
+    class CreatureCustomData : public MWWorld::TypedCustomData<CreatureCustomData>
     {
     public:
         MWMechanics::CreatureStats mCreatureStats;
-        MWWorld::ContainerStore* mContainerStore; // may be InventoryStore for some creatures
+        std::unique_ptr<MWWorld::ContainerStore> mContainerStore; // may be InventoryStore for some creatures
         MWMechanics::Movement mMovement;
 
-        virtual MWWorld::CustomData *clone() const;
+        CreatureCustomData() = default;
+        CreatureCustomData(const CreatureCustomData& other);
+        CreatureCustomData(CreatureCustomData&& other) = default;
 
-        virtual CreatureCustomData& asCreatureCustomData()
+        CreatureCustomData& asCreatureCustomData() override
         {
             return *this;
         }
-        virtual const CreatureCustomData& asCreatureCustomData() const
+        const CreatureCustomData& asCreatureCustomData() const override
         {
             return *this;
         }
-
-        CreatureCustomData() : mContainerStore(0) {}
-        virtual ~CreatureCustomData() { delete mContainerStore; }
     };
 
-    MWWorld::CustomData *CreatureCustomData::clone() const
+    CreatureCustomData::CreatureCustomData(const CreatureCustomData& other)
+        : mCreatureStats(other.mCreatureStats),
+          mContainerStore(other.mContainerStore->clone()),
+          mMovement(other.mMovement)
     {
-        CreatureCustomData* cloned = new CreatureCustomData (*this);
-        cloned->mContainerStore = mContainerStore->clone();
-        return cloned;
     }
 
     const Creature::GMST& Creature::getGmst()
@@ -141,28 +141,23 @@ namespace MWClass
                 data->mCreatureStats.setDeathAnimationFinished(isPersistent(ptr));
 
             // spells
-            for (std::vector<std::string>::const_iterator iter (ref->mBase->mSpells.mList.begin());
-                iter!=ref->mBase->mSpells.mList.end(); ++iter)
-            {
-                if (const ESM::Spell* spell = MWBase::Environment::get().getWorld()->getStore().get<ESM::Spell>().search(*iter))
-                    data->mCreatureStats.getSpells().add (spell);
-                else /// \todo add option to make this a fatal error message pop-up, but default to warning for vanilla compatibility
-                    Log(Debug::Warning) << "Warning: ignoring nonexistent spell '" << *iter << "' on creature '" << ref->mBase->mId << "'";
-            }
+            bool spellsInitialised = data->mCreatureStats.getSpells().setSpells(ref->mBase->mId);
+            if (!spellsInitialised)
+                data->mCreatureStats.getSpells().addAllToInstance(ref->mBase->mSpells.mList);
 
             // inventory
             bool hasInventory = hasInventoryStore(ptr);
             if (hasInventory)
-                data->mContainerStore = new MWWorld::InventoryStore();
+                data->mContainerStore = std::make_unique<MWWorld::InventoryStore>();
             else
-                data->mContainerStore = new MWWorld::ContainerStore();
+                data->mContainerStore = std::make_unique<MWWorld::ContainerStore>();
 
             data->mCreatureStats.setGoldPool(ref->mBase->mData.mGold);
 
             data->mCreatureStats.setNeedRecalcDynamicStats(false);
 
             // store
-            ptr.getRefData().setCustomData(data.release());
+            ptr.getRefData().setCustomData(std::move(data));
 
             getContainerStore(ptr).fill(ref->mBase->mInventory, ptr.getCellRef().getRefId());
 
@@ -505,7 +500,7 @@ namespace MWClass
         registerClass (typeid (ESM::Creature).name(), instance);
     }
 
-    float Creature::getSpeed(const MWWorld::Ptr &ptr) const
+    float Creature::getMaxSpeed(const MWWorld::Ptr &ptr) const
     {
         const MWMechanics::CreatureStats& stats = getCreatureStats(ptr);
 
@@ -536,11 +531,6 @@ namespace MWClass
             moveSpeed = getSwimSpeed(ptr);
         else
             moveSpeed = getWalkSpeed(ptr);
-
-        const MWMechanics::Movement& movementSettings = ptr.getClass().getMovementSettings(ptr);
-        if (movementSettings.mIsStrafing)
-            moveSpeed *= 0.75f;
-        moveSpeed *= movementSettings.mSpeedFactor;
 
         return moveSpeed;
     }
@@ -600,7 +590,7 @@ namespace MWClass
     bool Creature::isPersistent(const MWWorld::ConstPtr &actor) const
     {
         const MWWorld::LiveCellRef<ESM::Creature>* ref = actor.get<ESM::Creature>();
-        return ref->mBase->mPersistent;
+        return (ref->mBase->mRecordFlags & ESM::FLAG_Persistent) != 0;
     }
 
     std::string Creature::getSoundIdFromSndGen(const MWWorld::Ptr &ptr, const std::string &name) const
@@ -760,27 +750,39 @@ namespace MWClass
         if (!state.mHasCustomState)
             return;
 
+        const ESM::CreatureState& creatureState = state.asCreatureState();
+
         if (state.mVersion > 0)
         {
             if (!ptr.getRefData().getCustomData())
             {
-                // Create a CustomData, but don't fill it from ESM records (not needed)
-                std::unique_ptr<CreatureCustomData> data (new CreatureCustomData);
-
-                if (hasInventoryStore(ptr))
-                    data->mContainerStore = new MWWorld::InventoryStore();
+                // FIXME: the use of mGoldPool can be replaced with another flag the next time
+                // the save file format is changed
+                if (creatureState.mCreatureStats.mGoldPool == INT_MIN)
+                    ensureCustomData(ptr);
                 else
-                    data->mContainerStore = new MWWorld::ContainerStore();
+                {
+                    // Create a CustomData, but don't fill it from ESM records (not needed)
+                    std::unique_ptr<CreatureCustomData> data (new CreatureCustomData);
 
-                ptr.getRefData().setCustomData (data.release());
+                    if (hasInventoryStore(ptr))
+                        data->mContainerStore = std::make_unique<MWWorld::InventoryStore>();
+                    else
+                        data->mContainerStore = std::make_unique<MWWorld::ContainerStore>();
+
+                    ptr.getRefData().setCustomData (std::move(data));
+                }
             }
         }
         else
             ensureCustomData(ptr); // in openmw 0.30 savegames not all state was saved yet, so need to load it regardless.
 
         CreatureCustomData& customData = ptr.getRefData().getCustomData()->asCreatureCustomData();
-        const ESM::CreatureState& creatureState = state.asCreatureState();
+
         customData.mContainerStore->readState (creatureState.mInventory);
+        bool spellsInitialised = customData.mCreatureStats.getSpells().setSpells(ptr.get<ESM::Creature>()->mBase->mId);
+        if(spellsInitialised)
+            customData.mCreatureStats.getSpells().clear();
         customData.mCreatureStats.readState (creatureState.mCreatureStats);
     }
 
@@ -839,22 +841,13 @@ namespace MWClass
                 }
 
                 MWBase::Environment::get().getWorld()->removeContainerScripts(ptr);
+                MWBase::Environment::get().getWindowManager()->onDeleteCustomData(ptr);
                 ptr.getRefData().setCustomData(nullptr);
 
                 // Reset to original position
-                MWBase::Environment::get().getWorld()->moveObject(ptr, ptr.getCellRef().getPosition().pos[0],
-                        ptr.getCellRef().getPosition().pos[1],
-                        ptr.getCellRef().getPosition().pos[2]);
+                MWBase::Environment::get().getWorld()->moveObject(ptr, ptr.getCellRef().getPosition().asVec3());
             }
         }
-    }
-
-    void Creature::restock(const MWWorld::Ptr& ptr) const
-    {
-        MWWorld::LiveCellRef<ESM::Creature> *ref = ptr.get<ESM::Creature>();
-        const ESM::InventoryList& list = ref->mBase->mInventory;
-        MWWorld::ContainerStore& store = getContainerStore(ptr);
-        store.restock(list, ptr, ptr.getCellRef().getRefId());
     }
 
     int Creature::getBaseFightRating(const MWWorld::ConstPtr &ptr) const
@@ -872,6 +865,11 @@ namespace MWClass
     void Creature::setBaseAISetting(const std::string& id, MWMechanics::CreatureStats::AiSetting setting, int value) const
     {
         MWMechanics::setBaseAISetting<ESM::Creature>(id, setting, value);
+    }
+
+    void Creature::modifyBaseInventory(const std::string& actorId, const std::string& itemId, int amount) const
+    {
+        MWMechanics::modifyBaseInventory<ESM::Creature>(actorId, itemId, amount);
     }
 
     float Creature::getWalkSpeed(const MWWorld::Ptr& ptr) const

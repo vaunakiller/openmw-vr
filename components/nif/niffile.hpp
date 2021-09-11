@@ -62,6 +62,8 @@ class NIFFile final : public File
 
     bool mUseSkinning = false;
 
+    static bool sLoadUnsupportedFiles;
+
     /// Parse the file
     void parse(Files::IStreamPtr stream);
 
@@ -90,11 +92,9 @@ public:
     };
 
     /// Used if file parsing fails
-    void fail(const std::string &msg) const
+    [[noreturn]] void fail(const std::string &msg) const
     {
-        std::string err = " NIFFile Error: " + msg;
-        err += "\nFile: " + filename;
-        throw std::runtime_error(err);
+        throw std::runtime_error(" NIFFile Error: " + msg + "\nFile: " + filename);
     }
     /// Used when something goes wrong, but not catastrophically so
     void warn(const std::string &msg) const
@@ -149,6 +149,8 @@ public:
 
     /// Get the Bethesda version of the NIF format used
     unsigned int getBethVersion() const override { return bethVer; }
+
+    static void setLoadUnsupportedFiles(bool load);
 };
 using NIFFilePtr = std::shared_ptr<const Nif::NIFFile>;
 

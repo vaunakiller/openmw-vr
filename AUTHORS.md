@@ -4,13 +4,16 @@ Contributors
 The OpenMW project was started in 2008 by Nicolay Korslund.
 In the course of years many people have contributed to the project.
 
-If you feel your name is missing from this list, please notify a developer.
+If you feel your name is missing from this list, please add it to `AUTHORS.md`.
 
 
 Programmers
 -----------
 
-    Marc Zinnschlag (Zini) - Lead Programmer/Project Manager
+    Bret Curtis (psi29a) - Project leader 2019-present
+    Marc Zinnschlag (Zini) - Project leader 2010-2018
+    Nicolay Korslund - Project leader 2008-2010
+    scrawl - Top contributor
 
     Adam Hogan (aurix)
     Aesylwinn
@@ -21,10 +24,12 @@ Programmers
     Alex McKibben
     alexanderkjall
     Alexander Nadeau (wareya)
-    Alexander Olofsson (Ace)
+    Alexander Olofsson (Ananace)
     Alex Rice
     Alex S (docwest)
+    Alexey Yaryshev (skeevert)
     Allofich
+    Andreas Stöckel
     Andrei Kortunov (akortunov)
     AnyOldName3
     Ardekantur
@@ -39,7 +44,7 @@ Programmers
     Austin Salgat (Salgat)
     Ben Shealy (bentsherman)
     Berulacks
-    Bret Curtis (psi29a)
+    Bo Svensson
     Britt Mathis (galdor557)
     Capostrophic
     Carl Maxwell
@@ -47,6 +52,8 @@ Programmers
     Cédric Mocquillon
     Chris Boyce (slothlife)
     Chris Robinson (KittyCat)
+    Cody Glassman (Wazabear)
+    Coleman Smith (olcoal)
     Cory F. Cohen (cfcohen)
     Cris Mihalache (Mirceam)
     crussell187
@@ -86,14 +93,17 @@ Programmers
     Internecine
     Jackerty
     Jacob Essex (Yacoby)
+    Jacob Turnbull (Tankinfrank)
     Jake Westrip (16bitint)
     James Carty (MrTopCat)
     James Moore (moore.work)
     James Stephens (james-h-stephens)
     Jan-Peter Nilsson (peppe)
     Jan Borsodi (am0s)
+    JanuarySnow
     Jason Hooks (jhooks)
     jeaye
+    jefetienne
     Jeffrey Haines (Jyby)
     Jengerer
     Jiří Kuneš (kunesj)
@@ -112,6 +122,7 @@ Programmers
     Kurnevsky Evgeny (kurnevsky)
     Lars Söderberg (Lazaroth)
     lazydev
+    Léo Peltier
     Leon Krieg (lkrieg)
     Leon Saunders (emoose)
     logzero
@@ -119,7 +130,6 @@ Programmers
     Lordrea
     Łukasz Gołębiewski (lukago)
     Lukasz Gromanowski (lgro)
-    Manuel Edelmann (vorenon)
     Marc Bouvier (CramitDeFrog)
     Marcin Hulist (Gohan)
     Mark Siewert (mark76)
@@ -128,6 +138,7 @@ Programmers
     Martin Otto (MAtahualpa)
     Mateusz Kołaczek (PL_kolek)
     Mateusz Malisz (malice)
+    Max Henzerling (SaintMercury)
     megaton
     Michael Hogan (Xethik)
     Michael Mc Donnell
@@ -146,10 +157,11 @@ Programmers
     Nathan Jeffords (blunted2night)
     NeveHanter
     Nialsy
-    Nicolay Korslund
+    Nick Crawford (nighthawk469)
     Nikolay Kasyanov (corristo)
     nobrakal
     Nolan Poe (nopoe)
+    Nurivan Gomez (Nuri-G)
     Oleg Chkan (mrcheko)
     Paul Cercueil (pcercuei)
     Paul McElroy (Greendogo)
@@ -175,13 +187,13 @@ Programmers
     Roman Siromakha (elsid)
     Sandy Carter (bwrsandman)
     Scott Howard (maqifrnswa)
-    scrawl
     Sebastian Wick (swick)
     Sergey Fukanchik
     Sergey Shambir (sergey-shambir)
     sergoz
     ShadowRadiance
     Siimacore
+    Simon Meulenbeek (simonmb)
     sir_herrbatka
     smbas
     Sophie Kirschner (pineapplemachine)
@@ -195,6 +207,7 @@ Programmers
     Sylvain Thesnieres (Garvek)
     t6
     terrorfisch
+    Tess (tescoShoppah)
     thegriglat
     Thomas Luppi (Digmaster)
     tlmullis
@@ -214,6 +227,7 @@ Programmers
     Yohaulticetl
     Yuri Krupenin
     zelurker
+    Noah Gooder
 
 Documentation
 -------------
@@ -232,7 +246,8 @@ Documentation
 Packagers
 ---------
 
-    Alexander Olofsson (Ace) - Windows
+    Alexander Olofsson (Ananace) - Windows and Flatpak
+    Alexey Sokolov (DarthGandalf) - Gentoo Linux
     Bret Curtis (psi29a) - Debian and Ubuntu Linux
     Edmondo Tommasina (edmondo) - Gentoo Linux
     Julian Ospald (hasufell) - Gentoo Linux
@@ -302,4 +317,4 @@ Thanks to Kevin Ryan,
 for creating the icon used for the Data Files tab of the OpenMW Launcher.
 
 Thanks to DejaVu team,
-for their DejaVuLGCSansMono fontface, see DejaVu Font License.txt for their license terms.
+for their DejaVuLGCSansMono fontface, see DejaVuFontLicense.txt for their license terms.

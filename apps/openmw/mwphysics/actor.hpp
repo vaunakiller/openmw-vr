@@ -2,14 +2,14 @@
 #define OPENMW_MWPHYSICS_ACTOR_H
 
 #include <memory>
+#include <mutex>
 
 #include "ptrholder.hpp"
 
+#include <LinearMath/btTransform.h>
 #include <osg/Vec3f>
 #include <osg/Quat>
-#include <osg/ref_ptr>
 
-class btCollisionWorld;
 class btCollisionShape;
 class btCollisionObject;
 class btConvexShape;
@@ -21,12 +21,13 @@ namespace Resource
 
 namespace MWPhysics
 {
+    class PhysicsTaskScheduler;
 
-    class Actor : public PtrHolder
+    class Actor final : public PtrHolder
     {
     public:
-        Actor(const MWWorld::Ptr& ptr, osg::ref_ptr<const Resource::BulletShape> shape, btCollisionWorld* world);
-        ~Actor();
+        Actor(const MWWorld::Ptr& ptr, const Resource::BulletShape* shape, PhysicsTaskScheduler* scheduler, bool canWaterWalk);
+        ~Actor() override;
 
         /**
          * Sets the collisionMode for this actor. If disabled, the actor can fly and clip geometry.
@@ -46,7 +47,7 @@ namespace MWPhysics
         void enableCollisionBody(bool collision);
 
         void updateScale();
-        void updateRotation();
+        void setRotation(osg::Quat quat);
 
         /**
          * Return true if the collision shape looks the same no matter how its Z rotated.
@@ -54,10 +55,11 @@ namespace MWPhysics
         bool isRotationallyInvariant() const;
 
         /**
-         * Set mPosition and mPreviousPosition to the position in the Ptr's RefData. This should be used
-         * when an object is "instantly" moved/teleported as opposed to being moved by the physics simulation.
-         */
-        void updatePosition();
+        * Used by the physics simulation to store the simulation result. Used in conjunction with mWorldPosition
+        * to account for e.g. scripted movements
+        */
+        void setSimulationPosition(const osg::Vec3f& position);
+        osg::Vec3f getSimulationPosition() const;
 
         void updateCollisionObjectPosition();
 
@@ -79,8 +81,18 @@ namespace MWPhysics
 
         /**
           * Store the current position into mPreviousPosition, then move to this position.
+          * Returns true if the new position is different.
           */
-        void setPosition(const osg::Vec3f& position);
+        bool setPosition(const osg::Vec3f& position);
+
+        // force set actor position to be as in Ptr::RefData
+        void updatePosition();
+
+        // register a position offset that will be applied during simulation.
+        void adjustPosition(const osg::Vec3f& offset, bool ignoreCollisions);
+
+        // apply position offset. Can't be called during simulation
+        void applyOffsetChange();
 
         osg::Vec3f getPosition() const;
 
@@ -120,11 +132,6 @@ namespace MWPhysics
             return mInternalCollisionMode && mOnSlope;
         }
 
-        btCollisionObject* getCollisionObject() const
-        {
-            return mCollisionObject.get();
-        }
-
         /// Sets whether this actor should be able to collide with the water surface
         void setCanWaterWalk(bool waterWalk);
 
@@ -132,11 +139,41 @@ namespace MWPhysics
         void setWalkingOnWater(bool walkingOnWater);
         bool isWalkingOnWater() const;
 
+        MWWorld::Ptr getStandingOnPtr() const;
+        void setStandingOnPtr(const MWWorld::Ptr& ptr);
+
+        unsigned int getStuckFrames() const
+        {
+            return mStuckFrames;
+        }
+        void setStuckFrames(unsigned int frames)
+        {
+            mStuckFrames = frames;
+        }
+
+        const osg::Vec3f &getLastStuckPosition() const
+        {
+            return mLastStuckPosition;
+        }
+        void setLastStuckPosition(osg::Vec3f position)
+        {
+            mLastStuckPosition = position;
+        }
+
+        bool skipCollisions();
+
+        void setVelocity(osg::Vec3f velocity);
+        osg::Vec3f velocity();
+
     private:
+        MWWorld::Ptr mStandingOnPtr;
         /// Removes then re-adds the collision object to the dynamics world
         void updateCollisionMask();
         void addCollisionMask(int collisionMask);
-        int getCollisionMask();
+        int getCollisionMask() const;
+
+        /// Returns the mesh translation, scaled and rotated as necessary
+        osg::Vec3f getScaledMeshTranslation() const;
 
         bool mCanWaterWalk;
         bool mWalkingOnWater;
@@ -146,16 +183,25 @@ namespace MWPhysics
         std::unique_ptr<btCollisionShape> mShape;
         btConvexShape* mConvexShape;
 
-        std::unique_ptr<btCollisionObject> mCollisionObject;
-
         osg::Vec3f mMeshTranslation;
+        osg::Vec3f mOriginalHalfExtents;
         osg::Vec3f mHalfExtents;
+        osg::Vec3f mRenderingHalfExtents;
         osg::Quat mRotation;
 
         osg::Vec3f mScale;
-        osg::Vec3f mRenderingScale;
+        osg::Vec3f mSimulationPosition;
         osg::Vec3f mPosition;
         osg::Vec3f mPreviousPosition;
+        osg::Vec3f mPositionOffset;
+        osg::Vec3f mVelocity;
+        bool mWorldPositionChanged;
+        bool mSkipCollisions;
+        bool mSkipSimulation;
+        mutable std::mutex mPositionMutex;
+
+        unsigned int mStuckFrames;
+        osg::Vec3f mLastStuckPosition;
 
         osg::Vec3f mForce;
         bool mOnGround;
@@ -163,7 +209,7 @@ namespace MWPhysics
         bool mInternalCollisionMode;
         bool mExternalCollisionMode;
 
-        btCollisionWorld* mCollisionWorld;
+        PhysicsTaskScheduler* mTaskScheduler;
 
         Actor(const Actor&);
         Actor& operator=(const Actor&);

@@ -20,7 +20,7 @@ namespace bfs = boost::filesystem;
 ///See if the file has the named extension
 bool hasExtension(std::string filename, std::string  extensionToFind)
 {
-    std::string extension = filename.substr(filename.find_last_of(".")+1);
+    std::string extension = filename.substr(filename.find_last_of('.')+1);
 
     //Convert strings to lower case for comparison
     std::transform(extension.begin(), extension.end(), extension.begin(), ::tolower);
@@ -53,7 +53,7 @@ void readVFS(VFS::Archive* anArchive,std::string archivePath = "")
     myManager.buildIndex();
 
     std::map<std::string, VFS::File*> files=myManager.getIndex();
-    for(std::map<std::string, VFS::File*>::const_iterator it=files.begin(); it!=files.end(); ++it)
+    for(auto it=files.begin(); it!=files.end(); ++it)
     {
         std::string name = it->first;
 
@@ -132,8 +132,9 @@ int main(int argc, char **argv)
     if(!parseOptions (argc, argv, files))
         return 1;
 
+    Nif::NIFFile::setLoadUnsupportedFiles(true);
 //     std::cout << "Reading Files" << std::endl;
-    for(std::vector<std::string>::const_iterator it=files.begin(); it!=files.end(); ++it)
+    for(auto it=files.begin(); it!=files.end(); ++it)
     {
         std::string name = *it;
 

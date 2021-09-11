@@ -30,11 +30,11 @@ namespace CSVPrefs
 
             Dialogue();
 
-            virtual ~Dialogue();
+            ~Dialogue() override;
 
         protected:
 
-            void closeEvent (QCloseEvent *event);
+            void closeEvent (QCloseEvent *event) override;
 
         public slots:
 

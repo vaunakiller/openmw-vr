@@ -83,7 +83,7 @@ namespace MWMechanics
 
         // reset
         creatureStats.setLevel(player->mNpdt.mLevel);
-        creatureStats.getSpells().clear();
+        creatureStats.getSpells().clear(true);
         creatureStats.modifyMagicEffects(MagicEffects());
 
         for (int i=0; i<27; ++i)
@@ -251,7 +251,7 @@ namespace MWMechanics
             mObjects.addObject(ptr);
     }
 
-    void MechanicsManager::castSpell(const MWWorld::Ptr& ptr, const std::string spellId, bool manualSpell)
+    void MechanicsManager::castSpell(const MWWorld::Ptr& ptr, const std::string& spellId, bool manualSpell)
     {
         if(ptr.getClass().isActor())
             mActors.castSpell(ptr, spellId, manualSpell);
@@ -402,7 +402,7 @@ namespace MWMechanics
         mActors.rest(hours, sleep);
     }
 
-    void MechanicsManager::restoreDynamicStats(MWWorld::Ptr actor, double hours, bool sleep)
+    void MechanicsManager::restoreDynamicStats(const MWWorld::Ptr& actor, double hours, bool sleep)
     {
         mActors.restoreDynamicStats(actor, hours, sleep);
     }
@@ -483,7 +483,7 @@ namespace MWMechanics
         mUpdatePlayer = true;
     }
 
-    int MechanicsManager::getDerivedDisposition(const MWWorld::Ptr& ptr, bool addTemporaryDispositionChange)
+    int MechanicsManager::getDerivedDisposition(const MWWorld::Ptr& ptr, bool clamp)
     {
         const MWMechanics::NpcStats& npcSkill = ptr.getClass().getNpcStats(ptr);
         float x = static_cast<float>(npcSkill.getBaseDisposition());
@@ -562,11 +562,9 @@ namespace MWMechanics
 
         x += ptr.getClass().getCreatureStats(ptr).getMagicEffects().get(ESM::MagicEffect::Charm).getMagnitude();
 
-        if(addTemporaryDispositionChange)
-          x += MWBase::Environment::get().getDialogueManager()->getTemporaryDispositionChange();
-
-        int effective_disposition = std::max(0,std::min(int(x),100));//, normally clamped to [0..100] when used
-        return effective_disposition;
+        if(clamp)
+            return std::max(0,std::min(int(x),100));//, normally clamped to [0..100] when used
+        return int(x);
     }
 
     int MechanicsManager::getBarterOffer(const MWWorld::Ptr& ptr,int basePrice, bool buying)
@@ -603,7 +601,7 @@ namespace MWMechanics
         return mActors.countDeaths (id);
     }
 
-    void MechanicsManager::getPersuasionDispositionChange (const MWWorld::Ptr& npc, PersuasionType type, bool& success, float& tempChange, float& permChange)
+    void MechanicsManager::getPersuasionDispositionChange (const MWWorld::Ptr& npc, PersuasionType type, bool& success, int& tempChange, int& permChange)
     {
         const MWWorld::Store<ESM::GameSetting> &gmst =
             MWBase::Environment::get().getWorld()->getStore().get<ESM::GameSetting>();
@@ -681,7 +679,7 @@ namespace MWMechanics
                     // Deviating from Morrowind here: it doesn't increase disposition on marginal wins,
                     // which seems to be a bug (MCP fixes it too).
                     // Original logic: x = 0, y = -iPerMinChange
-                    x = -iPerMinChange;
+                    x = iPerMinChange;
                     y = x; // This goes unused.
                 }
                 else
@@ -727,19 +725,22 @@ namespace MWMechanics
             x = success ? std::max(iPerMinChange, c) : c;
         }
 
-        tempChange = type == PT_Intimidate ? x : int(x * fPerTempMult);
+        tempChange = type == PT_Intimidate ? int(x) : int(x * fPerTempMult);
 
 
-        float cappedDispositionChange = tempChange;
-        if (currentDisposition + tempChange > 100.f)
-            cappedDispositionChange = static_cast<float>(100 - currentDisposition);
-        if (currentDisposition + tempChange < 0.f)
-            cappedDispositionChange = static_cast<float>(-currentDisposition);
+        int cappedDispositionChange = tempChange;
+        if (currentDisposition + tempChange > 100)
+            cappedDispositionChange = 100 - currentDisposition;
+        if (currentDisposition + tempChange < 0)
+        {
+            cappedDispositionChange = -currentDisposition;
+            tempChange = 0;
+        }
 
         permChange = floor(cappedDispositionChange / fPerTempMult);
         if (type == PT_Intimidate)
         {
-            permChange = success ? -int(cappedDispositionChange/ fPerTempMult) : y;
+            permChange = success ? -int(cappedDispositionChange/ fPerTempMult) : int(y);
         }
     }
 
@@ -869,7 +870,7 @@ namespace MWMechanics
         int lockLevel = cellref.getLockLevel();
         if (target.getClass().isDoor() &&
             (lockLevel <= 0 || lockLevel == ESM::UnbreakableLock) &&
-            ptr.getCellRef().getTrap().empty())
+            cellref.getTrap().empty())
         {
             return true;
         }
@@ -971,7 +972,7 @@ namespace MWMechanics
         {
             const OwnerMap& owners = it->second;
             for (OwnerMap::const_iterator ownerIt = owners.begin(); ownerIt != owners.end(); ++ownerIt)
-                result.push_back(std::make_pair(ownerIt->first.first, ownerIt->second));
+                result.emplace_back(ownerIt->first.first, ownerIt->second);
             return result;
         }
     }
@@ -1045,6 +1046,7 @@ namespace MWMechanics
     void MechanicsManager::confiscateStolenItems(const MWWorld::Ptr &player, const MWWorld::Ptr &targetContainer)
     {
         MWWorld::ContainerStore& store = player.getClass().getContainerStore(player);
+        MWWorld::ContainerStore& containerStore = targetContainer.getClass().getContainerStore(targetContainer);
         for (MWWorld::ContainerStoreIterator it = store.begin(); it != store.end(); ++it)
         {
             StolenItemsMap::iterator stolenIt = mStolenItems.find(Misc::StringUtils::lowerCase(it->getCellRef().getRefId()));
@@ -1065,7 +1067,7 @@ namespace MWMechanics
 
             int toMove = it->getRefData().getCount() - itemCount;
 
-            targetContainer.getClass().getContainerStore(targetContainer).add(*it, toMove, targetContainer);
+            containerStore.add(*it, toMove, targetContainer);
             store.remove(*it, toMove, player);
         }
         // TODO: unhardcode the locklevel
@@ -1653,6 +1655,11 @@ namespace MWMechanics
         return mActors.getActorsFollowingIndices(actor);
     }
 
+    std::map<int, MWWorld::Ptr> MechanicsManager::getActorsFollowingByIndex(const MWWorld::Ptr& actor)
+    {
+        return mActors.getActorsFollowingByIndex(actor);
+    }
+
     std::list<MWWorld::Ptr> MechanicsManager::getActorsFighting(const MWWorld::Ptr& actor) {
         return mActors.getActorsFighting(actor);
     }
@@ -1716,7 +1723,7 @@ namespace MWMechanics
 
         int disposition = 50;
         if (ptr.getClass().isNpc())
-            disposition = getDerivedDisposition(ptr, true);
+            disposition = getDerivedDisposition(ptr);
 
         int fight = ptr.getClass().getCreatureStats(ptr).getAiSetting(CreatureStats::AI_Fight).getModified()
                 + static_cast<int>(getFightDistanceBias(ptr, target) + getFightDispositionBias(static_cast<float>(disposition)));

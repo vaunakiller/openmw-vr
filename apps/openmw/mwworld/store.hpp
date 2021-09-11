@@ -3,7 +3,9 @@
 
 #include <string>
 #include <vector>
+#include <memory>
 #include <map>
+#include <set>
 
 #include "recordcmp.hpp"
 
@@ -46,7 +48,7 @@ namespace MWWorld
 
         virtual void write (ESM::ESMWriter& writer, Loading::Listener& progress) const {}
 
-        virtual RecordId read (ESM::ESMReader& reader) { return RecordId(); }
+        virtual RecordId read (ESM::ESMReader& reader, bool overrideOnly = false) { return RecordId(); }
         ///< Read into dynamic storage
     };
 
@@ -74,10 +76,10 @@ namespace MWWorld
         const T *find(int index) const;
     };
 
-    template <class T>
+    template <class T, class Container=std::vector<T*>>
     class SharedIterator
     {
-        typedef typename std::vector<T *>::const_iterator Iter;
+        typedef typename Container::const_iterator Iter;
 
         Iter mIter;
 
@@ -163,8 +165,8 @@ namespace MWWorld
         typedef SharedIterator<T> iterator;
 
         // setUp needs to be called again after
-        virtual void clearDynamic();
-        void setUp();
+        void clearDynamic() override;
+        void setUp() override;
 
         const T *search(const std::string &id) const;
         const T *searchStatic(const std::string &id) const;
@@ -179,29 +181,25 @@ namespace MWWorld
 
         const T *find(const std::string &id) const;
 
-        /** Returns a random record that starts with the named ID. An exception is thrown if none
-         * are found. */
-        const T *findRandom(const std::string &id) const;
-
         iterator begin() const;
         iterator end() const;
 
-        size_t getSize() const;
-        int getDynamicSize() const;
+        size_t getSize() const override;
+        int getDynamicSize() const override;
 
         /// @note The record identifiers are listed in the order that the records were defined by the content files.
-        void listIdentifier(std::vector<std::string> &list) const;
+        void listIdentifier(std::vector<std::string> &list) const override;
 
-        T *insert(const T &item);
+        T *insert(const T &item, bool overrideOnly = false);
         T *insertStatic(const T &item);
 
-        bool eraseStatic(const std::string &id);
+        bool eraseStatic(const std::string &id) override;
         bool erase(const std::string &id);
         bool erase(const T &item);
 
-        RecordId load(ESM::ESMReader &esm);
-        void write(ESM::ESMWriter& writer, Loading::Listener& progress) const;
-        RecordId read(ESM::ESMReader& reader);
+        RecordId load(ESM::ESMReader &esm) override;
+        void write(ESM::ESMWriter& writer, Loading::Listener& progress) const override;
+        RecordId read(ESM::ESMReader& reader, bool overrideOnly = false) override;
     };
 
     template <>
@@ -224,11 +222,11 @@ namespace MWWorld
         /// Resize the internal store to hold at least \a num plugins.
         void resize(size_t num);
 
-        size_t getSize() const;
+        size_t getSize() const override;
         size_t getSize(size_t plugin) const;
 
         RecordId load(ESM::ESMReader &esm, size_t plugin);
-        RecordId load(ESM::ESMReader &esm);
+        RecordId load(ESM::ESMReader &esm) override;
 
         iterator begin(size_t plugin) const;
         iterator end(size_t plugin) const;
@@ -237,14 +235,32 @@ namespace MWWorld
     template <>
     class Store<ESM::Land> : public StoreBase
     {
-        std::vector<ESM::Land *> mStatic;
+        struct SpatialComparator
+        {
+            using is_transparent = void;
+
+            bool operator()(const ESM::Land& x, const ESM::Land& y) const
+            {
+                return std::tie(x.mX, x.mY) < std::tie(y.mX, y.mY);
+            }
+            bool operator()(const ESM::Land& x, const std::pair<int, int>& y) const
+            {
+                return std::tie(x.mX, x.mY) < std::tie(y.first, y.second);
+            }
+            bool operator()(const std::pair<int, int>& x, const ESM::Land& y) const
+            {
+                return std::tie(x.first, x.second) < std::tie(y.mX, y.mY);
+            }
+        };
+        using Statics = std::set<ESM::Land, SpatialComparator>;
+        Statics mStatic;
 
     public:
-        typedef SharedIterator<ESM::Land> iterator;
+        typedef typename Statics::iterator iterator;
 
         virtual ~Store();
 
-        size_t getSize() const;
+        size_t getSize() const override;
         iterator begin() const;
         iterator end() const;
 
@@ -253,8 +269,8 @@ namespace MWWorld
         const ESM::Land *search(int x, int y) const;
         const ESM::Land *find(int x, int y) const;
 
-        RecordId load(ESM::ESMReader &esm);
-        void setUp();
+        RecordId load(ESM::ESMReader &esm) override;
+        void setUp() override;
     private:
         bool mBuilt = false;
     };
@@ -304,10 +320,10 @@ namespace MWWorld
         const ESM::Cell *find(const std::string &id) const;
         const ESM::Cell *find(int x, int y) const;
 
-        virtual void clearDynamic();
-        void setUp();
+        void clearDynamic() override;
+        void setUp() override;
 
-        RecordId load(ESM::ESMReader &esm);
+        RecordId load(ESM::ESMReader &esm) override;
 
         iterator intBegin() const;
         iterator intEnd() const;
@@ -320,11 +336,11 @@ namespace MWWorld
         // Return the northernmost cell in the easternmost column.
         const ESM::Cell *searchExtByRegion(const std::string &id) const;
 
-        size_t getSize() const;
+        size_t getSize() const override;
         size_t getExtSize() const;
         size_t getIntSize() const;
 
-        void listIdentifier(std::vector<std::string> &list) const;
+        void listIdentifier(std::vector<std::string> &list) const override;
 
         ESM::Cell *insert(const ESM::Cell &cell);
 
@@ -351,10 +367,10 @@ namespace MWWorld
         Store();
 
         void setCells(Store<ESM::Cell>& cells);
-        RecordId load(ESM::ESMReader &esm);
-        size_t getSize() const;
+        RecordId load(ESM::ESMReader &esm) override;
+        size_t getSize() const override;
 
-        void setUp();
+        void setUp() override;
 
         const ESM::Pathgrid *search(int x, int y) const;
         const ESM::Pathgrid *search(const std::string& name) const;
@@ -412,13 +428,13 @@ namespace MWWorld
         const ESM::WeaponType *search(const int id) const;
         const ESM::WeaponType *find(const int id) const;
 
-        RecordId load(ESM::ESMReader &esm) { return RecordId(0, false); }
+        RecordId load(ESM::ESMReader &esm) override { return RecordId({}, false); }
 
         ESM::WeaponType* insert(const ESM::WeaponType &weaponType);
 
-        void setUp();
+        void setUp() override;
 
-        size_t getSize() const;
+        size_t getSize() const override;
         iterator begin() const;
         iterator end() const;
     };

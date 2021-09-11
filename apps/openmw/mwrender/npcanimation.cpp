@@ -19,10 +19,9 @@
 #include <components/sceneutil/attach.hpp>
 #include <components/sceneutil/visitor.hpp>
 #include <components/sceneutil/skeleton.hpp>
+#include <components/sceneutil/keyframe.hpp>
 
 #include <components/settings/settings.hpp>
-
-#include <components/nifosg/nifloader.hpp> // TextKeyMapHolder
 
 #include <components/vfs/manager.hpp>
 
@@ -44,6 +43,7 @@
 #include "rotatecontroller.hpp"
 #include "renderbin.hpp"
 #include "vismask.hpp"
+#include "util.hpp"
 
 namespace
 {
@@ -145,7 +145,7 @@ public:
     void setBlinkStart(float value);
     void setBlinkStop(float value);
 
-    virtual float getValue(osg::NodeVisitor* nv);
+    float getValue(osg::NodeVisitor* nv) override;
 };
 
 // --------------------------------------------------------------------------------
@@ -166,7 +166,7 @@ public:
         mOffset = offset;
     }
 
-    virtual void operator()(osg::Node* node, osg::NodeVisitor* nv)
+    void operator()(osg::Node* node, osg::NodeVisitor* nv) override
     {
         osg::MatrixTransform* transform = static_cast<osg::MatrixTransform*>(node);
         osg::Matrix matrix = transform->getMatrix();
@@ -287,37 +287,36 @@ NpcAnimation::NpcType NpcAnimation::getNpcType(const MWWorld::Ptr& ptr)
     return curType;
 }
 
-static NpcAnimation::PartBoneMap createPartListMap()
+static const inline NpcAnimation::PartBoneMap createPartListMap()
 {
-    NpcAnimation::PartBoneMap result;
-    result.insert(std::make_pair(ESM::PRT_Head, "Head"));
-    result.insert(std::make_pair(ESM::PRT_Hair, "Head")); // note it uses "Head" as attach bone, but "Hair" as filter
-    result.insert(std::make_pair(ESM::PRT_Neck, "Neck"));
-    result.insert(std::make_pair(ESM::PRT_Cuirass, "Chest"));
-    result.insert(std::make_pair(ESM::PRT_Groin, "Groin"));
-    result.insert(std::make_pair(ESM::PRT_Skirt, "Groin"));
-    result.insert(std::make_pair(ESM::PRT_RHand, "Right Hand"));
-    result.insert(std::make_pair(ESM::PRT_LHand, "Left Hand"));
-    result.insert(std::make_pair(ESM::PRT_RWrist, "Right Wrist"));
-    result.insert(std::make_pair(ESM::PRT_LWrist, "Left Wrist"));
-    result.insert(std::make_pair(ESM::PRT_Shield, "Shield Bone"));
-    result.insert(std::make_pair(ESM::PRT_RForearm, "Right Forearm"));
-    result.insert(std::make_pair(ESM::PRT_LForearm, "Left Forearm"));
-    result.insert(std::make_pair(ESM::PRT_RUpperarm, "Right Upper Arm"));
-    result.insert(std::make_pair(ESM::PRT_LUpperarm, "Left Upper Arm"));
-    result.insert(std::make_pair(ESM::PRT_RFoot, "Right Foot"));
-    result.insert(std::make_pair(ESM::PRT_LFoot, "Left Foot"));
-    result.insert(std::make_pair(ESM::PRT_RAnkle, "Right Ankle"));
-    result.insert(std::make_pair(ESM::PRT_LAnkle, "Left Ankle"));
-    result.insert(std::make_pair(ESM::PRT_RKnee, "Right Knee"));
-    result.insert(std::make_pair(ESM::PRT_LKnee, "Left Knee"));
-    result.insert(std::make_pair(ESM::PRT_RLeg, "Right Upper Leg"));
-    result.insert(std::make_pair(ESM::PRT_LLeg, "Left Upper Leg"));
-    result.insert(std::make_pair(ESM::PRT_RPauldron, "Right Clavicle"));
-    result.insert(std::make_pair(ESM::PRT_LPauldron, "Left Clavicle"));
-    result.insert(std::make_pair(ESM::PRT_Weapon, "Weapon Bone")); // Fallback. The real node name depends on the current weapon type.
-    result.insert(std::make_pair(ESM::PRT_Tail, "Tail"));
-    return result;
+    return {
+        {ESM::PRT_Head, "Head"},
+        {ESM::PRT_Hair, "Head"}, // note it uses "Head" as attach bone, but "Hair" as filter
+        {ESM::PRT_Neck, "Neck"},
+        {ESM::PRT_Cuirass, "Chest"},
+        {ESM::PRT_Groin, "Groin"},
+        {ESM::PRT_Skirt, "Groin"},
+        {ESM::PRT_RHand, "Right Hand"},
+        {ESM::PRT_LHand, "Left Hand"},
+        {ESM::PRT_RWrist, "Right Wrist"},
+        {ESM::PRT_LWrist, "Left Wrist"},
+        {ESM::PRT_Shield, "Shield Bone"},
+        {ESM::PRT_RForearm, "Right Forearm"},
+        {ESM::PRT_LForearm, "Left Forearm"},
+        {ESM::PRT_RUpperarm, "Right Upper Arm"},
+        {ESM::PRT_LUpperarm, "Left Upper Arm"},
+        {ESM::PRT_RFoot, "Right Foot"},
+        {ESM::PRT_LFoot, "Left Foot"},
+        {ESM::PRT_RAnkle, "Right Ankle"},
+        {ESM::PRT_LAnkle, "Left Ankle"},
+        {ESM::PRT_RKnee, "Right Knee"},
+        {ESM::PRT_LKnee, "Left Knee"},
+        {ESM::PRT_RLeg, "Right Upper Leg"},
+        {ESM::PRT_LLeg, "Left Upper Leg"},
+        {ESM::PRT_RPauldron, "Right Clavicle"},
+        {ESM::PRT_LPauldron, "Left Clavicle"},
+        {ESM::PRT_Weapon, "Weapon Bone"}, // Fallback. The real node name depends on the current weapon type.
+        {ESM::PRT_Tail, "Tail"}};
 }
 const NpcAnimation::PartBoneMap NpcAnimation::sPartList = createPartListMap();
 
@@ -363,6 +362,7 @@ void NpcAnimation::setViewMode(NpcAnimation::ViewMode viewMode)
     mViewMode = viewMode;
     MWBase::Environment::get().getWorld()->scaleObject(mPtr, mPtr.getCellRef().getScale()); // apply race height after view change
 
+    mAmmunition.reset();
     rebuild();
     setRenderBin();
 }
@@ -373,11 +373,11 @@ class DepthClearCallback : public osgUtil::RenderBin::DrawCallback
 public:
     DepthClearCallback()
     {
-        mDepth = new osg::Depth;
+        mDepth = SceneUtil::createDepth();
         mDepth->setWriteMask(true);
     }
 
-    virtual void drawImplementation(osgUtil::RenderBin* bin, osg::RenderInfo& renderInfo, osgUtil::RenderLeaf*& previous)
+    void drawImplementation(osgUtil::RenderBin* bin, osg::RenderInfo& renderInfo, osgUtil::RenderLeaf*& previous) override
     {
         renderInfo.getState()->applyAttribute(mDepth);
 
@@ -399,7 +399,7 @@ public:
     {
     }
 
-    virtual void operator()(osg::Node* node, osg::NodeVisitor* nv)
+    void operator()(osg::Node* node, osg::NodeVisitor* nv) override
     {
         osgUtil::CullVisitor* cv = static_cast<osgUtil::CullVisitor*>(nv);
         float fov, aspect, zNear, zFar;
@@ -524,7 +524,7 @@ void NpcAnimation::updateNpcBase()
 
     if(!is1stPerson)
     {
-        const std::string base = "meshes\\xbase_anim.nif";
+        const std::string base = Settings::Manager::getString("xbaseanim", "Models");
         if (smodel != base && !isWerewolf)
             addAnimSource(base, smodel);
 
@@ -538,7 +538,7 @@ void NpcAnimation::updateNpcBase()
     }
     else
     {
-        const std::string base = "meshes\\xbase_anim.1st.nif";
+        const std::string base = Settings::Manager::getString("xbaseanim1st", "Models");
         if (smodel != base && !isWerewolf)
             addAnimSource(base, smodel);
 
@@ -551,7 +551,7 @@ void NpcAnimation::updateNpcBase()
     mWeaponAnimationTime->updateStartTime();
 }
 
-std::string NpcAnimation::getShieldMesh(MWWorld::ConstPtr shield) const
+std::string NpcAnimation::getShieldMesh(const MWWorld::ConstPtr& shield) const
 {
     std::string mesh = shield.getClass().getModel(shield);
     const ESM::Armor *armor = shield.get<ESM::Armor>()->mBase;
@@ -714,14 +714,14 @@ void NpcAnimation::updateParts()
 
 PartHolderPtr NpcAnimation::insertBoundedPart(const std::string& model, const std::string& bonename, const std::string& bonefilter, bool enchantedGlow, osg::Vec4f* glowColor)
 {
-    osg::ref_ptr<osg::Node> instance = mResourceSystem->getSceneManager()->getInstance(model);
+    osg::ref_ptr<const osg::Node> templateNode = mResourceSystem->getSceneManager()->getTemplate(model);
 
     const NodeMap& nodeMap = getNodeMap();
     NodeMap::const_iterator found = nodeMap.find(Misc::StringUtils::lowerCase(bonename));
     if (found == nodeMap.end())
         throw std::runtime_error("Can't find attachment node " + bonename);
 
-    osg::ref_ptr<osg::Node> attached = SceneUtil::attach(instance, mObjectRoot, bonefilter, found->second);
+    osg::ref_ptr<osg::Node> attached = SceneUtil::attach(templateNode, mObjectRoot, bonefilter, found->second);
     if (enchantedGlow)
         mGlowUpdater = SceneUtil::addEnchantedGlow(attached, mResourceSystem, *glowColor);
 
@@ -863,7 +863,7 @@ bool NpcAnimation::addOrReplaceIndividualPart(ESM::PartReferenceType type, int g
                 for (unsigned int i=0; i<node->getUserDataContainer()->getNumUserObjects(); ++i)
                 {
                     osg::Object* obj = node->getUserDataContainer()->getUserObject(i);
-                    if (NifOsg::TextKeyMapHolder* keys = dynamic_cast<NifOsg::TextKeyMapHolder*>(obj))
+                    if (SceneUtil::TextKeyMapHolder* keys = dynamic_cast<SceneUtil::TextKeyMapHolder*>(obj))
                     {
                         for (const auto &key : keys->mTextKeys)
                         {
@@ -1051,6 +1051,12 @@ void NpcAnimation::attachArrow()
     updateQuiver();
 }
 
+void NpcAnimation::detachArrow()
+{
+    WeaponAnimation::detachArrow(mPtr);
+    updateQuiver();
+}
+
 void NpcAnimation::releaseArrow(float attackStrength)
 {
     WeaponAnimation::releaseArrow(mPtr, attackStrength);
@@ -1071,10 +1077,15 @@ osg::Group* NpcAnimation::getArrowBone()
     int type = weapon->get<ESM::Weapon>()->mBase->mData.mType;
     int ammoType = MWMechanics::getWeaponType(type)->mAmmoType;
 
-    SceneUtil::FindByNameVisitor findVisitor (MWMechanics::getWeaponType(ammoType)->mAttachBone);
-    part->getNode()->accept(findVisitor);
-
-    return findVisitor.mFoundNode;
+    // Try to find and attachment bone in actor's skeleton, otherwise fall back to the ArrowBone in weapon's mesh
+    osg::Group* bone = getBoneByName(MWMechanics::getWeaponType(ammoType)->mAttachBone);
+    if (bone == nullptr)
+    {
+        SceneUtil::FindByNameVisitor findVisitor ("ArrowBone");
+        part->getNode()->accept(findVisitor);
+        bone = findVisitor.mFoundNode;
+    }
+    return bone;
 }
 
 osg::Node* NpcAnimation::getWeaponNode()

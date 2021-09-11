@@ -19,10 +19,10 @@ namespace CSVWorld
 
         public:
 
-            IdValidator (bool relaxed = false, QObject *parent = 0);
+            IdValidator (bool relaxed = false, QObject *parent = nullptr);
             ///< \param relaxed Relaxed rules for IDs that also functino as user visible text
 
-            virtual State validate (QString& input, int& pos) const;
+            State validate (QString& input, int& pos) const override;
 
             void setNamespace (const std::string& namespace_);
 

@@ -28,19 +28,19 @@ namespace CSMWorld
     {
         FloatValueColumn() : Column<ESXRecordT> (Columns::ColumnId_Value, ColumnBase::Display_Float) {}
 
-        virtual QVariant get (const Record<ESXRecordT>& record) const
+        QVariant get (const Record<ESXRecordT>& record) const override
         {
             return record.get().mValue.getFloat();
         }
 
-        virtual void set (Record<ESXRecordT>& record, const QVariant& data)
+        void set (Record<ESXRecordT>& record, const QVariant& data) override
         {
             ESXRecordT record2 = record.get();
             record2.mValue.setFloat (data.toFloat());
             record.setModified (record2);
         }
 
-        virtual bool isEditable() const
+        bool isEditable() const override
         {
             return true;
         }
@@ -54,12 +54,12 @@ namespace CSMWorld
             hidden ? 0 : ColumnBase::Flag_Table | ColumnBase::Flag_Dialogue)
         {}
 
-        virtual QVariant get (const Record<ESXRecordT>& record) const
+        QVariant get (const Record<ESXRecordT>& record) const override
         {
             return QString::fromUtf8 (record.get().mId.c_str());
         }
 
-        virtual bool isEditable() const
+        bool isEditable() const override
         {
             return false;
         }
@@ -86,7 +86,7 @@ namespace CSMWorld
         : Column<ESXRecordT> (Columns::ColumnId_Modification, ColumnBase::Display_RecordState)
         {}
 
-        virtual QVariant get (const Record<ESXRecordT>& record) const
+        QVariant get (const Record<ESXRecordT>& record) const override
         {
             if (record.mState==Record<ESXRecordT>::State_Erased)
                 return static_cast<int> (Record<ESXRecordT>::State_Deleted);
@@ -94,17 +94,17 @@ namespace CSMWorld
             return static_cast<int> (record.mState);
         }
 
-        virtual void set (Record<ESXRecordT>& record, const QVariant& data)
+        void set (Record<ESXRecordT>& record, const QVariant& data) override
         {
             record.mState = static_cast<RecordBase::State> (data.toInt());
         }
 
-        virtual bool isEditable() const
+        bool isEditable() const override
         {
             return true;
         }
 
-        virtual bool isUserEditable() const
+        bool isUserEditable() const override
         {
             return false;
         }
@@ -120,12 +120,12 @@ namespace CSMWorld
           mType (type)
         {}
 
-        virtual QVariant get (const Record<ESXRecordT>& record) const
+        QVariant get (const Record<ESXRecordT>& record) const override
         {
             return mType;
         }
 
-        virtual bool isEditable() const
+        bool isEditable() const override
         {
             return false;
         }
@@ -139,19 +139,19 @@ namespace CSMWorld
             : Column<ESXRecordT> (Columns::ColumnId_ValueType, display, ColumnBase::Flag_Table | ColumnBase::Flag_Dialogue | ColumnBase::Flag_Dialogue_Refresh)
         {}
 
-        virtual QVariant get (const Record<ESXRecordT>& record) const
+        QVariant get (const Record<ESXRecordT>& record) const override
         {
             return static_cast<int> (record.get().mValue.getType());
         }
 
-        virtual void set (Record<ESXRecordT>& record, const QVariant& data)
+        void set (Record<ESXRecordT>& record, const QVariant& data) override
         {
             ESXRecordT record2 = record.get();
             record2.mValue.setType (static_cast<ESM::VarType> (data.toInt()));
             record.setModified (record2);
         }
 
-        virtual bool isEditable() const
+        bool isEditable() const override
         {
             return true;
         }
@@ -163,7 +163,7 @@ namespace CSMWorld
     {
         VarValueColumn() : Column<ESXRecordT> (Columns::ColumnId_Value, ColumnBase::Display_Var, ColumnBase::Flag_Table | ColumnBase::Flag_Dialogue | ColumnBase::Flag_Dialogue_Refresh) {}
 
-        virtual QVariant get (const Record<ESXRecordT>& record) const
+        QVariant get (const Record<ESXRecordT>& record) const override
         {
             switch (record.get().mValue.getType())
             {
@@ -185,7 +185,7 @@ namespace CSMWorld
             }
         }
 
-        virtual void set (Record<ESXRecordT>& record, const QVariant& data)
+        void set (Record<ESXRecordT>& record, const QVariant& data) override
         {
             ESXRecordT record2 = record.get();
 
@@ -214,7 +214,7 @@ namespace CSMWorld
             record.setModified (record2);
         }
 
-        virtual bool isEditable() const
+        bool isEditable() const override
         {
             return true;
         }
@@ -227,12 +227,12 @@ namespace CSMWorld
         : Column<ESXRecordT> (Columns::ColumnId_Description, ColumnBase::Display_LongString)
         {}
 
-        virtual QVariant get (const Record<ESXRecordT>& record) const
+        QVariant get (const Record<ESXRecordT>& record) const override
         {
             return QString::fromUtf8 (record.get().mDescription.c_str());
         }
 
-        virtual void set (Record<ESXRecordT>& record, const QVariant& data)
+        void set (Record<ESXRecordT>& record, const QVariant& data) override
         {
             ESXRecordT record2 = record.get();
 
@@ -241,7 +241,7 @@ namespace CSMWorld
             record.setModified (record2);
         }
 
-        virtual bool isEditable() const
+        bool isEditable() const override
         {
             return true;
         }
@@ -254,12 +254,12 @@ namespace CSMWorld
         : Column<ESXRecordT> (Columns::ColumnId_Specialisation, ColumnBase::Display_Specialisation)
         {}
 
-        virtual QVariant get (const Record<ESXRecordT>& record) const
+        QVariant get (const Record<ESXRecordT>& record) const override
         {
             return record.get().mData.mSpecialization;
         }
 
-        virtual void set (Record<ESXRecordT>& record, const QVariant& data)
+        void set (Record<ESXRecordT>& record, const QVariant& data) override
         {
             ESXRecordT record2 = record.get();
 
@@ -268,7 +268,7 @@ namespace CSMWorld
             record.setModified (record2);
         }
 
-        virtual bool isEditable() const
+        bool isEditable() const override
         {
             return true;
         }
@@ -284,12 +284,12 @@ namespace CSMWorld
           mIndex (index)
         {}
 
-        virtual QVariant get (const Record<ESXRecordT>& record) const
+        QVariant get (const Record<ESXRecordT>& record) const override
         {
             return record.get().mData.mUseValue[mIndex];
         }
 
-        virtual void set (Record<ESXRecordT>& record, const QVariant& data)
+        void set (Record<ESXRecordT>& record, const QVariant& data) override
         {
             ESXRecordT record2 = record.get();
 
@@ -298,7 +298,7 @@ namespace CSMWorld
             record.setModified (record2);
         }
 
-        virtual bool isEditable() const
+        bool isEditable() const override
         {
             return true;
         }
@@ -311,12 +311,12 @@ namespace CSMWorld
         : Column<ESXRecordT> (Columns::ColumnId_Attribute, ColumnBase::Display_Attribute)
         {}
 
-        virtual QVariant get (const Record<ESXRecordT>& record) const
+        QVariant get (const Record<ESXRecordT>& record) const override
         {
             return record.get().mData.mAttribute;
         }
 
-        virtual void set (Record<ESXRecordT>& record, const QVariant& data)
+        void set (Record<ESXRecordT>& record, const QVariant& data) override
         {
             ESXRecordT record2 = record.get();
 
@@ -325,7 +325,7 @@ namespace CSMWorld
             record.setModified (record2);
         }
 
-        virtual bool isEditable() const
+        bool isEditable() const override
         {
             return true;
         }
@@ -334,14 +334,15 @@ namespace CSMWorld
     template<typename ESXRecordT>
     struct NameColumn : public Column<ESXRecordT>
     {
-        NameColumn() : Column<ESXRecordT> (Columns::ColumnId_Name, ColumnBase::Display_String) {}
+        NameColumn(ColumnBase::Display display = ColumnBase::Display_String)
+        : Column<ESXRecordT> (Columns::ColumnId_Name, display) {}
 
-        virtual QVariant get (const Record<ESXRecordT>& record) const
+        QVariant get (const Record<ESXRecordT>& record) const override
         {
             return QString::fromUtf8 (record.get().mName.c_str());
         }
 
-        virtual void set (Record<ESXRecordT>& record, const QVariant& data)
+        void set (Record<ESXRecordT>& record, const QVariant& data) override
         {
             ESXRecordT record2 = record.get();
 
@@ -350,7 +351,7 @@ namespace CSMWorld
             record.setModified (record2);
         }
 
-        virtual bool isEditable() const
+        bool isEditable() const override
         {
             return true;
         }
@@ -366,12 +367,12 @@ namespace CSMWorld
           mIndex (index)
         {}
 
-        virtual QVariant get (const Record<ESXRecordT>& record) const
+        QVariant get (const Record<ESXRecordT>& record) const override
         {
             return record.get().mData.mAttribute[mIndex];
         }
 
-        virtual void set (Record<ESXRecordT>& record, const QVariant& data)
+        void set (Record<ESXRecordT>& record, const QVariant& data) override
         {
             ESXRecordT record2 = record.get();
 
@@ -380,7 +381,7 @@ namespace CSMWorld
             record.setModified (record2);
         }
 
-        virtual bool isEditable() const
+        bool isEditable() const override
         {
             return true;
         }
@@ -399,14 +400,14 @@ namespace CSMWorld
             mIndex (index), mMajor (major)
         {}
 
-        virtual QVariant get (const Record<ESXRecordT>& record) const
+        QVariant get (const Record<ESXRecordT>& record) const override
         {
             int skill = record.get().mData.getSkill (mIndex, mMajor);
 
             return QString::fromUtf8 (ESM::Skill::indexToId (skill).c_str());
         }
 
-        virtual void set (Record<ESXRecordT>& record, const QVariant& data)
+        void set (Record<ESXRecordT>& record, const QVariant& data) override
         {
             std::istringstream stream (data.toString().toUtf8().constData());
 
@@ -425,7 +426,7 @@ namespace CSMWorld
             }
         }
 
-        virtual bool isEditable() const
+        bool isEditable() const override
         {
             return true;
         }
@@ -437,12 +438,12 @@ namespace CSMWorld
         PlayableColumn() : Column<ESXRecordT> (Columns::ColumnId_Playable, ColumnBase::Display_Boolean)
         {}
 
-        virtual QVariant get (const Record<ESXRecordT>& record) const
+        QVariant get (const Record<ESXRecordT>& record) const override
         {
             return record.get().mData.mIsPlayable!=0;
         }
 
-        virtual void set (Record<ESXRecordT>& record, const QVariant& data)
+        void set (Record<ESXRecordT>& record, const QVariant& data) override
         {
             ESXRecordT record2 = record.get();
 
@@ -451,7 +452,7 @@ namespace CSMWorld
             record.setModified (record2);
         }
 
-        virtual bool isEditable() const
+        bool isEditable() const override
         {
             return true;
         }
@@ -462,12 +463,12 @@ namespace CSMWorld
     {
         HiddenColumn() : Column<ESXRecordT> (Columns::ColumnId_Hidden, ColumnBase::Display_Boolean) {}
 
-        virtual QVariant get (const Record<ESXRecordT>& record) const
+        QVariant get (const Record<ESXRecordT>& record) const override
         {
             return record.get().mData.mIsHidden!=0;
         }
 
-        virtual void set (Record<ESXRecordT>& record, const QVariant& data)
+        void set (Record<ESXRecordT>& record, const QVariant& data) override
         {
             ESXRecordT record2 = record.get();
 
@@ -476,7 +477,7 @@ namespace CSMWorld
             record.setModified (record2);
         }
 
-        virtual bool isEditable() const
+        bool isEditable() const override
         {
             return true;
         }
@@ -494,7 +495,7 @@ namespace CSMWorld
           mInverted (inverted)
         {}
 
-        virtual QVariant get (const Record<ESXRecordT>& record) const
+        QVariant get (const Record<ESXRecordT>& record) const override
         {
             bool flag = (record.get().mData.mFlags & mMask)!=0;
 
@@ -504,7 +505,7 @@ namespace CSMWorld
             return flag;
         }
 
-        virtual void set (Record<ESXRecordT>& record, const QVariant& data)
+        void set (Record<ESXRecordT>& record, const QVariant& data) override
         {
             ESXRecordT record2 = record.get();
 
@@ -518,7 +519,7 @@ namespace CSMWorld
             record.setModified (record2);
         }
 
-        virtual bool isEditable() const
+        bool isEditable() const override
         {
             return true;
         }
@@ -535,7 +536,7 @@ namespace CSMWorld
           mInverted (inverted)
         {}
 
-        virtual QVariant get (const Record<ESXRecordT>& record) const
+        QVariant get (const Record<ESXRecordT>& record) const override
         {
             bool flag = (record.get().mFlags & mMask)!=0;
 
@@ -545,7 +546,7 @@ namespace CSMWorld
             return flag;
         }
 
-        virtual void set (Record<ESXRecordT>& record, const QVariant& data)
+        void set (Record<ESXRecordT>& record, const QVariant& data) override
         {
             ESXRecordT record2 = record.get();
 
@@ -559,7 +560,7 @@ namespace CSMWorld
             record.setModified (record2);
         }
 
-        virtual bool isEditable() const
+        bool isEditable() const override
         {
             return true;
         }
@@ -579,7 +580,7 @@ namespace CSMWorld
           mMale (male), mWeight (weight)
         {}
 
-        virtual QVariant get (const Record<ESXRecordT>& record) const
+        QVariant get (const Record<ESXRecordT>& record) const override
         {
             const ESM::Race::MaleFemaleF& value =
                 mWeight ? record.get().mData.mWeight : record.get().mData.mHeight;
@@ -587,7 +588,7 @@ namespace CSMWorld
             return mMale ? value.mMale : value.mFemale;
         }
 
-        virtual void set (Record<ESXRecordT>& record, const QVariant& data)
+        void set (Record<ESXRecordT>& record, const QVariant& data) override
         {
             ESXRecordT record2 = record.get();
 
@@ -599,7 +600,7 @@ namespace CSMWorld
             record.setModified (record2);
         }
 
-        virtual bool isEditable() const
+        bool isEditable() const override
         {
             return true;
         }
@@ -624,7 +625,7 @@ namespace CSMWorld
           mType (type)
         {}
 
-        virtual QVariant get (const Record<ESXRecordT>& record) const
+        QVariant get (const Record<ESXRecordT>& record) const override
         {
             int value = 0;
 
@@ -638,7 +639,7 @@ namespace CSMWorld
             return value;
         }
 
-        virtual void set (Record<ESXRecordT>& record, const QVariant& data)
+        void set (Record<ESXRecordT>& record, const QVariant& data) override
         {
             int value = data.toInt();
 
@@ -659,7 +660,7 @@ namespace CSMWorld
             record.setModified (record2);
         }
 
-        virtual bool isEditable() const
+        bool isEditable() const override
         {
             return true;
         }
@@ -672,12 +673,12 @@ namespace CSMWorld
         : Column<ESXRecordT> (Columns::ColumnId_SoundFile, ColumnBase::Display_SoundRes)
         {}
 
-        virtual QVariant get (const Record<ESXRecordT>& record) const
+        QVariant get (const Record<ESXRecordT>& record) const override
         {
             return QString::fromUtf8 (record.get().mSound.c_str());
         }
 
-        virtual void set (Record<ESXRecordT>& record, const QVariant& data)
+        void set (Record<ESXRecordT>& record, const QVariant& data) override
         {
             ESXRecordT record2 = record.get();
 
@@ -686,7 +687,7 @@ namespace CSMWorld
             record.setModified (record2);
         }
 
-        virtual bool isEditable() const
+        bool isEditable() const override
         {
             return true;
         }
@@ -699,19 +700,19 @@ namespace CSMWorld
         : Column<ESXRecordT> (Columns::ColumnId_MapColour, ColumnBase::Display_Colour)
         {}
 
-        virtual QVariant get (const Record<ESXRecordT>& record) const
+        QVariant get (const Record<ESXRecordT>& record) const override
         {
             return record.get().mMapColor;
         }
 
-        virtual void set (Record<ESXRecordT>& record, const QVariant& data)
+        void set (Record<ESXRecordT>& record, const QVariant& data) override
         {
             ESXRecordT copy = record.get();
             copy.mMapColor = data.toInt();
             record.setModified (copy);
         }
 
-        virtual bool isEditable() const
+        bool isEditable() const override
         {
             return true;
         }
@@ -724,12 +725,12 @@ namespace CSMWorld
         : Column<ESXRecordT> (Columns::ColumnId_SleepEncounter, ColumnBase::Display_CreatureLevelledList)
         {}
 
-        virtual QVariant get (const Record<ESXRecordT>& record) const
+        QVariant get (const Record<ESXRecordT>& record) const override
         {
             return QString::fromUtf8 (record.get().mSleepList.c_str());
         }
 
-        virtual void set (Record<ESXRecordT>& record, const QVariant& data)
+        void set (Record<ESXRecordT>& record, const QVariant& data) override
         {
             ESXRecordT record2 = record.get();
 
@@ -738,7 +739,7 @@ namespace CSMWorld
             record.setModified (record2);
         }
 
-        virtual bool isEditable() const
+        bool isEditable() const override
         {
             return true;
         }
@@ -749,12 +750,12 @@ namespace CSMWorld
     {
         TextureColumn() : Column<ESXRecordT> (Columns::ColumnId_Texture, ColumnBase::Display_Texture) {}
 
-        virtual QVariant get (const Record<ESXRecordT>& record) const
+        QVariant get (const Record<ESXRecordT>& record) const override
         {
             return QString::fromUtf8 (record.get().mTexture.c_str());
         }
 
-        virtual void set (Record<ESXRecordT>& record, const QVariant& data)
+        void set (Record<ESXRecordT>& record, const QVariant& data) override
         {
             ESXRecordT record2 = record.get();
 
@@ -763,7 +764,7 @@ namespace CSMWorld
             record.setModified (record2);
         }
 
-        virtual bool isEditable() const
+        bool isEditable() const override
         {
             return true;
         }
@@ -776,12 +777,12 @@ namespace CSMWorld
         : Column<ESXRecordT> (Columns::ColumnId_SpellType, ColumnBase::Display_SpellType)
         {}
 
-        virtual QVariant get (const Record<ESXRecordT>& record) const
+        QVariant get (const Record<ESXRecordT>& record) const override
         {
             return record.get().mData.mType;
         }
 
-        virtual void set (Record<ESXRecordT>& record, const QVariant& data)
+        void set (Record<ESXRecordT>& record, const QVariant& data) override
         {
             ESXRecordT record2 = record.get();
 
@@ -790,7 +791,7 @@ namespace CSMWorld
             record.setModified (record2);
         }
 
-        virtual bool isEditable() const
+        bool isEditable() const override
         {
             return true;
         }
@@ -801,19 +802,19 @@ namespace CSMWorld
     {
         CostColumn() : Column<ESXRecordT> (Columns::ColumnId_Cost, ColumnBase::Display_Integer) {}
 
-        virtual QVariant get (const Record<ESXRecordT>& record) const
+        QVariant get (const Record<ESXRecordT>& record) const override
         {
             return record.get().mData.mCost;
         }
 
-        virtual void set (Record<ESXRecordT>& record, const QVariant& data)
+        void set (Record<ESXRecordT>& record, const QVariant& data) override
         {
             ESXRecordT record2 = record.get();
             record2.mData.mCost = data.toInt();
             record.setModified (record2);
         }
 
-        virtual bool isEditable() const
+        bool isEditable() const override
         {
             return true;
         }
@@ -835,12 +836,12 @@ namespace CSMWorld
             type==Type_File ? 0 : ColumnBase::Flag_Dialogue)
         {}
 
-        virtual QVariant get (const Record<ESXRecordT>& record) const
+        QVariant get (const Record<ESXRecordT>& record) const override
         {
             return QString::fromUtf8 (record.get().mScriptText.c_str());
         }
 
-        virtual void set (Record<ESXRecordT>& record, const QVariant& data)
+        void set (Record<ESXRecordT>& record, const QVariant& data) override
         {
             ESXRecordT record2 = record.get();
 
@@ -849,7 +850,7 @@ namespace CSMWorld
             record.setModified (record2);
         }
 
-        virtual bool isEditable() const
+        bool isEditable() const override
         {
             return true;
         }
@@ -860,12 +861,12 @@ namespace CSMWorld
     {
         RegionColumn() : Column<ESXRecordT> (Columns::ColumnId_Region, ColumnBase::Display_Region) {}
 
-        virtual QVariant get (const Record<ESXRecordT>& record) const
+        QVariant get (const Record<ESXRecordT>& record) const override
         {
             return QString::fromUtf8 (record.get().mRegion.c_str());
         }
 
-        virtual void set (Record<ESXRecordT>& record, const QVariant& data)
+        void set (Record<ESXRecordT>& record, const QVariant& data) override
         {
             ESXRecordT record2 = record.get();
 
@@ -874,7 +875,7 @@ namespace CSMWorld
             record.setModified (record2);
         }
 
-        virtual bool isEditable() const
+        bool isEditable() const override
         {
             return true;
         }
@@ -891,12 +892,12 @@ namespace CSMWorld
           mBlocked (blocked)
         {}
 
-        virtual QVariant get (const Record<ESXRecordT>& record) const
+        QVariant get (const Record<ESXRecordT>& record) const override
         {
             return QString::fromUtf8 (record.get().mCell.c_str());
         }
 
-        virtual void set (Record<ESXRecordT>& record, const QVariant& data)
+        void set (Record<ESXRecordT>& record, const QVariant& data) override
         {
             ESXRecordT record2 = record.get();
 
@@ -905,12 +906,12 @@ namespace CSMWorld
             record.setModified (record2);
         }
 
-        virtual bool isEditable() const
+        bool isEditable() const override
         {
             return true;
         }
 
-        virtual bool isUserEditable() const
+        bool isUserEditable() const override
         {
             return !mBlocked;
         }
@@ -923,12 +924,12 @@ namespace CSMWorld
         : Column<ESXRecordT> (Columns::ColumnId_OriginalCell, ColumnBase::Display_Cell)
         {}
 
-        virtual QVariant get (const Record<ESXRecordT>& record) const
+        QVariant get (const Record<ESXRecordT>& record) const override
         {
             return QString::fromUtf8 (record.get().mOriginalCell.c_str());
         }
 
-        virtual void set (Record<ESXRecordT>& record, const QVariant& data)
+        void set (Record<ESXRecordT>& record, const QVariant& data) override
         {
             ESXRecordT record2 = record.get();
 
@@ -937,12 +938,12 @@ namespace CSMWorld
             record.setModified (record2);
         }
 
-        virtual bool isEditable() const
+        bool isEditable() const override
         {
             return true;
         }
 
-        virtual bool isUserEditable() const
+        bool isUserEditable() const override
         {
             return false;
         }
@@ -954,12 +955,12 @@ namespace CSMWorld
         IdColumn() : Column<ESXRecordT> (Columns::ColumnId_ReferenceableId,
             ColumnBase::Display_Referenceable) {}
 
-        virtual QVariant get (const Record<ESXRecordT>& record) const
+        QVariant get (const Record<ESXRecordT>& record) const override
         {
             return QString::fromUtf8 (record.get().mRefID.c_str());
         }
 
-        virtual void set (Record<ESXRecordT>& record, const QVariant& data)
+        void set (Record<ESXRecordT>& record, const QVariant& data) override
         {
             ESXRecordT record2 = record.get();
 
@@ -968,7 +969,7 @@ namespace CSMWorld
             record.setModified (record2);
         }
 
-        virtual bool isEditable() const
+        bool isEditable() const override
         {
             return true;
         }
@@ -979,19 +980,19 @@ namespace CSMWorld
     {
         ScaleColumn() : Column<ESXRecordT> (Columns::ColumnId_Scale, ColumnBase::Display_Float) {}
 
-        virtual QVariant get (const Record<ESXRecordT>& record) const
+        QVariant get (const Record<ESXRecordT>& record) const override
         {
             return record.get().mScale;
         }
 
-        virtual void set (Record<ESXRecordT>& record, const QVariant& data)
+        void set (Record<ESXRecordT>& record, const QVariant& data) override
         {
             ESXRecordT record2 = record.get();
             record2.mScale = data.toFloat();
             record.setModified (record2);
         }
 
-        virtual bool isEditable() const
+        bool isEditable() const override
         {
             return true;
         }
@@ -1002,12 +1003,12 @@ namespace CSMWorld
     {
         OwnerColumn() : Column<ESXRecordT> (Columns::ColumnId_Owner, ColumnBase::Display_Npc) {}
 
-        virtual QVariant get (const Record<ESXRecordT>& record) const
+        QVariant get (const Record<ESXRecordT>& record) const override
         {
             return QString::fromUtf8 (record.get().mOwner.c_str());
         }
 
-        virtual void set (Record<ESXRecordT>& record, const QVariant& data)
+        void set (Record<ESXRecordT>& record, const QVariant& data) override
         {
             ESXRecordT record2 = record.get();
 
@@ -1016,7 +1017,7 @@ namespace CSMWorld
             record.setModified (record2);
         }
 
-        virtual bool isEditable() const
+        bool isEditable() const override
         {
             return true;
         }
@@ -1027,12 +1028,12 @@ namespace CSMWorld
     {
         SoulColumn() : Column<ESXRecordT> (Columns::ColumnId_Soul, ColumnBase::Display_Creature) {}
 
-        virtual QVariant get (const Record<ESXRecordT>& record) const
+        QVariant get (const Record<ESXRecordT>& record) const override
         {
             return QString::fromUtf8 (record.get().mSoul.c_str());
         }
 
-        virtual void set (Record<ESXRecordT>& record, const QVariant& data)
+        void set (Record<ESXRecordT>& record, const QVariant& data) override
         {
             ESXRecordT record2 = record.get();
 
@@ -1041,7 +1042,7 @@ namespace CSMWorld
             record.setModified (record2);
         }
 
-        virtual bool isEditable() const
+        bool isEditable() const override
         {
             return true;
         }
@@ -1052,12 +1053,12 @@ namespace CSMWorld
     {
         FactionColumn() : Column<ESXRecordT> (Columns::ColumnId_Faction, ColumnBase::Display_Faction) {}
 
-        virtual QVariant get (const Record<ESXRecordT>& record) const
+        QVariant get (const Record<ESXRecordT>& record) const override
         {
             return QString::fromUtf8 (record.get().mFaction.c_str());
         }
 
-        virtual void set (Record<ESXRecordT>& record, const QVariant& data)
+        void set (Record<ESXRecordT>& record, const QVariant& data) override
         {
             ESXRecordT record2 = record.get();
 
@@ -1066,7 +1067,7 @@ namespace CSMWorld
             record.setModified (record2);
         }
 
-        virtual bool isEditable() const
+        bool isEditable() const override
         {
             return true;
         }
@@ -1079,19 +1080,19 @@ namespace CSMWorld
         : Column<ESXRecordT> (Columns::ColumnId_FactionIndex, ColumnBase::Display_Integer)
         {}
 
-        virtual QVariant get (const Record<ESXRecordT>& record) const
+        QVariant get (const Record<ESXRecordT>& record) const override
         {
             return record.get().mFactionRank;
         }
 
-        virtual void set (Record<ESXRecordT>& record, const QVariant& data)
+        void set (Record<ESXRecordT>& record, const QVariant& data) override
         {
             ESXRecordT record2 = record.get();
             record2.mFactionRank = data.toInt();
             record.setModified (record2);
         }
 
-        virtual bool isEditable() const
+        bool isEditable() const override
         {
             return true;
         }
@@ -1102,19 +1103,19 @@ namespace CSMWorld
     {
         ChargesColumn() : Column<ESXRecordT> (Columns::ColumnId_Charges, ColumnBase::Display_Integer) {}
 
-        virtual QVariant get (const Record<ESXRecordT>& record) const
+        QVariant get (const Record<ESXRecordT>& record) const override
         {
             return record.get().mChargeInt;
         }
 
-        virtual void set (Record<ESXRecordT>& record, const QVariant& data)
+        void set (Record<ESXRecordT>& record, const QVariant& data) override
         {
             ESXRecordT record2 = record.get();
             record2.mChargeInt = data.toInt();
             record.setModified (record2);
         }
 
-        virtual bool isEditable() const
+        bool isEditable() const override
         {
             return true;
         }
@@ -1127,19 +1128,19 @@ namespace CSMWorld
         : Column<ESXRecordT> (Columns::ColumnId_Enchantment, ColumnBase::Display_Float)
         {}
 
-        virtual QVariant get (const Record<ESXRecordT>& record) const
+        QVariant get (const Record<ESXRecordT>& record) const override
         {
             return record.get().mEnchantmentCharge;
         }
 
-        virtual void set (Record<ESXRecordT>& record, const QVariant& data)
+        void set (Record<ESXRecordT>& record, const QVariant& data) override
         {
             ESXRecordT record2 = record.get();
             record2.mEnchantmentCharge = data.toFloat();
             record.setModified (record2);
         }
 
-        virtual bool isEditable() const
+        bool isEditable() const override
         {
             return true;
         }
@@ -1151,19 +1152,19 @@ namespace CSMWorld
         GoldValueColumn()
         : Column<ESXRecordT> (Columns::ColumnId_CoinValue, ColumnBase::Display_Integer) {}
 
-        virtual QVariant get (const Record<ESXRecordT>& record) const
+        QVariant get (const Record<ESXRecordT>& record) const override
         {
             return record.get().mGoldValue;
         }
 
-        virtual void set (Record<ESXRecordT>& record, const QVariant& data)
+        void set (Record<ESXRecordT>& record, const QVariant& data) override
         {
             ESXRecordT record2 = record.get();
             record2.mGoldValue = data.toInt();
             record.setModified (record2);
         }
 
-        virtual bool isEditable() const
+        bool isEditable() const override
         {
             return true;
         }
@@ -1176,12 +1177,12 @@ namespace CSMWorld
         : Column<ESXRecordT> (Columns::ColumnId_Teleport, ColumnBase::Display_Boolean)
         {}
 
-        virtual QVariant get (const Record<ESXRecordT>& record) const
+        QVariant get (const Record<ESXRecordT>& record) const override
         {
             return record.get().mTeleport;
         }
 
-        virtual void set (Record<ESXRecordT>& record, const QVariant& data)
+        void set (Record<ESXRecordT>& record, const QVariant& data) override
         {
             ESXRecordT record2 = record.get();
 
@@ -1190,7 +1191,7 @@ namespace CSMWorld
             record.setModified (record2);
         }
 
-        virtual bool isEditable() const
+        bool isEditable() const override
         {
             return true;
         }
@@ -1203,12 +1204,12 @@ namespace CSMWorld
         : Column<ESXRecordT> (Columns::ColumnId_TeleportCell, ColumnBase::Display_Cell)
         {}
 
-        virtual QVariant get (const Record<ESXRecordT>& record) const
+        QVariant get (const Record<ESXRecordT>& record) const override
         {
             return QString::fromUtf8 (record.get().mDestCell.c_str());
         }
 
-        virtual void set (Record<ESXRecordT>& record, const QVariant& data)
+        void set (Record<ESXRecordT>& record, const QVariant& data) override
         {
             ESXRecordT record2 = record.get();
 
@@ -1217,12 +1218,12 @@ namespace CSMWorld
             record.setModified (record2);
         }
 
-        virtual bool isEditable() const
+        bool isEditable() const override
         {
             return true;
         }
 
-        virtual bool isUserEditable() const
+        bool isUserEditable() const override
         {
             return true;
         }
@@ -1235,19 +1236,19 @@ namespace CSMWorld
         : Column<ESXRecordT> (Columns::ColumnId_LockLevel, ColumnBase::Display_Integer)
         {}
 
-        virtual QVariant get (const Record<ESXRecordT>& record) const
+        QVariant get (const Record<ESXRecordT>& record) const override
         {
             return record.get().mLockLevel;
         }
 
-        virtual void set (Record<ESXRecordT>& record, const QVariant& data)
+        void set (Record<ESXRecordT>& record, const QVariant& data) override
         {
             ESXRecordT record2 = record.get();
             record2.mLockLevel = data.toInt();
             record.setModified (record2);
         }
 
-        virtual bool isEditable() const
+        bool isEditable() const override
         {
             return true;
         }
@@ -1258,12 +1259,12 @@ namespace CSMWorld
     {
         KeyColumn() : Column<ESXRecordT> (Columns::ColumnId_Key, ColumnBase::Display_Miscellaneous) {}
 
-        virtual QVariant get (const Record<ESXRecordT>& record) const
+        QVariant get (const Record<ESXRecordT>& record) const override
         {
             return QString::fromUtf8 (record.get().mKey.c_str());
         }
 
-        virtual void set (Record<ESXRecordT>& record, const QVariant& data)
+        void set (Record<ESXRecordT>& record, const QVariant& data) override
         {
             ESXRecordT record2 = record.get();
 
@@ -1272,7 +1273,7 @@ namespace CSMWorld
             record.setModified (record2);
         }
 
-        virtual bool isEditable() const
+        bool isEditable() const override
         {
             return true;
         }
@@ -1283,12 +1284,12 @@ namespace CSMWorld
     {
         TrapColumn() : Column<ESXRecordT> (Columns::ColumnId_Trap, ColumnBase::Display_Spell) {}
 
-        virtual QVariant get (const Record<ESXRecordT>& record) const
+        QVariant get (const Record<ESXRecordT>& record) const override
         {
             return QString::fromUtf8 (record.get().mTrap.c_str());
         }
 
-        virtual void set (Record<ESXRecordT>& record, const QVariant& data)
+        void set (Record<ESXRecordT>& record, const QVariant& data) override
         {
             ESXRecordT record2 = record.get();
 
@@ -1297,7 +1298,7 @@ namespace CSMWorld
             record.setModified (record2);
         }
 
-        virtual bool isEditable() const
+        bool isEditable() const override
         {
             return true;
         }
@@ -1308,12 +1309,12 @@ namespace CSMWorld
     {
         FilterColumn() : Column<ESXRecordT> (Columns::ColumnId_Filter, ColumnBase::Display_Filter) {}
 
-        virtual QVariant get (const Record<ESXRecordT>& record) const
+        QVariant get (const Record<ESXRecordT>& record) const override
         {
             return QString::fromUtf8 (record.get().mFilter.c_str());
         }
 
-        virtual void set (Record<ESXRecordT>& record, const QVariant& data)
+        void set (Record<ESXRecordT>& record, const QVariant& data) override
         {
             ESXRecordT record2 = record.get();
 
@@ -1322,7 +1323,7 @@ namespace CSMWorld
             record.setModified (record2);
         }
 
-        virtual bool isEditable() const
+        bool isEditable() const override
         {
             return true;
         }
@@ -1339,13 +1340,13 @@ namespace CSMWorld
           (door ? Columns::ColumnId_DoorPositionXPos : Columns::ColumnId_PositionXPos)+index,
           ColumnBase::Display_Float), mPosition (position), mIndex (index) {}
 
-        virtual QVariant get (const Record<ESXRecordT>& record) const
+        QVariant get (const Record<ESXRecordT>& record) const override
         {
             const ESM::Position& position = record.get().*mPosition;
             return position.pos[mIndex];
         }
 
-        virtual void set (Record<ESXRecordT>& record, const QVariant& data)
+        void set (Record<ESXRecordT>& record, const QVariant& data) override
         {
             ESXRecordT record2 = record.get();
 
@@ -1356,7 +1357,7 @@ namespace CSMWorld
             record.setModified (record2);
         }
 
-        virtual bool isEditable() const
+        bool isEditable() const override
         {
             return true;
         }
@@ -1373,13 +1374,13 @@ namespace CSMWorld
           (door ? Columns::ColumnId_DoorPositionXRot : Columns::ColumnId_PositionXRot)+index,
           ColumnBase::Display_Double), mPosition (position), mIndex (index) {}
 
-        virtual QVariant get (const Record<ESXRecordT>& record) const
+        QVariant get (const Record<ESXRecordT>& record) const override
         {
             const ESM::Position& position = record.get().*mPosition;
             return osg::RadiansToDegrees(position.rot[mIndex]);
         }
 
-        virtual void set (Record<ESXRecordT>& record, const QVariant& data)
+        void set (Record<ESXRecordT>& record, const QVariant& data) override
         {
             ESXRecordT record2 = record.get();
 
@@ -1390,7 +1391,7 @@ namespace CSMWorld
             record.setModified (record2);
         }
 
-        virtual bool isEditable() const
+        bool isEditable() const override
         {
             return true;
         }
@@ -1404,12 +1405,12 @@ namespace CSMWorld
             hidden ? 0 : ColumnBase::Flag_Table | ColumnBase::Flag_Dialogue)
         {}
 
-        virtual QVariant get (const Record<ESXRecordT>& record) const
+        QVariant get (const Record<ESXRecordT>& record) const override
         {
             return static_cast<int> (record.get().mType);
         }
 
-        virtual void set (Record<ESXRecordT>& record, const QVariant& data)
+        void set (Record<ESXRecordT>& record, const QVariant& data) override
         {
             ESXRecordT record2 = record.get();
 
@@ -1418,12 +1419,12 @@ namespace CSMWorld
             record.setModified (record2);
         }
 
-        virtual bool isEditable() const
+        bool isEditable() const override
         {
             return true;
         }
 
-        virtual bool isUserEditable() const
+        bool isUserEditable() const override
         {
             return false;
         }
@@ -1436,12 +1437,12 @@ namespace CSMWorld
         : Column<ESXRecordT> (Columns::ColumnId_QuestStatusType, ColumnBase::Display_QuestStatusType)
         {}
 
-        virtual QVariant get (const Record<ESXRecordT>& record) const
+        QVariant get (const Record<ESXRecordT>& record) const override
         {
             return static_cast<int> (record.get().mQuestStatus);
         }
 
-        virtual void set (Record<ESXRecordT>& record, const QVariant& data)
+        void set (Record<ESXRecordT>& record, const QVariant& data) override
         {
             ESXRecordT record2 = record.get();
 
@@ -1450,7 +1451,7 @@ namespace CSMWorld
             record.setModified (record2);
         }
 
-        virtual bool isEditable() const
+        bool isEditable() const override
         {
             return true;
         }
@@ -1461,12 +1462,12 @@ namespace CSMWorld
     {
         QuestDescriptionColumn() : Column<ESXRecordT> (Columns::ColumnId_QuestDescription, ColumnBase::Display_LongString) {}
 
-        virtual QVariant get (const Record<ESXRecordT>& record) const
+        QVariant get (const Record<ESXRecordT>& record) const override
         {
             return QString::fromUtf8 (record.get().mResponse.c_str());
         }
 
-        virtual void set (Record<ESXRecordT>& record, const QVariant& data)
+        void set (Record<ESXRecordT>& record, const QVariant& data) override
         {
             ESXRecordT record2 = record.get();
 
@@ -1475,7 +1476,7 @@ namespace CSMWorld
             record.setModified (record2);
         }
 
-        virtual bool isEditable() const
+        bool isEditable() const override
         {
             return true;
         }
@@ -1488,19 +1489,19 @@ namespace CSMWorld
         : Column<ESXRecordT> (Columns::ColumnId_QuestIndex, ColumnBase::Display_Integer)
         {}
 
-        virtual QVariant get (const Record<ESXRecordT>& record) const
+        QVariant get (const Record<ESXRecordT>& record) const override
         {
             return record.get().mData.mDisposition;
         }
 
-        virtual void set (Record<ESXRecordT>& record, const QVariant& data)
+        void set (Record<ESXRecordT>& record, const QVariant& data) override
         {
             ESXRecordT record2 = record.get();
             record2.mData.mDisposition = data.toInt();
             record.setModified (record2);
         }
 
-        virtual bool isEditable() const
+        bool isEditable() const override
         {
             return true;
         }
@@ -1514,12 +1515,12 @@ namespace CSMWorld
                               journal ? ColumnBase::Display_Journal : ColumnBase::Display_Topic)
         {}
 
-        virtual QVariant get (const Record<ESXRecordT>& record) const
+        QVariant get (const Record<ESXRecordT>& record) const override
         {
             return QString::fromUtf8 (record.get().mTopicId.c_str());
         }
 
-        virtual void set (Record<ESXRecordT>& record, const QVariant& data)
+        void set (Record<ESXRecordT>& record, const QVariant& data) override
         {
             ESXRecordT record2 = record.get();
 
@@ -1528,12 +1529,12 @@ namespace CSMWorld
             record.setModified (record2);
         }
 
-        virtual bool isEditable() const
+        bool isEditable() const override
         {
             return true;
         }
 
-        virtual bool isUserEditable() const
+        bool isUserEditable() const override
         {
             return false;
         }
@@ -1544,12 +1545,12 @@ namespace CSMWorld
     {
         ActorColumn() : Column<ESXRecordT> (Columns::ColumnId_Actor, ColumnBase::Display_Npc) {}
 
-        virtual QVariant get (const Record<ESXRecordT>& record) const
+        QVariant get (const Record<ESXRecordT>& record) const override
         {
             return QString::fromUtf8 (record.get().mActor.c_str());
         }
 
-        virtual void set (Record<ESXRecordT>& record, const QVariant& data)
+        void set (Record<ESXRecordT>& record, const QVariant& data) override
         {
             ESXRecordT record2 = record.get();
 
@@ -1558,7 +1559,7 @@ namespace CSMWorld
             record.setModified (record2);
         }
 
-        virtual bool isEditable() const
+        bool isEditable() const override
         {
             return true;
         }
@@ -1569,12 +1570,12 @@ namespace CSMWorld
     {
         RaceColumn() : Column<ESXRecordT> (Columns::ColumnId_Race, ColumnBase::Display_Race) {}
 
-        virtual QVariant get (const Record<ESXRecordT>& record) const
+        QVariant get (const Record<ESXRecordT>& record) const override
         {
             return QString::fromUtf8 (record.get().mRace.c_str());
         }
 
-        virtual void set (Record<ESXRecordT>& record, const QVariant& data)
+        void set (Record<ESXRecordT>& record, const QVariant& data) override
         {
             ESXRecordT record2 = record.get();
 
@@ -1583,7 +1584,7 @@ namespace CSMWorld
             record.setModified (record2);
         }
 
-        virtual bool isEditable() const
+        bool isEditable() const override
         {
             return true;
         }
@@ -1594,12 +1595,12 @@ namespace CSMWorld
     {
         ClassColumn() : Column<ESXRecordT> (Columns::ColumnId_Class, ColumnBase::Display_Class) {}
 
-        virtual QVariant get (const Record<ESXRecordT>& record) const
+        QVariant get (const Record<ESXRecordT>& record) const override
         {
             return QString::fromUtf8 (record.get().mClass.c_str());
         }
 
-        virtual void set (Record<ESXRecordT>& record, const QVariant& data)
+        void set (Record<ESXRecordT>& record, const QVariant& data) override
         {
             ESXRecordT record2 = record.get();
 
@@ -1608,7 +1609,7 @@ namespace CSMWorld
             record.setModified (record2);
         }
 
-        virtual bool isEditable() const
+        bool isEditable() const override
         {
             return true;
         }
@@ -1619,12 +1620,12 @@ namespace CSMWorld
     {
         PcFactionColumn() : Column<ESXRecordT> (Columns::ColumnId_PcFaction, ColumnBase::Display_Faction) {}
 
-        virtual QVariant get (const Record<ESXRecordT>& record) const
+        QVariant get (const Record<ESXRecordT>& record) const override
         {
             return QString::fromUtf8 (record.get().mPcFaction.c_str());
         }
 
-        virtual void set (Record<ESXRecordT>& record, const QVariant& data)
+        void set (Record<ESXRecordT>& record, const QVariant& data) override
         {
             ESXRecordT record2 = record.get();
 
@@ -1633,7 +1634,7 @@ namespace CSMWorld
             record.setModified (record2);
         }
 
-        virtual bool isEditable() const
+        bool isEditable() const override
         {
             return true;
         }
@@ -1644,12 +1645,12 @@ namespace CSMWorld
     {
         ResponseColumn() : Column<ESXRecordT> (Columns::ColumnId_Response, ColumnBase::Display_LongString) {}
 
-        virtual QVariant get (const Record<ESXRecordT>& record) const
+        QVariant get (const Record<ESXRecordT>& record) const override
         {
             return QString::fromUtf8 (record.get().mResponse.c_str());
         }
 
-        virtual void set (Record<ESXRecordT>& record, const QVariant& data)
+        void set (Record<ESXRecordT>& record, const QVariant& data) override
         {
             ESXRecordT record2 = record.get();
 
@@ -1658,7 +1659,7 @@ namespace CSMWorld
             record.setModified (record2);
         }
 
-        virtual bool isEditable() const
+        bool isEditable() const override
         {
             return true;
         }
@@ -1671,19 +1672,19 @@ namespace CSMWorld
         : Column<ESXRecordT> (Columns::ColumnId_Disposition, ColumnBase::Display_Integer)
         {}
 
-        virtual QVariant get (const Record<ESXRecordT>& record) const
+        QVariant get (const Record<ESXRecordT>& record) const override
         {
             return record.get().mData.mDisposition;
         }
 
-        virtual void set (Record<ESXRecordT>& record, const QVariant& data)
+        void set (Record<ESXRecordT>& record, const QVariant& data) override
         {
             ESXRecordT record2 = record.get();
             record2.mData.mDisposition = data.toInt();
             record.setModified (record2);
         }
 
-        virtual bool isEditable() const
+        bool isEditable() const override
         {
             return true;
         }
@@ -1696,19 +1697,19 @@ namespace CSMWorld
         : Column<ESXRecordT> (Columns::ColumnId_Rank, ColumnBase::Display_Integer)
         {}
 
-        virtual QVariant get (const Record<ESXRecordT>& record) const
+        QVariant get (const Record<ESXRecordT>& record) const override
         {
             return static_cast<int> (record.get().mData.mRank);
         }
 
-        virtual void set (Record<ESXRecordT>& record, const QVariant& data)
+        void set (Record<ESXRecordT>& record, const QVariant& data) override
         {
             ESXRecordT record2 = record.get();
             record2.mData.mRank = static_cast<signed char> (data.toInt());
             record.setModified (record2);
         }
 
-        virtual bool isEditable() const
+        bool isEditable() const override
         {
             return true;
         }
@@ -1721,19 +1722,19 @@ namespace CSMWorld
         : Column<ESXRecordT> (Columns::ColumnId_PcRank, ColumnBase::Display_Integer)
         {}
 
-        virtual QVariant get (const Record<ESXRecordT>& record) const
+        QVariant get (const Record<ESXRecordT>& record) const override
         {
             return static_cast<int> (record.get().mData.mPCrank);
         }
 
-        virtual void set (Record<ESXRecordT>& record, const QVariant& data)
+        void set (Record<ESXRecordT>& record, const QVariant& data) override
         {
             ESXRecordT record2 = record.get();
             record2.mData.mPCrank = static_cast<signed char> (data.toInt());
             record.setModified (record2);
         }
 
-        virtual bool isEditable() const
+        bool isEditable() const override
         {
             return true;
         }
@@ -1746,12 +1747,12 @@ namespace CSMWorld
         : Column<ESXRecordT> (Columns::ColumnId_Gender, ColumnBase::Display_Gender)
         {}
 
-        virtual QVariant get (const Record<ESXRecordT>& record) const
+        QVariant get (const Record<ESXRecordT>& record) const override
         {
             return static_cast<int> (record.get().mData.mGender);
         }
 
-        virtual void set (Record<ESXRecordT>& record, const QVariant& data)
+        void set (Record<ESXRecordT>& record, const QVariant& data) override
         {
             ESXRecordT record2 = record.get();
 
@@ -1760,7 +1761,7 @@ namespace CSMWorld
             record.setModified (record2);
         }
 
-        virtual bool isEditable() const
+        bool isEditable() const override
         {
             return true;
         }
@@ -1773,7 +1774,7 @@ namespace CSMWorld
             : Column<ESXRecordT>(Columns::ColumnId_Gender, ColumnBase::Display_GenderNpc)
         {}
 
-        virtual QVariant get(const Record<ESXRecordT>& record) const
+        QVariant get(const Record<ESXRecordT>& record) const override
         {
             // Implemented this way to allow additional gender types in the future.
             if ((record.get().mData.mFlags & ESM::BodyPart::BPF_Female) == ESM::BodyPart::BPF_Female)
@@ -1782,7 +1783,7 @@ namespace CSMWorld
             return 0;
         }
 
-        virtual void set(Record<ESXRecordT>& record, const QVariant& data)
+        void set(Record<ESXRecordT>& record, const QVariant& data) override
         {
             ESXRecordT record2 = record.get();
 
@@ -1795,7 +1796,7 @@ namespace CSMWorld
             record.setModified(record2);
         }
 
-        virtual bool isEditable() const
+        bool isEditable() const override
         {
             return true;
         }
@@ -1808,12 +1809,12 @@ namespace CSMWorld
         : Column<ESXRecordT> (Columns::ColumnId_EnchantmentType, ColumnBase::Display_EnchantmentType)
         {}
 
-        virtual QVariant get (const Record<ESXRecordT>& record) const
+        QVariant get (const Record<ESXRecordT>& record) const override
         {
             return static_cast<int> (record.get().mData.mType);
         }
 
-        virtual void set (Record<ESXRecordT>& record, const QVariant& data)
+        void set (Record<ESXRecordT>& record, const QVariant& data) override
         {
             ESXRecordT record2 = record.get();
 
@@ -1822,7 +1823,7 @@ namespace CSMWorld
             record.setModified (record2);
         }
 
-        virtual bool isEditable() const
+        bool isEditable() const override
         {
             return true;
         }
@@ -1833,19 +1834,19 @@ namespace CSMWorld
     {
         ChargesColumn2() : Column<ESXRecordT> (Columns::ColumnId_Charges, ColumnBase::Display_Integer) {}
 
-        virtual QVariant get (const Record<ESXRecordT>& record) const
+        QVariant get (const Record<ESXRecordT>& record) const override
         {
             return record.get().mData.mCharge;
         }
 
-        virtual void set (Record<ESXRecordT>& record, const QVariant& data)
+        void set (Record<ESXRecordT>& record, const QVariant& data) override
         {
             ESXRecordT record2 = record.get();
             record2.mData.mCharge = data.toInt();
             record.setModified (record2);
         }
 
-        virtual bool isEditable() const
+        bool isEditable() const override
         {
             return true;
         }
@@ -1857,12 +1858,12 @@ namespace CSMWorld
         AutoCalcColumn() : Column<ESXRecordT> (Columns::ColumnId_AutoCalc, ColumnBase::Display_Boolean)
         {}
 
-        virtual QVariant get (const Record<ESXRecordT>& record) const
+        QVariant get (const Record<ESXRecordT>& record) const override
         {
             return record.get().mData.mAutocalc!=0;
         }
 
-        virtual void set (Record<ESXRecordT>& record, const QVariant& data)
+        void set (Record<ESXRecordT>& record, const QVariant& data) override
         {
             ESXRecordT record2 = record.get();
 
@@ -1871,7 +1872,7 @@ namespace CSMWorld
             record.setModified (record2);
         }
 
-        virtual bool isEditable() const
+        bool isEditable() const override
         {
             return true;
         }
@@ -1882,12 +1883,12 @@ namespace CSMWorld
     {
         ModelColumn() : Column<ESXRecordT> (Columns::ColumnId_Model, ColumnBase::Display_Mesh) {}
 
-        virtual QVariant get (const Record<ESXRecordT>& record) const
+        QVariant get (const Record<ESXRecordT>& record) const override
         {
             return QString::fromUtf8 (record.get().mModel.c_str());
         }
 
-        virtual void set (Record<ESXRecordT>& record, const QVariant& data)
+        void set (Record<ESXRecordT>& record, const QVariant& data) override
         {
             ESXRecordT record2 = record.get();
 
@@ -1896,7 +1897,7 @@ namespace CSMWorld
             record.setModified (record2);
         }
 
-        virtual bool isEditable() const
+        bool isEditable() const override
         {
             return true;
         }
@@ -1908,12 +1909,12 @@ namespace CSMWorld
         VampireColumn() : Column<ESXRecordT> (Columns::ColumnId_Vampire, ColumnBase::Display_Boolean)
         {}
 
-        virtual QVariant get (const Record<ESXRecordT>& record) const
+        QVariant get (const Record<ESXRecordT>& record) const override
         {
             return record.get().mData.mVampire!=0;
         }
 
-        virtual void set (Record<ESXRecordT>& record, const QVariant& data)
+        void set (Record<ESXRecordT>& record, const QVariant& data) override
         {
             ESXRecordT record2 = record.get();
 
@@ -1922,7 +1923,7 @@ namespace CSMWorld
             record.setModified (record2);
         }
 
-        virtual bool isEditable() const
+        bool isEditable() const override
         {
             return true;
         }
@@ -1935,12 +1936,12 @@ namespace CSMWorld
         : Column<ESXRecordT> (Columns::ColumnId_BodyPartType, ColumnBase::Display_BodyPartType)
         {}
 
-        virtual QVariant get (const Record<ESXRecordT>& record) const
+        QVariant get (const Record<ESXRecordT>& record) const override
         {
             return static_cast<int> (record.get().mData.mPart);
         }
 
-        virtual void set (Record<ESXRecordT>& record, const QVariant& data)
+        void set (Record<ESXRecordT>& record, const QVariant& data) override
         {
             ESXRecordT record2 = record.get();
 
@@ -1949,7 +1950,7 @@ namespace CSMWorld
             record.setModified (record2);
         }
 
-        virtual bool isEditable() const
+        bool isEditable() const override
         {
             return true;
         }
@@ -1962,12 +1963,12 @@ namespace CSMWorld
         : Column<ESXRecordT> (Columns::ColumnId_MeshType, ColumnBase::Display_MeshType, flags)
         {}
 
-        virtual QVariant get (const Record<ESXRecordT>& record) const
+        QVariant get (const Record<ESXRecordT>& record) const override
         {
             return static_cast<int> (record.get().mData.mType);
         }
 
-        virtual void set (Record<ESXRecordT>& record, const QVariant& data)
+        void set (Record<ESXRecordT>& record, const QVariant& data) override
         {
             ESXRecordT record2 = record.get();
 
@@ -1976,7 +1977,7 @@ namespace CSMWorld
             record.setModified (record2);
         }
 
-        virtual bool isEditable() const
+        bool isEditable() const override
         {
             return true;
         }
@@ -1989,12 +1990,12 @@ namespace CSMWorld
         : Column<ESXRecordT> (Columns::ColumnId_OwnerGlobal, ColumnBase::Display_GlobalVariable)
         {}
 
-        virtual QVariant get (const Record<ESXRecordT>& record) const
+        QVariant get (const Record<ESXRecordT>& record) const override
         {
             return QString::fromUtf8 (record.get().mGlobalVariable.c_str());
         }
 
-        virtual void set (Record<ESXRecordT>& record, const QVariant& data)
+        void set (Record<ESXRecordT>& record, const QVariant& data) override
         {
             ESXRecordT record2 = record.get();
 
@@ -2003,7 +2004,7 @@ namespace CSMWorld
             record.setModified (record2);
         }
 
-        virtual bool isEditable() const
+        bool isEditable() const override
         {
             return true;
         }
@@ -2016,12 +2017,12 @@ namespace CSMWorld
         : Column<ESXRecordT> (Columns::ColumnId_RefNumCounter, ColumnBase::Display_Integer, 0)
         {}
 
-        virtual QVariant get (const Record<ESXRecordT>& record) const
+        QVariant get (const Record<ESXRecordT>& record) const override
         {
             return static_cast<int> (record.get().mRefNumCounter);
         }
 
-        virtual void set (Record<ESXRecordT>& record, const QVariant& data)
+        void set (Record<ESXRecordT>& record, const QVariant& data) override
         {
             ESXRecordT record2 = record.get();
 
@@ -2030,12 +2031,12 @@ namespace CSMWorld
             record.setModified (record2);
         }
 
-        virtual bool isEditable() const
+        bool isEditable() const override
         {
             return true;
         }
 
-        virtual bool isUserEditable() const
+        bool isUserEditable() const override
         {
             return false;
         }
@@ -2048,12 +2049,12 @@ namespace CSMWorld
         : Column<ESXRecordT> (Columns::ColumnId_RefNum, ColumnBase::Display_Integer, 0)
         {}
 
-        virtual QVariant get (const Record<ESXRecordT>& record) const
+        QVariant get (const Record<ESXRecordT>& record) const override
         {
             return static_cast<int> (record.get().mRefNum.mIndex);
         }
 
-        virtual void set (Record<ESXRecordT>& record, const QVariant& data)
+        void set (Record<ESXRecordT>& record, const QVariant& data) override
         {
             ESXRecordT record2 = record.get();
 
@@ -2062,12 +2063,12 @@ namespace CSMWorld
             record.setModified (record2);
         }
 
-        virtual bool isEditable() const
+        bool isEditable() const override
         {
             return true;
         }
 
-        virtual bool isUserEditable() const
+        bool isUserEditable() const override
         {
             return false;
         }
@@ -2080,12 +2081,12 @@ namespace CSMWorld
         : Column<ESXRecordT> (Columns::ColumnId_Sound, ColumnBase::Display_Sound)
         {}
 
-        virtual QVariant get (const Record<ESXRecordT>& record) const
+        QVariant get (const Record<ESXRecordT>& record) const override
         {
             return QString::fromUtf8 (record.get().mSound.c_str());
         }
 
-        virtual void set (Record<ESXRecordT>& record, const QVariant& data)
+        void set (Record<ESXRecordT>& record, const QVariant& data) override
         {
             ESXRecordT record2 = record.get();
 
@@ -2094,7 +2095,7 @@ namespace CSMWorld
             record.setModified (record2);
         }
 
-        virtual bool isEditable() const
+        bool isEditable() const override
         {
             return true;
         }
@@ -2107,12 +2108,12 @@ namespace CSMWorld
         : Column<ESXRecordT> (Columns::ColumnId_Creature, ColumnBase::Display_Creature)
         {}
 
-        virtual QVariant get (const Record<ESXRecordT>& record) const
+        QVariant get (const Record<ESXRecordT>& record) const override
         {
             return QString::fromUtf8 (record.get().mCreature.c_str());
         }
 
-        virtual void set (Record<ESXRecordT>& record, const QVariant& data)
+        void set (Record<ESXRecordT>& record, const QVariant& data) override
         {
             ESXRecordT record2 = record.get();
 
@@ -2121,7 +2122,7 @@ namespace CSMWorld
             record.setModified (record2);
         }
 
-        virtual bool isEditable() const
+        bool isEditable() const override
         {
             return true;
         }
@@ -2134,12 +2135,12 @@ namespace CSMWorld
         : Column<ESXRecordT> (Columns::ColumnId_SoundGeneratorType, ColumnBase::Display_SoundGeneratorType)
         {}
 
-        virtual QVariant get (const Record<ESXRecordT>& record) const
+        QVariant get (const Record<ESXRecordT>& record) const override
         {
             return static_cast<int> (record.get().mType);
         }
 
-        virtual void set (Record<ESXRecordT>& record, const QVariant& data)
+        void set (Record<ESXRecordT>& record, const QVariant& data) override
         {
             ESXRecordT record2 = record.get();
 
@@ -2148,7 +2149,7 @@ namespace CSMWorld
             record.setModified (record2);
         }
 
-        virtual bool isEditable() const
+        bool isEditable() const override
         {
             return true;
         }
@@ -2159,19 +2160,19 @@ namespace CSMWorld
     {
         BaseCostColumn() : Column<ESXRecordT> (Columns::ColumnId_BaseCost, ColumnBase::Display_Float) {}
 
-        virtual QVariant get (const Record<ESXRecordT>& record) const
+        QVariant get (const Record<ESXRecordT>& record) const override
         {
             return record.get().mData.mBaseCost;
         }
 
-        virtual void set (Record<ESXRecordT>& record, const QVariant& data)
+        void set (Record<ESXRecordT>& record, const QVariant& data) override
         {
             ESXRecordT record2 = record.get();
             record2.mData.mBaseCost = data.toFloat();
             record.setModified (record2);
         }
 
-        virtual bool isEditable() const
+        bool isEditable() const override
         {
             return true;
         }
@@ -2184,12 +2185,12 @@ namespace CSMWorld
         : Column<ESXRecordT> (Columns::ColumnId_School, ColumnBase::Display_School)
         {}
 
-        virtual QVariant get (const Record<ESXRecordT>& record) const
+        QVariant get (const Record<ESXRecordT>& record) const override
         {
             return record.get().mData.mSchool;
         }
 
-        virtual void set (Record<ESXRecordT>& record, const QVariant& data)
+        void set (Record<ESXRecordT>& record, const QVariant& data) override
         {
             ESXRecordT record2 = record.get();
 
@@ -2198,7 +2199,7 @@ namespace CSMWorld
             record.setModified (record2);
         }
 
-        virtual bool isEditable() const
+        bool isEditable() const override
         {
             return true;
         }
@@ -2216,14 +2217,14 @@ namespace CSMWorld
                 this->mColumnId==Columns::ColumnId_Particle);
         }
 
-        virtual QVariant get (const Record<ESXRecordT>& record) const
+        QVariant get (const Record<ESXRecordT>& record) const override
         {
             return QString::fromUtf8 (
                 (this->mColumnId==Columns::ColumnId_Icon ?
                 record.get().mIcon : record.get().mParticle).c_str());
         }
 
-        virtual void set (Record<ESXRecordT>& record, const QVariant& data)
+        void set (Record<ESXRecordT>& record, const QVariant& data) override
         {
             ESXRecordT record2 = record.get();
 
@@ -2234,7 +2235,7 @@ namespace CSMWorld
             record.setModified (record2);
         }
 
-        virtual bool isEditable() const
+        bool isEditable() const override
         {
             return true;
         }
@@ -2252,9 +2253,9 @@ namespace CSMWorld
                 this->mColumnId==Columns::ColumnId_BoltObject);
         }
 
-        virtual QVariant get (const Record<ESXRecordT>& record) const
+        QVariant get (const Record<ESXRecordT>& record) const override
         {
-            const std::string *string = 0;
+            const std::string *string = nullptr;
 
             switch (this->mColumnId)
             {
@@ -2270,9 +2271,9 @@ namespace CSMWorld
             return QString::fromUtf8 (string->c_str());
         }
 
-        virtual void set (Record<ESXRecordT>& record, const QVariant& data)
+        void set (Record<ESXRecordT>& record, const QVariant& data) override
         {
-            std::string *string = 0;
+            std::string *string = nullptr;
 
             ESXRecordT record2 = record.get();
 
@@ -2292,7 +2293,7 @@ namespace CSMWorld
             record.setModified (record2);
         }
 
-        virtual bool isEditable() const
+        bool isEditable() const override
         {
             return true;
         }
@@ -2310,9 +2311,9 @@ namespace CSMWorld
                 this->mColumnId==Columns::ColumnId_BoltSound);
         }
 
-        virtual QVariant get (const Record<ESXRecordT>& record) const
+        QVariant get (const Record<ESXRecordT>& record) const override
         {
-            const std::string *string = 0;
+            const std::string *string = nullptr;
 
             switch (this->mColumnId)
             {
@@ -2328,9 +2329,9 @@ namespace CSMWorld
             return QString::fromUtf8 (string->c_str());
         }
 
-        virtual void set (Record<ESXRecordT>& record, const QVariant& data)
+        void set (Record<ESXRecordT>& record, const QVariant& data) override
         {
-            std::string *string = 0;
+            std::string *string = nullptr;
 
             ESXRecordT record2 = record.get();
 
@@ -2350,7 +2351,7 @@ namespace CSMWorld
             record.setModified (record2);
         }
 
-        virtual bool isEditable() const
+        bool isEditable() const override
         {
             return true;
         }
@@ -2363,12 +2364,12 @@ namespace CSMWorld
         : Column<ESXRecordT> (Columns::ColumnId_FileFormat, ColumnBase::Display_Integer)
         {}
 
-        virtual QVariant get (const Record<ESXRecordT>& record) const
+        QVariant get (const Record<ESXRecordT>& record) const override
         {
             return record.get().mFormat;
         }
 
-        virtual bool isEditable() const
+        bool isEditable() const override
         {
             return false;
         }
@@ -2381,12 +2382,12 @@ namespace CSMWorld
         : Column<ESXRecordT> (Columns::ColumnId_Author, ColumnBase::Display_String32)
         {}
 
-        virtual QVariant get (const Record<ESXRecordT>& record) const
+        QVariant get (const Record<ESXRecordT>& record) const override
         {
             return QString::fromUtf8 (record.get().mAuthor.c_str());
         }
 
-        virtual void set (Record<ESXRecordT>& record, const QVariant& data)
+        void set (Record<ESXRecordT>& record, const QVariant& data) override
         {
             ESXRecordT record2 = record.get();
 
@@ -2395,7 +2396,7 @@ namespace CSMWorld
             record.setModified (record2);
         }
 
-        virtual bool isEditable() const
+        bool isEditable() const override
         {
             return true;
         }
@@ -2408,12 +2409,12 @@ namespace CSMWorld
         : Column<ESXRecordT> (Columns::ColumnId_FileDescription, ColumnBase::Display_LongString256)
         {}
 
-        virtual QVariant get (const Record<ESXRecordT>& record) const
+        QVariant get (const Record<ESXRecordT>& record) const override
         {
             return QString::fromUtf8 (record.get().mDescription.c_str());
         }
 
-        virtual void set (Record<ESXRecordT>& record, const QVariant& data)
+        void set (Record<ESXRecordT>& record, const QVariant& data) override
         {
             ESXRecordT record2 = record.get();
 
@@ -2422,7 +2423,7 @@ namespace CSMWorld
             record.setModified (record2);
         }
 
-        virtual bool isEditable() const
+        bool isEditable() const override
         {
             return true;
         }
@@ -2511,9 +2512,9 @@ namespace CSMWorld
 
         BodyPartRaceColumn(const MeshTypeColumn<ESM::BodyPart> *meshType);
 
-        virtual QVariant get(const Record<ESM::BodyPart> &record) const;
-        virtual void set(Record<ESM::BodyPart> &record, const QVariant &data);
-        virtual bool isEditable() const;
+        QVariant get(const Record<ESM::BodyPart> &record) const override;
+        void set(Record<ESM::BodyPart> &record, const QVariant &data) override;
+        bool isEditable() const override;
     };
 }
 

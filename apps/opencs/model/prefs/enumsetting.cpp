@@ -35,14 +35,14 @@ CSMPrefs::EnumValues& CSMPrefs::EnumValues::add (const EnumValue& value)
 
 CSMPrefs::EnumValues& CSMPrefs::EnumValues::add (const std::string& value, const std::string& tooltip)
 {
-    mValues.push_back (EnumValue (value, tooltip));
+    mValues.emplace_back(value, tooltip);
     return *this;
 }
 
 
 CSMPrefs::EnumSetting::EnumSetting (Category *parent, Settings::Manager *values,
   QMutex *mutex, const std::string& key, const std::string& label, const EnumValue& default_)
-: Setting (parent, values, mutex, key, label), mDefault (default_), mWidget(0)
+: Setting (parent, values, mutex, key, label), mDefault (default_), mWidget(nullptr)
 {}
 
 CSMPrefs::EnumSetting& CSMPrefs::EnumSetting::setTooltip (const std::string& tooltip)

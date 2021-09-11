@@ -6,7 +6,8 @@
 #include <boost/filesystem.hpp>
 #include <boost/filesystem/fstream.hpp>
 
-#include <components/bsa/bsa_file.hpp>
+#include <components/bsa/compressedbsafile.hpp>
+#include <components/misc/stringops.hpp>
 
 #define BSATOOL_VERSION 1.1
 
@@ -19,21 +20,12 @@ struct Arguments
     std::string mode;
     std::string filename;
     std::string extractfile;
+    std::string addfile;
     std::string outdir;
 
     bool longformat;
     bool fullpath;
 };
-
-void replaceAll(std::string& str, const std::string& needle, const std::string& substitute)
-{
-    size_t pos = str.find(needle);
-    while(pos != std::string::npos)
-    {
-        str.replace(pos, needle.size(), substitute);
-        pos = str.find(needle);
-    }
-}
 
 bool parseOptions (int argc, char** argv, Arguments &info)
 {
@@ -45,6 +37,10 @@ bool parseOptions (int argc, char** argv, Arguments &info)
             "      Extract a file from the input archive.\n\n"
             "  bsatool extractall archivefile [output_directory]\n"
             "      Extract all files from the input archive.\n\n"
+            "  bsatool add [-a] archivefile file_to_add\n"
+            "      Add a file to the input archive.\n\n"
+            "  bsatool create [-c] archivefile\n"
+            "      Create an archive.\n\n"
             "Allowed options");
 
     desc.add_options()
@@ -104,7 +100,7 @@ bool parseOptions (int argc, char** argv, Arguments &info)
     }
 
     info.mode = variables["mode"].as<std::string>();
-    if (!(info.mode == "list" || info.mode == "extract" || info.mode == "extractall"))
+    if (!(info.mode == "list" || info.mode == "extract" || info.mode == "extractall" || info.mode == "add" || info.mode == "create"))
     {
         std::cout << std::endl << "ERROR: invalid mode \"" << info.mode << "\"\n\n"
             << desc << std::endl;
@@ -135,6 +131,17 @@ bool parseOptions (int argc, char** argv, Arguments &info)
         if (variables["input-file"].as< std::vector<std::string> >().size() > 2)
             info.outdir = variables["input-file"].as< std::vector<std::string> >()[2];
     }
+    else if (info.mode == "add")
+    {
+        if (variables["input-file"].as< std::vector<std::string> >().size() < 1)
+        {
+            std::cout << "\nERROR: file to add unspecified\n\n"
+                << desc << std::endl;
+            return false;
+        }
+        if (variables["input-file"].as< std::vector<std::string> >().size() > 1)
+            info.addfile = variables["input-file"].as< std::vector<std::string> >()[1];
+    }
     else if (variables["input-file"].as< std::vector<std::string> >().size() > 1)
         info.outdir = variables["input-file"].as< std::vector<std::string> >()[1];
 
@@ -144,9 +151,10 @@ bool parseOptions (int argc, char** argv, Arguments &info)
     return true;
 }
 
-int list(Bsa::BSAFile& bsa, Arguments& info);
-int extract(Bsa::BSAFile& bsa, Arguments& info);
-int extractAll(Bsa::BSAFile& bsa, Arguments& info);
+int list(std::unique_ptr<Bsa::BSAFile>& bsa, Arguments& info);
+int extract(std::unique_ptr<Bsa::BSAFile>& bsa, Arguments& info);
+int extractAll(std::unique_ptr<Bsa::BSAFile>& bsa, Arguments& info);
+int add(std::unique_ptr<Bsa::BSAFile>& bsa, Arguments& info);
 
 int main(int argc, char** argv)
 {
@@ -157,8 +165,22 @@ int main(int argc, char** argv)
             return 1;
 
         // Open file
-        Bsa::BSAFile bsa;
-        bsa.open(info.filename);
+        std::unique_ptr<Bsa::BSAFile> bsa;
+
+        Bsa::BsaVersion bsaVersion = Bsa::CompressedBSAFile::detectVersion(info.filename);
+
+        if (bsaVersion == Bsa::BSAVER_COMPRESSED)
+            bsa = std::make_unique<Bsa::CompressedBSAFile>(Bsa::CompressedBSAFile());
+        else
+            bsa = std::make_unique<Bsa::BSAFile>(Bsa::BSAFile());
+
+        if (info.mode == "create")
+        {
+            bsa->open(info.filename);
+            return 0;
+        }
+
+        bsa->open(info.filename);
 
         if (info.mode == "list")
             return list(bsa, info);
@@ -166,6 +188,8 @@ int main(int argc, char** argv)
             return extract(bsa, info);
         else if (info.mode == "extractall")
             return extractAll(bsa, info);
+        else if (info.mode == "add")
+            return add(bsa, info);
         else
         {
             std::cout << "Unsupported mode. That is not supposed to happen." << std::endl;
@@ -179,37 +203,37 @@ int main(int argc, char** argv)
     }
 }
 
-int list(Bsa::BSAFile& bsa, Arguments& info)
+int list(std::unique_ptr<Bsa::BSAFile>& bsa, Arguments& info)
 {
     // List all files
-    const Bsa::BSAFile::FileList &files = bsa.getList();
+    const Bsa::BSAFile::FileList &files = bsa->getList();
     for (const auto& file : files)
     {
         if(info.longformat)
         {
             // Long format
             std::ios::fmtflags f(std::cout.flags());
-            std::cout << std::setw(50) << std::left << file.name;
+            std::cout << std::setw(50) << std::left << file.name();
             std::cout << std::setw(8) << std::left << std::dec << file.fileSize;
             std::cout << "@ 0x" << std::hex << file.offset << std::endl;
             std::cout.flags(f);
         }
         else
-            std::cout << file.name << std::endl;
+            std::cout << file.name() << std::endl;
     }
 
     return 0;
 }
 
-int extract(Bsa::BSAFile& bsa, Arguments& info)
+int extract(std::unique_ptr<Bsa::BSAFile>& bsa, Arguments& info)
 {
     std::string archivePath = info.extractfile;
-    replaceAll(archivePath, "/", "\\");
+    Misc::StringUtils::replaceAll(archivePath, "/", "\\");
 
     std::string extractPath = info.extractfile;
-    replaceAll(extractPath, "\\", "/");
+    Misc::StringUtils::replaceAll(extractPath, "\\", "/");
 
-    if (!bsa.exists(archivePath.c_str()))
+    if (!bsa->exists(archivePath.c_str()))
     {
         std::cout << "ERROR: file '" << archivePath << "' not found\n";
         std::cout << "In archive: " << info.filename << std::endl;
@@ -237,7 +261,7 @@ int extract(Bsa::BSAFile& bsa, Arguments& info)
     }
 
     // Get a stream for the file to extract
-    Files::IStreamPtr stream = bsa.getFile(archivePath.c_str());
+    Files::IStreamPtr stream = bsa->getFile(archivePath.c_str());
 
     bfs::ofstream out(target, std::ios::binary);
 
@@ -250,12 +274,12 @@ int extract(Bsa::BSAFile& bsa, Arguments& info)
     return 0;
 }
 
-int extractAll(Bsa::BSAFile& bsa, Arguments& info)
+int extractAll(std::unique_ptr<Bsa::BSAFile>& bsa, Arguments& info)
 {
-    for (const auto &file : bsa.getList())
+    for (const auto &file : bsa->getList())
     {
-        std::string extractPath(file.name);
-        replaceAll(extractPath, "\\", "/");
+        std::string extractPath(file.name());
+        Misc::StringUtils::replaceAll(extractPath, "\\", "/");
 
         // Get the target path (the path the file will be extracted to)
         bfs::path target (info.outdir);
@@ -273,7 +297,7 @@ int extractAll(Bsa::BSAFile& bsa, Arguments& info)
 
         // Get a stream for the file to extract
         // (inefficient because getFile iter on the list again)
-        Files::IStreamPtr data = bsa.getFile(file.name);
+        Files::IStreamPtr data = bsa->getFile(file.name());
         bfs::ofstream out(target, std::ios::binary);
 
         // Write the file to disk
@@ -281,6 +305,14 @@ int extractAll(Bsa::BSAFile& bsa, Arguments& info)
         out << data->rdbuf();
         out.close();
     }
+
+    return 0;
+}
+
+int add(std::unique_ptr<Bsa::BSAFile>& bsa, Arguments& info)
+{
+    boost::filesystem::fstream stream(info.addfile, std::ios_base::binary | std::ios_base::out | std::ios_base::in);
+    bsa->addFile(info.addfile, stream);
 
     return 0;
 }

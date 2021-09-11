@@ -1,62 +1,103 @@
-#include "bulletdebugdraw.hpp"
+#include <algorithm>
 
 #include <BulletCollision/CollisionDispatch/btCollisionWorld.h>
 
 #include <osg/Geometry>
 #include <osg/Group>
+#include <osg/Material>
 
 #include <components/debug/debuglog.hpp>
+#include <components/misc/convert.hpp>
+#include <components/sceneutil/util.hpp>
+#include <osg/PolygonMode>
+#include <osg/PolygonOffset>
+#include <osg/ShapeDrawable>
+#include <osg/StateSet>
 
+#include "bulletdebugdraw.hpp"
 #include "vismask.hpp"
 
-namespace
-{
-    osg::Vec3f toOsg(const btVector3& vec)
-    {
-        return osg::Vec3f(vec.x(), vec.y(), vec.z());
-    }
-}
+#include <components/resource/resourcesystem.hpp>
+#include <components/resource/scenemanager.hpp>
+
+#include "../mwbase/world.hpp"
+#include "../mwbase/environment.hpp"
 
 namespace MWRender
 {
 
-DebugDrawer::DebugDrawer(osg::ref_ptr<osg::Group> parentNode, btCollisionWorld *world)
+DebugDrawer::DebugDrawer(osg::ref_ptr<osg::Group> parentNode, btCollisionWorld *world, int debugMode)
     : mParentNode(parentNode),
-      mWorld(world),
-      mDebugOn(true)
+      mWorld(world)
 {
-
-    createGeometry();
+    setDebugMode(debugMode);
 }
 
 void DebugDrawer::createGeometry()
 {
-    if (!mGeometry)
+    if (!mLinesGeometry)
     {
-        mGeometry = new osg::Geometry;
-        mGeometry->setNodeMask(Mask_Debug);
+        mLinesGeometry = new osg::Geometry;
+        mTrisGeometry = new osg::Geometry;
+        mLinesGeometry->setNodeMask(Mask_Debug);
+        mTrisGeometry->setNodeMask(Mask_Debug);
 
-        mVertices = new osg::Vec3Array;
+        mLinesVertices = new osg::Vec3Array;
+        mTrisVertices = new osg::Vec3Array;
+        mLinesColors = new osg::Vec4Array;
 
-        mDrawArrays = new osg::DrawArrays(osg::PrimitiveSet::LINES);
+        mLinesDrawArrays = new osg::DrawArrays(osg::PrimitiveSet::LINES);
+        mTrisDrawArrays = new osg::DrawArrays(osg::PrimitiveSet::TRIANGLES);
 
-        mGeometry->setUseDisplayList(false);
-        mGeometry->setVertexArray(mVertices);
-        mGeometry->setDataVariance(osg::Object::DYNAMIC);
-        mGeometry->addPrimitiveSet(mDrawArrays);
+        mLinesGeometry->setUseDisplayList(false);
+        mLinesGeometry->setVertexArray(mLinesVertices);
+        mLinesGeometry->setColorArray(mLinesColors);
+        mLinesGeometry->setColorBinding(osg::Geometry::BIND_PER_VERTEX);
+        mLinesGeometry->setDataVariance(osg::Object::DYNAMIC);
+        mLinesGeometry->addPrimitiveSet(mLinesDrawArrays);
 
-        mParentNode->addChild(mGeometry);
+        mTrisGeometry->setUseDisplayList(false);
+        mTrisGeometry->setVertexArray(mTrisVertices);
+        mTrisGeometry->setDataVariance(osg::Object::DYNAMIC);
+        mTrisGeometry->addPrimitiveSet(mTrisDrawArrays);
+
+        mParentNode->addChild(mLinesGeometry);
+        mParentNode->addChild(mTrisGeometry);
+
+        auto* stateSet = new osg::StateSet;
+        stateSet->setAttributeAndModes(new osg::PolygonMode(osg::PolygonMode::FRONT_AND_BACK, osg::PolygonMode::LINE), osg::StateAttribute::ON);
+        stateSet->setAttributeAndModes(new osg::PolygonOffset(SceneUtil::getReverseZ() ? 1.0 : -1.0, SceneUtil::getReverseZ() ? 1.0 : -1.0));
+        osg::ref_ptr<osg::Material> material = new osg::Material;
+        material->setColorMode(osg::Material::AMBIENT_AND_DIFFUSE);
+        stateSet->setAttribute(material);
+        mLinesGeometry->setStateSet(stateSet);
+        mTrisGeometry->setStateSet(stateSet);
+        mShapesRoot = new osg::Group;
+        mShapesRoot->setStateSet(stateSet);
+        mShapesRoot->setDataVariance(osg::Object::DYNAMIC);
+        mShapesRoot->setNodeMask(Mask_Debug);
+        mParentNode->addChild(mShapesRoot);
+
+        MWBase::Environment::get().getResourceSystem()->getSceneManager()->recreateShaders(mLinesGeometry, "debug");
+        MWBase::Environment::get().getResourceSystem()->getSceneManager()->recreateShaders(mTrisGeometry, "debug");
+        MWBase::Environment::get().getResourceSystem()->getSceneManager()->recreateShaders(mShapesRoot, "debug");
     }
 }
 
 void DebugDrawer::destroyGeometry()
 {
-    if (mGeometry)
+    if (mLinesGeometry)
     {
-        mParentNode->removeChild(mGeometry);
-        mGeometry = nullptr;
-        mVertices = nullptr;
-        mDrawArrays = nullptr;
+        mParentNode->removeChild(mLinesGeometry);
+        mParentNode->removeChild(mTrisGeometry);
+        mParentNode->removeChild(mShapesRoot);
+        mLinesGeometry = nullptr;
+        mLinesVertices = nullptr;
+        mLinesColors = nullptr;
+        mLinesDrawArrays = nullptr;
+        mTrisGeometry = nullptr;
+        mTrisVertices = nullptr;
+        mTrisDrawArrays = nullptr;
     }
 }
 
@@ -69,24 +110,90 @@ void DebugDrawer::step()
 {
     if (mDebugOn)
     {
-        mVertices->clear();
+        mLinesVertices->clear();
+        mTrisVertices->clear();
+        mLinesColors->clear();
+        mShapesRoot->removeChildren(0, mShapesRoot->getNumChildren());
         mWorld->debugDrawWorld();
-        mDrawArrays->setCount(mVertices->size());
-        mVertices->dirty();
-        mGeometry->dirtyBound();
+        showCollisions();
+        mLinesDrawArrays->setCount(mLinesVertices->size());
+        mTrisDrawArrays->setCount(mTrisVertices->size());
+        mLinesVertices->dirty();
+        mTrisVertices->dirty();
+        mLinesColors->dirty();
+        mLinesGeometry->dirtyBound();
+        mTrisGeometry->dirtyBound();
     }
 }
 
 void DebugDrawer::drawLine(const btVector3 &from, const btVector3 &to, const btVector3 &color)
 {
-    mVertices->push_back(toOsg(from));
-    mVertices->push_back(toOsg(to));
+    mLinesVertices->push_back(Misc::Convert::toOsg(from));
+    mLinesVertices->push_back(Misc::Convert::toOsg(to));
+    mLinesColors->push_back({1,1,1,1});
+    mLinesColors->push_back({1,1,1,1});
+
+#if BT_BULLET_VERSION < 317
+    size_t size = mLinesVertices->size();
+    if (size >= 6
+        && (*mLinesVertices)[size - 1] == (*mLinesVertices)[size - 6]
+        && (*mLinesVertices)[size - 2] == (*mLinesVertices)[size - 3]
+        && (*mLinesVertices)[size - 4] == (*mLinesVertices)[size - 5])
+    {
+        mTrisVertices->push_back(mLinesVertices->back());
+        mLinesVertices->pop_back();
+        mLinesColors->pop_back();
+        mTrisVertices->push_back(mLinesVertices->back());
+        mLinesVertices->pop_back();
+        mLinesColors->pop_back();
+        mLinesVertices->pop_back();
+        mLinesColors->pop_back();
+        mTrisVertices->push_back(mLinesVertices->back());
+        mLinesVertices->pop_back();
+        mLinesColors->pop_back();
+        mLinesVertices->pop_back();
+        mLinesColors->pop_back();
+        mLinesVertices->pop_back();
+        mLinesColors->pop_back();
+    }
+#endif
 }
 
-void DebugDrawer::drawContactPoint(const btVector3 &PointOnB, const btVector3 &normalOnB, btScalar distance, int lifeTime, const btVector3 &color)
+void DebugDrawer::drawTriangle(const btVector3& v0, const btVector3& v1, const btVector3& v2, const btVector3& color, btScalar)
 {
-    mVertices->push_back(toOsg(PointOnB));
-    mVertices->push_back(toOsg(PointOnB) + (toOsg(normalOnB) * distance * 20));
+    mTrisVertices->push_back(Misc::Convert::toOsg(v0));
+    mTrisVertices->push_back(Misc::Convert::toOsg(v1));
+    mTrisVertices->push_back(Misc::Convert::toOsg(v2));
+}
+
+void DebugDrawer::addCollision(const btVector3& orig, const btVector3& normal)
+{
+    mCollisionViews.emplace_back(orig, normal);
+}
+
+void DebugDrawer::showCollisions()
+{
+    const auto now = std::chrono::steady_clock::now();
+    for (auto& [from, to , created] : mCollisionViews)
+    {
+        if (now - created < std::chrono::seconds(2))
+        {
+            mLinesVertices->push_back(Misc::Convert::toOsg(from));
+            mLinesVertices->push_back(Misc::Convert::toOsg(to));
+            mLinesColors->push_back({1,0,0,1});
+            mLinesColors->push_back({1,0,0,1});
+        }
+    }
+    mCollisionViews.erase(std::remove_if(mCollisionViews.begin(), mCollisionViews.end(),
+                [&now](const CollisionView& view) { return now - view.mCreated >= std::chrono::seconds(2); }),
+            mCollisionViews.end());
+}
+
+void DebugDrawer::drawSphere(btScalar radius, const btTransform& transform, const btVector3& color)
+{
+    auto* geom = new osg::ShapeDrawable(new osg::Sphere(Misc::Convert::toOsg(transform.getOrigin()), radius));
+    geom->setColor(osg::Vec4(1, 1, 1, 1));
+    mShapesRoot->addChild(geom);
 }
 
 void DebugDrawer::reportErrorWarning(const char *warningString)
@@ -96,7 +203,7 @@ void DebugDrawer::reportErrorWarning(const char *warningString)
 
 void DebugDrawer::setDebugMode(int isOn)
 {
-    mDebugOn = (isOn == 0) ? false : true;
+    mDebugOn = (isOn != 0);
 
     if (!mDebugOn)
         destroyGeometry();
@@ -108,7 +215,5 @@ int DebugDrawer::getDebugMode() const
 {
     return mDebugOn;
 }
-
-
 
 }

@@ -6,6 +6,7 @@
 #include <BulletCollision/CollisionShapes/btBoxShape.h>
 #include <BulletCollision/CollisionShapes/btScaledBvhTriangleMeshShape.h>
 #include <BulletCollision/CollisionShapes/btCompoundShape.h>
+#include <BulletCollision/CollisionShapes/btHeightfieldTerrainShape.h>
 
 namespace Resource
 {
@@ -20,8 +21,7 @@ BulletShape::BulletShape()
 BulletShape::BulletShape(const BulletShape &copy, const osg::CopyOp &copyop)
     : mCollisionShape(duplicateCollisionShape(copy.mCollisionShape))
     , mAvoidCollisionShape(duplicateCollisionShape(copy.mAvoidCollisionShape))
-    , mCollisionBoxHalfExtents(copy.mCollisionBoxHalfExtents)
-    , mCollisionBoxTranslate(copy.mCollisionBoxTranslate)
+    , mCollisionBox(copy.mCollisionBox)
     , mAnimatedShapes(copy.mAnimatedShapes)
 {
 }
@@ -58,7 +58,7 @@ btCollisionShape* BulletShape::duplicateCollisionShape(const btCollisionShape *s
         for(int i = 0;i < numShapes;++i)
         {
             btCollisionShape *child = duplicateCollisionShape(comp->getChildShape(i));
-            btTransform trans = comp->getChildTransform(i);
+            const btTransform& trans = comp->getChildTransform(i);
             newShape->addChildShape(trans, child);
         }
 
@@ -75,6 +75,9 @@ btCollisionShape* BulletShape::duplicateCollisionShape(const btCollisionShape *s
     {
         return new btBoxShape(*boxshape);
     }
+
+    if (shape->getShapeType() == TERRAIN_SHAPE_PROXYTYPE)
+        return new btHeightfieldTerrainShape(static_cast<const btHeightfieldTerrainShape&>(*shape));
 
     throw std::logic_error(std::string("Unhandled Bullet shape duplication: ")+shape->getName());
 }
@@ -96,6 +99,11 @@ void BulletShape::setLocalScaling(const btVector3& scale)
         mAvoidCollisionShape->setLocalScaling(scale);
 }
 
+bool BulletShape::isAnimated() const
+{
+    return !mAnimatedShapes.empty();
+}
+
 osg::ref_ptr<BulletShapeInstance> BulletShape::makeInstance() const
 {
     osg::ref_ptr<BulletShapeInstance> instance (new BulletShapeInstance(this));
@@ -106,8 +114,7 @@ BulletShapeInstance::BulletShapeInstance(osg::ref_ptr<const BulletShape> source)
     : BulletShape()
     , mSource(source)
 {
-    mCollisionBoxHalfExtents = source->mCollisionBoxHalfExtents;
-    mCollisionBoxTranslate = source->mCollisionBoxTranslate;
+    mCollisionBox = source->mCollisionBox;
 
     mAnimatedShapes = source->mAnimatedShapes;
 

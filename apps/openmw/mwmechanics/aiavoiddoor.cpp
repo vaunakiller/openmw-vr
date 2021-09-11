@@ -45,13 +45,13 @@ bool MWMechanics::AiAvoidDoor::execute (const MWWorld::Ptr& actor, CharacterCont
         return true; //Door is no longer opening
 
     ESM::Position tPos = mDoorPtr.getRefData().getPosition(); //Position of the door
-    float x = pos.pos[0] - tPos.pos[0];
-    float y = pos.pos[1] - tPos.pos[1];
+    float x = pos.pos[1] - tPos.pos[1];
+    float y = pos.pos[0] - tPos.pos[0];
 
     actor.getClass().getCreatureStats(actor).setMovementFlag(CreatureStats::Flag_Run, true);
 
     // Turn away from the door and move when turn completed
-    if (zTurn(actor, std::atan2(x,y) + getAdjustedAngle(), osg::DegreesToRadians(5.f)))
+    if (zTurn(actor, std::atan2(y,x) + getAdjustedAngle(), osg::DegreesToRadians(5.f)))
         actor.getClass().getMovementSettings(actor).mPosition[1] = 1;
     else
         actor.getClass().getMovementSettings(actor).mPosition[1] = 0;
@@ -60,13 +60,14 @@ bool MWMechanics::AiAvoidDoor::execute (const MWWorld::Ptr& actor, CharacterCont
     // Make all nearby actors also avoid the door
     std::vector<MWWorld::Ptr> actors;
     MWBase::Environment::get().getMechanicsManager()->getActorsInRange(pos.asVec3(),100,actors);
-    for(std::vector<MWWorld::Ptr>::iterator it = actors.begin(); it != actors.end(); ++it) {
-        if(*it != getPlayer()) { //Not the player
-            MWMechanics::AiSequence& seq = it->getClass().getCreatureStats(*it).getAiSequence();
-            if(seq.getTypeId() != MWMechanics::AiPackageTypeId::AvoidDoor) { //Only add it once
-                seq.stack(MWMechanics::AiAvoidDoor(mDoorPtr),*it);
-            }
-        }
+    for(auto& neighbor : actors)
+    {
+        if (neighbor == getPlayer())
+            continue;
+
+        MWMechanics::AiSequence& seq = neighbor.getClass().getCreatureStats(neighbor).getAiSequence();
+        if (seq.getTypeId() != MWMechanics::AiPackageTypeId::AvoidDoor)
+            seq.stack(MWMechanics::AiAvoidDoor(mDoorPtr), neighbor);
     }
 
     return false;

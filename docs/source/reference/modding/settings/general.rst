@@ -29,7 +29,7 @@ Specify the format for screen shots taken by pressing the screen shot key (bound
 This setting should be the file extension commonly associated with the desired format.
 The formats supported will be determined at compilation, but "jpg", "png", and "tga" should be allowed.
 
-This setting can only be configured by editing the settings configuration file.
+This setting can be configured in Advanced tab of the launcher.
 
 texture mag filter
 ------------------
@@ -59,3 +59,12 @@ texture mipmap
 Set the texture mipmap type to control the method mipmaps are created.
 Mipmapping is a way of reducing the processing power needed during minification
 by pregenerating a series of smaller textures.
+
+notify on saved screenshot
+--------------
+
+:Type:		boolean
+:Range:		True/False
+:Default:	False
+
+Show message box when screenshot is saved to a file.

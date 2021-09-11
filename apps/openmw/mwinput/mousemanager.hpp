@@ -23,10 +23,10 @@ namespace MWInput
         void updateCursorMode();
         void update(float dt);
 
-        virtual void mouseMoved(const SDLUtil::MouseMotionEvent &arg);
-        virtual void mousePressed(const SDL_MouseButtonEvent &arg, Uint8 id);
-        virtual void mouseReleased(const SDL_MouseButtonEvent &arg, Uint8 id);
-        virtual void mouseWheelMoved(const SDL_MouseWheelEvent &arg);
+        void mouseMoved(const SDLUtil::MouseMotionEvent &arg) override;
+        void mousePressed(const SDL_MouseButtonEvent &arg, Uint8 id) override;
+        void mouseReleased(const SDL_MouseButtonEvent &arg, Uint8 id) override;
+        void mouseWheelMoved(const SDL_MouseWheelEvent &arg) override;
 
         void processChangedSettings(const Settings::CategorySettingVector& changed);
 
@@ -38,6 +38,10 @@ namespace MWInput
         void setMouseLookEnabled(bool enabled) { mMouseLookEnabled = enabled; }
         void setGuiCursorEnabled(bool enabled) { mGuiCursorEnabled = enabled; }
 
+        uint32_t getButtonsState() const { return mButtonsState; }
+        int getMouseMoveX() const { return mMouseMoveX; }
+        int getMouseMoveY() const { return mMouseMoveY; }
+
     private:
         bool mInvertX;
         bool mInvertY;
@@ -47,13 +51,16 @@ namespace MWInput
 
         BindingsManager* mBindingsManager;
         SDLUtil::InputWrapper* mInputWrapper;
-        float mInvUiScalingFactor;
 
         float mGuiCursorX;
         float mGuiCursorY;
         int mMouseWheel;
         bool mMouseLookEnabled;
         bool mGuiCursorEnabled;
+
+        uint32_t mButtonsState;
+        int mMouseMoveX;
+        int mMouseMoveY;
     };
 }
 #endif

@@ -60,7 +60,7 @@ WeaponAnimation::~WeaponAnimation()
 
 }
 
-void WeaponAnimation::attachArrow(MWWorld::Ptr actor)
+void WeaponAnimation::attachArrow(const MWWorld::Ptr& actor)
 {
     const MWWorld::InventoryStore& inv = actor.getClass().getInventoryStore(actor);
     MWWorld::ConstContainerStoreIterator weaponSlot = inv.getSlot(MWWorld::InventoryStore::Slot_CarriedRight);
@@ -96,6 +96,11 @@ void WeaponAnimation::attachArrow(MWWorld::Ptr actor)
 
         mAmmunition = PartHolderPtr(new PartHolder(arrow));
     }
+}
+
+void WeaponAnimation::detachArrow(MWWorld::Ptr actor)
+{
+    mAmmunition.reset();
 }
 
 void WeaponAnimation::releaseArrow(MWWorld::Ptr actor, float attackStrength)

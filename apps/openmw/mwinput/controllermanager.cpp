@@ -8,6 +8,7 @@
 
 #include "../mwbase/environment.hpp"
 #include "../mwbase/inputmanager.hpp"
+#include "../mwbase/luamanager.hpp"
 #include "../mwbase/statemanager.hpp"
 #include "../mwbase/windowmanager.hpp"
 #include "../mwbase/world.hpp"
@@ -32,7 +33,6 @@ namespace MWInput
         , mMouseManager(mouseManager)
         , mJoystickEnabled (Settings::Manager::getBool("enable controller", "Input"))
         , mGamepadCursorSpeed(Settings::Manager::getFloat("gamepad cursor speed", "Input"))
-        , mInvUiScalingFactor(1.f)
         , mSneakToggleShortcutTimer(0.f)
         , mGamepadZoom(0)
         , mGamepadGuiCursorEnabled(true)
@@ -69,10 +69,6 @@ namespace MWInput
             }
         }
 
-        float uiScale = Settings::Manager::getFloat("scaling factor", "GUI");
-        if (uiScale != 0.f)
-            mInvUiScalingFactor = 1.f / uiScale;
-
         float deadZoneRadius = Settings::Manager::getFloat("joystick dead zone", "Input");
         deadZoneRadius = std::min(std::max(deadZoneRadius, 0.0f), 0.5f);
         mBindingsManager->setJoystickDeadZone(deadZoneRadius);
@@ -89,7 +85,7 @@ namespace MWInput
 
     bool ControllerManager::update(float dt)
     {
-        mGamepadPreviewMode = mActionManager->getPreviewDelay() == 1.f;
+        mGamepadPreviewMode = mActionManager->isPreviewModeEnabled();
 
         if (mGuiCursorEnabled && !(mJoystickLastUsed && !mGamepadGuiCursorEnabled))
         {
@@ -102,8 +98,10 @@ namespace MWInput
 
             // We keep track of our own mouse position, so that moving the mouse while in
             // game mode does not move the position of the GUI cursor
-            float xMove = xAxis * dt * 1500.0f * mInvUiScalingFactor * mGamepadCursorSpeed;
-            float yMove = yAxis * dt * 1500.0f * mInvUiScalingFactor * mGamepadCursorSpeed;
+            float uiScale = MWBase::Environment::get().getWindowManager()->getScalingFactor();
+            float xMove = xAxis * dt * 1500.0f / uiScale;
+            float yMove = yAxis * dt * 1500.0f / uiScale;
+
             float mouseWheelMove = -zAxis * dt * 1500.0f;
             if (xMove != 0 || yMove != 0 || mouseWheelMove != 0)
             {
@@ -190,10 +188,7 @@ namespace MWInput
                 mGamepadZoom = 0;
 
             if (mGamepadZoom)
-            {
-                MWBase::Environment::get().getWorld()->changeVanityModeScale(mGamepadZoom);
-                MWBase::Environment::get().getWorld()->setCameraDistance(mGamepadZoom, true, true);
-            }
+                MWBase::Environment::get().getWorld()->adjustCameraDistance(-mGamepadZoom);
         }
 
         return triedToMove;
@@ -203,6 +198,9 @@ namespace MWInput
     {
         if (!mJoystickEnabled || mBindingsManager->isDetectingBindingState())
             return;
+
+        MWBase::Environment::get().getLuaManager()->inputEvent(
+            {MWBase::LuaManager::InputEvent::ControllerPressed, arg.button});
 
         mJoystickLastUsed = true;
         if (MWBase::Environment::get().getWindowManager()->isGuiMode())
@@ -246,6 +244,12 @@ namespace MWInput
             return;
         }
 
+        if (mJoystickEnabled)
+        {
+            MWBase::Environment::get().getLuaManager()->inputEvent(
+                {MWBase::LuaManager::InputEvent::ControllerReleased, arg.button});
+        }
+
         if (!mJoystickEnabled || MWBase::Environment::get().getInputManager()->controlsDisabled())
             return;
 
@@ -287,16 +291,16 @@ namespace MWInput
         }
         else
         {
-            if (mGamepadPreviewMode && arg.value) // Preview Mode Gamepad Zooming
+            if (mGamepadPreviewMode) // Preview Mode Gamepad Zooming
             {
                 if (arg.axis == SDL_CONTROLLER_AXIS_TRIGGERRIGHT)
                 {
-                    mGamepadZoom = arg.value * 0.85f / 1000.f;
+                    mGamepadZoom = arg.value * 0.85f / 1000.f / 12.f;
                     return; // Do not propagate event.
                 }
                 else if (arg.axis == SDL_CONTROLLER_AXIS_TRIGGERLEFT)
                 {
-                    mGamepadZoom = -arg.value * 0.85f / 1000.f;
+                    mGamepadZoom = -arg.value * 0.85f / 1000.f / 12.f;
                     return; // Do not propagate event.
                 }
             }

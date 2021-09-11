@@ -28,11 +28,12 @@ namespace MWWorld
     /// \brief Cell container
     class Cells
     {
+            typedef std::vector<std::pair<std::string, CellStore *> > IdCache;
             const MWWorld::ESMStore& mStore;
             std::vector<ESM::ESMReader>& mReader;
             mutable std::map<std::string, CellStore> mInteriors;
             mutable std::map<std::pair<int, int>, CellStore> mExteriors;
-            std::vector<std::pair<std::string, CellStore *> > mIdCache;
+            IdCache mIdCache;
             std::size_t mIdCacheIndex;
 
             Cells (const Cells&);
@@ -79,6 +80,8 @@ namespace MWWorld
             /// @note Due to the current implementation of getPtr this only supports one Ptr per cell.
             /// @note name must be lower case
             void getInteriorPtrs (const std::string& name, std::vector<MWWorld::Ptr>& out);
+
+            std::vector<MWWorld::Ptr> getAll(const std::string& id);
 
             int countSavedGameRecords() const;
 

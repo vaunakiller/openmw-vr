@@ -5,10 +5,10 @@
 #include <components/sdlutil/sdlinputwrapper.hpp>
 #include <components/esm/esmwriter.hpp>
 #include <components/esm/esmreader.hpp>
-#include <components/esm/controlsstate.hpp>
 
 #include "../mwbase/windowmanager.hpp"
 #include "../mwbase/environment.hpp"
+#include "../mwbase/world.hpp"
 
 #include "../mwworld/esmstore.hpp"
 
@@ -101,6 +101,8 @@ namespace MWInput
         mMouseManager->update(dt);
         mSensorManager->update(dt);
         mActionManager->update(dt, controllerMove);
+
+        MWBase::Environment::get().getWorld()->applyDeferredPreviewRotationToPlayer(dt);
     }
 
     void InputManager::setDragDrop(bool dragDrop)
@@ -148,19 +150,54 @@ namespace MWInput
         mActionManager->resetIdleTime();
     }
 
-    std::string InputManager::getActionDescription(int action)
+    bool InputManager::isIdle() const
+    {
+        return mActionManager->getIdleTime() > 0.5;
+    }
+
+    std::string InputManager::getActionDescription(int action) const
     {
         return mBindingsManager->getActionDescription(action);
     }
 
-    std::string InputManager::getActionKeyBindingName(int action)
+    std::string InputManager::getActionKeyBindingName(int action) const
     {
         return mBindingsManager->getActionKeyBindingName(action);
     }
 
-    std::string InputManager::getActionControllerBindingName(int action)
+    std::string InputManager::getActionControllerBindingName(int action) const
     {
         return mBindingsManager->getActionControllerBindingName(action);
+    }
+
+    bool InputManager::actionIsActive(int action) const
+    {
+        return mBindingsManager->actionIsActive(action);
+    }
+
+    float InputManager::getActionValue(int action) const
+    {
+        return mBindingsManager->getActionValue(action);
+    }
+
+    float InputManager::getControllerAxisValue(SDL_GameControllerAxis axis) const
+    {
+        return mBindingsManager->getControllerAxisValue(axis);
+    }
+
+    uint32_t InputManager::getMouseButtonsState() const
+    {
+        return mMouseManager->getButtonsState();
+    }
+
+    int InputManager::getMouseMoveX() const
+    {
+        return mMouseManager->getMouseMoveX();
+    }
+
+    int InputManager::getMouseMoveY() const
+    {
+        return mMouseManager->getMouseMoveY();
     }
 
     std::vector<int> InputManager::getActionKeySorting()

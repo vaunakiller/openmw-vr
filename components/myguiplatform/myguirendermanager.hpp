@@ -6,9 +6,16 @@
 #include <osg/ref_ptr>
 #include <set>
 
+#include "myguicompat.h"
+
 namespace Resource
 {
     class ImageManager;
+}
+
+namespace Shader
+{
+    class ShaderManager;
 }
 
 namespace osgViewer
@@ -22,6 +29,7 @@ namespace osg
     class Camera;
     class RenderInfo;
     class StateSet;
+    class Program;
 }
 
 namespace osgMyGUI
@@ -73,39 +81,50 @@ public:
     void initialise();
     void shutdown();
 
-    void setScalingFactor(float factor);
+    void enableShaders(Shader::ShaderManager& shaderManager);
 
     static RenderManager& getInstance() { return *getInstancePtr(); }
     static RenderManager* getInstancePtr()
     { return static_cast<RenderManager*>(MyGUI::RenderManager::getInstancePtr()); }
 
     /** @see RenderManager::getViewSize */
-    virtual const MyGUI::IntSize& getViewSize() const { return mViewSize; }
+    const MyGUI::IntSize& getViewSize() const override { return mViewSize; }
 
     /** @see RenderManager::getVertexFormat */
-    virtual MyGUI::VertexColourType getVertexFormat() { return mVertexFormat; }
+    MyGUI::VertexColourType getVertexFormat() OPENMW_MYGUI_CONST_GETTER_3_4_1 override
+    { return mVertexFormat; }
 
     /** @see RenderManager::isFormatSupported */
-    virtual bool isFormatSupported(MyGUI::PixelFormat format, MyGUI::TextureUsage usage);
+    bool isFormatSupported(MyGUI::PixelFormat format, MyGUI::TextureUsage usage) override;
 
     /** @see RenderManager::createVertexBuffer */
-    virtual MyGUI::IVertexBuffer* createVertexBuffer();
+    MyGUI::IVertexBuffer* createVertexBuffer() override;
     /** @see RenderManager::destroyVertexBuffer */
-    virtual void destroyVertexBuffer(MyGUI::IVertexBuffer *buffer);
+    void destroyVertexBuffer(MyGUI::IVertexBuffer *buffer) override;
 
     /** @see RenderManager::createTexture */
-    virtual MyGUI::ITexture* createTexture(const std::string &name);
+    MyGUI::ITexture* createTexture(const std::string &name) override;
     /** @see RenderManager::destroyTexture */
-    virtual void destroyTexture(MyGUI::ITexture* _texture);
+    void destroyTexture(MyGUI::ITexture* _texture) override;
     /** @see RenderManager::getTexture */
-    virtual MyGUI::ITexture* getTexture(const std::string &name);
+    MyGUI::ITexture* getTexture(const std::string &name) override;
 
     // Called by the update traversal
     void update();
 
     bool checkTexture(MyGUI::ITexture* _texture);
 
+    // setViewSize() is a part of MyGUI::RenderManager interface since 3.4.0 release
+#if MYGUI_VERSION < MYGUI_DEFINE_VERSION(3, 4, 0)
     void setViewSize(int width, int height);
+#else
+    void setViewSize(int width, int height) override;
+#endif
+
+    // registerShader() is a part of MyGUI::RenderManager interface since 3.4.1 release
+#if MYGUI_VERSION > MYGUI_DEFINE_VERSION(3, 4, 0)
+    void registerShader(const std::string& _shaderName, const std::string& _vertexProgramFile, const std::string& _fragmentProgramFile) override;
+#endif
 
     osg::ref_ptr<osg::Camera> createGUICamera(int order, std::string layerFilter);
     void deleteGUICamera(GUICamera* camera);

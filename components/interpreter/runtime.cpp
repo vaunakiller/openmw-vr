@@ -6,7 +6,7 @@
 
 namespace Interpreter
 {
-    Runtime::Runtime() : mContext (0), mCode (0), mCodeSize(0), mPC (0) {}
+    Runtime::Runtime() : mContext (nullptr), mCode (nullptr), mCodeSize(0), mPC (0) {}
 
     int Runtime::getPC() const
     {
@@ -45,7 +45,7 @@ namespace Interpreter
 
         for (; index; --index)
         {
-            offset += std::strlen (literalBlock+offset) + 1;
+            offset += static_cast<int>(std::strlen (literalBlock+offset)) + 1;
             if (offset / 4 >= static_cast<int> (mCode[3]))
                 throw std::out_of_range("out of range");
         }
@@ -65,8 +65,8 @@ namespace Interpreter
 
     void Runtime::clear()
     {
-        mContext = 0;
-        mCode = 0;
+        mContext = nullptr;
+        mCode = nullptr;
         mCodeSize = 0;
         mStack.clear();
     }

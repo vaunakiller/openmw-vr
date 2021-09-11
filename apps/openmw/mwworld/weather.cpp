@@ -370,7 +370,7 @@ MWRender::MoonState MoonModel::calculateState(const TimeStamp& gameTime) const
         {
             rotationFromHorizon,
             mAxisOffset, // Reverse engineered from Morrowind's scene graph rotation matrices.
-            static_cast<MWRender::MoonState::Phase>(phase(gameTime)),
+            phase(gameTime),
             shadowBlend(rotationFromHorizon),
             earlyMoonShadowAlpha(rotationFromHorizon) * hourlyAlpha(gameTime.getHour())
         };
@@ -439,17 +439,15 @@ inline float MoonModel::rotation(float hours) const
     return 15.0f * mSpeed * hours;
 }
 
-inline unsigned int MoonModel::phase(const TimeStamp& gameTime) const
+MWRender::MoonState::Phase MoonModel::phase(const TimeStamp& gameTime) const
 {
     // Morrowind starts with a full moon on 16 Last Seed and then begins to wane 17 Last Seed, working on 3 day phase cycle.
-    // Note: this is an internal helper, and as such we don't want to return MWRender::MoonState::Phase since we can't
-    // forward declare it (C++11 strongly typed enums solve this).
 
     // If the moon didn't rise yet today, use yesterday's moon phase.
     if(gameTime.getHour() < moonRiseHour(gameTime.getDay()))
-        return (gameTime.getDay() / 3) % 8;
+        return static_cast<MWRender::MoonState::Phase>((gameTime.getDay() / 3) % 8);
     else
-        return ((gameTime.getDay() + 1) / 3) % 8;
+        return static_cast<MWRender::MoonState::Phase>(((gameTime.getDay() + 1) / 3) % 8);
 }
 
 inline float MoonModel::shadowBlend(float angle) const
@@ -1125,12 +1123,13 @@ inline void WeatherManager::calculateResult(const int weatherID, const float gam
     mResult.mCloudBlendFactor = 0;
     mResult.mNextWindSpeed = 0;
     mResult.mWindSpeed = mResult.mCurrentWindSpeed = calculateWindSpeed(weatherID, mWindSpeed);
+    mResult.mBaseWindSpeed = mWeatherSettings[weatherID].mWindSpeed;
 
     mResult.mCloudSpeed = current.mCloudSpeed;
     mResult.mGlareView = current.mGlareView;
     mResult.mAmbientLoopSoundID = current.mAmbientLoopSoundID;
     mResult.mAmbientSoundVolume = 1.f;
-    mResult.mEffectFade = 1.f;
+    mResult.mPrecipitationAlpha = 1.f;
 
     mResult.mIsStorm = current.mIsStorm;
 
@@ -1216,6 +1215,7 @@ inline void WeatherManager::calculateTransitionResult(const float factor, const 
 
     mResult.mCurrentWindSpeed = calculateWindSpeed(mCurrentWeather, mCurrentWindSpeed);
     mResult.mNextWindSpeed = calculateWindSpeed(mNextWeather, mNextWindSpeed);
+    mResult.mBaseWindSpeed = lerp(current.mBaseWindSpeed, other.mBaseWindSpeed, factor);
 
     mResult.mWindSpeed = lerp(mResult.mCurrentWindSpeed, mResult.mNextWindSpeed, factor);
     mResult.mCloudSpeed = lerp(current.mCloudSpeed, other.mCloudSpeed, factor);
@@ -1236,7 +1236,7 @@ inline void WeatherManager::calculateTransitionResult(const float factor, const 
         mResult.mRainSpeed = current.mRainSpeed;
         mResult.mRainEntranceSpeed = current.mRainEntranceSpeed;
         mResult.mAmbientSoundVolume = 1 - factor / threshold;
-        mResult.mEffectFade = mResult.mAmbientSoundVolume;
+        mResult.mPrecipitationAlpha = mResult.mAmbientSoundVolume;
         mResult.mAmbientLoopSoundID = current.mAmbientLoopSoundID;
         mResult.mRainDiameter = current.mRainDiameter;
         mResult.mRainMinHeight = current.mRainMinHeight;
@@ -1251,7 +1251,7 @@ inline void WeatherManager::calculateTransitionResult(const float factor, const 
         mResult.mRainSpeed = other.mRainSpeed;
         mResult.mRainEntranceSpeed = other.mRainEntranceSpeed;
         mResult.mAmbientSoundVolume = (factor - threshold) / (1 - threshold);
-        mResult.mEffectFade = mResult.mAmbientSoundVolume;
+        mResult.mPrecipitationAlpha = mResult.mAmbientSoundVolume;
         mResult.mAmbientLoopSoundID = other.mAmbientLoopSoundID;
 
         mResult.mRainDiameter = other.mRainDiameter;

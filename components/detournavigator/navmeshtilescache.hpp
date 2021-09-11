@@ -1,8 +1,7 @@
 #ifndef OPENMW_COMPONENTS_DETOURNAVIGATOR_NAVMESHTILESCACHE_H
 #define OPENMW_COMPONENTS_DETOURNAVIGATOR_NAVMESHTILESCACHE_H
 
-#include "offmeshconnection.hpp"
-#include "navmeshdata.hpp"
+#include "preparednavmeshdata.hpp"
 #include "recastmesh.hpp"
 #include "tileposition.hpp"
 
@@ -11,6 +10,8 @@
 #include <list>
 #include <mutex>
 #include <cassert>
+#include <cstring>
+#include <vector>
 
 namespace osg
 {
@@ -19,11 +20,31 @@ namespace osg
 
 namespace DetourNavigator
 {
-    struct NavMeshDataRef
+    struct RecastMeshData
     {
-        unsigned char* mValue;
-        int mSize;
+        Mesh mMesh;
+        std::vector<Cell> mWater;
+        std::vector<Heightfield> mHeightfields;
+        std::vector<FlatHeightfield> mFlatHeightfields;
     };
+
+    inline bool operator <(const RecastMeshData& lhs, const RecastMeshData& rhs)
+    {
+        return std::tie(lhs.mMesh, lhs.mWater, lhs.mHeightfields, lhs.mFlatHeightfields)
+                < std::tie(rhs.mMesh, rhs.mWater, rhs.mHeightfields, rhs.mFlatHeightfields);
+    }
+
+    inline bool operator <(const RecastMeshData& lhs, const RecastMesh& rhs)
+    {
+        return std::tie(lhs.mMesh, lhs.mWater, lhs.mHeightfields, lhs.mFlatHeightfields)
+                < std::tie(rhs.getMesh(), rhs.getWater(), rhs.getHeightfields(), rhs.getFlatHeightfields());
+    }
+
+    inline bool operator <(const RecastMesh& lhs, const RecastMeshData& rhs)
+    {
+        return std::tie(lhs.getMesh(), lhs.getWater(), lhs.getHeightfields(), lhs.getFlatHeightfields())
+                < std::tie(rhs.mMesh, rhs.mWater, rhs.mHeightfields, rhs.mFlatHeightfields);
+    }
 
     class NavMeshTilesCache
     {
@@ -33,14 +54,17 @@ namespace DetourNavigator
             std::atomic<std::int64_t> mUseCount;
             osg::Vec3f mAgentHalfExtents;
             TilePosition mChangedTile;
-            std::string mNavMeshKey;
-            NavMeshData mNavMeshData;
+            RecastMeshData mRecastMeshData;
+            std::unique_ptr<PreparedNavMeshData> mPreparedNavMeshData;
+            std::size_t mSize;
 
-            Item(const osg::Vec3f& agentHalfExtents, const TilePosition& changedTile, std::string navMeshKey)
+            Item(const osg::Vec3f& agentHalfExtents, const TilePosition& changedTile,
+                 RecastMeshData&& recastMeshData, std::size_t size)
                 : mUseCount(0)
                 , mAgentHalfExtents(agentHalfExtents)
                 , mChangedTile(changedTile)
-                , mNavMeshKey(std::move(navMeshKey))
+                , mRecastMeshData(std::move(recastMeshData))
+                , mSize(size)
             {}
         };
 
@@ -86,9 +110,9 @@ namespace DetourNavigator
                 return *this;
             }
 
-            NavMeshDataRef get() const
+            const PreparedNavMeshData& get() const
             {
-                return NavMeshDataRef {mIterator->mNavMeshData.mValue.get(), mIterator->mNavMeshData.mSize};
+                return *mIterator->mPreparedNavMeshData;
             }
 
             operator bool() const
@@ -101,98 +125,43 @@ namespace DetourNavigator
             ItemIterator mIterator;
         };
 
+        struct Stats
+        {
+            std::size_t mNavMeshCacheSize;
+            std::size_t mUsedNavMeshTiles;
+            std::size_t mCachedNavMeshTiles;
+            std::size_t mHitCount;
+            std::size_t mGetCount;
+        };
+
         NavMeshTilesCache(const std::size_t maxNavMeshDataSize);
 
         Value get(const osg::Vec3f& agentHalfExtents, const TilePosition& changedTile,
-            const RecastMesh& recastMesh, const std::vector<OffMeshConnection>& offMeshConnections);
+            const RecastMesh& recastMesh);
 
         Value set(const osg::Vec3f& agentHalfExtents, const TilePosition& changedTile,
-            const RecastMesh& recastMesh, const std::vector<OffMeshConnection>& offMeshConnections,
-            NavMeshData&& value);
+            const RecastMesh& recastMesh, std::unique_ptr<PreparedNavMeshData>&& value);
+
+        Stats getStats() const;
 
         void reportStats(unsigned int frameNumber, osg::Stats& stats) const;
 
     private:
-        class KeyView
-        {
-        public:
-            KeyView() = default;
-
-            virtual ~KeyView() = default;
-
-            KeyView(const std::string& value)
-                : mValue(&value) {}
-
-            const std::string& getValue() const
-            {
-                assert(mValue);
-                return *mValue;
-            }
-
-            virtual int compare(const std::string& other) const
-            {
-                assert(mValue);
-                return mValue->compare(other);
-            }
-
-            virtual bool isLess(const KeyView& other) const
-            {
-                assert(mValue);
-                return other.compare(*mValue) > 0;
-            }
-
-            friend bool operator <(const KeyView& lhs, const KeyView& rhs)
-            {
-                return lhs.isLess(rhs);
-            }
-
-        private:
-            const std::string* mValue = nullptr;
-        };
-
-        class RecastMeshKeyView : public KeyView
-        {
-        public:
-            RecastMeshKeyView(const RecastMesh& recastMesh, const std::vector<OffMeshConnection>& offMeshConnections)
-                : mRecastMesh(recastMesh), mOffMeshConnections(offMeshConnections) {}
-
-            int compare(const std::string& other) const override;
-
-            bool isLess(const KeyView& other) const override
-            {
-                return compare(other.getValue()) < 0;
-            }
-
-            virtual ~RecastMeshKeyView() = default;
-
-        private:
-            std::reference_wrapper<const RecastMesh> mRecastMesh;
-            std::reference_wrapper<const std::vector<OffMeshConnection>> mOffMeshConnections;
-        };
-
-        struct TileMap
-        {
-            std::map<KeyView, ItemIterator> mMap;
-        };
-
         mutable std::mutex mMutex;
         std::size_t mMaxNavMeshDataSize;
         std::size_t mUsedNavMeshDataSize;
         std::size_t mFreeNavMeshDataSize;
+        std::size_t mHitCount;
+        std::size_t mGetCount;
         std::list<Item> mBusyItems;
         std::list<Item> mFreeItems;
-        std::map<osg::Vec3f, std::map<TilePosition, TileMap>> mValues;
+        std::map<std::tuple<osg::Vec3f, TilePosition, std::reference_wrapper<const RecastMeshData>>, ItemIterator, std::less<>> mValues;
 
         void removeLeastRecentlyUsed();
 
         void acquireItemUnsafe(ItemIterator iterator);
 
         void releaseItem(ItemIterator iterator);
-
-        static std::size_t getSize(const Item& item)
-        {
-            return static_cast<std::size_t>(item.mNavMeshData.mSize) + 2 * item.mNavMeshKey.size();
-        }
     };
 }
 

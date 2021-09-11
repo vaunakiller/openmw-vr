@@ -1,71 +1,477 @@
+# Note: We set `needs` on each job to control the job DAG.
+# See https://docs.gitlab.com/ee/ci/yaml/#needs
 stages:
   - build
-  
-Debian:
+
+.Debian_Image:
   tags:
     - docker
     - linux
   image: debian:bullseye
+
+.Debian:
+  extends: .Debian_Image
   cache:
-    key: cache.002
     paths:
     - apt-cache/
     - ccache/
-  before_script:
-    - export APT_CACHE_DIR=`pwd`/apt-cache && mkdir -pv $APT_CACHE_DIR
-    - apt-get update -yq 
-    - apt-get -o dir::cache::archives="$APT_CACHE_DIR" install -y cmake build-essential libboost-filesystem-dev libboost-program-options-dev libboost-system-dev libboost-iostreams-dev libavcodec-dev libavformat-dev libavutil-dev libswscale-dev libswresample-dev libsdl2-dev libqt5opengl5-dev libopenal-dev libopenscenegraph-dev libunshield-dev libtinyxml-dev libmygui-dev libbullet-dev ccache
   stage: build
   script:
     - export CCACHE_BASEDIR="`pwd`"
     - export CCACHE_DIR="`pwd`/ccache" && mkdir -pv "$CCACHE_DIR"
-    - ccache -z -M 250M
-    - cores_to_use=$((`nproc`-2)); if (( $cores_to_use < 1 )); then cores_to_use=1; fi
-    - mkdir build; cd build; cmake -DCMAKE_BUILD_TYPE=MinSizeRel ../ -DCMAKE_C_COMPILER_LAUNCHER=ccache -DCMAKE_CXX_COMPILER_LAUNCHER=ccache
-    - make -j$cores_to_use
-    - DESTDIR=artifacts make install
+    - ccache -z -M "${CCACHE_SIZE}"
+    - CI/before_script.linux.sh
+    - cd build
+    - cmake --build . -- -j $(nproc)
+    - cmake --install .
+    - if [[ "${BUILD_TESTS_ONLY}" ]]; then ./openmw_test_suite; fi
+    - if [[ "${BUILD_TESTS_ONLY}" ]]; then ./openmw_detournavigator_navmeshtilescache_benchmark; fi
     - ccache -s
   artifacts:
     paths:
-      - build/artifacts/
+      - build/install/
 
-MacOS:
-  tags:
-    - macos
-    - xcode
-  except:
-    - branches # because our CI VMs are not public, MRs can't use them and timeout
+Clang_Tidy:
+  extends: .Debian_Image
   stage: build
-  allow_failure: true
+  rules:
+    - if: '$CI_PIPELINE_SOURCE == "schedule"'
+  before_script:
+    - CI/install_debian_deps.sh gcc openmw-deps openmw-deps-dynamic clang-tidy clang
   script:
-    - rm -fr build/*  #  remove anything in the build directory
+    - CI/before_script.linux.sh
+    - cd build
+    - cmake --build . -- -j $(nproc) openmw esmtool bsatool niftest openmw-wizard openmw-launcher openmw-iniimporter openmw-essimporter
+  variables:
+    CC: clang
+    CXX: clang++
+    CI_CLANG_TIDY: 1
+  timeout: 8h
+
+Coverity:
+  extends: .Debian_Image
+  stage: build
+  rules:
+    - if: '$CI_PIPELINE_SOURCE == "schedule"'
+  before_script:
+    - CI/install_debian_deps.sh gcc openmw-deps openmw-deps-dynamic coverity
+    - curl -o /tmp/cov-analysis-linux64.tgz https://scan.coverity.com/download/linux64 --form project=$COVERITY_SCAN_PROJECT_NAME --form token=$COVERITY_SCAN_TOKEN
+    - tar xfz /tmp/cov-analysis-linux64.tgz
+  script:
+    - CI/before_script.linux.sh
+    # Remove the specific targets and build everything once we can do it under 3h
+    - cov-analysis-linux64-*/bin/cov-build --dir cov-int cmake --build build -- -j $(nproc) openmw esmtool bsatool niftest openmw-wizard openmw-launcher openmw-iniimporter openmw-essimporter
+  after_script:
+    - tar cfz cov-int.tar.gz cov-int
+    - curl https://scan.coverity.com/builds?project=$COVERITY_SCAN_PROJECT_NAME
+      --form token=$COVERITY_SCAN_TOKEN --form email=$GITLAB_USER_EMAIL
+      --form file=@cov-int.tar.gz --form version="`git describe --tags`"
+      --form description="`git describe --tags` / $CI_COMMIT_TITLE / $CI_COMMIT_REF_NAME:$CI_PIPELINE_ID"
+  variables:
+    CC: gcc
+    CXX: g++
+  artifacts:
+
+Debian_GCC:
+  extends: .Debian
+  cache:
+    key: Debian_GCC.v2
+  before_script:
+    - CI/install_debian_deps.sh gcc openmw-deps openmw-deps-dynamic
+  variables:
+    CC: gcc
+    CXX: g++
+    CCACHE_SIZE: 3G
+  # When CCache doesn't exist (e.g. first build on a fork), build takes more than 1h, which is the default for forks.
+  timeout: 2h
+
+Debian_GCC_tests:
+  extends: Debian_GCC
+  cache:
+    key: Debian_GCC_tests.v2
+  variables:
+    CCACHE_SIZE: 1G
+    BUILD_TESTS_ONLY: 1
+
+Debian_GCC_tests_Debug:
+  extends: Debian_GCC
+  cache:
+    key: Debian_GCC_tests_Debug.v1
+  variables:
+    CCACHE_SIZE: 1G
+    BUILD_TESTS_ONLY: 1
+    CMAKE_BUILD_TYPE: Debug
+
+Debian_GCC_Static_Deps:
+  extends: Debian_GCC
+  cache:
+    key: Debian_GCC_Static_Deps
+    paths:
+    - apt-cache/
+    - ccache/
+    - build/extern/fetched/
+  before_script:
+    - CI/install_debian_deps.sh gcc openmw-deps openmw-deps-static
+  variables:
+    CI_OPENMW_USE_STATIC_DEPS: 1
+  timeout: 3h
+
+Debian_GCC_Static_Deps_tests:
+  extends: Debian_GCC_Static_Deps
+  cache:
+    key: Debian_GCC_Static_Deps_tests
+  variables:
+    CCACHE_SIZE: 1G
+    BUILD_TESTS_ONLY: 1
+
+Debian_Clang:
+  extends: .Debian
+  before_script:
+    - CI/install_debian_deps.sh clang openmw-deps openmw-deps-dynamic
+  cache:
+    key: Debian_Clang.v2
+  variables:
+    CC: clang
+    CXX: clang++
+    CCACHE_SIZE: 2G
+  # When CCache doesn't exist (e.g. first build on a fork), build takes more than 1h, which is the default for forks.
+  timeout: 2h
+
+Debian_Clang_tests:
+  extends: Debian_Clang
+  cache:
+    key: Debian_Clang_tests.v2
+  variables:
+    CCACHE_SIZE: 1G
+    BUILD_TESTS_ONLY: 1
+
+Debian_Clang_tests_Debug:
+  extends: Debian_Clang
+  cache:
+    key: Debian_Clang_tests_Debug.v1
+  variables:
+    CCACHE_SIZE: 1G
+    BUILD_TESTS_ONLY: 1
+    CMAKE_BUILD_TYPE: Debug
+
+.MacOS:
+  image: macos-11-xcode-12
+  tags:
+    - shared-macos-amd64
+  stage: build
+  only:
+    variables:
+      - $CI_PROJECT_ID == "7107382"
+  cache:
+    paths:
+    - ccache/
+  script:
+    - rm -fr build  # remove the build directory
     - CI/before_install.osx.sh
+    - export CCACHE_BASEDIR="$(pwd)"
+    - export CCACHE_DIR="$(pwd)/ccache"
+    - mkdir -pv "${CCACHE_DIR}"
+    - ccache -z -M "${CCACHE_SIZE}"
     - CI/before_script.osx.sh
-    - cd build; make -j2 package
+    - cd build; make -j $(sysctl -n hw.logicalcpu) package
+    - for dmg in *.dmg; do mv "$dmg" "${dmg%.dmg}_${CI_COMMIT_REF_NAME}_${CI_JOB_ID}.dmg"; done
+    - ccache -s
   artifacts:
     paths:
       - build/OpenMW-*.dmg
+      - "build/**/*.log"
 
-Windows:
+macOS11_Xcode12:
+  extends: .MacOS
+  image: macos-11-xcode-12
+  allow_failure: true
+  cache:
+    key: macOS11_Xcode12.v1
+  variables:
+    CCACHE_SIZE: 3G
+
+macOS10.15_Xcode11:
+  extends: .MacOS
+  image: macos-10.15-xcode-11
+  cache:
+    key: macOS10.15_Xcode11.v1
+  variables:
+    CCACHE_SIZE: 3G
+
+variables: &engine-targets
+  targets: "openmw,openmw-essimporter,openmw-iniimporter,openmw-launcher,openmw-wizard"
+  package: "Engine"
+
+variables: &cs-targets
+  targets: "openmw-cs,bsatool,esmtool,niftest"
+  package: "CS"
+
+variables: &tests-targets
+  targets: "openmw_test_suite,openmw_detournavigator_navmeshtilescache_benchmark"
+  package: "Tests"
+
+.Windows_Ninja_Base:
   tags:
     - windows
+  before_script:
+  - Import-Module "$env:ChocolateyInstall\helpers\chocolateyProfile.psm1"
+  - choco source add -n=openmw-proxy -s="https://repo.openmw.org/repository/Chocolatey/" --priority=1
+  - choco install git --force --params "/GitAndUnixToolsOnPath" -y
+  - choco install 7zip -y
+  - choco install cmake.install --installargs 'ADD_CMAKE_TO_PATH=System' -y
+  - choco install vswhere -y
+  - choco install ninja -y
+  - choco install python -y
+  - refreshenv
+  - |
+    function Make-SafeFileName {
+      param(
+        [Parameter(Mandatory=$true)]
+        [String]
+        $FileName
+      )
+      [IO.Path]::GetInvalidFileNameChars() | ForEach-Object {
+        $FileName = $FileName.Replace($_, '_')
+      }
+      return $FileName
+    }
   stage: build
-  allow_failure: true
   script:
-    - Set-Variable -Name "time" -Value (date -Format "%H:%m")
+    - $time = (Get-Date -Format "HH:mm:ss")
     - echo ${time}
     - echo "started by ${GITLAB_USER_NAME}"
-#   TODO: to anyone wanting to do further work here, we need to figure out how to get the below working
-#   TODO: on gitlab's new shared windows runners. They currently don't have bash or anything else installed
-#   TODO: it is currently just a bare windows 10 with powershell.
-#    - env  # turn on for debugging
-#    - sh %CI_PROJECT_DIR%/CI/before_script.msvc.sh -c Release -p x64 -v 2017 -V
-#    - SET msBuildLocation="C:\Program Files (x86)\Microsoft Visual Studio\2017\Community\MSBuild\15.0\Bin\msbuild.exe"
-#    - call %msBuildLocation% MSVC2017_64\OpenMW.sln /t:Build /p:Configuration=Release /m:%NUMBER_OF_PROCESSORS%
-#    - 7z a OpenMW_MSVC2017_64_%CI_BUILD_REF_NAME%_%CI_BUILD_ID%.zip %CI_PROJECT_DIR%\MSVC2017_64\Release\
+    - sh CI/before_script.msvc.sh -c $config -p Win64 -v 2019 -k -V -N -b -t
+    - cd MSVC2019_64_Ninja
+    - .\ActivateMSVC.ps1
+    - cmake --build . --config $config --target ($targets.Split(','))
+    - cd $config
+    - echo "CI_COMMIT_REF_NAME ${CI_COMMIT_REF_NAME}`nCI_JOB_ID ${CI_JOB_ID}`nCI_COMMIT_SHA ${CI_COMMIT_SHA}" | Out-File -Encoding UTF8 CI-ID.txt
+    - Get-ChildItem -Recurse *.ilk | Remove-Item
+    - |
+      if (Get-ChildItem -Recurse *.pdb) {
+        7z a -tzip "..\..\$(Make-SafeFileName("OpenMW_MSVC2019_64_${package}_${config}_${CI_COMMIT_REF_NAME}_${CI_JOB_ID}_symbols.zip"))" '*.pdb' CI-ID.txt
+        Get-ChildItem -Recurse *.pdb | Remove-Item
+      }
+    - 7z a -tzip "..\..\$(Make-SafeFileName("OpenMW_MSVC2019_64_${package}_${config}_${CI_COMMIT_REF_NAME}.zip"))" '*'
+    - if ($executables) { foreach ($exe in $executables.Split(',')) { & .\$exe } }
+  after_script:
+    - Copy-Item C:\ProgramData\chocolatey\logs\chocolatey.log
   cache:
+    key: ninja-v2
     paths:
     - deps
+    - MSVC2019_64_Ninja/deps/Qt
   artifacts:
+    when: always
     paths:
     - "*.zip"
+    - "*.log"
+    - MSVC2019_64_Ninja/*.log
+    - MSVC2019_64_Ninja/*/*.log
+    - MSVC2019_64_Ninja/*/*/*.log
+    - MSVC2019_64_Ninja/*/*/*/*.log
+    - MSVC2019_64_Ninja/*/*/*/*/*.log
+    - MSVC2019_64_Ninja/*/*/*/*/*/*.log
+    - MSVC2019_64_Ninja/*/*/*/*/*/*/*.log
+    - MSVC2019_64_Ninja/*/*/*/*/*/*/*/*.log
+
+Windows_Ninja_Engine_Release:
+  extends:
+    - .Windows_Ninja_Base
+  variables:
+    <<: *engine-targets
+    config: "Release"
+
+Windows_Ninja_Engine_Debug:
+  extends:
+    - .Windows_Ninja_Base
+  variables:
+    <<: *engine-targets
+    config: "Debug"
+
+Windows_Ninja_Engine_RelWithDebInfo:
+  extends:
+    - .Windows_Ninja_Base
+  variables:
+    <<: *engine-targets
+    config: "RelWithDebInfo"
+
+Windows_Ninja_CS_Release:
+  extends:
+    - .Windows_Ninja_Base
+  variables:
+    <<: *cs-targets
+    config: "Release"
+
+Windows_Ninja_CS_Debug:
+  extends:
+    - .Windows_Ninja_Base
+  variables:
+    <<: *cs-targets
+    config: "Debug"
+
+Windows_Ninja_CS_RelWithDebInfo:
+  extends:
+    - .Windows_Ninja_Base
+  variables:
+    <<: *cs-targets
+    config: "RelWithDebInfo"
+
+Windows_Ninja_Tests_RelWithDebInfo:
+  extends: .Windows_Ninja_Base
+  stage: build
+  variables:
+    <<: *tests-targets
+    config: "RelWithDebInfo"
+    # Gitlab can't successfully execute following binaries due to unknown reason
+    # executables: "openmw_test_suite.exe,openmw_detournavigator_navmeshtilescache_benchmark.exe"
+
+.Windows_MSBuild_Base:
+  tags:
+    - windows
+  before_script:
+  - Import-Module "$env:ChocolateyInstall\helpers\chocolateyProfile.psm1"
+  - choco source add -n=openmw-proxy -s="https://repo.openmw.org/repository/Chocolatey/" --priority=1
+  - choco install git --force --params "/GitAndUnixToolsOnPath" -y
+  - choco install 7zip -y
+  - choco install cmake.install --installargs 'ADD_CMAKE_TO_PATH=System' -y
+  - choco install vswhere -y
+  - choco install python -y
+  - refreshenv
+  - |
+    function Make-SafeFileName {
+      param(
+        [Parameter(Mandatory=$true)]
+        [String]
+        $FileName
+      )
+      [IO.Path]::GetInvalidFileNameChars() | ForEach-Object {
+        $FileName = $FileName.Replace($_, '_')
+      }
+      return $FileName
+    }
+  stage: build
+  script:
+    - $time = (Get-Date -Format "HH:mm:ss")
+    - echo ${time}
+    - echo "started by ${GITLAB_USER_NAME}"
+    - sh CI/before_script.msvc.sh -c $config -p Win64 -v 2019 -k -V -b -t
+    - cd MSVC2019_64
+    - cmake --build . --config $config --target ($targets.Split(','))
+    - cd $config
+    - echo "CI_COMMIT_REF_NAME ${CI_COMMIT_REF_NAME}`nCI_JOB_ID ${CI_JOB_ID}`nCI_COMMIT_SHA ${CI_COMMIT_SHA}" | Out-File -Encoding UTF8 CI-ID.txt
+    - Get-ChildItem -Recurse *.ilk | Remove-Item
+    - |
+      if (Get-ChildItem -Recurse *.pdb) {
+        7z a -tzip "..\..\$(Make-SafeFileName("OpenMW_MSVC2019_64_${package}_${config}_${CI_COMMIT_REF_NAME}_${CI_JOB_ID}_symbols.zip"))" '*.pdb' CI-ID.txt
+        Get-ChildItem -Recurse *.pdb | Remove-Item
+      }
+    - 7z a -tzip "..\..\$(Make-SafeFileName("OpenMW_MSVC2019_64_${package}_${config}_${CI_COMMIT_REF_NAME}.zip"))" '*'
+    - if ($executables) { foreach ($exe in $executables.Split(',')) { & .\$exe } }
+  after_script:
+    - Copy-Item C:\ProgramData\chocolatey\logs\chocolatey.log
+  cache:
+    key: msbuild-v2
+    paths:
+    - deps
+    - MSVC2019_64/deps/Qt
+  artifacts:
+    when: always
+    paths:
+    - "*.zip"
+    - "*.log"
+    - MSVC2019_64/*.log
+    - MSVC2019_64/*/*.log
+    - MSVC2019_64/*/*/*.log
+    - MSVC2019_64/*/*/*/*.log
+    - MSVC2019_64/*/*/*/*/*.log
+    - MSVC2019_64/*/*/*/*/*/*.log
+    - MSVC2019_64/*/*/*/*/*/*/*.log
+    - MSVC2019_64/*/*/*/*/*/*/*/*.log
+
+Windows_MSBuild_Engine_Release:
+  extends:
+    - .Windows_MSBuild_Base
+  variables:
+    <<: *engine-targets
+    config: "Release"
+
+Windows_MSBuild_Engine_Debug:
+  extends:
+    - .Windows_MSBuild_Base
+  variables:
+    <<: *engine-targets
+    config: "Debug"
+
+Windows_MSBuild_Engine_RelWithDebInfo:
+  extends:
+    - .Windows_MSBuild_Base
+  variables:
+    <<: *engine-targets
+    config: "RelWithDebInfo"
+
+Windows_MSBuild_CS_Release:
+  extends:
+    - .Windows_MSBuild_Base
+  variables:
+    <<: *cs-targets
+    config: "Release"
+
+Windows_MSBuild_CS_Debug:
+  extends:
+    - .Windows_MSBuild_Base
+  variables:
+    <<: *cs-targets
+    config: "Debug"
+
+Windows_MSBuild_CS_RelWithDebInfo:
+  extends:
+    - .Windows_MSBuild_Base
+  variables:
+    <<: *cs-targets
+    config: "RelWithDebInfo"
+
+Windows_MSBuild_Tests_RelWithDebInfo:
+  extends: .Windows_MSBuild_Base
+  stage: build
+  variables:
+    <<: *tests-targets
+    config: "RelWithDebInfo"
+    # Gitlab can't successfully execute following binaries due to unknown reason
+    # executables: "openmw_test_suite.exe,openmw_detournavigator_navmeshtilescache_benchmark.exe"
+
+Debian_AndroidNDK_arm64-v8a:
+  tags:
+    - linux
+  image: debian:bullseye
+  variables:
+    CCACHE_SIZE: 3G
+  cache:
+    key: Debian_AndroidNDK_arm64-v8a.v3
+    paths:
+      - apt-cache/
+      - ccache/
+      - build/extern/fetched/
+  before_script:
+    - export APT_CACHE_DIR=`pwd`/apt-cache && mkdir -pv $APT_CACHE_DIR
+    - echo "deb http://deb.debian.org/debian unstable main contrib" > /etc/apt/sources.list
+    - echo "google-android-ndk-installer google-android-installers/mirror select https://dl.google.com" | debconf-set-selections
+    - apt-get update -yq
+    - apt-get -q -o dir::cache::archives="$APT_CACHE_DIR" install -y cmake ccache curl unzip git build-essential google-android-ndk-installer
+  stage: build
+  script:
+    - export CCACHE_BASEDIR="`pwd`"
+    - export CCACHE_DIR="`pwd`/ccache" && mkdir -pv "$CCACHE_DIR"
+    - ccache -z -M "${CCACHE_SIZE}"
+    - CI/before_install.android.sh
+    - CI/before_script.android.sh
+    - cd build
+    - cmake --build . -- -j $(nproc)
+    - cmake --install .
+    - ccache -s
+  artifacts:
+    paths:
+      - build/install/
+  # When CCache doesn't exist (e.g. first build on a fork), build takes more than 1h, which is the default for forks.
+  timeout: 1h30m
+

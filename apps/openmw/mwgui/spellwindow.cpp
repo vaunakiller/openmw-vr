@@ -1,9 +1,7 @@
 #include "spellwindow.hpp"
 
-#include <MyGUI_Button.h>
 #include <MyGUI_EditBox.h>
 #include <MyGUI_InputManager.h>
-#include <MyGUI_Window.h>
 
 #include <components/misc/stringops.hpp>
 #include <components/settings/settings.hpp>
@@ -241,8 +239,9 @@ namespace MWGui
         if (MWBase::Environment::get().getMechanicsManager()->isAttackingOrSpell(player))
             return;
 
+        bool godmode = MWBase::Environment::get().getWorld()->getGodModeState();
         const MWMechanics::CreatureStats &stats = player.getClass().getCreatureStats(player);
-        if (stats.isParalyzed() || stats.getKnockedDown() || stats.isDead() || stats.getHitRecovery())
+        if ((!godmode && stats.isParalyzed()) || stats.getKnockedDown() || stats.isDead() || stats.getHitRecovery())
             return;
 
         mSpellView->setModel(new SpellModel(MWMechanics::getPlayer(), ""));

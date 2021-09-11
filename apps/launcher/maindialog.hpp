@@ -1,8 +1,6 @@
 #ifndef MAINDIALOG_H
 #define MAINDIALOG_H
 
-#include <QMainWindow>
-#include <QProcess>
 
 #ifndef Q_MOC_RUN
 #include <components/files/configurationmanager.hpp>
@@ -48,8 +46,8 @@ namespace Launcher
         Q_OBJECT
 
     public:
-        explicit MainDialog(QWidget *parent = 0);
-        ~MainDialog();
+        explicit MainDialog(QWidget *parent = nullptr);
+        ~MainDialog() override;
 
         FirstRunDialogResult showFirstRunDialog();
 
@@ -84,7 +82,7 @@ namespace Launcher
         inline bool startProgram(const QString &name, bool detached = false) { return startProgram(name, QStringList(), detached); }
         bool startProgram(const QString &name, const QStringList &arguments, bool detached = false);
 
-        void closeEvent(QCloseEvent *event);
+        void closeEvent(QCloseEvent *event) override;
 
         PlayPage *mPlayPage;
         GraphicsPage *mGraphicsPage;

@@ -20,10 +20,10 @@ namespace Wizard
         Q_OBJECT
     public:
         InstallationPage(QWidget *parent);
-        ~InstallationPage();
+        ~InstallationPage() override;
 
-        int nextId() const;
-         virtual bool isComplete() const;
+        int nextId() const override;
+         bool isComplete() const override;
 
     private:
         MainWizard *mWizard;
@@ -41,7 +41,7 @@ namespace Wizard
         void installationError(const QString &text, const QString &details);
 
     protected:
-        void initializePage();
+        void initializePage() override;
 
     };
 

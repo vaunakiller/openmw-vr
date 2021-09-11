@@ -5,20 +5,24 @@
 #include <osg/Material>
 #include <osg/Fog>
 #include <osg/BlendFunc>
+#include <osg/TexEnvCombine>
 #include <osg/Texture2D>
 #include <osg/Camera>
 #include <osg/PositionAttitudeTransform>
 #include <osg/LightModel>
 #include <osg/LightSource>
+#include <osg/ValueObject>
 #include <osgUtil/IntersectionVisitor>
 #include <osgUtil/LineSegmentIntersector>
 
 #include <components/debug/debuglog.hpp>
 #include <components/fallback/fallback.hpp>
+#include <components/resource/scenemanager.hpp>
+#include <components/resource/resourcesystem.hpp>
 #include <components/sceneutil/lightmanager.hpp>
 #include <components/sceneutil/shadow.hpp>
+#include <components/settings/settings.hpp>
 
-#include "../mwbase/environment.hpp"
 #include "../mwbase/world.hpp"
 #include "../mwworld/class.hpp"
 #include "../mwworld/inventorystore.hpp"
@@ -41,7 +45,7 @@ namespace MWRender
         {
         }
 
-        virtual void operator () (osg::Node* node, osg::NodeVisitor* nv)
+        void operator () (osg::Node* node, osg::NodeVisitor* nv) override
         {
             if (!mRendered)
             {
@@ -81,31 +85,94 @@ namespace MWRender
     };
 
 
-    // Set up alpha blending to Additive mode to avoid issues caused by transparent objects writing onto the alpha value of the FBO
+    // Set up alpha blending mode to avoid issues caused by transparent objects writing onto the alpha value of the FBO
+    // This makes the RTT have premultiplied alpha, though, so the source blend factor must be GL_ONE when it's applied
     class SetUpBlendVisitor : public osg::NodeVisitor
     {
     public:
-        SetUpBlendVisitor(): osg::NodeVisitor(TRAVERSE_ALL_CHILDREN)
+        SetUpBlendVisitor(): osg::NodeVisitor(TRAVERSE_ALL_CHILDREN), mNoAlphaUniform(new osg::Uniform("noAlpha", false))
         {
         }
 
-        virtual void apply(osg::Node& node)
+        void apply(osg::Node& node) override
         {
-            if (osg::StateSet* stateset = node.getStateSet())
+            if (osg::ref_ptr<osg::StateSet> stateset = node.getStateSet())
             {
+                osg::ref_ptr<osg::StateSet> newStateSet;
                 if (stateset->getAttribute(osg::StateAttribute::BLENDFUNC) || stateset->getBinNumber() == osg::StateSet::TRANSPARENT_BIN)
                 {
-                    osg::ref_ptr<osg::StateSet> newStateSet = new osg::StateSet(*stateset, osg::CopyOp::SHALLOW_COPY);
                     osg::BlendFunc* blendFunc = static_cast<osg::BlendFunc*>(stateset->getAttribute(osg::StateAttribute::BLENDFUNC));
-                    osg::ref_ptr<osg::BlendFunc> newBlendFunc = blendFunc ? new osg::BlendFunc(*blendFunc) : new osg::BlendFunc;
-                    newBlendFunc->setDestinationAlpha(osg::BlendFunc::ONE);
-                    newStateSet->setAttribute(newBlendFunc, osg::StateAttribute::ON);
-                    node.setStateSet(newStateSet);
-                }
 
+                    if (blendFunc)
+                    {
+                        newStateSet = new osg::StateSet(*stateset, osg::CopyOp::SHALLOW_COPY);
+                        node.setStateSet(newStateSet);
+                        osg::ref_ptr<osg::BlendFunc> newBlendFunc = new osg::BlendFunc(*blendFunc);
+                        newStateSet->setAttribute(newBlendFunc, osg::StateAttribute::ON);
+                        // I *think* (based on some by-hand maths) that the RGB and dest alpha factors are unchanged, and only dest determines source alpha factor
+                        // This has the benefit of being idempotent if we assume nothing used glBlendFuncSeparate before we touched it
+                        if (blendFunc->getDestination() == osg::BlendFunc::ONE_MINUS_SRC_ALPHA)
+                            newBlendFunc->setSourceAlpha(osg::BlendFunc::ONE);
+                        else if (blendFunc->getDestination() == osg::BlendFunc::ONE)
+                            newBlendFunc->setSourceAlpha(osg::BlendFunc::ZERO);
+                        // Other setups barely exist in the wild and aren't worth supporting as they're not equippable gear
+                        else
+                            Log(Debug::Info) << "Unable to adjust blend mode for character preview. Source factor 0x" << std::hex << blendFunc->getSource() << ", destination factor 0x" << blendFunc->getDestination() << std::dec;
+                    }
+                }
+                if (stateset->getMode(GL_BLEND) & osg::StateAttribute::ON)
+                {
+                    if (!newStateSet)
+                    {
+                        newStateSet = new osg::StateSet(*stateset, osg::CopyOp::SHALLOW_COPY);
+                        node.setStateSet(newStateSet);
+                    }
+                    // Disable noBlendAlphaEnv
+                    newStateSet->setTextureMode(7, GL_TEXTURE_2D, osg::StateAttribute::OFF);
+                    newStateSet->addUniform(mNoAlphaUniform);
+                }
+                if (SceneUtil::getReverseZ() && stateset->getAttribute(osg::StateAttribute::DEPTH))
+                {
+                    bool depthModified = false;
+                    osg::Depth* depth = static_cast<osg::Depth*>(stateset->getAttribute(osg::StateAttribute::DEPTH));
+                    depth->getUserValue("depthModified", depthModified);
+
+                    if (!depthModified)
+                    {
+                        if (!newStateSet)
+                        {
+                            newStateSet = new osg::StateSet(*stateset, osg::CopyOp::SHALLOW_COPY);
+                            node.setStateSet(newStateSet);
+                        }
+                        // Setup standard depth ranges
+                        osg::ref_ptr<osg::Depth> newDepth = new osg::Depth(*depth);
+
+                        switch (newDepth->getFunction())
+                        {
+                            case osg::Depth::LESS:
+                                newDepth->setFunction(osg::Depth::GREATER);
+                                break;
+                            case osg::Depth::LEQUAL:
+                                newDepth->setFunction(osg::Depth::GEQUAL);
+                                break;
+                            case osg::Depth::GREATER:
+                                newDepth->setFunction(osg::Depth::LESS);
+                                break;
+                            case osg::Depth::GEQUAL:
+                                newDepth->setFunction(osg::Depth::LEQUAL);
+                                break;
+                            default:
+                                break;
+                        }
+                        newStateSet->setAttribute(newDepth, osg::StateAttribute::ON);
+                        newDepth->setUserValue("depthModified", true);
+                    }
+                }
             }
             traverse(node);
         }
+    private:
+        osg::ref_ptr<osg::Uniform> mNoAlphaUniform;
     };
 
     CharacterPreview::CharacterPreview(osg::Group* parent, Resource::ResourceSystem* resourceSystem,
@@ -124,6 +191,7 @@ namespace MWRender
         mTexture->setInternalFormat(GL_RGBA);
         mTexture->setFilter(osg::Texture::MIN_FILTER, osg::Texture::LINEAR);
         mTexture->setFilter(osg::Texture::MAG_FILTER, osg::Texture::LINEAR);
+        mTexture->setUserValue("premultiplied alpha", true);
 
         mCamera = new osg::Camera;
         // hints that the camera is not relative to the master camera
@@ -135,14 +203,16 @@ namespace MWRender
         mCamera->setProjectionMatrixAsPerspective(fovYDegrees, sizeX/static_cast<float>(sizeY), 0.1f, 10000.f); // zNear and zFar are autocomputed
         mCamera->setViewport(0, 0, sizeX, sizeY);
         mCamera->setRenderOrder(osg::Camera::PRE_RENDER);
-        mCamera->attach(osg::Camera::COLOR_BUFFER, mTexture);
+        mCamera->attach(osg::Camera::COLOR_BUFFER, mTexture, 0, 0, false, Settings::Manager::getInt("antialiasing", "Video"));
         mCamera->setName("CharacterPreview");
         mCamera->setComputeNearFarMode(osg::Camera::COMPUTE_NEAR_FAR_USING_BOUNDING_VOLUMES);
         mCamera->setCullMask(~(Mask_UpdateVisitor));
 
         mCamera->setNodeMask(Mask_RenderToTexture);
 
-        osg::ref_ptr<SceneUtil::LightManager> lightManager = new SceneUtil::LightManager;
+        bool ffp = mResourceSystem->getSceneManager()->getLightingMethod() == SceneUtil::LightingMethod::FFP;
+
+        osg::ref_ptr<SceneUtil::LightManager> lightManager = new SceneUtil::LightManager(ffp);
         lightManager->setStartLight(1);
         osg::ref_ptr<osg::StateSet> stateset = lightManager->getOrCreateStateSet();
         stateset->setMode(GL_LIGHTING, osg::StateAttribute::ON);
@@ -154,6 +224,9 @@ namespace MWRender
         defaultMat->setDiffuse(osg::Material::FRONT_AND_BACK, osg::Vec4f(1,1,1,1));
         defaultMat->setSpecular(osg::Material::FRONT_AND_BACK, osg::Vec4f(0.f, 0.f, 0.f, 0.f));
         stateset->setAttribute(defaultMat);
+        stateset->addUniform(new osg::Uniform("projectionMatrix", static_cast<osg::Matrixf>(mCamera->getProjectionMatrix())));
+
+        stateset->setAttributeAndModes(new osg::Depth, osg::StateAttribute::ON);
 
         SceneUtil::ShadowManager::disableShadowsForStateSet(stateset);
 
@@ -163,6 +236,23 @@ namespace MWRender
         fog->setStart(10000000);
         fog->setEnd(10000000);
         stateset->setAttributeAndModes(fog, osg::StateAttribute::OFF|osg::StateAttribute::OVERRIDE);
+
+        // Opaque stuff must have 1 as its fragment alpha as the FBO is translucent, so having blending off isn't enough
+        osg::ref_ptr<osg::TexEnvCombine> noBlendAlphaEnv = new osg::TexEnvCombine();
+        noBlendAlphaEnv->setCombine_Alpha(osg::TexEnvCombine::REPLACE);
+        noBlendAlphaEnv->setSource0_Alpha(osg::TexEnvCombine::CONSTANT);
+        noBlendAlphaEnv->setConstantColor(osg::Vec4(0.0, 0.0, 0.0, 1.0));
+        noBlendAlphaEnv->setCombine_RGB(osg::TexEnvCombine::REPLACE);
+        noBlendAlphaEnv->setSource0_RGB(osg::TexEnvCombine::PREVIOUS);
+        osg::ref_ptr<osg::Texture2D> dummyTexture = new osg::Texture2D();
+        dummyTexture->setInternalFormat(GL_DEPTH_COMPONENT);
+        dummyTexture->setTextureSize(1, 1);
+        // This might clash with a shadow map, so make sure it doesn't cast shadows
+        dummyTexture->setShadowComparison(true);
+        dummyTexture->setShadowCompareFunc(osg::Texture::ShadowCompareFunc::ALWAYS);
+        stateset->setTextureAttributeAndModes(7, dummyTexture, osg::StateAttribute::ON);
+        stateset->setTextureAttribute(7, noBlendAlphaEnv, osg::StateAttribute::ON);
+        stateset->addUniform(new osg::Uniform("noAlpha", true));
 
         osg::ref_ptr<osg::LightModel> lightmodel = new osg::LightModel;
         lightmodel->setAmbientIntensity(osg::Vec4(0.0, 0.0, 0.0, 1.0));
@@ -182,12 +272,22 @@ namespace MWRender
         float positionZ = std::cos(altitude);
         light->setPosition(osg::Vec4(positionX,positionY,positionZ, 0.0));
         light->setDiffuse(osg::Vec4(diffuseR,diffuseG,diffuseB,1));
-        light->setAmbient(osg::Vec4(ambientR,ambientG,ambientB,1));
+        osg::Vec4 ambientRGBA = osg::Vec4(ambientR,ambientG,ambientB,1);
+        if (mResourceSystem->getSceneManager()->getForceShaders())
+        {
+            // When using shaders, we now skip the ambient sun calculation as this is the only place it's used.
+            // Using the scene ambient will give identical results.
+            lightmodel->setAmbientIntensity(ambientRGBA);
+            light->setAmbient(osg::Vec4(0,0,0,1));
+        }
+        else
+            light->setAmbient(ambientRGBA);
         light->setSpecular(osg::Vec4(0,0,0,0));
         light->setLightNum(0);
         light->setConstantAttenuation(1.f);
         light->setLinearAttenuation(0.f);
         light->setQuadraticAttenuation(0.f);
+        lightManager->setSunlight(light);
 
         osg::ref_ptr<osg::LightSource> lightSource = new osg::LightSource;
         lightSource->setLight(light);
@@ -227,6 +327,7 @@ namespace MWRender
 
     void CharacterPreview::setBlendMode()
     {
+        mResourceSystem->getSceneManager()->recreateShaders(mNode, "objects", true);
         SetUpBlendVisitor visitor;
         mNode->accept(visitor);
     }
@@ -364,7 +465,7 @@ namespace MWRender
         visitor.setTraversalNumber(mDrawOnceCallback->getLastRenderedFrame());
 
         osg::Node::NodeMask nodeMask = mCamera->getNodeMask();
-        mCamera->setNodeMask(~0);
+        mCamera->setNodeMask(~0u);
         mCamera->accept(visitor);
         mCamera->setNodeMask(nodeMask);
 
@@ -432,7 +533,7 @@ namespace MWRender
         {
         }
 
-        virtual void operator()(osg::Node* node, osg::NodeVisitor* nv)
+        void operator()(osg::Node* node, osg::NodeVisitor* nv) override
         {
             osg::Camera* cam = static_cast<osg::Camera*>(node);
 

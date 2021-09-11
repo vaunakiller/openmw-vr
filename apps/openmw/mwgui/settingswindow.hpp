@@ -5,21 +5,18 @@
 
 namespace MWGui
 {
-    class WindowManager;
-}
-
-namespace MWGui
-{
     class SettingsWindow : public WindowBase
     {
         public:
             SettingsWindow();
 
-            virtual void onOpen();
+            void onOpen() override;
 
             void updateControlsBox();
 
-            void onResChange(int, int) { center(); }
+            void updateLightSettings();
+
+            void onResChange(int, int) override { center(); }
 
     protected:
             MyGUI::TabControl* mSettingsTab;
@@ -34,6 +31,10 @@ namespace MWGui
 
             MyGUI::ComboBox* mWaterTextureSize;
             MyGUI::ComboBox* mWaterReflectionDetail;
+
+            MyGUI::ComboBox* mMaxLights;
+            MyGUI::ComboBox* mLightingMethodButton;
+            MyGUI::Button* mLightsResetButton;
 
             // controls
             MyGUI::ScrollView* mControlsBox;
@@ -55,6 +56,10 @@ namespace MWGui
             void onWaterTextureSizeChanged(MyGUI::ComboBox* _sender, size_t pos);
             void onWaterReflectionDetailChanged(MyGUI::ComboBox* _sender, size_t pos);
 
+            void onLightingMethodButtonChanged(MyGUI::ComboBox* _sender, size_t pos);
+            void onLightsResetButtonClicked(MyGUI::Widget* _sender);
+            void onMaxLightsChanged(MyGUI::ComboBox* _sender, size_t pos);
+
             void onRebindAction(MyGUI::Widget* _sender);
             void onInputTabMouseWheel(MyGUI::Widget* _sender, int _rel);
             void onResetDefaultBindings(MyGUI::Widget* _sender);
@@ -66,7 +71,7 @@ namespace MWGui
 
             void apply();
 
-            void configureWidgets(MyGUI::Widget* widget);
+            void configureWidgets(MyGUI::Widget* widget, bool init);
             void updateSliderLabel(MyGUI::ScrollBar* scroller, const std::string& value);
 
             void layoutControlsBox();

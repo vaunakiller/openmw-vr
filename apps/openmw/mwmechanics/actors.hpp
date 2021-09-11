@@ -63,6 +63,8 @@ namespace MWMechanics
 
             void purgeSpellEffects (int casterActorId);
 
+            void predictAndAvoidCollisions(float duration);
+
         public:
 
             Actors();
@@ -99,7 +101,7 @@ namespace MWMechanics
 
             void resurrect (const MWWorld::Ptr& ptr);
 
-            void castSpell(const MWWorld::Ptr& ptr, const std::string spellId, bool manualSpell=false);
+            void castSpell(const MWWorld::Ptr& ptr, const std::string& spellId, bool manualSpell=false);
 
             void updateActor(const MWWorld::Ptr &old, const MWWorld::Ptr& ptr);
             ///< Updates an actor with a new Ptr
@@ -129,7 +131,8 @@ namespace MWMechanics
             void turnActorToFacePlayer(const MWWorld::Ptr& actor, Actor& actorState, const osg::Vec3f& dir);
 
             void updateHeadTracking(const MWWorld::Ptr& actor, const MWWorld::Ptr& targetActor,
-                                            MWWorld::Ptr& headTrackTarget, float& sqrHeadTrackDistance);
+                                          MWWorld::Ptr& headTrackTarget, float& sqrHeadTrackDistance,
+                                          bool inCombatOrPursue);
 
             void rest(double hours, bool sleep);
             ///< Update actors while the player is waiting or sleeping.
@@ -179,6 +182,7 @@ namespace MWMechanics
 
             /// Get the list of AiFollow::mFollowIndex for all actors following this target
             std::list<int> getActorsFollowingIndices(const MWWorld::Ptr& actor);
+            std::map<int, MWWorld::Ptr> getActorsFollowingByIndex(const MWWorld::Ptr& actor);
 
             ///Returns the list of actors which are fighting the given actor
             /**ie AiCombat is active and the target is the actor **/
@@ -204,11 +208,13 @@ namespace MWMechanics
 
     private:
         void updateVisibility (const MWWorld::Ptr& ptr, CharacterController* ctrl);
+        void applyCureEffects (const MWWorld::Ptr& actor);
 
         PtrActorMap mActors;
         float mTimerDisposeSummonsCorpses;
         float mActorsProcessingRange;
 
+        bool mSmoothMovement;
     };
 }
 

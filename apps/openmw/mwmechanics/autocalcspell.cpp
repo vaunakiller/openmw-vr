@@ -61,38 +61,37 @@ namespace MWMechanics
 
         // Note: the algorithm heavily depends on the traversal order of the spells. For vanilla-compatible results the
         // Store must preserve the record ordering as it was in the content files.
-        for (MWWorld::Store<ESM::Spell>::iterator iter = spells.begin(); iter != spells.end(); ++iter)
+        for (const ESM::Spell& spell : spells)
         {
-            const ESM::Spell* spell = &*iter;
-
-            if (spell->mData.mType != ESM::Spell::ST_Spell)
+            if (spell.mData.mType != ESM::Spell::ST_Spell)
                 continue;
-            if (!(spell->mData.mFlags & ESM::Spell::F_Autocalc))
+            if (!(spell.mData.mFlags & ESM::Spell::F_Autocalc))
                 continue;
             static const int iAutoSpellTimesCanCast = gmst.find("iAutoSpellTimesCanCast")->mValue.getInteger();
-            if (baseMagicka < iAutoSpellTimesCanCast * spell->mData.mCost)
+            int spellCost = MWMechanics::calcSpellCost(spell);
+            if (baseMagicka < iAutoSpellTimesCanCast * spellCost)
                 continue;
 
-            if (race && race->mPowers.exists(spell->mId))
+            if (race && race->mPowers.exists(spell.mId))
                 continue;
 
-            if (!attrSkillCheck(spell, actorSkills, actorAttributes))
+            if (!attrSkillCheck(&spell, actorSkills, actorAttributes))
                 continue;
 
             int school;
             float skillTerm;
-            calcWeakestSchool(spell, actorSkills, school, skillTerm);
+            calcWeakestSchool(&spell, actorSkills, school, skillTerm);
             assert(school >= 0 && school < 6);
             SchoolCaps& cap = schoolCaps[school];
 
-            if (cap.mReachedLimit && spell->mData.mCost <= cap.mMinCost)
+            if (cap.mReachedLimit && spellCost <= cap.mMinCost)
                 continue;
 
             static const float fAutoSpellChance = gmst.find("fAutoSpellChance")->mValue.getFloat();
-            if (calcAutoCastChance(spell, actorSkills, actorAttributes, school) < fAutoSpellChance)
+            if (calcAutoCastChance(&spell, actorSkills, actorAttributes, school) < fAutoSpellChance)
                 continue;
 
-            selectedSpells.push_back(spell->mId);
+            selectedSpells.push_back(spell.mId);
 
             if (cap.mReachedLimit)
             {
@@ -101,9 +100,10 @@ namespace MWMechanics
                     selectedSpells.erase(found);
 
                 cap.mMinCost = std::numeric_limits<int>::max();
-                for (std::vector<std::string>::iterator weakIt = selectedSpells.begin(); weakIt != selectedSpells.end(); ++weakIt)
+                for (const std::string& testSpellName : selectedSpells)
                 {
-                    const ESM::Spell* testSpell = spells.find(*weakIt);
+                    const ESM::Spell* testSpell = spells.find(testSpellName);
+                    int testSpellCost = MWMechanics::calcSpellCost(*testSpell);
 
                     //int testSchool;
                     //float dummySkillTerm;
@@ -117,9 +117,9 @@ namespace MWMechanics
                             // already erased it, and so the number of spells would often exceed the sum of limits.
                             // This bug cannot be fixed without significantly changing the results of the spell autocalc, which will not have been playtested.
                             //testSchool == school &&
-                            testSpell->mData.mCost < cap.mMinCost)
+                            testSpellCost < cap.mMinCost)
                     {
-                        cap.mMinCost = testSpell->mData.mCost;
+                        cap.mMinCost = testSpellCost;
                         cap.mWeakestSpell = testSpell->mId;
                     }
                 }
@@ -130,10 +130,10 @@ namespace MWMechanics
                 if (cap.mCount == cap.mLimit)
                     cap.mReachedLimit = true;
 
-                if (spell->mData.mCost < cap.mMinCost)
+                if (spellCost < cap.mMinCost)
                 {
-                    cap.mWeakestSpell = spell->mId;
-                    cap.mMinCost = spell->mData.mCost;
+                    cap.mWeakestSpell = spell.mId;
+                    cap.mMinCost = spellCost;
                 }
             }
         }
@@ -154,32 +154,30 @@ namespace MWMechanics
 
         std::vector<std::string> selectedSpells;
 
-
-        const MWWorld::Store<ESM::Spell> &spells =
-            esmStore.get<ESM::Spell>();
-        for (MWWorld::Store<ESM::Spell>::iterator iter = spells.begin(); iter != spells.end(); ++iter)
+        const MWWorld::Store<ESM::Spell> &spells = esmStore.get<ESM::Spell>();
+        for (const ESM::Spell& spell : spells)
         {
-            const ESM::Spell* spell = &*iter;
+            if (spell.mData.mType != ESM::Spell::ST_Spell)
+                continue;
+            if (!(spell.mData.mFlags & ESM::Spell::F_PCStart))
+                continue;
 
-            if (spell->mData.mType != ESM::Spell::ST_Spell)
+            int spellCost = MWMechanics::calcSpellCost(spell);
+            if (reachedLimit && spellCost <= minCost)
                 continue;
-            if (!(spell->mData.mFlags & ESM::Spell::F_PCStart))
+            if (race && std::find(race->mPowers.mList.begin(), race->mPowers.mList.end(), spell.mId) != race->mPowers.mList.end())
                 continue;
-            if (reachedLimit && spell->mData.mCost <= minCost)
-                continue;
-            if (race && std::find(race->mPowers.mList.begin(), race->mPowers.mList.end(), spell->mId) != race->mPowers.mList.end())
-                continue;
-            if (baseMagicka < spell->mData.mCost)
+            if (baseMagicka < spellCost)
                 continue;
 
             static const float fAutoPCSpellChance = esmStore.get<ESM::GameSetting>().find("fAutoPCSpellChance")->mValue.getFloat();
-            if (calcAutoCastChance(spell, actorSkills, actorAttributes, -1) < fAutoPCSpellChance)
+            if (calcAutoCastChance(&spell, actorSkills, actorAttributes, -1) < fAutoPCSpellChance)
                 continue;
 
-            if (!attrSkillCheck(spell, actorSkills, actorAttributes))
+            if (!attrSkillCheck(&spell, actorSkills, actorAttributes))
                 continue;
 
-            selectedSpells.push_back(spell->mId);
+            selectedSpells.push_back(spell.mId);
 
             if (reachedLimit)
             {
@@ -188,22 +186,23 @@ namespace MWMechanics
                     selectedSpells.erase(it);
 
                 minCost = std::numeric_limits<int>::max();
-                for (std::vector<std::string>::iterator weakIt = selectedSpells.begin(); weakIt != selectedSpells.end(); ++weakIt)
+                for (const std::string& testSpellName : selectedSpells)
                 {
-                    const ESM::Spell* testSpell = esmStore.get<ESM::Spell>().find(*weakIt);
-                    if (testSpell->mData.mCost < minCost)
+                    const ESM::Spell* testSpell = esmStore.get<ESM::Spell>().find(testSpellName);
+                    int testSpellCost = MWMechanics::calcSpellCost(*testSpell);
+                    if (testSpellCost < minCost)
                     {
-                        minCost = testSpell->mData.mCost;
+                        minCost = testSpellCost;
                         weakestSpell = testSpell;
                     }
                 }
             }
             else
             {
-                if (spell->mData.mCost < minCost)
+                if (spellCost < minCost)
                 {
-                    weakestSpell = spell;
-                    minCost = weakestSpell->mData.mCost;
+                    weakestSpell = &spell;
+                    minCost = MWMechanics::calcSpellCost(*weakestSpell);
                 }
                 static const unsigned int iAutoPCSpellMax = esmStore.get<ESM::GameSetting>().find("iAutoPCSpellMax")->mValue.getInteger();
                 if (selectedSpells.size() == iAutoPCSpellMax)
@@ -216,23 +215,22 @@ namespace MWMechanics
 
     bool attrSkillCheck (const ESM::Spell* spell, const int* actorSkills, const int* actorAttributes)
     {
-        const std::vector<ESM::ENAMstruct>& effects = spell->mEffects.mList;
-        for (std::vector<ESM::ENAMstruct>::const_iterator effectIt = effects.begin(); effectIt != effects.end(); ++effectIt)
+        for (const auto& spellEffect : spell->mEffects.mList)
         {
-            const ESM::MagicEffect* magicEffect = MWBase::Environment::get().getWorld()->getStore().get<ESM::MagicEffect>().find(effectIt->mEffectID);
+            const ESM::MagicEffect* magicEffect = MWBase::Environment::get().getWorld()->getStore().get<ESM::MagicEffect>().find(spellEffect.mEffectID);
             static const int iAutoSpellAttSkillMin = MWBase::Environment::get().getWorld()->getStore().get<ESM::GameSetting>().find("iAutoSpellAttSkillMin")->mValue.getInteger();
 
             if ((magicEffect->mData.mFlags & ESM::MagicEffect::TargetSkill))
             {
-                assert (effectIt->mSkill >= 0 && effectIt->mSkill < ESM::Skill::Length);
-                if (actorSkills[effectIt->mSkill] < iAutoSpellAttSkillMin)
+                assert (spellEffect.mSkill >= 0 && spellEffect.mSkill < ESM::Skill::Length);
+                if (actorSkills[spellEffect.mSkill] < iAutoSpellAttSkillMin)
                     return false;
             }
 
             if ((magicEffect->mData.mFlags & ESM::MagicEffect::TargetAttribute))
             {
-                assert (effectIt->mAttribute >= 0 && effectIt->mAttribute < ESM::Attribute::Length);
-                if (actorAttributes[effectIt->mAttribute] < iAutoSpellAttSkillMin)
+                assert (spellEffect.mAttribute >= 0 && spellEffect.mAttribute < ESM::Attribute::Length);
+                if (actorAttributes[spellEffect.mAttribute] < iAutoSpellAttSkillMin)
                     return false;
             }
         }
@@ -244,11 +242,8 @@ namespace MWMechanics
     {
         // Morrowind for some reason uses a formula slightly different from magicka cost calculation
         float minChance = std::numeric_limits<float>::max();
-
-        const ESM::EffectList& effects = spell->mEffects;
-        for (std::vector<ESM::ENAMstruct>::const_iterator it = effects.mList.begin(); it != effects.mList.end(); ++it)
+        for (const ESM::ENAMstruct& effect : spell->mEffects.mList)
         {
-            const ESM::ENAMstruct& effect = *it;
             const ESM::MagicEffect* magicEffect = MWBase::Environment::get().getWorld()->getStore().get<ESM::MagicEffect>().find(effect.mEffectID);
 
             int minMagn = 1;
@@ -301,7 +296,9 @@ namespace MWMechanics
         else
             calcWeakestSchool(spell, actorSkills, effectiveSchool, skillTerm); // Note effectiveSchool is unused after this
 
-        float castChance = skillTerm - spell->mData.mCost + 0.2f * actorAttributes[ESM::Attribute::Willpower] + 0.1f * actorAttributes[ESM::Attribute::Luck];
+        float castChance = skillTerm - MWMechanics::calcSpellCost(*spell)
+            + 0.2f * actorAttributes[ESM::Attribute::Willpower]
+            + 0.1f * actorAttributes[ESM::Attribute::Luck];
         return castChance;
     }
 }

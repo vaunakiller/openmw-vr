@@ -1,6 +1,7 @@
 #ifndef MWINPUT_MWBINDINGSMANAGER_H
 #define MWINPUT_MWBINDINGSMANAGER_H
 
+#include <memory>
 #include <string>
 #include <vector>
 
@@ -41,7 +42,8 @@ namespace MWInput
         bool isLeftOrRightButton(int action, bool joystick) const;
 
         bool actionIsActive(int id) const;
-        float getActionValue(int id) const;
+        float getActionValue(int id) const;  // returns value in range [0, 1]
+        float getControllerAxisValue(SDL_GameControllerAxis axis) const;  // returns value in range [-1, 1]
 
         void mousePressed(const SDL_MouseButtonEvent &evt, int deviceID);
         void mouseReleased(const SDL_MouseButtonEvent &arg, int deviceID);
@@ -64,8 +66,8 @@ namespace MWInput
     private:
         void setupSDLKeyMappings();
 
-        InputControlSystem* mInputBinder;
-        BindingsListener* mListener;
+        std::unique_ptr<InputControlSystem> mInputBinder;
+        std::unique_ptr<BindingsListener> mListener;
 
         std::string mUserFile;
 

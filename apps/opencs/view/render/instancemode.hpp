@@ -9,6 +9,7 @@
 #include <osg/Vec3f>
 
 #include "editmode.hpp"
+#include "instancedragmodes.hpp"
 
 namespace CSVWidget
 {
@@ -25,20 +26,15 @@ namespace CSVRender
     {
             Q_OBJECT
 
-            enum DragMode
-            {
-                DragMode_None,
-                DragMode_Move,
-                DragMode_Rotate,
-                DragMode_Scale
-            };
-
             enum DropMode
             {
-                Collision,
-                Terrain,
-                CollisionSep,
-                TerrainSep
+                Separate = 0b1,
+
+                Collision = 0b10,
+                Terrain = 0b100,
+
+                CollisionSep = Collision | Separate,
+                TerrainSep = Terrain | Separate,
             };
 
             CSVWidget::SceneToolMode *mSubMode;
@@ -49,6 +45,8 @@ namespace CSVRender
             bool mLocked;
             float mUnitScaleDist;
             osg::ref_ptr<osg::Group> mParentNode;
+            osg::Vec3f mDragStart;
+            std::vector<osg::Vec3f> mObjectsAtDragStart;
 
             int getSubModeFromId (const std::string& id) const;
 
@@ -57,48 +55,55 @@ namespace CSVRender
 
             osg::Vec3f getSelectionCenter(const std::vector<osg::ref_ptr<TagBase> >& selection) const;
             osg::Vec3f getScreenCoords(const osg::Vec3f& pos);
-            void dropInstance(DropMode dropMode, CSVRender::Object* object, float objectHeight);
-            float getDropHeight(DropMode dropMode, CSVRender::Object* object, float objectHeight);
+            osg::Vec3f getProjectionSpaceCoords(const osg::Vec3f& pos);
+            osg::Vec3f getMousePlaneCoords(const QPoint& point, const osg::Vec3d& dragStart);
+            void handleSelectDrag(const QPoint& pos);
+            void dropInstance(CSVRender::Object* object, float dropHeight);
+            float calculateDropHeight(DropMode dropMode, CSVRender::Object* object, float objectHeight);
 
         public:
 
-            InstanceMode (WorldspaceWidget *worldspaceWidget, osg::ref_ptr<osg::Group> parentNode, QWidget *parent = 0);
+            InstanceMode (WorldspaceWidget *worldspaceWidget, osg::ref_ptr<osg::Group> parentNode, QWidget *parent = nullptr);
 
-            virtual void activate (CSVWidget::SceneToolbar *toolbar);
+            void activate (CSVWidget::SceneToolbar *toolbar) override;
 
-            virtual void deactivate (CSVWidget::SceneToolbar *toolbar);
+            void deactivate (CSVWidget::SceneToolbar *toolbar) override;
 
-            virtual void setEditLock (bool locked);
+            void setEditLock (bool locked) override;
 
-            virtual void primaryOpenPressed (const WorldspaceHitResult& hit);
+            void primaryOpenPressed (const WorldspaceHitResult& hit) override;
 
-            virtual void primaryEditPressed (const WorldspaceHitResult& hit);
+            void primaryEditPressed (const WorldspaceHitResult& hit) override;
 
-            virtual void secondaryEditPressed (const WorldspaceHitResult& hit);
+            void secondaryEditPressed (const WorldspaceHitResult& hit) override;
 
-            virtual void primarySelectPressed (const WorldspaceHitResult& hit);
+            void primarySelectPressed (const WorldspaceHitResult& hit) override;
 
-            virtual void secondarySelectPressed (const WorldspaceHitResult& hit);
+            void secondarySelectPressed (const WorldspaceHitResult& hit) override;
 
-            virtual bool primaryEditStartDrag (const QPoint& pos);
+            bool primaryEditStartDrag (const QPoint& pos) override;
 
-            virtual bool secondaryEditStartDrag (const QPoint& pos);
+            bool secondaryEditStartDrag (const QPoint& pos) override;
 
-            virtual void drag (const QPoint& pos, int diffX, int diffY, double speedFactor);
+            bool primarySelectStartDrag(const QPoint& pos) override;
 
-            virtual void dragCompleted(const QPoint& pos);
+            bool secondarySelectStartDrag(const QPoint& pos) override;
+
+            void drag (const QPoint& pos, int diffX, int diffY, double speedFactor) override;
+
+            void dragCompleted(const QPoint& pos) override;
 
             /// \note dragAborted will not be called, if the drag is aborted via changing
             /// editing mode
-            virtual void dragAborted();
+            void dragAborted() override;
 
-            virtual void dragWheel (int diff, double speedFactor);
+            void dragWheel (int diff, double speedFactor) override;
 
-            virtual void dragEnterEvent (QDragEnterEvent *event);
+            void dragEnterEvent (QDragEnterEvent *event) override;
 
-            virtual void dropEvent (QDropEvent *event);
+            void dropEvent (QDropEvent *event) override;
 
-            virtual int getSubMode() const;
+            int getSubMode() const override;
 
         signals:
 
@@ -116,11 +121,11 @@ namespace CSVRender
     };
 
     /// \brief Helper class to handle object mask data in safe way
-    class DropObjectDataHandler
+    class DropObjectHeightHandler
     {
         public:
-            DropObjectDataHandler(WorldspaceWidget* worldspacewidget);
-            ~DropObjectDataHandler();
+            DropObjectHeightHandler(WorldspaceWidget* worldspacewidget);
+            ~DropObjectHeightHandler();
             std::vector<float> mObjectHeights;
 
         private:

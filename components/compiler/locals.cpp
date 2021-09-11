@@ -25,13 +25,12 @@ namespace Compiler
     {
         const std::vector<std::string>& collection = get (type);
 
-        std::vector<std::string>::const_iterator iter =
-            std::find (collection.begin(), collection.end(), name);
+        auto iter = std::find (collection.begin(), collection.end(), name);
 
         if (iter==collection.end())
             return -1;
 
-        return iter-collection.begin();
+        return static_cast<int>(iter-collection.begin());
     }
 
     bool Locals::search (char type, const std::string& name) const

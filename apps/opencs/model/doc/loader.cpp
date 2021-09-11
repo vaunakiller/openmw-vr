@@ -5,7 +5,6 @@
 #include "../tools/reportmodel.hpp"
 
 #include "document.hpp"
-#include "state.hpp"
 
 CSMDoc::Loader::Stage::Stage() : mFile (0), mRecordsLoaded (0), mRecordsLeft (false) {}
 
@@ -86,19 +85,19 @@ void CSMDoc::Loader::load()
             return;
         }
 
-        if (iter->second.mFile<size)
+        if (iter->second.mFile<size) // start loading the files
         {
             boost::filesystem::path path = document->getContentFiles()[iter->second.mFile];
 
-            int steps = document->getData().startLoading (path, iter->second.mFile!=editedIndex, false);
+            int steps = document->getData().startLoading (path, iter->second.mFile!=editedIndex, /*project*/false);
             iter->second.mRecordsLeft = true;
             iter->second.mRecordsLoaded = 0;
 
             emit nextStage (document, path.filename().string(), steps);
         }
-        else if (iter->second.mFile==size)
+        else if (iter->second.mFile==size) // start loading the last (project) file
         {
-            int steps = document->getData().startLoading (document->getProjectPath(), false, true);
+            int steps = document->getData().startLoading (document->getProjectPath(), /*base*/false, true);
             iter->second.mRecordsLeft = true;
             iter->second.mRecordsLoaded = 0;
 
@@ -127,7 +126,7 @@ void CSMDoc::Loader::load()
 
 void CSMDoc::Loader::loadDocument (CSMDoc::Document *document)
 {
-    mDocuments.push_back (std::make_pair (document, Stage()));
+    mDocuments.emplace_back (document, Stage());
 }
 
 void CSMDoc::Loader::abortLoading (CSMDoc::Document *document)

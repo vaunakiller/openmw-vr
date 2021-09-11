@@ -17,7 +17,7 @@ namespace MWDialogue
         std::vector<Token> parseHyperText(const std::string & text)
         {
             std::vector<Token> result;
-            size_t pos_end, iteration_pos = 0;
+            size_t pos_end = std::string::npos, iteration_pos = 0;
             for(;;)
             {
                 size_t pos_begin = text.find('@', iteration_pos);
@@ -30,7 +30,7 @@ namespace MWDialogue
                         tokenizeKeywords(text.substr(iteration_pos, pos_begin - iteration_pos), result);
 
                     std::string link = text.substr(pos_begin + 1, pos_end - pos_begin - 1);
-                    result.push_back(Token(link, Token::ExplicitLink));
+                    result.emplace_back(link, Token::ExplicitLink);
 
                     iteration_pos = pos_end + 1;
                 }
@@ -50,22 +50,23 @@ namespace MWDialogue
             const MWWorld::Store<ESM::Dialogue> & dialogs =
                 MWBase::Environment::get().getWorld()->getStore().get<ESM::Dialogue>();
 
-            std::list<std::string> keywordList;
-            for (MWWorld::Store<ESM::Dialogue>::iterator it = dialogs.begin(); it != dialogs.end(); ++it)
-                keywordList.push_back(Misc::StringUtils::lowerCase(it->mId));
-            keywordList.sort(Misc::StringUtils::ciLess);
+            std::vector<std::string> keywordList;
+            keywordList.reserve(dialogs.getSize());
+            for (const auto& it : dialogs)
+                keywordList.push_back(Misc::StringUtils::lowerCase(it.mId));
+            sort(keywordList.begin(), keywordList.end());
 
             KeywordSearch<std::string, int /*unused*/> keywordSearch;
 
-            for (std::list<std::string>::const_iterator it = keywordList.begin(); it != keywordList.end(); ++it)
-                keywordSearch.seed(*it, 0 /*unused*/);
+            for (const auto& it : keywordList)
+                keywordSearch.seed(it, 0 /*unused*/);
 
             std::vector<KeywordSearch<std::string, int /*unused*/>::Match> matches;
             keywordSearch.highlightKeywords(text.begin(), text.end(), matches);
 
             for (std::vector<KeywordSearch<std::string, int /*unused*/>::Match>::const_iterator it = matches.begin(); it != matches.end(); ++it)
             {
-                tokens.push_back(Token(std::string(it->mBeg, it->mEnd), Token::ImplicitKeyword));
+                tokens.emplace_back(std::string(it->mBeg, it->mEnd), Token::ImplicitKeyword);
             }
         }
 

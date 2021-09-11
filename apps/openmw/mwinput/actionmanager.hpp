@@ -48,13 +48,14 @@ namespace MWInput
         void showQuickKeysMenu();
 
         void resetIdleTime();
+        float getIdleTime() const { return mTimeIdle; }
 
         bool isAlwaysRunActive() const { return mAlwaysRunActive; };
         bool isSneaking() const { return mSneaking; };
 
         void setAttemptJump(bool enabled) { mAttemptJump = enabled; }
 
-        float getPreviewDelay() const { return mPreviewPOVDelay; };
+        bool isPreviewModeEnabled();
 
     private:
         void handleGuiArrowKey(int action);

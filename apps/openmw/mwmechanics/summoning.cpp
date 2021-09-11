@@ -65,25 +65,25 @@ namespace MWMechanics
     {
     }
 
-    void UpdateSummonedCreatures::visit(EffectKey key, const std::string &sourceName, const std::string &sourceId, int casterActorId, float magnitude, float remainingTime, float totalTime)
+    void UpdateSummonedCreatures::visit(EffectKey key, int effectIndex, const std::string &sourceName, const std::string &sourceId, int casterActorId, float magnitude, float remainingTime, float totalTime)
     {
         if (isSummoningEffect(key.mId) && magnitude > 0)
         {
-            mActiveEffects.insert(std::make_pair(key.mId, sourceId));
+            mActiveEffects.insert(ESM::SummonKey(key.mId, sourceId, effectIndex));
         }
     }
 
     void UpdateSummonedCreatures::process(bool cleanup)
     {
         MWMechanics::CreatureStats& creatureStats = mActor.getClass().getCreatureStats(mActor);
-        std::map<CreatureStats::SummonKey, int>& creatureMap = creatureStats.getSummonedCreatureMap();
+        std::map<ESM::SummonKey, int>& creatureMap = creatureStats.getSummonedCreatureMap();
 
-        for (std::set<std::pair<int, std::string> >::iterator it = mActiveEffects.begin(); it != mActiveEffects.end(); ++it)
+        for (std::set<ESM::SummonKey>::iterator it = mActiveEffects.begin(); it != mActiveEffects.end(); ++it)
         {
-            bool found = creatureMap.find(std::make_pair(it->first, it->second)) != creatureMap.end();
+            bool found = creatureMap.find(*it) != creatureMap.end();
             if (!found)
             {
-                std::string creatureID = getSummonedCreature(it->first);
+                std::string creatureID = getSummonedCreature(it->mEffectId);
                 if (!creatureID.empty())
                 {
                     int creatureActorId = -1;
@@ -115,13 +115,13 @@ namespace MWMechanics
                         // still insert into creatureMap so we don't try to spawn again every frame, that would spam the warning log
                     }
 
-                    creatureMap.insert(std::make_pair(*it, creatureActorId));
+                    creatureMap.emplace(*it, creatureActorId);
                 }
             }
         }
 
         // Update summon effects
-        for (std::map<CreatureStats::SummonKey, int>::iterator it = creatureMap.begin(); it != creatureMap.end(); )
+        for (std::map<ESM::SummonKey, int>::iterator it = creatureMap.begin(); it != creatureMap.end(); )
         {
             bool found = mActiveEffects.find(it->first) != mActiveEffects.end();
             if (!found)
@@ -143,17 +143,19 @@ namespace MWMechanics
         if (!cleanup)
             return;
 
-        for (std::map<CreatureStats::SummonKey, int>::iterator it = creatureMap.begin(); it != creatureMap.end(); )
+        for (std::map<ESM::SummonKey, int>::iterator it = creatureMap.begin(); it != creatureMap.end(); )
         {
+            if(it->second == -1)
+            {
+                // Keep the spell effect active if we failed to spawn anything
+                it++;
+                continue;
+            }
             MWWorld::Ptr ptr = MWBase::Environment::get().getWorld()->searchPtrViaActorId(it->second);
-            if (ptr.isEmpty() || (ptr.getClass().getCreatureStats(ptr).isDead() && ptr.getClass().getCreatureStats(ptr).isDeathAnimationFinished()))
+            if (!ptr.isEmpty() && ptr.getClass().getCreatureStats(ptr).isDead() && ptr.getClass().getCreatureStats(ptr).isDeathAnimationFinished())
             {
                 // Purge the magic effect so a new creature can be summoned if desired
-                creatureStats.getActiveSpells().purgeEffect(it->first.first, it->first.second);
-                if (mActor.getClass().hasInventoryStore(mActor))
-                    mActor.getClass().getInventoryStore(mActor).purgeEffect(it->first.first, it->first.second);
-
-                MWBase::Environment::get().getMechanicsManager()->cleanupSummonedCreature(mActor, it->second);
+                purgeSummonEffect(mActor, *it);
                 creatureMap.erase(it++);
             }
             else
@@ -161,4 +163,14 @@ namespace MWMechanics
         }
     }
 
+    void purgeSummonEffect(const MWWorld::Ptr& summoner, const std::pair<const ESM::SummonKey, int>& summon)
+    {
+        auto& creatureStats = summoner.getClass().getCreatureStats(summoner);
+        creatureStats.getActiveSpells().purgeEffect(summon.first.mEffectId, summon.first.mSourceId, summon.first.mEffectIndex);
+        creatureStats.getSpells().purgeEffect(summon.first.mEffectId, summon.first.mSourceId);
+        if (summoner.getClass().hasInventoryStore(summoner))
+            summoner.getClass().getInventoryStore(summoner).purgeEffect(summon.first.mEffectId, summon.first.mSourceId, false, summon.first.mEffectIndex);
+
+        MWBase::Environment::get().getMechanicsManager()->cleanupSummonedCreature(summoner, summon.second);
+    }
 }

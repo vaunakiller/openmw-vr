@@ -16,6 +16,7 @@
 #include "../../model/world/commandmacro.hpp"
 #include "../../model/world/data.hpp"
 #include "../../model/world/idtree.hpp"
+#include "worldspacewidget.hpp"
 
 namespace CSVRender
 {
@@ -23,7 +24,7 @@ namespace CSVRender
     {
         public:
 
-            virtual void operator()(osg::Node* node, osg::NodeVisitor* nv)
+            void operator()(osg::Node* node, osg::NodeVisitor* nv) override
             {
                 PathgridTag* tag = static_cast<PathgridTag*>(node->getUserData());
                 tag->getPathgrid()->update();
@@ -40,10 +41,13 @@ namespace CSVRender
         return mPathgrid;
     }
 
-    QString PathgridTag::getToolTip(bool hideBasics) const
+    QString PathgridTag::getToolTip(bool /*hideBasics*/, const WorldspaceHitResult& hit) const
     {
         QString text("Pathgrid: ");
         text += mPathgrid->getId().c_str();
+        text += " (";
+        text += QString::number(SceneUtil::getPathgridNode(static_cast<unsigned short>(hit.index0)));
+        text += ")";
 
         return text;
     }
@@ -60,8 +64,8 @@ namespace CSVRender
         , mRemoveGeometry(false)
         , mUseOffset(true)
         , mParent(parent)
-        , mPathgridGeometry(0)
-        , mDragGeometry(0)
+        , mPathgridGeometry(nullptr)
+        , mDragGeometry(nullptr)
         , mTag(new PathgridTag(this))
     {
         const float CoordScalar = ESM::Land::REAL_SIZE;
@@ -219,7 +223,7 @@ namespace CSVRender
         mMoveOffset.set(0, 0, 0);
 
         mPathgridGeode->removeDrawable(mDragGeometry);
-        mDragGeometry = 0;
+        mDragGeometry = nullptr;
     }
 
     void Pathgrid::applyPoint(CSMWorld::CommandMacro& commands, const osg::Vec3d& worldPos)
@@ -557,7 +561,7 @@ namespace CSVRender
         if (mPathgridGeometry)
         {
             mPathgridGeode->removeDrawable(mPathgridGeometry);
-            mPathgridGeometry = 0;
+            mPathgridGeometry = nullptr;
         }
     }
 
@@ -566,7 +570,7 @@ namespace CSVRender
         if (mSelectedGeometry)
         {
             mPathgridGeode->removeDrawable(mSelectedGeometry);
-            mSelectedGeometry = 0;
+            mSelectedGeometry = nullptr;
         }
     }
 
@@ -612,7 +616,7 @@ namespace CSVRender
             return &mPathgridCollection.getRecord(index).get();
         }
 
-        return 0;
+        return nullptr;
     }
 
     int Pathgrid::edgeExists(const CSMWorld::Pathgrid& source, unsigned short node1, unsigned short node2)

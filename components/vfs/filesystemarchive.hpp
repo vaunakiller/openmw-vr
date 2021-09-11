@@ -11,7 +11,7 @@ namespace VFS
     public:
         FileSystemArchiveFile(const std::string& path);
 
-        virtual Files::IStreamPtr open();
+        Files::IStreamPtr open() override;
 
     private:
         std::string mPath;
@@ -23,8 +23,11 @@ namespace VFS
     public:
         FileSystemArchive(const std::string& path);
 
-        virtual void listResources(std::map<std::string, File*>& out, char (*normalize_function) (char));
+        void listResources(std::map<std::string, File*>& out, char (*normalize_function) (char)) override;
 
+        bool contains(const std::string& file, char (*normalize_function) (char)) const override;
+
+        std::string getDescription() const override;
 
     private:
         typedef std::map <std::string, FileSystemArchiveFile> index;

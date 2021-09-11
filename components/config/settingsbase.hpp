@@ -15,7 +15,7 @@ namespace Config
 
     public:
         SettingsBase() { mMultiValue = false; }
-        ~SettingsBase() {}
+        ~SettingsBase() = default;
 
         inline QString value(const QString &key, const QString &defaultValue = QString()) const
         {
@@ -24,9 +24,7 @@ namespace Config
 
         inline void setValue(const QString &key, const QString &value)
         {
-            QStringList values = mSettings.values(key);
-            if (!values.contains(value))
-                mSettings.insert(key, value);
+            mSettings.replace(key, value);
         }
 
         inline void setMultiValue(const QString &key, const QString &value)

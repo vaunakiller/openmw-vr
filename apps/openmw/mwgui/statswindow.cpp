@@ -5,6 +5,7 @@
 #include <MyGUI_ProgressBar.h>
 #include <MyGUI_ImageBox.h>
 #include <MyGUI_InputManager.h>
+#include <MyGUI_LanguageManager.h>
 #include <MyGUI_Gui.h>
 
 #include <components/settings/settings.hpp>
@@ -92,7 +93,7 @@ namespace MWGui
         int windowHeight = window->getSize().height;
 
         //initial values defined in openmw_stats_window.layout, if custom options are not present in .layout, a default is loaded
-        float leftPaneRatio = 0.44;
+        float leftPaneRatio = 0.44f;
         if (mLeftPane->isUserString("LeftPaneRatio"))
             leftPaneRatio = MyGUI::utility::parseFloat(mLeftPane->getUserString("LeftPaneRatio"));
 
@@ -335,11 +336,23 @@ namespace MWGui
         {
             int max = MWBase::Environment::get().getWorld()->getStore().get<ESM::GameSetting>().find("iLevelUpTotal")->mValue.getInteger();
             getWidget(levelWidget, i==0 ? "Level_str" : "LevelText");
+
             levelWidget->setUserString("RangePosition_LevelProgress", MyGUI::utility::toString(PCstats.getLevelProgress()));
             levelWidget->setUserString("Range_LevelProgress", MyGUI::utility::toString(max));
             levelWidget->setUserString("Caption_LevelProgressText", MyGUI::utility::toString(PCstats.getLevelProgress()) + "/"
                                        + MyGUI::utility::toString(max));
         }
+        std::stringstream detail;
+        for (int attribute = 0; attribute < ESM::Attribute::Length; ++attribute)
+        {
+            float mult = PCstats.getLevelupAttributeMultiplier(attribute);
+            mult = std::min(mult, 100 - PCstats.getAttribute(attribute).getBase());
+            if (mult > 1)
+                detail << (detail.str().empty() ? "" : "\n") << "#{"
+                << MyGUI::TextIterator::toTagsString(ESM::Attribute::sGmstAttributeIds[attribute])
+                << "} x" << MyGUI::utility::toString(mult);
+        }
+        levelWidget->setUserString("Caption_LevelDetailText", MyGUI::LanguageManager::getInstance().replaceTags(detail.str()));
 
         setFactions(PCstats.getFactionRanks());
         setExpelled(PCstats.getExpelled ());

@@ -39,7 +39,7 @@ namespace ESM
                         // May include the additional two bytes (but not necessarily)
                         if (esm.getSubSize() == sizeof(mData))
                         {
-                            esm.getExact(&mData, sizeof(mData));
+                            esm.getT(mData);
                         }
                         else
                         {
@@ -89,7 +89,7 @@ namespace ESM
 
         if (isDeleted)
         {
-            esm.writeHNCString("DELE", "");
+            esm.writeHNString("DELE", "", 3);
             return;
         }
 
@@ -115,7 +115,7 @@ namespace ESM
     void Region::blank()
     {
         mData.mClear = mData.mCloudy = mData.mFoggy = mData.mOvercast = mData.mRain =
-            mData.mThunder = mData.mAsh, mData.mBlight = mData.mA = mData.mB = 0;
+            mData.mThunder = mData.mAsh = mData.mBlight = mData.mA = mData.mB = 0;
 
         mMapColor = 0;
 

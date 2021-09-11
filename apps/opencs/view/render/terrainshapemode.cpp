@@ -25,18 +25,16 @@
 
 #include "../../model/doc/document.hpp"
 #include "../../model/prefs/state.hpp"
-#include "../../model/world/columnbase.hpp"
-#include "../../model/world/commandmacro.hpp"
 #include "../../model/world/commands.hpp"
 #include "../../model/world/data.hpp"
 #include "../../model/world/idtable.hpp"
 #include "../../model/world/idtree.hpp"
 #include "../../model/world/land.hpp"
-#include "../../model/world/resourcetable.hpp"
 #include "../../model/world/tablemimedata.hpp"
 #include "../../model/world/universalid.hpp"
 
 #include "brushdraw.hpp"
+#include "commands.hpp"
 #include "editmode.hpp"
 #include "pagedworldspacewidget.hpp"
 #include "mask.hpp"
@@ -45,7 +43,7 @@
 #include "worldspacewidget.hpp"
 
 CSVRender::TerrainShapeMode::TerrainShapeMode (WorldspaceWidget *worldspaceWidget, osg::Group* parentNode, QWidget *parent)
-: EditMode (worldspaceWidget, QIcon {":scenetoolbar/editing-terrain-shape"}, Mask_Terrain | Mask_Reference, "Terrain land editing", parent),
+: EditMode (worldspaceWidget, QIcon {":scenetoolbar/editing-terrain-shape"}, Mask_Terrain, "Terrain land editing", parent),
     mParentNode(parentNode)
 {
 }
@@ -99,7 +97,7 @@ void CSVRender::TerrainShapeMode::primaryOpenPressed (const WorldspaceHitResult&
 
 void CSVRender::TerrainShapeMode::primaryEditPressed(const WorldspaceHitResult& hit)
 {
-    if (hit.hit && hit.tag == 0)
+    if (hit.hit && hit.tag == nullptr)
     {
         if (mShapeEditTool == ShapeEditTool_Flatten)
             setFlattenToolTargetHeight(hit);
@@ -124,7 +122,7 @@ void CSVRender::TerrainShapeMode::primaryEditPressed(const WorldspaceHitResult& 
 
 void CSVRender::TerrainShapeMode::primarySelectPressed(const WorldspaceHitResult& hit)
 {
-    if(hit.hit && hit.tag == 0)
+    if(hit.hit && hit.tag == nullptr)
     {
         selectTerrainShapes(CSMWorld::CellCoordinates::toVertexCoords(hit.worldPos), 0, false);
     }
@@ -132,7 +130,7 @@ void CSVRender::TerrainShapeMode::primarySelectPressed(const WorldspaceHitResult
 
 void CSVRender::TerrainShapeMode::secondarySelectPressed(const WorldspaceHitResult& hit)
 {
-    if(hit.hit && hit.tag == 0)
+    if(hit.hit && hit.tag == nullptr)
     {
         selectTerrainShapes(CSMWorld::CellCoordinates::toVertexCoords(hit.worldPos), 1, false);
     }
@@ -144,7 +142,7 @@ bool CSVRender::TerrainShapeMode::primaryEditStartDrag (const QPoint& pos)
 
     mDragMode = InteractionType_PrimaryEdit;
 
-    if (hit.hit && hit.tag == 0)
+    if (hit.hit && hit.tag == nullptr)
     {
         mEditingPos = hit.worldPos;
         mIsEditing = true;
@@ -164,7 +162,7 @@ bool CSVRender::TerrainShapeMode::primarySelectStartDrag (const QPoint& pos)
 {
     WorldspaceHitResult hit = getWorldspaceWidget().mousePick (pos, getWorldspaceWidget().getInteractionMask());
     mDragMode = InteractionType_PrimarySelect;
-    if (!hit.hit || hit.tag != 0)
+    if (!hit.hit || hit.tag != nullptr)
     {
         mDragMode = InteractionType_None;
         return false;
@@ -177,7 +175,7 @@ bool CSVRender::TerrainShapeMode::secondarySelectStartDrag (const QPoint& pos)
 {
     WorldspaceHitResult hit = getWorldspaceWidget().mousePick (pos, getWorldspaceWidget().getInteractionMask());
     mDragMode = InteractionType_SecondarySelect;
-    if (!hit.hit || hit.tag != 0)
+    if (!hit.hit || hit.tag != nullptr)
     {
         mDragMode = InteractionType_None;
         return false;
@@ -202,13 +200,13 @@ void CSVRender::TerrainShapeMode::drag (const QPoint& pos, int diffX, int diffY,
     if (mDragMode == InteractionType_PrimarySelect)
     {
         WorldspaceHitResult hit = getWorldspaceWidget().mousePick (pos, getWorldspaceWidget().getInteractionMask());
-        if (hit.hit && hit.tag == 0) selectTerrainShapes(CSMWorld::CellCoordinates::toVertexCoords(hit.worldPos), 0, true);
+        if (hit.hit && hit.tag == nullptr) selectTerrainShapes(CSMWorld::CellCoordinates::toVertexCoords(hit.worldPos), 0, true);
     }
 
     if (mDragMode == InteractionType_SecondarySelect)
     {
         WorldspaceHitResult hit = getWorldspaceWidget().mousePick (pos, getWorldspaceWidget().getInteractionMask());
-        if (hit.hit && hit.tag == 0) selectTerrainShapes(CSMWorld::CellCoordinates::toVertexCoords(hit.worldPos), 1, true);
+        if (hit.hit && hit.tag == nullptr) selectTerrainShapes(CSMWorld::CellCoordinates::toVertexCoords(hit.worldPos), 1, true);
     }
 }
 
@@ -288,6 +286,9 @@ void CSVRender::TerrainShapeMode::applyTerrainEditChanges()
 
     undoStack.beginMacro ("Edit shape and normal records");
 
+    // One command at the beginning of the macro for redrawing the terrain-selection grid when undoing the changes.
+    undoStack.push(new DrawTerrainSelectionCommand(&getWorldspaceWidget()));
+
     for(CSMWorld::CellCoordinates cellCoordinates: mAlteredCells)
     {
         std::string cellId = CSMWorld::CellCoordinates::generateId(cellCoordinates.getX(), cellCoordinates.getY());
@@ -356,6 +357,9 @@ void CSVRender::TerrainShapeMode::applyTerrainEditChanges()
         }
         pushNormalsEditToCommand(landNormalsNew, document, landTable, cellId);
     }
+    // One command at the end of the macro for redrawing the terrain-selection grid when redoing the changes.
+    undoStack.push(new DrawTerrainSelectionCommand(&getWorldspaceWidget()));
+
     undoStack.endMacro();
     clearTransientEdits();
 }
@@ -433,7 +437,9 @@ void CSVRender::TerrainShapeMode::editTerrainShapeGrid(const std::pair<int, int>
                 float smoothedByDistance = 0.0f;
                 if (mShapeEditTool == ShapeEditTool_Drag) smoothedByDistance = calculateBumpShape(distance, r, mTotalDiffY);
                 if (mShapeEditTool == ShapeEditTool_PaintToRaise || mShapeEditTool == ShapeEditTool_PaintToLower) smoothedByDistance = calculateBumpShape(distance, r, r + mShapeEditToolStrength);
-                if (distance <= r)
+
+                // Using floating-point radius here to prevent selecting too few vertices.
+                if (distance <= mBrushSize / 2.0f)
                 {
                     if (mShapeEditTool == ShapeEditTool_Drag) alterHeight(cellCoords, x, y, smoothedByDistance);
                     if (mShapeEditTool == ShapeEditTool_PaintToRaise || mShapeEditTool == ShapeEditTool_PaintToLower)
@@ -1036,10 +1042,35 @@ void CSVRender::TerrainShapeMode::handleSelection(int globalSelectionX, int glob
             return;
         int selectionX = globalSelectionX;
         int selectionY = globalSelectionY;
-        if (xIsAtCellBorder)
+
+        /*
+            The northern and eastern edges don't belong to the current cell.
+            If the corresponding adjacent cell is not loaded, some special handling is necessary to select border vertices.
+        */
+        if (xIsAtCellBorder && yIsAtCellBorder)
+        {
+            /*
+                Handle the NW, NE, and SE corner vertices.
+                NW corner: (+1, -1) offset to reach current cell.
+                NE corner: (-1, -1) offset to reach current cell.
+                SE corner: (-1, +1) offset to reach current cell.
+            */
+            if (isInCellSelection(globalSelectionX - 1, globalSelectionY - 1)
+                || isInCellSelection(globalSelectionX + 1, globalSelectionY - 1)
+                || isInCellSelection(globalSelectionX - 1, globalSelectionY + 1))
+            {
+                selections->emplace_back(globalSelectionX, globalSelectionY);
+            }
+        }
+        else if (xIsAtCellBorder)
+        {
             selectionX--;
-        if (yIsAtCellBorder)
+        }
+        else if (yIsAtCellBorder)
+        {
             selectionY--;
+        }
+
         if (isInCellSelection(selectionX, selectionY))
             selections->emplace_back(globalSelectionX, globalSelectionY);
     }
@@ -1074,8 +1105,11 @@ void CSVRender::TerrainShapeMode::selectTerrainShapes(const std::pair<int, int>&
             {
                 int distanceX = abs(i - vertexCoords.first);
                 int distanceY = abs(j - vertexCoords.second);
-                int distance = std::round(sqrt(pow(distanceX, 2)+pow(distanceY, 2)));
-                if (distance <= r) handleSelection(i, j, &selections);
+                float distance = sqrt(pow(distanceX, 2)+pow(distanceY, 2));
+
+                // Using floating-point radius here to prevent selecting too few vertices.
+                if (distance <= mBrushSize / 2.0f)
+                    handleSelection(i, j, &selections);
             }
         }
     }
@@ -1092,9 +1126,21 @@ void CSVRender::TerrainShapeMode::selectTerrainShapes(const std::pair<int, int>&
         }
     }
 
-    if(selectMode == 0) mTerrainShapeSelection->onlySelect(selections);
-    if(selectMode == 1) mTerrainShapeSelection->toggleSelect(selections, dragOperation);
+    std::string selectAction;
 
+    if (selectMode == 0)
+        selectAction = CSMPrefs::get()["3D Scene Editing"]["primary-select-action"].toString();
+    else
+        selectAction = CSMPrefs::get()["3D Scene Editing"]["secondary-select-action"].toString();
+
+    if (selectAction == "Select only")
+        mTerrainShapeSelection->onlySelect(selections);
+    else if (selectAction == "Add to selection")
+        mTerrainShapeSelection->addSelect(selections, dragOperation);
+    else if (selectAction == "Remove from selection")
+        mTerrainShapeSelection->removeSelect(selections, dragOperation);
+    else if (selectAction == "Invert selection")
+        mTerrainShapeSelection->toggleSelect(selections, dragOperation);
 }
 
 void CSVRender::TerrainShapeMode::pushEditToCommand(const CSMWorld::LandHeightsColumn::DataType& newLandGrid, CSMDoc::Document& document,
@@ -1396,6 +1442,11 @@ void CSVRender::TerrainShapeMode::mouseMoveEvent (QMouseEvent *event)
         mBrushDraw->update(hit.worldPos, mBrushSize, mBrushShape);
     if (!hit.hit && mBrushDraw && !(mShapeEditTool == ShapeEditTool_Drag && mIsEditing))
         mBrushDraw->hide();
+}
+
+std::shared_ptr<CSVRender::TerrainSelection> CSVRender::TerrainShapeMode::getTerrainSelection()
+{
+    return mTerrainShapeSelection;
 }
 
 void CSVRender::TerrainShapeMode::setBrushSize(int brushSize)

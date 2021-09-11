@@ -29,9 +29,8 @@
 namespace Nif
 {
 
-class NiSourceTexture : public Named
+struct NiSourceTexture : public Named
 {
-public:
     // Is this an external (references a separate texture file) or
     // internal (data is inside the nif itself) texture?
     bool external;
@@ -62,8 +61,26 @@ public:
     */
     unsigned int alpha;
 
-    void read(NIFStream *nif);
-    void post(NIFFile *nif);
+    void read(NIFStream *nif) override;
+    void post(NIFFile *nif) override;
+};
+
+struct BSShaderTextureSet : public Record
+{
+    enum TextureType
+    {
+        TextureType_Base = 0,
+        TextureType_Normal = 1,
+        TextureType_Glow = 2,
+        TextureType_Parallax = 3,
+        TextureType_Env = 4,
+        TextureType_EnvMask = 5,
+        TextureType_Subsurface = 6,
+        TextureType_BackLighting = 7
+    };
+    std::vector<std::string> textures;
+
+    void read(NIFStream *nif) override;
 };
 
 struct NiParticleModifier : public Record
@@ -71,31 +88,28 @@ struct NiParticleModifier : public Record
     NiParticleModifierPtr next;
     ControllerPtr controller;
 
-    void read(NIFStream *nif);
-    void post(NIFFile *nif);
+    void read(NIFStream *nif) override;
+    void post(NIFFile *nif) override;
 };
 
-class NiParticleGrowFade : public NiParticleModifier
+struct NiParticleGrowFade : public NiParticleModifier
 {
-public:
     float growTime;
     float fadeTime;
 
-    void read(NIFStream *nif);
+    void read(NIFStream *nif) override;
 };
 
-class NiParticleColorModifier : public NiParticleModifier
+struct NiParticleColorModifier : public NiParticleModifier
 {
-public:
     NiColorDataPtr data;
 
-    void read(NIFStream *nif);
-    void post(NIFFile *nif);
+    void read(NIFStream *nif) override;
+    void post(NIFFile *nif) override;
 };
 
-class NiGravity : public NiParticleModifier
+struct NiGravity : public NiParticleModifier
 {
-public:
     float mForce;
     /* 0 - Wind (fixed direction)
      * 1 - Point (fixed origin)
@@ -105,38 +119,35 @@ public:
     osg::Vec3f mPosition;
     osg::Vec3f mDirection;
 
-    void read(NIFStream *nif);
+    void read(NIFStream *nif) override;
 };
 
 struct NiParticleCollider : public NiParticleModifier
 {
     float mBounceFactor;
-    void read(NIFStream *nif);
+    void read(NIFStream *nif) override;
 };
 
 // NiPinaColada
-class NiPlanarCollider : public NiParticleCollider
+struct NiPlanarCollider : public NiParticleCollider
 {
-public:
-    void read(NIFStream *nif);
+    void read(NIFStream *nif) override;
 
     osg::Vec3f mPlaneNormal;
     float mPlaneDistance;
 };
 
-class NiSphericalCollider : public NiParticleCollider
+struct NiSphericalCollider : public NiParticleCollider
 {
-public:
     float mRadius;
     osg::Vec3f mCenter;
 
-    void read(NIFStream *nif);
+    void read(NIFStream *nif) override;
 };
 
-class NiParticleRotation : public NiParticleModifier
+struct NiParticleRotation : public NiParticleModifier
 {
-public:
-    void read(NIFStream *nif);
+    void read(NIFStream *nif) override;
 };
 
 

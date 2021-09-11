@@ -5,8 +5,6 @@
 
 #include <components/compiler/locals.hpp>
 
-#include <components/esm/cellid.hpp>
-
 #include "../mwworld/esmstore.hpp"
 
 #include "../mwbase/environment.hpp"
@@ -131,6 +129,15 @@ namespace MWScript
             mGlobalScriptDesc = globalScriptDesc;
     }
 
+    std::string InterpreterContext::getTarget() const
+    {
+        if(!mReference.isEmpty())
+            return mReference.mRef->mRef.getRefId();
+        else if(mGlobalScriptDesc)
+            return mGlobalScriptDesc->getId();
+        return {};
+    }
+
     int InterpreterContext::getLocalShort (int index) const
     {
         if (!mLocals)
@@ -225,15 +232,13 @@ namespace MWScript
 
     std::vector<std::string> InterpreterContext::getGlobals() const
     {
-        std::vector<std::string> ids;
-
         const MWWorld::Store<ESM::Global>& globals =
             MWBase::Environment::get().getWorld()->getStore().get<ESM::Global>();
 
-        for (MWWorld::Store<ESM::Global>::iterator iter = globals.begin(); iter!=globals.end();
-            ++iter)
+        std::vector<std::string> ids;
+        for (auto& globalVariable : globals)
         {
-            ids.push_back (iter->mId);
+            ids.emplace_back(globalVariable.mId);
         }
 
         return ids;
@@ -245,22 +250,22 @@ namespace MWScript
         return world->getGlobalVariableType(name);
     }
 
-    std::string InterpreterContext::getActionBinding(const std::string& action) const
+    std::string InterpreterContext::getActionBinding(const std::string& targetAction) const
     {
         MWBase::InputManager* input = MWBase::Environment::get().getInputManager();
         std::vector<int> actions = input->getActionKeySorting ();
-        for (std::vector<int>::const_iterator it = actions.begin(); it != actions.end(); ++it)
+        for (const int action : actions)
         {
-            std::string desc = input->getActionDescription (*it);
+            std::string desc = input->getActionDescription (action);
             if(desc == "")
                 continue;
 
-            if(desc == action)
+            if(desc == targetAction)
             {
                 if(input->joystickLastUsed())
-                    return input->getActionControllerBindingName(*it);
+                    return input->getActionControllerBindingName(action);
                 else
-                    return input->getActionKeyBindingName (*it);
+                    return input->getActionKeyBindingName(action);
             }
         }
 
@@ -410,7 +415,7 @@ namespace MWScript
         return  MWBase::Environment::get().getWorld()->getCellName();
     }
 
-    void InterpreterContext::executeActivation(MWWorld::Ptr ptr, MWWorld::Ptr actor)
+    void InterpreterContext::executeActivation(const MWWorld::Ptr& ptr, const MWWorld::Ptr& actor)
     {
         std::shared_ptr<MWWorld::Action> action = (ptr.getClass().activate(ptr, actor));
         action->execute (actor);
@@ -478,7 +483,7 @@ namespace MWScript
         locals.mFloats[findLocalVariableIndex (scriptId, name, 'f')] = value;
     }
 
-    MWWorld::Ptr InterpreterContext::getReference(bool required)
+    MWWorld::Ptr InterpreterContext::getReference(bool required) const
     {
         return getReferenceImp ("", true, required);
     }

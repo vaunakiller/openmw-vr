@@ -27,19 +27,22 @@ namespace MWGui
         public:
             TradeWindow();
 
-            void setPtr(const MWWorld::Ptr& actor);
+            void setPtr(const MWWorld::Ptr& actor) override;
 
-            void onFrame(float dt);
-            void clear() { resetReference(); }
+            void onClose() override;
+            void onFrame(float dt) override;
+            void clear() override { resetReference(); }
 
             void borrowItem (int index, size_t count);
             void returnItem (int index, size_t count);
 
             int getMerchantServices();
 
-            virtual bool exit();
+            bool exit() override;
 
-            virtual void resetReference();
+            void resetReference() override;
+
+            void onDeleteCustomData(const MWWorld::Ptr& ptr) override;
 
             typedef MyGUI::delegates::CMultiDelegate0 EventHandle_TradeDone;
             EventHandle_TradeDone eventTradeDone;
@@ -108,11 +111,9 @@ namespace MWGui
 
             void updateLabels();
 
-            virtual void onReferenceUnavailable();
+            void onReferenceUnavailable() override;
 
             int getMerchantGold();
-
-            void restock();
     };
 }
 

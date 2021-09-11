@@ -89,7 +89,7 @@ namespace Debug
             mColors[NoLevel] = Reset;
         }
 
-        virtual std::streamsize writeImpl(const char *str, std::streamsize size, Level debugLevel)
+        std::streamsize writeImpl(const char *str, std::streamsize size, Level debugLevel) override
         {
             out.write (str, size);
             out.flush();
@@ -134,6 +134,9 @@ namespace Debug
     };
 #endif
 }
+
+// Can be used to print messages without timestamps
+std::ostream& getRawStdout();
 
 int wrapApplication(int (*innerApplication)(int argc, char *argv[]), int argc, char *argv[], const std::string& appName);
 

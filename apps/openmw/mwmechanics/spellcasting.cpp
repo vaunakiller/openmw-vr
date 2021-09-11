@@ -60,7 +60,8 @@ namespace MWMechanics
     void CastSpell::inflict(const MWWorld::Ptr &target, const MWWorld::Ptr &caster,
                             const ESM::EffectList &effects, ESM::RangeType range, bool reflected, bool exploded)
     {
-        if (!target.isEmpty() && target.getClass().isActor())
+        const bool targetIsActor = !target.isEmpty() && target.getClass().isActor();
+        if (targetIsActor)
         {
             // Early-out for characters that have departed.
             const auto& stats = target.getClass().getCreatureStats(target);
@@ -82,7 +83,7 @@ namespace MWMechanics
             return;
 
         const ESM::Spell* spell = MWBase::Environment::get().getWorld()->getStore().get<ESM::Spell>().search (mId);
-        if (spell && !target.isEmpty() && (spell->mData.mType == ESM::Spell::ST_Disease || spell->mData.mType == ESM::Spell::ST_Blight))
+        if (spell && targetIsActor && (spell->mData.mType == ESM::Spell::ST_Disease || spell->mData.mType == ESM::Spell::ST_Blight))
         {
             int requiredResistance = (spell->mData.mType == ESM::Spell::ST_Disease) ?
                 ESM::MagicEffect::ResistCommonDisease
@@ -105,13 +106,13 @@ namespace MWMechanics
         // This is required for Weakness effects in a spell to apply to any subsequent effects in the spell.
         // Otherwise, they'd only apply after the whole spell was added.
         MagicEffects targetEffects;
-        if (!target.isEmpty() && target.getClass().isActor())
+        if (targetIsActor)
             targetEffects += target.getClass().getCreatureStats(target).getMagicEffects();
 
         bool castByPlayer = (!caster.isEmpty() && caster == getPlayer());
 
         ActiveSpells targetSpells;
-        if (!target.isEmpty() && target.getClass().isActor())
+        if (targetIsActor)
             targetSpells = target.getClass().getCreatureStats(target).getActiveSpells();
 
         bool canCastAnEffect = false;    // For bound equipment.If this remains false
@@ -119,10 +120,11 @@ namespace MWMechanics
                                          // effects, we display a "can't re-cast" message
 
         // Try absorbing the spell. Some handling must still happen for absorbed effects.
-        bool absorbed = absorbSpell(spell, caster, target);
+        bool absorbed = absorbSpell(mId, caster, target);
 
+        int currentEffectIndex = 0;
         for (std::vector<ESM::ENAMstruct>::const_iterator effectIt (effects.mList.begin());
-             !target.isEmpty() && effectIt != effects.mList.end(); ++effectIt)
+             !target.isEmpty() && effectIt != effects.mList.end(); ++effectIt, ++currentEffectIndex)
         {
             if (effectIt->mRange != range)
                 continue;
@@ -189,6 +191,7 @@ namespace MWMechanics
                     effect.mArg = MWMechanics::EffectKey(*effectIt).mArg;
                     effect.mMagnitude = magnitude;
                     effect.mTimeLeft = 0.f;
+                    effect.mEffectIndex = currentEffectIndex;
 
                     // Avoid applying absorb effects if the caster is the target
                     // We still need the spell to be added
@@ -265,10 +268,11 @@ namespace MWMechanics
                 }
 
                 // Re-casting a summon effect will remove the creature from previous castings of that effect.
-                if (isSummoningEffect(effectIt->mEffectID) && !target.isEmpty() && target.getClass().isActor())
+                if (isSummoningEffect(effectIt->mEffectID) && targetIsActor)
                 {
                     CreatureStats& targetStats = target.getClass().getCreatureStats(target);
-                    std::map<CreatureStats::SummonKey, int>::iterator findCreature = targetStats.getSummonedCreatureMap().find(std::make_pair(effectIt->mEffectID, mId));
+                    ESM::SummonKey key(effectIt->mEffectID, mId, currentEffectIndex);
+                    auto findCreature = targetStats.getSummonedCreatureMap().find(key);
                     if (findCreature != targetStats.getSummonedCreatureMap().end())
                     {
                         MWBase::Environment::get().getMechanicsManager()->cleanupSummonedCreature(target, findCreature->second);
@@ -307,7 +311,8 @@ namespace MWMechanics
         if (!exploded)
             MWBase::Environment::get().getWorld()->explodeSpell(mHitPosition, effects, caster, target, range, mId, mSourceName, mFromProjectile);
 
-        if (!target.isEmpty()) {
+        if (!target.isEmpty())
+        {
             if (!reflectedEffects.mList.empty())
                 inflict(caster, target, reflectedEffects, range, true, exploded);
 
@@ -317,7 +322,7 @@ namespace MWMechanics
                 if (!caster.isEmpty() && caster.getClass().isActor())
                     casterActorId = caster.getClass().getCreatureStats(caster).getActorId();
                 target.getClass().getCreatureStats(target).getActiveSpells().addSpell(mId, mStack, appliedLastingEffects,
-                                                                                      mSourceName, casterActorId);
+                        mSourceName, casterActorId);
             }
         }
     }
@@ -377,6 +382,25 @@ namespace MWMechanics
         {
             target.getClass().getCreatureStats(target).getActiveSpells().purgeAll(magnitude, true);
             return true;
+        }
+        else if(target.getClass().isActor() && effectId >= ESM::MagicEffect::CalmHumanoid && effectId <= ESM::MagicEffect::RallyCreature)
+        {
+            // Treat X Humanoid spells on creatures and X Creature spells on NPCs as instant effects and remove their VFX
+            bool affectsCreatures = (effectId - ESM::MagicEffect::CalmHumanoid) & 1;
+            if(affectsCreatures == target.getClass().isNpc())
+            {
+                MWBase::Environment::get().getWorld()->getAnimation(target)->removeEffect(effectId);
+                return true;
+            }
+        }
+        else if(target.getClass().isActor() && effectId == ESM::MagicEffect::TurnUndead)
+        {
+            // Diverge from vanilla by giving scripts a chance to detect Turn Undead on non-undead, but still remove the effect and VFX
+            if(target.getClass().isNpc() || target.get<ESM::Creature>()->mBase->mData.mType != ESM::Creature::Undead)
+            {
+                MWBase::Environment::get().getWorld()->getAnimation(target)->removeEffect(effectId);
+                return true;
+            }
         }
         else if (target.getClass().isActor() && target == getPlayer())
         {
@@ -579,7 +603,7 @@ namespace MWMechanics
                 DynamicStat<float> fatigue = stats.getFatigue();
                 const float normalizedEncumbrance = mCaster.getClass().getNormalizedEncumbrance(mCaster);
 
-                float fatigueLoss = spell->mData.mCost * (fFatigueSpellBase + normalizedEncumbrance * fFatigueSpellMult);
+                float fatigueLoss = MWMechanics::calcSpellCost(*spell) * (fFatigueSpellBase + normalizedEncumbrance * fFatigueSpellMult);
                 fatigue.setCurrent(fatigue.getCurrent() - fatigueLoss); 
                 stats.setFatigue(fatigue);
 
@@ -732,12 +756,31 @@ namespace MWMechanics
             else
             {
                 // If the caster has no animation, add the effect directly to the effectManager
-                // We should scale it manually
-                osg::Vec3f bounds (MWBase::Environment::get().getWorld()->getHalfExtents(mCaster) * 2.f / Constants::UnitsPerFoot);
-                float scale = std::max({ bounds.x()/3.f, bounds.y()/3.f, bounds.z()/6.f });
-                float meshScale = !mCaster.getClass().isActor() ? mCaster.getCellRef().getScale() : 1.0f;
+                // We must scale and position it manually
+                float scale = mCaster.getCellRef().getScale();
                 osg::Vec3f pos (mCaster.getRefData().getPosition().asVec3());
-                MWBase::Environment::get().getWorld()->spawnEffect("meshes\\" + castStatic->mModel, effect->mParticle, pos, scale * meshScale);
+                if (!mCaster.getClass().isNpc())
+                {
+                    osg::Vec3f bounds (MWBase::Environment::get().getWorld()->getHalfExtents(mCaster) * 2.f);
+                    scale *= std::max({bounds.x(), bounds.y(), bounds.z() / 2.f}) / 64.f;
+                    float offset = 0.f;
+                    if (bounds.z() < 128.f)
+                        offset = bounds.z() - 128.f;
+                    else if (bounds.z() < bounds.x() + bounds.y())
+                        offset = 128.f - bounds.z();
+                    if (MWBase::Environment::get().getWorld()->isFlying(mCaster))
+                        offset /= 20.f;
+                    pos.z() += offset * scale;
+                }
+                else
+                {
+                    // Additionally use the NPC's height
+                    osg::Vec3f npcScaleVec (1.f, 1.f, 1.f);
+                    mCaster.getClass().adjustScale(mCaster, npcScaleVec, true);
+                    scale *= npcScaleVec.z();
+                }
+                scale = std::max(scale, 1.f);
+                MWBase::Environment::get().getWorld()->spawnEffect("meshes\\" + castStatic->mModel, effect->mParticle, pos, scale);
             }
 
             if (animation && !mCaster.getClass().isActor())

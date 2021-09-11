@@ -19,9 +19,9 @@ source_group(game FILES ${GAME} ${GAME_HEADER})
 
 add_openmw_dir (mwrender
     actors objects renderingmanager animation rotatecontroller sky npcanimation vismask
-    creatureanimation effectmanager util renderinginterface pathgrid rendermode weaponanimation
+    creatureanimation effectmanager util renderinginterface pathgrid rendermode weaponanimation screenshotmanager
     bulletdebugdraw globalmap characterpreview camera viewovershoulder localmap water terrainstorage ripplesimulation
-    renderbin actoranimation landmanager navmesh actorspaths recastmesh fogmanager objectpaging
+    renderbin actoranimation landmanager navmesh actorspaths recastmesh fogmanager objectpaging groundcover postprocessor
     )
 
 add_openmw_dir (mwinput
@@ -55,6 +55,12 @@ add_openmw_dir (mwscript
     animationextensions transformationextensions consoleextensions userextensions
     )
 
+add_openmw_dir (mwlua
+    luamanagerimp actions object worldview userdataserializer eventqueue query
+    luabindings localscripts objectbindings cellbindings asyncbindings settingsbindings
+    camerabindings uibindings inputbindings
+    )
+
 add_openmw_dir (mwsound
     soundmanagerimp openal_output ffmpeg_decoder sound sound_buffer sound_decoder sound_output
     loudness movieaudiofactory alext efx efx-presets regionsoundselector watersoundupdater volumesettings
@@ -66,14 +72,14 @@ add_openmw_dir (mwworld
     cells localscripts customdata inventorystore ptr actionopen actionread actionharvest
     actionequip timestamp actionalchemy cellstore actionapply actioneat
     store esmstore recordcmp fallback actionrepair actionsoulgem livecellref actiondoor
-    contentloader esmloader actiontrap cellreflist cellref physicssystem weather projectilemanager
+    contentloader esmloader actiontrap cellreflist cellref weather projectilemanager
     cellpreloader datetimemanager
     )
 
 add_openmw_dir (mwphysics
     physicssystem trace collisiontype actor convert object heightfield closestnotmerayresultcallback
-    contacttestresultcallback deepestnotmecontacttestresultcallback stepper movementsolver
-    closestnotmeconvexresultcallback
+    contacttestresultcallback deepestnotmecontacttestresultcallback stepper movementsolver projectile
+    actorconvexcallback raycasting mtphysics contacttestwrapper projectileconvexcallback
     )
 
 add_openmw_dir (mwclass
@@ -82,7 +88,7 @@ add_openmw_dir (mwclass
     )
 
 add_openmw_dir (mwmechanics
-    mechanicsmanagerimp stat creaturestats magiceffects movement actorutil
+    mechanicsmanagerimp stat creaturestats magiceffects movement actorutil spelllist
     drawstate spells activespells npcstats aipackage aisequence aipursue alchemy aiwander aitravel aifollow aiavoiddoor aibreathe
     aicast aiescort aiface aiactivate aicombat recharge repair enchanting pathfinding pathgrid security spellcasting spellresistance
     disease pickpocket levelledlist combat steering obstacle autocalcspell difficultyscaling aicombataction actor summoning
@@ -122,13 +128,18 @@ include_directories(
 )
 
 target_link_libraries(openmw
-    ${OSG_LIBRARIES}
+    # CMake's built-in OSG finder does not use pkgconfig, so we have to
+    # manually ensure the order is correct for inter-library dependencies.
+    # This only makes a difference with `-DOPENMW_USE_SYSTEM_OSG=ON -DOSG_STATIC=ON`.
+    # https://gitlab.kitware.com/cmake/cmake/-/issues/21701
     ${OSGPARTICLE_LIBRARIES}
-    ${OSGUTIL_LIBRARIES}
-    ${OSGDB_LIBRARIES}
     ${OSGVIEWER_LIBRARIES}
     ${OSGGA_LIBRARIES}
     ${OSGSHADOW_LIBRARIES}
+    ${OSGDB_LIBRARIES}
+    ${OSGUTIL_LIBRARIES}
+    ${OSG_LIBRARIES}
+
     ${Boost_SYSTEM_LIBRARY}
     ${Boost_THREAD_LIBRARY}
     ${Boost_FILESYSTEM_LIBRARY}
@@ -141,31 +152,11 @@ target_link_libraries(openmw
     "osg-ffmpeg-videoplayer"
     "oics"
     components
+    ${LUA_LIBRARIES}
 )
 
 if (ANDROID)
-    set (OSG_PLUGINS
-        -Wl,--whole-archive
-    )
-    foreach(PLUGIN_NAME ${USED_OSG_PLUGINS})
-        set(OSG_PLUGINS ${OSG_PLUGINS} ${OSG_PLUGINS_DIR}/lib${PLUGIN_NAME}.a)
-    endforeach()
-
-    set (OSG_PLUGINS
-        ${OSG_PLUGINS} -Wl,--no-whole-archive
-    )
-
-    target_link_libraries(openmw
-        EGL
-        android
-        log
-        dl
-        z
-        ${OPENSCENEGRAPH_LIBRARIES}
-        freetype
-        jpeg
-    	png
-    )
+    target_link_libraries(openmw EGL android log z)
 endif (ANDROID)
 
 if (USE_SYSTEM_TINYXML)
@@ -189,7 +180,7 @@ if(APPLE)
 
     add_subdirectory(../../files/ ${CMAKE_CURRENT_BINARY_DIR}/files)
 
-    configure_file("${OpenMW_BINARY_DIR}/settings-default.cfg" ${BUNDLE_RESOURCES_DIR} COPYONLY)
+    configure_file("${OpenMW_BINARY_DIR}/defaults.bin" ${BUNDLE_RESOURCES_DIR} COPYONLY)
     configure_file("${OpenMW_BINARY_DIR}/openmw.cfg" ${BUNDLE_RESOURCES_DIR} COPYONLY)
     configure_file("${OpenMW_BINARY_DIR}/gamecontrollerdb.txt" ${BUNDLE_RESOURCES_DIR} COPYONLY)
 

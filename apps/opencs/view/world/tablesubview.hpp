@@ -6,6 +6,7 @@
 #include <QtCore/qnamespace.h>
 
 class QModelIndex;
+class QWidget;
 
 namespace CSMWorld
 {
@@ -35,20 +36,22 @@ namespace CSVWorld
             Table *mTable;
             TableBottomBox *mBottom;
             CSVFilter::FilterBox *mFilterBox;
+            bool mShowOptions;
+            QWidget *mOptions;
 
         public:
 
             TableSubView (const CSMWorld::UniversalId& id, CSMDoc::Document& document,
                 const CreatorFactoryBase& creatorFactory, bool sorting);
 
-            virtual void setEditLock (bool locked);
+            void setEditLock (bool locked) override;
 
-            virtual void setStatusBar (bool show);
+            void setStatusBar (bool show) override;
 
-            virtual void useHint (const std::string& hint);
+            void useHint (const std::string& hint) override;
 
         protected:
-            bool eventFilter(QObject* object, QEvent *event);
+            bool eventFilter(QObject* object, QEvent *event) override;
 
         signals:
             void cloneRequest(const std::string&,
@@ -60,6 +63,7 @@ namespace CSVWorld
             void cloneRequest (const CSMWorld::UniversalId& toClone);
             void createFilterRequest(std::vector< CSMWorld::UniversalId >& types,
                                      Qt::DropAction action);
+            void toggleOptions ();
 
         public slots:
 

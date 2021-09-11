@@ -19,7 +19,7 @@ opencs_hdrs_noqt (model/doc
 
 opencs_units (model/world
     idtable idtableproxymodel regionmap data commanddispatcher idtablebase resourcetable nestedtableproxymodel idtree infotableproxymodel landtexturetableproxymodel
-    actoradapter
+    actoradapter idcollection
     )
 
 
@@ -89,7 +89,7 @@ opencs_units (view/render
     scenewidget worldspacewidget pagedworldspacewidget unpagedworldspacewidget
     previewwidget editmode instancemode instanceselectionmode instancemovemode
     orbitcameramode pathgridmode selectionmode pathgridselectionmode cameracontroller
-    cellwater terraintexturemode actor terrainselection terrainshapemode brushdraw
+    cellwater terraintexturemode actor terrainselection terrainshapemode brushdraw commands
     )
 
 opencs_units_noqt (view/render
@@ -116,7 +116,7 @@ opencs_units (view/prefs
 
 opencs_units (model/prefs
     state setting intsetting doublesetting boolsetting enumsetting coloursetting shortcut
-    shortcuteventhandler shortcutmanager shortcutsetting modifiersetting
+    shortcuteventhandler shortcutmanager shortcutsetting modifiersetting stringsetting
     )
 
 opencs_units_noqt (model/prefs
@@ -158,7 +158,7 @@ include_directories(${CMAKE_CURRENT_BINARY_DIR})
 
 if(APPLE)
     set (OPENCS_MAC_ICON "${CMAKE_SOURCE_DIR}/files/mac/openmw-cs.icns")
-    set (OPENCS_CFG "${OpenMW_BINARY_DIR}/openmw-cs.cfg")
+    set (OPENCS_CFG "${OpenMW_BINARY_DIR}/defaults-cs.bin")
     set (OPENCS_DEFAULT_FILTERS_FILE "${OpenMW_BINARY_DIR}/resources/defaultfilters")
     set (OPENCS_OPENMW_CFG "${OpenMW_BINARY_DIR}/openmw.cfg")
 else()
@@ -215,17 +215,21 @@ if(APPLE)
 endif(APPLE)
 
 target_link_libraries(openmw-cs
-    ${OSG_LIBRARIES}
-    ${OSGTEXT_LIBRARIES}
-    ${OSGUTIL_LIBRARIES}
+    # CMake's built-in OSG finder does not use pkgconfig, so we have to
+    # manually ensure the order is correct for inter-library dependencies.
+    # This only makes a difference with `-DOPENMW_USE_SYSTEM_OSG=ON -DOSG_STATIC=ON`.
+    # https://gitlab.kitware.com/cmake/cmake/-/issues/21701
     ${OSGVIEWER_LIBRARIES}
-    ${OSGGA_LIBRARIES}
     ${OSGFX_LIBRARIES}
+    ${OSGGA_LIBRARIES}
+    ${OSGUTIL_LIBRARIES}
+    ${OSGTEXT_LIBRARIES}
+    ${OSG_LIBRARIES}
     ${EXTERN_OSGQT_LIBRARY}
     ${Boost_SYSTEM_LIBRARY}
     ${Boost_FILESYSTEM_LIBRARY}
     ${Boost_PROGRAM_OPTIONS_LIBRARY}
-    components
+    components_qt
 )
 
 target_link_libraries(openmw-cs Qt5::Widgets Qt5::Core Qt5::Network Qt5::OpenGL)
@@ -233,8 +237,15 @@ target_link_libraries(openmw-cs Qt5::Widgets Qt5::Core Qt5::Network Qt5::OpenGL)
 if (WIN32)
     target_link_libraries(openmw-cs ${Boost_LOCALE_LIBRARY})
     INSTALL(TARGETS openmw-cs RUNTIME DESTINATION ".")
-    INSTALL(FILES "${OpenMW_BINARY_DIR}/Debug/openmw-cs.cfg" DESTINATION "." CONFIGURATIONS Debug)
-    INSTALL(FILES "${OpenMW_BINARY_DIR}/Release/openmw-cs.cfg" DESTINATION "." CONFIGURATIONS Release;RelWithDebInfo;MinSizeRel)
+
+    get_generator_is_multi_config(multi_config)
+    if (multi_config)
+        SET(INSTALL_SOURCE "${OpenMW_BINARY_DIR}/$<CONFIG>")
+    else ()
+        SET(INSTALL_SOURCE "${OpenMW_BINARY_DIR}")
+    endif ()
+
+    INSTALL(FILES "${INSTALL_SOURCE}/defaults-cs.bin" DESTINATION ".")
 endif()
 
 if (MSVC)

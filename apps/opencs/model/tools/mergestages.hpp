@@ -3,6 +3,7 @@
 
 #include <algorithm>
 #include <map>
+#include <memory>
 
 #include <components/to_utf8/to_utf8.hpp>
 
@@ -22,10 +23,10 @@ namespace CSMTools
 
             StartMergeStage (MergeState& state);
 
-            virtual int setup();
+            int setup() override;
             ///< \return number of steps
 
-            virtual void perform (int stage, CSMDoc::Messages& messages);
+            void perform (int stage, CSMDoc::Messages& messages) override;
             ///< Messages resulting from this stage will be appended to \a messages.
     };
 
@@ -38,10 +39,10 @@ namespace CSMTools
 
             FinishMergedDocumentStage (MergeState& state, ToUTF8::FromType encoding);
 
-            virtual int setup();
+            int setup() override;
             ///< \return number of steps
 
-            virtual void perform (int stage, CSMDoc::Messages& messages);
+            void perform (int stage, CSMDoc::Messages& messages) override;
             ///< Messages resulting from this stage will be appended to \a messages.
     };
 
@@ -55,10 +56,10 @@ namespace CSMTools
 
             MergeIdCollectionStage (MergeState& state, Collection& (CSMWorld::Data::*accessor)());
 
-            virtual int setup();
+            int setup() override;
             ///< \return number of steps
 
-            virtual void perform (int stage, CSMDoc::Messages& messages);
+            void perform (int stage, CSMDoc::Messages& messages) override;
             ///< Messages resulting from this stage will be appended to \a messages.
     };
 
@@ -82,7 +83,8 @@ namespace CSMTools
         const CSMWorld::Record<RecordType>& record = source.getRecord (stage);
 
         if (!record.isDeleted())
-            target.appendRecord (CSMWorld::Record<RecordType> (CSMWorld::RecordBase::State_ModifiedOnly, 0, &record.get()));
+            target.appendRecord (std::make_unique<CSMWorld::Record<RecordType> >(
+                    CSMWorld::Record<RecordType>(CSMWorld::RecordBase::State_ModifiedOnly, nullptr, &record.get())));
     }
 
     class MergeRefIdsStage : public CSMDoc::Stage
@@ -93,10 +95,10 @@ namespace CSMTools
 
             MergeRefIdsStage (MergeState& state);
 
-            virtual int setup();
+            int setup() override;
             ///< \return number of steps
 
-            virtual void perform (int stage, CSMDoc::Messages& messages);
+            void perform (int stage, CSMDoc::Messages& messages) override;
             ///< Messages resulting from this stage will be appended to \a messages.
     };
 
@@ -109,10 +111,10 @@ namespace CSMTools
 
             MergeReferencesStage (MergeState& state);
 
-            virtual int setup();
+            int setup() override;
             ///< \return number of steps
 
-            virtual void perform (int stage, CSMDoc::Messages& messages);
+            void perform (int stage, CSMDoc::Messages& messages) override;
             ///< Messages resulting from this stage will be appended to \a messages.
     };
 
@@ -125,10 +127,10 @@ namespace CSMTools
 
             PopulateLandTexturesMergeStage (MergeState& state);
 
-            virtual int setup();
+            int setup() override;
             ///< \return number of steps
 
-            virtual void perform (int stage, CSMDoc::Messages& messages);
+            void perform (int stage, CSMDoc::Messages& messages) override;
             ///< Messages resulting from this stage will be appended to \a messages.
     };
 
@@ -140,10 +142,10 @@ namespace CSMTools
 
             MergeLandStage (MergeState& state);
 
-            virtual int setup();
+            int setup() override;
             ///< \return number of steps
 
-            virtual void perform (int stage, CSMDoc::Messages& messages);
+            void perform (int stage, CSMDoc::Messages& messages) override;
             ///< Messages resulting from this stage will be appended to \a messages.
     };
 
@@ -157,10 +159,10 @@ namespace CSMTools
 
             FixLandsAndLandTexturesMergeStage (MergeState& state);
 
-            virtual int setup();
+            int setup() override;
             ///< \return number of steps
 
-            virtual void perform (int stage, CSMDoc::Messages& messages);
+            void perform (int stage, CSMDoc::Messages& messages) override;
             ///< Messages resulting from this stage will be appended to \a messages.
     };
 
@@ -174,10 +176,10 @@ namespace CSMTools
 
             CleanupLandTexturesMergeStage (MergeState& state);
 
-            virtual int setup();
+            int setup() override;
             ///< \return number of steps
 
-            virtual void perform (int stage, CSMDoc::Messages& messages);
+            void perform (int stage, CSMDoc::Messages& messages) override;
             ///< Messages resulting from this stage will be appended to \a messages.
     };
 }

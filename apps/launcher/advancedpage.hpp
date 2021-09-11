@@ -1,13 +1,13 @@
 #ifndef ADVANCEDPAGE_H
 #define ADVANCEDPAGE_H
 
-#include <QWidget>
+#include <QCompleter>
+#include <QStringListModel>
 
 #include "ui_advancedpage.h"
 
 #include <components/settings/settings.hpp>
 
-namespace Files { struct ConfigurationManager; }
 namespace Config { class GameSettings; }
 
 namespace Launcher
@@ -17,8 +17,7 @@ namespace Launcher
         Q_OBJECT
 
     public:
-        AdvancedPage(Files::ConfigurationManager &cfg, Config::GameSettings &gameSettings,
-                     Settings::Manager &engineSettings, QWidget *parent = 0);
+        explicit AdvancedPage(Config::GameSettings &gameSettings, QWidget *parent = nullptr);
 
         bool loadSettings();
         void saveSettings();
@@ -30,11 +29,12 @@ namespace Launcher
         void on_skipMenuCheckBox_stateChanged(int state);
         void on_runScriptAfterStartupBrowseButton_clicked();
         void slotAnimSourcesToggled(bool checked);
+        void slotViewOverShoulderToggled(bool checked);
 
     private:
-        Files::ConfigurationManager &mCfgMgr;
         Config::GameSettings &mGameSettings;
-        Settings::Manager &mEngineSettings;
+        QCompleter mCellNameCompleter;
+        QStringListModel mCellNameCompleterModel;
 
         /**
          * Load the cells associated with the given content files for use in autocomplete

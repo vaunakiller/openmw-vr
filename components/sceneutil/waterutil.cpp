@@ -5,12 +5,14 @@
 #include <osg/Material>
 #include <osg/StateSet>
 
+#include "util.hpp"
+
 namespace SceneUtil
 {
     // disable nonsense test against a worldsize bb what will always pass
     class WaterBoundCallback : public osg::Drawable::ComputeBoundingBoxCallback
     {
-         virtual osg::BoundingBox computeBound(const osg::Drawable&) const  { return osg::BoundingBox(); }
+         osg::BoundingBox computeBound(const osg::Drawable&) const override { return osg::BoundingBox(); }
     };
 
     osg::ref_ptr<osg::Geometry> createWaterGeometry(float size, int segments, float textureRepeats)
@@ -76,7 +78,7 @@ namespace SceneUtil
         stateset->setMode(GL_BLEND, osg::StateAttribute::ON);
         stateset->setMode(GL_CULL_FACE, osg::StateAttribute::OFF);
 
-        osg::ref_ptr<osg::Depth> depth (new osg::Depth);
+        auto depth = createDepth();
         depth->setWriteMask(false);
         stateset->setAttributeAndModes(depth, osg::StateAttribute::ON);
 

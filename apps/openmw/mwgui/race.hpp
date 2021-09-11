@@ -7,11 +7,6 @@
 #include <MyGUI_RenderManager.h>
 
 
-namespace MWGui
-{
-    class WindowManager;
-}
-
 namespace MWRender
 {
     class RaceSelectionPreview;
@@ -53,10 +48,10 @@ namespace MWGui
         void setGender(Gender gender) { mGenderIndex = gender == GM_Male ? 0 : 1; }
 
         void setNextButtonShow(bool shown);
-        virtual void onOpen();
-        virtual void onClose();
+        void onOpen() override;
+        void onClose() override;
 
-        bool exit() { return false; }
+        bool exit() override { return false; }
 
         // Events
         typedef MyGUI::delegates::CMultiDelegate0 EventHandle_Void;

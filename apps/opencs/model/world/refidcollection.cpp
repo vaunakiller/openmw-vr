@@ -2,6 +2,7 @@
 
 #include <stdexcept>
 #include <memory>
+#include <string_view>
 
 #include <components/esm/esmreader.hpp>
 
@@ -40,45 +41,49 @@ CSMWorld::RefIdCollection::RefIdCollection()
 {
     BaseColumns baseColumns;
 
-    mColumns.push_back (RefIdColumn (Columns::ColumnId_Id, ColumnBase::Display_Id,
-        ColumnBase::Flag_Table | ColumnBase::Flag_Dialogue, false, false));
+    mColumns.emplace_back(Columns::ColumnId_Id, ColumnBase::Display_Id,
+        ColumnBase::Flag_Table | ColumnBase::Flag_Dialogue, false, false);
     baseColumns.mId = &mColumns.back();
-    mColumns.push_back (RefIdColumn (Columns::ColumnId_Modification, ColumnBase::Display_RecordState,
-        ColumnBase::Flag_Table | ColumnBase::Flag_Dialogue, true, false));
+    mColumns.emplace_back(Columns::ColumnId_Modification, ColumnBase::Display_RecordState,
+        ColumnBase::Flag_Table | ColumnBase::Flag_Dialogue, true, false);
     baseColumns.mModified = &mColumns.back();
-    mColumns.push_back (RefIdColumn (Columns::ColumnId_RecordType, ColumnBase::Display_RefRecordType,
-        ColumnBase::Flag_Table | ColumnBase::Flag_Dialogue, false, false));
+    mColumns.emplace_back(Columns::ColumnId_RecordType, ColumnBase::Display_RefRecordType,
+        ColumnBase::Flag_Table | ColumnBase::Flag_Dialogue, false, false);
     baseColumns.mType = &mColumns.back();
 
     ModelColumns modelColumns (baseColumns);
 
-    mColumns.push_back (RefIdColumn (Columns::ColumnId_Model, ColumnBase::Display_Mesh));
+    mColumns.emplace_back(Columns::ColumnId_Model, ColumnBase::Display_Mesh);
     modelColumns.mModel = &mColumns.back();
+    mColumns.emplace_back(Columns::ColumnId_Persistent, ColumnBase::Display_Boolean);
+    modelColumns.mPersistence = &mColumns.back();
 
     NameColumns nameColumns (modelColumns);
 
-    mColumns.push_back (RefIdColumn (Columns::ColumnId_Name, ColumnBase::Display_String));
+    // Only items that can be placed in a container have the 32 character limit, but enforce
+    // that for all referenceable types for now.
+    mColumns.emplace_back(Columns::ColumnId_Name, ColumnBase::Display_String32);
     nameColumns.mName = &mColumns.back();
-    mColumns.push_back (RefIdColumn (Columns::ColumnId_Script, ColumnBase::Display_Script));
+    mColumns.emplace_back(Columns::ColumnId_Script, ColumnBase::Display_Script);
     nameColumns.mScript = &mColumns.back();
 
     InventoryColumns inventoryColumns (nameColumns);
 
-    mColumns.push_back (RefIdColumn (Columns::ColumnId_Icon, ColumnBase::Display_Icon));
+    mColumns.emplace_back(Columns::ColumnId_Icon, ColumnBase::Display_Icon);
     inventoryColumns.mIcon = &mColumns.back();
-    mColumns.push_back (RefIdColumn (Columns::ColumnId_Weight, ColumnBase::Display_Float));
+    mColumns.emplace_back(Columns::ColumnId_Weight, ColumnBase::Display_Float);
     inventoryColumns.mWeight = &mColumns.back();
-    mColumns.push_back (RefIdColumn (Columns::ColumnId_CoinValue, ColumnBase::Display_Integer));
+    mColumns.emplace_back(Columns::ColumnId_CoinValue, ColumnBase::Display_Integer);
     inventoryColumns.mValue = &mColumns.back();
 
     IngredientColumns ingredientColumns (inventoryColumns);
-    mColumns.push_back (RefIdColumn (Columns::ColumnId_EffectList,
-        ColumnBase::Display_NestedHeader, ColumnBase::Flag_Dialogue));
+    mColumns.emplace_back(Columns::ColumnId_EffectList,
+        ColumnBase::Display_NestedHeader, ColumnBase::Flag_Dialogue);
     ingredientColumns.mEffects = &mColumns.back();
     std::map<UniversalId::Type, NestedRefIdAdapterBase*> ingredientEffectsMap;
     ingredientEffectsMap.insert(std::make_pair(UniversalId::Type_Ingredient,
         new IngredEffectRefIdAdapter ()));
-    mNestedAdapters.push_back (std::make_pair(&mColumns.back(), ingredientEffectsMap));
+    mNestedAdapters.emplace_back(&mColumns.back(), ingredientEffectsMap);
     mColumns.back().addColumn(
         new NestedChildColumn (Columns::ColumnId_EffectId, ColumnBase::Display_IngredEffectId));
     mColumns.back().addColumn(
@@ -88,13 +93,13 @@ CSMWorld::RefIdCollection::RefIdCollection()
 
     // nested table
     PotionColumns potionColumns (inventoryColumns);
-    mColumns.push_back (RefIdColumn (Columns::ColumnId_EffectList,
-        ColumnBase::Display_NestedHeader, ColumnBase::Flag_Dialogue));
+    mColumns.emplace_back(Columns::ColumnId_EffectList,
+        ColumnBase::Display_NestedHeader, ColumnBase::Flag_Dialogue);
     potionColumns.mEffects = &mColumns.back(); // see refidadapterimp.hpp
     std::map<UniversalId::Type, NestedRefIdAdapterBase*> effectsMap;
     effectsMap.insert(std::make_pair(UniversalId::Type_Potion,
         new EffectsRefIdAdapter<ESM::Potion> (UniversalId::Type_Potion)));
-    mNestedAdapters.push_back (std::make_pair(&mColumns.back(), effectsMap));
+    mNestedAdapters.emplace_back(&mColumns.back(), effectsMap);
     mColumns.back().addColumn(
         new NestedChildColumn (Columns::ColumnId_EffectId, ColumnBase::Display_EffectId));
     mColumns.back().addColumn(
@@ -114,67 +119,67 @@ CSMWorld::RefIdCollection::RefIdCollection()
 
     EnchantableColumns enchantableColumns (inventoryColumns);
 
-    mColumns.push_back (RefIdColumn (Columns::ColumnId_Enchantment, ColumnBase::Display_Enchantment));
+    mColumns.emplace_back(Columns::ColumnId_Enchantment, ColumnBase::Display_Enchantment);
     enchantableColumns.mEnchantment = &mColumns.back();
-    mColumns.push_back (RefIdColumn (Columns::ColumnId_EnchantmentPoints, ColumnBase::Display_Integer));
+    mColumns.emplace_back(Columns::ColumnId_EnchantmentPoints, ColumnBase::Display_Integer);
     enchantableColumns.mEnchantmentPoints = &mColumns.back();
 
     ToolColumns toolsColumns (inventoryColumns);
 
-    mColumns.push_back (RefIdColumn (Columns::ColumnId_Quality, ColumnBase::Display_Float));
+    mColumns.emplace_back(Columns::ColumnId_Quality, ColumnBase::Display_Float);
     toolsColumns.mQuality = &mColumns.back();
-    mColumns.push_back (RefIdColumn (Columns::ColumnId_Charges, ColumnBase::Display_Integer));
+    mColumns.emplace_back(Columns::ColumnId_Charges, ColumnBase::Display_Integer);
     toolsColumns.mUses = &mColumns.back();
 
     ActorColumns actorsColumns (nameColumns);
 
-    mColumns.push_back (RefIdColumn (Columns::ColumnId_AiHello, ColumnBase::Display_UnsignedInteger16));
+    mColumns.emplace_back(Columns::ColumnId_AiHello, ColumnBase::Display_UnsignedInteger16);
     actorsColumns.mHello = &mColumns.back();
-    mColumns.push_back (RefIdColumn (Columns::ColumnId_AiFlee, ColumnBase::Display_UnsignedInteger8));
+    mColumns.emplace_back(Columns::ColumnId_AiFlee, ColumnBase::Display_UnsignedInteger8);
     actorsColumns.mFlee = &mColumns.back();
-    mColumns.push_back (RefIdColumn (Columns::ColumnId_AiFight, ColumnBase::Display_UnsignedInteger8));
+    mColumns.emplace_back(Columns::ColumnId_AiFight, ColumnBase::Display_UnsignedInteger8);
     actorsColumns.mFight = &mColumns.back();
-    mColumns.push_back (RefIdColumn (Columns::ColumnId_AiAlarm, ColumnBase::Display_UnsignedInteger8));
+    mColumns.emplace_back(Columns::ColumnId_AiAlarm, ColumnBase::Display_UnsignedInteger8);
     actorsColumns.mAlarm = &mColumns.back();
 
     // Nested table
-    mColumns.push_back(RefIdColumn (Columns::ColumnId_ActorInventory,
-            ColumnBase::Display_NestedHeader, ColumnBase::Flag_Dialogue));
+    mColumns.emplace_back(Columns::ColumnId_ActorInventory,
+            ColumnBase::Display_NestedHeader, ColumnBase::Flag_Dialogue);
     actorsColumns.mInventory = &mColumns.back();
     std::map<UniversalId::Type, NestedRefIdAdapterBase*> inventoryMap;
     inventoryMap.insert(std::make_pair(UniversalId::Type_Npc,
             new NestedInventoryRefIdAdapter<ESM::NPC> (UniversalId::Type_Npc)));
     inventoryMap.insert(std::make_pair(UniversalId::Type_Creature,
             new NestedInventoryRefIdAdapter<ESM::Creature> (UniversalId::Type_Creature)));
-    mNestedAdapters.push_back (std::make_pair(&mColumns.back(), inventoryMap));
+    mNestedAdapters.emplace_back(&mColumns.back(), inventoryMap);
     mColumns.back().addColumn(
             new RefIdColumn (Columns::ColumnId_InventoryItemId, CSMWorld::ColumnBase::Display_Referenceable));
     mColumns.back().addColumn(
             new RefIdColumn (Columns::ColumnId_ItemCount, CSMWorld::ColumnBase::Display_Integer));
 
     // Nested table
-    mColumns.push_back(RefIdColumn (Columns::ColumnId_SpellList,
-            ColumnBase::Display_NestedHeader, ColumnBase::Flag_Dialogue));
+    mColumns.emplace_back(Columns::ColumnId_SpellList,
+            ColumnBase::Display_NestedHeader, ColumnBase::Flag_Dialogue);
     actorsColumns.mSpells = &mColumns.back();
     std::map<UniversalId::Type, NestedRefIdAdapterBase*> spellsMap;
     spellsMap.insert(std::make_pair(UniversalId::Type_Npc,
             new NestedSpellRefIdAdapter<ESM::NPC> (UniversalId::Type_Npc)));
     spellsMap.insert(std::make_pair(UniversalId::Type_Creature,
             new NestedSpellRefIdAdapter<ESM::Creature> (UniversalId::Type_Creature)));
-    mNestedAdapters.push_back (std::make_pair(&mColumns.back(), spellsMap));
+    mNestedAdapters.emplace_back(&mColumns.back(), spellsMap);
     mColumns.back().addColumn(
             new RefIdColumn (Columns::ColumnId_SpellId, CSMWorld::ColumnBase::Display_Spell));
 
     // Nested table
-    mColumns.push_back(RefIdColumn (Columns::ColumnId_NpcDestinations,
-            ColumnBase::Display_NestedHeader, ColumnBase::Flag_Dialogue));
+    mColumns.emplace_back(Columns::ColumnId_NpcDestinations,
+            ColumnBase::Display_NestedHeader, ColumnBase::Flag_Dialogue);
     actorsColumns.mDestinations = &mColumns.back();
     std::map<UniversalId::Type, NestedRefIdAdapterBase*> destMap;
     destMap.insert(std::make_pair(UniversalId::Type_Npc,
             new NestedTravelRefIdAdapter<ESM::NPC> (UniversalId::Type_Npc)));
     destMap.insert(std::make_pair(UniversalId::Type_Creature,
             new NestedTravelRefIdAdapter<ESM::Creature> (UniversalId::Type_Creature)));
-    mNestedAdapters.push_back (std::make_pair(&mColumns.back(), destMap));
+    mNestedAdapters.emplace_back(&mColumns.back(), destMap);
     mColumns.back().addColumn(
             new RefIdColumn (Columns::ColumnId_DestinationCell, CSMWorld::ColumnBase::Display_Cell));
     mColumns.back().addColumn(
@@ -191,15 +196,15 @@ CSMWorld::RefIdCollection::RefIdCollection()
             new RefIdColumn (Columns::ColumnId_RotZ, CSMWorld::ColumnBase::Display_Double));
 
     // Nested table
-    mColumns.push_back(RefIdColumn (Columns::ColumnId_AiPackageList,
-            ColumnBase::Display_NestedHeader, ColumnBase::Flag_Dialogue));
+    mColumns.emplace_back(Columns::ColumnId_AiPackageList,
+            ColumnBase::Display_NestedHeader, ColumnBase::Flag_Dialogue);
     actorsColumns.mAiPackages = &mColumns.back();
     std::map<UniversalId::Type, NestedRefIdAdapterBase*> aiMap;
     aiMap.insert(std::make_pair(UniversalId::Type_Npc,
             new ActorAiRefIdAdapter<ESM::NPC> (UniversalId::Type_Npc)));
     aiMap.insert(std::make_pair(UniversalId::Type_Creature,
             new ActorAiRefIdAdapter<ESM::Creature> (UniversalId::Type_Creature)));
-    mNestedAdapters.push_back (std::make_pair(&mColumns.back(), aiMap));
+    mNestedAdapters.emplace_back(&mColumns.back(), aiMap);
     mColumns.back().addColumn(
             new RefIdColumn (Columns::ColumnId_AiPackageType, CSMWorld::ColumnBase::Display_AiPackageType));
     mColumns.back().addColumn(
@@ -229,9 +234,9 @@ CSMWorld::RefIdCollection::RefIdCollection()
     mColumns.back().addColumn(
             new RefIdColumn (Columns::ColumnId_AiWanderRepeat, CSMWorld::ColumnBase::Display_Boolean));
     mColumns.back().addColumn(
-            new RefIdColumn (Columns::ColumnId_AiActivateName, CSMWorld::ColumnBase::Display_String));
+            new RefIdColumn (Columns::ColumnId_AiActivateName, CSMWorld::ColumnBase::Display_String32));
     mColumns.back().addColumn(
-            new RefIdColumn (Columns::ColumnId_AiTargetId, CSMWorld::ColumnBase::Display_String));
+            new RefIdColumn (Columns::ColumnId_AiTargetId, CSMWorld::ColumnBase::Display_String32));
     mColumns.back().addColumn(
             new RefIdColumn (Columns::ColumnId_AiTargetCell, CSMWorld::ColumnBase::Display_String));
     mColumns.back().addColumn(
@@ -270,56 +275,56 @@ CSMWorld::RefIdCollection::RefIdCollection()
 
     for (int i=0; sServiceTable[i].mName!=-1; ++i)
     {
-        mColumns.push_back (RefIdColumn (sServiceTable[i].mName, ColumnBase::Display_Boolean));
+        mColumns.emplace_back(sServiceTable[i].mName, ColumnBase::Display_Boolean);
         actorsColumns.mServices.insert (std::make_pair (&mColumns.back(), sServiceTable[i].mFlag));
     }
 
-    mColumns.push_back (RefIdColumn (Columns::ColumnId_AutoCalc, ColumnBase::Display_Boolean,
-            ColumnBase::Flag_Table | ColumnBase::Flag_Dialogue | ColumnBase::Flag_Dialogue_Refresh));
+    mColumns.emplace_back(Columns::ColumnId_AutoCalc, ColumnBase::Display_Boolean,
+            ColumnBase::Flag_Table | ColumnBase::Flag_Dialogue | ColumnBase::Flag_Dialogue_Refresh);
     const RefIdColumn *autoCalc = &mColumns.back();
 
-    mColumns.push_back (RefIdColumn (Columns::ColumnId_ApparatusType,
-        ColumnBase::Display_ApparatusType));
+    mColumns.emplace_back(Columns::ColumnId_ApparatusType,
+        ColumnBase::Display_ApparatusType);
     const RefIdColumn *apparatusType = &mColumns.back();
 
-    mColumns.push_back (RefIdColumn (Columns::ColumnId_ArmorType, ColumnBase::Display_ArmorType));
+    mColumns.emplace_back(Columns::ColumnId_ArmorType, ColumnBase::Display_ArmorType);
     const RefIdColumn *armorType = &mColumns.back();
 
-    mColumns.push_back (RefIdColumn (Columns::ColumnId_Health, ColumnBase::Display_Integer));
+    mColumns.emplace_back(Columns::ColumnId_Health, ColumnBase::Display_Integer);
     const RefIdColumn *health = &mColumns.back();
 
-    mColumns.push_back (RefIdColumn (Columns::ColumnId_ArmorValue, ColumnBase::Display_Integer));
+    mColumns.emplace_back(Columns::ColumnId_ArmorValue, ColumnBase::Display_Integer);
     const RefIdColumn *armor = &mColumns.back();
 
-    mColumns.push_back (RefIdColumn (Columns::ColumnId_BookType, ColumnBase::Display_BookType));
+    mColumns.emplace_back(Columns::ColumnId_BookType, ColumnBase::Display_BookType);
     const RefIdColumn *bookType = &mColumns.back();
 
-    mColumns.push_back (RefIdColumn (Columns::ColumnId_Skill, ColumnBase::Display_SkillId));
+    mColumns.emplace_back(Columns::ColumnId_Skill, ColumnBase::Display_SkillId);
     const RefIdColumn *skill = &mColumns.back();
 
-    mColumns.push_back (RefIdColumn (Columns::ColumnId_Text, ColumnBase::Display_LongString));
+    mColumns.emplace_back(Columns::ColumnId_Text, ColumnBase::Display_LongString);
     const RefIdColumn *text = &mColumns.back();
 
-    mColumns.push_back (RefIdColumn (Columns::ColumnId_ClothingType, ColumnBase::Display_ClothingType));
+    mColumns.emplace_back(Columns::ColumnId_ClothingType, ColumnBase::Display_ClothingType);
     const RefIdColumn *clothingType = &mColumns.back();
 
-    mColumns.push_back (RefIdColumn (Columns::ColumnId_WeightCapacity, ColumnBase::Display_Float));
+    mColumns.emplace_back(Columns::ColumnId_WeightCapacity, ColumnBase::Display_Float);
     const RefIdColumn *weightCapacity = &mColumns.back();
 
-    mColumns.push_back (RefIdColumn (Columns::ColumnId_OrganicContainer, ColumnBase::Display_Boolean));
+    mColumns.emplace_back(Columns::ColumnId_OrganicContainer, ColumnBase::Display_Boolean);
     const RefIdColumn *organic = &mColumns.back();
 
-    mColumns.push_back (RefIdColumn (Columns::ColumnId_Respawn, ColumnBase::Display_Boolean));
+    mColumns.emplace_back(Columns::ColumnId_Respawn, ColumnBase::Display_Boolean);
     const RefIdColumn *respawn = &mColumns.back();
 
     // Nested table
-    mColumns.push_back(RefIdColumn (Columns::ColumnId_ContainerContent,
-            ColumnBase::Display_NestedHeader, ColumnBase::Flag_Dialogue));
+    mColumns.emplace_back(Columns::ColumnId_ContainerContent,
+            ColumnBase::Display_NestedHeader, ColumnBase::Flag_Dialogue);
     const RefIdColumn *content = &mColumns.back();
     std::map<UniversalId::Type, NestedRefIdAdapterBase*> contMap;
     contMap.insert(std::make_pair(UniversalId::Type_Container,
             new NestedInventoryRefIdAdapter<ESM::Container> (UniversalId::Type_Container)));
-    mNestedAdapters.push_back (std::make_pair(&mColumns.back(), contMap));
+    mNestedAdapters.emplace_back(&mColumns.back(), contMap);
     mColumns.back().addColumn(
             new RefIdColumn (Columns::ColumnId_InventoryItemId, CSMWorld::ColumnBase::Display_Referenceable));
     mColumns.back().addColumn(
@@ -327,11 +332,11 @@ CSMWorld::RefIdCollection::RefIdCollection()
 
     CreatureColumns creatureColumns (actorsColumns);
 
-    mColumns.push_back (RefIdColumn (Columns::ColumnId_CreatureType, ColumnBase::Display_CreatureType));
+    mColumns.emplace_back(Columns::ColumnId_CreatureType, ColumnBase::Display_CreatureType);
     creatureColumns.mType = &mColumns.back();
-    mColumns.push_back (RefIdColumn (Columns::ColumnId_Scale, ColumnBase::Display_Float));
+    mColumns.emplace_back(Columns::ColumnId_Scale, ColumnBase::Display_Float);
     creatureColumns.mScale = &mColumns.back();
-    mColumns.push_back (RefIdColumn (Columns::ColumnId_ParentCreature, ColumnBase::Display_Creature));
+    mColumns.emplace_back(Columns::ColumnId_ParentCreature, ColumnBase::Display_Creature);
     creatureColumns.mOriginal = &mColumns.back();
 
     static const struct
@@ -350,11 +355,11 @@ CSMWorld::RefIdCollection::RefIdCollection()
     };
 
     // for re-use in NPC records
-    const RefIdColumn *essential = 0;
+    const RefIdColumn *essential = nullptr;
 
     for (int i=0; sCreatureFlagTable[i].mName!=-1; ++i)
     {
-        mColumns.push_back (RefIdColumn (sCreatureFlagTable[i].mName, ColumnBase::Display_Boolean));
+        mColumns.emplace_back(sCreatureFlagTable[i].mName, ColumnBase::Display_Boolean);
         creatureColumns.mFlags.insert (std::make_pair (&mColumns.back(), sCreatureFlagTable[i].mFlag));
 
         switch (sCreatureFlagTable[i].mFlag)
@@ -363,7 +368,7 @@ CSMWorld::RefIdCollection::RefIdCollection()
         }
     }
 
-    mColumns.push_back(RefIdColumn(Columns::ColumnId_BloodType, ColumnBase::Display_BloodType));
+    mColumns.emplace_back(Columns::ColumnId_BloodType, ColumnBase::Display_BloodType);
     // For re-use in NPC records.
     const RefIdColumn *bloodType = &mColumns.back();
     creatureColumns.mBloodType = bloodType;
@@ -371,24 +376,24 @@ CSMWorld::RefIdCollection::RefIdCollection()
     creatureColumns.mFlags.insert (std::make_pair (respawn, ESM::Creature::Respawn));
 
     // Nested table
-    mColumns.push_back(RefIdColumn (Columns::ColumnId_CreatureAttributes,
-            ColumnBase::Display_NestedHeader, ColumnBase::Flag_Dialogue));
+    mColumns.emplace_back(Columns::ColumnId_CreatureAttributes,
+            ColumnBase::Display_NestedHeader, ColumnBase::Flag_Dialogue);
     creatureColumns.mAttributes = &mColumns.back();
     std::map<UniversalId::Type, NestedRefIdAdapterBase*> creaAttrMap;
     creaAttrMap.insert(std::make_pair(UniversalId::Type_Creature, new CreatureAttributesRefIdAdapter()));
-    mNestedAdapters.push_back (std::make_pair(&mColumns.back(), creaAttrMap));
+    mNestedAdapters.emplace_back(&mColumns.back(), creaAttrMap);
     mColumns.back().addColumn(
             new RefIdColumn (Columns::ColumnId_Attribute, CSMWorld::ColumnBase::Display_Attribute, false, false));
     mColumns.back().addColumn(
             new RefIdColumn (Columns::ColumnId_AttributeValue, CSMWorld::ColumnBase::Display_Integer));
 
     // Nested table
-    mColumns.push_back(RefIdColumn (Columns::ColumnId_CreatureAttack,
-            ColumnBase::Display_NestedHeader, ColumnBase::Flag_Dialogue));
+    mColumns.emplace_back(Columns::ColumnId_CreatureAttack,
+            ColumnBase::Display_NestedHeader, ColumnBase::Flag_Dialogue);
     creatureColumns.mAttacks = &mColumns.back();
     std::map<UniversalId::Type, NestedRefIdAdapterBase*> attackMap;
     attackMap.insert(std::make_pair(UniversalId::Type_Creature, new CreatureAttackRefIdAdapter()));
-    mNestedAdapters.push_back (std::make_pair(&mColumns.back(), attackMap));
+    mNestedAdapters.emplace_back(&mColumns.back(), attackMap);
     mColumns.back().addColumn(
             new RefIdColumn (Columns::ColumnId_CreatureAttack, CSMWorld::ColumnBase::Display_Integer, false, false));
     mColumns.back().addColumn(
@@ -397,12 +402,12 @@ CSMWorld::RefIdCollection::RefIdCollection()
             new RefIdColumn (Columns::ColumnId_MaxAttack, CSMWorld::ColumnBase::Display_Integer));
 
     // Nested list
-    mColumns.push_back(RefIdColumn (Columns::ColumnId_CreatureMisc,
-        ColumnBase::Display_NestedHeader, ColumnBase::Flag_Dialogue | ColumnBase::Flag_Dialogue_List));
+    mColumns.emplace_back(Columns::ColumnId_CreatureMisc,
+        ColumnBase::Display_NestedHeader, ColumnBase::Flag_Dialogue | ColumnBase::Flag_Dialogue_List);
     creatureColumns.mMisc = &mColumns.back();
     std::map<UniversalId::Type, NestedRefIdAdapterBase*> creaMiscMap;
     creaMiscMap.insert(std::make_pair(UniversalId::Type_Creature, new CreatureMiscRefIdAdapter()));
-    mNestedAdapters.push_back (std::make_pair(&mColumns.back(), creaMiscMap));
+    mNestedAdapters.emplace_back(&mColumns.back(), creaMiscMap);
     mColumns.back().addColumn(
             new RefIdColumn (Columns::ColumnId_Level, CSMWorld::ColumnBase::Display_Integer,
             ColumnBase::Flag_Dialogue | ColumnBase::Flag_Dialogue_Refresh));
@@ -423,27 +428,27 @@ CSMWorld::RefIdCollection::RefIdCollection()
     mColumns.back().addColumn(
             new RefIdColumn (Columns::ColumnId_Gold, CSMWorld::ColumnBase::Display_Integer));
 
-    mColumns.push_back (RefIdColumn (Columns::ColumnId_OpenSound, ColumnBase::Display_Sound));
+    mColumns.emplace_back(Columns::ColumnId_OpenSound, ColumnBase::Display_Sound);
     const RefIdColumn *openSound = &mColumns.back();
 
-    mColumns.push_back (RefIdColumn (Columns::ColumnId_CloseSound, ColumnBase::Display_Sound));
+    mColumns.emplace_back(Columns::ColumnId_CloseSound, ColumnBase::Display_Sound);
     const RefIdColumn *closeSound = &mColumns.back();
 
     LightColumns lightColumns (inventoryColumns);
 
-    mColumns.push_back (RefIdColumn (Columns::ColumnId_Duration, ColumnBase::Display_Integer));
+    mColumns.emplace_back(Columns::ColumnId_Duration, ColumnBase::Display_Integer);
     lightColumns.mTime = &mColumns.back();
 
-    mColumns.push_back (RefIdColumn (Columns::ColumnId_Radius, ColumnBase::Display_Integer));
+    mColumns.emplace_back(Columns::ColumnId_Radius, ColumnBase::Display_Integer);
     lightColumns.mRadius = &mColumns.back();
 
-    mColumns.push_back (RefIdColumn (Columns::ColumnId_Colour, ColumnBase::Display_Colour));
+    mColumns.emplace_back(Columns::ColumnId_Colour, ColumnBase::Display_Colour);
     lightColumns.mColor = &mColumns.back();
 
-    mColumns.push_back (RefIdColumn (Columns::ColumnId_Sound, ColumnBase::Display_Sound));
+    mColumns.emplace_back(Columns::ColumnId_Sound, ColumnBase::Display_Sound);
     lightColumns.mSound = &mColumns.back();
 
-    mColumns.push_back(RefIdColumn(Columns::ColumnId_EmitterType, ColumnBase::Display_EmitterType));
+    mColumns.emplace_back(Columns::ColumnId_EmitterType, ColumnBase::Display_EmitterType);
     lightColumns.mEmitterType = &mColumns.back();
 
     static const struct
@@ -462,31 +467,32 @@ CSMWorld::RefIdCollection::RefIdCollection()
 
     for (int i=0; sLightFlagTable[i].mName!=-1; ++i)
     {
-        mColumns.push_back (RefIdColumn (sLightFlagTable[i].mName, ColumnBase::Display_Boolean));
+        mColumns.emplace_back(sLightFlagTable[i].mName, ColumnBase::Display_Boolean);
         lightColumns.mFlags.insert (std::make_pair (&mColumns.back(), sLightFlagTable[i].mFlag));
     }
 
-    mColumns.push_back (RefIdColumn (Columns::ColumnId_IsKey, ColumnBase::Display_Boolean));
+    mColumns.emplace_back(Columns::ColumnId_IsKey, ColumnBase::Display_Boolean);
     const RefIdColumn *key = &mColumns.back();
 
     NpcColumns npcColumns (actorsColumns);
 
-    mColumns.push_back (RefIdColumn (Columns::ColumnId_Race, ColumnBase::Display_Race));
+    mColumns.emplace_back(Columns::ColumnId_Race, ColumnBase::Display_Race);
     npcColumns.mRace = &mColumns.back();
 
-    mColumns.push_back (RefIdColumn (Columns::ColumnId_Class, ColumnBase::Display_Class));
+    mColumns.emplace_back(Columns::ColumnId_Class, ColumnBase::Display_Class);
     npcColumns.mClass = &mColumns.back();
 
-    mColumns.push_back (RefIdColumn (Columns::ColumnId_Faction, ColumnBase::Display_Faction));
+    // NAME32 enforced in IdCompletionDelegate::createEditor()
+    mColumns.emplace_back(Columns::ColumnId_Faction, ColumnBase::Display_Faction);
     npcColumns.mFaction = &mColumns.back();
 
-    mColumns.push_back (RefIdColumn (Columns::Columnid_Hair, ColumnBase::Display_BodyPart));
+    mColumns.emplace_back(Columns::Columnid_Hair, ColumnBase::Display_BodyPart);
     npcColumns.mHair = &mColumns.back();
 
-    mColumns.push_back (RefIdColumn (Columns::ColumnId_Head, ColumnBase::Display_BodyPart));
+    mColumns.emplace_back(Columns::ColumnId_Head, ColumnBase::Display_BodyPart);
     npcColumns.mHead = &mColumns.back();
 
-    mColumns.push_back (RefIdColumn (Columns::ColumnId_Gender, ColumnBase::Display_GenderNpc));
+    mColumns.emplace_back(Columns::ColumnId_Gender, ColumnBase::Display_GenderNpc);
     npcColumns.mGender = &mColumns.back();
 
     npcColumns.mFlags.insert (std::make_pair (essential, ESM::NPC::Essential));
@@ -503,36 +509,36 @@ CSMWorld::RefIdCollection::RefIdCollection()
     // These needs to be driven from the autocalculated setting.
 
     // Nested table
-    mColumns.push_back(RefIdColumn (Columns::ColumnId_NpcAttributes,
-            ColumnBase::Display_NestedHeader, ColumnBase::Flag_Dialogue));
+    mColumns.emplace_back(Columns::ColumnId_NpcAttributes,
+            ColumnBase::Display_NestedHeader, ColumnBase::Flag_Dialogue);
     npcColumns.mAttributes = &mColumns.back();
     std::map<UniversalId::Type, NestedRefIdAdapterBase*> attrMap;
     attrMap.insert(std::make_pair(UniversalId::Type_Npc, new NpcAttributesRefIdAdapter()));
-    mNestedAdapters.push_back (std::make_pair(&mColumns.back(), attrMap));
+    mNestedAdapters.emplace_back(&mColumns.back(), attrMap);
     mColumns.back().addColumn(
             new RefIdColumn (Columns::ColumnId_Attribute, CSMWorld::ColumnBase::Display_Attribute, false, false));
     mColumns.back().addColumn(
             new RefIdColumn (Columns::ColumnId_UChar, CSMWorld::ColumnBase::Display_UnsignedInteger8));
 
     // Nested table
-    mColumns.push_back(RefIdColumn (Columns::ColumnId_NpcSkills,
-            ColumnBase::Display_NestedHeader, ColumnBase::Flag_Dialogue));
+    mColumns.emplace_back(Columns::ColumnId_NpcSkills,
+            ColumnBase::Display_NestedHeader, ColumnBase::Flag_Dialogue);
     npcColumns.mSkills = &mColumns.back();
     std::map<UniversalId::Type, NestedRefIdAdapterBase*> skillsMap;
     skillsMap.insert(std::make_pair(UniversalId::Type_Npc, new NpcSkillsRefIdAdapter()));
-    mNestedAdapters.push_back (std::make_pair(&mColumns.back(), skillsMap));
+    mNestedAdapters.emplace_back(&mColumns.back(), skillsMap);
     mColumns.back().addColumn(
             new RefIdColumn (Columns::ColumnId_Skill, CSMWorld::ColumnBase::Display_SkillId, false, false));
     mColumns.back().addColumn(
             new RefIdColumn (Columns::ColumnId_UChar, CSMWorld::ColumnBase::Display_UnsignedInteger8));
 
     // Nested list
-    mColumns.push_back(RefIdColumn (Columns::ColumnId_NpcMisc,
-        ColumnBase::Display_NestedHeader, ColumnBase::Flag_Dialogue | ColumnBase::Flag_Dialogue_List));
+    mColumns.emplace_back(Columns::ColumnId_NpcMisc,
+        ColumnBase::Display_NestedHeader, ColumnBase::Flag_Dialogue | ColumnBase::Flag_Dialogue_List);
     npcColumns.mMisc = &mColumns.back();
     std::map<UniversalId::Type, NestedRefIdAdapterBase*> miscMap;
     miscMap.insert(std::make_pair(UniversalId::Type_Npc, new NpcMiscRefIdAdapter()));
-    mNestedAdapters.push_back (std::make_pair(&mColumns.back(), miscMap));
+    mNestedAdapters.emplace_back(&mColumns.back(), miscMap);
     mColumns.back().addColumn(
             new RefIdColumn (Columns::ColumnId_Level, CSMWorld::ColumnBase::Display_SignedInteger16));
     mColumns.back().addColumn(
@@ -549,20 +555,18 @@ CSMWorld::RefIdCollection::RefIdCollection()
             new RefIdColumn (Columns::ColumnId_NpcRank, CSMWorld::ColumnBase::Display_UnsignedInteger8));
     mColumns.back().addColumn(
             new RefIdColumn (Columns::ColumnId_Gold, CSMWorld::ColumnBase::Display_Integer));
-    mColumns.back().addColumn(
-            new RefIdColumn (Columns::ColumnId_NpcPersistence, CSMWorld::ColumnBase::Display_Boolean));
 
     WeaponColumns weaponColumns (enchantableColumns);
 
-    mColumns.push_back (RefIdColumn (Columns::ColumnId_WeaponType, ColumnBase::Display_WeaponType));
+    mColumns.emplace_back(Columns::ColumnId_WeaponType, ColumnBase::Display_WeaponType);
     weaponColumns.mType = &mColumns.back();
 
     weaponColumns.mHealth = health;
 
-    mColumns.push_back (RefIdColumn (Columns::ColumnId_WeaponSpeed, ColumnBase::Display_Float));
+    mColumns.emplace_back(Columns::ColumnId_WeaponSpeed, ColumnBase::Display_Float);
     weaponColumns.mSpeed = &mColumns.back();
 
-    mColumns.push_back (RefIdColumn (Columns::ColumnId_WeaponReach, ColumnBase::Display_Float));
+    mColumns.emplace_back(Columns::ColumnId_WeaponReach, ColumnBase::Display_Float);
     weaponColumns.mReach = &mColumns.back();
 
     for (int i=0; i<3; ++i)
@@ -572,8 +576,7 @@ CSMWorld::RefIdCollection::RefIdCollection()
 
         for (int j=0; j<2; ++j)
         {
-            mColumns.push_back (
-                RefIdColumn (Columns::ColumnId_MinChop+i*2+j, ColumnBase::Display_Integer));
+            mColumns.emplace_back(Columns::ColumnId_MinChop+i*2+j, ColumnBase::Display_Integer);
             column[j] = &mColumns.back();
         }
     }
@@ -591,19 +594,19 @@ CSMWorld::RefIdCollection::RefIdCollection()
 
     for (int i=0; sWeaponFlagTable[i].mName!=-1; ++i)
     {
-        mColumns.push_back (RefIdColumn (sWeaponFlagTable[i].mName, ColumnBase::Display_Boolean));
+        mColumns.emplace_back(sWeaponFlagTable[i].mName, ColumnBase::Display_Boolean);
         weaponColumns.mFlags.insert (std::make_pair (&mColumns.back(), sWeaponFlagTable[i].mFlag));
     }
 
     // Nested table
-    mColumns.push_back(RefIdColumn (Columns::ColumnId_PartRefList, ColumnBase::Display_NestedHeader, ColumnBase::Flag_Dialogue));
+    mColumns.emplace_back(Columns::ColumnId_PartRefList, ColumnBase::Display_NestedHeader, ColumnBase::Flag_Dialogue);
     const RefIdColumn *partRef = &mColumns.back();
     std::map<UniversalId::Type, NestedRefIdAdapterBase*> partMap;
     partMap.insert(std::make_pair(UniversalId::Type_Armor,
         new BodyPartRefIdAdapter<ESM::Armor> (UniversalId::Type_Armor)));
     partMap.insert(std::make_pair(UniversalId::Type_Clothing,
         new BodyPartRefIdAdapter<ESM::Clothing> (UniversalId::Type_Clothing)));
-    mNestedAdapters.push_back (std::make_pair(&mColumns.back(), partMap));
+    mNestedAdapters.emplace_back(&mColumns.back(), partMap);
     mColumns.back().addColumn(
         new RefIdColumn (Columns::ColumnId_PartRefType, CSMWorld::ColumnBase::Display_PartRefType));
     mColumns.back().addColumn(
@@ -614,30 +617,30 @@ CSMWorld::RefIdCollection::RefIdCollection()
     LevListColumns levListColumns (baseColumns);
 
     // Nested table
-    mColumns.push_back(RefIdColumn (Columns::ColumnId_LevelledList,
-        ColumnBase::Display_NestedHeader, ColumnBase::Flag_Dialogue));
+    mColumns.emplace_back(Columns::ColumnId_LevelledList,
+        ColumnBase::Display_NestedHeader, ColumnBase::Flag_Dialogue);
     levListColumns.mLevList = &mColumns.back();
     std::map<UniversalId::Type, NestedRefIdAdapterBase*> levListMap;
     levListMap.insert(std::make_pair(UniversalId::Type_CreatureLevelledList,
         new NestedLevListRefIdAdapter<ESM::CreatureLevList> (UniversalId::Type_CreatureLevelledList)));
     levListMap.insert(std::make_pair(UniversalId::Type_ItemLevelledList,
         new NestedLevListRefIdAdapter<ESM::ItemLevList> (UniversalId::Type_ItemLevelledList)));
-    mNestedAdapters.push_back (std::make_pair(&mColumns.back(), levListMap));
+    mNestedAdapters.emplace_back(&mColumns.back(), levListMap);
     mColumns.back().addColumn(
         new RefIdColumn (Columns::ColumnId_LevelledItemId, CSMWorld::ColumnBase::Display_Referenceable));
     mColumns.back().addColumn(
         new RefIdColumn (Columns::ColumnId_LevelledItemLevel, CSMWorld::ColumnBase::Display_Integer));
 
     // Nested list
-    mColumns.push_back(RefIdColumn (Columns::ColumnId_LevelledList,
-        ColumnBase::Display_NestedHeader, ColumnBase::Flag_Dialogue | ColumnBase::Flag_Dialogue_List));
+    mColumns.emplace_back(Columns::ColumnId_LevelledList,
+        ColumnBase::Display_NestedHeader, ColumnBase::Flag_Dialogue | ColumnBase::Flag_Dialogue_List);
     levListColumns.mNestedListLevList = &mColumns.back();
     std::map<UniversalId::Type, NestedRefIdAdapterBase*> nestedListLevListMap;
     nestedListLevListMap.insert(std::make_pair(UniversalId::Type_CreatureLevelledList,
         new NestedListLevListRefIdAdapter<ESM::CreatureLevList> (UniversalId::Type_CreatureLevelledList)));
     nestedListLevListMap.insert(std::make_pair(UniversalId::Type_ItemLevelledList,
         new NestedListLevListRefIdAdapter<ESM::ItemLevList> (UniversalId::Type_ItemLevelledList)));
-    mNestedAdapters.push_back (std::make_pair(&mColumns.back(), nestedListLevListMap));
+    mNestedAdapters.emplace_back(&mColumns.back(), nestedListLevListMap);
     mColumns.back().addColumn(
         new RefIdColumn (Columns::ColumnId_LevelledItemTypeEach, CSMWorld::ColumnBase::Display_Boolean));
     mColumns.back().addColumn(
@@ -765,7 +768,6 @@ void CSMWorld::RefIdCollection::setNestedData(int row, int column, const QVarian
     const CSMWorld::NestedRefIdAdapterBase& nestedAdapter = getNestedAdapter(mColumns.at(column), localIndex.second);
 
     nestedAdapter.setNestedData(&mColumns.at (column), mData, localIndex.first, data, subRow, subColumn);
-    return;
 }
 
 void CSMWorld::RefIdCollection::removeRows (int index, int count)
@@ -779,7 +781,6 @@ void CSMWorld::RefIdCollection::removeNestedRows(int row, int column, int subRow
     const CSMWorld::NestedRefIdAdapterBase& nestedAdapter = getNestedAdapter(mColumns.at(column), localIndex.second);
 
     nestedAdapter.removeNestedRow(&mColumns.at (column), mData, localIndex.first, subRow);
-    return;
 }
 
 void CSMWorld::RefIdCollection::appendBlankRecord (const std::string& id, UniversalId::Type type)
@@ -787,7 +788,7 @@ void CSMWorld::RefIdCollection::appendBlankRecord (const std::string& id, Univer
     mData.appendRecord (type, id, false);
 }
 
-int CSMWorld::RefIdCollection::searchId (const std::string& id) const
+int CSMWorld::RefIdCollection::searchId(std::string_view id) const
 {
     RefIdData::LocalIndex localIndex = mData.searchId (id);
 
@@ -797,18 +798,18 @@ int CSMWorld::RefIdCollection::searchId (const std::string& id) const
     return mData.localToGlobalIndex (localIndex);
 }
 
-void CSMWorld::RefIdCollection::replace (int index, const RecordBase& record)
+void CSMWorld::RefIdCollection::replace (int index, std::unique_ptr<RecordBase> record)
 {
-    mData.getRecord (mData.globalToLocalIndex (index)).assign (record);
+    mData.getRecord (mData.globalToLocalIndex (index)).assign (*record.release());
 }
 
 void CSMWorld::RefIdCollection::cloneRecord(const std::string& origin,
                                      const std::string& destination,
                                      const CSMWorld::UniversalId::Type type)
 {
-        std::unique_ptr<RecordBase> newRecord(mData.getRecord(mData.searchId(origin)).modifiedCopy());
+        std::unique_ptr<RecordBase> newRecord = mData.getRecord(mData.searchId(origin)).modifiedCopy();
         mAdapters.find(type)->second->setId(*newRecord, destination);
-        mData.insertRecord(*newRecord, type, destination);
+        mData.insertRecord(std::move(newRecord), type, destination);
 }
 
 bool CSMWorld::RefIdCollection::touchRecord(const std::string& id)
@@ -817,16 +818,16 @@ bool CSMWorld::RefIdCollection::touchRecord(const std::string& id)
     return false;
 }
 
-void CSMWorld::RefIdCollection::appendRecord (const RecordBase& record,
+void CSMWorld::RefIdCollection::appendRecord (std::unique_ptr<RecordBase> record,
     UniversalId::Type type)
 {
-    std::string id = findAdapter (type).getId (record);
+    std::string id = findAdapter (type).getId (*record.get());
 
     int index = mData.getAppendIndex (type);
 
     mData.appendRecord (type, id, false);
 
-    mData.getRecord (mData.globalToLocalIndex (index)).assign (record);
+    mData.getRecord (mData.globalToLocalIndex (index)).assign (*record.release());
 }
 
 const CSMWorld::RecordBase& CSMWorld::RefIdCollection::getRecord (const std::string& id) const
@@ -896,7 +897,6 @@ void CSMWorld::RefIdCollection::addNestedRow(int row, int col, int position)
     const CSMWorld::NestedRefIdAdapterBase& nestedAdapter = getNestedAdapter(mColumns.at(col), localIndex.second);
 
     nestedAdapter.addNestedRow(&mColumns.at(col), mData, localIndex.first, position);
-    return;
 }
 
 void CSMWorld::RefIdCollection::setNestedTable(int row, int column, const CSMWorld::NestedTableWrapperBase& nestedTable)
@@ -905,7 +905,6 @@ void CSMWorld::RefIdCollection::setNestedTable(int row, int column, const CSMWor
     const CSMWorld::NestedRefIdAdapterBase& nestedAdapter = getNestedAdapter(mColumns.at(column), localIndex.second);
 
     nestedAdapter.setNestedTable(&mColumns.at(column), mData, localIndex.first, nestedTable);
-    return;
 }
 
 CSMWorld::NestedTableWrapperBase* CSMWorld::RefIdCollection::nestedTable(int row, int column) const

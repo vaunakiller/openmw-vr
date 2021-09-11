@@ -9,6 +9,7 @@
 #include "../mwbase/inputmanager.hpp"
 #include "../mwbase/statemanager.hpp"
 #include "../mwbase/environment.hpp"
+#include "../mwbase/luamanager.hpp"
 #include "../mwbase/mechanicsmanager.hpp"
 #include "../mwbase/windowmanager.hpp"
 #include "../mwbase/world.hpp"
@@ -26,7 +27,7 @@
 
 namespace MWInput
 {
-    const float ZOOM_SCALE = 120.f; /// Used for scrolling camera in and out
+    const float ZOOM_SCALE = 10.f; /// Used for scrolling camera in and out
 
     ActionManager::ActionManager(BindingsManager* bindingsManager,
             osgViewer::ScreenCaptureHandler::CaptureOperation* screenCaptureOperation,
@@ -110,23 +111,21 @@ namespace MWInput
 
             if (MWBase::Environment::get().getInputManager()->getControlSwitch("playerviewswitch"))
             {
+                const float switchLimit = 0.25;
+                MWBase::World* world = MWBase::Environment::get().getWorld();
                 if (mBindingsManager->actionIsActive(A_TogglePOV))
                 {
-                    if (mPreviewPOVDelay <= 0.5 &&
-                        (mPreviewPOVDelay += dt) > 0.5)
-                    {
-                        mPreviewPOVDelay = 1.f;
-                        MWBase::Environment::get().getWorld()->togglePreviewMode(true);
-                    }
+                    if (world->isFirstPerson() ? mPreviewPOVDelay > switchLimit : mPreviewPOVDelay == 0)
+                        world->togglePreviewMode(true);
+                    mPreviewPOVDelay += dt;
                 }
                 else
                 {
                     //disable preview mode
-                    MWBase::Environment::get().getWorld()->togglePreviewMode(false);
-                    if (mPreviewPOVDelay > 0.f && mPreviewPOVDelay <= 0.5)
-                    {
-                        MWBase::Environment::get().getWorld()->togglePOV();
-                    }
+                    if (mPreviewPOVDelay > 0)
+                        world->togglePreviewMode(false);
+                    if (mPreviewPOVDelay > 0.f && mPreviewPOVDelay <= switchLimit)
+                        world->togglePOV();
                     mPreviewPOVDelay = 0.f;
                 }
             }
@@ -143,7 +142,7 @@ namespace MWInput
 
             float xAxis = mBindingsManager->getActionValue(A_MoveLeftRight);
             float yAxis = mBindingsManager->getActionValue(A_MoveForwardBackward);
-            bool isRunning = xAxis > .75 || xAxis < .25 || yAxis > .75 || yAxis < .25;
+            bool isRunning = osg::Vec2f(xAxis * 2 - 1, yAxis * 2 - 1).length2() > 0.25f;
             if ((mAlwaysRunActive && alwaysRunAllowed) || isRunning)
                 player.setRunState(!mBindingsManager->actionIsActive(A_Run));
             else
@@ -169,6 +168,11 @@ namespace MWInput
 
         mAttemptJump = false;
     }
+    
+    bool ActionManager::isPreviewModeEnabled()
+    {
+        return MWBase::Environment::get().getWorld()->isPreviewModeEnabled();
+    }
 
     void ActionManager::resetIdleTime()
     {
@@ -192,6 +196,9 @@ namespace MWInput
 
     void ActionManager::executeAction(int action)
     {
+        MWBase::Environment::get().getLuaManager()->inputEvent({MWBase::LuaManager::InputEvent::Action, action});
+        auto* inputManager = MWBase::Environment::get().getInputManager();
+        auto* windowManager = MWBase::Environment::get().getWindowManager();
         // trigger action activated
         switch (action)
         {
@@ -208,7 +215,7 @@ namespace MWInput
             toggleConsole ();
             break;
         case A_Activate:
-            MWBase::Environment::get().getInputManager()->resetIdleTime();
+            inputManager->resetIdleTime();
             activate();
             break;
         case A_MoveLeft:
@@ -269,18 +276,18 @@ namespace MWInput
             showQuickKeysMenu();
             break;
         case A_ToggleHUD:
-            MWBase::Environment::get().getWindowManager()->toggleHud();
+            windowManager->toggleHud();
             break;
         case A_ToggleDebug:
-            MWBase::Environment::get().getWindowManager()->toggleDebugWindow();
+            windowManager->toggleDebugWindow();
             break;
         case A_ZoomIn:
-            if (MWBase::Environment::get().getInputManager()->getControlSwitch("playerviewswitch") && MWBase::Environment::get().getInputManager()->getControlSwitch("playercontrols") && !MWBase::Environment::get().getWindowManager()->isGuiMode())
-                MWBase::Environment::get().getWorld()->setCameraDistance(ZOOM_SCALE, true, true);
+            if (inputManager->getControlSwitch("playerviewswitch") && inputManager->getControlSwitch("playercontrols") && !windowManager->isGuiMode())
+                MWBase::Environment::get().getWorld()->adjustCameraDistance(-ZOOM_SCALE);
             break;
         case A_ZoomOut:
-            if (MWBase::Environment::get().getInputManager()->getControlSwitch("playerviewswitch") && MWBase::Environment::get().getInputManager()->getControlSwitch("playercontrols") && !MWBase::Environment::get().getWindowManager()->isGuiMode())
-                MWBase::Environment::get().getWorld()->setCameraDistance(-ZOOM_SCALE, true, true);
+            if (inputManager->getControlSwitch("playerviewswitch") && inputManager->getControlSwitch("playercontrols") && !windowManager->isGuiMode())
+                MWBase::Environment::get().getWorld()->adjustCameraDistance(ZOOM_SCALE);
             break;
         case A_QuickSave:
             quickSave();
@@ -289,19 +296,19 @@ namespace MWInput
             quickLoad();
             break;
         case A_CycleSpellLeft:
-            if (checkAllowedToUseItems() && MWBase::Environment::get().getWindowManager()->isAllowed(MWGui::GW_Magic))
+            if (checkAllowedToUseItems() && windowManager->isAllowed(MWGui::GW_Magic))
                 MWBase::Environment::get().getWindowManager()->cycleSpell(false);
             break;
         case A_CycleSpellRight:
-            if (checkAllowedToUseItems() && MWBase::Environment::get().getWindowManager()->isAllowed(MWGui::GW_Magic))
+            if (checkAllowedToUseItems() && windowManager->isAllowed(MWGui::GW_Magic))
                 MWBase::Environment::get().getWindowManager()->cycleSpell(true);
             break;
         case A_CycleWeaponLeft:
-            if (checkAllowedToUseItems() && MWBase::Environment::get().getWindowManager()->isAllowed(MWGui::GW_Inventory))
+            if (checkAllowedToUseItems() && windowManager->isAllowed(MWGui::GW_Inventory))
                 MWBase::Environment::get().getWindowManager()->cycleWeapon(false);
             break;
         case A_CycleWeaponRight:
-            if (checkAllowedToUseItems() && MWBase::Environment::get().getWindowManager()->isAllowed(MWGui::GW_Inventory))
+            if (checkAllowedToUseItems() && windowManager->isAllowed(MWGui::GW_Inventory))
                 MWBase::Environment::get().getWindowManager()->cycleWeapon(true);
             break;
         case A_Sneak:
@@ -328,12 +335,8 @@ namespace MWInput
 
     void ActionManager::screenshot()
     {
-        bool regularScreenshot = true;
-
-        std::string settingStr;
-
-        settingStr = Settings::Manager::getString("screenshot type","Video");
-        regularScreenshot = settingStr.size() == 0 || settingStr.compare("regular") == 0;
+        const std::string& settingStr = Settings::Manager::getString("screenshot type", "Video");
+        bool regularScreenshot = settingStr.size() == 0 || settingStr.compare("regular") == 0;
 
         if (regularScreenshot)
         {
@@ -344,7 +347,7 @@ namespace MWInput
         {
             osg::ref_ptr<osg::Image> screenshot (new osg::Image);
 
-            if (MWBase::Environment::get().getWorld()->screenshot360(screenshot.get(), settingStr))
+            if (MWBase::Environment::get().getWorld()->screenshot360(screenshot.get()))
             {
                 (*mScreenCaptureOperation) (*(screenshot.get()), 0);
                 // FIXME: mScreenCaptureHandler->getCaptureOperation() causes crash for some reason
@@ -489,16 +492,17 @@ namespace MWInput
         if (MyGUI::InputManager::getInstance ().isModalAny())
             return;
 
-        if (MWBase::Environment::get().getWindowManager()->getMode() != MWGui::GM_Journal
-                && MWBase::Environment::get().getWindowManager()->getMode() != MWGui::GM_MainMenu
-                && MWBase::Environment::get().getWindowManager()->getMode() != MWGui::GM_Settings
-                && MWBase::Environment::get().getWindowManager ()->getJournalAllowed())
+        MWBase::WindowManager* windowManager = MWBase::Environment::get().getWindowManager();
+        if (windowManager->getMode() != MWGui::GM_Journal
+                && windowManager->getMode() != MWGui::GM_MainMenu
+                && windowManager->getMode() != MWGui::GM_Settings
+                && windowManager->getJournalAllowed())
         {
-            MWBase::Environment::get().getWindowManager()->pushGuiMode(MWGui::GM_Journal);
+            windowManager->pushGuiMode(MWGui::GM_Journal);
         }
-        else if (MWBase::Environment::get().getWindowManager()->containsMode(MWGui::GM_Journal))
+        else if (windowManager->containsMode(MWGui::GM_Journal))
         {
-            MWBase::Environment::get().getWindowManager()->removeGuiMode(MWGui::GM_Journal);
+            windowManager->removeGuiMode(MWGui::GM_Journal);
         }
     }
 

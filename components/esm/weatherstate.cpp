@@ -31,15 +31,15 @@ namespace ESM
         esm.getHNT(mNextWeather, nextWeatherRecord);
         esm.getHNT(mQueuedWeather, queuedWeatherRecord);
 
-        while(esm.peekNextSub(regionNameRecord))
+        while (esm.isNextSub(regionNameRecord))
         {
-            std::string regionID = esm.getHNString(regionNameRecord);
+            std::string regionID = esm.getHString();
             RegionWeatherState region;
             esm.getHNT(region.mWeather, regionWeatherRecord);
-            while(esm.peekNextSub(regionChanceRecord))
+            while (esm.isNextSub(regionChanceRecord))
             {
                 char chance;
-                esm.getHNT(chance, regionChanceRecord);
+                esm.getHT(chance);
                 region.mChances.push_back(chance);
             }
 
@@ -49,7 +49,7 @@ namespace ESM
 
     void WeatherState::save(ESMWriter& esm) const
     {
-        esm.writeHNCString(currentRegionRecord, mCurrentRegion.c_str());
+        esm.writeHNCString(currentRegionRecord, mCurrentRegion);
         esm.writeHNT(timePassedRecord, mTimePassed);
         esm.writeHNT(fastForwardRecord, mFastForward);
         esm.writeHNT(weatherUpdateTimeRecord, mWeatherUpdateTime);

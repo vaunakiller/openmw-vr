@@ -21,7 +21,7 @@ BsaArchive::BsaArchive(const std::string &filename)
     const Bsa::BSAFile::FileList &filelist = mFile->getList();
     for(Bsa::BSAFile::FileList::const_iterator it = filelist.begin();it != filelist.end();++it)
     {
-        mResources.push_back(BsaArchiveFile(&*it, mFile.get()));
+        mResources.emplace_back(&*it, mFile.get());
     }
 }
 
@@ -32,11 +32,28 @@ void BsaArchive::listResources(std::map<std::string, File *> &out, char (*normal
 {
     for (std::vector<BsaArchiveFile>::iterator it = mResources.begin(); it != mResources.end(); ++it)
     {
-        std::string ent = it->mInfo->name;
+        std::string ent = it->mInfo->name();
         std::transform(ent.begin(), ent.end(), ent.begin(), normalize_function);
 
         out[ent] = &*it;
     }
+}
+
+bool BsaArchive::contains(const std::string& file, char (*normalize_function)(char)) const
+{
+    for (const auto& it : mResources)
+    {
+        std::string ent = it.mInfo->name();
+        std::transform(ent.begin(), ent.end(), ent.begin(), normalize_function);
+        if(file == ent)
+            return true;
+    }
+    return false;
+}
+
+std::string BsaArchive::getDescription() const
+{
+    return std::string{"BSA: "} + mFile->getFilename();
 }
 
 // ------------------------------------------------------------------------------

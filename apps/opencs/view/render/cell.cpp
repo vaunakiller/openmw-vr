@@ -1,5 +1,7 @@
 #include "cell.hpp"
 
+#include <math.h>
+
 #include <osg/PositionAttitudeTransform>
 #include <osg/Geode>
 #include <osg/Geometry>
@@ -25,6 +27,7 @@
 #include "pathgrid.hpp"
 #include "terrainstorage.hpp"
 #include "object.hpp"
+#include "instancedragmodes.hpp"
 
 namespace CSVRender
 {
@@ -45,7 +48,7 @@ namespace CSVRender
     {
         public:
 
-            virtual void operator()(osg::Node* node, osg::NodeVisitor* nv)
+            void operator()(osg::Node* node, osg::NodeVisitor* nv) override
             {
                 traverse(node, nv);
                 CellNodeContainer* container = static_cast<CellNodeContainer*>(node->getUserData());
@@ -496,6 +499,50 @@ void CSVRender::Cell::selectAllWithSameParentId (int elementMask)
     }
 }
 
+void CSVRender::Cell::handleSelectDrag(Object* object, DragMode dragMode)
+{
+    if (dragMode == DragMode_Select_Only || dragMode == DragMode_Select_Add)
+        object->setSelected(true);
+
+    else if (dragMode == DragMode_Select_Remove)
+        object->setSelected(false);
+
+    else if (dragMode == DragMode_Select_Invert)
+        object->setSelected (!object->getSelected());
+}
+
+void CSVRender::Cell::selectInsideCube(const osg::Vec3d& pointA, const osg::Vec3d& pointB, DragMode dragMode)
+{
+    for (auto& object : mObjects)
+    {
+        if (dragMode == DragMode_Select_Only) object.second->setSelected (false);
+
+        if ( ( object.second->getPosition().pos[0] > pointA[0] && object.second->getPosition().pos[0] < pointB[0] ) ||
+             ( object.second->getPosition().pos[0] > pointB[0] && object.second->getPosition().pos[0] < pointA[0] ))
+        {
+            if ( ( object.second->getPosition().pos[1] > pointA[1] && object.second->getPosition().pos[1] < pointB[1] ) ||
+                 ( object.second->getPosition().pos[1] > pointB[1] && object.second->getPosition().pos[1] < pointA[1] ))
+            {
+                if ( ( object.second->getPosition().pos[2] > pointA[2] && object.second->getPosition().pos[2] < pointB[2] ) ||
+                     ( object.second->getPosition().pos[2] > pointB[2] && object.second->getPosition().pos[2] < pointA[2] ))
+                    handleSelectDrag(object.second, dragMode);
+            }
+
+        }
+    }
+}
+
+void CSVRender::Cell::selectWithinDistance(const osg::Vec3d& point, float distance, DragMode dragMode)
+{
+    for (auto& object : mObjects)
+    {
+        if (dragMode == DragMode_Select_Only) object.second->setSelected (false);
+
+        float distanceFromObject = (point - object.second->getPosition().asVec3()).length();
+        if (distanceFromObject < distance) handleSelectDrag(object.second, dragMode);
+    }
+}
+
 void CSVRender::Cell::setCellArrows (int mask)
 {
     for (int i=0; i<4; ++i)
@@ -504,12 +551,12 @@ void CSVRender::Cell::setCellArrows (int mask)
 
         bool enable = mask & direction;
 
-        if (enable!=(mCellArrows[i].get()!=0))
+        if (enable!=(mCellArrows[i].get()!=nullptr))
         {
             if (enable)
                 mCellArrows[i].reset (new CellArrow (mCellNode, direction, mCoordinates));
             else
-                mCellArrows[i].reset (0);
+                mCellArrows[i].reset (nullptr);
         }
     }
 }
@@ -553,7 +600,7 @@ std::vector<osg::ref_ptr<CSVRender::TagBase> > CSVRender::Cell::getSelection (un
                 result.push_back (iter->second->getTag());
     if (mPathgrid && elementMask & Mask_Pathgrid)
         if (mPathgrid->isSelected())
-            result.push_back(mPathgrid->getTag());
+            result.emplace_back(mPathgrid->getTag());
 
     return result;
 }

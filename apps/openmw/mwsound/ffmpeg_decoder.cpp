@@ -221,7 +221,7 @@ void FFmpeg_Decoder::open(const std::string &fname)
         if(!mStream)
             throw std::runtime_error("No audio streams in "+fname);
 
-        AVCodec *codec = avcodec_find_decoder((*mStream)->codecpar->codec_id);
+        const AVCodec *codec = avcodec_find_decoder((*mStream)->codecpar->codec_id);
         if(!codec)
         {
             std::string ss = "No codec found for id " +
@@ -287,9 +287,9 @@ void FFmpeg_Decoder::close()
     mStream = nullptr;
 
     av_packet_unref(&mPacket);
-    av_freep(&mFrame);
-    swr_free(&mSwr);
     av_freep(&mDataBuf);
+    av_frame_free(&mFrame);
+    swr_free(&mSwr);
 
     if(mFormatCtx)
     {
@@ -302,11 +302,13 @@ void FFmpeg_Decoder::close()
             //
             if (mFormatCtx->pb->buffer != nullptr)
             {
-                av_free(mFormatCtx->pb->buffer);
-                mFormatCtx->pb->buffer = nullptr;
+                av_freep(&mFormatCtx->pb->buffer);
             }
-            av_free(mFormatCtx->pb);
-            mFormatCtx->pb = nullptr;
+#if LIBAVCODEC_VERSION_INT >= AV_VERSION_INT(57, 80, 100)
+            avio_context_free(&mFormatCtx->pb);
+#else
+            av_freep(&mFormatCtx->pb);
+#endif
         }
         avformat_close_input(&mFormatCtx);
     }
@@ -437,7 +439,7 @@ FFmpeg_Decoder::FFmpeg_Decoder(const VFS::Manager* vfs)
   , mFrameSize(0)
   , mFramePos(0)
   , mNextPts(0.0)
-  , mSwr(0)
+  , mSwr(nullptr)
   , mOutputSampleFormat(AV_SAMPLE_FMT_NONE)
   , mOutputChannelLayout(0)
   , mDataBuf(nullptr)

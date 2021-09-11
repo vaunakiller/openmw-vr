@@ -39,15 +39,14 @@ namespace CSMWorld
 
             BaseRefIdAdapter (UniversalId::Type type, const BaseColumns& base);
 
-            virtual std::string getId (const RecordBase& record) const;
+            std::string getId (const RecordBase& record) const override;
 
-            virtual void setId (RecordBase& record, const std::string& id);
+            void setId (RecordBase& record, const std::string& id) override;
 
-            virtual QVariant getData (const RefIdColumn *column, const RefIdData& data, int index)
-                const;
+            QVariant getData (const RefIdColumn *column, const RefIdData& data, int index) const override;
 
-            virtual void setData (const RefIdColumn *column, RefIdData& data, int index,
-                const QVariant& value) const;
+            void setData (const RefIdColumn *column, RefIdData& data, int index,
+                const QVariant& value) const override;
             ///< If the data type does not match an exception is thrown.
 
             UniversalId::Type getType() const;
@@ -115,8 +114,9 @@ namespace CSMWorld
     struct ModelColumns : public BaseColumns
     {
         const RefIdColumn *mModel;
+        const RefIdColumn *mPersistence;
 
-        ModelColumns (const BaseColumns& base) : BaseColumns (base) {}
+        ModelColumns (const BaseColumns& base) : BaseColumns (base), mModel(nullptr), mPersistence(nullptr) {}
     };
 
     /// \brief Adapter for IDs with models (all but levelled lists)
@@ -129,11 +129,11 @@ namespace CSMWorld
 
             ModelRefIdAdapter (UniversalId::Type type, const ModelColumns& columns);
 
-            virtual QVariant getData (const RefIdColumn *column, const RefIdData& data, int index)
-                const;
+            QVariant getData (const RefIdColumn *column, const RefIdData& data, int index)
+                const override;
 
-            virtual void setData (const RefIdColumn *column, RefIdData& data, int index,
-                const QVariant& value) const;
+            void setData (const RefIdColumn *column, RefIdData& data, int index,
+                const QVariant& value) const override;
             ///< If the data type does not match an exception is thrown.
     };
 
@@ -152,6 +152,9 @@ namespace CSMWorld
         if (column==mModel.mModel)
             return QString::fromUtf8 (record.get().mModel.c_str());
 
+        if (column==mModel.mPersistence)
+            return (record.get().mRecordFlags & ESM::FLAG_Persistent) != 0;
+
         return BaseRefIdAdapter<RecordT>::getData (column, data, index);
     }
 
@@ -165,6 +168,13 @@ namespace CSMWorld
         RecordT record2 = record.get();
         if (column==mModel.mModel)
             record2.mModel = value.toString().toUtf8().constData();
+        else if (column==mModel.mPersistence)
+        {
+            if (value.toInt() != 0)
+                record2.mRecordFlags |= ESM::FLAG_Persistent;
+            else
+                record2.mRecordFlags &= ~ESM::FLAG_Persistent;
+        }
         else
         {
             BaseRefIdAdapter<RecordT>::setData (column, data, index, value);
@@ -179,7 +189,11 @@ namespace CSMWorld
         const RefIdColumn *mName;
         const RefIdColumn *mScript;
 
-        NameColumns (const ModelColumns& base) : ModelColumns (base) {}
+        NameColumns (const ModelColumns& base)
+        : ModelColumns (base)
+        , mName(nullptr)
+        , mScript(nullptr)
+        {}
     };
 
     /// \brief Adapter for IDs with names (all but levelled lists and statics)
@@ -192,11 +206,11 @@ namespace CSMWorld
 
             NameRefIdAdapter (UniversalId::Type type, const NameColumns& columns);
 
-            virtual QVariant getData (const RefIdColumn *column, const RefIdData& data, int index)
-                const;
+            QVariant getData (const RefIdColumn *column, const RefIdData& data, int index)
+                const override;
 
-            virtual void setData (const RefIdColumn *column, RefIdData& data, int index,
-                const QVariant& value) const;
+            void setData (const RefIdColumn *column, RefIdData& data, int index,
+                const QVariant& value) const override;
             ///< If the data type does not match an exception is thrown.
     };
 
@@ -248,7 +262,12 @@ namespace CSMWorld
         const RefIdColumn *mWeight;
         const RefIdColumn *mValue;
 
-        InventoryColumns (const NameColumns& base) : NameColumns (base) {}
+        InventoryColumns (const NameColumns& base)
+        : NameColumns (base)
+        , mIcon(nullptr)
+        , mWeight(nullptr)
+        , mValue(nullptr)
+        {}
     };
 
     /// \brief Adapter for IDs that can go into an inventory
@@ -261,11 +280,11 @@ namespace CSMWorld
 
             InventoryRefIdAdapter (UniversalId::Type type, const InventoryColumns& columns);
 
-            virtual QVariant getData (const RefIdColumn *column, const RefIdData& data, int index)
-                const;
+            QVariant getData (const RefIdColumn *column, const RefIdData& data, int index)
+                const override;
 
-            virtual void setData (const RefIdColumn *column, RefIdData& data, int index,
-                const QVariant& value) const;
+            void setData (const RefIdColumn *column, RefIdData& data, int index,
+                const QVariant& value) const override;
             ///< If the data type does not match an exception is thrown.
     };
 
@@ -333,11 +352,11 @@ namespace CSMWorld
 
             PotionRefIdAdapter (const PotionColumns& columns, const RefIdColumn *autoCalc);
 
-            virtual QVariant getData (const RefIdColumn *column, const RefIdData& data, int index)
-                const;
+            QVariant getData (const RefIdColumn *column, const RefIdData& data, int index)
+                const override;
 
-            virtual void setData (const RefIdColumn *column, RefIdData& data, int index,
-                const QVariant& value) const;
+            void setData (const RefIdColumn *column, RefIdData& data, int index,
+                const QVariant& value) const override;
             ///< If the data type does not match an exception is thrown.
     };
 
@@ -356,11 +375,11 @@ namespace CSMWorld
 
             IngredientRefIdAdapter (const IngredientColumns& columns);
 
-            virtual QVariant getData (const RefIdColumn *column, const RefIdData& data, int index)
-                const;
+            QVariant getData (const RefIdColumn *column, const RefIdData& data, int index)
+                const override;
 
-            virtual void setData (const RefIdColumn *column, RefIdData& data, int index,
-                const QVariant& value) const;
+            void setData (const RefIdColumn *column, RefIdData& data, int index,
+                const QVariant& value) const override;
             ///< If the data type does not match an exception is thrown.
     };
 
@@ -376,29 +395,29 @@ namespace CSMWorld
 
         IngredEffectRefIdAdapter();
 
-        virtual ~IngredEffectRefIdAdapter();
+        ~IngredEffectRefIdAdapter() override;
 
-        virtual void addNestedRow (const RefIdColumn *column,
-                RefIdData& data, int index, int position) const;
+        void addNestedRow (const RefIdColumn *column,
+                RefIdData& data, int index, int position) const override;
 
-        virtual void removeNestedRow (const RefIdColumn *column,
-                RefIdData& data, int index, int rowToRemove) const;
+        void removeNestedRow (const RefIdColumn *column,
+                RefIdData& data, int index, int rowToRemove) const override;
 
-        virtual void setNestedTable (const RefIdColumn* column,
-                RefIdData& data, int index, const NestedTableWrapperBase& nestedTable) const;
+        void setNestedTable (const RefIdColumn* column,
+                RefIdData& data, int index, const NestedTableWrapperBase& nestedTable) const override;
 
-        virtual NestedTableWrapperBase* nestedTable (const RefIdColumn* column,
-                const RefIdData& data, int index) const;
+        NestedTableWrapperBase* nestedTable (const RefIdColumn* column,
+                const RefIdData& data, int index) const override;
 
-        virtual QVariant getNestedData (const RefIdColumn *column,
-                const RefIdData& data, int index, int subRowIndex, int subColIndex) const;
+        QVariant getNestedData (const RefIdColumn *column,
+                const RefIdData& data, int index, int subRowIndex, int subColIndex) const override;
 
-        virtual void setNestedData (const RefIdColumn *column,
-                RefIdData& data, int row, const QVariant& value, int subRowIndex, int subColIndex) const;
+        void setNestedData (const RefIdColumn *column,
+                RefIdData& data, int row, const QVariant& value, int subRowIndex, int subColIndex) const override;
 
-        virtual int getNestedColumnsCount(const RefIdColumn *column, const RefIdData& data) const;
+        int getNestedColumnsCount(const RefIdColumn *column, const RefIdData& data) const override;
 
-        virtual int getNestedRowsCount(const RefIdColumn *column, const RefIdData& data, int index) const;
+        int getNestedRowsCount(const RefIdColumn *column, const RefIdData& data, int index) const override;
     };
 
     struct EnchantableColumns : public InventoryColumns
@@ -406,7 +425,11 @@ namespace CSMWorld
         const RefIdColumn *mEnchantment;
         const RefIdColumn *mEnchantmentPoints;
 
-        EnchantableColumns (const InventoryColumns& base) : InventoryColumns (base) {}
+        EnchantableColumns (const InventoryColumns& base)
+        : InventoryColumns (base)
+        , mEnchantment(nullptr)
+        , mEnchantmentPoints(nullptr)
+        {}
     };
 
     /// \brief Adapter for enchantable IDs
@@ -419,11 +442,11 @@ namespace CSMWorld
 
             EnchantableRefIdAdapter (UniversalId::Type type, const EnchantableColumns& columns);
 
-            virtual QVariant getData (const RefIdColumn *column, const RefIdData& data, int index)
-                const;
+            QVariant getData (const RefIdColumn *column, const RefIdData& data, int index)
+                const override;
 
-            virtual void setData (const RefIdColumn *column, RefIdData& data, int index,
-                const QVariant& value) const;
+            void setData (const RefIdColumn *column, RefIdData& data, int index,
+                const QVariant& value) const override;
             ///< If the data type does not match an exception is thrown.
     };
 
@@ -475,7 +498,11 @@ namespace CSMWorld
         const RefIdColumn *mQuality;
         const RefIdColumn *mUses;
 
-        ToolColumns (const InventoryColumns& base) : InventoryColumns (base) {}
+        ToolColumns (const InventoryColumns& base)
+        : InventoryColumns (base)
+        , mQuality(nullptr)
+        , mUses(nullptr)
+        {}
     };
 
     /// \brief Adapter for tools with limited uses IDs (lockpick, repair, probes)
@@ -488,11 +515,11 @@ namespace CSMWorld
 
             ToolRefIdAdapter (UniversalId::Type type, const ToolColumns& columns);
 
-            virtual QVariant getData (const RefIdColumn *column, const RefIdData& data, int index)
-                const;
+            QVariant getData (const RefIdColumn *column, const RefIdData& data, int index)
+                const override;
 
-            virtual void setData (const RefIdColumn *column, RefIdData& data, int index,
-                const QVariant& value) const;
+            void setData (const RefIdColumn *column, RefIdData& data, int index,
+                const QVariant& value) const override;
             ///< If the data type does not match an exception is thrown.
     };
 
@@ -550,7 +577,17 @@ namespace CSMWorld
         const RefIdColumn *mAiPackages;
         std::map<const RefIdColumn *, unsigned int> mServices;
 
-        ActorColumns (const NameColumns& base) : NameColumns (base) {}
+        ActorColumns (const NameColumns& base)
+            : NameColumns (base)
+            , mHello(nullptr)
+            , mFlee(nullptr)
+            , mFight(nullptr)
+            , mAlarm(nullptr)
+            , mInventory(nullptr)
+            , mSpells(nullptr)
+            , mDestinations(nullptr)
+            , mAiPackages(nullptr)
+            {}
     };
 
     /// \brief Adapter for actor IDs (handles common AI functionality)
@@ -563,11 +600,11 @@ namespace CSMWorld
 
             ActorRefIdAdapter (UniversalId::Type type, const ActorColumns& columns);
 
-            virtual QVariant getData (const RefIdColumn *column, const RefIdData& data, int index)
-                const;
+            QVariant getData (const RefIdColumn *column, const RefIdData& data, int index)
+                const override;
 
-            virtual void setData (const RefIdColumn *column, RefIdData& data, int index,
-                const QVariant& value) const;
+            void setData (const RefIdColumn *column, RefIdData& data, int index,
+                const QVariant& value) const override;
             ///< If the data type does not match an exception is thrown.
     };
 
@@ -664,11 +701,11 @@ namespace CSMWorld
             ApparatusRefIdAdapter (const InventoryColumns& columns, const RefIdColumn *type,
                 const RefIdColumn *quality);
 
-            virtual QVariant getData (const RefIdColumn *column, const RefIdData& data, int index)
-                const;
+            QVariant getData (const RefIdColumn *column, const RefIdData& data, int index)
+                const override;
 
-            virtual void setData (const RefIdColumn *column, RefIdData& data, int index,
-                const QVariant& value) const;
+            void setData (const RefIdColumn *column, RefIdData& data, int index,
+                const QVariant& value) const override;
             ///< If the data type does not match an exception is thrown.
     };
 
@@ -684,11 +721,11 @@ namespace CSMWorld
             ArmorRefIdAdapter (const EnchantableColumns& columns, const RefIdColumn *type,
                 const RefIdColumn *health, const RefIdColumn *armor, const RefIdColumn *partRef);
 
-            virtual QVariant getData (const RefIdColumn *column, const RefIdData& data, int index)
-                const;
+            QVariant getData (const RefIdColumn *column, const RefIdData& data, int index)
+                const override;
 
-            virtual void setData (const RefIdColumn *column, RefIdData& data, int index,
-                const QVariant& value) const;
+            void setData (const RefIdColumn *column, RefIdData& data, int index,
+                const QVariant& value) const override;
             ///< If the data type does not match an exception is thrown.
     };
 
@@ -703,11 +740,11 @@ namespace CSMWorld
             BookRefIdAdapter (const EnchantableColumns& columns, const RefIdColumn *bookType,
                 const RefIdColumn *skill, const RefIdColumn *text);
 
-            virtual QVariant getData (const RefIdColumn *column, const RefIdData& data, int index)
-                const;
+            QVariant getData (const RefIdColumn *column, const RefIdData& data, int index)
+                const override;
 
-            virtual void setData (const RefIdColumn *column, RefIdData& data, int index,
-                const QVariant& value) const;
+            void setData (const RefIdColumn *column, RefIdData& data, int index,
+                const QVariant& value) const override;
             ///< If the data type does not match an exception is thrown.
     };
 
@@ -721,11 +758,11 @@ namespace CSMWorld
             ClothingRefIdAdapter (const EnchantableColumns& columns,
                     const RefIdColumn *type, const RefIdColumn *partRef);
 
-            virtual QVariant getData (const RefIdColumn *column, const RefIdData& data, int index)
-                const;
+            QVariant getData (const RefIdColumn *column, const RefIdData& data, int index)
+                const override;
 
-            virtual void setData (const RefIdColumn *column, RefIdData& data, int index,
-                const QVariant& value) const;
+            void setData (const RefIdColumn *column, RefIdData& data, int index,
+                const QVariant& value) const override;
             ///< If the data type does not match an exception is thrown.
     };
 
@@ -741,10 +778,10 @@ namespace CSMWorld
             ContainerRefIdAdapter (const NameColumns& columns, const RefIdColumn *weight,
                                    const RefIdColumn *organic, const RefIdColumn *respawn, const RefIdColumn *content);
 
-            virtual QVariant getData (const RefIdColumn *column, const RefIdData& data, int index) const;
+            QVariant getData (const RefIdColumn *column, const RefIdData& data, int index) const override;
 
-            virtual void setData (const RefIdColumn *column, RefIdData& data, int index,
-                                  const QVariant& value) const;
+            void setData (const RefIdColumn *column, RefIdData& data, int index,
+                                  const QVariant& value) const override;
             ///< If the data type does not match an exception is thrown.
     };
 
@@ -770,11 +807,11 @@ namespace CSMWorld
 
             CreatureRefIdAdapter (const CreatureColumns& columns);
 
-            virtual QVariant getData (const RefIdColumn *column, const RefIdData& data, int index)
-                const;
+            QVariant getData (const RefIdColumn *column, const RefIdData& data, int index)
+                const override;
 
-            virtual void setData (const RefIdColumn *column, RefIdData& data, int index,
-                const QVariant& value) const;
+            void setData (const RefIdColumn *column, RefIdData& data, int index,
+                const QVariant& value) const override;
             ///< If the data type does not match an exception is thrown.
     };
 
@@ -788,11 +825,11 @@ namespace CSMWorld
             DoorRefIdAdapter (const NameColumns& columns, const RefIdColumn *openSound,
                 const RefIdColumn *closeSound);
 
-            virtual QVariant getData (const RefIdColumn *column, const RefIdData& data, int index)
-                const;
+            QVariant getData (const RefIdColumn *column, const RefIdData& data, int index)
+                const override;
 
-            virtual void setData (const RefIdColumn *column, RefIdData& data, int index,
-                const QVariant& value) const;
+            void setData (const RefIdColumn *column, RefIdData& data, int index,
+                const QVariant& value) const override;
             ///< If the data type does not match an exception is thrown.
     };
 
@@ -816,11 +853,11 @@ namespace CSMWorld
 
             LightRefIdAdapter (const LightColumns& columns);
 
-            virtual QVariant getData (const RefIdColumn *column, const RefIdData& data, int index)
-                const;
+            QVariant getData (const RefIdColumn *column, const RefIdData& data, int index)
+                const override;
 
-            virtual void setData (const RefIdColumn *column, RefIdData& data, int index,
-                const QVariant& value) const;
+            void setData (const RefIdColumn *column, RefIdData& data, int index,
+                const QVariant& value) const override;
             ///< If the data type does not match an exception is thrown.
     };
 
@@ -832,11 +869,11 @@ namespace CSMWorld
 
             MiscRefIdAdapter (const InventoryColumns& columns, const RefIdColumn *key);
 
-            virtual QVariant getData (const RefIdColumn *column, const RefIdData& data, int index)
-                const;
+            QVariant getData (const RefIdColumn *column, const RefIdData& data, int index)
+                const override;
 
-            virtual void setData (const RefIdColumn *column, RefIdData& data, int index,
-                const QVariant& value) const;
+            void setData (const RefIdColumn *column, RefIdData& data, int index,
+                const QVariant& value) const override;
             ///< If the data type does not match an exception is thrown.
     };
 
@@ -865,11 +902,11 @@ namespace CSMWorld
 
             NpcRefIdAdapter (const NpcColumns& columns);
 
-            virtual QVariant getData (const RefIdColumn *column, const RefIdData& data, int index)
-                const;
+            QVariant getData (const RefIdColumn *column, const RefIdData& data, int index)
+                const override;
 
-            virtual void setData (const RefIdColumn *column, RefIdData& data, int index,
-                const QVariant& value) const;
+            void setData (const RefIdColumn *column, RefIdData& data, int index,
+                const QVariant& value) const override;
             ///< If the data type does not match an exception is thrown.
     };
 
@@ -895,11 +932,11 @@ namespace CSMWorld
 
             WeaponRefIdAdapter (const WeaponColumns& columns);
 
-            virtual QVariant getData (const RefIdColumn *column, const RefIdData& data, int index)
-                const;
+            QVariant getData (const RefIdColumn *column, const RefIdData& data, int index)
+                const override;
 
-            virtual void setData (const RefIdColumn *column, RefIdData& data, int index,
-                const QVariant& value) const;
+            void setData (const RefIdColumn *column, RefIdData& data, int index,
+                const QVariant& value) const override;
             ///< If the data type does not match an exception is thrown.
     };
 
@@ -912,27 +949,27 @@ namespace CSMWorld
 
         NpcAttributesRefIdAdapter ();
 
-        virtual void addNestedRow (const RefIdColumn *column,
-                RefIdData& data, int index, int position) const;
+        void addNestedRow (const RefIdColumn *column,
+                RefIdData& data, int index, int position) const override;
 
-        virtual void removeNestedRow (const RefIdColumn *column,
-                RefIdData& data, int index, int rowToRemove) const;
+        void removeNestedRow (const RefIdColumn *column,
+                RefIdData& data, int index, int rowToRemove) const override;
 
-        virtual void setNestedTable (const RefIdColumn* column,
-                RefIdData& data, int index, const NestedTableWrapperBase& nestedTable) const;
+        void setNestedTable (const RefIdColumn* column,
+                RefIdData& data, int index, const NestedTableWrapperBase& nestedTable) const override;
 
-        virtual NestedTableWrapperBase* nestedTable (const RefIdColumn* column,
-                const RefIdData& data, int index) const;
+        NestedTableWrapperBase* nestedTable (const RefIdColumn* column,
+                const RefIdData& data, int index) const override;
 
-        virtual QVariant getNestedData (const RefIdColumn *column,
-                const RefIdData& data, int index, int subRowIndex, int subColIndex) const;
+        QVariant getNestedData (const RefIdColumn *column,
+                const RefIdData& data, int index, int subRowIndex, int subColIndex) const override;
 
-        virtual void setNestedData (const RefIdColumn *column,
-                RefIdData& data, int row, const QVariant& value, int subRowIndex, int subColIndex) const;
+        void setNestedData (const RefIdColumn *column,
+                RefIdData& data, int row, const QVariant& value, int subRowIndex, int subColIndex) const override;
 
-        virtual int getNestedColumnsCount(const RefIdColumn *column, const RefIdData& data) const;
+        int getNestedColumnsCount(const RefIdColumn *column, const RefIdData& data) const override;
 
-        virtual int getNestedRowsCount(const RefIdColumn *column, const RefIdData& data, int index) const;
+        int getNestedRowsCount(const RefIdColumn *column, const RefIdData& data, int index) const override;
     };
 
     class NpcSkillsRefIdAdapter : public NestedRefIdAdapterBase
@@ -941,27 +978,27 @@ namespace CSMWorld
 
         NpcSkillsRefIdAdapter ();
 
-        virtual void addNestedRow (const RefIdColumn *column,
-                RefIdData& data, int index, int position) const;
+        void addNestedRow (const RefIdColumn *column,
+                RefIdData& data, int index, int position) const override;
 
-        virtual void removeNestedRow (const RefIdColumn *column,
-                RefIdData& data, int index, int rowToRemove) const;
+        void removeNestedRow (const RefIdColumn *column,
+                RefIdData& data, int index, int rowToRemove) const override;
 
-        virtual void setNestedTable (const RefIdColumn* column,
-                RefIdData& data, int index, const NestedTableWrapperBase& nestedTable) const;
+        void setNestedTable (const RefIdColumn* column,
+                RefIdData& data, int index, const NestedTableWrapperBase& nestedTable) const override;
 
-        virtual NestedTableWrapperBase* nestedTable (const RefIdColumn* column,
-                const RefIdData& data, int index) const;
+        NestedTableWrapperBase* nestedTable (const RefIdColumn* column,
+                const RefIdData& data, int index) const override;
 
-        virtual QVariant getNestedData (const RefIdColumn *column,
-                const RefIdData& data, int index, int subRowIndex, int subColIndex) const;
+        QVariant getNestedData (const RefIdColumn *column,
+                const RefIdData& data, int index, int subRowIndex, int subColIndex) const override;
 
-        virtual void setNestedData (const RefIdColumn *column,
-                RefIdData& data, int row, const QVariant& value, int subRowIndex, int subColIndex) const;
+        void setNestedData (const RefIdColumn *column,
+                RefIdData& data, int row, const QVariant& value, int subRowIndex, int subColIndex) const override;
 
-        virtual int getNestedColumnsCount(const RefIdColumn *column, const RefIdData& data) const;
+        int getNestedColumnsCount(const RefIdColumn *column, const RefIdData& data) const override;
 
-        virtual int getNestedRowsCount(const RefIdColumn *column, const RefIdData& data, int index) const;
+        int getNestedRowsCount(const RefIdColumn *column, const RefIdData& data, int index) const override;
     };
 
     class NpcMiscRefIdAdapter : public NestedRefIdAdapterBase
@@ -972,29 +1009,29 @@ namespace CSMWorld
     public:
 
         NpcMiscRefIdAdapter ();
-        virtual ~NpcMiscRefIdAdapter();
+        ~NpcMiscRefIdAdapter() override;
 
-        virtual void addNestedRow (const RefIdColumn *column,
-                RefIdData& data, int index, int position) const;
+        void addNestedRow (const RefIdColumn *column,
+                RefIdData& data, int index, int position) const override;
 
-        virtual void removeNestedRow (const RefIdColumn *column,
-                RefIdData& data, int index, int rowToRemove) const;
+        void removeNestedRow (const RefIdColumn *column,
+                RefIdData& data, int index, int rowToRemove) const override;
 
-        virtual void setNestedTable (const RefIdColumn* column,
-                RefIdData& data, int index, const NestedTableWrapperBase& nestedTable) const;
+        void setNestedTable (const RefIdColumn* column,
+                RefIdData& data, int index, const NestedTableWrapperBase& nestedTable) const override;
 
-        virtual NestedTableWrapperBase* nestedTable (const RefIdColumn* column,
-                const RefIdData& data, int index) const;
+        NestedTableWrapperBase* nestedTable (const RefIdColumn* column,
+                const RefIdData& data, int index) const override;
 
-        virtual QVariant getNestedData (const RefIdColumn *column,
-                const RefIdData& data, int index, int subRowIndex, int subColIndex) const;
+        QVariant getNestedData (const RefIdColumn *column,
+                const RefIdData& data, int index, int subRowIndex, int subColIndex) const override;
 
-        virtual void setNestedData (const RefIdColumn *column,
-                RefIdData& data, int row, const QVariant& value, int subRowIndex, int subColIndex) const;
+        void setNestedData (const RefIdColumn *column,
+                RefIdData& data, int row, const QVariant& value, int subRowIndex, int subColIndex) const override;
 
-        virtual int getNestedColumnsCount(const RefIdColumn *column, const RefIdData& data) const;
+        int getNestedColumnsCount(const RefIdColumn *column, const RefIdData& data) const override;
 
-        virtual int getNestedRowsCount(const RefIdColumn *column, const RefIdData& data, int index) const;
+        int getNestedRowsCount(const RefIdColumn *column, const RefIdData& data, int index) const override;
     };
 
     class CreatureAttributesRefIdAdapter : public NestedRefIdAdapterBase
@@ -1003,27 +1040,27 @@ namespace CSMWorld
 
         CreatureAttributesRefIdAdapter ();
 
-        virtual void addNestedRow (const RefIdColumn *column,
-                RefIdData& data, int index, int position) const;
+        void addNestedRow (const RefIdColumn *column,
+                RefIdData& data, int index, int position) const override;
 
-        virtual void removeNestedRow (const RefIdColumn *column,
-                RefIdData& data, int index, int rowToRemove) const;
+        void removeNestedRow (const RefIdColumn *column,
+                RefIdData& data, int index, int rowToRemove) const override;
 
-        virtual void setNestedTable (const RefIdColumn* column,
-                RefIdData& data, int index, const NestedTableWrapperBase& nestedTable) const;
+        void setNestedTable (const RefIdColumn* column,
+                RefIdData& data, int index, const NestedTableWrapperBase& nestedTable) const override;
 
-        virtual NestedTableWrapperBase* nestedTable (const RefIdColumn* column,
-                const RefIdData& data, int index) const;
+        NestedTableWrapperBase* nestedTable (const RefIdColumn* column,
+                const RefIdData& data, int index) const override;
 
-        virtual QVariant getNestedData (const RefIdColumn *column,
-                const RefIdData& data, int index, int subRowIndex, int subColIndex) const;
+        QVariant getNestedData (const RefIdColumn *column,
+                const RefIdData& data, int index, int subRowIndex, int subColIndex) const override;
 
-        virtual void setNestedData (const RefIdColumn *column,
-                RefIdData& data, int row, const QVariant& value, int subRowIndex, int subColIndex) const;
+        void setNestedData (const RefIdColumn *column,
+                RefIdData& data, int row, const QVariant& value, int subRowIndex, int subColIndex) const override;
 
-        virtual int getNestedColumnsCount(const RefIdColumn *column, const RefIdData& data) const;
+        int getNestedColumnsCount(const RefIdColumn *column, const RefIdData& data) const override;
 
-        virtual int getNestedRowsCount(const RefIdColumn *column, const RefIdData& data, int index) const;
+        int getNestedRowsCount(const RefIdColumn *column, const RefIdData& data, int index) const override;
     };
 
     class CreatureAttackRefIdAdapter : public NestedRefIdAdapterBase
@@ -1032,27 +1069,27 @@ namespace CSMWorld
 
         CreatureAttackRefIdAdapter ();
 
-        virtual void addNestedRow (const RefIdColumn *column,
-                RefIdData& data, int index, int position) const;
+        void addNestedRow (const RefIdColumn *column,
+                RefIdData& data, int index, int position) const override;
 
-        virtual void removeNestedRow (const RefIdColumn *column,
-                RefIdData& data, int index, int rowToRemove) const;
+        void removeNestedRow (const RefIdColumn *column,
+                RefIdData& data, int index, int rowToRemove) const override;
 
-        virtual void setNestedTable (const RefIdColumn* column,
-                RefIdData& data, int index, const NestedTableWrapperBase& nestedTable) const;
+        void setNestedTable (const RefIdColumn* column,
+                RefIdData& data, int index, const NestedTableWrapperBase& nestedTable) const override;
 
-        virtual NestedTableWrapperBase* nestedTable (const RefIdColumn* column,
-                const RefIdData& data, int index) const;
+        NestedTableWrapperBase* nestedTable (const RefIdColumn* column,
+                const RefIdData& data, int index) const override;
 
-        virtual QVariant getNestedData (const RefIdColumn *column,
-                const RefIdData& data, int index, int subRowIndex, int subColIndex) const;
+        QVariant getNestedData (const RefIdColumn *column,
+                const RefIdData& data, int index, int subRowIndex, int subColIndex) const override;
 
-        virtual void setNestedData (const RefIdColumn *column,
-                RefIdData& data, int row, const QVariant& value, int subRowIndex, int subColIndex) const;
+        void setNestedData (const RefIdColumn *column,
+                RefIdData& data, int row, const QVariant& value, int subRowIndex, int subColIndex) const override;
 
-        virtual int getNestedColumnsCount(const RefIdColumn *column, const RefIdData& data) const;
+        int getNestedColumnsCount(const RefIdColumn *column, const RefIdData& data) const override;
 
-        virtual int getNestedRowsCount(const RefIdColumn *column, const RefIdData& data, int index) const;
+        int getNestedRowsCount(const RefIdColumn *column, const RefIdData& data, int index) const override;
     };
 
     class CreatureMiscRefIdAdapter : public NestedRefIdAdapterBase
@@ -1063,29 +1100,29 @@ namespace CSMWorld
     public:
 
         CreatureMiscRefIdAdapter ();
-        virtual ~CreatureMiscRefIdAdapter();
+        ~CreatureMiscRefIdAdapter() override;
 
-        virtual void addNestedRow (const RefIdColumn *column,
-                RefIdData& data, int index, int position) const;
+        void addNestedRow (const RefIdColumn *column,
+                RefIdData& data, int index, int position) const override;
 
-        virtual void removeNestedRow (const RefIdColumn *column,
-                RefIdData& data, int index, int rowToRemove) const;
+        void removeNestedRow (const RefIdColumn *column,
+                RefIdData& data, int index, int rowToRemove) const override;
 
-        virtual void setNestedTable (const RefIdColumn* column,
-                RefIdData& data, int index, const NestedTableWrapperBase& nestedTable) const;
+        void setNestedTable (const RefIdColumn* column,
+                RefIdData& data, int index, const NestedTableWrapperBase& nestedTable) const override;
 
-        virtual NestedTableWrapperBase* nestedTable (const RefIdColumn* column,
-                const RefIdData& data, int index) const;
+        NestedTableWrapperBase* nestedTable (const RefIdColumn* column,
+                const RefIdData& data, int index) const override;
 
-        virtual QVariant getNestedData (const RefIdColumn *column,
-                const RefIdData& data, int index, int subRowIndex, int subColIndex) const;
+        QVariant getNestedData (const RefIdColumn *column,
+                const RefIdData& data, int index, int subRowIndex, int subColIndex) const override;
 
-        virtual void setNestedData (const RefIdColumn *column,
-                RefIdData& data, int row, const QVariant& value, int subRowIndex, int subColIndex) const;
+        void setNestedData (const RefIdColumn *column,
+                RefIdData& data, int row, const QVariant& value, int subRowIndex, int subColIndex) const override;
 
-        virtual int getNestedColumnsCount(const RefIdColumn *column, const RefIdData& data) const;
+        int getNestedColumnsCount(const RefIdColumn *column, const RefIdData& data) const override;
 
-        virtual int getNestedRowsCount(const RefIdColumn *column, const RefIdData& data, int index) const;
+        int getNestedRowsCount(const RefIdColumn *column, const RefIdData& data, int index) const override;
     };
 
     template<typename ESXRecordT>
@@ -1106,61 +1143,61 @@ namespace CSMWorld
 
         virtual ~EffectsRefIdAdapter() {}
 
-        virtual void addNestedRow (const RefIdColumn *column,
-                RefIdData& data, int index, int position) const
+        void addNestedRow (const RefIdColumn *column,
+                RefIdData& data, int index, int position) const override
         {
             Record<ESXRecordT>& record =
                 static_cast<Record<ESXRecordT>&> (data.getRecord (RefIdData::LocalIndex (index, mType)));
             EffectsListAdapter<ESXRecordT>::addRow(record, position);
         }
 
-        virtual void removeNestedRow (const RefIdColumn *column,
-                RefIdData& data, int index, int rowToRemove) const
+        void removeNestedRow (const RefIdColumn *column,
+                RefIdData& data, int index, int rowToRemove) const override
         {
             Record<ESXRecordT>& record =
                 static_cast<Record<ESXRecordT>&> (data.getRecord (RefIdData::LocalIndex (index, mType)));
             EffectsListAdapter<ESXRecordT>::removeRow(record, rowToRemove);
         }
 
-        virtual void setNestedTable (const RefIdColumn* column,
-                RefIdData& data, int index, const NestedTableWrapperBase& nestedTable) const
+        void setNestedTable (const RefIdColumn* column,
+                RefIdData& data, int index, const NestedTableWrapperBase& nestedTable) const override
         {
             Record<ESXRecordT>& record =
                 static_cast<Record<ESXRecordT>&> (data.getRecord (RefIdData::LocalIndex (index, mType)));
             EffectsListAdapter<ESXRecordT>::setTable(record, nestedTable);
         }
 
-        virtual NestedTableWrapperBase* nestedTable (const RefIdColumn* column,
-                const RefIdData& data, int index) const
+        NestedTableWrapperBase* nestedTable (const RefIdColumn* column,
+                const RefIdData& data, int index) const override
         {
             const Record<ESXRecordT>& record =
                 static_cast<const Record<ESXRecordT>&> (data.getRecord (RefIdData::LocalIndex (index, mType)));
             return EffectsListAdapter<ESXRecordT>::table(record);
         }
 
-        virtual QVariant getNestedData (const RefIdColumn *column,
-                const RefIdData& data, int index, int subRowIndex, int subColIndex) const
+        QVariant getNestedData (const RefIdColumn *column,
+                const RefIdData& data, int index, int subRowIndex, int subColIndex) const override
         {
             const Record<ESXRecordT>& record =
                 static_cast<const Record<ESXRecordT>&> (data.getRecord (RefIdData::LocalIndex (index, mType)));
             return EffectsListAdapter<ESXRecordT>::getData(record, subRowIndex, subColIndex);
         }
 
-        virtual void setNestedData (const RefIdColumn *column,
-                RefIdData& data, int row, const QVariant& value, int subRowIndex, int subColIndex) const
+        void setNestedData (const RefIdColumn *column,
+                RefIdData& data, int row, const QVariant& value, int subRowIndex, int subColIndex) const override
         {
             Record<ESXRecordT>& record =
                 static_cast<Record<ESXRecordT>&> (data.getRecord (RefIdData::LocalIndex (row, mType)));
             EffectsListAdapter<ESXRecordT>::setData(record, value, subRowIndex, subColIndex);
         }
 
-        virtual int getNestedColumnsCount(const RefIdColumn *column, const RefIdData& data) const
+        int getNestedColumnsCount(const RefIdColumn *column, const RefIdData& data) const override
         {
             const Record<ESXRecordT> record; // not used, just a dummy
             return EffectsListAdapter<ESXRecordT>::getColumnsCount(record);
         }
 
-        virtual int getNestedRowsCount(const RefIdColumn *column, const RefIdData& data, int index) const
+        int getNestedRowsCount(const RefIdColumn *column, const RefIdData& data, int index) const override
         {
             const Record<ESXRecordT>& record =
                 static_cast<const Record<ESXRecordT>&> (data.getRecord (RefIdData::LocalIndex (index, mType)));
@@ -1183,8 +1220,8 @@ namespace CSMWorld
 
         virtual ~NestedInventoryRefIdAdapter() {}
 
-        virtual void addNestedRow (const RefIdColumn *column,
-                RefIdData& data, int index, int position) const
+        void addNestedRow (const RefIdColumn *column,
+                RefIdData& data, int index, int position) const override
         {
             Record<ESXRecordT>& record =
                 static_cast<Record<ESXRecordT>&> (data.getRecord (RefIdData::LocalIndex (index, mType)));
@@ -1202,8 +1239,8 @@ namespace CSMWorld
             record.setModified (container);
         }
 
-        virtual void removeNestedRow (const RefIdColumn *column,
-                RefIdData& data, int index, int rowToRemove) const
+        void removeNestedRow (const RefIdColumn *column,
+                RefIdData& data, int index, int rowToRemove) const override
         {
             Record<ESXRecordT>& record =
                 static_cast<Record<ESXRecordT>&> (data.getRecord (RefIdData::LocalIndex (index, mType)));
@@ -1219,8 +1256,8 @@ namespace CSMWorld
             record.setModified (container);
         }
 
-        virtual void setNestedTable (const RefIdColumn* column,
-                RefIdData& data, int index, const NestedTableWrapperBase& nestedTable) const
+        void setNestedTable (const RefIdColumn* column,
+                RefIdData& data, int index, const NestedTableWrapperBase& nestedTable) const override
         {
             Record<ESXRecordT>& record =
                 static_cast<Record<ESXRecordT>&> (data.getRecord (RefIdData::LocalIndex (index, mType)));
@@ -1232,8 +1269,8 @@ namespace CSMWorld
             record.setModified (container);
         }
 
-        virtual NestedTableWrapperBase* nestedTable (const RefIdColumn* column,
-                const RefIdData& data, int index) const
+        NestedTableWrapperBase* nestedTable (const RefIdColumn* column,
+                const RefIdData& data, int index) const override
         {
             const Record<ESXRecordT>& record =
                 static_cast<const Record<ESXRecordT>&> (data.getRecord (RefIdData::LocalIndex (index, mType)));
@@ -1242,8 +1279,8 @@ namespace CSMWorld
             return new NestedTableWrapper<std::vector<typename ESM::ContItem> >(record.get().mInventory.mList);
         }
 
-        virtual QVariant getNestedData (const RefIdColumn *column,
-                const RefIdData& data, int index, int subRowIndex, int subColIndex) const
+        QVariant getNestedData (const RefIdColumn *column,
+                const RefIdData& data, int index, int subRowIndex, int subColIndex) const override
         {
             const Record<ESXRecordT>& record =
                 static_cast<const Record<ESXRecordT>&> (data.getRecord (RefIdData::LocalIndex (index, mType)));
@@ -1264,8 +1301,8 @@ namespace CSMWorld
             }
         }
 
-        virtual void setNestedData (const RefIdColumn *column,
-                RefIdData& data, int row, const QVariant& value, int subRowIndex, int subColIndex) const
+        void setNestedData (const RefIdColumn *column,
+                RefIdData& data, int row, const QVariant& value, int subRowIndex, int subColIndex) const override
         {
             Record<ESXRecordT>& record =
                 static_cast<Record<ESXRecordT>&> (data.getRecord (RefIdData::LocalIndex (row, mType)));
@@ -1292,12 +1329,12 @@ namespace CSMWorld
             record.setModified (container);
         }
 
-        virtual int getNestedColumnsCount(const RefIdColumn *column, const RefIdData& data) const
+        int getNestedColumnsCount(const RefIdColumn *column, const RefIdData& data) const override
         {
             return 2;
         }
 
-        virtual int getNestedRowsCount(const RefIdColumn *column, const RefIdData& data, int index) const
+        int getNestedRowsCount(const RefIdColumn *column, const RefIdData& data, int index) const override
         {
             const Record<ESXRecordT>& record =
                 static_cast<const Record<ESXRecordT>&> (data.getRecord (RefIdData::LocalIndex (index, mType)));
@@ -1321,8 +1358,8 @@ namespace CSMWorld
 
         virtual ~NestedSpellRefIdAdapter() {}
 
-        virtual void addNestedRow (const RefIdColumn *column,
-                RefIdData& data, int index, int position) const
+        void addNestedRow (const RefIdColumn *column,
+                RefIdData& data, int index, int position) const override
         {
             Record<ESXRecordT>& record =
                 static_cast<Record<ESXRecordT>&> (data.getRecord (RefIdData::LocalIndex (index, mType)));
@@ -1340,8 +1377,8 @@ namespace CSMWorld
             record.setModified (caster);
         }
 
-        virtual void removeNestedRow (const RefIdColumn *column,
-                RefIdData& data, int index, int rowToRemove) const
+        void removeNestedRow (const RefIdColumn *column,
+                RefIdData& data, int index, int rowToRemove) const override
         {
             Record<ESXRecordT>& record =
                 static_cast<Record<ESXRecordT>&> (data.getRecord (RefIdData::LocalIndex (index, mType)));
@@ -1357,8 +1394,8 @@ namespace CSMWorld
             record.setModified (caster);
         }
 
-        virtual void setNestedTable (const RefIdColumn* column,
-                RefIdData& data, int index, const NestedTableWrapperBase& nestedTable) const
+        void setNestedTable (const RefIdColumn* column,
+                RefIdData& data, int index, const NestedTableWrapperBase& nestedTable) const override
         {
             Record<ESXRecordT>& record =
                 static_cast<Record<ESXRecordT>&> (data.getRecord (RefIdData::LocalIndex (index, mType)));
@@ -1370,8 +1407,8 @@ namespace CSMWorld
             record.setModified (caster);
         }
 
-        virtual NestedTableWrapperBase* nestedTable (const RefIdColumn* column,
-                const RefIdData& data, int index) const
+        NestedTableWrapperBase* nestedTable (const RefIdColumn* column,
+                const RefIdData& data, int index) const override
         {
             const Record<ESXRecordT>& record =
                 static_cast<const Record<ESXRecordT>&> (data.getRecord (RefIdData::LocalIndex (index, mType)));
@@ -1380,8 +1417,8 @@ namespace CSMWorld
             return new NestedTableWrapper<std::vector<typename std::string> >(record.get().mSpells.mList);
         }
 
-        virtual QVariant getNestedData (const RefIdColumn *column,
-                const RefIdData& data, int index, int subRowIndex, int subColIndex) const
+        QVariant getNestedData (const RefIdColumn *column,
+                const RefIdData& data, int index, int subRowIndex, int subColIndex) const override
         {
             const Record<ESXRecordT>& record =
                 static_cast<const Record<ESXRecordT>&> (data.getRecord (RefIdData::LocalIndex (index, mType)));
@@ -1399,8 +1436,8 @@ namespace CSMWorld
                 throw std::runtime_error("Trying to access non-existing column in the nested table!");
         }
 
-        virtual void setNestedData (const RefIdColumn *column,
-                RefIdData& data, int row, const QVariant& value, int subRowIndex, int subColIndex) const
+        void setNestedData (const RefIdColumn *column,
+                RefIdData& data, int row, const QVariant& value, int subRowIndex, int subColIndex) const override
         {
             Record<ESXRecordT>& record =
                 static_cast<Record<ESXRecordT>&> (data.getRecord (RefIdData::LocalIndex (row, mType)));
@@ -1418,12 +1455,12 @@ namespace CSMWorld
             record.setModified (caster);
         }
 
-        virtual int getNestedColumnsCount(const RefIdColumn *column, const RefIdData& data) const
+        int getNestedColumnsCount(const RefIdColumn *column, const RefIdData& data) const override
         {
             return 1;
         }
 
-        virtual int getNestedRowsCount(const RefIdColumn *column, const RefIdData& data, int index) const
+        int getNestedRowsCount(const RefIdColumn *column, const RefIdData& data, int index) const override
         {
             const Record<ESXRecordT>& record =
                 static_cast<const Record<ESXRecordT>&> (data.getRecord (RefIdData::LocalIndex (index, mType)));
@@ -1447,8 +1484,8 @@ namespace CSMWorld
 
         virtual ~NestedTravelRefIdAdapter() {}
 
-        virtual void addNestedRow (const RefIdColumn *column,
-                RefIdData& data, int index, int position) const
+        void addNestedRow (const RefIdColumn *column,
+                RefIdData& data, int index, int position) const override
         {
             Record<ESXRecordT>& record =
                 static_cast<Record<ESXRecordT>&> (data.getRecord (RefIdData::LocalIndex (index, mType)));
@@ -1475,8 +1512,8 @@ namespace CSMWorld
             record.setModified (traveller);
         }
 
-        virtual void removeNestedRow (const RefIdColumn *column,
-                RefIdData& data, int index, int rowToRemove) const
+        void removeNestedRow (const RefIdColumn *column,
+                RefIdData& data, int index, int rowToRemove) const override
         {
             Record<ESXRecordT>& record =
                 static_cast<Record<ESXRecordT>&> (data.getRecord (RefIdData::LocalIndex (index, mType)));
@@ -1492,8 +1529,8 @@ namespace CSMWorld
             record.setModified (traveller);
         }
 
-        virtual void setNestedTable (const RefIdColumn* column,
-                RefIdData& data, int index, const NestedTableWrapperBase& nestedTable) const
+        void setNestedTable (const RefIdColumn* column,
+                RefIdData& data, int index, const NestedTableWrapperBase& nestedTable) const override
         {
             Record<ESXRecordT>& record =
                 static_cast<Record<ESXRecordT>&> (data.getRecord (RefIdData::LocalIndex (index, mType)));
@@ -1505,8 +1542,8 @@ namespace CSMWorld
             record.setModified (traveller);
         }
 
-        virtual NestedTableWrapperBase* nestedTable (const RefIdColumn* column,
-                const RefIdData& data, int index) const
+        NestedTableWrapperBase* nestedTable (const RefIdColumn* column,
+                const RefIdData& data, int index) const override
         {
             const Record<ESXRecordT>& record =
                 static_cast<const Record<ESXRecordT>&> (data.getRecord (RefIdData::LocalIndex (index, mType)));
@@ -1515,8 +1552,8 @@ namespace CSMWorld
             return new NestedTableWrapper<std::vector<typename ESM::Transport::Dest> >(record.get().mTransport.mList);
         }
 
-        virtual QVariant getNestedData (const RefIdColumn *column,
-                const RefIdData& data, int index, int subRowIndex, int subColIndex) const
+        QVariant getNestedData (const RefIdColumn *column,
+                const RefIdData& data, int index, int subRowIndex, int subColIndex) const override
         {
             const Record<ESXRecordT>& record =
                 static_cast<const Record<ESXRecordT>&> (data.getRecord (RefIdData::LocalIndex (index, mType)));
@@ -1542,8 +1579,8 @@ namespace CSMWorld
             }
         }
 
-        virtual void setNestedData (const RefIdColumn *column,
-                RefIdData& data, int row, const QVariant& value, int subRowIndex, int subColIndex) const
+        void setNestedData (const RefIdColumn *column,
+                RefIdData& data, int row, const QVariant& value, int subRowIndex, int subColIndex) const override
         {
             Record<ESXRecordT>& record =
                 static_cast<Record<ESXRecordT>&> (data.getRecord (RefIdData::LocalIndex (row, mType)));
@@ -1569,12 +1606,12 @@ namespace CSMWorld
             record.setModified (traveller);
         }
 
-        virtual int getNestedColumnsCount(const RefIdColumn *column, const RefIdData& data) const
+        int getNestedColumnsCount(const RefIdColumn *column, const RefIdData& data) const override
         {
             return 7;
         }
 
-        virtual int getNestedRowsCount(const RefIdColumn *column, const RefIdData& data, int index) const
+        int getNestedRowsCount(const RefIdColumn *column, const RefIdData& data, int index) const override
         {
             const Record<ESXRecordT>& record =
                 static_cast<const Record<ESXRecordT>&> (data.getRecord (RefIdData::LocalIndex (index, mType)));
@@ -1600,8 +1637,8 @@ namespace CSMWorld
 
         // FIXME: should check if the AI package type is already in the list and use a default
         //        that wasn't used already (in extreme case do not add anything at all?
-        virtual void addNestedRow (const RefIdColumn *column,
-                RefIdData& data, int index, int position) const
+        void addNestedRow (const RefIdColumn *column,
+                RefIdData& data, int index, int position) const override
         {
             Record<ESXRecordT>& record =
                 static_cast<Record<ESXRecordT>&> (data.getRecord (RefIdData::LocalIndex (index, mType)));
@@ -1627,8 +1664,8 @@ namespace CSMWorld
             record.setModified (actor);
         }
 
-        virtual void removeNestedRow (const RefIdColumn *column,
-                RefIdData& data, int index, int rowToRemove) const
+        void removeNestedRow (const RefIdColumn *column,
+                RefIdData& data, int index, int rowToRemove) const override
         {
             Record<ESXRecordT>& record =
                 static_cast<Record<ESXRecordT>&> (data.getRecord (RefIdData::LocalIndex (index, mType)));
@@ -1644,8 +1681,8 @@ namespace CSMWorld
             record.setModified (actor);
         }
 
-        virtual void setNestedTable (const RefIdColumn* column,
-                RefIdData& data, int index, const NestedTableWrapperBase& nestedTable) const
+        void setNestedTable (const RefIdColumn* column,
+                RefIdData& data, int index, const NestedTableWrapperBase& nestedTable) const override
         {
             Record<ESXRecordT>& record =
                 static_cast<Record<ESXRecordT>&> (data.getRecord (RefIdData::LocalIndex (index, mType)));
@@ -1657,8 +1694,8 @@ namespace CSMWorld
             record.setModified (actor);
         }
 
-        virtual NestedTableWrapperBase* nestedTable (const RefIdColumn* column,
-                const RefIdData& data, int index) const
+        NestedTableWrapperBase* nestedTable (const RefIdColumn* column,
+                const RefIdData& data, int index) const override
         {
             const Record<ESXRecordT>& record =
                 static_cast<const Record<ESXRecordT>&> (data.getRecord (RefIdData::LocalIndex (index, mType)));
@@ -1667,8 +1704,8 @@ namespace CSMWorld
             return new NestedTableWrapper<std::vector<typename ESM::AIPackage> >(record.get().mAiPackage.mList);
         }
 
-        virtual QVariant getNestedData (const RefIdColumn *column,
-                const RefIdData& data, int index, int subRowIndex, int subColIndex) const
+        QVariant getNestedData (const RefIdColumn *column,
+                const RefIdData& data, int index, int subRowIndex, int subColIndex) const override
         {
             const Record<ESXRecordT>& record =
                 static_cast<const Record<ESXRecordT>&> (data.getRecord (RefIdData::LocalIndex (index, mType)));
@@ -1768,8 +1805,8 @@ namespace CSMWorld
             }
         }
 
-        virtual void setNestedData (const RefIdColumn *column,
-                RefIdData& data, int row, const QVariant& value, int subRowIndex, int subColIndex) const
+        void setNestedData (const RefIdColumn *column,
+                RefIdData& data, int row, const QVariant& value, int subRowIndex, int subColIndex) const override
         {
             Record<ESXRecordT>& record =
                 static_cast<Record<ESXRecordT>&> (data.getRecord (RefIdData::LocalIndex (row, mType)));
@@ -1859,18 +1896,18 @@ namespace CSMWorld
                     break; // always save
                 case 16:
                     if (content.mType == ESM::AI_Travel)
-                        content.mTravel.mZ = value.toFloat();
+                        content.mTravel.mX = value.toFloat();
                     else if (content.mType == ESM::AI_Follow || content.mType == ESM::AI_Escort)
-                        content.mTarget.mZ = value.toFloat();
+                        content.mTarget.mX = value.toFloat();
                     else
                         return; // return without saving
 
                     break; // always save
                 case 17:
                     if (content.mType == ESM::AI_Travel)
-                        content.mTravel.mZ = value.toFloat();
+                        content.mTravel.mY = value.toFloat();
                     else if (content.mType == ESM::AI_Follow || content.mType == ESM::AI_Escort)
-                        content.mTarget.mZ = value.toFloat();
+                        content.mTarget.mY = value.toFloat();
                     else
                         return; // return without saving
 
@@ -1891,12 +1928,12 @@ namespace CSMWorld
             record.setModified (actor);
         }
 
-        virtual int getNestedColumnsCount(const RefIdColumn *column, const RefIdData& data) const
+        int getNestedColumnsCount(const RefIdColumn *column, const RefIdData& data) const override
         {
             return 19;
         }
 
-        virtual int getNestedRowsCount(const RefIdColumn *column, const RefIdData& data, int index) const
+        int getNestedRowsCount(const RefIdColumn *column, const RefIdData& data, int index) const override
         {
             const Record<ESXRecordT>& record =
                 static_cast<const Record<ESXRecordT>&> (data.getRecord (RefIdData::LocalIndex (index, mType)));
@@ -1921,8 +1958,8 @@ namespace CSMWorld
 
         virtual ~BodyPartRefIdAdapter() {}
 
-        virtual void addNestedRow (const RefIdColumn *column,
-                RefIdData& data, int index, int position) const
+        void addNestedRow (const RefIdColumn *column,
+                RefIdData& data, int index, int position) const override
         {
             Record<ESXRecordT>& record =
                 static_cast<Record<ESXRecordT>&> (data.getRecord (RefIdData::LocalIndex (index, mType)));
@@ -1943,8 +1980,8 @@ namespace CSMWorld
             record.setModified (apparel);
         }
 
-        virtual void removeNestedRow (const RefIdColumn *column,
-                RefIdData& data, int index, int rowToRemove) const
+        void removeNestedRow (const RefIdColumn *column,
+                RefIdData& data, int index, int rowToRemove) const override
         {
             Record<ESXRecordT>& record =
                 static_cast<Record<ESXRecordT>&> (data.getRecord (RefIdData::LocalIndex (index, mType)));
@@ -1960,8 +1997,8 @@ namespace CSMWorld
             record.setModified (apparel);
         }
 
-        virtual void setNestedTable (const RefIdColumn* column,
-                RefIdData& data, int index, const NestedTableWrapperBase& nestedTable) const
+        void setNestedTable (const RefIdColumn* column,
+                RefIdData& data, int index, const NestedTableWrapperBase& nestedTable) const override
         {
             Record<ESXRecordT>& record =
                 static_cast<Record<ESXRecordT>&> (data.getRecord (RefIdData::LocalIndex (index, mType)));
@@ -1973,8 +2010,8 @@ namespace CSMWorld
             record.setModified (apparel);
         }
 
-        virtual NestedTableWrapperBase* nestedTable (const RefIdColumn* column,
-                const RefIdData& data, int index) const
+        NestedTableWrapperBase* nestedTable (const RefIdColumn* column,
+                const RefIdData& data, int index) const override
         {
             const Record<ESXRecordT>& record =
                 static_cast<const Record<ESXRecordT>&> (data.getRecord (RefIdData::LocalIndex (index, mType)));
@@ -1983,8 +2020,8 @@ namespace CSMWorld
             return new NestedTableWrapper<std::vector<typename ESM::PartReference> >(record.get().mParts.mParts);
         }
 
-        virtual QVariant getNestedData (const RefIdColumn *column,
-                const RefIdData& data, int index, int subRowIndex, int subColIndex) const
+        QVariant getNestedData (const RefIdColumn *column,
+                const RefIdData& data, int index, int subRowIndex, int subColIndex) const override
         {
             const Record<ESXRecordT>& record =
                 static_cast<const Record<ESXRecordT>&> (data.getRecord (RefIdData::LocalIndex (index, mType)));
@@ -2012,8 +2049,8 @@ namespace CSMWorld
             }
         }
 
-        virtual void setNestedData (const RefIdColumn *column,
-                RefIdData& data, int row, const QVariant& value, int subRowIndex, int subColIndex) const
+        void setNestedData (const RefIdColumn *column,
+                RefIdData& data, int row, const QVariant& value, int subRowIndex, int subColIndex) const override
         {
             Record<ESXRecordT>& record =
                 static_cast<Record<ESXRecordT>&> (data.getRecord (RefIdData::LocalIndex (row, mType)));
@@ -2035,12 +2072,12 @@ namespace CSMWorld
             record.setModified (apparel);
         }
 
-        virtual int getNestedColumnsCount(const RefIdColumn *column, const RefIdData& data) const
+        int getNestedColumnsCount(const RefIdColumn *column, const RefIdData& data) const override
         {
             return 3;
         }
 
-        virtual int getNestedRowsCount(const RefIdColumn *column, const RefIdData& data, int index) const
+        int getNestedRowsCount(const RefIdColumn *column, const RefIdData& data, int index) const override
         {
             const Record<ESXRecordT>& record =
                 static_cast<const Record<ESXRecordT>&> (data.getRecord (RefIdData::LocalIndex (index, mType)));
@@ -2055,7 +2092,11 @@ namespace CSMWorld
         const RefIdColumn *mLevList;
         const RefIdColumn *mNestedListLevList;
 
-        LevListColumns (const BaseColumns& base) : BaseColumns (base) {}
+        LevListColumns (const BaseColumns& base)
+        : BaseColumns (base)
+        , mLevList(nullptr)
+        , mNestedListLevList(nullptr)
+        {}
     };
 
     template<typename RecordT>
@@ -2067,11 +2108,11 @@ namespace CSMWorld
 
             LevelledListRefIdAdapter (UniversalId::Type type, const LevListColumns &columns);
 
-            virtual QVariant getData (const RefIdColumn *column, const RefIdData& data, int index)
-                const;
+            QVariant getData (const RefIdColumn *column, const RefIdData& data, int index)
+                const override;
 
-            virtual void setData (const RefIdColumn *column, RefIdData& data, int index,
-                const QVariant& value) const;
+            void setData (const RefIdColumn *column, RefIdData& data, int index,
+                const QVariant& value) const override;
             ///< If the data type does not match an exception is thrown.
     };
 
@@ -2117,32 +2158,32 @@ namespace CSMWorld
 
         virtual ~NestedListLevListRefIdAdapter() {}
 
-        virtual void addNestedRow (const RefIdColumn *column,
-                RefIdData& data, int index, int position) const
+        void addNestedRow (const RefIdColumn *column,
+                RefIdData& data, int index, int position) const override
         {
             throw std::logic_error ("cannot add a row to a fixed table");
         }
 
-        virtual void removeNestedRow (const RefIdColumn *column,
-                RefIdData& data, int index, int rowToRemove) const
+        void removeNestedRow (const RefIdColumn *column,
+                RefIdData& data, int index, int rowToRemove) const override
         {
             throw std::logic_error ("cannot remove a row to a fixed table");
         }
 
-        virtual void setNestedTable (const RefIdColumn* column,
-                RefIdData& data, int index, const NestedTableWrapperBase& nestedTable) const
+        void setNestedTable (const RefIdColumn* column,
+                RefIdData& data, int index, const NestedTableWrapperBase& nestedTable) const override
         {
             throw std::logic_error ("table operation not supported");
         }
 
-        virtual NestedTableWrapperBase* nestedTable (const RefIdColumn* column,
-                const RefIdData& data, int index) const
+        NestedTableWrapperBase* nestedTable (const RefIdColumn* column,
+                const RefIdData& data, int index) const override
         {
             throw std::logic_error ("table operation not supported");
         }
 
-        virtual QVariant getNestedData (const RefIdColumn *column,
-                const RefIdData& data, int index, int subRowIndex, int subColIndex) const
+        QVariant getNestedData (const RefIdColumn *column,
+                const RefIdData& data, int index, int subRowIndex, int subColIndex) const override
         {
             const Record<ESXRecordT>& record =
                 static_cast<const Record<ESXRecordT>&> (data.getRecord (RefIdData::LocalIndex (index, mType)));
@@ -2171,8 +2212,8 @@ namespace CSMWorld
             }
         }
 
-        virtual void setNestedData (const RefIdColumn *column,
-                RefIdData& data, int row, const QVariant& value, int subRowIndex, int subColIndex) const
+        void setNestedData (const RefIdColumn *column,
+                RefIdData& data, int row, const QVariant& value, int subRowIndex, int subColIndex) const override
         {
             Record<ESXRecordT>& record =
                 static_cast<Record<ESXRecordT>&> (data.getRecord (RefIdData::LocalIndex (row, mType)));
@@ -2240,12 +2281,12 @@ namespace CSMWorld
             record.setModified (leveled);
         }
 
-        virtual int getNestedColumnsCount(const RefIdColumn *column, const RefIdData& data) const
+        int getNestedColumnsCount(const RefIdColumn *column, const RefIdData& data) const override
         {
             return 3;
         }
 
-        virtual int getNestedRowsCount(const RefIdColumn *column, const RefIdData& data, int index) const
+        int getNestedRowsCount(const RefIdColumn *column, const RefIdData& data, int index) const override
         {
             return 1; // fixed at size 1
         }
@@ -2267,8 +2308,8 @@ namespace CSMWorld
 
         virtual ~NestedLevListRefIdAdapter() {}
 
-        virtual void addNestedRow (const RefIdColumn *column,
-                RefIdData& data, int index, int position) const
+        void addNestedRow (const RefIdColumn *column,
+                RefIdData& data, int index, int position) const override
         {
             Record<ESXRecordT>& record =
                 static_cast<Record<ESXRecordT>&> (data.getRecord (RefIdData::LocalIndex (index, mType)));
@@ -2288,8 +2329,8 @@ namespace CSMWorld
             record.setModified (leveled);
         }
 
-        virtual void removeNestedRow (const RefIdColumn *column,
-                RefIdData& data, int index, int rowToRemove) const
+        void removeNestedRow (const RefIdColumn *column,
+                RefIdData& data, int index, int rowToRemove) const override
         {
             Record<ESXRecordT>& record =
                 static_cast<Record<ESXRecordT>&> (data.getRecord (RefIdData::LocalIndex (index, mType)));
@@ -2305,8 +2346,8 @@ namespace CSMWorld
             record.setModified (leveled);
         }
 
-        virtual void setNestedTable (const RefIdColumn* column,
-                RefIdData& data, int index, const NestedTableWrapperBase& nestedTable) const
+        void setNestedTable (const RefIdColumn* column,
+                RefIdData& data, int index, const NestedTableWrapperBase& nestedTable) const override
         {
             Record<ESXRecordT>& record =
                 static_cast<Record<ESXRecordT>&> (data.getRecord (RefIdData::LocalIndex (index, mType)));
@@ -2318,8 +2359,8 @@ namespace CSMWorld
             record.setModified (leveled);
         }
 
-        virtual NestedTableWrapperBase* nestedTable (const RefIdColumn* column,
-                const RefIdData& data, int index) const
+        NestedTableWrapperBase* nestedTable (const RefIdColumn* column,
+                const RefIdData& data, int index) const override
         {
             const Record<ESXRecordT>& record =
                 static_cast<const Record<ESXRecordT>&> (data.getRecord (RefIdData::LocalIndex (index, mType)));
@@ -2328,8 +2369,8 @@ namespace CSMWorld
             return new NestedTableWrapper<std::vector<typename ESM::LevelledListBase::LevelItem> >(record.get().mList);
         }
 
-        virtual QVariant getNestedData (const RefIdColumn *column,
-                const RefIdData& data, int index, int subRowIndex, int subColIndex) const
+        QVariant getNestedData (const RefIdColumn *column,
+                const RefIdData& data, int index, int subRowIndex, int subColIndex) const override
         {
             const Record<ESXRecordT>& record =
                 static_cast<const Record<ESXRecordT>&> (data.getRecord (RefIdData::LocalIndex (index, mType)));
@@ -2350,8 +2391,8 @@ namespace CSMWorld
             }
         }
 
-        virtual void setNestedData (const RefIdColumn *column,
-                RefIdData& data, int row, const QVariant& value, int subRowIndex, int subColIndex) const
+        void setNestedData (const RefIdColumn *column,
+                RefIdData& data, int row, const QVariant& value, int subRowIndex, int subColIndex) const override
         {
             Record<ESXRecordT>& record =
                 static_cast<Record<ESXRecordT>&> (data.getRecord (RefIdData::LocalIndex (row, mType)));
@@ -2372,12 +2413,12 @@ namespace CSMWorld
             record.setModified (leveled);
         }
 
-        virtual int getNestedColumnsCount(const RefIdColumn *column, const RefIdData& data) const
+        int getNestedColumnsCount(const RefIdColumn *column, const RefIdData& data) const override
         {
             return 2;
         }
 
-        virtual int getNestedRowsCount(const RefIdColumn *column, const RefIdData& data, int index) const
+        int getNestedRowsCount(const RefIdColumn *column, const RefIdData& data, int index) const override
         {
             const Record<ESXRecordT>& record =
                 static_cast<const Record<ESXRecordT>&> (data.getRecord (RefIdData::LocalIndex (index, mType)));

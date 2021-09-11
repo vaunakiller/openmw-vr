@@ -1,5 +1,13 @@
 #version 120
 
+#if @useUBO
+    #extension GL_ARB_uniform_buffer_object : require
+#endif
+
+#if @useGPUShader4
+    #extension GL_EXT_gpu_shader4: require
+#endif
+
 #if @diffuseMap
 uniform sampler2D diffuseMap;
 varying vec2 diffuseMapUV;
@@ -50,6 +58,7 @@ uniform mat2 bumpMapMatrix;
 #endif
 
 uniform bool simpleWater;
+uniform bool noAlpha;
 
 varying float euclideanDepth;
 varying float linearDepth;
@@ -57,16 +66,19 @@ varying float linearDepth;
 #define PER_PIXEL_LIGHTING (@normalMap || @forcePPL)
 
 #if !PER_PIXEL_LIGHTING
-centroid varying vec4 lighting;
+centroid varying vec3 passLighting;
 centroid varying vec3 shadowDiffuseLighting;
+#else
+uniform float emissiveMult;
 #endif
-centroid varying vec4 passColor;
 varying vec3 passViewPos;
 varying vec3 passNormal;
 
+#include "vertexcolors.glsl"
 #include "shadows_fragment.glsl"
 #include "lighting.glsl"
 #include "parallax.glsl"
+#include "alpha.glsl"
 
 void main()
 {
@@ -108,16 +120,23 @@ void main()
 
 #if @diffuseMap
     gl_FragData[0] = texture2D(diffuseMap, adjustedDiffuseUV);
+    gl_FragData[0].a *= coveragePreservingAlphaScale(diffuseMap, adjustedDiffuseUV);
 #else
     gl_FragData[0] = vec4(1.0);
 #endif
 
-#if @detailMap
-    gl_FragData[0].xyz *= texture2D(detailMap, detailMapUV).xyz * 2.0;
-#endif
+    vec4 diffuseColor = getDiffuseColor();
+    gl_FragData[0].a *= diffuseColor.a;
 
 #if @darkMap
-    gl_FragData[0].xyz *= texture2D(darkMap, darkMapUV).xyz;
+    gl_FragData[0] *= texture2D(darkMap, darkMapUV);
+    gl_FragData[0].a *= coveragePreservingAlphaScale(darkMap, darkMapUV);
+#endif
+
+    alphaTest();
+
+#if @detailMap
+    gl_FragData[0].xyz *= texture2D(detailMap, detailMapUV).xyz * 2.0;
 #endif
 
 #if @decalMap
@@ -151,18 +170,18 @@ void main()
 #endif
 
     float shadowing = unshadowedLightRatio(linearDepth);
-
+    vec3 lighting;
 #if !PER_PIXEL_LIGHTING
-
-#if @clamp
-    gl_FragData[0] *= clamp(lighting + vec4(shadowDiffuseLighting * shadowing, 0), vec4(0.0), vec4(1.0));
+    lighting = passLighting + shadowDiffuseLighting * shadowing;
 #else
-    gl_FragData[0] *= lighting + vec4(shadowDiffuseLighting * shadowing, 0);
+    vec3 diffuseLight, ambientLight;
+    doLighting(passViewPos, normalize(viewNormal), shadowing, diffuseLight, ambientLight);
+    vec3 emission = getEmissionColor().xyz * emissiveMult;
+    lighting = diffuseColor.xyz * diffuseLight + getAmbientColor().xyz * ambientLight + emission;
+    clampLightingResult(lighting);
 #endif
 
-#else
-    gl_FragData[0] *= doLighting(passViewPos, normalize(viewNormal), passColor, shadowing);
-#endif
+    gl_FragData[0].xyz *= lighting;
 
 #if @envMap && !@preLightEnv
     gl_FragData[0].xyz += texture2D(envMap, envTexCoordGen).xyz * envMapColor.xyz * envLuma;
@@ -178,11 +197,7 @@ void main()
     vec3 matSpec = specTex.xyz;
 #else
     float shininess = gl_FrontMaterial.shininess;
-    vec3 matSpec;
-    if (colorMode == ColorMode_Specular)
-        matSpec = passColor.xyz;
-    else
-        matSpec = gl_FrontMaterial.specular.xyz;
+    vec3 matSpec = getSpecularColor().xyz;
 #endif
 
     if (matSpec != vec3(0.0))
@@ -204,6 +219,12 @@ void main()
     float fogValue = clamp((linearDepth - gl_Fog.start) * gl_Fog.scale, 0.0, 1.0);
 #endif
     gl_FragData[0].xyz = mix(gl_FragData[0].xyz, gl_Fog.color.xyz, fogValue);
+
+#if @translucentFramebuffer
+    // having testing & blending isn't enough - we need to write an opaque pixel to be opaque
+    if (noAlpha)
+        gl_FragData[0].a = 1.0;
+#endif
 
     applyShadowDebugOverlay();
 }

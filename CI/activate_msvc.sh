@@ -1,6 +1,16 @@
 #!/bin/bash
 
-set -euo pipefail
+oldSettings=$-
+set -eu
+
+function restoreOldSettings {
+    if [[ $oldSettings != *e* ]]; then
+        set +e
+    fi
+    if [[ $oldSettings != *u* ]]; then
+        set +u
+    fi
+}
 
 if [[ "${BASH_SOURCE[0]}" == "${0}" ]]; then
     echo "Error: Script not sourced."
@@ -8,6 +18,7 @@ if [[ "${BASH_SOURCE[0]}" == "${0}" ]]; then
     echo "source ./activate_msvc.sh"
     echo "or"
     echo ". ./activate_msvc.sh"
+    restoreOldSettings
     exit 1
 fi
 
@@ -19,47 +30,11 @@ command -v unixPathAsWindows >/dev/null 2>&1 || function unixPathAsWindows {
 	fi
 }
 
-function windowsSystemPathAsUnix {
-	if command -v cygpath >/dev/null 2>&1; then
-		cygpath -u -p $1
-	else
-		IFS=';' read -r -a paths <<< "$1"
-		declare -a convertedPaths
-		for entry in paths; do
-			convertedPaths+=(windowsPathAsUnix $entry)
-		done
-		convertedPath=printf ":%s" ${convertedPaths[@]}
-		echo ${convertedPath:1}
-	fi
-}
-
-# capture CMD environment so we know what's been changed
-declare -A originalCmdEnv
-originalIFS="$IFS"
-IFS=$'\n\r'
-for pair in $(cmd //c "set"); do
-    IFS='=' read -r -a separatedPair <<< "${pair}"
-    originalCmdEnv["${separatedPair[0]}"]="${separatedPair[1]}"
-done
 
 # capture CMD environment in a shell with MSVC activated
-cmdEnv="$(cmd //c "$(unixPathAsWindows "$(dirname "${BASH_SOURCE[0]}")")\ActivateMSVC.bat" "&&" set)"
-
-declare -A cmdEnvChanges
-for pair in $cmdEnv; do
-    if [ -n "$pair" ]; then
-        IFS='=' read -r -a separatedPair <<< "${pair}"
-        key="${separatedPair[0]}"
-        value="${separatedPair[1]}"
-        if ! [ ${originalCmdEnv[$key]+_} ] || [ "${originalCmdEnv[$key]}" != "$value" ]; then
-            if [ $key != 'PATH' ] && [ $key != 'path' ] && [ $key != 'Path' ]; then
-                export "$key=$value"
-            else
-                export PATH=$(windowsSystemPathAsUnix $value)
-            fi
-        fi
-    fi
-done
+cmd //c "$(unixPathAsWindows "$(dirname "${BASH_SOURCE[0]}")")\ActivateMSVC.bat" "&&" "bash" "-c" "declare -px > declared_env.sh"
+source ./declared_env.sh
+rm declared_env.sh
 
 MISSINGTOOLS=0
 
@@ -70,7 +45,8 @@ command -v mt >/dev/null 2>&1 || { echo "Error: mt (MS Windows Manifest Tool) mi
 
 if [ $MISSINGTOOLS -ne 0 ]; then
     echo "Some build tools were unavailable after activating MSVC in the shell. It's likely that your Visual Studio $MSVC_DISPLAY_YEAR installation needs repairing."
+    restoreOldSettings
     return 1
 fi
 
-IFS="$originalIFS"
+restoreOldSettings

@@ -10,7 +10,7 @@
 #include "nestedtablewrapper.hpp"
 
 CSMWorld::PotionColumns::PotionColumns (const InventoryColumns& columns)
-: InventoryColumns (columns) {}
+: InventoryColumns (columns), mEffects(nullptr) {}
 
 CSMWorld::PotionRefIdAdapter::PotionRefIdAdapter (const PotionColumns& columns,
     const RefIdColumn *autoCalc)
@@ -56,7 +56,9 @@ void CSMWorld::PotionRefIdAdapter::setData (const RefIdColumn *column, RefIdData
 
 
 CSMWorld::IngredientColumns::IngredientColumns (const InventoryColumns& columns)
-: InventoryColumns (columns) {}
+: InventoryColumns (columns)
+, mEffects(nullptr)
+{}
 
 CSMWorld::IngredientRefIdAdapter::IngredientRefIdAdapter (const IngredientColumns& columns)
 : InventoryRefIdAdapter<ESM::Ingredient> (UniversalId::Type_Ingredient, columns),
@@ -585,7 +587,13 @@ void CSMWorld::DoorRefIdAdapter::setData (const RefIdColumn *column, RefIdData& 
 }
 
 CSMWorld::LightColumns::LightColumns (const InventoryColumns& columns)
-: InventoryColumns (columns) {}
+: InventoryColumns (columns)
+, mTime(nullptr)
+, mRadius(nullptr)
+, mColor(nullptr)
+, mSound(nullptr)
+, mEmitterType(nullptr)
+{}
 
 CSMWorld::LightRefIdAdapter::LightRefIdAdapter (const LightColumns& columns)
 : InventoryRefIdAdapter<ESM::Light> (UniversalId::Type_Light, columns), mColumns (columns)
@@ -1100,7 +1108,6 @@ QVariant CSMWorld::NpcMiscRefIdAdapter::getNestedData (const RefIdColumn *column
             case 5: return static_cast<int>(record.get().mNpdt.mReputation);
             case 6: return static_cast<int>(record.get().mNpdt.mRank);
             case 7: return record.get().mNpdt.mGold;
-            case 8: return record.get().mPersistent == true;
             default: return QVariant(); // throw an exception here?
         }
     else
@@ -1114,7 +1121,6 @@ QVariant CSMWorld::NpcMiscRefIdAdapter::getNestedData (const RefIdColumn *column
             case 5: return static_cast<int>(record.get().mNpdt.mReputation);
             case 6: return static_cast<int>(record.get().mNpdt.mRank);
             case 7: return record.get().mNpdt.mGold;
-            case 8: return record.get().mPersistent == true;
             default: return QVariant(); // throw an exception here?
         }
 }
@@ -1139,7 +1145,6 @@ void CSMWorld::NpcMiscRefIdAdapter::setNestedData (const RefIdColumn *column,
             case 5: npc.mNpdt.mReputation = static_cast<signed char>(value.toInt()); break;
             case 6: npc.mNpdt.mRank = static_cast<signed char>(value.toInt()); break;
             case 7: npc.mNpdt.mGold = value.toInt(); break;
-            case 8: npc.mPersistent = value.toBool(); break;
             default: return; // throw an exception here?
         }
     else
@@ -1153,7 +1158,6 @@ void CSMWorld::NpcMiscRefIdAdapter::setNestedData (const RefIdColumn *column,
             case 5: npc.mNpdt.mReputation = static_cast<signed char>(value.toInt()); break;
             case 6: npc.mNpdt.mRank = static_cast<signed char>(value.toInt()); break;
             case 7: npc.mNpdt.mGold = value.toInt(); break;
-            case 8: npc.mPersistent = value.toBool(); break;
             default: return; // throw an exception here?
         }
 
@@ -1162,7 +1166,7 @@ void CSMWorld::NpcMiscRefIdAdapter::setNestedData (const RefIdColumn *column,
 
 int CSMWorld::NpcMiscRefIdAdapter::getNestedColumnsCount(const RefIdColumn *column, const RefIdData& data) const
 {
-    return 9; // Level, Health, Mana, Fatigue, Disposition, Reputation, Rank, Gold, Persist
+    return 8; // Level, Health, Mana, Fatigue, Disposition, Reputation, Rank, Gold
 }
 
 int CSMWorld::NpcMiscRefIdAdapter::getNestedRowsCount(const RefIdColumn *column, const RefIdData& data, int index) const
@@ -1454,7 +1458,15 @@ int CSMWorld::CreatureMiscRefIdAdapter::getNestedRowsCount(const RefIdColumn *co
 }
 
 CSMWorld::WeaponColumns::WeaponColumns (const EnchantableColumns& columns)
-: EnchantableColumns (columns) {}
+: EnchantableColumns (columns)
+, mType(nullptr)
+, mHealth(nullptr)
+, mSpeed(nullptr)
+, mReach(nullptr)
+, mChop{nullptr}
+, mSlash{nullptr}
+, mThrust{nullptr}
+{}
 
 CSMWorld::WeaponRefIdAdapter::WeaponRefIdAdapter (const WeaponColumns& columns)
 : EnchantableRefIdAdapter<ESM::Weapon> (UniversalId::Type_Weapon, columns), mColumns (columns)

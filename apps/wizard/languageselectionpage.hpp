@@ -1,8 +1,6 @@
 #ifndef LANGUAGESELECTIONPAGE_HPP
 #define LANGUAGESELECTIONPAGE_HPP
 
-#include <QWizardPage>
-
 #include "ui_languageselectionpage.h"
 
 namespace Wizard
@@ -15,13 +13,13 @@ namespace Wizard
     public:
         LanguageSelectionPage(QWidget *parent);
 
-        int nextId() const;
+        int nextId() const override;
 
     private:
         MainWizard *mWizard;
 
     protected:
-        void initializePage();
+        void initializePage() override;
     };
 }
 

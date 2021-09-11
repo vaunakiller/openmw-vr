@@ -28,6 +28,10 @@ endif (GIT_CHECKOUT)
 
 # source files
 
+add_component_dir (lua
+    luastate scriptscontainer utilpackage serialization omwscriptsparser
+    )
+
 add_component_dir (settings
     settings parser
     )
@@ -41,17 +45,19 @@ add_component_dir (vfs
     )
 
 add_component_dir (resource
-    scenemanager keyframemanager imagemanager bulletshapemanager bulletshape niffilemanager objectcache multiobjectcache resourcesystem resourcemanager stats
+    scenemanager keyframemanager imagemanager bulletshapemanager bulletshape niffilemanager objectcache multiobjectcache resourcesystem
+    resourcemanager stats animation
     )
 
 add_component_dir (shader
-    shadermanager shadervisitor
+    shadermanager shadervisitor removedalphafunc
     )
 
 add_component_dir (sceneutil
     clone attach visitor util statesetupdater controller skeleton riggeometry morphgeometry lightcontroller
     lightmanager lightutil positionattitudetransform workqueue unrefqueue pathgridutil waterutil writescene serialize optimizer
-    actorutil detourdebugdraw navmesh agentpath shadow mwshadowtechnique recastmesh
+    actorutil detourdebugdraw navmesh agentpath shadow mwshadowtechnique recastmesh shadowsbin osgacontroller rtt
+    screencapture
     )
 
 add_component_dir (nif
@@ -59,7 +65,7 @@ add_component_dir (nif
     )
 
 add_component_dir (nifosg
-    nifloader controller particle userdata
+    nifloader controller particle matrixtransform
     )
 
 add_component_dir (nifbullet
@@ -78,7 +84,7 @@ add_component_dir (esm
     loadweap records aipackage effectlist spelllist variant variantimp loadtes3 cellref filter
     savedgame journalentry queststate locals globalscript player objectstate cellid cellstate globalmap inventorystate containerstate npcstate creaturestate dialoguestate statstate
     npcstats creaturestats weatherstate quickkeys fogstate spellstate activespells creaturelevliststate doorstate projectilestate debugprofile
-    aisequence magiceffects util custommarkerstate stolenitems transport animationstate controlsstate mappings
+    aisequence magiceffects util custommarkerstate stolenitems transport animationstate controlsstate mappings luascripts
     )
 
 add_component_dir (esmterrain
@@ -86,11 +92,11 @@ add_component_dir (esmterrain
     )
 
 add_component_dir (misc
-    gcd constants utf8stream stringops resourcehelpers rng messageformatparser weakcache
+    constants utf8stream stringops resourcehelpers rng messageformatparser weakcache thread
     )
 
 add_component_dir (debug
-    debugging debuglog
+    debugging debuglog gldebug
     )
 
 IF(NOT WIN32 AND NOT APPLE)
@@ -139,7 +145,7 @@ add_component_dir (fontloader
     )
 
 add_component_dir (sdlutil
-    sdlgraphicswindow imagetosurface sdlinputwrapper sdlvideowrapper events sdlcursormanager
+    gl4es_init sdlgraphicswindow imagetosurface sdlinputwrapper sdlvideowrapper events sdlcursormanager
     )
 
 add_component_dir (version
@@ -150,7 +156,17 @@ add_component_dir (fallback
     fallback validate
     )
 
-if(NOT WIN32 AND NOT ANDROID)
+add_component_dir (queries
+    query luabindings
+    )
+
+if(WIN32)
+    add_component_dir (crashcatcher
+        windows_crashcatcher
+        windows_crashmonitor
+        windows_crashshm
+    )
+elseif(NOT ANDROID)
     add_component_dir (crashcatcher
         crashcatcher
     )
@@ -166,7 +182,6 @@ add_component_dir(detournavigator
     navmeshmanager
     navigatorimpl
     asyncnavmeshupdater
-    chunkytrimesh
     recastmesh
     tilecachedrecastmeshmanager
     recastmeshobject
@@ -174,6 +189,16 @@ add_component_dir(detournavigator
     settings
     navigator
     findrandompointaroundcircle
+    raycast
+    navmeshtileview
+    oscillatingrecastmeshobject
+    offmeshconnectionsmanager
+    preparednavmeshdata
+    navmeshcacheitem
+    )
+
+add_component_dir(loadinglistener
+    reporter
     )
 
 set (ESM_UI ${CMAKE_SOURCE_DIR}/files/ui/contentselector.ui
@@ -196,7 +221,7 @@ if (USE_QT)
         processinvoker
         )
 
-    add_component_dir (misc
+    add_component_qt_dir (misc
         helpviewer
         )
 
@@ -212,32 +237,41 @@ endif ()
 
 include_directories(${BULLET_INCLUDE_DIRS} ${CMAKE_CURRENT_BINARY_DIR})
 
-add_library(components STATIC ${COMPONENT_FILES} ${MOC_SRCS} ${ESM_UI_HDR})
+add_library(components STATIC ${COMPONENT_FILES})
 
 target_link_libraries(components
+    # CMake's built-in OSG finder does not use pkgconfig, so we have to
+    # manually ensure the order is correct for inter-library dependencies.
+    # This only makes a difference with `-DOPENMW_USE_SYSTEM_OSG=ON -DOSG_STATIC=ON`.
+    # https://gitlab.kitware.com/cmake/cmake/-/issues/21701
+    ${OSGPARTICLE_LIBRARIES}
+    ${OSGVIEWER_LIBRARIES}
+    ${OSGSHADOW_LIBRARIES}
+    ${OSGANIMATION_LIBRARIES}
+    ${OSGGA_LIBRARIES}
+    ${OSGTEXT_LIBRARIES}
+    ${OSGDB_LIBRARIES}
+    ${OSGUTIL_LIBRARIES}
+    ${OSG_LIBRARIES}
+    ${OPENTHREADS_LIBRARIES}
+
     ${Boost_SYSTEM_LIBRARY}
     ${Boost_FILESYSTEM_LIBRARY}
     ${Boost_PROGRAM_OPTIONS_LIBRARY}
     ${Boost_IOSTREAMS_LIBRARY}
-    ${OSG_LIBRARIES}
-    ${OPENTHREADS_LIBRARIES}
-    ${OSGPARTICLE_LIBRARIES}
-    ${OSGUTIL_LIBRARIES}
-    ${OSGDB_LIBRARIES}
-    ${OSGVIEWER_LIBRARIES}
-    ${OSGTEXT_LIBRARIES}
-    ${OSGGA_LIBRARIES}
-    ${OSGSHADOW_LIBRARIES}
-    ${OSGANIMATION_LIBRARIES}
-    ${BULLET_LIBRARIES}
+
     ${SDL2_LIBRARIES}
     ${OPENGL_gl_LIBRARY}
     ${MyGUI_LIBRARIES}
-    ${BSAOPTHASH_LIBRARIES}
+    LZ4::LZ4
     RecastNavigation::DebugUtils
     RecastNavigation::Detour
     RecastNavigation::Recast
+
+    Base64
     )
+
+target_link_libraries(components ${BULLET_LIBRARIES})
 
 if (WIN32)
     target_link_libraries(components
@@ -246,7 +280,9 @@ if (WIN32)
 endif()
 
 if (USE_QT)
-    target_link_libraries(components Qt5::Widgets Qt5::Core)
+    add_library(components_qt STATIC ${COMPONENT_QT_FILES} ${MOC_SRCS} ${ESM_UI_HDR})
+    target_link_libraries(components_qt components Qt5::Widgets Qt5::Core)
+    target_compile_definitions(components_qt PRIVATE OPENMW_DOC_BASEURL="${OPENMW_DOC_BASEURL}")
 endif()
 
 if (GIT_CHECKOUT)
@@ -271,6 +307,29 @@ endif()
 # Make the variable accessible for other subdirectories
 set(COMPONENT_FILES ${COMPONENT_FILES} PARENT_SCOPE)
 
-if (BULLET_USE_DOUBLES)
-    target_compile_definitions(components PUBLIC BT_USE_DOUBLE_PRECISION)
-endif()
+target_compile_definitions(components PUBLIC BT_USE_DOUBLE_PRECISION)
+
+if(OSG_STATIC)
+    unset(_osg_plugins_static_files)
+    add_library(components_osg_plugins INTERFACE)
+    foreach(_plugin ${USED_OSG_PLUGINS})
+        string(TOUPPER ${_plugin} _plugin_uc)
+        if(OPENMW_USE_SYSTEM_OSG)
+            list(APPEND _osg_plugins_static_files ${${_plugin_uc}_LIBRARY})
+        else()
+            list(APPEND _osg_plugins_static_files $<TARGET_FILE:${${_plugin_uc}_LIBRARY}>)
+            target_link_libraries(components_osg_plugins INTERFACE $<TARGET_PROPERTY:${${_plugin_uc}_LIBRARY},LINK_LIBRARIES>)
+            add_dependencies(components_osg_plugins ${${_plugin_uc}_LIBRARY})
+        endif()
+    endforeach()
+    # We use --whole-archive because OSG plugins use registration.
+    get_whole_archive_options(_opts ${_osg_plugins_static_files})
+    target_link_options(components_osg_plugins INTERFACE ${_opts})
+    target_link_libraries(components components_osg_plugins)
+
+    if(OPENMW_USE_SYSTEM_OSG)
+        # OSG plugin pkgconfig files are missing these dependencies.
+        # https://github.com/openscenegraph/OpenSceneGraph/issues/1052
+        target_link_libraries(components freetype jpeg png)
+    endif()
+endif(OSG_STATIC)

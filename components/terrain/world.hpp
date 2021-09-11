@@ -32,6 +32,11 @@ namespace SceneUtil
     class WorkQueue;
 }
 
+namespace Loading
+{
+    class Reporter;
+}
+
 namespace Terrain
 {
     class Storage;
@@ -70,7 +75,7 @@ namespace Terrain
             return mMask;
         }
 
-        virtual void operator()(osg::Node* node, osg::NodeVisitor* nv)
+        void operator()(osg::Node* node, osg::NodeVisitor* nv) override
         {
             if (mLowZ <= mHighZ)
                 traverse(node, nv);
@@ -105,7 +110,8 @@ namespace Terrain
         /// @param storage Storage instance to get terrain data from (heights, normals, colors, textures..)
         /// @param nodeMask mask for the terrain root
         /// @param preCompileMask mask for pre compiling textures
-        World(osg::Group* parent, osg::Group* compileRoot, Resource::ResourceSystem* resourceSystem, Storage* storage, int nodeMask, int preCompileMask, int borderMask);
+        World(osg::Group* parent, osg::Group* compileRoot, Resource::ResourceSystem* resourceSystem, Storage* storage, unsigned int nodeMask, unsigned int preCompileMask, unsigned int borderMask);
+        World(osg::Group* parent, Storage* storage, unsigned int nodeMask);
         virtual ~World();
 
         /// Set a WorkQueue to delete objects in the background thread.
@@ -147,7 +153,7 @@ namespace Terrain
 
         /// @note Thread safe, as long as you do not attempt to load into the same view from multiple threads.
 
-        virtual void preload(View* view, const osg::Vec3f& viewPoint, const osg::Vec4i &cellgrid, std::atomic<bool>& abort, std::atomic<int>& progress, int& progressRange) {}
+        virtual void preload(View* view, const osg::Vec3f& viewPoint, const osg::Vec4i &cellgrid, std::atomic<bool>& abort, Loading::Reporter& reporter) {}
 
         /// Store a preloaded view into the cache with the intent that the next rendering traversal can use it.
         /// @note Not thread safe.

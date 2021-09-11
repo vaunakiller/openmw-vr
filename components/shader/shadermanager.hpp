@@ -11,15 +11,37 @@
 
 #include <osgViewer/Viewer>
 
+#include <components/sceneutil/lightmanager.hpp>
+
+namespace Resource
+{
+    class SceneManager;
+}
+
+namespace SceneUtil
+{
+    enum class LightingMethod;
+}
+
 namespace Shader
 {
+
+    enum class UBOBinding
+    {
+        LightBuffer
+    };
 
     /// @brief Reads shader template files and turns them into a concrete shader, based on a list of define's.
     /// @par Shader templates can get the value of a define with the syntax @define.
     class ShaderManager
     {
     public:
+
+        ShaderManager();
+
         void setShaderPath(const std::string& path);
+
+        void setLightingMethod(SceneUtil::LightingMethod method);
 
         typedef std::map<std::string, std::string> DefineMap;
 
@@ -43,9 +65,6 @@ namespace Shader
 
         void releaseGLObjects(osg::State* state);
 
-        const osg::ref_ptr<osg::Uniform> getShadowMapAlphaTestEnableUniform();
-        const osg::ref_ptr<osg::Uniform> getShadowMapAlphaTestDisableUniform();
-
     private:
         std::string mPath;
 
@@ -62,10 +81,9 @@ namespace Shader
         typedef std::map<std::pair<osg::ref_ptr<osg::Shader>, osg::ref_ptr<osg::Shader> >, osg::ref_ptr<osg::Program> > ProgramMap;
         ProgramMap mPrograms;
 
-        std::mutex mMutex;
+        SceneUtil::LightingMethod mLightingMethod;
 
-        const osg::ref_ptr<osg::Uniform> mShadowMapAlphaTestEnableUniform = new osg::Uniform();
-        const osg::ref_ptr<osg::Uniform> mShadowMapAlphaTestDisableUniform = new osg::Uniform();
+        std::mutex mMutex;
     };
 
     bool parseFors(std::string& source, const std::string& templateName);

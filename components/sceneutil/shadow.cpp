@@ -72,6 +72,9 @@ namespace SceneUtil
 
     void ShadowManager::disableShadowsForStateSet(osg::ref_ptr<osg::StateSet> stateset)
     {
+        if (!Settings::Manager::getBool("enable shadows", "Shadows"))
+            return;
+
         int numberOfShadowMapsPerLight = Settings::Manager::getInt("number of shadow maps", "Shadows");
         numberOfShadowMapsPerLight = std::max(1, std::min(numberOfShadowMapsPerLight, 8));
 
@@ -168,7 +171,7 @@ namespace SceneUtil
         if (Settings::Manager::getBool("enable indoor shadows", "Shadows"))
             mShadowSettings->setCastsShadowTraversalMask(mIndoorShadowCastingMask);
         else
-            mShadowTechnique->disableShadows();
+            mShadowTechnique->disableShadows(true);
     }
 
     void ShadowManager::enableOutdoorMode()

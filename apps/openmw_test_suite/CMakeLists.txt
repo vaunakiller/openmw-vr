@@ -1,5 +1,5 @@
-find_package(GTest REQUIRED)
-find_package(GMock REQUIRED)
+find_package(GTest 1.10 REQUIRED)
+find_package(GMock 1.10 REQUIRED)
 
 if (GTEST_FOUND AND GMOCK_FOUND)
     include_directories(SYSTEM ${GTEST_INCLUDE_DIRS})
@@ -13,8 +13,17 @@ if (GTEST_FOUND AND GMOCK_FOUND)
         mwdialogue/test_keywordsearch.cpp
 
         esm/test_fixed_string.cpp
+        esm/variant.cpp
+
+        lua/test_lua.cpp
+        lua/test_scriptscontainer.cpp
+        lua/test_utilpackage.cpp
+        lua/test_serialization.cpp
+        lua/test_querypackage.cpp
+        lua/test_omwscriptsparser.cpp
 
         misc/test_stringops.cpp
+        misc/test_endianness.cpp
 
         nifloader/testbulletnifloader.cpp
 
@@ -37,7 +46,7 @@ if (GTEST_FOUND AND GMOCK_FOUND)
 
     openmw_add_executable(openmw_test_suite openmw_test_suite.cpp ${UNITTEST_SRC_FILES})
 
-    target_link_libraries(openmw_test_suite ${GMOCK_LIBRARIES} components)
+    target_link_libraries(openmw_test_suite ${GMOCK_LIBRARIES} components ${LUA_LIBRARIES})
     # Fix for not visible pthreads functions for linker with glibc 2.15
     if (UNIX AND NOT APPLE)
         target_link_libraries(openmw_test_suite ${CMAKE_THREAD_LIBS_INIT})

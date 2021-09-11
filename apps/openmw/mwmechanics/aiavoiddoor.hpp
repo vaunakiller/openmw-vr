@@ -3,10 +3,6 @@
 
 #include "typedaipackage.hpp"
 
-#include <string>
-
-#include <components/esm/defs.hpp>
-
 #include "../mwworld/class.hpp"
 
 #include "pathfinding.hpp"
@@ -20,9 +16,9 @@ namespace MWMechanics
     {
         public:
             /// Avoid door until the door is fully open
-            AiAvoidDoor(const MWWorld::ConstPtr& doorPtr);
+            explicit AiAvoidDoor(const MWWorld::ConstPtr& doorPtr);
 
-            bool execute (const MWWorld::Ptr& actor, CharacterController& characterController, AiState& state, float duration) final;
+            bool execute (const MWWorld::Ptr& actor, CharacterController& characterController, AiState& state, float duration) override;
 
             static constexpr AiPackageTypeId getTypeId() { return AiPackageTypeId::AvoidDoor; }
 

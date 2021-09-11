@@ -645,7 +645,7 @@ MwIniImporter::MwIniImporter()
     }
 
     for(int i=0; fallback[i]; i++) {
-        mMergeFallback.push_back(fallback[i]);
+        mMergeFallback.emplace_back(fallback[i]);
     }
 }
 
@@ -676,7 +676,7 @@ MwIniImporter::multistrmap MwIniImporter::loadIniFile(const boost::filesystem::p
         }
 
         if(line[0] == '[') {
-            int pos = line.find(']');
+            int pos = static_cast<int>(line.find(']'));
             if(pos < 2) {
                 std::cout << "Warning: ini file wrongly formatted (" << line << "). Line ignored." << std::endl;
                 continue;
@@ -686,12 +686,12 @@ MwIniImporter::multistrmap MwIniImporter::loadIniFile(const boost::filesystem::p
             continue;
         }
 
-        int comment_pos = line.find(";");
+        int comment_pos = static_cast<int>(line.find(';'));
         if(comment_pos > 0) {
             line = line.substr(0,comment_pos);
         }
 
-        int pos = line.find("=");
+        int pos = static_cast<int>(line.find('='));
         if(pos < 1) {
             continue;
         }
@@ -722,7 +722,7 @@ MwIniImporter::multistrmap MwIniImporter::loadCfgFile(const boost::filesystem::p
     while (std::getline(file, line)) {
 
         // we cant say comment by only looking at first char anymore
-        int comment_pos = line.find("#");
+        int comment_pos = static_cast<int>(line.find('#'));
         if(comment_pos > 0) {
             line = line.substr(0,comment_pos);
         }
@@ -731,7 +731,7 @@ MwIniImporter::multistrmap MwIniImporter::loadCfgFile(const boost::filesystem::p
             continue;
         }
 
-        int pos = line.find("=");
+        int pos = static_cast<int>(line.find('='));
         if(pos < 1) {
             continue;
         }
@@ -778,7 +778,7 @@ void MwIniImporter::mergeFallback(multistrmap &cfg, const multistrmap &ini) cons
 }
 
 void MwIniImporter::insertMultistrmap(multistrmap &cfg, const std::string& key, const std::string& value) {
-    const multistrmap::const_iterator it = cfg.find(key);
+    const auto it = cfg.find(key);
     if(it == cfg.end()) {
         cfg.insert(std::make_pair (key, std::vector<std::string>() ));
     }
@@ -791,7 +791,7 @@ void MwIniImporter::importArchives(multistrmap &cfg, const multistrmap &ini) con
     std::string archive;
 
     // Search archives listed in ini file
-    multistrmap::const_iterator it = ini.begin();
+    auto it = ini.begin();
     for(int i=0; it != ini.end(); i++) {
         archive = baseArchive;
         archive.append(std::to_string(i));
@@ -813,7 +813,7 @@ void MwIniImporter::importArchives(multistrmap &cfg, const multistrmap &ini) con
     // does not appears in the ini file
     cfg["fallback-archive"].push_back("Morrowind.bsa");
 
-    for(std::vector<std::string>::const_iterator iter=archives.begin(); iter!=archives.end(); ++iter) {
+    for(auto iter=archives.begin(); iter!=archives.end(); ++iter) {
         cfg["fallback-archive"].push_back(*iter);
     }
 }
@@ -886,7 +886,7 @@ void MwIniImporter::importGameFiles(multistrmap &cfg, const multistrmap &ini, co
 
     dataPaths.push_back(iniFilename.parent_path() /= "Data Files");
 
-    multistrmap::const_iterator it = ini.begin();
+    auto it = ini.begin();
     for (int i=0; it != ini.end(); i++)
     {
         std::string gameFile = baseGameFile;
@@ -910,7 +910,7 @@ void MwIniImporter::importGameFiles(multistrmap &cfg, const multistrmap &ini, co
                     std::time_t time = lastWriteTime(path, defaultTime);
                     if (time != defaultTime)
                     {
-                        contentFiles.push_back({time, path});
+                        contentFiles.emplace_back(time, std::move(path));
                         found = true;
                         break;
                     }
@@ -969,7 +969,7 @@ void MwIniImporter::importGameFiles(multistrmap &cfg, const multistrmap &ini, co
 void MwIniImporter::writeToFile(std::ostream &out, const multistrmap &cfg) {
 
     for(multistrmap::const_iterator it=cfg.begin(); it != cfg.end(); ++it) {
-        for(std::vector<std::string>::const_iterator entry=it->second.begin(); entry != it->second.end(); ++entry) {
+        for(auto entry=it->second.begin(); entry != it->second.end(); ++entry) {
             out << (it->first) << "=" << (*entry) << std::endl;
         }
     }
@@ -985,14 +985,7 @@ std::time_t MwIniImporter::lastWriteTime(const boost::filesystem::path& filename
     std::time_t writeTime(defaultTime);
     if (boost::filesystem::exists(filename))
     {
-        // FixMe: remove #if when Boost dependency for Linux builds updated
-        // This allows Linux to build until then
-#if (BOOST_VERSION >= 104800)
-        // need to resolve any symlinks so that we get time of file, not symlink
         boost::filesystem::path resolved = boost::filesystem::canonical(filename);
-#else
-        boost::filesystem::path resolved = filename;
-#endif
         writeTime = boost::filesystem::last_write_time(resolved);
 
         // print timestamp

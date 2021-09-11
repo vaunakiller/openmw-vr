@@ -21,7 +21,9 @@
 
 #include <iostream>
 
+#include <components/misc/mathutil.hpp>
 #include <components/misc/rng.hpp>
+#include <components/misc/stringops.hpp>
 
 #include <components/settings/settings.hpp>
 
@@ -50,15 +52,6 @@
 
 namespace
 {
-
-// Wraps a value to (-PI, PI]
-void wrap(float& rad)
-{
-    if (rad>0)
-        rad = std::fmod(rad+osg::PI, 2.0f*osg::PI)-osg::PI;
-    else
-        rad = std::fmod(rad-osg::PI, 2.0f*osg::PI)+osg::PI;
-}
 
 std::string getBestAttack (const ESM::Weapon* weapon)
 {
@@ -219,38 +212,48 @@ void CharacterController::refreshHitRecoilAnims(CharacterState& idle)
     if(mHitState == CharState_None)
     {
         if ((mPtr.getClass().getCreatureStats(mPtr).getFatigue().getCurrent() < 0
-                || mPtr.getClass().getCreatureStats(mPtr).getFatigue().getBase() == 0)
-                && mAnimation->hasAnimation("knockout"))
+                || mPtr.getClass().getCreatureStats(mPtr).getFatigue().getBase() == 0))
         {
             mTimeUntilWake = Misc::Rng::rollClosedProbability() * 2 + 1; // Wake up after 1 to 3 seconds
             if (isSwimming && mAnimation->hasAnimation("swimknockout"))
             {
                 mHitState = CharState_SwimKnockOut;
                 mCurrentHit = "swimknockout";
+                mAnimation->play(mCurrentHit, Priority_Knockdown, MWRender::Animation::BlendMask_All, false, 1, "start", "stop", 0.0f, ~0ul);
             }
-            else
+            else if (!isSwimming && mAnimation->hasAnimation("knockout"))
             {
                 mHitState = CharState_KnockOut;
                 mCurrentHit = "knockout";
+                mAnimation->play(mCurrentHit, Priority_Knockdown, MWRender::Animation::BlendMask_All, false, 1, "start", "stop", 0.0f, ~0ul);
+            }
+            else
+            {
+                // Knockout animations are missing. Fall back to idle animation, so target actor still can be killed via HtH.
+                mCurrentHit.erase();
             }
 
-            mAnimation->play(mCurrentHit, Priority_Knockdown, MWRender::Animation::BlendMask_All, false, 1, "start", "stop", 0.0f, ~0ul);
             mPtr.getClass().getCreatureStats(mPtr).setKnockedDown(true);
         }
-        else if(knockdown && mAnimation->hasAnimation("knockdown"))
+        else if (knockdown)
         {
             if (isSwimming && mAnimation->hasAnimation("swimknockdown"))
             {
                 mHitState = CharState_SwimKnockDown;
                 mCurrentHit = "swimknockdown";
+                mAnimation->play(mCurrentHit, Priority_Knockdown, MWRender::Animation::BlendMask_All, true, 1, "start", "stop", 0.0f, 0);
             }
-            else
+            else if (!isSwimming && mAnimation->hasAnimation("knockdown"))
             {
                 mHitState = CharState_KnockDown;
                 mCurrentHit = "knockdown";
+                mAnimation->play(mCurrentHit, Priority_Knockdown, MWRender::Animation::BlendMask_All, true, 1, "start", "stop", 0.0f, 0);
             }
-
-            mAnimation->play(mCurrentHit, Priority_Knockdown, MWRender::Animation::BlendMask_All, true, 1, "start", "stop", 0.0f, 0);
+            else
+            {
+                // Knockdown animation is missing. Cancel knockdown state.
+                mPtr.getClass().getCreatureStats(mPtr).setKnockedDown(false);
+            }
         }
         else if (recovery)
         {
@@ -278,6 +281,7 @@ void CharacterController::refreshHitRecoilAnims(CharacterState& idle)
             mCurrentHit = "shield";
             MWRender::Animation::AnimPriority priorityBlock (Priority_Hit);
             priorityBlock[MWRender::Animation::BoneGroup_LeftArm] = Priority_Block;
+            priorityBlock[MWRender::Animation::BoneGroup_LowerBody] = Priority_WeaponLowerBody;
             mAnimation->play(mCurrentHit, priorityBlock, MWRender::Animation::BlendMask_All, true, 1, "block start", "block stop", 0.0f, 0);
         }
 
@@ -297,6 +301,8 @@ void CharacterController::refreshHitRecoilAnims(CharacterState& idle)
                 mUpperBodyState = UpperCharState_Nothing;
             }
         }
+        if (mHitState != CharState_None)
+            idle = CharState_None;
     }
     else if(!mAnimation->isPlaying(mCurrentHit))
     {
@@ -316,8 +322,6 @@ void CharacterController::refreshHitRecoilAnims(CharacterState& idle)
         mAnimation->disable(mCurrentHit);
         mAnimation->play(mCurrentHit, Priority_Knockdown, MWRender::Animation::BlendMask_All, true, 1, "loop stop", "stop", 0.0f, 0);
     }
-    if (mHitState != CharState_None)
-        idle = CharState_None;
 }
 
 void CharacterController::refreshJumpAnims(const std::string& weapShortGroup, JumpingState jump, CharacterState& idle, bool force)
@@ -453,9 +457,9 @@ std::string CharacterController::fallbackShortWeaponGroup(const std::string& bas
     const ESM::WeaponType* weapInfo = getWeaponType(mWeaponType);
 
     // For real two-handed melee weapons use 2h swords animations as fallback, otherwise use the 1h ones
-    if (isRealWeapon && weapInfo->mFlags & ESM::WeaponType::TwoHanded && weapInfo->mWeaponClass == ESM::WeaponType::Melee)
+    if (weapInfo->mFlags & ESM::WeaponType::TwoHanded && weapInfo->mWeaponClass == ESM::WeaponType::Melee)
         groupName += twoHandFallback;
-    else if (isRealWeapon)
+    else
         groupName += oneHandFallback;
 
     // Special case for crossbows - we shouls apply 1h animations a fallback only for lower body
@@ -890,7 +894,11 @@ CharacterController::CharacterController(const MWWorld::Ptr &ptr, MWRender::Anim
         }
 
         if(!cls.getCreatureStats(mPtr).isDead())
+        {
             mIdleState = CharState_Idle;
+            if (cls.getCreatureStats(mPtr).getFallHeight() > 0)
+                mJumpState = JumpState_InAir;
+        }
         else
         {
             const MWMechanics::CreatureStats& cStats = mPtr.getClass().getCreatureStats(mPtr);
@@ -935,15 +943,7 @@ CharacterController::~CharacterController()
     }
 }
 
-void split(const std::string &s, char delim, std::vector<std::string> &elems) {
-    std::stringstream ss(s);
-    std::string item;
-    while (std::getline(ss, item, delim)) {
-        elems.push_back(item);
-    }
-}
-
-void CharacterController::handleTextKey(const std::string &groupname, NifOsg::TextKeyMap::ConstIterator key, const NifOsg::TextKeyMap& map)
+void CharacterController::handleTextKey(const std::string &groupname, SceneUtil::TextKeyMap::ConstIterator key, const SceneUtil::TextKeyMap& map)
 {
     const std::string &evt = key->second;
 
@@ -959,10 +959,10 @@ void CharacterController::handleTextKey(const std::string &groupname, NifOsg::Te
 
         // The event can optionally contain volume and pitch modifiers
         float volume=1.f, pitch=1.f;
-        if (soundgen.find(" ") != std::string::npos)
+        if (soundgen.find(' ') != std::string::npos)
         {
             std::vector<std::string> tokens;
-            split(soundgen, ' ', tokens);
+            Misc::StringUtils::split(soundgen, tokens);
             soundgen = tokens[0];
             if (tokens.size() >= 2)
             {
@@ -982,8 +982,7 @@ void CharacterController::handleTextKey(const std::string &groupname, NifOsg::Te
         if(!sound.empty())
         {
             MWBase::SoundManager *sndMgr = MWBase::Environment::get().getSoundManager();
-            // NB: landing sound is not played for NPCs here
-            if(soundgen == "left" || soundgen == "right" || soundgen == "land")
+            if (soundgen == "left" || soundgen == "right")
             {
                 sndMgr->playSound3D(mPtr, sound, volume, pitch, MWSound::Type::Foot,
                                     MWSound::PlayMode::NoPlayerLocal);
@@ -1313,6 +1312,8 @@ bool CharacterController::updateWeaponState(CharacterState& idle)
                 mAnimation->play(weapgroup, priorityWeapon, unequipMask, false,
                                 1.0f, "unequip start", "unequip stop", 0.0f, 0);
                 mUpperBodyState = UpperCharState_UnEquipingWeap;
+
+                mAnimation->detachArrow();
 
                 // If we do not have the "unequip detach" key, hide weapon manually.
                 if (mAnimation->getTextKeyTime(weapgroup+": unequip detach") < 0)
@@ -1652,7 +1653,8 @@ bool CharacterController::updateWeaponState(CharacterState& idle)
                                  MWRender::Animation::BlendMask_All, false,
                                  weapSpeed, startKey, stopKey,
                                  0.0f, 0);
-                mUpperBodyState = UpperCharState_StartToMinAttack;
+                if(mAnimation->getCurrentTime(mCurrentWeapon) != -1.f)
+                    mUpperBodyState = UpperCharState_StartToMinAttack;
             }
         }
 
@@ -1796,7 +1798,9 @@ bool CharacterController::updateWeaponState(CharacterState& idle)
                         mUpperBodyState = UpperCharState_MinAttackToMaxAttack;
                         break;
                     }
-                    playSwishSound(0.0f);
+
+                    if(weapclass != ESM::WeaponType::Ranged && weapclass != ESM::WeaponType::Thrown)
+                        playSwishSound(0.0f);
                 }
 
                 if(mAttackType == "shoot")
@@ -1865,8 +1869,10 @@ bool CharacterController::updateWeaponState(CharacterState& idle)
         MWWorld::ConstContainerStoreIterator torch = inv.getSlot(MWWorld::InventoryStore::Slot_CarriedLeft);
         if(torch != inv.end() && torch->getTypeName() == typeid(ESM::Light).name()
                 && updateCarriedLeftVisible(mWeaponType))
-
         {
+            if (mAnimation->isPlaying("shield"))
+                mAnimation->disable("shield");
+
             mAnimation->play("torch", Priority_Torch, MWRender::Animation::BlendMask_LeftArm,
                 false, 1.0f, "start", "stop", 0.0f, (~(size_t)0), true);
         }
@@ -1901,7 +1907,7 @@ void CharacterController::updateAnimQueue()
         mAnimation->setLoopingEnabled(mAnimQueue.front().mGroup, mAnimQueue.size() <= 1);
 }
 
-void CharacterController::update(float duration, bool animationOnly)
+void CharacterController::update(float duration)
 {
     MWBase::World *world = MWBase::Environment::get().getWorld();
     const MWWorld::Class &cls = mPtr.getClass();
@@ -1933,7 +1939,7 @@ void CharacterController::update(float duration, bool animationOnly)
     else if(!cls.getCreatureStats(mPtr).isDead())
     {
         bool onground = world->isOnGround(mPtr);
-        bool incapacitated = (cls.getCreatureStats(mPtr).isParalyzed() || cls.getCreatureStats(mPtr).getKnockedDown());
+        bool incapacitated = ((!godmode && cls.getCreatureStats(mPtr).isParalyzed()) || cls.getCreatureStats(mPtr).getKnockedDown());
         bool inwater = world->isSwimming(mPtr);
         bool flying = world->isFlying(mPtr);
         bool solid = world->isActorCollisionEnabled(mPtr);
@@ -1958,27 +1964,71 @@ void CharacterController::update(float duration, bool animationOnly)
 
         osg::Vec3f rot = cls.getRotationVector(mPtr);
         osg::Vec3f vec(movementSettings.asVec3());
+        movementSettings.mSpeedFactor = std::min(vec.length(), 1.f);
         vec.normalize();
 
-        float analogueMult = 1.0f;
-        if (isPlayer)
+        // TODO: Move this check to mwinput.
+        // Joystick analogue movement.
+        // Due to the half way split between walking/running, we multiply speed by 2 while walking, unless a keyboard was used.
+        if (isPlayer && !isrunning && !sneak && !flying && movementSettings.mSpeedFactor <= 0.5f)
+            movementSettings.mSpeedFactor *= 2.f;
+
+        static const bool smoothMovement = Settings::Manager::getBool("smooth movement", "Game");
+        if (smoothMovement)
         {
-            // TODO: Move this code to mwinput.
-            // Joystick analogue movement.
-            float xAxis = std::abs(movementSettings.mPosition[0]);
-            float yAxis = std::abs(movementSettings.mPosition[1]);
-            analogueMult = std::max(xAxis, yAxis);
+            static const float playerTurningCoef = 1.0 / std::max(0.01f, Settings::Manager::getFloat("smooth movement player turning delay", "Game"));
+            float angle = mPtr.getRefData().getPosition().rot[2];
+            osg::Vec2f targetSpeed = Misc::rotateVec2f(osg::Vec2f(vec.x(), vec.y()), -angle) * movementSettings.mSpeedFactor;
+            osg::Vec2f delta = targetSpeed - mSmoothedSpeed;
+            float speedDelta = movementSettings.mSpeedFactor - mSmoothedSpeed.length();
+            float deltaLen = delta.length();
 
-            // Due to the half way split between walking/running, we multiply speed by 2 while walking, unless a keyboard was used.
-            if(!isrunning && !sneak && !flying && analogueMult <= 0.5f)
-                analogueMult *= 2.f;
+            float maxDelta;
+            if (isFirstPersonPlayer)
+                maxDelta = 1;
+            else if (std::abs(speedDelta) < deltaLen / 2)
+                // Turning is smooth for player and less smooth for NPCs (otherwise NPC can miss a path point).
+                maxDelta = duration * (isPlayer ? playerTurningCoef : 6.f);
+            else if (isPlayer && speedDelta < -deltaLen / 2)
+                // As soon as controls are released, mwinput switches player from running to walking.
+                // So stopping should be instant for player, otherwise it causes a small twitch.
+                maxDelta = 1;
+            else // In all other cases speeding up and stopping are smooth.
+                maxDelta = duration * 3.f;
 
-            movementSettings.mSpeedFactor = analogueMult;
+            if (deltaLen > maxDelta)
+                delta *= maxDelta / deltaLen;
+            mSmoothedSpeed += delta;
+
+            osg::Vec2f newSpeed = Misc::rotateVec2f(mSmoothedSpeed, angle);
+            movementSettings.mSpeedFactor = newSpeed.normalize();
+            vec.x() = newSpeed.x();
+            vec.y() = newSpeed.y();
+
+            const float eps = 0.001f;
+            if (movementSettings.mSpeedFactor < eps)
+            {
+                movementSettings.mSpeedFactor = 0;
+                vec.x() = 0;
+                vec.y() = 1;
+            }
+            else if ((vec.y() < 0) != mIsMovingBackward)
+            {
+                if (targetSpeed.length() < eps || (movementSettings.mPosition[1] < 0) == mIsMovingBackward)
+                    vec.y() = mIsMovingBackward ? -eps : eps;
+            }
+            vec.normalize();
         }
 
         float effectiveRotation = rot.z();
+        bool canMove = cls.getMaxSpeed(mPtr) > 0;
         static const bool turnToMovementDirection = Settings::Manager::getBool("turn to movement direction", "Game");
-        if (turnToMovementDirection && !isFirstPersonPlayer)
+        if (!turnToMovementDirection || isFirstPersonPlayer)
+        {
+            movementSettings.mIsStrafing = std::abs(vec.x()) > std::abs(vec.y()) * 2;
+            stats.setSideMovementAngle(0);
+        }
+        else if (canMove)
         {
             float targetMovementAngle = vec.y() >= 0 ? std::atan2(-vec.x(), vec.y()) : std::atan2(vec.x(), -vec.y());
             movementSettings.mIsStrafing = (stats.getDrawState() != MWMechanics::DrawState_Nothing || inwater)
@@ -1998,16 +2048,16 @@ void CharacterController::update(float duration, bool animationOnly)
             stats.setSideMovementAngle(stats.getSideMovementAngle() + delta);
             effectiveRotation += delta;
         }
-        else
-            movementSettings.mIsStrafing = std::abs(vec.x()) > std::abs(vec.y()) * 2;
 
         mAnimation->setLegsYawRadians(stats.getSideMovementAngle());
         if (stats.getDrawState() == MWMechanics::DrawState_Nothing || inwater)
             mAnimation->setUpperBodyYawRadians(stats.getSideMovementAngle() / 2);
         else
             mAnimation->setUpperBodyYawRadians(stats.getSideMovementAngle() / 4);
+        if (smoothMovement && !isPlayer && !inwater)
+            mAnimation->setUpperBodyYawRadians(mAnimation->getUpperBodyYawRadians() + mAnimation->getHeadYaw() / 2);
 
-        speed = cls.getSpeed(mPtr);
+        speed = cls.getCurrentSpeed(mPtr);
         vec.x() *= speed;
         vec.y() *= speed;
 
@@ -2077,7 +2127,7 @@ void CharacterController::update(float duration, bool animationOnly)
             }
         }
         fatigueLoss *= duration;
-        fatigueLoss *= analogueMult;
+        fatigueLoss *= movementSettings.mSpeedFactor;
         DynamicStat<float> fatigue = cls.getCreatureStats(mPtr).getFatigue();
 
         if (!godmode)
@@ -2197,13 +2247,11 @@ void CharacterController::update(float duration, bool animationOnly)
                                          : (sneak ? CharState_SneakBack
                                                   : (isrunning ? CharState_RunBack : CharState_WalkBack)));
             }
-            else if (effectiveRotation != 0.0f)
+            else
             {
                 // Do not play turning animation for player if rotation speed is very slow.
                 // Actual threshold should take framerate in account.
-                float rotationThreshold = 0.f;
-                if (isPlayer)
-                    rotationThreshold = 0.015 * 60 * duration;
+                float rotationThreshold = (isPlayer ? 0.015f : 0.001f) * 60 * duration;
 
                 // It seems only bipedal actors use turning animations.
                 // Also do not use turning animations in the first-person view and when sneaking.
@@ -2231,19 +2279,21 @@ void CharacterController::update(float duration, bool animationOnly)
                 sndMgr->playSound3D(mPtr, sound, 1.f, 1.f, MWSound::Type::Foot, MWSound::PlayMode::NoPlayerLocal);
         }
 
-        if (turnToMovementDirection)
+        if (turnToMovementDirection && !isFirstPersonPlayer &&
+            (movestate == CharState_SwimRunForward || movestate == CharState_SwimWalkForward ||
+             movestate == CharState_SwimRunBack || movestate == CharState_SwimWalkBack))
         {
-            float targetSwimmingPitch;
-            if (inwater && vec.y() != 0 && !isFirstPersonPlayer && !movementSettings.mIsStrafing)
-                targetSwimmingPitch = -mPtr.getRefData().getPosition().rot[0];
-            else
-                targetSwimmingPitch = 0;
-            float maxSwimPitchDelta = 3.0f * duration;
             float swimmingPitch = mAnimation->getBodyPitchRadians();
+            float targetSwimmingPitch = -mPtr.getRefData().getPosition().rot[0];
+            float maxSwimPitchDelta = 3.0f * duration;
             swimmingPitch += osg::clampBetween(targetSwimmingPitch - swimmingPitch, -maxSwimPitchDelta, maxSwimPitchDelta);
             mAnimation->setBodyPitchRadians(swimmingPitch);
         }
-        if (inwater && isPlayer && !isFirstPersonPlayer)
+        else
+            mAnimation->setBodyPitchRadians(0);
+
+        static const bool swimUpwardCorrection = Settings::Manager::getBool("swim upward correction", "Game");
+        if (inwater && isPlayer && !isFirstPersonPlayer && swimUpwardCorrection)
         {
             static const float swimUpwardCoef = Settings::Manager::getFloat("swim upward coef", "Game");
             static const float swimForwardCoef = sqrtf(1.0f - swimUpwardCoef * swimUpwardCoef);
@@ -2337,20 +2387,20 @@ void CharacterController::update(float duration, bool animationOnly)
             if(!isKnockedDown() && !isKnockedOut())
             {
                 if (rot != osg::Vec3f())
-                    world->rotateObject(mPtr, rot.x(), rot.y(), rot.z(), true);
+                    world->rotateObject(mPtr, rot, true);
             }
             else //avoid z-rotating for knockdown
             {
                 if (rot.x() != 0 && rot.y() != 0)
-                    world->rotateObject(mPtr, rot.x(), rot.y(), 0.0f, true);
+                {
+                    rot.z() = 0.0f;
+                    world->rotateObject(mPtr, rot, true);
+                }
             }
 
-            if (!animationOnly && !mMovementAnimationControlled)
+            if (!mMovementAnimationControlled)
                 world->queueMovement(mPtr, vec);
         }
-        else if (!animationOnly)
-            // We must always queue movement, even if there is none, to apply gravity.
-            world->queueMovement(mPtr, osg::Vec3f(0.f, 0.f, 0.f));
 
         movement = vec;
         movementSettings.mPosition[0] = movementSettings.mPosition[1] = 0;
@@ -2372,9 +2422,6 @@ void CharacterController::update(float duration, bool animationOnly)
             if (cls.isPersistent(mPtr) || cls.getCreatureStats(mPtr).isDeathAnimationFinished())
                 playDeath(1.f, mDeathState);
         }
-        // We must always queue movement, even if there is none, to apply gravity.
-        if (!animationOnly)
-            world->queueMovement(mPtr, osg::Vec3f(0.f, 0.f, 0.f));
     }
 
     bool isPersist = isPersistentAnimPlaying();
@@ -2388,7 +2435,7 @@ void CharacterController::update(float duration, bool animationOnly)
     moved.y() *= scale;
 
     // Ensure we're moving in generally the right direction...
-    if(speed > 0.f)
+    if (speed > 0.f && moved != osg::Vec3f())
     {
         float l = moved.length();
         if (std::abs(movement.x() - moved.x()) > std::abs(moved.x()) / 2 ||
@@ -2404,11 +2451,17 @@ void CharacterController::update(float duration, bool animationOnly)
         }
     }
 
-    if (mFloatToSurface && cls.isActor() && cls.getCreatureStats(mPtr).isDead() && cls.canSwim(mPtr))
-        moved.z() = 1.0;
+    if (mFloatToSurface && cls.isActor())
+    {
+        if (cls.getCreatureStats(mPtr).isDead()
+            || (!godmode && cls.getCreatureStats(mPtr).getMagicEffects().get(ESM::MagicEffect::Paralyze).getModifier() > 0))
+        {
+            moved.z() = 1.0;
+        }
+    }
 
     // Update movement
-    if(!animationOnly && mMovementAnimationControlled && mPtr.getClass().isActor())
+    if(mMovementAnimationControlled && mPtr.getClass().isActor())
         world->queueMovement(mPtr, moved);
 
     mSkipAnim = false;
@@ -2653,11 +2706,11 @@ void CharacterController::updateContinuousVfx()
     std::vector<int> effects;
     mAnimation->getLoopingEffects(effects);
 
-    for (std::vector<int>::iterator it = effects.begin(); it != effects.end(); ++it)
+    for (int effectId : effects)
     {
         if (mPtr.getClass().getCreatureStats(mPtr).isDeathAnimationFinished()
-            || mPtr.getClass().getCreatureStats(mPtr).getMagicEffects().get(MWMechanics::EffectKey(*it)).getMagnitude() <= 0)
-            mAnimation->removeEffect(*it);
+            || mPtr.getClass().getCreatureStats(mPtr).getMagicEffects().get(MWMechanics::EffectKey(effectId)).getMagnitude() <= 0)
+            mAnimation->removeEffect(effectId);
     }
 }
 
@@ -2706,10 +2759,9 @@ void CharacterController::setVisibility(float visibility)
 void CharacterController::setAttackTypeBasedOnMovement()
 {
     float *move = mPtr.getClass().getMovementSettings(mPtr).mPosition;
-
-    if (move[1] && !move[0]) // forward-backward
+    if (std::abs(move[1]) > std::abs(move[0]) + 0.2f) // forward-backward
         mAttackType = "thrust";
-    else if (move[0] && !move[1]) //sideway
+    else if (std::abs(move[0]) > std::abs(move[1]) + 0.2f) // sideway
         mAttackType = "slash";
     else
         mAttackType = "chop";
@@ -2796,7 +2848,7 @@ void CharacterController::setAttackingOrSpell(bool attackingOrSpell)
     mAttackingOrSpell = attackingOrSpell;
 }
 
-void CharacterController::castSpell(const std::string spellId, bool manualSpell)
+void CharacterController::castSpell(const std::string& spellId, bool manualSpell)
 {
     mAttackingOrSpell = true;
     mCastingManualSpell = manualSpell;
@@ -2871,8 +2923,8 @@ void CharacterController::updateHeadTracking(float duration)
     if (!head)
         return;
 
-    float zAngleRadians = 0.f;
-    float xAngleRadians = 0.f;
+    double zAngleRadians = 0.f;
+    double xAngleRadians = 0.f;
 
     if (!mHeadTrackTarget.isEmpty())
     {
@@ -2896,7 +2948,7 @@ void CharacterController::updateHeadTracking(float duration)
             }
             else
                 // no head node to look at, fall back to look at center of collision box
-                direction = MWBase::Environment::get().getWorld()->aimToTarget(mPtr, mHeadTrackTarget);
+                direction = MWBase::Environment::get().getWorld()->aimToTarget(mPtr, mHeadTrackTarget, false);
         }
         direction.normalize();
 
@@ -2904,22 +2956,22 @@ void CharacterController::updateHeadTracking(float duration)
             return;
         const osg::Vec3f actorDirection = mPtr.getRefData().getBaseNode()->getAttitude() * osg::Vec3f(0,1,0);
 
-        zAngleRadians = std::atan2(direction.x(), direction.y()) - std::atan2(actorDirection.x(), actorDirection.y());
-        xAngleRadians = -std::asin(direction.z());
-
-        wrap(zAngleRadians);
-        wrap(xAngleRadians);
-
-        xAngleRadians = std::min(xAngleRadians, osg::DegreesToRadians(40.f));
-        xAngleRadians = std::max(xAngleRadians, osg::DegreesToRadians(-40.f));
-        zAngleRadians = std::min(zAngleRadians, osg::DegreesToRadians(30.f));
-        zAngleRadians = std::max(zAngleRadians, osg::DegreesToRadians(-30.f));
+        zAngleRadians = std::atan2(actorDirection.x(), actorDirection.y()) - std::atan2(direction.x(), direction.y());
+        zAngleRadians = Misc::normalizeAngle(zAngleRadians - mAnimation->getHeadYaw()) + mAnimation->getHeadYaw();
+        zAngleRadians *= (1 - direction.z() * direction.z());
+        xAngleRadians = std::asin(direction.z());
     }
+
+    const double xLimit = osg::DegreesToRadians(40.0);
+    const double zLimit = osg::DegreesToRadians(30.0);
+    double zLimitOffset = mAnimation->getUpperBodyYawRadians();
+    xAngleRadians = osg::clampBetween(xAngleRadians, -xLimit, xLimit);
+    zAngleRadians = osg::clampBetween(zAngleRadians, -zLimit + zLimitOffset, zLimit + zLimitOffset);
 
     float factor = duration*5;
     factor = std::min(factor, 1.f);
-    xAngleRadians = (1.f-factor) * mAnimation->getHeadPitch() + factor * (-xAngleRadians);
-    zAngleRadians = (1.f-factor) * mAnimation->getHeadYaw() + factor * (-zAngleRadians);
+    xAngleRadians = (1.f-factor) * mAnimation->getHeadPitch() + factor * xAngleRadians;
+    zAngleRadians = (1.f-factor) * mAnimation->getHeadYaw() + factor * zAngleRadians;
 
     mAnimation->setHeadPitch(xAngleRadians);
     mAnimation->setHeadYaw(zAngleRadians);

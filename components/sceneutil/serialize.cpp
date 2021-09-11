@@ -3,6 +3,8 @@
 #include <osgDB/ObjectWrapper>
 #include <osgDB/Registry>
 
+#include <components/nifosg/matrixtransform.hpp>
+
 #include <components/sceneutil/positionattitudetransform.hpp>
 #include <components/sceneutil/skeleton.hpp>
 #include <components/sceneutil/riggeometry.hpp>
@@ -74,6 +76,15 @@ public:
     }
 };
 
+class MatrixTransformSerializer : public osgDB::ObjectWrapper
+{
+public:
+    MatrixTransformSerializer()
+        : osgDB::ObjectWrapper(createInstanceFunc<NifOsg::MatrixTransform>, "NifOsg::MatrixTransform", "osg::Object osg::Node osg::Group osg::Transform osg::MatrixTransform NifOsg::MatrixTransform")
+    {
+    }
+};
+
 osgDB::ObjectWrapper* makeDummySerializer(const std::string& classname)
 {
     return new osgDB::ObjectWrapper(createInstanceFunc<osg::DummyObject>, classname, "osg::Object");
@@ -100,6 +111,7 @@ void registerSerializers()
         mgr->addWrapper(new MorphGeometrySerializer);
         mgr->addWrapper(new LightManagerSerializer);
         mgr->addWrapper(new CameraRelativeTransformSerializer);
+        mgr->addWrapper(new MatrixTransformSerializer);
 
         // Don't serialize Geometry data as we are more interested in the overall structure rather than tons of vertex data that would make the file large and hard to read.
         mgr->removeWrapper(mgr->findWrapper("osg::Geometry"));
@@ -109,6 +121,7 @@ void registerSerializers()
         const char* ignore[] = {
             "MWRender::PtrHolder",
             "Resource::TemplateRef",
+            "Resource::TemplateMultiRef",
             "SceneUtil::CompositeStateSetUpdater",
             "SceneUtil::LightListCallback",
             "SceneUtil::LightManagerUpdateCallback",
@@ -118,10 +131,11 @@ void registerSerializers()
             "SceneUtil::StateSetUpdater",
             "SceneUtil::DisableLight",
             "SceneUtil::MWShadowTechnique",
-            "NifOsg::NodeUserData",
+            "SceneUtil::TextKeyMapHolder",
+            "Shader::RemovedAlphaFunc",
+            "NifOsg::LightManagerStateAttribute",
             "NifOsg::FlipController",
             "NifOsg::KeyframeController",
-            "NifOsg::TextKeyMapHolder",
             "NifOsg::Emitter",
             "NifOsg::ParticleColorAffector",
             "NifOsg::ParticleSystem",
@@ -131,9 +145,11 @@ void registerSerializers()
             "NifOsg::StaticBoundingBoxCallback",
             "NifOsg::GeomMorpherController",
             "NifOsg::UpdateMorphGeometry",
-            "NifOsg::CollisionSwitch",
+            "NifOsg::UVController",
+            "NifOsg::VisController",
             "osgMyGUI::Drawable",
             "osg::DrawCallback",
+            "osg::UniformBufferObject",
             "osgOQ::ClearQueriesCallback",
             "osgOQ::RetrieveQueriesCallback",
             "osg::DummyObject"

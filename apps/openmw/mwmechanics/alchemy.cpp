@@ -21,7 +21,6 @@
 #include "../mwworld/containerstore.hpp"
 #include "../mwworld/class.hpp"
 #include "../mwworld/cellstore.hpp"
-#include "../mwworld/manualref.hpp"
 
 #include "magiceffects.hpp"
 #include "creaturestats.hpp"
@@ -255,7 +254,7 @@ const ESM::Potion *MWMechanics::Alchemy::getRecord(const ESM::Potion& toFind) co
             return &(*iter);
     }
 
-    return 0;
+    return nullptr;
 }
 
 void MWMechanics::Alchemy::removeIngredients()

@@ -1,5 +1,5 @@
-#ifndef OPENMW_COMPONENTS_ESMPAGING_CHUNKMANAGER_H
-#define OPENMW_COMPONENTS_ESMPAGING_CHUNKMANAGER_H
+#ifndef OPENMW_MWRENDER_OBJECTPAGING_H
+#define OPENMW_MWRENDER_OBJECTPAGING_H
 
 #include <components/terrain/quadtreeworld.hpp>
 #include <components/resource/resourcemanager.hpp>
@@ -31,7 +31,7 @@ namespace MWRender
 
         osg::ref_ptr<osg::Node> createChunk(float size, const osg::Vec2f& center, bool activeGrid, const osg::Vec3f& viewPoint, bool compile);
 
-        virtual unsigned int getNodeMask() override;
+        unsigned int getNodeMask() override;
 
         /// @return true if view needs rebuild
         bool enableObject(int type, const ESM::RefNum & refnum, const osg::Vec3f& pos, const osg::Vec2i& cell, bool enabled);
@@ -63,7 +63,7 @@ namespace MWRender
         {
             std::set<ESM::RefNum> mDisabled;
             std::set<ESM::RefNum> mBlacklist;
-            bool operator==(const RefTracker&other) { return mDisabled == other.mDisabled && mBlacklist == other.mBlacklist; }
+            bool operator==(const RefTracker&other) const { return mDisabled == other.mDisabled && mBlacklist == other.mBlacklist; }
         };
         RefTracker mRefTracker;
         RefTracker mRefTrackerNew;

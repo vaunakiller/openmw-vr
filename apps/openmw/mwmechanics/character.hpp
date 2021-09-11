@@ -3,8 +3,6 @@
 
 #include <deque>
 
-#include <components/esm/loadmgef.hpp>
-
 #include "../mwworld/ptr.hpp"
 #include "../mwworld/containerstore.hpp"
 
@@ -196,6 +194,7 @@ class CharacterController : public MWRender::Animation::TextKeyListener
     float mTimeUntilWake;
 
     bool mIsMovingBackward;
+    osg::Vec2f mSmoothedSpeed;
 
     void setAttackTypeBasedOnMovement();
 
@@ -240,14 +239,14 @@ public:
     CharacterController(const MWWorld::Ptr &ptr, MWRender::Animation *anim);
     virtual ~CharacterController();
 
-    virtual void handleTextKey(const std::string &groupname, NifOsg::TextKeyMap::ConstIterator key, const NifOsg::TextKeyMap& map);
+    void handleTextKey(const std::string &groupname, SceneUtil::TextKeyMap::ConstIterator key, const SceneUtil::TextKeyMap& map) override;
 
     // Be careful when to call this, see comment in Actors
     void updateContinuousVfx();
 
     void updatePtr(const MWWorld::Ptr &ptr);
 
-    void update(float duration, bool animationOnly=false);
+    void update(float duration);
 
     bool onOpen();
     void onClose();
@@ -287,7 +286,7 @@ public:
 
     void setVisibility(float visibility);
     void setAttackingOrSpell(bool attackingOrSpell);
-    void castSpell(const std::string spellId, bool manualSpell=false);
+    void castSpell(const std::string& spellId, bool manualSpell=false);
     void setAIAttackType(const std::string& attackType);
     static void setAttackTypeRandomly(std::string& attackType);
 

@@ -1,8 +1,8 @@
 #include "environment.hpp"
 
 #include <cassert>
-#include <chrono>
-#include <thread>
+
+#include <components/resource/resourcesystem.hpp>
 
 #include "world.hpp"
 #include "scriptmanager.hpp"
@@ -13,13 +13,14 @@
 #include "inputmanager.hpp"
 #include "windowmanager.hpp"
 #include "statemanager.hpp"
+#include "luamanager.hpp"
 
-MWBase::Environment *MWBase::Environment::sThis = 0;
+MWBase::Environment *MWBase::Environment::sThis = nullptr;
 
 MWBase::Environment::Environment()
-: mWorld (0), mSoundManager (0), mScriptManager (0), mWindowManager (0),
-  mMechanicsManager (0),  mDialogueManager (0), mJournal (0), mInputManager (0), mStateManager (0),
-  mFrameDuration (0), mFrameRateLimit(0.f)
+: mWorld (nullptr), mSoundManager (nullptr), mScriptManager (nullptr), mWindowManager (nullptr),
+  mMechanicsManager (nullptr),  mDialogueManager (nullptr), mJournal (nullptr), mInputManager (nullptr),
+    mStateManager (nullptr), mLuaManager (nullptr), mResourceSystem (nullptr),  mFrameDuration (0), mFrameRateLimit(0.f)
 {
     assert (!sThis);
     sThis = this;
@@ -28,7 +29,7 @@ MWBase::Environment::Environment()
 MWBase::Environment::~Environment()
 {
     cleanup();
-    sThis = 0;
+    sThis = nullptr;
 }
 
 void MWBase::Environment::setWorld (World *world)
@@ -76,6 +77,16 @@ void MWBase::Environment::setStateManager (StateManager *stateManager)
     mStateManager = stateManager;
 }
 
+void MWBase::Environment::setLuaManager (LuaManager *luaManager)
+{
+    mLuaManager = luaManager;
+}
+
+void MWBase::Environment::setResourceSystem (Resource::ResourceSystem *resourceSystem)
+{
+    mResourceSystem = resourceSystem;
+}
+
 void MWBase::Environment::setFrameDuration (float duration)
 {
     mFrameDuration = duration;
@@ -89,19 +100,6 @@ void MWBase::Environment::setFrameRateLimit(float limit)
 float MWBase::Environment::getFrameRateLimit() const
 {
     return mFrameRateLimit;
-}
-
-void MWBase::Environment::limitFrameRate(double dt) const
-{
-    if (mFrameRateLimit > 0.f)
-    {
-        double thisFrameTime = dt;
-        double minFrameTime = 1.0 / static_cast<double>(mFrameRateLimit);
-        if (thisFrameTime < minFrameTime)
-        {
-            std::this_thread::sleep_for(std::chrono::duration<double>(minFrameTime - thisFrameTime));
-        }
-    }
 }
 
 MWBase::World *MWBase::Environment::getWorld() const
@@ -158,6 +156,17 @@ MWBase::StateManager *MWBase::Environment::getStateManager() const
     return mStateManager;
 }
 
+MWBase::LuaManager *MWBase::Environment::getLuaManager() const
+{
+    assert (mLuaManager);
+    return mLuaManager;
+}
+
+Resource::ResourceSystem *MWBase::Environment::getResourceSystem() const
+{
+    return mResourceSystem;
+}
+
 float MWBase::Environment::getFrameDuration() const
 {
     return mFrameDuration;
@@ -166,31 +175,34 @@ float MWBase::Environment::getFrameDuration() const
 void MWBase::Environment::cleanup()
 {
     delete mMechanicsManager;
-    mMechanicsManager = 0;
+    mMechanicsManager = nullptr;
 
     delete mDialogueManager;
-    mDialogueManager = 0;
+    mDialogueManager = nullptr;
 
     delete mJournal;
-    mJournal = 0;
+    mJournal = nullptr;
 
     delete mScriptManager;
-    mScriptManager = 0;
+    mScriptManager = nullptr;
 
     delete mWindowManager;
-    mWindowManager = 0;
+    mWindowManager = nullptr;
 
     delete mWorld;
-    mWorld = 0;
+    mWorld = nullptr;
 
     delete mSoundManager;
-    mSoundManager = 0;
+    mSoundManager = nullptr;
 
     delete mInputManager;
-    mInputManager = 0;
+    mInputManager = nullptr;
 
     delete mStateManager;
-    mStateManager = 0;
+    mStateManager = nullptr;
+
+    delete mLuaManager;
+    mLuaManager = nullptr;
 }
 
 const MWBase::Environment& MWBase::Environment::get()

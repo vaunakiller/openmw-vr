@@ -7,7 +7,7 @@
 
 MWState::CharacterManager::CharacterManager (const boost::filesystem::path& saves,
     const std::string& game)
-: mPath (saves), mCurrent (0), mGame (game)
+: mPath (saves), mCurrent (nullptr), mGame (game)
 {
     if (!boost::filesystem::is_directory (mPath))
     {
@@ -77,7 +77,7 @@ MWState::Character* MWState::CharacterManager::createCharacter(const std::string
            path = mPath / test.str();
     }
 
-    mCharacters.push_back (Character (path, mGame));
+    mCharacters.emplace_back(path, mGame);
     return &mCharacters.back();
 }
 

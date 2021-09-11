@@ -438,8 +438,8 @@ void CSVDoc::View::updateActions()
     for (std::vector<QAction *>::iterator iter (mEditingActions.begin()); iter!=mEditingActions.end(); ++iter)
         (*iter)->setEnabled (editing);
 
-    mUndo->setEnabled (editing & mDocument->getUndoStack().canUndo());
-    mRedo->setEnabled (editing & mDocument->getUndoStack().canRedo());
+    mUndo->setEnabled (editing && mDocument->getUndoStack().canUndo());
+    mRedo->setEnabled (editing && mDocument->getUndoStack().canRedo());
 
     mSave->setEnabled (!(mDocument->getState() & CSMDoc::State_Saving) && !running);
     mVerify->setEnabled (!(mDocument->getState() & CSMDoc::State_Verifying));
@@ -733,7 +733,7 @@ void CSVDoc::View::infoAbout()
 #endif
 
     // Get current year
-    time_t now = time(NULL);
+    time_t now = time(nullptr);
     struct tm tstruct;
     char copyrightInfo[40];
     tstruct = *localtime(&now);
@@ -749,7 +749,7 @@ void CSVDoc::View::infoAbout()
     "<tr><td>%4</td><td><a href=\"https://openmw.org\">https://openmw.org</a></td></tr>"
     "<tr><td>%5</td><td><a href=\"https://forum.openmw.org\">https://forum.openmw.org</a></td></tr>"
     "<tr><td>%6</td><td><a href=\"https://gitlab.com/OpenMW/openmw/issues\">https://gitlab.com/OpenMW/openmw/issues</a></td></tr>"
-    "<tr><td>%7</td><td><a href=\"https://webchat.freenode.net/?channels=openmw&uio=OT10cnVlde\">irc://irc.freenode.net/#openmw</a></td></tr>"
+    "<tr><td>%7</td><td><a href=\"https://web.libera.chat/#openmw\">ircs://irc.libera.chat/#openmw</a></td></tr>"
     "</table>"
     "</p>")
     .arg(versionInfo

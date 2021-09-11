@@ -21,6 +21,7 @@ namespace Resource
 namespace SceneUtil
 {
     class WorkQueue;
+    class AsyncScreenCaptureOperation;
 }
 
 namespace VFS
@@ -33,24 +34,9 @@ namespace Compiler
     class Context;
 }
 
-namespace MWScript
+namespace MWLua
 {
-    class ScriptManager;
-}
-
-namespace MWSound
-{
-    class SoundManager;
-}
-
-namespace MWWorld
-{
-    class World;
-}
-
-namespace MWGui
-{
-    class WindowManager;
+    class LuaManager;
 }
 
 namespace Files
@@ -82,9 +68,11 @@ namespace OMW
             boost::filesystem::path mResDir;
             osg::ref_ptr<osgViewer::Viewer> mViewer;
             osg::ref_ptr<osgViewer::ScreenCaptureHandler> mScreenCaptureHandler;
-            osgViewer::ScreenCaptureHandler::CaptureOperation *mScreenCaptureOperation;
+            osg::ref_ptr<SceneUtil::AsyncScreenCaptureOperation> mScreenCaptureOperation;
             std::string mCellName;
             std::vector<std::string> mContentFiles;
+            std::vector<std::string> mGroundcoverFiles;
+            std::vector<std::string> mLuaScriptListFiles;
             bool mSkipMenu;
             bool mUseSound;
             bool mCompileAll;
@@ -103,6 +91,8 @@ namespace OMW
 
             Compiler::Extensions mExtensions;
             Compiler::Context *mScriptContext;
+
+            MWLua::LuaManager* mLuaManager;
 
             Files::Collections mFileCollections;
             bool mFSStrict;
@@ -155,6 +145,8 @@ namespace OMW
              * @param file - filename (extension is required)
              */
             void addContentFile(const std::string& file);
+            void addGroundcoverFile(const std::string& file);
+            void addLuaScriptListFile(const std::string& file);
 
             /// Disable or enable all sounds
             void setSoundUsage(bool soundUsage);
@@ -203,6 +195,7 @@ namespace OMW
 
         private:
             Files::ConfigurationManager& mCfgMgr;
+            class LuaWorker;
     };
 }
 

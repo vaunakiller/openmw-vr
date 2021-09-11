@@ -40,12 +40,12 @@ ChunkManager::ChunkManager(Storage *storage, Resource::SceneManager *sceneMgr, T
     mMultiPassRoot->setAttributeAndModes(material, osg::StateAttribute::ON);
 }
 
-osg::ref_ptr<osg::Node> ChunkManager::getChunk(float size, const osg::Vec2f &center, unsigned char lod, unsigned int lodFlags, bool far, const osg::Vec3f& viewPoint, bool compile)
+osg::ref_ptr<osg::Node> ChunkManager::getChunk(float size, const osg::Vec2f& center, unsigned char lod, unsigned int lodFlags, bool activeGrid, const osg::Vec3f& viewPoint, bool compile)
 {
     ChunkId id = std::make_tuple(center, lod, lodFlags);
     osg::ref_ptr<osg::Object> obj = mCache->getRefFromObjectCache(id);
     if (obj)
-        return obj->asNode();
+        return static_cast<osg::Node*>(obj.get());
     else
     {
         osg::ref_ptr<osg::Node> node = createChunk(size, center, lod, lodFlags, compile);
@@ -112,7 +112,7 @@ void ChunkManager::createCompositeMapGeometry(float chunkSize, const osg::Vec2f&
 
             geom->setStateSet(*it);
 
-            compositeMap.mDrawables.push_back(geom);
+            compositeMap.mDrawables.emplace_back(geom);
         }
     }
 }
@@ -197,8 +197,7 @@ osg::ref_ptr<osg::Node> ChunkManager::createChunk(float chunkSize, const osg::Ve
     bool useCompositeMap = chunkSize >= mCompositeMapLevel;
     unsigned int numUvSets = useCompositeMap ? 1 : 2;
 
-    for (unsigned int i=0; i<numUvSets; ++i)
-        geometry->setTexCoordArray(i, mBufferCache.getUVBuffer(numVerts));
+    geometry->setTexCoordArrayList(osg::Geometry::ArrayList(numUvSets, mBufferCache.getUVBuffer(numVerts)));
 
     geometry->createClusterCullingCallback();
 

@@ -116,7 +116,7 @@ namespace MWGui
         protected:
             virtual ~MWSkill();
 
-            void initialiseOverride() final;
+            void initialiseOverride() override;
 
             void onClicked(MyGUI::Widget* _sender);
 
@@ -156,7 +156,7 @@ namespace MWGui
         protected:
             virtual ~MWAttribute();
 
-            void initialiseOverride() final;
+            void initialiseOverride() override;
 
             void onClicked(MyGUI::Widget* _sender);
 
@@ -199,7 +199,7 @@ namespace MWGui
         protected:
             virtual ~MWSpell();
 
-            void initialiseOverride() final;
+            void initialiseOverride() override;
 
         private:
             void updateWidgets();
@@ -241,7 +241,7 @@ namespace MWGui
         protected:
             virtual ~MWEffectList();
 
-            void initialiseOverride() final;
+            void initialiseOverride() override;
 
         private:
             void updateWidgets();
@@ -265,10 +265,10 @@ namespace MWGui
         protected:
             virtual ~MWSpellEffect();
 
-            void initialiseOverride() final;
+            void initialiseOverride() override;
 
         private:
-            static const int sIconOffset = 24;
+            static constexpr int sIconOffset = 24;
             
             void updateWidgets();
 
@@ -294,7 +294,7 @@ namespace MWGui
         protected:
             virtual ~MWDynamicStat();
 
-            void initialiseOverride() final;
+            void initialiseOverride() override;
 
         private:
 

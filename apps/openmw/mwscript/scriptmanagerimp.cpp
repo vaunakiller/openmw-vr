@@ -109,7 +109,8 @@ namespace MWScript
         }
 
         // execute script
-        if (!iter->second.mByteCode.empty() && iter->second.mActive)
+        std::string target = Misc::StringUtils::lowerCase(interpreterContext.getTarget());
+        if (!iter->second.mByteCode.empty() && iter->second.mInactive.find(target) == iter->second.mInactive.end())
             try
             {
                 if (!mOpcodesInstalled)
@@ -129,7 +130,7 @@ namespace MWScript
             {
                 Log(Debug::Error) << "Execution of script " << name << " failed: "  << e.what();
 
-                iter->second.mActive = false; // don't execute again.
+                iter->second.mInactive.insert(target); // don't execute again.
             }
         return false;
     }
@@ -138,7 +139,7 @@ namespace MWScript
     {
         for (auto& script : mScripts)
         {
-            script.second.mActive = true;
+            script.second.mInactive.clear();
         }
 
         mGlobalScripts.clear();
@@ -149,18 +150,17 @@ namespace MWScript
         int count = 0;
         int success = 0;
 
-        const MWWorld::Store<ESM::Script>& scripts = mStore.get<ESM::Script>();
-
-        for (MWWorld::Store<ESM::Script>::iterator iter = scripts.begin();
-            iter != scripts.end(); ++iter)
+        for (auto& script : mStore.get<ESM::Script>())
+        {
             if (!std::binary_search (mScriptBlacklist.begin(), mScriptBlacklist.end(),
-                Misc::StringUtils::lowerCase (iter->mId)))
+                Misc::StringUtils::lowerCase(script.mId)))
             {
                 ++count;
 
-                if (compile (iter->mId))
+                if (compile(script.mId))
                     ++success;
             }
+        }
 
         return std::make_pair (count, success);
     }
@@ -170,14 +170,14 @@ namespace MWScript
         std::string name2 = Misc::StringUtils::lowerCase (name);
 
         {
-            ScriptCollection::iterator iter = mScripts.find (name2);
+            auto iter = mScripts.find (name2);
 
             if (iter!=mScripts.end())
                 return iter->second.mLocals;
         }
 
         {
-            std::map<std::string, Compiler::Locals>::iterator iter = mOtherLocals.find (name2);
+            auto iter = mOtherLocals.find (name2);
 
             if (iter!=mOtherLocals.end())
                 return iter->second;
@@ -192,10 +192,22 @@ namespace MWScript
             std::istringstream stream (script->mScriptText);
             Compiler::QuickFileParser parser (mErrorHandler, mCompilerContext, locals);
             Compiler::Scanner scanner (mErrorHandler, stream, mCompilerContext.getExtensions());
-            scanner.scan (parser);
+            try
+            {
+                scanner.scan (parser);
+            }
+            catch (const Compiler::SourceException&)
+            {
+                // error has already been reported via error handler
+                locals.clear();
+            }
+            catch (const std::exception& error)
+            {
+                Log(Debug::Error) << "Error: An exception has been thrown: " << error.what();
+                locals.clear();
+            }
 
-            std::map<std::string, Compiler::Locals>::iterator iter =
-                mOtherLocals.insert (std::make_pair (name2, locals)).first;
+            auto iter = mOtherLocals.emplace(name2, locals).first;
 
             return iter->second;
         }
@@ -206,5 +218,10 @@ namespace MWScript
     GlobalScripts& ScriptManager::getGlobalScripts()
     {
         return mGlobalScripts;
+    }
+
+    const Compiler::Extensions& ScriptManager::getExtensions() const
+    {
+        return *mCompilerContext.getExtensions();
     }
 }

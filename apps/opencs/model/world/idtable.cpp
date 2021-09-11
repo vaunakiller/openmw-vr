@@ -191,7 +191,7 @@ void CSMWorld::IdTable::cloneRecord(const std::string& origin,
                                     const std::string& destination,
                                     CSMWorld::UniversalId::Type type)
 {
-    int index = mIdCollection->getAppendIndex (destination);
+    int index = mIdCollection->getAppendIndex (destination, type);
 
     beginInsertRows (QModelIndex(), index, index);
     mIdCollection->cloneRecord(origin, destination, type);
@@ -228,23 +228,30 @@ QModelIndex CSMWorld::IdTable::getModelIndex (const std::string& id, int column)
     return QModelIndex();
 }
 
-void CSMWorld::IdTable::setRecord (const std::string& id, const RecordBase& record, CSMWorld::UniversalId::Type type)
+void CSMWorld::IdTable::setRecord (const std::string& id,
+        std::unique_ptr<RecordBase> record, CSMWorld::UniversalId::Type type)
 {
     int index = mIdCollection->searchId (id);
 
     if (index==-1)
     {
-        index = mIdCollection->getAppendIndex (id, type);
+        // For info records, appendRecord may use a different index than the one returned by
+        // getAppendIndex (because of prev/next links).  This can result in the display not
+        // updating correctly after an undo
+        //
+        // Use an alternative method to get the correct index.  For non-Info records the
+        // record pointer is ignored and internally calls getAppendIndex.
+        int index2 = mIdCollection->getInsertIndex (id, type, record.get());
 
-        beginInsertRows (QModelIndex(), index, index);
+        beginInsertRows (QModelIndex(), index2, index2);
 
-        mIdCollection->appendRecord (record, type);
+        mIdCollection->appendRecord (std::move(record), type);
 
         endInsertRows();
     }
     else
     {
-        mIdCollection->replace (index, record);
+        mIdCollection->replace (index, std::move(record));
         emit dataChanged (CSMWorld::IdTable::index (index, 0),
             CSMWorld::IdTable::index (index, mIdCollection->getColumns()-1));
     }
@@ -270,7 +277,7 @@ void CSMWorld::IdTable::reorderRows (int baseIndex, const std::vector<int>& newO
     if (!newOrder.empty())
         if (mIdCollection->reorderRows (baseIndex, newOrder))
             emit dataChanged (index (baseIndex, 0),
-                index (baseIndex+newOrder.size()-1, mIdCollection->getColumns()-1));
+                index (baseIndex+static_cast<int>(newOrder.size())-1, mIdCollection->getColumns()-1));
 }
 
 std::pair<CSMWorld::UniversalId, std::string> CSMWorld::IdTable::view (int row) const
@@ -355,7 +362,7 @@ CSMWorld::LandTextureIdTable::ImportResults CSMWorld::LandTextureIdTable::import
         // If it does not exist or it is in the current plugin, it can be skipped.
         if (oldRow < 0 || plugin == 0)
         {
-            results.recordMapping.push_back(std::make_pair(id, id));
+            results.recordMapping.emplace_back(id, id);
             continue;
         }
 
@@ -366,7 +373,7 @@ CSMWorld::LandTextureIdTable::ImportResults CSMWorld::LandTextureIdTable::import
         auto searchIt = reverseLookupMap.find(texture);
         if (searchIt != reverseLookupMap.end())
         {
-            results.recordMapping.push_back(std::make_pair(id, searchIt->second));
+            results.recordMapping.emplace_back(id, searchIt->second);
             continue;
         }
 
@@ -381,7 +388,7 @@ CSMWorld::LandTextureIdTable::ImportResults CSMWorld::LandTextureIdTable::import
                 // Id not taken, clone it
                 cloneRecord(id, newId, UniversalId::Type_LandTexture);
                 results.createdRecords.push_back(newId);
-                results.recordMapping.push_back(std::make_pair(id, newId));
+                results.recordMapping.emplace_back(id, newId);
                 reverseLookupMap.emplace(texture, newId);
                 break;
             }

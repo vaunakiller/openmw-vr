@@ -2,6 +2,10 @@
 
 #include <SDL_video.h>
 
+#ifdef OPENMW_GL4ES_MANUAL_INIT
+#include "gl4es_init.h"
+#endif
+
 namespace SDLUtil
 {
 
@@ -11,8 +15,8 @@ GraphicsWindowSDL2::~GraphicsWindowSDL2()
 }
 
 GraphicsWindowSDL2::GraphicsWindowSDL2(osg::GraphicsContext::Traits *traits)
-    : mWindow(0)
-    , mContext(0)
+    : mWindow(nullptr)
+    , mContext(nullptr)
     , mValid(false)
     , mRealized(false)
     , mOwnsWindow(false)
@@ -79,7 +83,7 @@ void GraphicsWindowSDL2::init()
     WindowData *inheritedWindowData = dynamic_cast<WindowData*>(_traits->inheritedWindowData.get());
     mWindow = inheritedWindowData ? inheritedWindowData->mWindow : nullptr;
 
-    mOwnsWindow = (mWindow == 0);
+    mOwnsWindow = (mWindow == nullptr);
     if(mOwnsWindow)
     {
         OSG_FATAL<<"Error: No SDL window provided."<<std::endl;
@@ -91,7 +95,7 @@ void GraphicsWindowSDL2::init()
     SDL_Window *oldWin = SDL_GL_GetCurrentWindow();
     SDL_GLContext oldCtx = SDL_GL_GetCurrentContext();
    
-#if defined(ANDROID)
+#if defined(ANDROID) || defined(OPENMW_GL4ES_MANUAL_INIT)
     int major = 1;
     int minor = 1;
     char *ver = getenv("OPENMW_GLES_VERSION");
@@ -116,7 +120,34 @@ void GraphicsWindowSDL2::init()
         return;
     }
 
+#ifdef OPENMW_GL4ES_MANUAL_INIT
+    openmw_gl4es_init(mWindow);
+#endif
+
     setSwapInterval(_traits->vsync);
+
+    // Update traits with what we've actually been given
+    // Use intermediate to avoid signed/unsigned mismatch
+    int intermediateLocation;
+    SDL_GL_GetAttribute(SDL_GL_RED_SIZE, &intermediateLocation);
+    _traits->red = intermediateLocation;
+    SDL_GL_GetAttribute(SDL_GL_GREEN_SIZE, &intermediateLocation);
+    _traits->green = intermediateLocation;
+    SDL_GL_GetAttribute(SDL_GL_BLUE_SIZE, &intermediateLocation);
+    _traits->blue = intermediateLocation;
+    SDL_GL_GetAttribute(SDL_GL_ALPHA_SIZE, &intermediateLocation);
+    _traits->alpha = intermediateLocation;
+    SDL_GL_GetAttribute(SDL_GL_DEPTH_SIZE, &intermediateLocation);
+    _traits->depth = intermediateLocation;
+    SDL_GL_GetAttribute(SDL_GL_STENCIL_SIZE, &intermediateLocation);
+    _traits->stencil = intermediateLocation;
+
+    SDL_GL_GetAttribute(SDL_GL_DOUBLEBUFFER, &intermediateLocation);
+    _traits->doubleBuffer = intermediateLocation;
+    SDL_GL_GetAttribute(SDL_GL_MULTISAMPLEBUFFERS, &intermediateLocation);
+    _traits->sampleBuffers = intermediateLocation;
+    SDL_GL_GetAttribute(SDL_GL_MULTISAMPLESAMPLES, &intermediateLocation);
+    _traits->samples = intermediateLocation;
 
     SDL_GL_MakeCurrent(oldWin, oldCtx);
 

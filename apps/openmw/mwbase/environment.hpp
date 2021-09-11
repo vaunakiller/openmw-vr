@@ -6,6 +6,11 @@ namespace osg
     class Stats;
 }
 
+namespace Resource
+{
+    class ResourceSystem;
+}
+
 namespace MWBase
 {
     class World;
@@ -17,6 +22,7 @@ namespace MWBase
     class InputManager;
     class WindowManager;
     class StateManager;
+    class LuaManager;
 
     /// \brief Central hub for mw-subsystems
     ///
@@ -37,6 +43,8 @@ namespace MWBase
             Journal *mJournal;
             InputManager *mInputManager;
             StateManager *mStateManager;
+            LuaManager *mLuaManager;
+            Resource::ResourceSystem *mResourceSystem;
             float mFrameDuration;
             float mFrameRateLimit;
 
@@ -70,12 +78,15 @@ namespace MWBase
 
             void setStateManager (StateManager *stateManager);
 
+            void setLuaManager (LuaManager *luaManager);
+
+            void setResourceSystem (Resource::ResourceSystem *resourceSystem);
+
             void setFrameDuration (float duration);
             ///< Set length of current frame in seconds.
 
             void setFrameRateLimit(float frameRateLimit);
             float getFrameRateLimit() const;
-            void limitFrameRate(double dt) const;
 
             World *getWorld() const;
 
@@ -94,6 +105,10 @@ namespace MWBase
             InputManager *getInputManager() const;
 
             StateManager *getStateManager() const;
+
+            LuaManager *getLuaManager() const;
+
+            Resource::ResourceSystem *getResourceSystem() const;
 
             float getFrameDuration() const;
 

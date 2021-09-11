@@ -37,9 +37,9 @@ namespace MWGui
         , mKey(std::vector<keyData>(10))
         , mSelected(nullptr)
         , mActivated(nullptr)
-        , mAssignDialog(0)
-        , mItemSelectionDialog(0)
-        , mMagicSelectionDialog(0)
+        , mAssignDialog(nullptr)
+        , mItemSelectionDialog(nullptr)
+        , mMagicSelectionDialog(nullptr)
 
     {
         getWidget(mOkButton, "OKButton");
@@ -340,7 +340,8 @@ namespace MWGui
                 || playerStats.getKnockedDown()
                 || playerStats.getHitRecovery();
 
-        bool isReturnNeeded = playerStats.isParalyzed() || playerStats.isDead();
+        bool godmode = MWBase::Environment::get().getWorld()->getGodModeState();
+        bool isReturnNeeded = (!godmode && playerStats.isParalyzed()) || playerStats.isDead();
 
         if (isReturnNeeded && key->type != Type_Item)
         {

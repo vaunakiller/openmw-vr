@@ -153,7 +153,7 @@ namespace MWGui
                     return;
 
                 MyGUI::Widget* focus = MyGUI::InputManager::getInstance().getMouseFocusWidget();
-                if (focus == 0)
+                if (focus == nullptr)
                     return;
 
                 MyGUI::IntSize tooltipSize;
@@ -251,7 +251,7 @@ namespace MWGui
                     }
                     std::string cost = focus->getUserString("SpellCost");
                     if (cost != "" && cost != "0")
-                        info.text += MWGui::ToolTips::getValueString(spell->mData.mCost, "#{sCastCost}");
+                        info.text += MWGui::ToolTips::getValueString(MWMechanics::calcSpellCost(*spell), "#{sCastCost}");
                     info.effects = effects;
                     tooltipSize = createToolTip(info);
                 }
@@ -266,14 +266,14 @@ namespace MWGui
                     std::map<std::string, std::string> userStrings = focus->getUserStrings();
                     for (auto& userStringPair : userStrings)
                     {
-                        size_t underscorePos = userStringPair.first.find("_");
+                        size_t underscorePos = userStringPair.first.find('_');
                         if (underscorePos == std::string::npos)
                             continue;
                         std::string key = userStringPair.first.substr(0, underscorePos);
                         std::string widgetName = userStringPair.first.substr(underscorePos+1, userStringPair.first.size()-(underscorePos+1));
 
                         type = "Property";
-                        size_t caretPos = key.find("^");
+                        size_t caretPos = key.find('^');
                         if (caretPos != std::string::npos)
                         {
                             type = key.substr(0, caretPos);
@@ -410,7 +410,7 @@ namespace MWGui
         if (text.size() > 0 && text[0] == '\n')
             text.erase(0, 1);
 
-        const ESM::Enchantment* enchant = 0;
+        const ESM::Enchantment* enchant = nullptr;
         const MWWorld::ESMStore& store = MWBase::Environment::get().getWorld()->getStore();
         if (info.enchant != "")
         {

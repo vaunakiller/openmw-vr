@@ -8,9 +8,9 @@ namespace CSVWidget
     class CompleterPopup : public QListView
     {
         public:
-            CompleterPopup(QWidget *parent = 0);
+            CompleterPopup(QWidget *parent = nullptr);
 
-            virtual int sizeHintForRow(int row) const;
+            int sizeHintForRow(int row) const override;
     };
 }
 

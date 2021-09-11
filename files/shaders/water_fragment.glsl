@@ -1,5 +1,13 @@
 #version 120
 
+#if @useUBO
+    #extension GL_ARB_uniform_buffer_object : require
+#endif
+
+#if @useGPUShader4
+    #extension GL_EXT_gpu_shader4: require
+#endif
+
 #define REFRACTION @refraction_enabled
 
 // Inspired by Blender GLSL Water by martinsh ( https://devlog-martinsh.blogspot.de/2012/07/waterundewater-shader-wip.html )
@@ -42,6 +50,8 @@ const vec2 WIND_DIR = vec2(0.5f, -0.8f);
 const float WIND_SPEED = 0.2f;
 
 const vec3 WATER_COLOR = vec3(0.090195, 0.115685, 0.12745);
+
+const float WOBBLY_SHORE_FADE_DISTANCE = 6200.0;   // fade out wobbly shores to mask precision errors, the effect is almost impossible to see at a distance
 
 // ---------------- rain ripples related stuff ---------------------
 
@@ -142,16 +152,22 @@ uniform vec3 nodePosition;
 
 uniform float rainIntensity;
 
+#define PER_PIXEL_LIGHTING 0
+
 #include "shadows_fragment.glsl"
+#include "lighting.glsl"
 
 float frustumDepth;
 
 float linearizeDepth(float depth)
-  {
-    float z_n = 2.0 * depth - 1.0;
-    depth = 2.0 * near * far / (far + near - z_n * frustumDepth);
-    return depth;
-  }
+{
+#if @reverseZ
+  depth = 1.0 - depth;
+#endif
+  float z_n = 2.0 * depth - 1.0;
+  depth = 2.0 * near * far / (far + near - z_n * frustumDepth);
+  return depth;
+}
 
 void main(void)
 {
@@ -192,8 +208,7 @@ void main(void)
                    normal3 * midWaves.y + normal4 * smallWaves.x + normal5 * smallWaves.y + rippleAdd);
     normal = normalize(vec3(-normal.x * bump, -normal.y * bump, normal.z));
 
-    vec3 lVec = normalize((gl_ModelViewMatrixInverse * vec4(gl_LightSource[0].position.xyz, 0.0)).xyz);
-
+    vec3 lVec = normalize((gl_ModelViewMatrixInverse * vec4(lcalcPosition(0).xyz, 0.0)).xyz);
     vec3 cameraPos = (gl_ModelViewMatrixInverse * vec4(0,0,0,1)).xyz;
     vec3 vVec = normalize(position.xyz - cameraPos.xyz);
 
@@ -228,9 +243,12 @@ void main(void)
 
     vec3 waterColor = WATER_COLOR * sunFade;
 
+    vec4 sunSpec = lcalcSpecular(0);
+
 #if REFRACTION
     // refraction
     vec3 refraction = texture2D(refractionMap, screenCoords - screenCoordsOffset).rgb;
+    vec3 rawRefraction = refraction;
 
     // brighten up the refraction underwater
     if (cameraPos.z < 0.0)
@@ -246,12 +264,22 @@ void main(void)
     float sunHeight = lVec.z;
     vec3 scatterColour = mix(SCATTER_COLOUR*vec3(1.0,0.4,0.0), SCATTER_COLOUR, clamp(1.0-exp(-sunHeight*SUN_EXT), 0.0, 1.0));
     vec3 lR = reflect(lVec, lNormal);
-    float lightScatter = shadow * clamp(dot(lVec,lNormal)*0.7+0.3, 0.0, 1.0) * clamp(dot(lR, vVec)*2.0-1.2, 0.0, 1.0) * SCATTER_AMOUNT * sunFade * clamp(1.0-exp(-sunHeight), 0.0, 1.0);
-    gl_FragData[0].xyz = mix( mix(refraction,  scatterColour,  lightScatter),  reflection,  fresnel) + specular * gl_LightSource[0].specular.xyz + vec3(rainRipple.w) * 0.2;
+    float lightScatter = clamp(dot(lVec,lNormal)*0.7+0.3, 0.0, 1.0) * clamp(dot(lR, vVec)*2.0-1.2, 0.0, 1.0) * SCATTER_AMOUNT * sunFade * clamp(1.0-exp(-sunHeight), 0.0, 1.0);
+    gl_FragData[0].xyz = mix( mix(refraction,  scatterColour,  lightScatter),  reflection,  fresnel) + specular * sunSpec.xyz + vec3(rainRipple.w) * 0.2;
     gl_FragData[0].w = 1.0;
+
+    // wobbly water: hard-fade into refraction texture at extremely low depth, with a wobble based on normal mapping
+    vec3 normalShoreRippleRain = texture2D(normalMap,normalCoords(UV, 2.0, 2.7, -1.0*waterTimer,  0.05,  0.1,  normal3)).rgb - 0.5
+                               + texture2D(normalMap,normalCoords(UV, 2.0, 2.7,      waterTimer,  0.04, -0.13, normal4)).rgb - 0.5;
+    float verticalWaterDepth = realWaterDepth * mix(abs(vVec.z), 1.0, 0.2); // an estimate
+    float shoreOffset = verticalWaterDepth - (normal2.r + mix(0.0, normalShoreRippleRain.r, rainIntensity) + 0.15)*8.0;
+    float fuzzFactor = min(1.0, 1000.0/surfaceDepth) * mix(abs(vVec.z), 1.0, 0.2);
+    shoreOffset *= fuzzFactor;
+    shoreOffset = clamp(mix(shoreOffset, 1.0, clamp(linearDepth / WOBBLY_SHORE_FADE_DISTANCE, 0.0, 1.0)), 0.0, 1.0);
+    gl_FragData[0].xyz = mix(rawRefraction, gl_FragData[0].xyz, shoreOffset);
 #else
-    gl_FragData[0].xyz = mix(reflection,  waterColor,  (1.0-fresnel)*0.5) + specular * gl_LightSource[0].specular.xyz + vec3(rainRipple.w) * 0.7;
-    gl_FragData[0].w = clamp(fresnel*6.0 + specular * gl_LightSource[0].specular.w, 0.0, 1.0);     //clamp(fresnel*2.0 + specular * gl_LightSource[0].specular.w, 0.0, 1.0);
+    gl_FragData[0].xyz = mix(reflection,  waterColor,  (1.0-fresnel)*0.5) + specular * sunSpec.xyz + vec3(rainRipple.w) * 0.7;
+    gl_FragData[0].w = clamp(fresnel*6.0 + specular * sunSpec.w, 0.0, 1.0);     //clamp(fresnel*2.0 + specular * gl_LightSource[0].specular.w, 0.0, 1.0);
 #endif
 
     // fog

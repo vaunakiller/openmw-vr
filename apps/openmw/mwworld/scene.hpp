@@ -3,6 +3,7 @@
 
 #include <osg/Vec4i>
 #include <osg/Vec2i>
+#include <osg/ref_ptr>
 
 #include "ptr.hpp"
 #include "globals.hpp"
@@ -10,6 +11,7 @@
 #include <set>
 #include <memory>
 #include <unordered_map>
+#include <vector>
 
 #include <components/misc/constants.hpp>
 
@@ -36,7 +38,6 @@ namespace Loading
 namespace DetourNavigator
 {
     struct Navigator;
-    class Water;
 }
 
 namespace MWRender
@@ -48,6 +49,11 @@ namespace MWRender
 namespace MWPhysics
 {
     class PhysicsSystem;
+}
+
+namespace SceneUtil
+{
+    class WorkItem;
 }
 
 namespace MWWorld
@@ -65,13 +71,13 @@ namespace MWWorld
     class Scene
     {
         public:
-
-            typedef std::set<CellStore *> CellStoreCollection;
+            using CellStoreCollection = std::set<CellStore *>;
 
         private:
 
             CellStore* mCurrentCell; // the cell the player is in
             CellStoreCollection mActiveCells;
+            CellStoreCollection mInactiveCells;
             bool mCellChanged;
             MWPhysics::PhysicsSystem *mPhysics;
             MWRender::RenderingManager& mRendering;
@@ -92,7 +98,9 @@ namespace MWWorld
 
             std::set<ESM::RefNum> mPagedRefs;
 
-            void insertCell (CellStore &cell, Loading::Listener* loadingListener, bool test = false);
+            std::vector<osg::ref_ptr<SceneUtil::WorkItem>> mWorkItems;
+
+            void insertCell (CellStore &cell, Loading::Listener* loadingListener, bool onlyObjects, bool test = false);
             osg::Vec2i mCurrentGridCenter;
 
             // Load and unload cells as necessary to create a cell grid with "X" and "Y" in the center
@@ -108,6 +116,11 @@ namespace MWWorld
             osg::Vec4i gridCenterToBounds(const osg::Vec2i &centerCell) const;
             osg::Vec2i getNewGridCenter(const osg::Vec3f &pos, const osg::Vec2i *currentGridCenter = nullptr) const;
 
+            void unloadInactiveCell (CellStore* cell, bool test = false);
+            void deactivateCell (CellStore* cell, bool test = false);
+            void activateCell (CellStore *cell, Loading::Listener* loadingListener, bool respawn, bool test = false);
+            void loadInactiveCell (CellStore *cell, Loading::Listener* loadingListener, bool test = false);
+
         public:
 
             Scene (MWRender::RenderingManager& rendering, MWPhysics::PhysicsSystem *physics,
@@ -118,10 +131,6 @@ namespace MWWorld
             void preloadCell(MWWorld::CellStore* cell, bool preloadSurrounding=false);
             void preloadTerrain(const osg::Vec3f& pos, bool sync=false);
             void reloadTerrain();
-
-            void unloadCell (CellStoreCollection::iterator iter, bool test = false);
-
-            void loadCell (CellStore *cell, Loading::Listener* loadingListener, bool respawn, bool test = false);
 
             void playerMoved (const osg::Vec3f& pos);
 

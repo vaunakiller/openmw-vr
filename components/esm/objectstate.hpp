@@ -6,6 +6,7 @@
 
 #include "cellref.hpp"
 #include "locals.hpp"
+#include "luascripts.hpp"
 #include "animationstate.hpp"
 
 namespace ESM
@@ -27,6 +28,7 @@ namespace ESM
 
         unsigned char mHasLocals;
         Locals mLocals;
+        LuaScripts mLuaScripts;
         unsigned char mEnabled;
         int mCount;
         ESM::Position mPosition;
@@ -49,7 +51,7 @@ namespace ESM
 
         virtual void save (ESMWriter &esm, bool inInventory = false) const;
 
-        /// Initialize to default state
+        virtual /// Initialize to default state
         void blank();
 
         virtual ~ObjectState();

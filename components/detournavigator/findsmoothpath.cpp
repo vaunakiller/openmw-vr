@@ -1,5 +1,7 @@
 #include "findsmoothpath.hpp"
 
+#include <components/misc/convert.hpp>
+
 #include <algorithm>
 #include <array>
 
@@ -58,8 +60,8 @@ namespace DetourNavigator
             return path;
 
         // Get connected polygons
-        const dtMeshTile* tile = 0;
-        const dtPoly* poly = 0;
+        const dtMeshTile* tile = nullptr;
+        const dtPoly* poly = nullptr;
         if (dtStatusFailed(navQuery.getAttachedNavMesh()->getTileAndPolyByRef(path[0], &tile, &poly)))
             return path;
 
@@ -103,21 +105,24 @@ namespace DetourNavigator
         return result;
     }
 
-    boost::optional<SteerTarget> getSteerTarget(const dtNavMeshQuery& navQuery, const osg::Vec3f& startPos,
+    std::optional<SteerTarget> getSteerTarget(const dtNavMeshQuery& navMeshQuery, const osg::Vec3f& startPos,
             const osg::Vec3f& endPos, const float minTargetDist, const std::vector<dtPolyRef>& path)
     {
         // Find steer target.
         SteerTarget result;
-        const int MAX_STEER_POINTS = 3;
-        std::array<float, MAX_STEER_POINTS * 3> steerPath;
-        std::array<unsigned char, MAX_STEER_POINTS> steerPathFlags;
-        std::array<dtPolyRef, MAX_STEER_POINTS> steerPathPolys;
+        constexpr int maxSteerPoints = 3;
+        std::array<float, maxSteerPoints * 3> steerPath;
+        std::array<unsigned char, maxSteerPoints> steerPathFlags;
+        std::array<dtPolyRef, maxSteerPoints> steerPathPolys;
         int nsteerPath = 0;
-        navQuery.findStraightPath(startPos.ptr(), endPos.ptr(), path.data(), int(path.size()), steerPath.data(),
-                                    steerPathFlags.data(), steerPathPolys.data(), &nsteerPath, MAX_STEER_POINTS);
+        const dtStatus status = navMeshQuery.findStraightPath(startPos.ptr(), endPos.ptr(), path.data(),
+            static_cast<int>(path.size()), steerPath.data(), steerPathFlags.data(), steerPathPolys.data(),
+            &nsteerPath, maxSteerPoints);
+        if (dtStatusFailed(status))
+            return std::nullopt;
         assert(nsteerPath >= 0);
         if (!nsteerPath)
-            return boost::none;
+            return std::nullopt;
 
         // Find vertex far enough to steer to.
         std::size_t ns = 0;
@@ -125,13 +130,13 @@ namespace DetourNavigator
         {
             // Stop at Off-Mesh link or when point is further than slop away.
             if ((steerPathFlags[ns] & DT_STRAIGHTPATH_OFFMESH_CONNECTION) ||
-                    !inRange(Misc::Convert::makeOsgVec3f(&steerPath[ns * 3]), startPos, minTargetDist, 1000.0f))
+                    !inRange(Misc::Convert::makeOsgVec3f(&steerPath[ns * 3]), startPos, minTargetDist))
                 break;
             ns++;
         }
         // Failed to find good point to steer to.
         if (ns >= static_cast<std::size_t>(nsteerPath))
-            return boost::none;
+            return std::nullopt;
 
         dtVcopy(result.steerPos.ptr(), &steerPath[ns * 3]);
         result.steerPos.y() = startPos[1];
@@ -139,5 +144,15 @@ namespace DetourNavigator
         result.steerPosRef = steerPathPolys[ns];
 
         return result;
+    }
+
+    dtPolyRef findNearestPoly(const dtNavMeshQuery& query, const dtQueryFilter& filter,
+            const osg::Vec3f& center, const osg::Vec3f& halfExtents)
+    {
+        dtPolyRef ref = 0;
+        const dtStatus status = query.findNearestPoly(center.ptr(), halfExtents.ptr(), &filter, &ref, nullptr);
+        if (!dtStatusSucceed(status))
+            return 0;
+        return ref;
     }
 }

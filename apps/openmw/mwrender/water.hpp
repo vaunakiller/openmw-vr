@@ -6,7 +6,6 @@
 
 #include <osg/ref_ptr>
 #include <osg/Vec3f>
-#include <osg/Uniform>
 #include <osg/Camera>
 
 #include <components/settings/settings.hpp>
@@ -46,11 +45,12 @@ namespace MWRender
     class Refraction;
     class Reflection;
     class RippleSimulation;
+    class RainIntensityUpdater;
 
     /// Water rendering
     class Water
     {
-        osg::ref_ptr<osg::Uniform> mRainIntensityUniform;
+        osg::ref_ptr<RainIntensityUpdater> mRainIntensityUpdater;
 
         osg::ref_ptr<osg::Group> mParent;
         osg::ref_ptr<osg::Group> mSceneRoot;
@@ -72,6 +72,7 @@ namespace MWRender
         bool mInterior;
 
         osg::Callback* mCullCallback;
+        osg::ref_ptr<osg::NodeCallback> mShaderWaterStateSetUpdater;
 
         osg::Vec3f getSceneNodeCoordinates(int gridX, int gridY);
         void updateVisible();
@@ -112,15 +113,16 @@ namespace MWRender
 
         void changeCell(const MWWorld::CellStore* store);
         void setHeight(const float height);
+        void setRainIntensity(const float rainIntensity);
 
         void update(float dt);
 
-        osg::Camera *getReflectionCamera();
-        osg::Camera *getRefractionCamera();
+        osg::Node* getReflectionNode();
+        osg::Node* getRefractionNode();
+
+        osg::Vec3d getPosition() const;
 
         void processChangedSettings(const Settings::CategorySettingVector& settings);
-
-        osg::Uniform *getRainIntensityUniform();
     };
 
 }

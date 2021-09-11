@@ -29,18 +29,12 @@
 namespace Nif
 {
 
-class Property : public Named
-{
-public:
-    // The meaning of these depends on the actual property type.
-    unsigned int flags;
+struct Property : public Named { };
 
-    void read(NIFStream *nif);
-};
-
-class NiTexturingProperty : public Property
+struct NiTexturingProperty : public Property
 {
-public:
+    unsigned short flags{0u};
+
     // A sub-texture
     struct Texture
     {
@@ -67,7 +61,7 @@ public:
         3 - hilight  // These two are for PS2 only?
         4 - hilight2
     */
-    unsigned int apply;
+    unsigned int apply{0};
 
     /*
      * The textures in this list are as follows:
@@ -92,39 +86,144 @@ public:
     };
 
     std::vector<Texture> textures;
+    std::vector<Texture> shaderTextures;
 
     osg::Vec2f envMapLumaBias;
     osg::Vec4f bumpMapMatrix;
 
-    void read(NIFStream *nif);
-    void post(NIFFile *nif);
+    void read(NIFStream *nif) override;
+    void post(NIFFile *nif) override;
 };
 
-class NiFogProperty : public Property
+struct NiFogProperty : public Property
 {
-public:
+    unsigned short mFlags;
     float mFogDepth;
     osg::Vec3f mColour;
 
-    void read(NIFStream *nif);
+    void read(NIFStream *nif) override;
 };
 
-// These contain no other data than the 'flags' field in Property
-class NiShadeProperty : public Property { };
-class NiDitherProperty : public Property { };
-class NiZBufferProperty : public Property { };
-class NiSpecularProperty : public Property { };
-class NiWireframeProperty : public Property { };
+// These contain no other data than the 'flags' field
+struct NiShadeProperty : public Property
+{
+    unsigned short flags{0u};
+    void read(NIFStream *nif) override
+    {
+        Property::read(nif);
+        if (nif->getBethVersion() <= NIFFile::BethVersion::BETHVER_FO3)
+            flags = nif->getUShort();
+    }
+};
+
+struct BSShaderProperty : public NiShadeProperty
+{
+    enum BSShaderType
+    {
+        SHADER_TALL_GRASS = 0,
+        SHADER_DEFAULT = 1,
+        SHADER_SKY = 10,
+        SHADER_SKIN = 14,
+        SHADER_WATER = 17,
+        SHADER_LIGHTING30 = 29,
+        SHADER_TILE = 32,
+        SHADER_NOLIGHTING = 33
+    };
+
+    unsigned int type{0u}, flags1{0u}, flags2{0u};
+    float envMapIntensity{0.f};
+    void read(NIFStream *nif) override;
+};
+
+struct BSShaderLightingProperty : public BSShaderProperty
+{
+    unsigned int clamp{0u};
+    void read(NIFStream *nif) override;
+};
+
+struct BSShaderPPLightingProperty : public BSShaderLightingProperty
+{
+    BSShaderTextureSetPtr textureSet;
+    struct RefractionSettings
+    {
+        float strength{0.f};
+        int period{0};
+    };
+    struct ParallaxSettings
+    {
+        float passes{0.f};
+        float scale{0.f};
+    };
+    RefractionSettings refraction;
+    ParallaxSettings parallax;
+
+    void read(NIFStream *nif) override;
+    void post(NIFFile *nif) override;
+};
+
+struct BSShaderNoLightingProperty : public BSShaderLightingProperty
+{
+    std::string filename;
+    osg::Vec4f falloffParams;
+
+    void read(NIFStream *nif) override;
+};
+
+struct NiDitherProperty : public Property
+{
+    unsigned short flags;
+    void read(NIFStream* nif) override
+    {
+        Property::read(nif);
+        flags = nif->getUShort();
+    }
+};
+
+struct NiZBufferProperty : public Property
+{
+    unsigned short flags;
+    unsigned int testFunction;
+    void read(NIFStream *nif) override
+    {
+        Property::read(nif);
+        flags = nif->getUShort();
+        testFunction = (flags >> 2) & 0x7;
+        if (nif->getVersion() >= NIFStream::generateVersion(4,1,0,12) && nif->getVersion() <= NIFFile::NIFVersion::VER_OB)
+            testFunction = nif->getUInt();
+    }
+};
+
+struct NiSpecularProperty : public Property
+{
+    unsigned short flags;
+    void read(NIFStream* nif) override
+    {
+        Property::read(nif);
+        flags = nif->getUShort();
+    }
+};
+
+struct NiWireframeProperty : public Property
+{
+    unsigned short flags;
+    void read(NIFStream* nif) override
+    {
+        Property::read(nif);
+        flags = nif->getUShort();
+    }
+};
 
 // The rest are all struct-based
 template <typename T>
 struct StructPropT : Property
 {
     T data;
+    unsigned short flags;
 
-    void read(NIFStream *nif)
+    void read(NIFStream *nif) override
     {
         Property::read(nif);
+        flags = nif->getUShort();
         data.read(nif);
     }
 };
@@ -132,8 +231,9 @@ struct StructPropT : Property
 struct S_MaterialProperty
 {
     // The vector components are R,G,B
-    osg::Vec3f ambient, diffuse, specular, emissive;
-    float glossiness, alpha;
+    osg::Vec3f ambient{1.f,1.f,1.f}, diffuse{1.f,1.f,1.f};
+    osg::Vec3f specular, emissive;
+    float glossiness{0.f}, alpha{0.f}, emissiveMult{1.f};
 
     void read(NIFStream *nif);
 };
@@ -245,10 +345,36 @@ struct S_StencilProperty
     void read(NIFStream *nif);
 };
 
-class NiAlphaProperty : public StructPropT<S_AlphaProperty> { };
-class NiMaterialProperty : public StructPropT<S_MaterialProperty> { };
-class NiVertexColorProperty : public StructPropT<S_VertexColorProperty> { };
-class NiStencilProperty : public StructPropT<S_StencilProperty> { };
+struct NiAlphaProperty : public StructPropT<S_AlphaProperty> { };
+struct NiVertexColorProperty : public StructPropT<S_VertexColorProperty> { };
+struct NiStencilProperty : public Property
+{
+    S_StencilProperty data;
+    unsigned short flags{0u};
+
+    void read(NIFStream *nif) override
+    {
+        Property::read(nif);
+        if (nif->getVersion() <= NIFFile::NIFVersion::VER_OB_OLD)
+            flags = nif->getUShort();
+        data.read(nif);
+    }
+};
+
+struct NiMaterialProperty : public Property
+{
+    S_MaterialProperty data;
+    unsigned short flags{0u};
+
+    void read(NIFStream *nif) override
+    {
+        Property::read(nif);
+        if (nif->getVersion() >= NIFStream::generateVersion(3,0,0,0)
+         && nif->getVersion() <= NIFFile::NIFVersion::VER_OB_OLD)
+            flags = nif->getUShort();
+        data.read(nif);
+    }
+};
 
 } // Namespace
 #endif

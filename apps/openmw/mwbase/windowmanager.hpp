@@ -32,7 +32,6 @@ namespace MyGUI
 
 namespace ESM
 {
-    struct Class;
     class ESMReader;
     class ESMWriter;
     struct CellId;
@@ -172,6 +171,8 @@ namespace MWBase
             virtual void setDragDrop(bool dragDrop) = 0;
             virtual bool getWorldMouseOver() = 0;
 
+            virtual float getScalingFactor() const = 0;
+
             virtual bool toggleFogOfWar() = 0;
 
             virtual bool toggleFullHelp() = 0;
@@ -227,6 +228,8 @@ namespace MWBase
             virtual void exitCurrentGuiMode() = 0;
 
             virtual void messageBox (const std::string& message, enum MWGui::ShowInDialogueMode showInDialogueMode = MWGui::ShowInDialogueMode_IfPossible) = 0;
+            /// Puts message into a queue to show on the next update. Thread safe alternative for messageBox.
+            virtual void scheduleMessageBox(std::string message, enum MWGui::ShowInDialogueMode showInDialogueMode = MWGui::ShowInDialogueMode_IfPossible) = 0;
             virtual void staticMessageBox(const std::string& message) = 0;
             virtual void removeStaticMessageBox() = 0;
             virtual void interactiveMessageBox (const std::string& message,
@@ -341,13 +344,17 @@ namespace MWBase
             virtual bool injectKeyPress(MyGUI::KeyCode key, unsigned int text, bool repeat) = 0;
             virtual bool injectKeyRelease(MyGUI::KeyCode key) = 0;
 
-            virtual void windowVisibilityChange(bool visible) = 0;
-            virtual void windowResized(int x, int y) = 0;
-            virtual void windowClosed() = 0;
+            void windowVisibilityChange(bool visible) override = 0;
+            void windowResized(int x, int y) override = 0;
+            void windowClosed() override = 0;
             virtual bool isWindowVisible() = 0;
 
             virtual void watchActor(const MWWorld::Ptr& ptr) = 0;
             virtual MWWorld::Ptr getWatchedActor() const = 0;
+
+            virtual const std::string& getVersionDescription() const = 0;
+
+            virtual void onDeleteCustomData(const MWWorld::Ptr& ptr) = 0;
     };
 }
 

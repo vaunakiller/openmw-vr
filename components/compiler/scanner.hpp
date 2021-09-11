@@ -28,7 +28,7 @@ namespace Compiler
             blank();
         }
 
-        MultiChar(const char ch)
+        explicit MultiChar(const char ch)
         {
             blank();
             mData[0] = ch;
@@ -36,7 +36,7 @@ namespace Compiler
             mLength = getCharLength(ch);
         }
 
-        int getCharLength(const char ch)
+        static int getCharLength(const char ch)
         {
             unsigned char c = ch;
             if (c<=127) return 0;
@@ -103,7 +103,7 @@ namespace Compiler
         {
             blank();
 
-            char ch = in.peek();
+            char ch = static_cast<char>(in.peek());
 
             if (!in.good())
                 return false;
@@ -130,7 +130,7 @@ namespace Compiler
         {
             std::streampos p_orig = in.tellg();
 
-            char ch = in.peek();
+            char ch = static_cast<char>(in.peek());
 
             if (!in.good())
                 return false;
@@ -140,15 +140,12 @@ namespace Compiler
 
             for (int i = 0; i <= length; i++)
             {
-                if (length >= i)
-                {
-                    in.get (ch);
+                in.get (ch);
 
-                    if (!in.good())
-                        return false;
+                if (!in.good())
+                    return false;
 
-                    mData[i] = ch;
-                }
+                mData[i] = ch;
             }
 
             mLength = length;
@@ -159,7 +156,7 @@ namespace Compiler
 
         void blank()
         {
-            std::fill(mData, mData + sizeof(mData), 0);
+            std::fill(std::begin(mData), std::end(mData), '\0');
             mLength = -1;
         }
 
@@ -170,8 +167,8 @@ namespace Compiler
         }
 
     private:
-        char mData[4];
-        int mLength;
+        char mData[4]{};
+        int mLength{};
     };
 
     class Scanner
@@ -196,6 +193,7 @@ namespace Compiler
             bool mStrictKeywords;
             bool mTolerantNames;
             bool mIgnoreNewline;
+            bool mExpectName;
 
         public:
 
@@ -251,7 +249,7 @@ namespace Compiler
         public:
 
             Scanner (ErrorHandler& errorHandler, std::istream& inputStream,
-                const Extensions *extensions = 0);
+                const Extensions *extensions = nullptr);
             ///< constructor
 
             void scan (Parser& parser);
@@ -289,6 +287,11 @@ namespace Compiler
             ///
             /// \attention This mode lasts only until the next newline is reached.
             void enableTolerantNames();
+
+            /// Treat '.' and '-' as the start of a name.
+            ///
+            /// \attention This mode lasts only until the next newline is reached or the call to scan ends.
+            void enableExpectName();
     };
 }
 

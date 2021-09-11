@@ -12,6 +12,7 @@ namespace ESM
     class ESMReader;
 
     const int UnbreakableLock = std::numeric_limits<int>::max();
+    extern int GroundcoverIndex;
 
     struct RefNum
     {
@@ -22,9 +23,14 @@ namespace ESM
 
         void save (ESMWriter &esm, bool wide = false, const std::string& tag = "FRMR") const;
 
-        enum { RefNum_NoContentFile = -1 };
-        inline bool hasContentFile() const { return mContentFile != RefNum_NoContentFile; }
-        inline void unset() { mIndex = 0; mContentFile = RefNum_NoContentFile; }
+        inline bool hasContentFile() const { return mContentFile >= 0; }
+
+        inline bool isSet() const { return mIndex != 0 || mContentFile != -1; }
+        inline void unset() { *this = {0, -1}; }
+
+        // Note: this method should not be used for objects with invalid RefNum
+        // (for example, for objects from disabled plugins in savegames).
+        inline bool fromGroundcoverFile() const { return mContentFile >= GroundcoverIndex; }
     };
 
     /* Cell reference. This represents ONE object (of many) inside the

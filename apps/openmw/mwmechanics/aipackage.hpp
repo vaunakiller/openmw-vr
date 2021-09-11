@@ -3,13 +3,13 @@
 
 #include <memory>
 
-#include <components/esm/defs.hpp>
 #include <components/detournavigator/areatype.hpp>
 
 #include "pathfinding.hpp"
 #include "obstacle.hpp"
 #include "aistate.hpp"
 #include "aipackagetypeid.hpp"
+#include "aitimer.hpp"
 
 namespace MWWorld
 {
@@ -28,8 +28,6 @@ namespace ESM
 
 namespace MWMechanics
 {
-    const float AI_REACTION_TIME = 0.25f;
-
     class CharacterController;
     class PathgridGraph;
 
@@ -124,10 +122,15 @@ namespace MWMechanics
             /// Return if actor's rotation speed is sufficient to rotate to the destination pathpoint on the run. Otherwise actor should rotate while standing.
             static bool isReachableRotatingOnTheRun(const MWWorld::Ptr& actor, const osg::Vec3f& dest);
 
+            osg::Vec3f getNextPathPoint(const osg::Vec3f& destination) const;
+
+            float getNextPathPointTolerance(float speed, float duration, const osg::Vec3f& halfExtents) const;
+
         protected:
             /// Handles path building and shortcutting with obstacles avoiding
             /** \return If the actor has arrived at his destination **/
-            bool pathTo(const MWWorld::Ptr& actor, const osg::Vec3f& dest, float duration, float destTolerance = 0.0f);
+            bool pathTo(const MWWorld::Ptr& actor, const osg::Vec3f& dest, float duration,
+                        float destTolerance = 0.0f, float endTolerance = 0.0f, PathType pathType = PathType::Full);
 
             /// Check if there aren't any obstacles along the path to make shortcut possible
             /// If a shortcut is possible then path will be cleared and filled with the destination point.
@@ -158,7 +161,7 @@ namespace MWMechanics
             PathFinder mPathFinder;
             ObstacleCheck mObstacleCheck;
 
-            float mTimer;
+            AiReactionTimer mReaction;
 
             std::string mTargetActorRefId;
             mutable int mTargetActorId;
@@ -168,6 +171,7 @@ namespace MWMechanics
             bool mIsShortcutting;   // if shortcutting at the moment
             bool mShortcutProhibited; // shortcutting may be prohibited after unsuccessful attempt
             osg::Vec3f mShortcutFailPos; // position of last shortcut fail
+            float mLastDestinationTolerance = 0;
 
         private:
             bool isNearInactiveCell(osg::Vec3f position);

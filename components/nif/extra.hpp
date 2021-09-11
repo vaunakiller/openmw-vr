@@ -29,15 +29,20 @@
 namespace Nif
 {
 
-class NiVertWeightsExtraData : public Extra
+struct NiExtraData : public Extra
 {
-public:
-    void read(NIFStream *nif);
+    std::vector<char> data;
+
+    void read(NIFStream *nif) override;
 };
 
-class NiTextKeyExtraData : public Extra
+struct NiVertWeightsExtraData : public Extra
 {
-public:
+    void read(NIFStream *nif) override;
+};
+
+struct NiTextKeyExtraData : public Extra
+{
     struct TextKey
     {
         float time;
@@ -45,19 +50,74 @@ public:
     };
     std::vector<TextKey> list;
 
-    void read(NIFStream *nif);
+    void read(NIFStream *nif) override;
 };
 
-class NiStringExtraData : public Extra
+struct NiStringExtraData : public Extra
 {
-public:
     /* Two known meanings:
        "MRK" - marker, only visible in the editor, not rendered in-game
        "NCO" - no collision
     */
     std::string string;
 
-    void read(NIFStream *nif);
+    void read(NIFStream *nif) override;
+};
+
+struct NiIntegerExtraData : public Extra
+{
+    unsigned int data;
+
+    void read(NIFStream *nif) override;
+};
+
+struct NiIntegersExtraData : public Extra
+{
+    std::vector<unsigned int> data;
+
+    void read(NIFStream *nif) override;
+};
+
+struct NiBinaryExtraData : public Extra
+{
+    std::vector<char> data;
+
+    void read(NIFStream *nif) override;
+};
+
+struct NiBooleanExtraData : public Extra
+{
+    bool data;
+
+    void read(NIFStream *nif) override;
+};
+
+struct NiVectorExtraData : public Extra
+{
+    osg::Vec4f data;
+
+    void read(NIFStream *nif) override;
+};
+
+struct NiFloatExtraData : public Extra
+{
+    float data;
+
+    void read(NIFStream *nif) override;
+};
+
+struct NiFloatsExtraData : public Extra
+{
+    std::vector<float> data;
+
+    void read(NIFStream *nif) override;
+};
+
+struct BSBound : public Extra
+{
+    osg::Vec3f center, halfExtents;
+
+    void read(NIFStream *nif) override;
 };
 
 } // Namespace

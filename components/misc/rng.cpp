@@ -3,33 +3,50 @@
 #include <chrono>
 #include <random>
 
+namespace
+{
+    Misc::Rng::Seed sSeed;
+}
+
 namespace Misc
 {
+    Rng::Seed::Seed(unsigned int seed)
+    {
+        mGenerator.seed(seed);
+    }
 
-    std::mt19937 Rng::generator = std::mt19937();
+    Rng::Seed& Rng::getSeed()
+    {
+        return sSeed;
+    }
 
     void Rng::init(unsigned int seed)
     {
-        generator.seed(seed);
+        sSeed.mGenerator.seed(seed);
     }
 
-    float Rng::rollProbability()
+    float Rng::rollProbability(Seed& seed)
     {
-        return std::uniform_real_distribution<float>(0, 1 - std::numeric_limits<float>::epsilon())(generator);
+        return std::uniform_real_distribution<float>(0, 1 - std::numeric_limits<float>::epsilon())(seed.mGenerator);
     }
 
-    float Rng::rollClosedProbability()
+    float Rng::rollClosedProbability(Seed& seed)
     {
-        return std::uniform_real_distribution<float>(0, 1)(generator);
+        return std::uniform_real_distribution<float>(0, 1)(seed.mGenerator);
     }
 
-    int Rng::rollDice(int max)
+    int Rng::rollDice(int max, Seed& seed)
     {
-        return max > 0 ? std::uniform_int_distribution<int>(0, max - 1)(generator) : 0;
+        return max > 0 ? std::uniform_int_distribution<int>(0, max - 1)(seed.mGenerator) : 0;
     }
 
     unsigned int Rng::generateDefaultSeed()
     {
         return static_cast<unsigned int>(std::chrono::high_resolution_clock::now().time_since_epoch().count());
+    }
+
+    float Rng::deviate(float mean, float deviation, Seed& seed)
+    {
+        return std::uniform_real_distribution<float>(mean - deviation, mean + deviation)(seed.mGenerator);
     }
 }
