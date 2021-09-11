@@ -394,6 +394,7 @@ public:
         setName("GUI Camera");
         mDrawable = new Drawable(filter, parent, this);
         mDrawable->setName("GUI Drawable");
+        mDrawable->setDataVariance(osg::Object::STATIC);
         addChild(mDrawable.get());
         mDrawable->setCullingActive(false);
     }
@@ -403,7 +404,7 @@ public:
         mParent->deleteGUICamera(this);
     }
     // Called by the cull traversal
-/** @see IRenderTarget::begin */
+    /** @see IRenderTarget::begin */
     void begin() override;
     /** @see IRenderTarget::end */
     void end() override;
