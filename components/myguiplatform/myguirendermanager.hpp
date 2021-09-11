@@ -69,9 +69,6 @@ class RenderManager : public MyGUI::RenderManager
 
     float mInvScalingFactor;
 
-
-    bool mVRMode;
-
     void destroyAllResources();
 
 public:
