@@ -384,7 +384,9 @@ namespace MWVR
         }
     }
 
-    VRAnimation::~VRAnimation() {};
+    VRAnimation::~VRAnimation() 
+    {
+    }
 
     void VRAnimation::setViewMode(NpcAnimation::ViewMode viewMode)
     {

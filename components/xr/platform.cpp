@@ -207,9 +207,9 @@ namespace XR
             }
 
             // Create Session
-            Display* xDisplay = XOpenDisplay(NULL);
             GLXContext glxContext = glXGetCurrentContext();
             GLXDrawable glxDrawable = glXGetCurrentDrawable();
+            Display* xDisplay = glXGetCurrentDisplay();
 
             // TODO: runtimes don't actually care (yet)
             GLXFBConfig glxFBConfig = 0;

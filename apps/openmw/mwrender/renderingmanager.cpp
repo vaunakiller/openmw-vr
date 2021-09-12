@@ -207,9 +207,13 @@ namespace MWRender
         , mNightEyeFactor(0.f)
         , mFieldOfViewOverridden(false)
         , mFieldOfViewOverride(0.f)
+#ifdef USE_OPENXR
         , mUserPointer(std::make_shared<MWVR::UserPointer>(rootNode))
+#endif
     {
+#ifdef USE_OPENXR
         MWVR::Environment::get().getGUIManager()->setUserPointer(mUserPointer);
+#endif
         auto lightingMethod = SceneUtil::LightManager::getLightingMethodFromString(Settings::Manager::getString("lighting method", "Shaders"));
 
         resourceSystem->getSceneManager()->setParticleSystemMask(MWRender::Mask_ParticleSystem);

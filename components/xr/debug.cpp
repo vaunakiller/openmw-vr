@@ -2,21 +2,7 @@
 #include "instance.hpp"
 #include "extensions.hpp"
 
-// The OpenXR SDK's platform headers assume we've included these windows headers
-#ifdef _WIN32
-#include <Windows.h>
-#include <objbase.h>
-
-#elif __linux__
-#include <X11/Xlib.h>
-#include <GL/glx.h>
-#undef None
-
-#else
-#error Unsupported platform
-#endif
-
-#include <openxr/openxr_platform_defines.h>
+#include <openxr/openxr.h>
 #include <openxr/openxr_reflection.h>
 
 namespace XR
@@ -36,22 +22,14 @@ namespace XR
 
         if (XR_FAILED(res)) {
             std::stringstream ss;
-#ifdef _WIN32
             ss << sourceLocation << ": OpenXR[Error: " << resultString << "][Thread: " << std::this_thread::get_id() << "]: " << originator;
-#elif __linux__
-            ss << sourceLocation << ": OpenXR[Error: " << resultString << "][Thread: " << std::this_thread::get_id() << "]: " << originator;
-#endif
             Log(Debug::Error) << ss.str();
             if (!sContinueOnErrors)
                 throw std::runtime_error(ss.str().c_str());
         }
         else if (res != XR_SUCCESS || sLogAllXrCalls)
         {
-#ifdef _WIN32
             Log(Debug::Verbose) << sourceLocation << ": OpenXR[" << resultString << "][" << std::this_thread::get_id() << "]: " << originator;
-#elif __linux__
-            Log(Debug::Verbose) << sourceLocation << ": OpenXR[" << resultString << "][" << std::this_thread::get_id() << "]: " << originator;
-#endif
         }
 
         return res;

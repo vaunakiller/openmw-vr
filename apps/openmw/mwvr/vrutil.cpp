@@ -58,10 +58,10 @@ namespace MWVR
                 else
                     activationDistance = world->getMaxActivationDistance();
 
-                auto distance = world->getTargetObject(result, pose.position, pose.orientation, world->getMaxActivationDistance(), true);
+                auto distance = world->getTargetObject(result, pose.position, pose.orientation, activationDistance, true);
 
                 if (!result.mHitObject.isEmpty() && !result.mHitObject.getClass().allowTelekinesis(result.mHitObject)
-                    && distance > world->getMaxActivationDistance() && !MWBase::Environment::get().getWindowManager()->isGuiMode())
+                    && distance > activationDistance && !MWBase::Environment::get().getWindowManager()->isGuiMode())
                 {
                     result.mHit = false;
                     result.mHitObject = nullptr;

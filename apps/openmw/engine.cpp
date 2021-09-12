@@ -437,8 +437,10 @@ OMW::Engine::Engine(Files::ConfigurationManager& configurationManager)
   , mScriptBlacklistUse (true)
   , mNewGame (false)
   , mCfgMgr(configurationManager)
+#ifdef USE_OPENXR
   , mVrTrackingManager(nullptr)
   , mXrInstance(nullptr)
+#endif
 {
     SDL_SetHint(SDL_HINT_ACCELEROMETER_AS_JOYSTICK, "0"); // We use only gamepads
 
@@ -1189,9 +1191,11 @@ void OMW::Engine::setRandomSeed(unsigned int seed)
     mRandomSeed = seed;
 }
 
+#ifdef USE_OPENXR
 void OMW::Engine::configureVR(osg::GraphicsContext* gc)
 {
     mVrTrackingManager = std::make_unique<VR::TrackingManager>();
     mXrInstance = std::make_unique<XR::Instance>(gc);
     mXrEnvironment.setViewer(new VR::Viewer(mXrInstance->createSession(), mViewer));
 }
+#endif

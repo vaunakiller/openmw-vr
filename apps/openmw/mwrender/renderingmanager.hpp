@@ -322,7 +322,9 @@ namespace MWRender
         float mFieldOfView;
         float mFirstPersonFieldOfView;
 
+#ifdef USE_OPENXR
         std::shared_ptr<MWVR::UserPointer> mUserPointer;
+#endif
 
         void operator = (const RenderingManager&);
         RenderingManager(const RenderingManager&);
