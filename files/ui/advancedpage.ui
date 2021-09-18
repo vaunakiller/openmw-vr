@@ -1007,6 +1007,16 @@ True: In non-combat mode camera is positioned behind the character's shoulder. C
         </widget>
        </item>
        <item>
+        <widget class="QCheckBox" name="useZoomOnMapCheckBox">
+         <property name="toolTip">
+          <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Enable zooming on local and global maps.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
+         </property>
+         <property name="text">
+          <string>Can zoom on maps</string>
+         </property>
+        </widget>
+       </item>
+       <item>
         <widget class="QCheckBox" name="graphicHerbalismCheckBox">
          <property name="toolTip">
           <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;If this setting is true, containers supporting graphic herbalism will do so instead of opening the menu.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
@@ -1121,7 +1131,7 @@ True: In non-combat mode camera is positioned behind the character's shoulder. C
          <layout class="QVBoxLayout" name="otherGroupVerticalLayout">
           <item>
            <layout class="QHBoxLayout" name="screenshotFormatLayout">
-            <item alignment="Qt::AlignRight">
+            <item>
              <widget class="QLabel" name="screenshotFormatLabel">
               <property name="text">
                <string>Screenshot Format</string>
@@ -1148,6 +1158,13 @@ True: In non-combat mode camera is positioned behind the character's shoulder. C
              </widget>
             </item>
            </layout>
+          </item>
+          <item>
+           <widget class="QCheckBox" name="notifyOnSavedScreenshotCheckBox">
+            <property name="text">
+             <string>Notify on saved screenshot</string>
+            </property>
+           </widget>
           </item>
          </layout>
         </widget>

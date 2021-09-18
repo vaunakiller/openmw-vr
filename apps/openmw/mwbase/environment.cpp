@@ -13,13 +13,14 @@
 #include "inputmanager.hpp"
 #include "windowmanager.hpp"
 #include "statemanager.hpp"
+#include "luamanager.hpp"
 
 MWBase::Environment *MWBase::Environment::sThis = nullptr;
 
 MWBase::Environment::Environment()
 : mWorld (nullptr), mSoundManager (nullptr), mScriptManager (nullptr), mWindowManager (nullptr),
   mMechanicsManager (nullptr),  mDialogueManager (nullptr), mJournal (nullptr), mInputManager (nullptr),
-    mStateManager (nullptr), mResourceSystem (nullptr),  mFrameDuration (0), mFrameRateLimit(0.f), mVrMode(false)
+    mStateManager (nullptr), mLuaManager (nullptr), mResourceSystem (nullptr),  mFrameDuration (0), mFrameRateLimit(0.f), mVrMode(false)
 {
     assert (!sThis);
     sThis = this;
@@ -74,6 +75,11 @@ void MWBase::Environment::setInputManager (InputManager *inputManager)
 void MWBase::Environment::setStateManager (StateManager *stateManager)
 {
     mStateManager = stateManager;
+}
+
+void MWBase::Environment::setLuaManager (LuaManager *luaManager)
+{
+    mLuaManager = luaManager;
 }
 
 void MWBase::Environment::setResourceSystem (Resource::ResourceSystem *resourceSystem)
@@ -160,6 +166,12 @@ MWBase::StateManager *MWBase::Environment::getStateManager() const
     return mStateManager;
 }
 
+MWBase::LuaManager *MWBase::Environment::getLuaManager() const
+{
+    assert (mLuaManager);
+    return mLuaManager;
+}
+
 Resource::ResourceSystem *MWBase::Environment::getResourceSystem() const
 {
     return mResourceSystem;
@@ -198,6 +210,9 @@ void MWBase::Environment::cleanup()
 
     delete mStateManager;
     mStateManager = nullptr;
+
+    delete mLuaManager;
+    mLuaManager = nullptr;
 }
 
 const MWBase::Environment& MWBase::Environment::get()

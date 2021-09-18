@@ -277,13 +277,14 @@ public:
 
     void setDefaults(osg::Camera* camera) override
     {
+        SceneUtil::setCameraClearDepth(camera);
         camera->setReferenceFrame(osg::Camera::RELATIVE_RF);
         camera->setSmallFeatureCullingPixelSize(Settings::Manager::getInt("small feature culling pixel size", "Water"));
         camera->setName("RefractionCamera");
         camera->addCullCallback(new InheritViewPointCallback);
         camera->setComputeNearFarMode(osg::CullSettings::DO_NOT_COMPUTE_NEAR_FAR);
 
-        camera->setCullMask(Mask_Effect | Mask_Scene | Mask_Object | Mask_Static | Mask_Terrain | Mask_Actor | Mask_ParticleSystem | Mask_Sky | Mask_Sun | Mask_Player | Mask_Lighting);
+        camera->setCullMask(Mask_Effect | Mask_Scene | Mask_Object | Mask_Static | Mask_Terrain | Mask_Actor | Mask_ParticleSystem | Mask_Sky | Mask_Sun | Mask_Player | Mask_Lighting | Mask_Groundcover);
 
         // No need for fog here, we are already applying fog on the water surface itself as well as underwater fog
         // assign large value to effectively turn off fog
@@ -301,6 +302,11 @@ public:
 
         if (MWBase::Environment::get().getResourceSystem()->getSceneManager()->getShaderManager().stereoGeometryShaderEnabled())
             Misc::enableStereoForCamera(camera, true);
+    }
+
+    void apply(osg::Camera* camera) override
+    {
+        camera->setViewMatrix(mViewMatrix);
     }
 
     void apply(osg::Camera* camera) override
@@ -345,11 +351,11 @@ public:
 
     void setDefaults(osg::Camera* camera) override
     {
+        SceneUtil::setCameraClearDepth(camera);
         camera->setReferenceFrame(osg::Camera::RELATIVE_RF);
         camera->setSmallFeatureCullingPixelSize(Settings::Manager::getInt("small feature culling pixel size", "Water"));
         camera->setName("ReflectionCamera");
         camera->addCullCallback(new InheritViewPointCallback);
-        
 
         // XXX: should really flip the FrontFace on each renderable instead of forcing clockwise.
         osg::ref_ptr<osg::FrontFace> frontFace(new osg::FrontFace);
@@ -553,6 +559,11 @@ osg::Node* Water::getRefractionNode()
     return mRefraction;
 }
 
+osg::Vec3d Water::getPosition() const
+{
+    return mWaterNode->getPosition();
+}
+
 void Water::createSimpleWaterStateSet(osg::Node* node, float alpha)
 {
     osg::ref_ptr<osg::StateSet> stateset = SceneUtil::createSimpleWaterStateSet(alpha, MWRender::RenderBin_Water);
@@ -625,10 +636,11 @@ public:
         {
             stateset->setMode(GL_BLEND, osg::StateAttribute::ON);
             stateset->setRenderBinDetails(MWRender::RenderBin_Water, "RenderBin");
-            osg::ref_ptr<osg::Depth> depth(new osg::Depth);
+            osg::ref_ptr<osg::Depth> depth = SceneUtil::createDepth();
             depth->setWriteMask(false);
             stateset->setAttributeAndModes(depth, osg::StateAttribute::ON);
         }
+        stateset->addUniform(new osg::Uniform("nodePosition", osg::Vec3f(mWater->getPosition())));
     }
 
     void apply(osg::StateSet* stateset, osg::NodeVisitor* nv) override
@@ -641,6 +653,7 @@ public:
             stateset->setTextureAttributeAndModes(2, mRefraction->getColorTexture(cv), osg::StateAttribute::ON);
             stateset->setTextureAttributeAndModes(3, mRefraction->getDepthTexture(cv), osg::StateAttribute::ON);
         }
+        stateset->getUniform("nodePosition")->set(osg::Vec3f(mWater->getPosition()));
     }
 
 private:
@@ -743,11 +756,6 @@ void Water::changeCell(const MWWorld::CellStore* store)
     }
     if(mInterior != wasInterior && mReflection)
         mReflection->setInterior(mInterior);
-
-    // create a new StateSet to prevent threading issues
-    osg::ref_ptr<osg::StateSet> nodeStateSet (new osg::StateSet);
-    nodeStateSet->addUniform(new osg::Uniform("nodePosition", osg::Vec3f(mWaterNode->getPosition())));
-    mWaterNode->setStateSet(nodeStateSet);
 }
 
 void Water::setHeight(const float height)

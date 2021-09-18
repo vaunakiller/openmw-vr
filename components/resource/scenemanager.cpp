@@ -228,6 +228,7 @@ namespace Resource
         , mApplyLightingToEnvMaps(false)
         , mLightingMethod(SceneUtil::LightingMethod::FFP)
         , mConvertAlphaTestToAlphaToCoverage(false)
+        , mDepthFormat(0)
         , mInstanceCache(new MultiObjectCache)
         , mSharedStateManager(new SharedStateManager)
         , mImageManager(imageManager)
@@ -273,6 +274,16 @@ namespace Resource
     bool SceneManager::getClampLighting() const
     {
         return mClampLighting;
+    }
+
+    void SceneManager::setDepthFormat(GLenum format)
+    {
+        mDepthFormat = format;
+    }
+
+    GLenum SceneManager::getDepthFormat() const
+    {
+        return mDepthFormat;
     }
 
     void SceneManager::setAutoUseNormalMaps(bool use)

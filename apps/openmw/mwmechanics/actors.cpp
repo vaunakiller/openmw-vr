@@ -24,6 +24,7 @@
 #include "../mwbase/soundmanager.hpp"
 #include "../mwbase/mechanicsmanager.hpp"
 #include "../mwbase/statemanager.hpp"
+#include "../mwbase/luamanager.hpp"
 
 #include "../mwmechanics/aibreathe.hpp"
 
@@ -59,22 +60,24 @@ int getBoundItemSlot (const std::string& itemId)
     static std::map<std::string, int> boundItemsMap;
     if (boundItemsMap.empty())
     {
-        std::string boundId = MWBase::Environment::get().getWorld()->getStore().get<ESM::GameSetting>().find("sMagicBoundBootsID")->mValue.getString();
+        const auto& store = MWBase::Environment::get().getWorld()->getStore().get<ESM::GameSetting>();
+
+        std::string boundId = store.find("sMagicBoundBootsID")->mValue.getString();
         boundItemsMap[boundId] = MWWorld::InventoryStore::Slot_Boots;
 
-        boundId = MWBase::Environment::get().getWorld()->getStore().get<ESM::GameSetting>().find("sMagicBoundCuirassID")->mValue.getString();
+        boundId = store.find("sMagicBoundCuirassID")->mValue.getString();
         boundItemsMap[boundId] = MWWorld::InventoryStore::Slot_Cuirass;
 
-        boundId = MWBase::Environment::get().getWorld()->getStore().get<ESM::GameSetting>().find("sMagicBoundLeftGauntletID")->mValue.getString();
+        boundId = store.find("sMagicBoundLeftGauntletID")->mValue.getString();
         boundItemsMap[boundId] = MWWorld::InventoryStore::Slot_LeftGauntlet;
 
-        boundId = MWBase::Environment::get().getWorld()->getStore().get<ESM::GameSetting>().find("sMagicBoundRightGauntletID")->mValue.getString();
+        boundId = store.find("sMagicBoundRightGauntletID")->mValue.getString();
         boundItemsMap[boundId] = MWWorld::InventoryStore::Slot_RightGauntlet;
 
-        boundId = MWBase::Environment::get().getWorld()->getStore().get<ESM::GameSetting>().find("sMagicBoundHelmID")->mValue.getString();
+        boundId = store.find("sMagicBoundHelmID")->mValue.getString();
         boundItemsMap[boundId] = MWWorld::InventoryStore::Slot_Helmet;
 
-        boundId = MWBase::Environment::get().getWorld()->getStore().get<ESM::GameSetting>().find("sMagicBoundShieldID")->mValue.getString();
+        boundId = store.find("sMagicBoundShieldID")->mValue.getString();
         boundItemsMap[boundId] = MWWorld::InventoryStore::Slot_CarriedLeft;
     }
 
@@ -826,7 +829,7 @@ namespace MWMechanics
 
         DynamicStat<float> magicka = creatureStats.getMagicka();
         float diff = (static_cast<int>(magickaFactor*intelligence)) - magicka.getBase();
-        float currentToBaseRatio = (magicka.getCurrent() / magicka.getBase());
+        float currentToBaseRatio = magicka.getBase() > 0 ? magicka.getCurrent() / magicka.getBase() : 0;
         magicka.setModified(magicka.getModified() + diff, 0);
         magicka.setCurrent(magicka.getBase() * currentToBaseRatio, false, true);
         creatureStats.setMagicka(magicka);
@@ -1157,21 +1160,15 @@ namespace MWMechanics
 
         // AI setting modifiers
         int creature = !ptr.getClass().isNpc();
-        if (creature && ptr.get<ESM::Creature>()->mBase->mData.mType == ESM::Creature::Humanoid)
-            creature = false;
-        // Note: the Creature variants only work on normal creatures, not on daedra or undead creatures.
-        if (!creature || ptr.get<ESM::Creature>()->mBase->mData.mType == ESM::Creature::Creatures)
-        {
-            Stat<int> stat = creatureStats.getAiSetting(CreatureStats::AI_Fight);
-            stat.setModifier(static_cast<int>(effects.get(ESM::MagicEffect::FrenzyHumanoid + creature).getMagnitude()
-                - effects.get(ESM::MagicEffect::CalmHumanoid+creature).getMagnitude()));
-            creatureStats.setAiSetting(CreatureStats::AI_Fight, stat);
+        Stat<int> stat = creatureStats.getAiSetting(CreatureStats::AI_Fight);
+        stat.setModifier(static_cast<int>(effects.get(ESM::MagicEffect::FrenzyHumanoid + creature).getMagnitude()
+            - effects.get(ESM::MagicEffect::CalmHumanoid+creature).getMagnitude()));
+        creatureStats.setAiSetting(CreatureStats::AI_Fight, stat);
 
-            stat = creatureStats.getAiSetting(CreatureStats::AI_Flee);
-            stat.setModifier(static_cast<int>(effects.get(ESM::MagicEffect::DemoralizeHumanoid + creature).getMagnitude()
-                - effects.get(ESM::MagicEffect::RallyHumanoid+creature).getMagnitude()));
-            creatureStats.setAiSetting(CreatureStats::AI_Flee, stat);
-        }
+        stat = creatureStats.getAiSetting(CreatureStats::AI_Flee);
+        stat.setModifier(static_cast<int>(effects.get(ESM::MagicEffect::DemoralizeHumanoid + creature).getMagnitude()
+            - effects.get(ESM::MagicEffect::RallyHumanoid+creature).getMagnitude()));
+        creatureStats.setAiSetting(CreatureStats::AI_Flee, stat);
         if (creature && ptr.get<ESM::Creature>()->mBase->mData.mType == ESM::Creature::Undead)
         {
             Stat<int> stat = creatureStats.getAiSetting(CreatureStats::AI_Flee);
@@ -1614,7 +1611,7 @@ namespace MWMechanics
         MWRender::Animation *anim = MWBase::Environment::get().getWorld()->getAnimation(ptr);
         if (!anim)
             return;
-        mActors.insert(std::make_pair(ptr, new Actor(ptr, anim)));
+        mActors.emplace(ptr, new Actor(ptr, anim));
 
         CharacterController* ctrl = mActors[ptr]->getCharacterController();
         if (updateImmediately)
@@ -1836,7 +1833,7 @@ namespace MWMechanics
             osg::Vec2f baseSpeed = origMovement * maxSpeed;
             osg::Vec3f basePos = ptr.getRefData().getPosition().asVec3();
             float baseRotZ = ptr.getRefData().getPosition().rot[2];
-            osg::Vec3f halfExtents = world->getHalfExtents(ptr);
+            const osg::Vec3f halfExtents = world->getHalfExtents(ptr);
             float maxDistToCheck = isMoving ? maxDistForPartialAvoiding : maxDistForStrictAvoiding;
 
             float timeToCollision = maxTimeToCheck;
@@ -1854,7 +1851,7 @@ namespace MWMechanics
                 if (otherPtr == ptr || otherPtr == currentTarget)
                     continue;
 
-                osg::Vec3f otherHalfExtents = world->getHalfExtents(otherPtr);
+                const osg::Vec3f otherHalfExtents = world->getHalfExtents(otherPtr);
                 osg::Vec3f deltaPos = otherPtr.getRefData().getPosition().asVec3() - basePos;
                 osg::Vec2f relPos = Misc::rotateVec2f(osg::Vec2f(deltaPos.x(), deltaPos.y()), baseRotZ);
                 float dist = deltaPos.length();
@@ -1872,7 +1869,7 @@ namespace MWMechanics
                 float rotZ = otherPtr.getRefData().getPosition().rot[2];
                 osg::Vec2f relSpeed = Misc::rotateVec2f(osg::Vec2f(speed.x(), speed.y()), baseRotZ - rotZ) - baseSpeed;
 
-                float collisionDist = minGap + world->getHalfExtents(ptr).x() + world->getHalfExtents(otherPtr).x();
+                float collisionDist = minGap + halfExtents.x() + otherHalfExtents.x();
                 collisionDist = std::min(collisionDist, relPos.length());
 
                 // Find the earliest `t` when |relPos + relSpeed * t| == collisionDist.
@@ -1961,6 +1958,8 @@ namespace MWMechanics
             {
                 bool isPlayer = iter->first == player;
                 CharacterController* ctrl = iter->second->getCharacterController();
+                MWBase::LuaManager::ActorControls* luaControls =
+                    MWBase::Environment::get().getLuaManager()->getActorControls(iter->first);
 
                 float distSqr = (playerPos - iter->first.getRefData().getPosition().asVec3()).length2();
                 // AI processing is only done within given distance to the player.
@@ -2062,7 +2061,7 @@ namespace MWMechanics
                         if (iter->first != player)
                         {
                             CreatureStats &stats = iter->first.getClass().getCreatureStats(iter->first);
-                            if (isConscious(iter->first))
+                            if (isConscious(iter->first) && !(luaControls && luaControls->mDisableAI))
                             {
                                 stats.getAiSequence().execute(iter->first, *ctrl, duration);
                                 updateGreetingState(iter->first, *iter->second, timerUpdateHello > 0);
@@ -2071,7 +2070,7 @@ namespace MWMechanics
                             }
                         }
                     }
-                    else if (aiActive && iter->first != player && isConscious(iter->first))
+                    else if (aiActive && iter->first != player && isConscious(iter->first) && !(luaControls && luaControls->mDisableAI))
                     {
                         CreatureStats &stats = iter->first.getClass().getCreatureStats(iter->first);
                         stats.getAiSequence().execute(iter->first, *ctrl, duration, /*outOfRange*/true);
@@ -2087,6 +2086,33 @@ namespace MWMechanics
 
                         if (timerUpdateEquippedLight == 0)
                             updateEquippedLight(iter->first, updateEquippedLightInterval, showTorches);
+                    }
+
+                    if (luaControls && isConscious(iter->first))
+                    {
+                        Movement& mov = iter->first.getClass().getMovementSettings(iter->first);
+                        CreatureStats& stats = iter->first.getClass().getCreatureStats(iter->first);
+                        float speedFactor = isPlayer ? 1.f : mov.mSpeedFactor;
+                        osg::Vec2f movement = osg::Vec2f(mov.mPosition[0], mov.mPosition[1]) * speedFactor;
+                        float rotationZ = mov.mRotation[2];
+                        bool jump = mov.mPosition[2] == 1;
+                        bool runFlag = stats.getMovementFlag(MWMechanics::CreatureStats::Flag_Run);
+                        if (luaControls->mChanged)
+                        {
+                            mov.mPosition[0] = luaControls->mSideMovement;
+                            mov.mPosition[1] = luaControls->mMovement;
+                            mov.mPosition[2] = luaControls->mJump ? 1 : 0;
+                            mov.mRotation[1] = 0;
+                            mov.mRotation[2] = luaControls->mTurn;
+                            mov.mSpeedFactor = osg::Vec2(luaControls->mMovement, luaControls->mSideMovement).length();
+                            stats.setMovementFlag(MWMechanics::CreatureStats::Flag_Run, luaControls->mRun);
+                            luaControls->mChanged = false;
+                        }
+                        luaControls->mSideMovement = movement.x();
+                        luaControls->mMovement = movement.y();
+                        luaControls->mTurn = rotationZ;
+                        luaControls->mJump = jump;
+                        luaControls->mRun = runFlag;
                     }
                 }
             }

@@ -12,16 +12,7 @@
 
 #include "../mwworld/class.hpp"
 #include "../mwworld/esmstore.hpp"
-#include "../mwworld/player.hpp"
 #include "../mwworld/refdata.hpp"
-
-#ifdef USE_OPENXR
-#include "../mwvr/vrcamera.hpp"
-#include "../mwvr/vrenvironment.hpp"
-#include "../mwrender/renderingmanager.hpp"
-#include <components/vr/trackingmanager.hpp>
-#endif
-#include "../mwmechanics/actorutil.hpp"
 
 #include "actor.hpp"
 #include "collisiontype.hpp"
@@ -127,206 +118,68 @@ namespace MWPhysics
     void MovementSolver::move(ActorFrameData& actor, float time, const btCollisionWorld* collisionWorld,
                                            WorldFrameData& worldData)
     {
-        auto* physicActor = actor.mActorRaw;
-        ESM::Position refpos = actor.mRefpos;
-        
-        // Early-out for totally static creatures
-        // (Not sure if gravity should still apply?)
-        {
-            const auto ptr = physicActor->getPtr();
-            if (!ptr.getClass().isMobile(ptr))
-                return;
-        }
-
-        const bool isPlayer = (physicActor->getPtr() == MWMechanics::getPlayer());
-        auto* world = MWBase::Environment::get().getWorld();
-
-        // In VR, player should move according to current direction of
-        // a selected limb, rather than current orientation of camera.
-#ifdef USE_OPENXR
-        // Regarding this and the duplicate movement solver later in this method:
-        // As my two edits in this code are obviously hacks, I could use feedback on how i could implement
-        // VR movement mechanics as not-a-hack. This hack, for instance, does not trigger movement animations
-        // and will obviously be a poor fit for a future merge with tes3mp.
-
-        // The exact mechanics are: 
-        // 1. When moving with the controller, the player moves in the direction he is currently pointing his left controller.
-        // 2. The game should seek to eliminate all distance between the player character and the player's position within VR,
-        //    without teleporting the player or ignoring collisions.
-
-        // I assume (1.) is easily solved, i just haven't taken the effort to study openmw's code enough.
-        // But 2. is not so obvious. I guess it's doable if i compute the direction between current position and the player's
-        // position in the VR stage, and just let it catch up at the character's own move speed, but it still needs to reach the position as exactly as possible.
-        if (isPlayer)
-        {
-            float pitch = 0.f;
-            float yaw = 0.f;
-            VR::TrackingManager::instance().movementAngles(yaw, pitch);
-            refpos.rot[0] += pitch;
-            refpos.rot[2] += yaw;
-        }
-#endif
-
         // Reset per-frame data
-        physicActor->setWalkingOnWater(false);
+        actor.mWalkingOnWater = false;
         // Anything to collide with?
-        if(!physicActor->getCollisionMode() || actor.mSkipCollisionDetection)
+        if(actor.mSkipCollisionDetection)
         {
-            actor.mPosition += (osg::Quat(refpos.rot[0], osg::Vec3f(-1, 0, 0)) *
-                                osg::Quat(refpos.rot[2], osg::Vec3f(0, 0, -1))
+            actor.mPosition += (osg::Quat(actor.mRotation.x(), osg::Vec3f(-1, 0, 0)) *
+                                osg::Quat(actor.mRotation.y(), osg::Vec3f(0, 0, -1))
                                 ) * actor.mMovement * time;
             return;
         }
-
-        const btCollisionObject *colobj = physicActor->getCollisionObject();
 
         // Adjust for collision mesh offset relative to actor's "location"
         // (doTrace doesn't take local/interior collision shape translation into account, so we have to do it on our own)
         // for compatibility with vanilla assets, we have to derive this from the vertical half extent instead of from internal hull translation
         // if not for this hack, the "correct" collision hull position would be physicActor->getScaledMeshTranslation()
-        osg::Vec3f halfExtents = physicActor->getHalfExtents();
-        actor.mPosition.z() += halfExtents.z(); // vanilla-accurate
+        actor.mPosition.z() += actor.mHalfExtentsZ; // vanilla-accurate
 
-        static const float fSwimHeightScale = world->getStore().get<ESM::GameSetting>().find("fSwimHeightScale")->mValue.getFloat();
-        float swimlevel = actor.mWaterlevel + halfExtents.z() - (physicActor->getRenderingHalfExtents().z() * 2 * fSwimHeightScale);
+        float swimlevel = actor.mSwimLevel + actor.mHalfExtentsZ;
 
         ActorTracer tracer;
 
-        osg::Vec3f inertia = physicActor->getInertialForce();
         osg::Vec3f velocity;
-
-        if (actor.mPosition.z() < swimlevel || actor.mFlying)
-        {
-            velocity = (osg::Quat(refpos.rot[0], osg::Vec3f(-1, 0, 0)) * osg::Quat(refpos.rot[2], osg::Vec3f(0, 0, -1))) * actor.mMovement;
-        }
-        else
-        {
-            velocity = (osg::Quat(refpos.rot[2], osg::Vec3f(0, 0, -1))) * actor.mMovement;
-
-            if ((velocity.z() > 0.f && physicActor->getOnGround() && !physicActor->getOnSlope())
-            || (velocity.z() > 0.f && velocity.z() + inertia.z() <= -velocity.z() && physicActor->getOnSlope()))
-                inertia = velocity;
-            else if (!physicActor->getOnGround() || physicActor->getOnSlope())
-                velocity = velocity + inertia;
-        }
 
         // Dead and paralyzed actors underwater will float to the surface,
         // if the CharacterController tells us to do so
-        if (actor.mMovement.z() > 0 && actor.mFloatToSurface && actor.mPosition.z() < swimlevel)
+        if (actor.mMovement.z() > 0 && actor.mInert && actor.mPosition.z() < swimlevel)
+        {
             velocity = osg::Vec3f(0,0,1) * 25;
+        }
+        else if (actor.mPosition.z() < swimlevel || actor.mFlying)
+        {
+            velocity = (osg::Quat(actor.mRotation.x(), osg::Vec3f(-1, 0, 0)) * osg::Quat(actor.mRotation.y(), osg::Vec3f(0, 0, -1))) * actor.mMovement;
+        }
+        else
+        {
+            velocity = (osg::Quat(actor.mRotation.y(), osg::Vec3f(0, 0, -1))) * actor.mMovement;
 
-        if (actor.mWantJump)
-            actor.mDidJump = true;
+            if ((velocity.z() > 0.f && actor.mIsOnGround && !actor.mIsOnSlope)
+            || (velocity.z() > 0.f && velocity.z() + actor.mInertia.z() <= -velocity.z() && actor.mIsOnSlope))
+                actor.mInertia = velocity;
+            else if (!actor.mIsOnGround || actor.mIsOnSlope)
+                velocity = velocity + actor.mInertia;
+        }
 
         // Now that we have the effective movement vector, apply wind forces to it
-        if (worldData.mIsInStorm)
+        if (worldData.mIsInStorm && velocity.length() > 0)
         {
             osg::Vec3f stormDirection = worldData.mStormDirection;
             float angleDegrees = osg::RadiansToDegrees(std::acos(stormDirection * velocity / (stormDirection.length() * velocity.length())));
-            static const float fStromWalkMult = world->getStore().get<ESM::GameSetting>().find("fStromWalkMult")->mValue.getFloat();
+            static const float fStromWalkMult = MWBase::Environment::get().getWorld()->getStore().get<ESM::GameSetting>().find("fStromWalkMult")->mValue.getFloat();
             velocity *= 1.f-(fStromWalkMult * (angleDegrees/180.f));
         }
 
-        Stepper stepper(collisionWorld, colobj);
+        Stepper stepper(collisionWorld, actor.mCollisionObject);
         osg::Vec3f origVelocity = velocity;
         osg::Vec3f newPosition = actor.mPosition;
-
-//#ifdef USE_OPENXR
-//        // Catch the player character up to the real world position of the player.
-//        // But only if play is not seated.
-//        // TODO: This solution is a hack.
-//        if (isPlayer)
-//        {
-//            bool shouldMove = true;
-//            if (session && session->seatedPlay())
-//                shouldMove = false;
-//            if (world->getPlayer().isDisabled())
-//                shouldMove = false;
-//
-//            if (shouldMove)
-//            {
-//                auto* inputManager = reinterpret_cast<MWVR::VRCamera*>(MWBase::Environment::get().getWorld()->getRenderingManager().getCamera());
-//
-//                osg::Vec3 headOffset = inputManager->headOffset();
-//                osg::Vec3 trackingOffset = headOffset;
-//                // Player's tracking height should not affect character position
-//                trackingOffset.z() = 0;
-//
-//                float remainingTime = time;
-//                bool seenGround = physicActor->getOnGround() && !physicActor->getOnSlope() && !actor.mFlying;
-//                float remainder = 1.f;
-//
-//                for (int iterations = 0; iterations < sMaxIterations && remainingTime > 0.01f && remainder > 0.01; ++iterations)
-//                {
-//                    osg::Vec3 toMove = trackingOffset * remainder;
-//                    osg::Vec3 nextpos = newPosition + toMove;
-//
-//                    if ((newPosition - nextpos).length2() > 0.0001)
-//                    {
-//                        // trace to where character would go if there were no obstructions
-//                        tracer.doTrace(colobj, newPosition, nextpos, collisionWorld);
-//
-//                        // check for obstructions
-//                        if (tracer.mFraction >= 1.0f)
-//                        {
-//                            newPosition = tracer.mEndPos; // ok to move, so set newPosition
-//                            remainder = 0.f;
-//                            break;
-//                        }
-//                    }
-//                    else
-//                    {
-//                        // The current position and next position are nearly the same, so just exit.
-//                        // Note: Bullet can trigger an assert in debug modes if the positions
-//                        // are the same, since that causes it to attempt to normalize a zero
-//                        // length vector (which can also happen with nearly identical vectors, since
-//                        // precision can be lost due to any math Bullet does internally). Since we
-//                        // aren't performing any collision detection, we want to reject the next
-//                        // position, so that we don't slowly move inside another object.
-//                        remainder = 0.f;
-//                        break;
-//                    }
-//
-//                    if (isWalkableSlope(tracer.mPlaneNormal) && !actor.mFlying && newPosition.z() >= swimlevel)
-//                        seenGround = true;
-//
-//                    // We are touching something.
-//                    if (tracer.mFraction < 1E-9f)
-//                    {
-//                        // Try to separate by backing off slighly to unstuck the solver
-//                        osg::Vec3f backOff = (newPosition - tracer.mHitPoint) * 1E-2f;
-//                        newPosition += backOff;
-//                    }
-//
-//                    // We hit something. Check if we can step up.
-//                    float hitHeight = tracer.mHitPoint.z() - tracer.mEndPos.z() + halfExtents.z();
-//                    osg::Vec3f oldPosition = newPosition;
-//                    bool result = false;
-//                    if (hitHeight < sStepSizeUp && !isActor(tracer.mHitObject))
-//                    {
-//                        // Try to step up onto it.
-//                        // NOTE: stepMove does not allow stepping over, modifies newPosition if successful
-//                        result = stepper.step(newPosition, toMove, remainingTime, seenGround, iterations == 0);
-//                        remainder = remainingTime / time;
-//                    }
-//                }
-//
-//                // Try not to lose any tracking
-//                osg::Vec3 moved = newPosition - actor.mPosition;
-//                headOffset.x() -= moved.x();
-//                headOffset.y() -= moved.y();
-//                inputManager->setHeadOffset(headOffset);
-//            }
-//        }
-//#endif
-
         /*
          * A loop to find newPosition using tracer, if successful different from the starting position.
          * nextpos is the local variable used to find potential newPosition, using velocity and remainingTime
          * The initial velocity was set earlier (see above).
         */
         float remainingTime = time;
-        bool seenGround = physicActor->getOnGround() && !physicActor->getOnSlope() && !actor.mFlying;
 
         int numTimesSlid = 0;
         osg::Vec3f lastSlideNormal(0,0,1);
@@ -336,9 +189,10 @@ namespace MWPhysics
         for (int iterations = 0; iterations < sMaxIterations && remainingTime > 0.0001f; ++iterations)
         {
             osg::Vec3f nextpos = newPosition + velocity * remainingTime;
+            bool underwater = newPosition.z() < swimlevel;
 
             // If not able to fly, don't allow to swim up into the air
-            if(!actor.mFlying && nextpos.z() > swimlevel && newPosition.z() < swimlevel)
+            if(!actor.mFlying && nextpos.z() > swimlevel && underwater)
             {
                 const osg::Vec3f down(0,0,-1);
                 velocity = reject(velocity, down);
@@ -349,7 +203,7 @@ namespace MWPhysics
             if((newPosition - nextpos).length2() > 0.0001)
             {
                 // trace to where character would go if there were no obstructions
-                tracer.doTrace(colobj, newPosition, nextpos, collisionWorld);
+                tracer.doTrace(actor.mCollisionObject, newPosition, nextpos, collisionWorld);
 
                 // check for obstructions
                 if(tracer.mFraction >= 1.0f)
@@ -370,11 +224,10 @@ namespace MWPhysics
                 break;
             }
 
-            if (isWalkableSlope(tracer.mPlaneNormal) && !actor.mFlying && newPosition.z() >= swimlevel)
-                seenGround = true;
+            bool seenGround = !actor.mFlying && !underwater && ((actor.mIsOnGround && !actor.mIsOnSlope) || isWalkableSlope(tracer.mPlaneNormal));
 
             // We hit something. Check if we can step up.
-            float hitHeight = tracer.mHitPoint.z() - tracer.mEndPos.z() + halfExtents.z();
+            float hitHeight = tracer.mHitPoint.z() - tracer.mEndPos.z() + actor.mHalfExtentsZ;
             osg::Vec3f oldPosition = newPosition;
             bool usedStepLogic = false;
             if (hitHeight < sStepSizeUp && !isActor(tracer.mHitObject))
@@ -385,9 +238,7 @@ namespace MWPhysics
             }
             if (usedStepLogic)
             {
-                // don't let pure water creatures move out of water after stepMove
-                const auto ptr = physicActor->getPtr();
-                if (ptr.getClass().isPureWaterCreature(ptr) && newPosition.z() + halfExtents.z() > actor.mWaterlevel)
+                if (actor.mIsAquatic && newPosition.z() + actor.mHalfExtentsZ > actor.mWaterlevel)
                     newPosition = oldPosition;
                 else if(!actor.mFlying && actor.mPosition.z() >= swimlevel)
                     forceGroundTest = true;
@@ -446,7 +297,7 @@ namespace MWPhysics
                             // version of surface rejection for acute crevices/seams
                             auto averageNormal = bestNormal + planeNormal;
                             averageNormal.normalize();
-                            tracer.doTrace(colobj, newPosition, newPosition + averageNormal*(sCollisionMargin*2.0), collisionWorld);
+                            tracer.doTrace(actor.mCollisionObject, newPosition, newPosition + averageNormal*(sCollisionMargin*2.0), collisionWorld);
                             newPosition = (newPosition + tracer.mEndPos)/2.0;
 
                             usedSeamLogic = true;
@@ -462,7 +313,7 @@ namespace MWPhysics
                 // but this is along the collision normal
                 if(!usedSeamLogic && (iterations > 0 || remainingTime < 0.01f))
                 {
-                    tracer.doTrace(colobj, newPosition, newPosition + planeNormal*(sCollisionMargin*2.0), collisionWorld);
+                    tracer.doTrace(actor.mCollisionObject, newPosition, newPosition + planeNormal*(sCollisionMargin*2.0), collisionWorld);
                     newPosition = (newPosition + tracer.mEndPos)/2.0;
                 }
 
@@ -482,26 +333,22 @@ namespace MWPhysics
 
         bool isOnGround = false;
         bool isOnSlope = false;
-        if (forceGroundTest || (inertia.z() <= 0.f && newPosition.z() >= swimlevel))
+        if (forceGroundTest || (actor.mInertia.z() <= 0.f && newPosition.z() >= swimlevel))
         {
             osg::Vec3f from = newPosition;
-            auto dropDistance = 2*sGroundOffset + (physicActor->getOnGround() ? sStepSizeDown : 0);
+            auto dropDistance = 2*sGroundOffset + (actor.mIsOnGround ? sStepSizeDown : 0);
             osg::Vec3f to = newPosition - osg::Vec3f(0,0,dropDistance);
-            tracer.doTrace(colobj, from, to, collisionWorld);
+            tracer.doTrace(actor.mCollisionObject, from, to, collisionWorld);
             if(tracer.mFraction < 1.0f)
             {
                 if (!isActor(tracer.mHitObject))
                 {
                     isOnGround = true;
                     isOnSlope = !isWalkableSlope(tracer.mPlaneNormal);
+                    actor.mStandingOn = tracer.mHitObject;
 
-                    const btCollisionObject* standingOn = tracer.mHitObject;
-                    PtrHolder* ptrHolder = static_cast<PtrHolder*>(standingOn->getUserPointer());
-                    if (ptrHolder)
-                        actor.mStandingOn = ptrHolder->getPtr();
-
-                    if (standingOn->getBroadphaseHandle()->m_collisionFilterGroup == CollisionType_Water)
-                        physicActor->setWalkingOnWater(true);
+                    if (actor.mStandingOn->getBroadphaseHandle()->m_collisionFilterGroup == CollisionType_Water)
+                        actor.mWalkingOnWater = true;
                     if (!actor.mFlying && !isOnSlope)
                     {
                         if (tracer.mFraction*dropDistance > sGroundOffset)
@@ -509,7 +356,7 @@ namespace MWPhysics
                         else
                         {
                             newPosition.z() = tracer.mEndPos.z();
-                            tracer.doTrace(colobj, newPosition, newPosition + osg::Vec3f(0, 0, 2*sGroundOffset), collisionWorld);
+                            tracer.doTrace(actor.mCollisionObject, newPosition, newPosition + osg::Vec3f(0, 0, 2*sGroundOffset), collisionWorld);
                             newPosition = (newPosition+tracer.mEndPos)/2.0;
                         }
                     }
@@ -524,7 +371,7 @@ namespace MWPhysics
                 }
             }
             // forcibly treat stuck actors as if they're on flat ground because buggy collisions when inside of things can/will break ground detection
-            if(physicActor->getStuckFrames() > 0)
+            if(actor.mStuckFrames > 0)
             {
                 isOnGround = true;
                 isOnSlope = false;
@@ -532,24 +379,23 @@ namespace MWPhysics
         }
 
         if((isOnGround && !isOnSlope) || newPosition.z() < swimlevel || actor.mFlying)
-            physicActor->setInertialForce(osg::Vec3f(0.f, 0.f, 0.f));
+            actor.mInertia = osg::Vec3f(0.f, 0.f, 0.f);
         else
         {
-            inertia.z() -= time * Constants::GravityConst * Constants::UnitsPerMeter;
-            if (inertia.z() < 0)
-                inertia.z() *= actor.mSlowFall;
+            actor.mInertia.z() -= time * Constants::GravityConst * Constants::UnitsPerMeter;
+            if (actor.mInertia.z() < 0)
+                actor.mInertia.z() *= actor.mSlowFall;
             if (actor.mSlowFall < 1.f) {
-                inertia.x() *= actor.mSlowFall;
-                inertia.y() *= actor.mSlowFall;
+                actor.mInertia.x() *= actor.mSlowFall;
+                actor.mInertia.y() *= actor.mSlowFall;
             }
-            physicActor->setInertialForce(inertia);
         }
-        physicActor->setOnGround(isOnGround);
-        physicActor->setOnSlope(isOnSlope);
+        actor.mIsOnGround = isOnGround;
+        actor.mIsOnSlope = isOnSlope;
 
         actor.mPosition = newPosition;
         // remove what was added earlier in compensating for doTrace not taking interior transformation into account
-        actor.mPosition.z() -= halfExtents.z(); // vanilla-accurate
+        actor.mPosition.z() -= actor.mHalfExtentsZ; // vanilla-accurate
     }
 
     btVector3 addMarginToDelta(btVector3 delta)
@@ -561,53 +407,47 @@ namespace MWPhysics
 
     void MovementSolver::unstuck(ActorFrameData& actor, const btCollisionWorld* collisionWorld)
     {
-        const auto& ptr = actor.mActorRaw->getPtr();
-        if (!ptr.getClass().isMobile(ptr))
+        if(actor.mSkipCollisionDetection) // noclipping/tcl
             return;
 
-        auto* physicActor = actor.mActorRaw;
-        if(!physicActor->getCollisionMode() || actor.mSkipCollisionDetection) // noclipping/tcl
-            return;
-
-        auto* collisionObject = physicActor->getCollisionObject();
         auto tempPosition = actor.mPosition;
 
-        if(physicActor->getStuckFrames() >= 10)
+        if(actor.mStuckFrames >= 10)
         {
-            if((physicActor->getLastStuckPosition() - actor.mPosition).length2() < 100)
+            if((actor.mLastStuckPosition - actor.mPosition).length2() < 100)
                 return;
             else
             {
-                physicActor->setStuckFrames(0);
-                physicActor->setLastStuckPosition({0, 0, 0});
+                actor.mStuckFrames = 0;
+                actor.mLastStuckPosition = {0, 0, 0};
             }
         }
 
         // use vanilla-accurate collision hull position hack (do same hitbox offset hack as movement solver)
         // if vanilla compatibility didn't matter, the "correct" collision hull position would be physicActor->getScaledMeshTranslation()
-        const auto verticalHalfExtent = osg::Vec3f(0.0, 0.0, physicActor->getHalfExtents().z());
+        const auto verticalHalfExtent = osg::Vec3f(0.0, 0.0, actor.mHalfExtentsZ);
 
         // use a 3d approximation of the movement vector to better judge player intent
-        auto velocity = (osg::Quat(actor.mRefpos.rot[0], osg::Vec3f(-1, 0, 0)) * osg::Quat(actor.mRefpos.rot[2], osg::Vec3f(0, 0, -1))) * actor.mMovement;
+        auto velocity = (osg::Quat(actor.mRotation.x(), osg::Vec3f(-1, 0, 0)) * osg::Quat(actor.mRotation.y(), osg::Vec3f(0, 0, -1))) * actor.mMovement;
         // try to pop outside of the world before doing anything else if we're inside of it
-        if (!physicActor->getOnGround() || physicActor->getOnSlope())
-                velocity += physicActor->getInertialForce();
+        if (!actor.mIsOnGround || actor.mIsOnSlope)
+                velocity += actor.mInertia;
 
         // because of the internal collision box offset hack, and the fact that we're moving the collision box manually,
         // we need to replicate part of the collision box's transform process from scratch
         osg::Vec3f refPosition = tempPosition + verticalHalfExtent;
         osg::Vec3f goodPosition = refPosition;
-        const btTransform oldTransform = collisionObject->getWorldTransform();
+        const btTransform oldTransform = actor.mCollisionObject->getWorldTransform();
         btTransform newTransform = oldTransform;
 
         auto gatherContacts = [&](btVector3 newOffset) -> ContactCollectionCallback
         {
             goodPosition = refPosition + Misc::Convert::toOsg(addMarginToDelta(newOffset));
             newTransform.setOrigin(Misc::Convert::toBullet(goodPosition));
-            collisionObject->setWorldTransform(newTransform);
+            actor.mCollisionObject->setWorldTransform(newTransform);
 
-            ContactCollectionCallback callback{collisionObject, velocity};
-            ContactTestWrapper::contactTest(const_cast<btCollisionWorld*>(collisionWorld), collisionObject, callback);
+            ContactCollectionCallback callback{actor.mCollisionObject, velocity};
+            ContactTestWrapper::contactTest(const_cast<btCollisionWorld*>(collisionWorld), actor.mCollisionObject, callback);
             return callback;
         };
 
@@ -615,8 +455,8 @@ namespace MWPhysics
         auto contactCallback = gatherContacts({0.0, 0.0, 0.0});
         if(contactCallback.mDistance < -sAllowedPenetration)
         {
-            physicActor->setStuckFrames(physicActor->getStuckFrames() + 1);
-            physicActor->setLastStuckPosition(actor.mPosition);
+            ++actor.mStuckFrames;
+            actor.mLastStuckPosition = actor.mPosition;
             // we are; try moving it out of the world
             auto positionDelta = contactCallback.mContactSum;
             // limit rejection delta to the largest known individual rejections
@@ -651,11 +491,11 @@ namespace MWPhysics
         }
         else
         {
-            physicActor->setStuckFrames(0);
-            physicActor->setLastStuckPosition({0, 0, 0});
+                actor.mStuckFrames = 0;
+                actor.mLastStuckPosition = {0, 0, 0};
         }
 
-        collisionObject->setWorldTransform(oldTransform);
+        actor.mCollisionObject->setWorldTransform(oldTransform);
         actor.mPosition = tempPosition;
     }
 }

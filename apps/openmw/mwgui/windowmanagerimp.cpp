@@ -35,6 +35,7 @@
 
 #include <components/resource/resourcesystem.hpp>
 #include <components/resource/imagemanager.hpp>
+#include <components/resource/scenemanager.hpp>
 
 #include <components/sceneutil/workqueue.hpp>
 
@@ -131,7 +132,7 @@ namespace MWGui
     WindowManager::WindowManager(
             SDL_Window* window, osgViewer::Viewer* viewer, osg::Group* guiRoot, Resource::ResourceSystem* resourceSystem, SceneUtil::WorkQueue* workQueue,
             const std::string& logpath, const std::string& resourcePath, bool consoleOnlyScripts, Translation::Storage& translationDataStorage,
-            ToUTF8::FromType encoding, bool exportFonts, const std::string& versionDescription, const std::string& userDataPath)
+            ToUTF8::FromType encoding, bool exportFonts, const std::string& versionDescription, const std::string& userDataPath, bool useShaders)
       : mOldUpdateMask(0)
       , mOldCullMask(0)
       , mStore(nullptr)
@@ -299,6 +300,9 @@ namespace MWGui
         mVideoWrapper = new SDLUtil::VideoWrapper(window, viewer, MWBase::Environment::get().getVrMode() != true);
         mVideoWrapper->setGammaContrast(Settings::Manager::getFloat("gamma", "Video"),
                                         Settings::Manager::getFloat("contrast", "Video"));
+
+        if (useShaders)
+            mGuiPlatform->getRenderManagerPtr()->enableShaders(mResourceSystem->getSceneManager()->getShaderManager());
 
         mStatsWatcher.reset(new StatsWatcher());
     }
@@ -790,6 +794,11 @@ namespace MWGui
         }
     }
 
+    void WindowManager::scheduleMessageBox(std::string message, enum MWGui::ShowInDialogueMode showInDialogueMode)
+    {
+        mScheduledMessageBoxes.lock()->emplace_back(std::move(message), showInDialogueMode);
+    }
+
     void WindowManager::staticMessageBox(const std::string& message)
     {
         mMessageBoxManager->createMessageBox(message, true);
@@ -844,6 +853,8 @@ namespace MWGui
 
     void WindowManager::update (float frameDuration)
     {
+        handleScheduledMessageBoxes();
+
         bool gameRunning = MWBase::Environment::get().getStateManager()->getState()!=
             MWBase::StateManager::State_NoGame;
 
@@ -1370,7 +1381,7 @@ namespace MWGui
         return mHud->getWorldMouseOver();
     }
 
-    float WindowManager::getScalingFactor()
+    float WindowManager::getScalingFactor() const
     {
         return mScalingFactor;
     }
@@ -1541,6 +1552,7 @@ namespace MWGui
     {
         mHudEnabled = !mHudEnabled;
         updateVisible();
+        mMessageBoxManager->setVisible(mHudEnabled);
         return mHudEnabled;
     }
 
@@ -2269,5 +2281,24 @@ namespace MWGui
     MWWorld::Ptr WindowManager::getWatchedActor() const
     {
         return mStatsWatcher->getWatchedActor();
+    }
+
+    const std::string& WindowManager::getVersionDescription() const
+    {
+        return mVersionDescription;
+    }
+
+    void WindowManager::handleScheduledMessageBoxes()
+    {
+        const auto scheduledMessageBoxes = mScheduledMessageBoxes.lock();
+        for (const ScheduledMessageBox& v : *scheduledMessageBoxes)
+            messageBox(v.mMessage, v.mShowInDialogueMode);
+        scheduledMessageBoxes->clear();
+    }
+
+    void WindowManager::onDeleteCustomData(const MWWorld::Ptr& ptr)
+    {
+        for(auto* window : mWindows)
+            window->onDeleteCustomData(ptr);
     }
 }

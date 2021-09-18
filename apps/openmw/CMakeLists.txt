@@ -21,7 +21,7 @@ add_openmw_dir (mwrender
     actors objects renderingmanager animation rotatecontroller sky npcanimation vismask
     creatureanimation effectmanager util renderinginterface pathgrid rendermode weaponanimation screenshotmanager
     bulletdebugdraw globalmap characterpreview camera viewovershoulder localmap water terrainstorage ripplesimulation
-    renderbin actoranimation landmanager navmesh actorspaths recastmesh fogmanager objectpaging groundcover
+    renderbin actoranimation landmanager navmesh actorspaths recastmesh fogmanager objectpaging groundcover postprocessor
     )
 
 add_openmw_dir (mwinput
@@ -53,6 +53,12 @@ add_openmw_dir (mwscript
     guiextensions soundextensions skyextensions statsextensions containerextensions
     aiextensions controlextensions extensions globalscripts ref dialogueextensions
     animationextensions transformationextensions consoleextensions userextensions
+    )
+
+add_openmw_dir (mwlua
+    luamanagerimp actions object worldview userdataserializer eventqueue query
+    luabindings localscripts objectbindings cellbindings asyncbindings settingsbindings
+    camerabindings uibindings inputbindings
     )
 
 add_openmw_dir (mwsound
@@ -126,6 +132,7 @@ set(OPENMW_LINK_TARGETS
     "osg-ffmpeg-videoplayer"
     "oics"
     components
+    ${LUA_LIBRARIES}
 )
 
 if (USE_SYSTEM_TINYXML)
@@ -137,33 +144,6 @@ if (NOT UNIX)
     set(OPENMW_LINK_TARGETS ${OPENMW_LINK_TARGETS}
         ${SDL2MAIN_LIBRARY})
 endif()
-
-if(OSG_STATIC)
-    unset(_osg_plugins_static_files)
-    add_library(openmw_osg_plugins INTERFACE)
-    foreach(_plugin ${USED_OSG_PLUGINS})
-        string(TOUPPER ${_plugin} _plugin_uc)
-        if(OPENMW_USE_SYSTEM_OSG)
-            list(APPEND _osg_plugins_static_files ${${_plugin_uc}_LIBRARY})
-        else()
-            list(APPEND _osg_plugins_static_files $<TARGET_FILE:${${_plugin_uc}_LIBRARY}>)
-            target_link_libraries(openmw_osg_plugins INTERFACE $<TARGET_PROPERTY:${${_plugin_uc}_LIBRARY},LINK_LIBRARIES>)
-            add_dependencies(openmw_osg_plugins ${${_plugin_uc}_LIBRARY})
-        endif()
-    endforeach()
-    # We use --whole-archive because OSG plugins use registration.
-    get_whole_archive_options(_opts ${_osg_plugins_static_files})
-    target_link_options(openmw_osg_plugins INTERFACE ${_opts})
-    set(OPENMW_LINK_TARGETS ${OPENMW_LINK_TARGETS}
-        openmw_osg_plugins)
-
-    if(OPENMW_USE_SYSTEM_OSG)
-        # OSG plugin pkgconfig files are missing these dependencies.
-        # https://github.com/openscenegraph/OpenSceneGraph/issues/1052
-        set(OPENMW_LINK_TARGETS ${OPENMW_LINK_TARGETS}
-            freetype jpeg png)
-    endif()
-endif(OSG_STATIC)
 
 if (ANDROID)
     set(OPENMW_LINK_TARGETS ${OPENMW_LINK_TARGETS}

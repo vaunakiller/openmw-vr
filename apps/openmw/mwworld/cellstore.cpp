@@ -18,6 +18,7 @@
 #include <components/esm/doorstate.hpp>
 
 #include "../mwbase/environment.hpp"
+#include "../mwbase/luamanager.hpp"
 #include "../mwbase/mechanicsmanager.hpp"
 #include "../mwbase/world.hpp"
 
@@ -180,7 +181,7 @@ namespace
         {
             for (typename MWWorld::CellRefList<T>::List::iterator iter (collection.mList.begin());
                 iter!=collection.mList.end(); ++iter)
-                if (iter->mRef.getRefNum()==state.mRef.mRefNum && *iter->mRef.getRefIdPtr() == state.mRef.mRefID)
+                if (iter->mRef.getRefNum()==state.mRef.mRefNum && iter->mRef.getRefIdRef() == state.mRef.mRefID)
                 {
                     // overwrite existing reference
                     float oldscale = iter->mRef.getScale();
@@ -189,12 +190,14 @@ namespace
                     const ESM::Position & newpos = iter->mData.getPosition();
                     const MWWorld::Ptr ptr(&*iter, cellstore);
                     if ((oldscale != iter->mRef.getScale() || oldpos.asVec3() != newpos.asVec3() || oldpos.rot[0] != newpos.rot[0] || oldpos.rot[1] != newpos.rot[1] || oldpos.rot[2] != newpos.rot[2]) && !ptr.getClass().isActor())
-                        MWBase::Environment::get().getWorld()->moveObject(ptr, newpos.pos[0], newpos.pos[1], newpos.pos[2]);
+                        MWBase::Environment::get().getWorld()->moveObject(ptr, newpos.asVec3());
                     if (!iter->mData.isEnabled())
                     {
                         iter->mData.enable();
                         MWBase::Environment::get().getWorld()->disable(MWWorld::Ptr(&*iter, cellstore));
                     }
+                    else
+                        MWBase::Environment::get().getLuaManager()->registerObject(MWWorld::Ptr(&*iter, cellstore));
                     return;
                 }
 
@@ -206,6 +209,9 @@ namespace
         MWWorld::LiveCellRef<T> ref (record);
         ref.load (state);
         collection.mList.push_back (ref);
+
+        MWWorld::LiveCellRefBase* base = &collection.mList.back();
+        MWBase::Environment::get().getLuaManager()->registerObject(MWWorld::Ptr(base, cellstore));
     }
 }
 
@@ -286,16 +292,7 @@ namespace MWWorld
         if (searchViaRefNum(object.getCellRef().getRefNum()).isEmpty())
             throw std::runtime_error("moveTo: object is not in this cell");
 
-
-        // Objects with no refnum can't be handled correctly in the merging process that happens
-        // on a save/load, so do a simple copy & delete for these objects.
-        if (!object.getCellRef().getRefNum().hasContentFile())
-        {
-            MWWorld::Ptr copied = object.getClass().copyToCell(object, *cellToMoveTo, object.getRefData().getCount());
-            object.getRefData().setCount(0);
-            object.getRefData().setBaseNode(nullptr);
-            return copied;
-        }
+        MWBase::Environment::get().getLuaManager()->registerObject(MWWorld::Ptr(object.getBase(), cellToMoveTo));
 
         MovedRefTracker::iterator found = mMovedHere.find(object.getBase());
         if (found != mMovedHere.end())
@@ -420,7 +417,7 @@ namespace MWWorld
         const std::string *mIdToFind;
         bool operator()(const PtrType& ptr)
         {
-            if (*ptr.getCellRef().getRefIdPtr() == *mIdToFind)
+            if (ptr.getCellRef().getRefIdRef() == *mIdToFind)
             {
                 mFound = ptr;
                 return false;
@@ -553,10 +550,13 @@ namespace MWWorld
                 ESM::CellRef ref;
 
                 // Get each reference in turn
+                ESM::MovedCellRef cMRef;
+                cMRef.mRefNum.mIndex = 0;
                 bool deleted = false;
-                while (mCell->getNextRef (esm[index], ref, deleted))
+                bool moved = false;
+                while(mCell->getNextRef(esm[index], ref, deleted, cMRef, moved))
                 {
-                    if (deleted)
+                    if (deleted || moved)
                         continue;
 
                     // Don't list reference if it was moved to a different cell.
@@ -607,12 +607,18 @@ namespace MWWorld
                 mCell->restore (esm[index], i);
 
                 ESM::CellRef ref;
-                ref.mRefNum.mContentFile = ESM::RefNum::RefNum_NoContentFile;
+                ref.mRefNum.unset();
 
                 // Get each reference in turn
+                ESM::MovedCellRef cMRef;
+                cMRef.mRefNum.mIndex = 0;
                 bool deleted = false;
-                while(mCell->getNextRef(esm[index], ref, deleted))
+                bool moved = false;
+                while(mCell->getNextRef(esm[index], ref, deleted, cMRef, moved))
                 {
+                    if (moved)
+                        continue;
+
                     // Don't load reference if it was moved to a different cell.
                     ESM::MovedCellRefTracker::const_iterator iter =
                         std::find(mCell->mMovedRefs.begin(), mCell->mMovedRefs.end(), ref.mRefNum);
@@ -831,7 +837,12 @@ namespace MWWorld
             if (type == 0)
             {
                 Log(Debug::Warning) << "Dropping reference to '" << cref.mRefID << "' (object no longer exists)";
-                reader.skipHSubUntil("OBJE");
+                // Skip until the next OBJE or MVRF
+                while(reader.hasMoreSubs() && !reader.peekNextSub("OBJE") && !reader.peekNextSub("MVRF"))
+                {
+                    reader.getSubName();
+                    reader.skipHSub();
+                }
                 continue;
             }
 

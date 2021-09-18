@@ -77,7 +77,7 @@ namespace MWRender
 
         osg::ref_ptr<osg::Object> obj = mCache->getRefFromObjectCache(id);
         if (obj)
-            return obj->asNode();
+            return static_cast<osg::Node*>(obj.get());
         else
         {
             osg::ref_ptr<osg::Node> node = createChunk(size, center, activeGrid, viewPoint, compile);
@@ -364,6 +364,7 @@ namespace MWRender
             osg::ref_ptr<osg::StateSet> stateset = node.getStateSet() ? osg::clone(node.getStateSet(), osg::CopyOp::SHALLOW_COPY) : new osg::StateSet;
             stateset->setAttribute(m);
             stateset->addUniform(new osg::Uniform("colorMode", 0));
+            stateset->addUniform(new osg::Uniform("emissiveMult", 1.f));
             node.setStateSet(stateset);
         }
     };
@@ -422,10 +423,16 @@ namespace MWRender
                             esm.resize(index+1);
                         cell->restore(esm[index], i);
                         ESM::CellRef ref;
-                        ref.mRefNum.mContentFile = ESM::RefNum::RefNum_NoContentFile;
+                        ref.mRefNum.unset();
+                        ESM::MovedCellRef cMRef;
+                        cMRef.mRefNum.mIndex = 0;
                         bool deleted = false;
-                        while(cell->getNextRef(esm[index], ref, deleted))
+                        bool moved = false;
+                        while(cell->getNextRef(esm[index], ref, deleted, cMRef, moved))
                         {
+                            if (moved)
+                                continue;
+
                             if (std::find(cell->mMovedRefs.begin(), cell->mMovedRefs.end(), ref.mRefNum) != cell->mMovedRefs.end()) continue;
                             Misc::StringUtils::lowerCaseInPlace(ref.mRefID);
                             int type = store.findStatic(ref.mRefID);
@@ -477,8 +484,7 @@ namespace MWRender
         constexpr auto copyMask = ~Mask_UpdateVisitor;
 
         AnalyzeVisitor analyzeVisitor(copyMask);
-        osg::Vec3f center3 = { center.x(), center.y(), 0.f };
-        analyzeVisitor.mCurrentDistance = (viewPoint - center3).length2();
+        analyzeVisitor.mCurrentDistance = (viewPoint - worldCenter).length2();
         float minSize = mMinSize;
         if (mMinSizeMergeFactor)
             minSize *= mMinSizeMergeFactor;
@@ -491,7 +497,7 @@ namespace MWRender
             {
                 osg::Vec3f cellPos = pos / ESM::Land::REAL_SIZE;
                 if ((minBound.x() > std::floor(minBound.x()) && cellPos.x() < minBound.x()) || (minBound.y() > std::floor(minBound.y()) && cellPos.y() < minBound.y())
-                 || (maxBound.x() < std::ceil(maxBound.x()) && cellPos.x() >= maxBound.x()) || (minBound.y() < std::ceil(maxBound.y()) && cellPos.y() >= maxBound.y()))
+                 || (maxBound.x() < std::ceil(maxBound.x()) && cellPos.x() >= maxBound.x()) || (maxBound.y() < std::ceil(maxBound.y()) && cellPos.y() >= maxBound.y()))
                     continue;
             }
 
@@ -504,8 +510,8 @@ namespace MWRender
                     continue;
             }
 
-            if (ref.mRefID == "prisonmarker" || ref.mRefID == "divinemarker" || ref.mRefID == "templemarker" || ref.mRefID == "northmarker")
-                continue; // marker objects that have a hardcoded function in the game logic, should be hidden from the player
+            if (Misc::ResourceHelpers::isHiddenMarker(ref.mRefID))
+                continue;
 
             int type = store.findStatic(ref.mRefID);
             std::string model = getModel(type, ref.mRefID, store);

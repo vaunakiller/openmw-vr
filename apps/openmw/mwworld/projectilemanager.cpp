@@ -243,9 +243,6 @@ namespace MWWorld
             state.mNode->addChild(projectileLightSource);
             projectileLightSource->setLight(projectileLight);
         }
-        
-        SceneUtil::DisableFreezeOnCullVisitor disableFreezeOnCullVisitor;
-        state.mNode->accept(disableFreezeOnCullVisitor);
 
         state.mNode->addCullCallback(new SceneUtil::LightListCallback);
 
@@ -538,7 +535,7 @@ namespace MWWorld
             }
 
             MWMechanics::projectileHit(caster, target, bow, projectileRef.getPtr(), pos, projectileState.mAttackStrength);
-            cleanupProjectile(projectileState);
+            projectileState.mToDelete = true;
         }
         for (auto& magicBoltState : mMagicBolts)
         {
@@ -567,7 +564,19 @@ namespace MWWorld
             cast.inflict(target, caster, magicBoltState.mEffects, ESM::RT_Target, false, true);
 
             MWBase::Environment::get().getWorld()->explodeSpell(pos, magicBoltState.mEffects, caster, target, ESM::RT_Target, magicBoltState.mSpellId, magicBoltState.mSourceName);
-            cleanupMagicBolt(magicBoltState);
+            magicBoltState.mToDelete = true;
+        }
+
+        for (auto& projectileState : mProjectiles)
+        {
+            if (projectileState.mToDelete)
+                cleanupProjectile(projectileState);
+        }
+
+        for (auto& magicBoltState : mMagicBolts)
+        {
+            if (magicBoltState.mToDelete)
+                cleanupMagicBolt(magicBoltState);
         }
         mProjectiles.erase(std::remove_if(mProjectiles.begin(), mProjectiles.end(), [](const State& state) { return state.mToDelete; }),
                 mProjectiles.end());

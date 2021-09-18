@@ -25,8 +25,12 @@
 #include <osg/Geometry>
 #include <osg/io_utils>
 #include <osg/Depth>
+#include <osg/ClipControl>
 
 #include <sstream>
+
+#include <components/sceneutil/util.hpp>
+
 #include "shadowsbin.hpp"
 
 namespace {
@@ -909,6 +913,7 @@ void SceneUtil::MWShadowTechnique::setupCastingShader(Shader::ShaderManager & sh
         program->addShader(castingVertexShader);
         program->addShader(shaderManager.getShader("shadowcasting_fragment.glsl", { {"alphaFunc", std::to_string(alphaFunc)},
                                                                                     {"alphaToCoverage", "0"},
+                                                                                    {"adjustCoverage", "1"},
                                                                                     {"useGPUShader4", useGPUShader4}
                                                                                   }, osg::Shader::FRAGMENT));
     }
@@ -1787,6 +1792,11 @@ void MWShadowTechnique::createShaders()
     _shadowCastingStateSet->addUniform(new osg::Uniform("alphaTestShadows", false));
     osg::ref_ptr<osg::Depth> depth = new osg::Depth;
     depth->setWriteMask(true);
+    if (SceneUtil::getReverseZ())
+    {
+        osg::ref_ptr<osg::ClipControl> clipcontrol = new osg::ClipControl(osg::ClipControl::LOWER_LEFT, osg::ClipControl::NEGATIVE_ONE_TO_ONE);
+        _shadowCastingStateSet->setAttribute(clipcontrol, osg::StateAttribute::ON|osg::StateAttribute::OVERRIDE);
+    }
     _shadowCastingStateSet->setAttribute(depth, osg::StateAttribute::ON|osg::StateAttribute::OVERRIDE);
     _shadowCastingStateSet->setMode(GL_DEPTH_CLAMP, osg::StateAttribute::ON);
 
@@ -2283,7 +2293,7 @@ struct ConvexHull
                 finalEdges.push_back(edge);
         }
 
-        _edges = finalEdges;
+        _edges = std::move(finalEdges);
     }
 
     void transform(const osg::Matrixd& m)

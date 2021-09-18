@@ -5,6 +5,7 @@
 #include <memory>
 #include <map>
 #include <set>
+#include <unordered_map>
 #include <algorithm>
 
 #include <osg/Quat>
@@ -56,7 +57,7 @@ namespace MWPhysics
     class PhysicsTaskScheduler;
     class Projectile;
 
-    using ActorMap = std::map<MWWorld::ConstPtr, std::shared_ptr<Actor>>;
+    using ActorMap = std::unordered_map<const MWWorld::LiveCellRefBase*, std::shared_ptr<Actor>>;
 
     struct ContactPoint
     {
@@ -78,27 +79,32 @@ namespace MWPhysics
 
     struct ActorFrameData
     {
-        ActorFrameData(const std::shared_ptr<Actor>& actor, const MWWorld::Ptr standingOn, bool moveToWaterSurface, float slowFall, float waterlevel);
-        void  updatePosition(btCollisionWorld* world);
-        std::weak_ptr<Actor> mActor;
-        Actor* mActorRaw;
-        MWWorld::Ptr mStandingOn;
-        bool mFlying;
-        bool mSwimming;
-        bool mWasOnGround;
-        bool mWantJump;
-        bool mDidJump;
-        bool mFloatToSurface;
-        bool mNeedLand;
-        bool mWaterCollision;
-        bool mSkipCollisionDetection;
-        float mWaterlevel;
-        float mSlowFall;
+        ActorFrameData(Actor& actor, bool inert, bool waterCollision, float slowFall, float waterlevel);
+        void  updatePosition(Actor& actor, btCollisionWorld* world);
+        osg::Vec3f mPosition;
+        osg::Vec3f mInertia;
+        const btCollisionObject* mStandingOn;
+        bool mIsOnGround;
+        bool mIsOnSlope;
+        bool mWalkingOnWater;
+        const bool mInert;
+        btCollisionObject* mCollisionObject;
+        const float mSwimLevel;
+        const float mSlowFall;
+        osg::Vec2f mRotation;
+        osg::Vec3f mMovement;
+        osg::Vec3f mLastStuckPosition;
+        const float mWaterlevel;
+        const float mHalfExtentsZ;
         float mOldHeight;
         float mFallHeight;
-        osg::Vec3f mMovement;
-        osg::Vec3f mPosition;
-        ESM::Position mRefpos;
+        unsigned int mStuckFrames;
+        const bool mFlying;
+        const bool mWasOnGround;
+        const bool mIsAquatic;
+        const bool mWaterCollision;
+        const bool mSkipCollisionDetection;
+        bool mNeedLand;
     };
 
     struct WorldFrameData
@@ -154,7 +160,11 @@ namespace MWPhysics
 
             bool toggleCollisionMode();
 
-            void stepSimulation();
+            /// Determine new position based on all queued movements, then clear the list.
+            void stepSimulation(float dt, bool skipSimulation, osg::Timer_t frameStart, unsigned int frameNumber, osg::Stats& stats);
+
+            /// Apply new positions to actors
+            void moveActors();
             void debugDraw();
 
             std::vector<MWWorld::Ptr> getCollisions(const MWWorld::ConstPtr &ptr, int collisionGroup, int collisionMask) const; ///< get handles this object collides with
@@ -204,11 +214,8 @@ namespace MWPhysics
             osg::BoundingBox getBoundingBox(const MWWorld::ConstPtr &object) const;
 
             /// Queues velocity movement for a Ptr. If a Ptr is already queued, its velocity will
-            /// be overwritten. Valid until the next call to applyQueuedMovement.
+            /// be overwritten. Valid until the next call to stepSimulation
             void queueObjectMovement(const MWWorld::Ptr &ptr, const osg::Vec3f &velocity);
-
-            /// Apply all queued movements, then clear the list.
-            const std::vector<MWWorld::Ptr>& applyQueuedMovement(float dt, bool skipSimulation, osg::Timer_t frameStart, unsigned int frameNumber, osg::Stats& stats);
 
             /// Clear the queued movements list without applying.
             void clearQueuedMovement();
@@ -253,7 +260,7 @@ namespace MWPhysics
 
             void updateWater();
 
-            std::vector<ActorFrameData> prepareFrameData(bool willSimulate);
+            std::pair<std::vector<std::shared_ptr<Actor>>, std::vector<ActorFrameData>> prepareFrameData(bool willSimulate);
 
             osg::ref_ptr<SceneUtil::UnrefQueue> mUnrefQueue;
 
@@ -266,7 +273,7 @@ namespace MWPhysics
             std::unique_ptr<Resource::BulletShapeManager> mShapeManager;
             Resource::ResourceSystem* mResourceSystem;
 
-            using ObjectMap = std::map<MWWorld::ConstPtr, std::shared_ptr<Object>>;
+            using ObjectMap = std::unordered_map<const MWWorld::LiveCellRefBase*, std::shared_ptr<Object>>;
             ObjectMap mObjects;
 
             std::set<Object*> mAnimatedObjects; // stores pointers to elements in mObjects

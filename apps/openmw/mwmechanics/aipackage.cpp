@@ -55,6 +55,11 @@ MWWorld::Ptr MWMechanics::AiPackage::getTarget() const
 
     if (mTargetActorId == -1)
     {
+        if (mTargetActorRefId.empty())
+        {
+            mTargetActorId = -2;
+            return MWWorld::Ptr();
+        }
         MWWorld::Ptr target = MWBase::Environment::get().getWorld()->searchPtr(mTargetActorRefId, false);
         if (target.isEmpty())
         {
@@ -83,7 +88,8 @@ void MWMechanics::AiPackage::reset()
     mObstacleCheck.clear();
 }
 
-bool MWMechanics::AiPackage::pathTo(const MWWorld::Ptr& actor, const osg::Vec3f& dest, float duration, float destTolerance)
+bool MWMechanics::AiPackage::pathTo(const MWWorld::Ptr& actor, const osg::Vec3f& dest, float duration,
+                                    float destTolerance, float endTolerance, PathType pathType)
 {
     const Misc::TimerStatus timerStatus = mReaction.update(duration);
 
@@ -128,7 +134,7 @@ bool MWMechanics::AiPackage::pathTo(const MWWorld::Ptr& actor, const osg::Vec3f&
             {
                 const auto pathfindingHalfExtents = world->getPathfindingHalfExtents(actor);
                 mPathFinder.buildLimitedPath(actor, position, dest, actor.getCell(), getPathGridGraph(actor.getCell()),
-                    pathfindingHalfExtents, getNavigatorFlags(actor), getAreaCosts(actor));
+                    pathfindingHalfExtents, getNavigatorFlags(actor), getAreaCosts(actor), endTolerance, pathType);
                 mRotateOnTheRunChecks = 3;
 
                 // give priority to go directly on target if there is minimal opportunity

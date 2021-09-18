@@ -111,7 +111,7 @@ protected:
 protected:
     void addControllers() override;
     bool isArrowAttached() const override;
-    std::string getShieldMesh(MWWorld::ConstPtr shield) const override;
+    std::string getShieldMesh(const MWWorld::ConstPtr& shield) const override;
 
 public:
     /**

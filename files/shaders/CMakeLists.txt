@@ -13,6 +13,7 @@ set(SHADER_FILES
     water_fragment.glsl
     water_nm.png
     alpha.glsl
+    depth.glsl
     objects_vertex.glsl
     objects_fragment.glsl
     terrain_vertex.glsl
@@ -31,6 +32,10 @@ set(SHADER_FILES
     nv_default_fragment.glsl
     nv_nolighting_vertex.glsl
     nv_nolighting_fragment.glsl
+    gui_vertex.glsl
+    gui_fragment.glsl
+    debug_vertex.glsl
+    debug_fragment.glsl
     stereo_geometry.glsl
 )
 

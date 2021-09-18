@@ -77,6 +77,7 @@ namespace MWRender
 {
     class GroundcoverUpdater;
     class StateUpdater;
+    class SharedUniformStateUpdater;
 
     class EffectManager;
     class ScreenshotManager;
@@ -94,6 +95,7 @@ namespace MWRender
     class RecastMesh;
     class ObjectPaging;
     class Groundcover;
+    class PostProcessor;
 
     // Result data of ray cast methods.
     // Needs to be declared outside the RenderingManager class to be forward declarable
@@ -128,8 +130,7 @@ namespace MWRender
         SceneUtil::UnrefQueue* getUnrefQueue();
         Terrain::World* getTerrain();
 
-        osg::Uniform* mUniformNear;
-        osg::Uniform* mUniformFar;
+
         osg::Uniform* mUniformStereoViewOffsets;
         osg::Uniform* mUniformStereoProjections;
 
@@ -255,8 +256,9 @@ namespace MWRender
         bool pagingUnlockCache();
         void getPagedRefnums(const osg::Vec4i &activeGrid, std::set<ESM::RefNum> &out);
 
-    private:
         void updateProjectionMatrix();
+
+    private:
         void updateTextureFiltering();
         void updateAmbient();
         void setFogColor(const osg::Vec4f& color);
@@ -278,8 +280,6 @@ namespace MWRender
         osg::ref_ptr<osg::Group> mSceneRoot;
         Resource::ResourceSystem* mResourceSystem;
 
-        osg::ref_ptr<GroundcoverUpdater> mGroundcoverUpdater;
-
         osg::ref_ptr<SceneUtil::WorkQueue> mWorkQueue;
         osg::ref_ptr<SceneUtil::UnrefQueue> mUnrefQueue;
 
@@ -294,15 +294,16 @@ namespace MWRender
         std::unique_ptr<Objects> mObjects;
         std::unique_ptr<Water> mWater;
         std::unique_ptr<Terrain::World> mTerrain;
-        std::unique_ptr<Terrain::World> mGroundcoverWorld;
         std::unique_ptr<TerrainStorage> mTerrainStorage;
         std::unique_ptr<ObjectPaging> mObjectPaging;
         std::unique_ptr<Groundcover> mGroundcover;
+        osg::ref_ptr<GroundcoverUpdater> mGroundcoverUpdater;
         std::unique_ptr<SkyManager> mSky;
         std::unique_ptr<FogManager> mFog;
         std::unique_ptr<ScreenshotManager> mScreenshotManager;
         std::unique_ptr<EffectManager> mEffectManager;
         std::unique_ptr<SceneUtil::ShadowManager> mShadowManager;
+        osg::ref_ptr<PostProcessor> mPostProcessor;
         osg::ref_ptr<NpcAnimation> mPlayerAnimation;
         osg::ref_ptr<SceneUtil::PositionAttitudeTransform> mPlayerNode;
         std::unique_ptr<Camera> mCamera;
@@ -310,6 +311,7 @@ namespace MWRender
         osg::Vec3f mCurrentCameraPos;
 
         osg::ref_ptr<StateUpdater> mStateUpdater;
+        osg::ref_ptr<SharedUniformStateUpdater> mSharedUniformStateUpdater;
 
         osg::Vec4f mAmbientColor;
         float mMinimumAmbientLuminance;

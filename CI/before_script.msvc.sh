@@ -262,10 +262,10 @@ download() {
 
 			if [ -z $VERBOSE ]; then
 				RET=0
-				curl --silent --retry 10 -Ly 5 -o $FILE $URL || RET=$?
+				curl --silent --fail --retry 10 -Ly 5 -o $FILE $URL || RET=$?
 			else
 				RET=0
-				curl --retry 10 -Ly 5 -o $FILE $URL || RET=$?
+				curl --fail --retry 10 -Ly 5 -o $FILE $URL || RET=$?
 			fi
 
 			if [ $RET -ne 0 ]; then
@@ -578,6 +578,11 @@ if [ -z $SKIP_DOWNLOAD ]; then
 	download "LZ4 1.9.2" \
 		"https://gitlab.com/OpenMW/openmw-deps/-/raw/main/windows/lz4_win${BITS}_v1_9_2.7z" \
 		"lz4_win${BITS}_v1_9_2.7z"
+
+	# LuaJIT
+	download "LuaJIT 2.1.0-beta3" \
+		"https://gitlab.com/OpenMW/openmw-deps/-/raw/main/windows/LuaJIT-2.1.0-beta3-msvc${MSVC_REAL_YEAR}-win${BITS}.7z" \
+		"LuaJIT-2.1.0-beta3-msvc${MSVC_REAL_YEAR}-win${BITS}.7z"
 
 	# Google test and mock
 	if [ ! -z $TEST_FRAMEWORK ]; then
@@ -938,7 +943,25 @@ printf "LZ4 1.9.2... "
 }
 cd $DEPS
 echo
-
+# LuaJIT 2.1.0-beta3
+printf "LuaJIT 2.1.0-beta3... "
+{
+	if [ -d LuaJIT ]; then
+		printf "Exists. "
+	elif [ -z $SKIP_EXTRACT ]; then
+		rm -rf LuaJIT
+		eval 7z x -y LuaJIT-2.1.0-beta3-msvc${MSVC_REAL_YEAR}-win${BITS}.7z -o$(real_pwd)/LuaJIT $STRIP
+	fi
+	export LUAJIT_DIR="$(real_pwd)/LuaJIT"
+	add_cmake_opts -DLuaJit_INCLUDE_DIR="${LUAJIT_DIR}/include" \
+		-DLuaJit_LIBRARY="${LUAJIT_DIR}/lib/lua51.lib"
+	for CONFIGURATION in ${CONFIGURATIONS[@]}; do
+		add_runtime_dlls $CONFIGURATION "$(pwd)/LuaJIT/bin/lua51.dll"
+	done
+	echo Done.
+}
+cd $DEPS
+echo
 # Google Test and Google Mock
 if [ ! -z $TEST_FRAMEWORK ]; then
 	printf "Google test 1.10.0 ..."
