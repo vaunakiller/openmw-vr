@@ -1,7 +1,5 @@
 #include "myguirendermanager.hpp"
 
-#include <regex>
-
 #include <MyGUI_Gui.h>
 #include <MyGUI_Timer.h>
 #include <MyGUI_LayerManager.h>
@@ -405,24 +403,21 @@ public:
     {
         mParent->deleteGUICamera(this);
     }
-
-
     // Called by the cull traversal
     /** @see IRenderTarget::begin */
     void begin() override;
+    /** @see IRenderTarget::end */
     void end() override;
-
     /** @see IRenderTarget::doRender */
     void doRender(MyGUI::IVertexBuffer* buffer, MyGUI::ITexture* texture, size_t count) override;
 
+    /** @see IRenderTarget::getInfo */
+    const MyGUI::RenderTargetInfo& getInfo() OPENMW_MYGUI_CONST_GETTER_3_4_1 override { return mInfo; }
 
     void collectDrawCalls();
     void collectDrawCalls(std::string filter);
 
     void setViewSize(MyGUI::IntSize viewSize);
-
-    /** @see IRenderTarget::getInfo */
-    const MyGUI::RenderTargetInfo& getInfo() OPENMW_MYGUI_CONST_GETTER_3_4_1 override { return mInfo; }
 
     RenderManager* mParent;
     osg::ref_ptr<Drawable> mDrawable;
@@ -470,13 +465,11 @@ RenderManager::~RenderManager()
 {
     MYGUI_PLATFORM_LOG(Info, "* Shutdown: "<<getClassTypeName());
 
-    for (auto guiCamera : mGuiCameras)
-        mSceneRoot->removeChild(guiCamera);
-    mGuiCameras.clear();
+    shutdown();
+    destroyAllResources();
+
     mSceneRoot = nullptr;
     mViewer = nullptr;
-
-    destroyAllResources();
 
     MYGUI_PLATFORM_LOG(Info, getClassTypeName()<<" successfully shutdown");
     mIsInitialise = false;
@@ -498,12 +491,12 @@ void RenderManager::initialise()
 
 void RenderManager::shutdown()
 {
-    // TODO: Is this method meaningful? Why not just let the destructor handle everything?
     for (auto guiCamera : mGuiCameras)
     {
         guiCamera->removeChildren(0, guiCamera->getNumChildren());
         mSceneRoot->removeChild(guiCamera);
     }
+    mGuiCameras.clear();
 }
 
 void RenderManager::enableShaders(Shader::ShaderManager& shaderManager)
@@ -512,8 +505,10 @@ void RenderManager::enableShaders(Shader::ShaderManager& shaderManager)
     auto fragmentShader = shaderManager.getShader("gui_fragment.glsl", {}, osg::Shader::FRAGMENT);
     auto program = shaderManager.getProgram(vertexShader, fragmentShader);
 
-    mDrawable->getDrawableStateSet()->setAttributeAndModes(program, osg::StateAttribute::ON);
-    mDrawable->getDrawableStateSet()->addUniform(new osg::Uniform("diffuseMap", 0));
+    mSceneRoot->getOrCreateStateSet()->setAttributeAndModes(program, osg::StateAttribute::ON);
+    mSceneRoot->getOrCreateStateSet()->addUniform(new osg::Uniform("diffuseMap", 0));
+
+    Log(Debug::Debug) << "osgMyGUI::RenderManager: Shaders Enabled";
 }
 
 MyGUI::IVertexBuffer* RenderManager::createVertexBuffer()

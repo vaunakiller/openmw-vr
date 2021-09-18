@@ -29,6 +29,7 @@ namespace osg
     class Camera;
     class RenderInfo;
     class StateSet;
+    class Program;
 }
 
 namespace osgMyGUI
@@ -60,8 +61,6 @@ class RenderManager : public MyGUI::RenderManager
     MyGUI::IntSize mViewSize;
 
     MyGUI::VertexColourType mVertexFormat;
-    MyGUI::RenderTargetInfo mInfo;
-
 
     typedef std::map<std::string, MyGUI::ITexture*> MapTexture;
     MapTexture mTextures;
@@ -69,9 +68,6 @@ class RenderManager : public MyGUI::RenderManager
     bool mIsInitialise;
 
     float mInvScalingFactor;
-
-
-    bool mVRMode;
 
     void destroyAllResources();
 
@@ -83,8 +79,6 @@ public:
     void shutdown();
 
     void enableShaders(Shader::ShaderManager& shaderManager);
-
-    void setScalingFactor(float factor);
 
     static RenderManager& getInstance() { return *getInstancePtr(); }
     static RenderManager* getInstancePtr()
@@ -129,9 +123,6 @@ public:
     void registerShader(const std::string& _shaderName, const std::string& _vertexProgramFile, const std::string& _fragmentProgramFile) override;
 #endif
 
-/*internal:*/
-
-    void collectDrawCalls();
     osg::ref_ptr<osg::Camera> createGUICamera(int order, std::string layerFilter);
     void deleteGUICamera(GUICamera* camera);
 };
