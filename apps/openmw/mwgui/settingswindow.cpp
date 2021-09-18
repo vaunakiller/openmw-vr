@@ -326,12 +326,12 @@ namespace MWGui
         {
             std::string mirrorTextureEye = Settings::Manager::getString("mirror texture eye", "VR");
             for (unsigned i = 0; i < mVRMirrorTextureEye->getItemCount(); i++)
-                if (Misc::StringUtils::ciEqual(mirrorTextureEye, mVRMirrorTextureEye->getItem(i)))
+                if (Misc::StringUtils::ciEqual<std::string, std::string>(mirrorTextureEye, mVRMirrorTextureEye->getItem(i)))
                     mVRMirrorTextureEye->setIndexSelected(i);
 
             std::string leftHandHudPosition = Settings::Manager::getString("left hand hud position", "VR");
             for (unsigned i = 0; i < mVRLeftHudPosition->getItemCount(); i++)
-                if (Misc::StringUtils::ciEqual(leftHandHudPosition, mVRLeftHudPosition->getItem(i)))
+                if (Misc::StringUtils::ciEqual<std::string, std::string>(leftHandHudPosition, mVRLeftHudPosition->getItem(i)))
                     mVRLeftHudPosition->setIndexSelected(i);
         }
 
@@ -417,15 +417,17 @@ namespace MWGui
 
     void SettingsWindow::onVRMirrorTextureEyeChanged(MyGUI::ComboBox* _sender, size_t pos)
     {
-        auto setting = Misc::StringUtils::lowerCase(_sender->getItem(pos));
-        Settings::Manager::setString("mirror texture eye", "VR", setting);
+        std::string settingString = _sender->getItem(pos);
+        settingString = Misc::StringUtils::lowerCase(settingString);
+        Settings::Manager::setString("mirror texture eye", "VR", settingString);
         apply();
     }
 
     void SettingsWindow::onVRLeftHudPositionChanged(MyGUI::ComboBox* _sender, size_t pos)
     {
-        auto setting = Misc::StringUtils::lowerCase(_sender->getItem(pos));
-        Settings::Manager::setString("left hand hud position", "VR", setting);
+        std::string settingString = _sender->getItem(pos);
+        settingString = Misc::StringUtils::lowerCase(settingString);
+        Settings::Manager::setString("left hand hud position", "VR", settingString);
         apply();
     }
 

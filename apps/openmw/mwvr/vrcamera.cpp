@@ -109,7 +109,7 @@ namespace MWVR
 
         if (!player.isDisabled() && mTrackingNode)
         {
-            world->rotateObject(playerPtr, pitch, 0.f, yaw, MWBase::RotationFlag_none);
+            world->rotateObject(playerPtr, osg::Vec3f(pitch, 0.f, yaw), MWBase::RotationFlag_none);
         }
     }
 

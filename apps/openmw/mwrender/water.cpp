@@ -309,11 +309,6 @@ public:
         camera->setViewMatrix(mViewMatrix);
     }
 
-    void apply(osg::Camera* camera) override
-    {
-        camera->setViewMatrix(mViewMatrix);
-    }
-
     void setScene(osg::Node* scene)
     {
         if (mScene)
