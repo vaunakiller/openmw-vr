@@ -1015,7 +1015,14 @@ public:
     void join()
         {
         if (mThread)
+        {
+            {
+                std::lock_guard<std::mutex> lk(mMutex);
+                mJoinRequest = true;
+            }
+            mCV.notify_one();
             mThread->join();
+    }
     }
 
 private:
@@ -1031,10 +1038,12 @@ private:
 
     void threadBody()
         {
-        while (!mEngine->mViewer->done() && !mEngine->mEnvironment.getStateManager()->hasQuitRequest())
+        while (true)
         {
             std::unique_lock<std::mutex> lk(mMutex);
-            mCV.wait(lk, [&]{ return mUpdateRequest; });
+            mCV.wait(lk, [&]{ return mUpdateRequest || mJoinRequest; });
+            if (mJoinRequest)
+                break;
 
             update();
 
@@ -1048,6 +1057,7 @@ private:
     std::mutex mMutex;
     std::condition_variable mCV;
     bool mUpdateRequest = false;
+    bool mJoinRequest = false;
     double mDt = 0;
     bool mIsGuiMode = false;
     std::optional<std::thread> mThread;
