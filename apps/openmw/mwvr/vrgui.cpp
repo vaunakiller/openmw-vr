@@ -25,6 +25,7 @@
 #include <components/myguiplatform/scalinglayer.hpp>
 #include <components/misc/constants.hpp>
 #include <components/misc/stringops.hpp>
+#include <components/sceneutil/rtt.hpp>
 #include <components/resource/resourcesystem.hpp>
 #include <components/resource/scenemanager.hpp>
 #include <components/shader/shadermanager.hpp>
@@ -69,73 +70,132 @@ namespace MWVR
         return osg::Vec2(width, width);
     }
 
-    /// RTT camera used to draw the osg GUI to a texture
-    class GUICamera : public osg::Camera
+    class GUICamera : public SceneUtil::RTTNode
     {
     public:
-        GUICamera(int width, int height, osg::Vec4 clearColor)
+        GUICamera(int width, int height, osg::Vec4 clearColor, osg::ref_ptr<osg::Node> scene)
+            : RTTNode(width, height, 1, false)
+            , mClearColor(clearColor)
+            , mScene(scene)
         {
-            setRenderOrder(osg::Camera::PRE_RENDER);
-            setClearMask(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
-            setCullingActive(false);
+
+        }
+
+        void setDefaults(osg::Camera* camera) override
+        {
+            camera->setCullingActive(false);
 
             // Make the texture just a little transparent to feel more natural in the game world.
-            setClearColor(clearColor);
+            camera->setClearColor(mClearColor);
 
-            setRenderTargetImplementation(osg::Camera::FRAME_BUFFER_OBJECT);
-            setReferenceFrame(osg::Camera::ABSOLUTE_RF);
-            setComputeNearFarMode(osg::CullSettings::DO_NOT_COMPUTE_NEAR_FAR);
+            camera->setReferenceFrame(osg::Camera::ABSOLUTE_RF);
+            camera->setComputeNearFarMode(osg::CullSettings::DO_NOT_COMPUTE_NEAR_FAR);
             setName("GUICamera");
 
-            setCullMask(MWRender::Mask_GUI);
-            setCullMaskLeft(MWRender::Mask_GUI);
-            setCullMaskRight(MWRender::Mask_GUI);
-            setNodeMask(MWRender::Mask_RenderToTexture);
-
-            setViewport(0, 0, width, height);
+            camera->setCullMask(MWRender::Mask_GUI);
+            camera->setCullMaskLeft(MWRender::Mask_GUI);
+            camera->setCullMaskRight(MWRender::Mask_GUI);
+            camera->setNodeMask(MWRender::Mask_RenderToTexture);
 
             // No need for Update traversal since the mSceneRoot is already updated as part of the main scene graph
             // A double update would mess with the light collection (in addition to being plain redundant)
             setUpdateCallback(new MWRender::NoTraverseCallback);
 
-            // Create the texture
-            mTexture = new osg::Texture2D;
-            mTexture->setTextureSize(width, height);
-            mTexture->setInternalFormat(GL_RGBA);
-            mTexture->setFilter(osg::Texture::MIN_FILTER, osg::Texture::LINEAR_MIPMAP_LINEAR);
-            mTexture->setFilter(osg::Texture::MAG_FILTER, osg::Texture::LINEAR);
-            mTexture->setWrap(osg::Texture::WRAP_S, osg::Texture::CLAMP_TO_EDGE);
-            mTexture->setWrap(osg::Texture::WRAP_T, osg::Texture::CLAMP_TO_EDGE);
-            attach(osg::Camera::COLOR_BUFFER, mTexture);
+            auto colorBuffer = new osg::Texture2D;
+            colorBuffer->setTextureSize(camera->getViewport()->width(), camera->getViewport()->height());
+            colorBuffer->setWrap(osg::Texture::WRAP_S, osg::Texture::CLAMP_TO_EDGE);
+            colorBuffer->setWrap(osg::Texture::WRAP_T, osg::Texture::CLAMP_TO_EDGE);
+            colorBuffer->setInternalFormat(GL_RGBA);
+            colorBuffer->setFilter(osg::Texture::MIN_FILTER, osg::Texture::LINEAR);
+            colorBuffer->setFilter(osg::Texture::MAG_FILTER, osg::Texture::LINEAR);
+            camera->attach(osg::Camera::COLOR_BUFFER, colorBuffer);
+            SceneUtil::attachAlphaToCoverageFriendlyFramebufferToCamera(camera, osg::Camera::COLOR_BUFFER, colorBuffer);
+
             // Need to regenerate mipmaps every frame
-            setPostDrawCallback(new MWRender::MipmapCallback(mTexture));
+            camera->setPostDrawCallback(new MWRender::MipmapCallback(colorBuffer));
+
+            camera->addChild(mScene);
 
             // Do not want to waste time on shadows when generating the GUI texture
-            SceneUtil::ShadowManager::disableShadowsForStateSet(getOrCreateStateSet());
+            SceneUtil::ShadowManager::disableShadowsForStateSet(camera->getOrCreateStateSet());
 
             // Put rendering as early as possible
-            getOrCreateStateSet()->setRenderBinDetails(-1, "RenderBin");
-
+            camera->getOrCreateStateSet()->setRenderBinDetails(-1, "RenderBin");
         }
 
-        void setScene(osg::Node* scene)
-        {
-            if (mScene)
-                removeChild(mScene);
-            mScene = scene;
-            addChild(scene);
-            Log(Debug::Verbose) << "Set new scene: " << mScene->getName();
-        }
-
-        osg::Texture2D* getTexture() const
-        {
-            return mTexture.get();
-        }
-
-    private:
-        osg::ref_ptr<osg::Texture2D> mTexture;
         osg::ref_ptr<osg::Node> mScene;
+
+        osg::Vec4 mClearColor;
     };
+
+    /// RTT camera used to draw the osg GUI to a texture
+    //class GUICamera : public osg::Camera
+    //{
+    //public:
+    //    GUICamera(int width, int height, osg::Vec4 clearColor)
+    //    {
+    //        setRenderOrder(osg::Camera::PRE_RENDER);
+    //        setClearMask(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+    //        setCullingActive(false);
+
+    //        // Make the texture just a little transparent to feel more natural in the game world.
+    //        setClearColor(clearColor);
+
+    //        setRenderTargetImplementation(osg::Camera::FRAME_BUFFER_OBJECT);
+    //        setReferenceFrame(osg::Camera::ABSOLUTE_RF);
+    //        setComputeNearFarMode(osg::CullSettings::DO_NOT_COMPUTE_NEAR_FAR);
+    //        setName("GUICamera");
+
+    //        setCullMask(MWRender::Mask_GUI);
+    //        setCullMaskLeft(MWRender::Mask_GUI);
+    //        setCullMaskRight(MWRender::Mask_GUI);
+    //        setNodeMask(MWRender::Mask_RenderToTexture);
+
+    //        setViewport(0, 0, width, height);
+
+    //        // No need for Update traversal since the mSceneRoot is already updated as part of the main scene graph
+    //        // A double update would mess with the light collection (in addition to being plain redundant)
+    //        setUpdateCallback(new MWRender::NoTraverseCallback);
+
+    //        // Create the texture
+    //        mTexture = new osg::Texture2D;
+    //        mTexture->setTextureSize(width, height);
+    //        mTexture->setInternalFormat(GL_RGBA);
+    //        mTexture->setFilter(osg::Texture::MIN_FILTER, osg::Texture::LINEAR_MIPMAP_LINEAR);
+    //        mTexture->setFilter(osg::Texture::MAG_FILTER, osg::Texture::LINEAR);
+    //        mTexture->setWrap(osg::Texture::WRAP_S, osg::Texture::CLAMP_TO_EDGE);
+    //        mTexture->setWrap(osg::Texture::WRAP_T, osg::Texture::CLAMP_TO_EDGE);
+    //        attach(osg::Camera::COLOR_BUFFER, mTexture);
+    //        SceneUtil::attachAlphaToCoverageFriendlyFramebufferToCamera(this, osg::Camera::COLOR_BUFFER, mTexture);
+
+    //        // Need to regenerate mipmaps every frame
+    //        setPostDrawCallback(new MWRender::MipmapCallback(mTexture));
+
+    //        // Do not want to waste time on shadows when generating the GUI texture
+    //        SceneUtil::ShadowManager::disableShadowsForStateSet(getOrCreateStateSet());
+
+    //        // Put rendering as early as possible
+    //        getOrCreateStateSet()->setRenderBinDetails(-1, "RenderBin");
+    //    }
+
+    //    void setScene(osg::Node* scene)
+    //    {
+    //        if (mScene)
+    //            removeChild(mScene);
+    //        mScene = scene;
+    //        addChild(scene);
+    //        Log(Debug::Verbose) << "Set new scene: " << mScene->getName();
+    //    }
+
+    //    osg::Texture2D* getTexture() const
+    //    {
+    //        return mTexture.get();
+    //    }
+
+    //private:
+    //    osg::ref_ptr<osg::Texture2D> mTexture;
+    //    osg::ref_ptr<osg::Node> mScene;
+    //};
 
 
     //class LayerUpdateCallback : public osg::Callback
@@ -206,10 +266,9 @@ namespace MWVR
         std::string filter = mLayerName;
         if (!mConfig.extraLayers.empty())
             filter = filter + ";" + mConfig.extraLayers;
-        mGUICamera = new GUICamera(config.pixelResolution.x(), config.pixelResolution.y(), config.backgroundColor);
         osgMyGUI::RenderManager& renderManager = static_cast<osgMyGUI::RenderManager&>(MyGUI::RenderManager::getInstance());
         mMyGUICamera = renderManager.createGUICamera(osg::Camera::NESTED_RENDER, filter);
-        mGUICamera->setScene(mMyGUICamera);
+        mGUICamera = new GUICamera(config.pixelResolution.x(), config.pixelResolution.y(), config.backgroundColor, mMyGUICamera);
 
         // Define state set that allows rendering with transparency
         osg::StateSet* stateSet = mGeometry->getOrCreateStateSet();
@@ -243,15 +302,11 @@ namespace MWVR
         mGeometryRoot->removeChild(mTransform);
         mCameraRoot->removeChild(mGUICamera);
     }
-    osg::Camera* VRGUILayer::camera()
-    {
-        return mGUICamera.get();
-    }
 
-    osg::ref_ptr<osg::Texture2D> VRGUILayer::menuTexture()
+    osg::ref_ptr<osg::Texture> VRGUILayer::menuTexture()
     {
         if (mGUICamera)
-            return mGUICamera->getTexture();
+            return mGUICamera->getColorTexture(nullptr);
         return nullptr;
     }
 
@@ -746,6 +801,8 @@ namespace MWVR
     {
         auto* layer = widget->mMainWidget->getLayer();
         auto name = layer->getName();
+
+        Log(Debug::Verbose) << name << ": " << visible;
 
         if (layerBlacklist.find(name) != layerBlacklist.end())
         {

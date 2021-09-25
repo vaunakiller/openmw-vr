@@ -108,8 +108,7 @@ namespace MWVR
 
     protected:
         friend class VRGUIManager;
-        osg::Camera* camera();
-        osg::ref_ptr<osg::Texture2D> menuTexture();
+        osg::ref_ptr<osg::Texture> menuTexture();
         void setAngle(float angle);
         void updatePose();
         void updateRect();

@@ -1,6 +1,7 @@
 #include "callbackmanager.hpp"
 
 #include "osgUtil/RenderStage"
+#include "osgViewer/Viewer"
 #include "osgViewer/Renderer"
 
 #include <components/debug/debuglog.hpp>
@@ -89,6 +90,22 @@ namespace Misc
                     newRenderStageRight->setCallbackManager(this);
                     newRenderStageRight->setStereoView(View::Right);
                     sceneView->setRenderStageRight(newRenderStageRight);
+
+                    // OSG should always creates all 3 cull visitors, but i branch anyway in case there are variants that don't.
+                    auto* cvMain = sceneView->getCullVisitor();
+                    auto* cvLeft = sceneView->getCullVisitorLeft();
+                    auto* cvRight = sceneView->getCullVisitorRight();
+                    if (!cvMain)
+                        sceneView->setCullVisitor(cvMain = new osgUtil::CullVisitor());
+                    if (!cvLeft)
+                        sceneView->setCullVisitor(cvLeft = cvMain->clone());
+                    if (!cvRight)
+                        sceneView->setCullVisitor(cvRight = cvMain->clone());
+
+                    // Osg gives cullVisitorLeft and cullVisitor the same identifier.
+                    cvMain->setIdentifier(mIdentifierMain);
+                    cvLeft->setIdentifier(mIdentifierLeft);
+                    cvRight->setIdentifier(mIdentifierRight);
                 }
                 else
                 {
@@ -160,6 +177,17 @@ namespace Misc
         std::unique_lock<std::mutex> lock(mMutex);
         while (hasOneshot(stage, cb))
             mCondition.wait(lock);
+    }
+
+    CallbackManager::View CallbackManager::getView(const osgUtil::CullVisitor* cv) const
+    {
+        if (cv->getIdentifier() == mIdentifierMain)
+            return View::NotStereo;
+        if (cv->getIdentifier() == mIdentifierLeft)
+            return View::Left;
+        if (cv->getIdentifier() == mIdentifierRight)
+            return View::Right;
+        return View::NotStereo;
     }
 
     bool CallbackManager::hasOneshot(DrawStage stage, std::shared_ptr<DrawCallback> cb)

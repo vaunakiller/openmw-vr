@@ -2,13 +2,18 @@
 #define MISC_CALLBACKMANAGER_H
 
 #include <osg/Camera>
-#include <osgViewer/Viewer>
+#include <osgUtil/CullVisitor>
 
 #include <vector>
 #include <map>
 #include <mutex>
 #include <condition_variable>
 #include <memory>
+
+namespace osgViewer
+{
+    class Viewer;
+}
 
 namespace Misc
 {
@@ -30,7 +35,7 @@ namespace Misc
         };
         enum class View
         {
-            Left, Right, Both, NotStereo
+            Left, Right, NotStereo
         };
 
         //! A draw callback that adds stereo information to the operator by means of the StereoDrawCallback::View enumerator.
@@ -80,6 +85,9 @@ namespace Misc
         /// Waits for a oneshot callback to complete. Returns immediately if already complete or no such callback exists
         void waitCallbackOneshot(DrawStage stage, std::shared_ptr<DrawCallback> cb);
 
+        /// Determine which view the cull visitor belongs to
+        View getView(const osgUtil::CullVisitor* cv) const;
+
 
     private:
 
@@ -91,6 +99,11 @@ namespace Misc
 
         uint32_t mFrame;
         osg::ref_ptr<osgViewer::Viewer> mViewer;
+
+        using Identifier = osgUtil::CullVisitor::Identifier;
+        osg::ref_ptr<Identifier> mIdentifierMain = new Identifier();
+        osg::ref_ptr<Identifier> mIdentifierLeft = new Identifier();
+        osg::ref_ptr<Identifier> mIdentifierRight = new Identifier();
     };
 }
 

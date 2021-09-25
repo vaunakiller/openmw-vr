@@ -23,6 +23,8 @@
 
 #include <components/debug/debuglog.hpp>
 
+#include <components/misc/stereo.hpp>
+
 #include <components/resource/resourcesystem.hpp>
 #include <components/resource/imagemanager.hpp>
 #include <components/resource/scenemanager.hpp>
@@ -119,8 +121,22 @@ namespace MWRender
             auto* uFar = stateset->getUniform("far");
             if (uFar)
                 uFar->set(mFar);
-
         }
+
+        void applyLeft(osg::StateSet* stateset, osgUtil::CullVisitor* nv) override
+        {
+            auto* uProjectionMatrix = stateset->getUniform("projectionMatrix");
+            if (uProjectionMatrix)
+                uProjectionMatrix->set(Misc::StereoView::instance().computeLeftEyeProjection(mProjectionMatrix));
+        }
+
+        void applyRight(osg::StateSet* stateset, osgUtil::CullVisitor* nv) override
+        {
+            auto* uProjectionMatrix = stateset->getUniform("projectionMatrix");
+            if (uProjectionMatrix)
+                uProjectionMatrix->set(Misc::StereoView::instance().computeRightEyeProjection(mProjectionMatrix));
+        }
+
 
         void setProjectionMatrix(const osg::Matrixf& projectionMatrix)
         {
@@ -440,13 +456,13 @@ namespace MWRender
         sceneRoot->addUpdateCallback(composite);
 
         mSharedUniformStateUpdater = new SharedUniformStateUpdater;
-        rootNode->addUpdateCallback(mSharedUniformStateUpdater);
+        rootNode->addCullCallback(mSharedUniformStateUpdater);
 
-        mPostProcessor = new PostProcessor(*this, viewer, mRootNode);
-        resourceSystem->getSceneManager()->setDepthFormat(mPostProcessor->getDepthFormat());
+        //mPostProcessor = new PostProcessor(*this, viewer, mRootNode);
+        //resourceSystem->getSceneManager()->setDepthFormat(mPostProcessor->getDepthFormat());
 
-        if (reverseZ && !SceneUtil::isFloatingPointDepthFormat(mPostProcessor->getDepthFormat()))
-            Log(Debug::Warning) << "Floating point depth format not in use but reverse-z buffer is enabled, consider disabling it.";
+        //if (reverseZ && !SceneUtil::isFloatingPointDepthFormat(mPostProcessor->getDepthFormat()))
+        //    Log(Debug::Warning) << "Floating point depth format not in use but reverse-z buffer is enabled, consider disabling it.";
 
         // water goes after terrain for correct waterculling order
         mWater.reset(new Water(sceneRoot->getParent(0), sceneRoot, mResourceSystem, mViewer->getIncrementalCompileOperation(), resourcePath));

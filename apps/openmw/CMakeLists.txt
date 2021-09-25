@@ -194,9 +194,10 @@ endif()
 
 if (MSVC)
     # Debug version needs increased number of sections beyond 2^16
-    if (CMAKE_CL_64)
+    if (CMAKE_SIZEOF_VOID_P EQUAL 8)
         set (CMAKE_CXX_FLAGS_DEBUG "${CMAKE_CXX_FLAGS_DEBUG} /bigobj")
-    endif (CMAKE_CL_64)
+        set (CMAKE_CXX_FLAGS_RELWITHDEBINFO "${CMAKE_CXX_FLAGS_RELWITHDEBINFO} /bigobj")
+    endif ()
 endif (MSVC)
     
 if(BUILD_OPENMW)

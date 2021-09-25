@@ -88,7 +88,7 @@ namespace
         void resizedImplementation(osg::GraphicsContext* gc, int x, int y, int width, int height) override
         {
             gc->resizedImplementation(x, y, width, height);
-            mPostProcessor->resize(width, height);
+            mPostProcessor->setScreenResolution(width, height);
         }
 
         MWRender::PostProcessor* mPostProcessor;
@@ -137,11 +137,11 @@ namespace MWRender
             return;
         }
 
-        int width = viewer->getCamera()->getViewport()->width();
-        int height = viewer->getCamera()->getViewport()->height();
+        mScreenWidth = viewer->getCamera()->getViewport()->width();
+        mScreenHeight = viewer->getCamera()->getViewport()->height();
 
-        createTexturesAndCamera(width, height);
-        resize(width, height);
+        createTexturesAndCamera();
+        resizeFramebuffers();
 
         mRootNode->addChild(mHUDCamera);
         mRootNode->addChild(rootNode);
@@ -158,8 +158,10 @@ namespace MWRender
         mViewer->getCamera()->setUserData(this);
     }
 
-    void PostProcessor::resize(int width, int height)
+    void PostProcessor::resizeFramebuffers()
     {
+        int width = framebufferWidth();
+        int height = framebufferHeight();
         mDepthTex->setTextureSize(width, height);
         mSceneTex->setTextureSize(width, height);
         mDepthTex->dirtyTextureObject();
@@ -188,8 +190,25 @@ namespace MWRender
         mRendering.updateProjectionMatrix();
     }
 
-    void PostProcessor::createTexturesAndCamera(int width, int height)
+    void PostProcessor::setScreenResolution(int width, int height)
     {
+        mScreenWidth = width;
+        mScreenHeight = height;
+        resizeFramebuffers();
+    }
+
+    void PostProcessor::setOffscreenResolution(int width, int height)
+    {
+        mOffscreenWidth = width;
+        mOffscreenHeight = height;
+        resizeFramebuffers();
+    }
+
+    void PostProcessor::createTexturesAndCamera()
+    {
+        int width = framebufferWidth();
+        int height = framebufferHeight();
+
         mDepthTex = new osg::Texture2D;
         mDepthTex->setTextureSize(width, height);
         mDepthTex->setSourceFormat(GL_DEPTH_COMPONENT);
@@ -261,6 +280,20 @@ namespace MWRender
         stateset->addUniform(new osg::Uniform("sceneTex", 0));
         stateset->setMode(GL_LIGHTING, osg::StateAttribute::OFF);
         stateset->setMode(GL_DEPTH_TEST, osg::StateAttribute::OFF);
+    }
+
+    int PostProcessor::framebufferWidth()
+    {
+        if (mOffscreenWidth > 0)
+            return mOffscreenWidth;
+        return mScreenWidth;
+    }
+
+    int PostProcessor::framebufferHeight()
+    {
+        if (mOffscreenHeight > 0)
+            return mOffscreenHeight;
+        return mScreenHeight;
     }
 
 }

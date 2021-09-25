@@ -1,5 +1,7 @@
 #include "statesetupdater.hpp"
 
+#include <components/misc/callbackmanager.hpp>
+
 #include <osg/Node>
 #include <osg/NodeVisitor>
 #include <osgUtil/CullVisitor>
@@ -38,6 +40,12 @@ namespace SceneUtil
     {
         auto stateset = getCvDependentStateset(cv);
         apply(stateset, cv);
+        auto& cm = Misc::CallbackManager::instance();
+        if (cm.getView(cv) == Misc::CallbackManager::View::Left)
+            applyLeft(stateset, cv);
+        if (cm.getView(cv) == Misc::CallbackManager::View::Right)
+            applyRight(stateset, cv);
+
         cv->pushStateSet(stateset);
         traverse(node, cv);
         cv->popStateSet();
