@@ -86,6 +86,51 @@
 
 namespace MWRender
 {
+    class PerViewUniformStateUpdater : public SceneUtil::StateSetUpdater
+    {
+    public:
+    public:
+        PerViewUniformStateUpdater()
+        {
+        }
+
+        void setDefaults(osg::StateSet* stateset) override
+        {
+            stateset->addUniform(new osg::Uniform("projectionMatrix", osg::Matrixf{}));
+        }
+
+        void apply(osg::StateSet* stateset, osg::NodeVisitor* nv) override
+        {
+            auto* uProjectionMatrix = stateset->getUniform("projectionMatrix");
+            if (uProjectionMatrix)
+                uProjectionMatrix->set(mProjectionMatrix);
+        }
+
+        void applyLeft(osg::StateSet* stateset, osgUtil::CullVisitor* nv) override
+        {
+            auto* uProjectionMatrix = stateset->getUniform("projectionMatrix");
+            if (uProjectionMatrix)
+                uProjectionMatrix->set(Misc::StereoView::instance().computeLeftEyeProjection(mProjectionMatrix));
+        }
+
+        void applyRight(osg::StateSet* stateset, osgUtil::CullVisitor* nv) override
+        {
+            auto* uProjectionMatrix = stateset->getUniform("projectionMatrix");
+            if (uProjectionMatrix)
+                uProjectionMatrix->set(Misc::StereoView::instance().computeRightEyeProjection(mProjectionMatrix));
+        }
+
+
+        void setProjectionMatrix(const osg::Matrixf& projectionMatrix)
+        {
+            mProjectionMatrix = projectionMatrix;
+        }
+
+
+    private:
+        osg::Matrixf mProjectionMatrix;
+    };
+
     class SharedUniformStateUpdater : public SceneUtil::StateSetUpdater
     {
     public:
@@ -100,7 +145,6 @@ namespace MWRender
 
         void setDefaults(osg::StateSet* stateset) override
         {
-            stateset->addUniform(new osg::Uniform("projectionMatrix", osg::Matrixf{}));
             stateset->addUniform(new osg::Uniform("linearFac", 0.f));
             stateset->addUniform(new osg::Uniform("near", 0.f));
             stateset->addUniform(new osg::Uniform("far", 0.f));
@@ -113,10 +157,6 @@ namespace MWRender
 
         void apply(osg::StateSet* stateset, osg::NodeVisitor* nv) override
         {
-            auto* uProjectionMatrix = stateset->getUniform("projectionMatrix");
-            if (uProjectionMatrix)
-                uProjectionMatrix->set(mProjectionMatrix);
-
             auto* uLinearFac = stateset->getUniform("linearFac");
             if (uLinearFac)
                 uLinearFac->set(mLinearFac);
@@ -139,26 +179,6 @@ namespace MWRender
                 if (playerPos)
                     playerPos->set(mPlayerPos);
             }
-        }
-
-        void applyLeft(osg::StateSet* stateset, osgUtil::CullVisitor* nv) override
-        {
-            auto* uProjectionMatrix = stateset->getUniform("projectionMatrix");
-            if (uProjectionMatrix)
-                uProjectionMatrix->set(Misc::StereoView::instance().computeLeftEyeProjection(mProjectionMatrix));
-        }
-
-        void applyRight(osg::StateSet* stateset, osgUtil::CullVisitor* nv) override
-        {
-            auto* uProjectionMatrix = stateset->getUniform("projectionMatrix");
-            if (uProjectionMatrix)
-                uProjectionMatrix->set(Misc::StereoView::instance().computeRightEyeProjection(mProjectionMatrix));
-        }
-
-
-        void setProjectionMatrix(const osg::Matrixf& projectionMatrix)
-        {
-            mProjectionMatrix = projectionMatrix;
         }
 
         void setLinearFac(float linearFac)
@@ -188,7 +208,6 @@ namespace MWRender
 
 
     private:
-        osg::Matrixf mProjectionMatrix;
         float mLinearFac;
         float mNear;
         float mFar;
@@ -482,7 +501,10 @@ namespace MWRender
         sceneRoot->addUpdateCallback(mStateUpdater);
 
         mSharedUniformStateUpdater = new SharedUniformStateUpdater(groundcover);
-        rootNode->addCullCallback(mSharedUniformStateUpdater);
+        rootNode->addUpdateCallback(mSharedUniformStateUpdater);
+
+        mPerViewUniformStateUpdater = new PerViewUniformStateUpdater();
+        rootNode->addCullCallback(mPerViewUniformStateUpdater);
 
         //mPostProcessor = new PostProcessor(*this, viewer, mRootNode);
         //resourceSystem->getSceneManager()->setDepthFormat(mPostProcessor->getDepthFormat());
@@ -1243,10 +1265,10 @@ namespace MWRender
         if (SceneUtil::getReverseZ())
         {
             mSharedUniformStateUpdater->setLinearFac(-mNearClip / (mViewDistance - mNearClip) - 1.f);
-            mSharedUniformStateUpdater->setProjectionMatrix(SceneUtil::getReversedZProjectionMatrixAsPerspective(fov, aspect, mNearClip, mViewDistance));
+            mPerViewUniformStateUpdater->setProjectionMatrix(SceneUtil::getReversedZProjectionMatrixAsPerspective(fov, aspect, mNearClip, mViewDistance));
         }
         else
-            mSharedUniformStateUpdater->setProjectionMatrix(mViewer->getCamera()->getProjectionMatrix());
+            mPerViewUniformStateUpdater->setProjectionMatrix(mViewer->getCamera()->getProjectionMatrix());
 
         mSharedUniformStateUpdater->setNear(mNearClip);
         mSharedUniformStateUpdater->setFar(mViewDistance);

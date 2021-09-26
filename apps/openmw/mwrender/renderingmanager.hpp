@@ -77,6 +77,7 @@ namespace MWRender
 {
     class StateUpdater;
     class SharedUniformStateUpdater;
+    class PerViewUniformStateUpdater;
 
     class EffectManager;
     class ScreenshotManager;
@@ -310,6 +311,7 @@ namespace MWRender
 
         osg::ref_ptr<StateUpdater> mStateUpdater;
         osg::ref_ptr<SharedUniformStateUpdater> mSharedUniformStateUpdater;
+        osg::ref_ptr<PerViewUniformStateUpdater> mPerViewUniformStateUpdater;
 
         osg::Vec4f mAmbientColor;
         float mMinimumAmbientLuminance;
