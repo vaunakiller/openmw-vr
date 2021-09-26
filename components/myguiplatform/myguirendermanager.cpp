@@ -178,8 +178,9 @@ public:
     }
 
 public:
-    Drawable(std::string filter = "", osgMyGUI::RenderManager *manager = nullptr, osgMyGUI::GUICamera* camera = nullptr)
+    Drawable(std::string filter = "", osg::StateSet* stateset = nullptr, osgMyGUI::RenderManager* manager = nullptr, osgMyGUI::GUICamera* camera = nullptr)
         : mManager(manager)
+        , mStateSet(stateset)
         , mWriteTo(0)
         , mReadFrom(0)
     {
@@ -197,21 +198,9 @@ public:
             setUpdateCallback(frameUpdate);
         }
 
-        mStateSet = new osg::StateSet;
-        mStateSet->setMode(GL_LIGHTING, osg::StateAttribute::OFF);
-        mStateSet->setTextureMode(0, GL_TEXTURE_2D, osg::StateAttribute::ON);
-        mStateSet->setMode(GL_DEPTH_TEST, osg::StateAttribute::OFF);
-        mStateSet->setMode(GL_BLEND, osg::StateAttribute::ON);
-
         mDummyTexture = new osg::Texture2D;
         mDummyTexture->setInternalFormat(GL_RGB);
         mDummyTexture->setTextureSize(1,1);
-
-        // need to flip tex coords since MyGUI uses DirectX convention of top left image origin
-        osg::Matrix flipMat;
-        flipMat.preMultTranslate(osg::Vec3f(0,1,0));
-        flipMat.preMultScale(osg::Vec3f(1,-1,1));
-        mStateSet->setTextureAttribute(0, new osg::TexMat(flipMat), osg::StateAttribute::ON);
     }
     Drawable(const Drawable &copy, const osg::CopyOp &copyop=osg::CopyOp::SHALLOW_COPY)
         : osg::Drawable(copy, copyop)
@@ -248,11 +237,6 @@ public:
     {
         mWriteTo = (mWriteTo+1)%sNumBuffers;
         mBatchVector[mWriteTo].clear();
-    }
-
-    osg::StateSet* getDrawableStateSet()
-    {
-        return mStateSet;
     }
 
     META_Object(osgMyGUI, Drawable)
@@ -380,7 +364,7 @@ osg::VertexBufferObject* OSGVertexBuffer::getVertexBuffer()
 class GUICamera : public osg::Camera, public StateInjectableRenderTarget
 {
 public:
-    GUICamera(osg::Camera::RenderOrder order, RenderManager* parent, std::string filter)
+    GUICamera(osg::Camera::RenderOrder order, osg::StateSet* stateset, RenderManager* parent, std::string filter)
         : mParent(parent)
         , mUpdate(false)
         , mFilter(filter)
@@ -392,7 +376,7 @@ public:
         setRenderOrder(order);
         setClearMask(GL_NONE);
         setName("GUI Camera");
-        mDrawable = new Drawable(filter, parent, this);
+        mDrawable = new Drawable(filter, stateset, parent, this);
         mDrawable->setName("GUI Drawable");
         mDrawable->setDataVariance(osg::Object::STATIC);
         addChild(mDrawable.get());
@@ -448,6 +432,7 @@ bool Drawable::CollectDrawCalls::cull(osg::NodeVisitor*, osg::Drawable*, osg::St
 
 RenderManager::RenderManager(osgViewer::Viewer *viewer, osg::Group *sceneroot, Resource::ImageManager* imageManager, float scalingFactor)
   : mViewer(viewer)
+  , mGuiStateSet(new osg::StateSet())
   , mSceneRoot(sceneroot)
   , mImageManager(imageManager)
   , mIsInitialise(false)
@@ -455,7 +440,6 @@ RenderManager::RenderManager(osgViewer::Viewer *viewer, osg::Group *sceneroot, R
 {
     if (scalingFactor != 0.f)
         mInvScalingFactor = 1.f / scalingFactor;
-
 
     osg::ref_ptr<osg::Viewport> vp = mViewer->getCamera()->getViewport();
     setViewSize(vp->width(), vp->height());
@@ -483,6 +467,16 @@ void RenderManager::initialise()
 
     mVertexFormat = MyGUI::VertexColourType::ColourABGR;
 
+    mGuiStateSet->setMode(GL_LIGHTING, osg::StateAttribute::OFF);
+    mGuiStateSet->setTextureMode(0, GL_TEXTURE_2D, osg::StateAttribute::ON);
+    mGuiStateSet->setMode(GL_DEPTH_TEST, osg::StateAttribute::OFF);
+    mGuiStateSet->setMode(GL_BLEND, osg::StateAttribute::ON);
+    // need to flip tex coords since MyGUI uses DirectX convention of top left image origin
+    osg::Matrix flipMat;
+    flipMat.preMultTranslate(osg::Vec3f(0, 1, 0));
+    flipMat.preMultScale(osg::Vec3f(1, -1, 1));
+    mGuiStateSet->setTextureAttribute(0, new osg::TexMat(flipMat), osg::StateAttribute::ON);
+
     mSceneRoot->addChild(createGUICamera(osg::Camera::POST_RENDER, ""));
 
     MYGUI_PLATFORM_LOG(Info, getClassTypeName()<<" successfully initialized");
@@ -505,8 +499,8 @@ void RenderManager::enableShaders(Shader::ShaderManager& shaderManager)
     auto fragmentShader = shaderManager.getShader("gui_fragment.glsl", {}, osg::Shader::FRAGMENT);
     auto program = shaderManager.getProgram(vertexShader, fragmentShader);
 
-    mSceneRoot->getOrCreateStateSet()->setAttributeAndModes(program, osg::StateAttribute::ON);
-    mSceneRoot->getOrCreateStateSet()->addUniform(new osg::Uniform("diffuseMap", 0));
+    mGuiStateSet->setAttributeAndModes(program, osg::StateAttribute::ON);
+    mGuiStateSet->addUniform(new osg::Uniform("diffuseMap", 0));
 
     Log(Debug::Debug) << "osgMyGUI::RenderManager: Shaders Enabled";
 }
@@ -639,7 +633,7 @@ void RenderManager::setViewSize(int width, int height)
 
 osg::ref_ptr<osg::Camera> RenderManager::createGUICamera(int order, std::string layerFilter)
 {
-    osg::ref_ptr<GUICamera> camera = new GUICamera(static_cast<osg::Camera::RenderOrder>(order), this, layerFilter);
+    osg::ref_ptr<GUICamera> camera = new GUICamera(static_cast<osg::Camera::RenderOrder>(order), mGuiStateSet, this, layerFilter);
     mGuiCameras.insert(camera);
     camera->setViewport(0, 0, mViewSize.width, mViewSize.height);
     camera->setViewSize(mViewSize);

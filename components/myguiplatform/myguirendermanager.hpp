@@ -55,7 +55,7 @@ class RenderManager : public MyGUI::RenderManager
 {
     osg::ref_ptr<osgViewer::Viewer> mViewer;
     osg::ref_ptr<osg::Group> mSceneRoot;
-    osg::ref_ptr<GUICamera> mGuiCamera;
+    osg::ref_ptr<osg::StateSet> mGuiStateSet;
     std::set<GUICamera*> mGuiCameras;
     Resource::ImageManager* mImageManager;
     MyGUI::IntSize mViewSize;
