@@ -14,7 +14,6 @@
 #endif
 
 #elif __linux__
-#include <X11/Xlib.h>
 #include <GL/glx.h>
 #undef None
 

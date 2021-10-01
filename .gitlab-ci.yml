@@ -37,7 +37,7 @@ Clang_Tidy:
   rules:
     - if: '$CI_PIPELINE_SOURCE == "schedule"'
   before_script:
-    - CI/install_debian_deps.sh gcc openmw-deps openmw-deps-dynamic clang-tidy clang
+    - CI/install_debian_deps.sh gcc openmw-deps openmw-deps-dynamic clang-tidy clang openxr-deps
   script:
     - CI/before_script.linux.sh
     - cd build
@@ -54,7 +54,7 @@ Coverity:
   rules:
     - if: '$CI_PIPELINE_SOURCE == "schedule"'
   before_script:
-    - CI/install_debian_deps.sh gcc openmw-deps openmw-deps-dynamic coverity
+    - CI/install_debian_deps.sh gcc openmw-deps openmw-deps-dynamic coverity openxr-deps
     - curl -o /tmp/cov-analysis-linux64.tgz https://scan.coverity.com/download/linux64 --form project=$COVERITY_SCAN_PROJECT_NAME --form token=$COVERITY_SCAN_TOKEN
     - tar xfz /tmp/cov-analysis-linux64.tgz
   script:
@@ -77,7 +77,7 @@ Debian_GCC:
   cache:
     key: Debian_GCC.v2
   before_script:
-    - CI/install_debian_deps.sh gcc openmw-deps openmw-deps-dynamic
+    - CI/install_debian_deps.sh gcc openmw-deps openmw-deps-dynamic openxr-deps
   variables:
     CC: gcc
     CXX: g++
@@ -111,7 +111,7 @@ Debian_GCC_Static_Deps:
     - ccache/
     - build/extern/fetched/
   before_script:
-    - CI/install_debian_deps.sh gcc openmw-deps openmw-deps-static
+    - CI/install_debian_deps.sh gcc openmw-deps openmw-deps-static openxr-deps
   variables:
     CI_OPENMW_USE_STATIC_DEPS: 1
   timeout: 3h
@@ -127,7 +127,7 @@ Debian_GCC_Static_Deps_tests:
 Debian_Clang:
   extends: .Debian
   before_script:
-    - CI/install_debian_deps.sh clang openmw-deps openmw-deps-dynamic
+    - CI/install_debian_deps.sh clang openmw-deps openmw-deps-dynamic openxr-deps
   cache:
     key: Debian_Clang.v2
   variables:
