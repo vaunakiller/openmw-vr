@@ -54,12 +54,6 @@
 #include <MyGUI_OverlappedLayer.h>
 #include <MyGUI_SharedLayer.h>
 
-namespace osg
-{
-    // Convenience
-    const double PI_8 = osg::PI_4 / 2.;
-}
-
 namespace MWVR
 {
 
