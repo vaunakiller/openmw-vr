@@ -23,8 +23,6 @@ namespace MWVR
             int mWidth;
             int mHeight;
 
-            bool mHasAnimatedMenu;
-
         public:
 
             VrMetaMenu(int w, int h);
