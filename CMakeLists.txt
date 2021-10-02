@@ -212,15 +212,20 @@ endif()
 
 if(BUILD_OPENMW_VR)
     ########### Import the OpenXR SDK
-    # Force the openxr-sdk to use its bundled jsoncpp to avoid problems from system jsoncpp if present
+    # The openxr-sdk doesn't check the version of system jsoncpp so force it to build its bundled version to avoid errors.
     set(BUILD_WITH_SYSTEM_JSONCPP off) 
     include(FetchContent)
     FetchContent_Declare( 
         OpenXR 
         GIT_REPOSITORY https://github.com/KhronosGroup/OpenXR-SDK.git
-        GIT_TAG release-1.0.15
+        GIT_TAG release-1.0.19
     )
     FetchContent_MakeAvailable(OpenXR)
+    
+    if (CMAKE_CXX_COMPILER_ID STREQUAL GNU OR CMAKE_CXX_COMPILER_ID STREQUAL Clang)
+        # Triggered by jsoncpp on some platforms
+        target_compile_options(openxr_loader PRIVATE -Wno-unused-parameter)
+    endif()
 endif()
 
 set(USED_OSG_COMPONENTS

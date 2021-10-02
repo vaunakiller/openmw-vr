@@ -35,10 +35,10 @@ private:
 Skeleton::Skeleton()
     : mBoneCacheInit(false)
     , mNeedToUpdateBoneMatrices(true)
+    , mTracked(false)
     , mActive(Active)
     , mLastFrameNumber(0)
     , mLastCullFrameNumber(0)
-    , mTracked(false)
 {
 
 }
