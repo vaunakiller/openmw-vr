@@ -65,17 +65,16 @@ namespace XR
 
     private:
 
-        bool initialized = false;
         XrInstance mXrInstance = XR_NULL_HANDLE;
         XrViewConfigurationType mViewConfigType = XR_VIEW_CONFIGURATION_TYPE_PRIMARY_STEREO;
         XrSystemId mSystemId = XR_NULL_SYSTEM_ID;
-        XrSystemProperties mSystemProperties{ XR_TYPE_SYSTEM_PROPERTIES };
-        std::array<XrViewConfigurationView, 2> mConfigViews{ { {XR_TYPE_VIEW_CONFIGURATION_VIEW}, {XR_TYPE_VIEW_CONFIGURATION_VIEW} } };
+        XrSystemProperties mSystemProperties;
+        std::array<XrViewConfigurationView, 2> mConfigViews;
         XrDebugUtilsMessengerEXT mDebugMessenger{ nullptr };
         std::unique_ptr<Extensions> mExtensions;
         std::unique_ptr<Platform> mPlatform;
 
-        uint32_t mAcquiredResources = 0;
+        // TODO: uint32_t mAcquiredResources = 0;
         std::mutex mMutex{};
     };
 

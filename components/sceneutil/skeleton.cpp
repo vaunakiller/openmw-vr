@@ -47,10 +47,10 @@ Skeleton::Skeleton(const Skeleton &copy, const osg::CopyOp &copyop)
     : osg::Group(copy, copyop)
     , mBoneCacheInit(false)
     , mNeedToUpdateBoneMatrices(true)
+    , mTracked(false)
     , mActive(copy.mActive)
     , mLastFrameNumber(0)
     , mLastCullFrameNumber(0)
-    , mTracked(false)
 {
 
 }

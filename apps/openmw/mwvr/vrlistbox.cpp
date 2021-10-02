@@ -13,8 +13,8 @@ namespace MWVR
 {
     VrListBox::VrListBox()
         : WindowModal("openmw_vr_listbox.layout")
-        , mOK(nullptr)
         , mCancel(nullptr)
+        , mOK(nullptr)
         , mListBox(nullptr)
         , mIndex(MyGUI::ITEM_NONE)
         , mCallback()
@@ -44,7 +44,7 @@ namespace MWVR
         for (unsigned i = 0; i < comboBox->getItemCount(); i++)
             mListBox->addItem(comboBox->getItemNameAt(i));
 
-        mListBox->setItemSelect(comboBox->getIndexSelected());
+        mListBox->setIndexSelected(comboBox->getIndexSelected());
 
         MWBase::Environment::get().getWindowManager()->setKeyFocusWidget(mListBox);
 

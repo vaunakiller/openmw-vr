@@ -97,7 +97,6 @@ namespace Misc
         std::mutex mMutex;
         std::condition_variable mCondition;
 
-        uint32_t mFrame;
         osg::ref_ptr<osgViewer::Viewer> mViewer;
 
         using Identifier = osgUtil::CullVisitor::Identifier;

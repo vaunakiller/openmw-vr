@@ -75,8 +75,8 @@ namespace MWVR
     public:
         GUICamera(int width, int height, osg::Vec4 clearColor, osg::ref_ptr<osg::Node> scene)
             : RTTNode(width, height, 1, false)
-            , mClearColor(clearColor)
             , mScene(scene)
+            , mClearColor(clearColor)
         {
 
         }
@@ -124,7 +124,6 @@ namespace MWVR
         }
 
         osg::ref_ptr<osg::Node> mScene;
-
         osg::Vec4 mClearColor;
     };
 
@@ -418,7 +417,7 @@ namespace MWVR
         config.extent = radiusAngleWidth(sSideBySideRadius, sSideBySideAzimuthInterval);
         config.myGUIViewSize = osg::Vec2(0.70f, 0.70f);
         return config;
-    };
+    }
 
     static osg::Vec3 gLeftHudOffsetTop = osg::Vec3(-0.200f, -.05f, .066f);
     static osg::Vec3 gLeftHudOffsetWrist = osg::Vec3(-0.200f, -.090f, -.033f);

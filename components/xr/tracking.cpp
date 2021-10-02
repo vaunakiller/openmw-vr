@@ -73,11 +73,20 @@ namespace XR
 
     std::array<Misc::View, 2> Tracker::locateViews(VR::DisplayTime predictedDisplayTime, XrSpace reference, XrSession session)
     {
-        std::array<XrView, 2> xrViews{ {{XR_TYPE_VIEW}, {XR_TYPE_VIEW}} };
-        XrViewState viewState{ XR_TYPE_VIEW_STATE };
+        std::array<XrView, 2> xrViews;
+        xrViews[0].type = XR_TYPE_VIEW;
+        xrViews[0].next = nullptr;
+        xrViews[1].type = XR_TYPE_VIEW;
+        xrViews[1].next = nullptr;
+        
+        XrViewState viewState;
+        viewState.type = XR_TYPE_VIEW_STATE;
+        viewState.next = nullptr;
         uint32_t viewCount = 2;
 
-        XrViewLocateInfo viewLocateInfo{ XR_TYPE_VIEW_LOCATE_INFO };
+        XrViewLocateInfo viewLocateInfo;
+        viewLocateInfo.type = XR_TYPE_VIEW_LOCATE_INFO;
+        viewLocateInfo.next = nullptr;
         viewLocateInfo.viewConfigurationType = XR_VIEW_CONFIGURATION_TYPE_PRIMARY_STEREO;
         viewLocateInfo.displayTime = predictedDisplayTime;
         viewLocateInfo.space = reference;
@@ -97,7 +106,9 @@ namespace XR
     {
         pose.status = VR::TrackingStatus::Good;
         pose.time = predictedDisplayTime;
-        XrSpaceLocation location{ XR_TYPE_SPACE_LOCATION };
+        XrSpaceLocation location;
+        location.type = XR_TYPE_SPACE_LOCATION;
+        location.next = nullptr;
         auto res = xrLocateSpace(space, mReferenceSpace, predictedDisplayTime, &location);
 
         if (XR_FAILED(res))

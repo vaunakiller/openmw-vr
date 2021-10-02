@@ -50,7 +50,9 @@ namespace XR
 
         if (Extensions::instance().extensionEnabled(XR_EXT_DEBUG_UTILS_EXTENSION_NAME))
         {
-            XrDebugUtilsObjectNameInfoEXT nameInfo{ XR_TYPE_DEBUG_UTILS_OBJECT_NAME_INFO_EXT, nullptr };
+            XrDebugUtilsObjectNameInfoEXT nameInfo;
+            nameInfo.type = XR_TYPE_DEBUG_UTILS_OBJECT_NAME_INFO_EXT;
+            nameInfo.next = nullptr;
             nameInfo.objectHandle = handle;
             nameInfo.objectType = type;
             nameInfo.objectName = name.c_str();
@@ -64,7 +66,10 @@ namespace XR
     static XrInstanceProperties
         getInstanceProperties(XrInstance instance)
     {
-        XrInstanceProperties properties{ XR_TYPE_INSTANCE_PROPERTIES };
+        XrInstanceProperties properties;
+        properties.type = XR_TYPE_INSTANCE_PROPERTIES;
+        properties.next = nullptr;
+        
         if (instance)
             xrGetInstanceProperties(instance, &properties);
         return properties;

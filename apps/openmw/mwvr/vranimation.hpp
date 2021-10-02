@@ -16,7 +16,7 @@ namespace MWVR
     class VRAnimation : public MWRender::NpcAnimation, public VR::TrackingListener
     {
     protected:
-        virtual void addControllers();
+        virtual void addControllers() override;
 
     public:
         /**

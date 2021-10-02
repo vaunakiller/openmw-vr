@@ -24,11 +24,15 @@ namespace XR
             sExtensions = this;
         else
             throw std::logic_error("Duplicated XR::Extensions singleton");
+        
+        XrApiLayerProperties apiLayerProperties;
+        apiLayerProperties.type = XR_TYPE_API_LAYER_PROPERTIES;
+        apiLayerProperties.next = nullptr;
 
         // Enumerate layers and their extensions.
         uint32_t layerCount;
         CHECK_XRCMD(xrEnumerateApiLayerProperties(0, &layerCount, nullptr));
-        std::vector<XrApiLayerProperties> layers(layerCount, XrApiLayerProperties{ XR_TYPE_API_LAYER_PROPERTIES });
+        std::vector<XrApiLayerProperties> layers(layerCount, apiLayerProperties);
         CHECK_XRCMD(xrEnumerateApiLayerProperties((uint32_t)layers.size(), &layerCount, layers.data()));
 
         Log(Debug::Verbose) << "Available Extensions: ";
@@ -139,7 +143,8 @@ namespace XR
             cExtensionNames.push_back(extensionName.c_str());
 
         XrInstance instance = XR_NULL_HANDLE;
-        XrInstanceCreateInfo createInfo{ XR_TYPE_INSTANCE_CREATE_INFO };
+        XrInstanceCreateInfo createInfo;
+        createInfo.type = XR_TYPE_INSTANCE_CREATE_INFO;
         createInfo.next = nullptr;
         createInfo.enabledExtensionCount = cExtensionNames.size();
         createInfo.enabledExtensionNames = cExtensionNames.data();
@@ -154,10 +159,14 @@ namespace XR
 
     void Extensions::enumerateExtensions(const char* layerName, int logIndent)
     {
+        XrExtensionProperties extensionProperties;
+        extensionProperties.type = XR_TYPE_EXTENSION_PROPERTIES;
+        extensionProperties.next = nullptr;
+        
         uint32_t extensionCount = 0;
         std::vector<XrExtensionProperties> availableExtensions;
         CHECK_XRCMD(xrEnumerateInstanceExtensionProperties(layerName, 0, &extensionCount, nullptr));
-        availableExtensions.resize(extensionCount, XrExtensionProperties{ XR_TYPE_EXTENSION_PROPERTIES });
+        availableExtensions.resize(extensionCount, extensionProperties);
         CHECK_XRCMD(xrEnumerateInstanceExtensionProperties(layerName, availableExtensions.size(), &extensionCount, availableExtensions.data()));
 
         std::vector<std::string> extensionNames;

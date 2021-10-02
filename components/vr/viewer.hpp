@@ -145,7 +145,6 @@ namespace VR
 
     private:
         std::mutex mMutex{};
-        bool mCallbacksConfigured{ false };
 
         std::unique_ptr<VR::Session> mSession;
         osg::ref_ptr<osgViewer::Viewer> mViewer;
@@ -154,6 +153,7 @@ namespace VR
         std::shared_ptr<PostdrawCallback> mPostDraw{ nullptr };
         std::shared_ptr<FinaldrawCallback> mFinalDraw{ nullptr };
         std::shared_ptr<UpdateViewCallback> mUpdateViewCallback{ nullptr };
+        bool mCallbacksConfigured{ false };
 
         osg::ref_ptr<osg::FrameBufferObject> mMirrorFramebuffer;
         std::vector<VR::Side> mMirrorTextureViews;

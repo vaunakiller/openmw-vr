@@ -143,7 +143,9 @@ namespace XR
             // Get system requirements
             PFN_xrGetOpenGLGraphicsRequirementsKHR p_getRequirements = nullptr;
             CHECK_XRCMD(xrGetInstanceProcAddr(instance, "xrGetOpenGLGraphicsRequirementsKHR", reinterpret_cast<PFN_xrVoidFunction*>(&p_getRequirements)));
-            XrGraphicsRequirementsOpenGLKHR requirements{ XR_TYPE_GRAPHICS_REQUIREMENTS_OPENGL_KHR };
+            XrGraphicsRequirementsOpenGLKHR requirements;
+            requirements.type = XR_TYPE_GRAPHICS_REQUIREMENTS_OPENGL_KHR;
+            requirements.next = nullptr;
             CHECK_XRCMD(p_getRequirements(instance, systemId, &requirements));
 
             // TODO: Actually get system version
@@ -165,7 +167,8 @@ namespace XR
             if (!graphicsBindings.hDC)
                 Log(Debug::Warning) << "Missing DC";
 
-            XrSessionCreateInfo createInfo{ XR_TYPE_SESSION_CREATE_INFO };
+            XrSessionCreateInfo createInfo;
+            createInfo.type = XR_TYPE_SESSION_CREATE_INFO;
             createInfo.next = &graphicsBindings;
             createInfo.systemId = systemId;
             res = CHECK_XRCMD(xrCreateSession(instance, &createInfo, &session));
@@ -176,12 +179,17 @@ namespace XR
             mDxInterop = std::make_shared<VR::DirectXWGLInterop>();
             PFN_xrGetD3D11GraphicsRequirementsKHR p_getRequirements = nullptr;
             CHECK_XRCMD(xrGetInstanceProcAddr(instance, "xrGetD3D11GraphicsRequirementsKHR", reinterpret_cast<PFN_xrVoidFunction*>(&p_getRequirements)));
-            XrGraphicsRequirementsD3D11KHR requirements{ XR_TYPE_GRAPHICS_REQUIREMENTS_D3D11_KHR };
+            XrGraphicsRequirementsD3D11KHR requirements;
+            requirements.type = XR_TYPE_GRAPHICS_REQUIREMENTS_D3D11_KHR;
+            requirements.next = nullptr;
             CHECK_XRCMD(p_getRequirements(instance, systemId, &requirements));
 
-            XrGraphicsBindingD3D11KHR d3D11bindings{ XR_TYPE_GRAPHICS_BINDING_D3D11_KHR };
+            XrGraphicsBindingD3D11KHR d3D11bindings;
+            d3D11bindings.type = XR_TYPE_GRAPHICS_BINDING_D3D11_KHR;
+            d3D11bindings.next = nullptr;
             d3D11bindings.device = reinterpret_cast<ID3D11Device*>(mDxInterop->d3d11DeviceHandle());
-            XrSessionCreateInfo createInfo{ XR_TYPE_SESSION_CREATE_INFO };
+            XrSessionCreateInfo createInfo;
+            createInfo.type = XR_TYPE_SESSION_CREATE_INFO;
             createInfo.next = &d3D11bindings;
             createInfo.systemId = systemId;
             res = CHECK_XRCMD(xrCreateSession(instance, &createInfo, &session));
@@ -196,7 +204,9 @@ namespace XR
             // Get system requirements
             PFN_xrGetOpenGLGraphicsRequirementsKHR p_getRequirements = nullptr;
             xrGetInstanceProcAddr(instance, "xrGetOpenGLGraphicsRequirementsKHR", reinterpret_cast<PFN_xrVoidFunction*>(&p_getRequirements));
-            XrGraphicsRequirementsOpenGLKHR requirements{ XR_TYPE_GRAPHICS_REQUIREMENTS_OPENGL_KHR };
+            XrGraphicsRequirementsOpenGLKHR requirements;
+            requirements.type = XR_TYPE_GRAPHICS_REQUIREMENTS_OPENGL_KHR;
+            requirements.next = nullptr;
             CHECK_XRCMD(p_getRequirements(instance, systemId, &requirements));
 
             // TODO: Actually get system version
@@ -229,7 +239,8 @@ namespace XR
             if (!graphicsBindings.glxDrawable)
                 Log(Debug::Warning) << "Missing glxDrawable";
 
-            XrSessionCreateInfo createInfo{ XR_TYPE_SESSION_CREATE_INFO };
+            XrSessionCreateInfo createInfo;
+            createInfo.type = XR_TYPE_SESSION_CREATE_INFO;
             createInfo.next = &graphicsBindings;
             createInfo.systemId = systemId;
             res = CHECK_XRCMD(xrCreateSession(instance, &createInfo, &session));
@@ -383,11 +394,15 @@ namespace XR
     std::vector<uint64_t>
         enumerateSwapchainImagesOpenGL(XrSwapchain swapchain)
     {
+        XrSwapchainImageOpenGLKHR xrimage;
+        xrimage.type = XR_TYPE_SWAPCHAIN_IMAGE_OPENGL_KHR;
+        xrimage.next = nullptr;
+    
         uint32_t imageCount = 0;
         std::vector<uint64_t> images;
         std::vector<XrSwapchainImageOpenGLKHR> xrimages;
         CHECK_XRCMD(xrEnumerateSwapchainImages(swapchain, 0, &imageCount, nullptr));
-        xrimages.resize(imageCount, { XR_TYPE_SWAPCHAIN_IMAGE_OPENGL_KHR });
+        xrimages.resize(imageCount, xrimage);
         CHECK_XRCMD(xrEnumerateSwapchainImages(swapchain, imageCount, &imageCount, reinterpret_cast<XrSwapchainImageBaseHeader*>(xrimages.data())));
 
         for (auto& image : xrimages)
@@ -402,11 +417,15 @@ namespace XR
     std::vector<uint64_t>
         enumerateSwapchainImagesDirectX(XrSwapchain swapchain)
     {
+        XrSwapchainImageD3D11KHR xrimage;
+        xrimage.type = XR_TYPE_SWAPCHAIN_IMAGE_D3D11_KHR;
+        xrimage.next = nullptr;
+        
         uint32_t imageCount = 0;
         std::vector<uint64_t> images;
         std::vector<XrSwapchainImageD3D11KHR> xrimages;
         CHECK_XRCMD(xrEnumerateSwapchainImages(swapchain, 0, &imageCount, nullptr));
-        xrimages.resize(imageCount, { XR_TYPE_SWAPCHAIN_IMAGE_D3D11_KHR });
+        xrimages.resize(imageCount, xrimage);
         CHECK_XRCMD(xrEnumerateSwapchainImages(swapchain, imageCount, &imageCount, reinterpret_cast<XrSwapchainImageBaseHeader*>(xrimages.data())));
 
         for (auto& image : xrimages)
@@ -422,7 +441,9 @@ namespace XR
     {
         std::string typeString = use == VR::SwapchainUse::Color ? "color" : "depth";
 
-        XrSwapchainCreateInfo swapchainCreateInfo{ XR_TYPE_SWAPCHAIN_CREATE_INFO };
+        XrSwapchainCreateInfo swapchainCreateInfo;
+        swapchainCreateInfo.type = XR_TYPE_SWAPCHAIN_CREATE_INFO;
+        swapchainCreateInfo.next = nullptr;
         swapchainCreateInfo.arraySize = 1;
         swapchainCreateInfo.width = width;
         swapchainCreateInfo.height = height;

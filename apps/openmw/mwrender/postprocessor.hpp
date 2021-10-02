@@ -26,16 +26,10 @@ namespace MWRender
 
         int getDepthFormat() { return mDepthFormat; }
 
-        void resizeFramebuffers();
-        void setScreenResolution(int width, int height);
-        void setOffscreenResolution(int width, int height);
+        void resize(int width, int height);
 
     private:
-        void createTexturesAndCamera();
-
-    private:
-        int framebufferWidth();
-        int framebufferHeight();
+        void createTexturesAndCamera(int width, int height);
 
         osgViewer::Viewer* mViewer;
         osg::ref_ptr<osg::Group> mRootNode;
@@ -49,15 +43,9 @@ namespace MWRender
 
         int mDepthFormat;
 
-        int mOffscreenWidth = -1;
-        int mOffscreenHeight = -1;
-        int mScreenWidth = -1;
-        int mScreenHeight = -1;
-        int mFramebufferWidth = -1;
-        int mFramebufferHeight = -1;
-
         RenderingManager& mRendering;
     };
 }
 
 #endif
+

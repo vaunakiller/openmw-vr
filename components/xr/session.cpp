@@ -99,8 +99,13 @@ namespace XR
 
     void Session::syncFrameUpdate(uint64_t frameNo, bool& shouldRender, uint64_t& predictedDisplayTime, uint64_t& predictedDisplayPeriod)
     {
-        XrFrameWaitInfo frameWaitInfo{ XR_TYPE_FRAME_WAIT_INFO };
-        XrFrameState frameState{ XR_TYPE_FRAME_STATE };
+        XrFrameWaitInfo frameWaitInfo;
+        frameWaitInfo.type = XR_TYPE_FRAME_WAIT_INFO;
+        frameWaitInfo.next = nullptr;
+        
+        XrFrameState frameState;
+        frameState.type = XR_TYPE_FRAME_STATE;
+        frameState.next = nullptr;
 
         CHECK_XRCMD(xrWaitFrame(mXrSession, &frameWaitInfo, &frameState));
         shouldRender = frameState.shouldRender && mAppShouldRender;
@@ -110,25 +115,41 @@ namespace XR
 
     void Session::syncFrameRender(VR::Frame& frame)
     {
-        XrFrameBeginInfo frameBeginInfo{ XR_TYPE_FRAME_BEGIN_INFO };
+        XrFrameBeginInfo frameBeginInfo;
+        frameBeginInfo.type = XR_TYPE_FRAME_BEGIN_INFO;
+        frameBeginInfo.next = nullptr;
         CHECK_XRCMD(xrBeginFrame(mXrSession, &frameBeginInfo));
     }
 
     void Session::syncFrameEnd(VR::Frame& frame)
     {
-        std::array<XrCompositionLayerProjectionView, 2> compositionLayerProjectionViews{};
-        XrCompositionLayerProjection layer{};
+        XrCompositionLayerProjection layer;
+        layer.type = XR_TYPE_COMPOSITION_LAYER_PROJECTION;
+        layer.next = nullptr;
         auto* xrLayerStack = reinterpret_cast<XrCompositionLayerBaseHeader*>(&layer);
-        std::array<XrCompositionLayerDepthInfoKHR, 2> compositionLayerDepth{};
-        XrFrameEndInfo frameEndInfo{ XR_TYPE_FRAME_END_INFO };
+        
+        std::array<XrCompositionLayerProjectionView, 2> compositionLayerProjectionViews;
+        compositionLayerProjectionViews[0].type = XR_TYPE_COMPOSITION_LAYER_PROJECTION_VIEW;
+        compositionLayerProjectionViews[0].next = nullptr;
+        compositionLayerProjectionViews[1].type = XR_TYPE_COMPOSITION_LAYER_PROJECTION_VIEW;
+        compositionLayerProjectionViews[1].next = nullptr;
+        
+        std::array<XrCompositionLayerDepthInfoKHR, 2> compositionLayerDepth;
+        compositionLayerDepth[0].type = XR_TYPE_COMPOSITION_LAYER_DEPTH_INFO_KHR;
+        compositionLayerDepth[0].next = nullptr;
+        compositionLayerDepth[1].type = XR_TYPE_COMPOSITION_LAYER_DEPTH_INFO_KHR;
+        compositionLayerDepth[1].next = nullptr;
+        
+        XrFrameEndInfo frameEndInfo;
+        frameEndInfo.type = XR_TYPE_FRAME_END_INFO;
+        frameEndInfo.next = nullptr;
         frameEndInfo.displayTime = frame.predictedDisplayTime;
         frameEndInfo.environmentBlendMode = XR_ENVIRONMENT_BLEND_MODE_OPAQUE;
         if (frame.shouldRender && frame.layers.size() > 0)
         {
             // For now, hardcode assumption that it's a projection layer
             VR::ProjectionLayer* projectionLayer = static_cast<VR::ProjectionLayer*>(frame.layers[0].get());
-
-            layer.type = XR_TYPE_COMPOSITION_LAYER_PROJECTION;
+            
             layer.space = mReferenceSpaceStage;
             layer.viewCount = 2;
             layer.views = compositionLayerProjectionViews.data();
@@ -137,7 +158,6 @@ namespace XR
             {
                 auto& xrView = compositionLayerProjectionViews[i];
                 auto& view = projectionLayer->views[i];
-                xrView.type = XR_TYPE_COMPOSITION_LAYER_PROJECTION_VIEW;
                 xrView.fov = toXR(view.view.fov);
                 xrView.pose = toXR(view.view.pose);
                 xrView.subImage.imageArrayIndex = 0;
@@ -175,6 +195,9 @@ namespace XR
                     xrDepth.subImage.imageRect.offset.x = view.subImage.x;
                     xrDepth.subImage.imageRect.offset.y = view.subImage.y;
                     xrDepth.subImage.swapchain = static_cast<XrSwapchain>(view.depthSwapchain->handle());
+                    
+                    auto& xrView = compositionLayerProjectionViews[i];
+                    xrView.next = &xrDepth;
                 }
             }
 
@@ -272,7 +295,9 @@ namespace XR
             mAppShouldReadInput = false;
             mXrSessionShouldStop = false;
 
-            XrSessionBeginInfo beginInfo{ XR_TYPE_SESSION_BEGIN_INFO };
+            XrSessionBeginInfo beginInfo;
+            beginInfo.type = XR_TYPE_SESSION_BEGIN_INFO;
+            beginInfo.next = nullptr;
             beginInfo.primaryViewConfigurationType = mViewConfigType;
             CHECK_XRCMD(xrBeginSession(mXrSession, &beginInfo));
 
@@ -373,7 +398,8 @@ namespace XR
     bool Session::xrNextEvent(XrEventDataBuffer& eventBuffer)
     {
         XrEventDataBaseHeader* baseHeader = reinterpret_cast<XrEventDataBaseHeader*>(&eventBuffer);
-        *baseHeader = { XR_TYPE_EVENT_DATA_BUFFER };
+        baseHeader->type = XR_TYPE_EVENT_DATA_BUFFER;
+        baseHeader->next = nullptr;
         const XrResult result = xrPollEvent(Instance::instance().xrInstance(), &eventBuffer);
         if (result == XR_SUCCESS)
         {
@@ -408,7 +434,9 @@ namespace XR
 
     void Session::createXrReferenceSpaces()
     {
-        XrReferenceSpaceCreateInfo createInfo{ XR_TYPE_REFERENCE_SPACE_CREATE_INFO };
+        XrReferenceSpaceCreateInfo createInfo;
+        createInfo.type = XR_TYPE_REFERENCE_SPACE_CREATE_INFO;
+        createInfo.next = nullptr;
         createInfo.poseInReferenceSpace.orientation.w = 1.f; // Identity pose
 
         createInfo.referenceSpaceType = XR_REFERENCE_SPACE_TYPE_VIEW;
@@ -457,11 +485,20 @@ namespace XR
             int64_t predictedDisplayTime,
             VR::ReferenceSpace space)
     {
-        std::array<XrView, 2> xrViews{ {{XR_TYPE_VIEW}, {XR_TYPE_VIEW}} };
-        XrViewState viewState{ XR_TYPE_VIEW_STATE };
+        std::array<XrView, 2> xrViews;
+        xrViews[0].type = XR_TYPE_VIEW;
+        xrViews[0].next = nullptr;
+        xrViews[1].type = XR_TYPE_VIEW;
+        xrViews[1].next = nullptr;
+        
+        XrViewState viewState;
+        viewState.type = XR_TYPE_VIEW_STATE;
+        viewState.next = nullptr;
         uint32_t viewCount = 2;
 
-        XrViewLocateInfo viewLocateInfo{ XR_TYPE_VIEW_LOCATE_INFO };
+        XrViewLocateInfo viewLocateInfo;
+        viewLocateInfo.type = XR_TYPE_VIEW_LOCATE_INFO;
+        viewLocateInfo.next = nullptr;
         viewLocateInfo.viewConfigurationType = mViewConfigType;
         viewLocateInfo.displayTime = predictedDisplayTime;
         switch (space)

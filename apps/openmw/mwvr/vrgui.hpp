@@ -73,8 +73,8 @@ namespace MWVR
     public:
         VRGUITracking();
 
-        virtual std::vector<VR::VRPath> listSupportedPaths() const override;
-        virtual void updateTracking(VR::DisplayTime predictedDisplayTime);
+        std::vector<VR::VRPath> listSupportedPaths() const override;
+        void updateTracking(VR::DisplayTime predictedDisplayTime) override;
         void resetStationaryPose();
 
     protected:

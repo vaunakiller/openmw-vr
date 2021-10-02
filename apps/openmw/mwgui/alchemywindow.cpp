@@ -252,6 +252,9 @@ namespace MWGui
         case FilterType::ByName: return mItemNames; break;
         case FilterType::ByEffect: return mItemEffects; break;
         }
+        
+        // Can't be reached. Satisfies warnings.
+        return mItemNames;
     }
 
     void AlchemyWindow::applyFilter(const std::string& filter)

@@ -203,6 +203,8 @@ namespace MWGui
 #ifndef USE_OPENXR
             // in VR mode, the effect box grows to the right and does not need repositioning
             parent->setPosition(parent->getLeft()+diff, parent->getTop());
+#else
+            (void)diff; // Unused
 #endif
         }
 

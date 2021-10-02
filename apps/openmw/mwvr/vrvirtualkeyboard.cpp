@@ -37,9 +37,6 @@ namespace MWVR
         }
     }
 
-
-    static const char* mClassTypeName;
-
     VrVirtualKeyboard::VrVirtualKeyboard()
         : WindowBase("openmw_vr_virtual_keyboard.layout")
         , mButtonBox(nullptr)

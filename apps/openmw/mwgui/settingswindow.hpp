@@ -74,7 +74,7 @@ namespace MWGui
             void onKeyboardSwitchClicked(MyGUI::Widget* _sender);
             void onControllerSwitchClicked(MyGUI::Widget* _sender);
 
-            void onWindowResize(MyGUI::Window* _sender);
+            void onWindowResize(MyGUI::Window* _sender) override;
 
             void apply();
 

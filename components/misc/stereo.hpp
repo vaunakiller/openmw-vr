@@ -72,6 +72,8 @@ namespace Misc
     {
         struct UpdateViewCallback
         {
+            virtual ~UpdateViewCallback() = default;
+                                
             //! Called during the update traversal of every frame to source updated stereo values.
             virtual void updateView(View& left, View& right) = 0;
         };
@@ -159,9 +161,6 @@ namespace Misc
         osg::ref_ptr<SharedShadowMapConfig> mMasterConfig;
         osg::ref_ptr<SharedShadowMapConfig> mSlaveConfig;
         bool                                mSharedShadowMaps;
-
-        // Camera viewports
-        bool flipViewOrder{ true };
 
         // Updates stereo configuration during the update pass
         std::shared_ptr<UpdateViewCallback> mUpdateViewCallback;

@@ -4039,8 +4039,6 @@ namespace MWWorld
 
     MWWorld::Ptr World::placeObject(const MWWorld::ConstPtr& object, const MWRender::RayResult& ray, int amount)
     {
-        const float maxDist = 200.f;
-
         CellStore* cell = getPlayerPtr().getCell();
 
         ESM::Position pos = getPlayerPtr().getRefData().getPosition();

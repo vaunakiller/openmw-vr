@@ -224,7 +224,7 @@ if(BUILD_OPENMW_VR)
     
     if (CMAKE_CXX_COMPILER_ID STREQUAL GNU OR CMAKE_CXX_COMPILER_ID STREQUAL Clang)
         # Triggered by jsoncpp on some platforms
-        target_compile_options(openxr_loader PRIVATE -Wno-unused-parameter)
+        target_compile_options(openxr_loader PRIVATE -Wno-everything)
     endif()
 endif()
 
