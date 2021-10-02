@@ -210,6 +210,19 @@ if (USE_QT)
     find_package(Qt5OpenGL REQUIRED)
 endif()
 
+if(BUILD_OPENMW_VR)
+    ########### Import the OpenXR SDK
+    # Force the openxr-sdk to use its bundled jsoncpp to avoid problems from system jsoncpp if present
+    set(BUILD_WITH_SYSTEM_JSONCPP off) 
+    include(FetchContent)
+    FetchContent_Declare( 
+        OpenXR 
+        GIT_REPOSITORY https://github.com/KhronosGroup/OpenXR-SDK.git
+        GIT_TAG release-1.0.15
+    )
+    FetchContent_MakeAvailable(OpenXR)
+endif()
+
 set(USED_OSG_COMPONENTS
     osgDB
     osgViewer

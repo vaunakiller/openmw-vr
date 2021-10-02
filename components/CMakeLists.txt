@@ -381,21 +381,8 @@ endif(OSG_STATIC)
 if(USE_QT)
     set_property(TARGET components_qt PROPERTY AUTOMOC ON)
 endif(USE_QT)
-
-
-    
+  
 if(BUILD_OPENMW_VR)
-    ########### Import the OpenXR SDK
-    # Force the openxr-sdk to use its bundled jsoncpp to avoid problems from system jsoncpp if present
-    set(BUILD_WITH_SYSTEM_JSONCPP off) 
-    include(FetchContent)
-    FetchContent_Declare( 
-        OpenXR 
-        GIT_REPOSITORY https://github.com/KhronosGroup/OpenXR-SDK.git
-        GIT_TAG release-1.0.15
-    )
-    FetchContent_MakeAvailable(OpenXR)
-
     target_link_libraries(components openxr_loader)
 
     # Preprocessor variables used to control code paths to vr code
