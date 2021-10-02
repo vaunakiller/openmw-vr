@@ -257,7 +257,6 @@ namespace MWVR
         bool disableControls,
         bool disableEvents)
     {
-        auto begin = std::chrono::steady_clock::now();
         auto& actionSet = activeActionSet();
         actionSet.updateControls();
 
@@ -315,9 +314,6 @@ namespace MWVR
         {
             vrGuiManager->updateTracking();
         }
-        auto end = std::chrono::steady_clock::now();
-
-        auto elapsed = std::chrono::duration_cast<std::chrono::microseconds>(end - begin);
     }
 
     void VRInputManager::processAction(const XR::InputAction* action, float dt, bool disableControls)
