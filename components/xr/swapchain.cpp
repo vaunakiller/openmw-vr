@@ -40,9 +40,8 @@ namespace XR {
 
     void Swapchain::acquire()
     {
-        XrSwapchainImageAcquireInfo acquireInfo;
+        XrSwapchainImageAcquireInfo acquireInfo{};
         acquireInfo.type = XR_TYPE_SWAPCHAIN_IMAGE_ACQUIRE_INFO;
-        acquireInfo.next = nullptr;
         mIsAcquired = XR_SUCCEEDED(CHECK_XRCMD(xrAcquireSwapchainImage(mXrSwapchain, &acquireInfo, &mAcquiredIndex)));
         //if (mIsIndexAcquired)
         // TODO:   xr->xrResourceAcquired();
@@ -50,18 +49,16 @@ namespace XR {
 
     void Swapchain::wait()
     {
-        XrSwapchainImageWaitInfo waitInfo;
+        XrSwapchainImageWaitInfo waitInfo{};
         waitInfo.type = XR_TYPE_SWAPCHAIN_IMAGE_WAIT_INFO;
-        waitInfo.next = nullptr;
         waitInfo.timeout = XR_INFINITE_DURATION;
         mIsReady = XR_SUCCEEDED(CHECK_XRCMD(xrWaitSwapchainImage(mXrSwapchain, &waitInfo)));
     }
 
     void Swapchain::release()
     {
-        XrSwapchainImageReleaseInfo releaseInfo;
+        XrSwapchainImageReleaseInfo releaseInfo{};
         releaseInfo.type = XR_TYPE_SWAPCHAIN_IMAGE_RELEASE_INFO;
-        releaseInfo.next = nullptr;
         //mImages[mAcquiredIndex]->blit(gc, readBuffer, mConfig.offsetWidth, mConfig.offsetHeight);
 
         mIsReady = !XR_SUCCEEDED(CHECK_XRCMD(xrReleaseSwapchainImage(mXrSwapchain, &releaseInfo)));

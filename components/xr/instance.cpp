@@ -58,14 +58,11 @@ namespace XR
             sInstance = this;
         else
             throw std::logic_error("Duplicated XR::Instance singleton");
-            
+
 
         mSystemProperties.type = XR_TYPE_SYSTEM_PROPERTIES;
-        mSystemProperties.next = nullptr;
-	mConfigViews[0].type = XR_TYPE_VIEW_CONFIGURATION_VIEW;
-	mConfigViews[0].next = nullptr;
-	mConfigViews[1].type = XR_TYPE_VIEW_CONFIGURATION_VIEW;
-	mConfigViews[1].next = nullptr;
+        mConfigViews[0].type = XR_TYPE_VIEW_CONFIGURATION_VIEW;
+        mConfigViews[1].type = XR_TYPE_VIEW_CONFIGURATION_VIEW;
 
         mExtensions = std::make_unique<Extensions>();
         mPlatform = std::make_unique<Platform>(gc);
@@ -85,9 +82,8 @@ namespace XR
 
     void Instance::getSystem()
     {
-        XrSystemGetInfo systemInfo;
+        XrSystemGetInfo systemInfo{};
         systemInfo.type = XR_TYPE_SYSTEM_GET_INFO;
-        systemInfo.next = nullptr;
         systemInfo.formFactor = XR_FORM_FACTOR_HEAD_MOUNTED_DISPLAY;
         auto res = CHECK_XRCMD(xrGetSystem(mXrInstance, &systemInfo, &mSystemId));
         if (!XR_SUCCEEDED(res))
@@ -95,7 +91,8 @@ namespace XR
     }
 
     void Instance::getSystemProperties()
-    {// Read and log graphics properties for the swapchain
+    {
+        // Read and log graphics properties for the swapchain
         CHECK_XRCMD(xrGetSystemProperties(mXrInstance, mSystemId, &mSystemProperties));
 
         // Log system properties.
@@ -196,9 +193,8 @@ namespace XR
     {
         if (mExtensions->extensionEnabled(XR_EXT_DEBUG_UTILS_EXTENSION_NAME))
         {
-            XrDebugUtilsMessengerCreateInfoEXT createInfo;
+            XrDebugUtilsMessengerCreateInfoEXT createInfo{};
             createInfo.type = XR_TYPE_DEBUG_UTILS_MESSENGER_CREATE_INFO_EXT;
-            createInfo.next = nullptr;
 
             // Debug message severity levels
             if (Settings::Manager::getBool("XR_EXT_debug_utils message level verbose", "VR Debug"))
@@ -232,10 +228,9 @@ namespace XR
     void
         Instance::LogInstanceInfo() {
 
-        XrInstanceProperties instanceProperties;
+        XrInstanceProperties instanceProperties{};
         instanceProperties.type = XR_TYPE_INSTANCE_PROPERTIES;
-        instanceProperties.next = nullptr;
-        
+
         CHECK_XRCMD(xrGetInstanceProperties(mXrInstance, &instanceProperties));
         Log(Debug::Verbose) << "Instance RuntimeName=" << instanceProperties.runtimeName << " RuntimeVersion=" << instanceProperties.runtimeVersion;
     }

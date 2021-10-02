@@ -185,9 +185,8 @@ namespace MWVR
             XrPath profilePath = 0;
             CHECK_XRCMD(
                 xrStringToPath(XR::Instance::instance().xrInstance(), profile.first.c_str(), &profilePath));
-            XrInteractionProfileSuggestedBinding xrProfileSuggestedBindings;
+            XrInteractionProfileSuggestedBinding xrProfileSuggestedBindings{};
             xrProfileSuggestedBindings.type = XR_TYPE_INTERACTION_PROFILE_SUGGESTED_BINDING;
-            xrProfileSuggestedBindings.next = nullptr;
             xrProfileSuggestedBindings.interactionProfile = profilePath;
             xrProfileSuggestedBindings.suggestedBindings = profile.second.data();
             xrProfileSuggestedBindings.countSuggestedBindings = (uint32_t)profile.second.size();
@@ -203,7 +202,7 @@ namespace MWVR
             actionSets.push_back(actionSet.second.xrActionSet());
 
         // Attach
-        XrSessionActionSetsAttachInfo attachInfo;
+        XrSessionActionSetsAttachInfo attachInfo{};
         attachInfo.type = XR_TYPE_SESSION_ACTION_SETS_ATTACH_INFO;
         attachInfo.countActionSets = actionSets.size();
         attachInfo.actionSets = actionSets.data();
@@ -234,9 +233,8 @@ namespace MWVR
                 pathIt = mInteractionProfilePaths.find(userPath);
             }
 
-            XrInteractionProfileState interactionProfileState;
+            XrInteractionProfileState interactionProfileState{};
             interactionProfileState.type = XR_TYPE_INTERACTION_PROFILE_STATE;
-            interactionProfileState.next = nullptr;
 
             xrGetCurrentInteractionProfile(XR::Session::instance().xrSession(), pathIt->second, &interactionProfileState);
             if (interactionProfileState.interactionProfile)

@@ -25,9 +25,8 @@ namespace XR
         else
             throw std::logic_error("Duplicated XR::Extensions singleton");
         
-        XrApiLayerProperties apiLayerProperties;
+        XrApiLayerProperties apiLayerProperties{};
         apiLayerProperties.type = XR_TYPE_API_LAYER_PROPERTIES;
-        apiLayerProperties.next = nullptr;
 
         // Enumerate layers and their extensions.
         uint32_t layerCount;
@@ -143,9 +142,8 @@ namespace XR
             cExtensionNames.push_back(extensionName.c_str());
 
         XrInstance instance = XR_NULL_HANDLE;
-        XrInstanceCreateInfo createInfo;
+        XrInstanceCreateInfo createInfo{};
         createInfo.type = XR_TYPE_INSTANCE_CREATE_INFO;
-        createInfo.next = nullptr;
         createInfo.enabledExtensionCount = cExtensionNames.size();
         createInfo.enabledExtensionNames = cExtensionNames.data();
         strcpy(createInfo.applicationInfo.applicationName, "openmw_vr");
@@ -159,9 +157,8 @@ namespace XR
 
     void Extensions::enumerateExtensions(const char* layerName, int logIndent)
     {
-        XrExtensionProperties extensionProperties;
+        XrExtensionProperties extensionProperties{};
         extensionProperties.type = XR_TYPE_EXTENSION_PROPERTIES;
-        extensionProperties.next = nullptr;
         
         uint32_t extensionCount = 0;
         std::vector<XrExtensionProperties> availableExtensions;

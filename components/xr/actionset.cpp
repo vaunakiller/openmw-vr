@@ -105,9 +105,8 @@ namespace XR
         std::string localized_name = name;
         std::string internal_name = Misc::StringUtils::lowerCase(name);
         XrActionSet actionSet = XR_NULL_HANDLE;
-        XrActionSetCreateInfo createInfo;
+        XrActionSetCreateInfo createInfo{};
         createInfo.type = XR_TYPE_ACTION_SET_CREATE_INFO;
-        createInfo.next = nullptr;
         strcpy_s(createInfo.actionSetName, internal_name.c_str());
         strcpy_s(createInfo.localizedActionSetName, localized_name.c_str());
         createInfo.priority = 0;
@@ -157,7 +156,7 @@ namespace XR
             const std::string& localName)
     {
         std::vector<XrPath> subactionPaths;
-        XrActionCreateInfo createInfo;
+        XrActionCreateInfo createInfo{};
         createInfo.type = XR_TYPE_ACTION_CREATE_INFO;
         createInfo.actionType = actionType;
         strcpy_s(createInfo.actionName, actionName.c_str());
@@ -174,9 +173,8 @@ namespace XR
         mActionQueue.clear();
 
         const XrActiveActionSet activeActionSet{ mActionSet, XR_NULL_PATH };
-        XrActionsSyncInfo syncInfo;
+        XrActionsSyncInfo syncInfo{};
         syncInfo.type = XR_TYPE_ACTIONS_SYNC_INFO;
-        syncInfo.next = nullptr;
         syncInfo.countActiveActionSets = 1;
         syncInfo.activeActionSets = &activeActionSet;
 

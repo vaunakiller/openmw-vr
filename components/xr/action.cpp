@@ -29,15 +29,13 @@ namespace XR
 
     bool Action::getFloat(XrPath subactionPath, float& value)
     {
-        XrActionStateGetInfo getInfo;
+        XrActionStateGetInfo getInfo{};
         getInfo.type = XR_TYPE_ACTION_STATE_GET_INFO;
-        getInfo.next = nullptr;
         getInfo.action = mAction;
         getInfo.subactionPath = subactionPath;
 
-        XrActionStateFloat xrValue;
+        XrActionStateFloat xrValue{};
         xrValue.type = XR_TYPE_ACTION_STATE_FLOAT;
-        xrValue.next = nullptr;
         CHECK_XRCMD(xrGetActionStateFloat(XR::Session::instance().xrSession(), &getInfo, &xrValue));
 
         if (xrValue.isActive)
@@ -47,15 +45,13 @@ namespace XR
 
     bool Action::getBool(XrPath subactionPath, bool& value)
     {
-        XrActionStateGetInfo getInfo;
+        XrActionStateGetInfo getInfo{};
         getInfo.type = XR_TYPE_ACTION_STATE_GET_INFO;
-        getInfo.next = nullptr;
         getInfo.action = mAction;
         getInfo.subactionPath = subactionPath;
 
-        XrActionStateBoolean xrValue;
+        XrActionStateBoolean xrValue{};
         xrValue.type = XR_TYPE_ACTION_STATE_BOOLEAN;
-        xrValue.next = nullptr;
         CHECK_XRCMD(xrGetActionStateBoolean(XR::Session::instance().xrSession(), &getInfo, &xrValue));
 
         if (xrValue.isActive)
@@ -66,15 +62,13 @@ namespace XR
     // Pose action only checks if the pose is active or not
     bool Action::getPoseIsActive(XrPath subactionPath)
     {
-        XrActionStateGetInfo getInfo;
+        XrActionStateGetInfo getInfo{};
         getInfo.type = XR_TYPE_ACTION_STATE_GET_INFO;
-        getInfo.next = nullptr;
         getInfo.action = mAction;
         getInfo.subactionPath = subactionPath;
 
-        XrActionStatePose xrValue;
+        XrActionStatePose xrValue{};
         xrValue.type = XR_TYPE_ACTION_STATE_POSE;
-        xrValue.next = nullptr;
         CHECK_XRCMD(xrGetActionStatePose(XR::Session::instance().xrSession(), &getInfo, &xrValue));
 
         return xrValue.isActive;
@@ -84,16 +78,14 @@ namespace XR
     {
         amplitude = std::max(0.f, std::min(1.f, amplitude));
 
-        XrHapticVibration vibration;
+        XrHapticVibration vibration{};
         vibration.type = XR_TYPE_HAPTIC_VIBRATION;
-        vibration.next = nullptr;
         vibration.amplitude = amplitude;
         vibration.duration = XR_MIN_HAPTIC_DURATION;
         vibration.frequency = XR_FREQUENCY_UNSPECIFIED;
 
-        XrHapticActionInfo hapticActionInfo;
+        XrHapticActionInfo hapticActionInfo{};
         hapticActionInfo.type = XR_TYPE_HAPTIC_ACTION_INFO;
-        hapticActionInfo.next = nullptr;
         hapticActionInfo.action = mAction;
         hapticActionInfo.subactionPath = subactionPath;
         CHECK_XRCMD(xrApplyHapticFeedback(XR::Session::instance().xrSession(), &hapticActionInfo, (XrHapticBaseHeader*)&vibration));
@@ -116,9 +108,8 @@ namespace XR
         : mXRAction(std::move(xrAction))
         , mXRSpace{ XR_NULL_HANDLE }
     {
-        XrActionSpaceCreateInfo createInfo;
+        XrActionSpaceCreateInfo createInfo{};
         createInfo.type = XR_TYPE_ACTION_SPACE_CREATE_INFO;
-        createInfo.next = nullptr;
         createInfo.action = mXRAction->xrAction();
         createInfo.poseInActionSpace.orientation.w = 1.f;
         createInfo.subactionPath = XR_NULL_PATH;
