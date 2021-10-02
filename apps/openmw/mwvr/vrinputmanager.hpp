@@ -17,7 +17,7 @@ namespace XR
 
 namespace MWVR
 {
-    struct OpenXRInput;
+    class OpenXRInput;
     class UserPointer;
 
     namespace RealisticCombat {

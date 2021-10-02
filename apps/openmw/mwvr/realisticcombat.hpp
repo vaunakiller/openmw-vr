@@ -50,7 +50,7 @@ namespace MWVR {
         ///    Cooldown  -> Ready:       When the minimum period has passed since entering Cooldown state
         ///
         ///
-        struct StateMachine : public VR::TrackingListener
+        class StateMachine : public VR::TrackingListener
         {
         public:
             StateMachine(MWWorld::Ptr ptr, VR::VRPath trackingPath);
