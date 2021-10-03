@@ -63,7 +63,9 @@ namespace MWGui
         bool mSaving;
 
         MyGUI::ComboBox* mCharacterSelection;
+#ifdef USE_OPENXR
         MWVR::VrListBox* mCharacterSelectionListBox;
+#endif
         MyGUI::Button* mCharacterSelectionButton;
         MyGUI::EditBox* mInfoText;
         MyGUI::Button* mOkButton;
