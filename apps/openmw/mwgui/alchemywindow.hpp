@@ -63,7 +63,9 @@ namespace MWGui
         MyGUI::ComboBox* mFilterCombo;
         MyGUI::EditBox* mFilterEdit;
         MyGUI::Button* mFilterButton;
-        MWVR::VrListBox* mFilterListBox;
+#ifdef USE_OPENXR
+        MWVR::VrListBox* mFilterListBox = nullptr;
+#endif
         MyGUI::EditBox* mNameEdit;
         Gui::NumericEditBox* mBrewCountEdit;
 
