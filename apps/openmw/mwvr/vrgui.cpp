@@ -169,10 +169,6 @@ namespace MWVR
         , mGeometryRoot(geometryRoot)
         , mCameraRoot(cameraRoot)
     {
-        osg::ref_ptr<osg::Vec3Array> vertices{ new osg::Vec3Array(4) };
-        osg::ref_ptr<osg::Vec2Array> texCoords{ new osg::Vec2Array(4) };
-        osg::ref_ptr<osg::Vec3Array> normals{ new osg::Vec3Array(1) };
-
         auto extent_units = config.extent * Constants::UnitsPerMeter;
 
         float left = mConfig.center.x() - 0.5;
@@ -185,18 +181,25 @@ namespace MWVR
         osg::Vec3 bottom_left(left, 1, bottom);
         osg::Vec3 bottom_right(right, 1, bottom);
         osg::Vec3 top_right(right, 1, top);
+
+        osg::ref_ptr<osg::Vec3Array> vertices{ new osg::Vec3Array(4) };
         (*vertices)[0] = bottom_left;
         (*vertices)[1] = top_left;
         (*vertices)[2] = bottom_right;
         (*vertices)[3] = top_right;
         mGeometry->setVertexArray(vertices);
+
+        osg::ref_ptr<osg::Vec2Array> texCoords{ new osg::Vec2Array(4) };
         (*texCoords)[0].set(0.0f, 0.0f);
         (*texCoords)[1].set(0.0f, 1.0f);
         (*texCoords)[2].set(1.0f, 0.0f);
         (*texCoords)[3].set(1.0f, 1.0f);
         mGeometry->setTexCoordArray(0, texCoords);
+
+        osg::ref_ptr<osg::Vec3Array> normals{ new osg::Vec3Array(1) };
         (*normals)[0].set(0.0f, -1.0f, 0.0f);
         mGeometry->setNormalArray(normals, osg::Array::BIND_OVERALL);
+
         // TODO: Just use GL_TRIANGLES
         mGeometry->addPrimitiveSet(new osg::DrawArrays(GL_TRIANGLE_STRIP, 0, 4));
         mGeometry->setDataVariance(osg::Object::STATIC);
@@ -369,17 +372,12 @@ namespace MWVR
             mTransform->setScale(osg::Vec3(w / res, 1.f, h / res));
         }
 
-        // Convert from [0,1] range to [-1,1]
-        float menuLeft = mRealRect.left * 2. - 1.;
-        float menuRight = mRealRect.right * 2. - 1.;
-        // Opposite convention 
-        float menuBottom = (1.f - mRealRect.bottom) * 2. - 1.;
-        float menuTop = (1.f - mRealRect.top) * 2.f - 1.;
-
-        if(mLayerName == "InputBlocker")
-            mMyGUICamera->setProjectionMatrixAsOrtho2D(menuRight, menuLeft, menuTop, menuBottom);
-        else
-            mMyGUICamera->setProjectionMatrixAsOrtho2D(menuLeft, menuRight, menuBottom, menuTop);
+        osg::ref_ptr<osg::Vec2Array> texCoords{ new osg::Vec2Array(4) };
+        (*texCoords)[0].set(mRealRect.left, 1.f - mRealRect.bottom);
+        (*texCoords)[1].set(mRealRect.left, 1.f - mRealRect.top);
+        (*texCoords)[2].set(mRealRect.right, 1.f - mRealRect.bottom);
+        (*texCoords)[3].set(mRealRect.right, 1.f - mRealRect.top);
+        mGeometry->setTexCoordArray(0, texCoords);
     }
 
     void
