@@ -106,6 +106,12 @@ namespace MWVR
 
     void VRInputManager::pointActivation(bool onPress)
     {
+        if (controlsDisabled())
+        {
+            injectMousePress(SDL_BUTTON_LEFT, onPress);
+            return;
+        }
+
         auto pointer = Environment::get().getGUIManager()->getUserPointer();
         if (pointer->getPointerTarget().mHit)
         {
