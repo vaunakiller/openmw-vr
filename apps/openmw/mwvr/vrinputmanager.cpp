@@ -112,9 +112,15 @@ namespace MWVR
 
     void VRInputManager::pointActivation(bool onPress)
     {
+        if (controlsDisabled())
+        {
+            injectMousePress(SDL_BUTTON_LEFT, onPress);
+            return;
+        }
+
         auto* world = MWBase::Environment::get().getWorld();
         auto& pointer = world->getUserPointer();
-        if (world && pointer.getPointerTarget().mHit)
+        if (pointer.getPointerTarget().mHit)
         {
             auto* node = pointer.getPointerTarget().mHitNode;
             MWWorld::Ptr ptr = pointer.getPointerTarget().mHitObject;
