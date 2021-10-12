@@ -76,11 +76,11 @@ namespace VR
 
         std::unique_ptr<VR::Session> mSession;
         osg::ref_ptr<osgViewer::Viewer> mViewer;
-        osg::ref_ptr<SwapBuffersCallback> mSwapBuffersCallback = nullptr;
-        std::shared_ptr<InitialDrawCallback> mInitialDraw{ nullptr };
-        std::shared_ptr<PredrawCallback> mPreDraw{ nullptr };
-        std::shared_ptr<FinaldrawCallback> mFinalDraw{ nullptr };
-        std::shared_ptr<UpdateViewCallback> mUpdateViewCallback{ nullptr };
+        osg::ref_ptr<SwapBuffersCallback> mSwapBuffersCallback;
+        std::shared_ptr<InitialDrawCallback> mInitialDraw;
+        std::shared_ptr<PredrawCallback> mPreDraw;
+        std::shared_ptr<FinaldrawCallback> mFinalDraw;
+        std::shared_ptr<UpdateViewCallback> mUpdateViewCallback;
         bool mCallbacksConfigured{ false };
 
         osg::ref_ptr<osg::FrameBufferObject> mMirrorFramebuffer;
