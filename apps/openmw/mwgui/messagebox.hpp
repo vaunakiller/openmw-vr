@@ -66,7 +66,6 @@ namespace MWGui
             void setMessage (const std::string& message);
             int getHeight ();
             void update (int height);
-            void setVisible(bool value);
 
             float mCurrentTime;
             float mMaxTime;
