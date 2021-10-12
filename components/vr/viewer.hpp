@@ -23,6 +23,11 @@ namespace VR
     class Swapchain;
     class TrackingManager;
     class Session;
+    struct InitialDrawCallback;
+    struct PredrawCallback;
+    struct FinaldrawCallback;
+    struct UpdateViewCallback;
+    struct SwapBuffersCallback;
 
     /// \brief Manages stereo rendering and mirror texturing.
     ///
@@ -31,82 +36,6 @@ namespace VR
     class Viewer
     {
     public:
-        struct UpdateViewCallback : public Misc::StereoView::UpdateViewCallback
-        {
-            UpdateViewCallback(Viewer* viewer) : mViewer(viewer) {};
-
-            //! Called during the update traversal of every frame to source updated stereo values.
-            virtual void updateView(Misc::View& left, Misc::View& right) override;
-
-            Viewer* mViewer;
-        };
-
-        class SwapBuffersCallback : public osg::GraphicsContext::SwapCallback
-        {
-        public:
-            SwapBuffersCallback(Viewer* viewer) : mViewer(viewer) {};
-            void swapBuffersImplementation(osg::GraphicsContext* gc) override;
-
-        private:
-            Viewer* mViewer;
-        };
-
-        class PredrawCallback : public Misc::CallbackManager::DrawCallback
-        {
-        public:
-            PredrawCallback(Viewer* viewer)
-                : mViewer(viewer)
-            {}
-
-            void run(osg::RenderInfo& info, Misc::CallbackManager::View view) const override { mViewer->preDrawCallback(info, view); };
-
-        private:
-
-            Viewer* mViewer;
-        };
-
-        class PostdrawCallback : public Misc::CallbackManager::DrawCallback
-        {
-        public:
-            PostdrawCallback(Viewer* viewer)
-                : mViewer(viewer)
-            {}
-
-            void run(osg::RenderInfo& info, Misc::CallbackManager::View view) const override { mViewer->postDrawCallback(info, view); };
-
-        private:
-
-            Viewer* mViewer;
-        };
-
-        class InitialDrawCallback : public Misc::CallbackManager::DrawCallback
-        {
-        public:
-            InitialDrawCallback(Viewer* viewer)
-                : mViewer(viewer)
-            {}
-
-            void run(osg::RenderInfo& info, Misc::CallbackManager::View view) const override { mViewer->initialDrawCallback(info, view); };
-
-        private:
-
-            Viewer* mViewer;
-        };
-
-        class FinaldrawCallback : public Misc::CallbackManager::DrawCallback
-        {
-        public:
-            FinaldrawCallback(Viewer* viewer)
-                : mViewer(viewer)
-            {}
-
-            void run(osg::RenderInfo& info, Misc::CallbackManager::View view) const override { mViewer->finalDrawCallback(info, view); };
-
-        private:
-
-            Viewer* mViewer;
-        };
-
         enum class MirrorTextureEye
         {
             Left,
@@ -124,7 +53,6 @@ namespace VR
         void swapBuffersCallback(osg::GraphicsContext* gc);
         void initialDrawCallback(osg::RenderInfo& info, Misc::CallbackManager::View view);
         void preDrawCallback(osg::RenderInfo& info, Misc::CallbackManager::View view);
-        void postDrawCallback(osg::RenderInfo& info, Misc::CallbackManager::View view);
         void finalDrawCallback(osg::RenderInfo& info, Misc::CallbackManager::View view);
         void blit(osg::RenderInfo& gc);
         void configureCallbacks();
@@ -148,9 +76,9 @@ namespace VR
 
         std::unique_ptr<VR::Session> mSession;
         osg::ref_ptr<osgViewer::Viewer> mViewer;
+        osg::ref_ptr<SwapBuffersCallback> mSwapBuffersCallback = nullptr;
         std::shared_ptr<InitialDrawCallback> mInitialDraw{ nullptr };
         std::shared_ptr<PredrawCallback> mPreDraw{ nullptr };
-        std::shared_ptr<PostdrawCallback> mPostDraw{ nullptr };
         std::shared_ptr<FinaldrawCallback> mFinalDraw{ nullptr };
         std::shared_ptr<UpdateViewCallback> mUpdateViewCallback{ nullptr };
         bool mCallbacksConfigured{ false };

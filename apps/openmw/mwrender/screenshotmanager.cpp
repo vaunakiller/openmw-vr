@@ -36,45 +36,36 @@ namespace MWRender
         RawCubemap
     };
 
-    class NotifyDrawCompletedCallback : public Misc::CallbackManager::DrawCallback
+    class NotifyDrawCompletedCallback : public Misc::CallbackManager::MwDrawCallback
     {
     public:
         NotifyDrawCompletedCallback()
-            : mDone(false), mFrame(0)
+            : mFrame(0)
         {
         }
 
-        void run(osg::RenderInfo& renderInfo, Misc::CallbackManager::View view) const override
+        bool operator()(osg::RenderInfo& renderInfo, Misc::CallbackManager::View view) const override
         {
             if (view == Misc::CallbackManager::View::Left)
-                return;
+                return false;
 
             std::lock_guard<std::mutex> lock(mMutex);
-            if (renderInfo.getState()->getFrameStamp()->getFrameNumber() >= mFrame && !mDone)
+            if (renderInfo.getState()->getFrameStamp()->getFrameNumber() >= mFrame)
             {
-                mDone = true;
                 mCondition.notify_one();
+                return true;
             }
-        }
-
-        void waitTillDone()
-        {
-            std::unique_lock<std::mutex> lock(mMutex);
-            if (mDone)
-                return;
-            mCondition.wait(lock);
+            return false;
         }
 
         void reset(unsigned int frame)
         {
             std::lock_guard<std::mutex> lock(mMutex);
-            mDone = false;
             mFrame = frame;
         }
 
         mutable std::condition_variable mCondition;
         mutable std::mutex mMutex;
-        mutable bool mDone;
         unsigned int mFrame;
     };
 
@@ -287,12 +278,6 @@ namespace MWRender
     {
         // Ref https://gitlab.com/OpenMW/openmw/-/issues/6013
         mDrawCompleteCallback->reset(frame);
-        //mViewer->getCamera()->setFinalDrawCallback(mDrawCompleteCallback);
-
-        //mViewer->eventTraversal();
-        //mViewer->updateTraversal();
-        //mViewer->renderingTraversals();
-        //mDrawCompleteCallback->waitTillDone();
 
         Misc::CallbackManager::instance().addCallbackOneshot(Misc::CallbackManager::DrawStage::Final, mDrawCompleteCallback);
         MWBase::Environment::get().getWindowManager()->viewerTraversals(false);

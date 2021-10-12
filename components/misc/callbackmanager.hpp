@@ -5,7 +5,7 @@
 #include <osgUtil/CullVisitor>
 
 #include <vector>
-#include <map>
+#include <array>
 #include <mutex>
 #include <condition_variable>
 #include <memory>
@@ -17,6 +17,8 @@ namespace osgViewer
 
 namespace Misc
 {
+    struct CallbackInfo;
+
     /// Manager of DrawCallbacks on an OSG camera.
     /// The motivation behind this class is that OSG's draw callbacks are inherently thread unsafe.
     /// Primarily, as the main thread has no way to synchronize with the draw thread when adding/removing draw callbacks, 
@@ -31,69 +33,66 @@ namespace Misc
     public:
         enum class DrawStage
         {
-            Initial, PreDraw, PostDraw, Final
+            Initial = 0, 
+            PreDraw = 1, 
+            PostDraw = 2, 
+            Final = 3,
+            StagesMax = 4
         };
         enum class View
         {
-            Left, Right, NotStereo
+            Left, Right, NotApplicable
         };
 
         //! A draw callback that adds stereo information to the operator by means of the StereoDrawCallback::View enumerator.
-        //! When not rendering stereo, this enum will always be "NotStereo".
+        //! When not rendering stereo, this enum will always be "NotApplicable".
         //! 
         //! When rendering stereo, this enum will correspond to the current draw traversal.
         //! If the stereo method requires two traversals, one callback will be issued for each (one Left, and one Right).
-        //! If the stereo method has only one traversal (geometry shaders, ovr multiview, instancing, etc.) then the enum will always be "Both".
+        //! If the stereo method has only one traversal (geometry shaders, ovr multiview, instancing, etc.) then the enum will always be "NotApplicable".
         //! 
-        //! Note that every callback that changes behaviour with stereo or number of traversals should use the StereoDrawCallback and vary behaviour by View,
+        //! Note that every callback that changes behaviour with stereo or number of traversals should use the MwDrawCallback and vary behaviour by View,
         //! even if it does not care about Stereo.
         //! For example, a common pattern is to use the FinalDrawCallback to sync on end of frame rendering. If activated on View::Left, this will be activated
         //! when only one of two views has completed rendering.
-        struct DrawCallback
+
+        struct MwDrawCallback
         {
         public:
-            virtual ~DrawCallback() {}
+            virtual ~MwDrawCallback() = default;
 
-            virtual void run(osg::RenderInfo& info, View view) const = 0;
-
-        private:
-        };
-
-        struct CallbackInfo
-        {
-            std::shared_ptr<DrawCallback> callback = nullptr;
-            unsigned int frame = 0;
-            bool oneshot = false;
+            //! The callback operator to be overriden.
+            //! \return A bool that is true if the callback was run, and false if it was ignored. Oneshot callbacks are only consumed when the returned value is true.
+            virtual bool operator()(osg::RenderInfo& info, View view) const = 0;
         };
 
         static CallbackManager& instance();
 
         CallbackManager(osg::ref_ptr<osgViewer::Viewer> viewer);
+        ~CallbackManager();
 
         /// Internal
         void callback(DrawStage stage, View view, osg::RenderInfo& info);
 
         /// Add a callback to a specific stage
-        void addCallback(DrawStage stage, std::shared_ptr<DrawCallback> cb);
+        void addCallback(DrawStage stage, std::shared_ptr<MwDrawCallback> cb);
 
         /// Remove a callback from a specific stage
-        void removeCallback(DrawStage stage, std::shared_ptr<DrawCallback> cb);
+        void removeCallback(DrawStage stage, std::shared_ptr<MwDrawCallback> cb);
 
         /// Add a callback that will only fire once before being automatically removed.
-        void addCallbackOneshot(DrawStage stage, std::shared_ptr<DrawCallback> cb);
+        void addCallbackOneshot(DrawStage stage, std::shared_ptr<MwDrawCallback> cb);
 
         /// Waits for a oneshot callback to complete. Returns immediately if already complete or no such callback exists
-        void waitCallbackOneshot(DrawStage stage, std::shared_ptr<DrawCallback> cb);
+        void waitCallbackOneshot(DrawStage stage, std::shared_ptr<MwDrawCallback> cb);
 
         /// Determine which view the cull visitor belongs to
         View getView(const osgUtil::CullVisitor* cv) const;
 
-
     private:
+        bool hasOneshot(DrawStage stage, std::shared_ptr<MwDrawCallback> cb);
 
-        bool hasOneshot(DrawStage stage, std::shared_ptr<DrawCallback> cb);
-
-        std::map<DrawStage, std::vector<CallbackInfo> > mUserCallbacks;
+        std::array<std::vector<CallbackInfo>, static_cast<int>(DrawStage::StagesMax) > mUserCallbacks;
         std::mutex mMutex;
         std::condition_variable mCondition;
 

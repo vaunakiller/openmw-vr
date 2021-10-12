@@ -8,6 +8,13 @@
 
 namespace Misc
 {
+    struct CallbackInfo
+    {
+        std::shared_ptr<CallbackManager::MwDrawCallback> callback = nullptr;
+        unsigned int frame = 0;
+        bool oneshot = false;
+    };
+
     //! Customized RenderStage that handles callbacks thread-safely
     //! and without any risk that unrelated code will delete your callbacks.
     class CustomRenderStage : public osgUtil::RenderStage
@@ -34,7 +41,7 @@ namespace Misc
 
     private:
         CallbackManager* mCallbackManager = nullptr;
-        CallbackManager::View mView = CallbackManager::View::NotStereo;
+        CallbackManager::View mView = CallbackManager::View::NotApplicable;
     };
 
     static CallbackManager* sInstance = nullptr;
@@ -119,23 +126,27 @@ namespace Misc
         }
     }
 
+    CallbackManager::~CallbackManager()
+    {
+    }
+
     void CallbackManager::callback(DrawStage stage, View view, osg::RenderInfo& info)
     {
         std::unique_lock<std::mutex> lock(mMutex);
         auto frameNo = info.getState()->getFrameStamp()->getFrameNumber();
-        auto& callbacks = mUserCallbacks[stage];
+        auto& callbacks = mUserCallbacks[static_cast<int>(stage)];
 
-        for (int i = 0; static_cast<unsigned int>(i) < callbacks.size(); i++)
+        for (auto it = callbacks.begin(); it != callbacks.end(); it++)
         {
-            auto& callbackInfo = callbacks[i];
-            if (frameNo >= callbackInfo.frame)
+            if (frameNo >= it->frame)
             {
-                if (callbackInfo.callback)
-                    callbackInfo.callback->run(info, view);
-                if (callbackInfo.oneshot)
+                bool callbackWasRun = it->callback->operator()(info, view);
+
+                if (callbackWasRun && it->oneshot)
                 {
-                    callbacks.erase(callbacks.begin() + 1);
-                    i--;
+                    it = callbacks.erase(it);
+                    if (it == callbacks.end())
+                        break;
                 }
             }
         }
@@ -143,36 +154,36 @@ namespace Misc
         mCondition.notify_all();
     }
 
-    void CallbackManager::addCallback(DrawStage stage, std::shared_ptr<DrawCallback> cb)
+    void CallbackManager::addCallback(DrawStage stage, std::shared_ptr<MwDrawCallback> cb)
     {
         std::unique_lock<std::mutex> lock(mMutex);
         CallbackInfo callbackInfo;
         callbackInfo.callback = cb;
         callbackInfo.frame = mViewer->getFrameStamp()->getFrameNumber();
         callbackInfo.oneshot = false;
-        mUserCallbacks[stage].push_back(callbackInfo);
+        mUserCallbacks[static_cast<int>(stage)].push_back(callbackInfo);
     }
 
-    void CallbackManager::removeCallback(DrawStage stage, std::shared_ptr<DrawCallback> cb)
+    void CallbackManager::removeCallback(DrawStage stage, std::shared_ptr<MwDrawCallback> cb)
     {
         std::unique_lock<std::mutex> lock(mMutex);
-        auto& cbs = mUserCallbacks[stage];
+        auto& cbs = mUserCallbacks[static_cast<int>(stage)];
         for (uint32_t i = 0; i < cbs.size(); i++)
             if (cbs[i].callback == cb)
                 cbs.erase(cbs.begin() + i);
     }
 
-    void CallbackManager::addCallbackOneshot(DrawStage stage, std::shared_ptr<DrawCallback> cb)
+    void CallbackManager::addCallbackOneshot(DrawStage stage, std::shared_ptr<MwDrawCallback> cb)
     {
         std::unique_lock<std::mutex> lock(mMutex);
         CallbackInfo callbackInfo;
         callbackInfo.callback = cb;
         callbackInfo.frame = mViewer->getFrameStamp()->getFrameNumber();
         callbackInfo.oneshot = true;
-        mUserCallbacks[stage].push_back(callbackInfo);
+        mUserCallbacks[static_cast<int>(stage)].push_back(callbackInfo);
     }
 
-    void CallbackManager::waitCallbackOneshot(DrawStage stage, std::shared_ptr<DrawCallback> cb)
+    void CallbackManager::waitCallbackOneshot(DrawStage stage, std::shared_ptr<MwDrawCallback> cb)
     {
         std::unique_lock<std::mutex> lock(mMutex);
         while (hasOneshot(stage, cb))
@@ -182,17 +193,17 @@ namespace Misc
     CallbackManager::View CallbackManager::getView(const osgUtil::CullVisitor* cv) const
     {
         if (cv->getIdentifier() == mIdentifierMain)
-            return View::NotStereo;
+            return View::NotApplicable;
         if (cv->getIdentifier() == mIdentifierLeft)
             return View::Left;
         if (cv->getIdentifier() == mIdentifierRight)
             return View::Right;
-        return View::NotStereo;
+        return View::NotApplicable;
     }
 
-    bool CallbackManager::hasOneshot(DrawStage stage, std::shared_ptr<DrawCallback> cb)
+    bool CallbackManager::hasOneshot(DrawStage stage, std::shared_ptr<MwDrawCallback> cb)
     {
-        for (auto& callbackInfo : mUserCallbacks[stage])
+        for (auto& callbackInfo : mUserCallbacks[static_cast<int>(stage)])
             if (callbackInfo.callback == cb)
                 return true;
         return false;

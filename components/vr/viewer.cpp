@@ -43,14 +43,94 @@ namespace VR
         return recommended;
     }
 
+    struct UpdateViewCallback : public Misc::StereoView::UpdateViewCallback
+    {
+        UpdateViewCallback(Viewer* viewer) : mViewer(viewer) {};
+
+        //! Called during the update traversal of every frame to source updated stereo values.
+        virtual void updateView(Misc::View& left, Misc::View& right) override
+        {
+            mViewer->updateView(left, right);
+        }
+
+        Viewer* mViewer;
+    };
+
+    struct SwapBuffersCallback : public osg::GraphicsContext::SwapCallback
+    {
+    public:
+        SwapBuffersCallback(Viewer* viewer) : mViewer(viewer) {};
+        void swapBuffersImplementation(osg::GraphicsContext* gc) override
+        {
+            mViewer->swapBuffersCallback(gc);
+        }
+
+    private:
+        Viewer* mViewer;
+    };
+
+    struct PredrawCallback : public Misc::CallbackManager::MwDrawCallback
+    {
+    public:
+        PredrawCallback(Viewer* viewer)
+            : mViewer(viewer)
+        {}
+
+        bool operator()(osg::RenderInfo& info, Misc::CallbackManager::View view) const override 
+        { 
+            mViewer->preDrawCallback(info, view); 
+            return true;
+        };
+
+    private:
+
+        Viewer* mViewer;
+    };
+
+    struct InitialDrawCallback : public Misc::CallbackManager::MwDrawCallback
+    {
+    public:
+        InitialDrawCallback(Viewer* viewer)
+            : mViewer(viewer)
+        {}
+
+        bool operator()(osg::RenderInfo& info, Misc::CallbackManager::View view) const override
+        { 
+            mViewer->initialDrawCallback(info, view);
+            return true;
+        };
+
+    private:
+
+        Viewer* mViewer;
+    };
+
+    struct FinaldrawCallback : public Misc::CallbackManager::MwDrawCallback
+    {
+    public:
+        FinaldrawCallback(Viewer* viewer)
+            : mViewer(viewer)
+        {}
+
+        bool operator()(osg::RenderInfo& info, Misc::CallbackManager::View view) const override 
+        {
+            mViewer->finalDrawCallback(info, view); 
+            return true;
+        };
+
+    private:
+
+        Viewer* mViewer;
+    };
+
     Viewer::Viewer(
         std::unique_ptr<VR::Session> session,
         osg::ref_ptr<osgViewer::Viewer> viewer)
         : mSession(std::move(session))
         , mViewer(viewer)
+        , mSwapBuffersCallback(new SwapBuffersCallback(this))
         , mInitialDraw(new InitialDrawCallback(this))
         , mPreDraw(new PredrawCallback(this))
-        , mPostDraw(new PostdrawCallback(this))
         , mFinalDraw(new FinaldrawCallback(this))
         , mUpdateViewCallback(new UpdateViewCallback(this))
         , mCallbacksConfigured(false)
@@ -117,7 +197,7 @@ namespace VR
         //SceneUtil::attachAlphaToCoverageFriendlyFramebufferToCamera(mViewer->getCamera(), osg::Camera::COLOR_BUFFER, colorBuffer);
 
         mViewer->setReleaseContextAtEndOfFrameHint(false);
-        mViewer->getCamera()->getGraphicsContext()->setSwapCallback(new Viewer::SwapBuffersCallback(this));
+        mViewer->getCamera()->getGraphicsContext()->setSwapCallback(mSwapBuffersCallback);
 
         setupMirrorTexture();
     }
@@ -146,7 +226,6 @@ namespace VR
         Misc::StereoView::instance().setUpdateViewCallback(mUpdateViewCallback);
         Misc::CallbackManager::instance().addCallback(Misc::CallbackManager::DrawStage::Initial, mInitialDraw);
         Misc::CallbackManager::instance().addCallback(Misc::CallbackManager::DrawStage::PreDraw, mPreDraw);
-        Misc::CallbackManager::instance().addCallback(Misc::CallbackManager::DrawStage::PostDraw, mPostDraw);
         Misc::CallbackManager::instance().addCallback(Misc::CallbackManager::DrawStage::Final, mFinalDraw);
 
         mCallbacksConfigured = true;
@@ -440,13 +519,6 @@ namespace VR
         gl->glBindFramebuffer(GL_FRAMEBUFFER_EXT, 0);
     }
 
-    void
-        Viewer::SwapBuffersCallback::swapBuffersImplementation(
-            osg::GraphicsContext* gc)
-    {
-        mViewer->swapBuffersCallback(gc);
-    }
-
     void Viewer::initialDrawCallback(osg::RenderInfo& info, Misc::CallbackManager::View view)
     {
         // Should only activate on the first callback
@@ -478,11 +550,6 @@ namespace VR
         if (view == Misc::CallbackManager::View::Right)
             return;
         mDrawFramebuffer->apply(*info.getState());
-    }
-
-    void Viewer::postDrawCallback(osg::RenderInfo& info, Misc::CallbackManager::View view)
-    {
-        // Nothing to do
     }
 
     void Viewer::finalDrawCallback(osg::RenderInfo& info, Misc::CallbackManager::View view)
@@ -536,10 +603,5 @@ namespace VR
 
         std::unique_lock<std::mutex> lock(mMutex);
         mReadyFrames.push(frame);
-    }
-
-    void Viewer::UpdateViewCallback::updateView(Misc::View& left, Misc::View& right)
-    {
-        mViewer->updateView(left, right);
     }
 }

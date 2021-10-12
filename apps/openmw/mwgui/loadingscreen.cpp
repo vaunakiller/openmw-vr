@@ -114,34 +114,27 @@ namespace MWGui
             return mTargetFrameRate;
     }
 
-    class CopyFramebufferToTextureCallback : public Misc::CallbackManager::DrawCallback
+    class CopyFramebufferToTextureCallback : public Misc::CallbackManager::MwDrawCallback
     {
     public:
         CopyFramebufferToTextureCallback(osg::Texture2D* texture)
-            : mOneshot(true)
-            , mTexture(texture)
+            : mTexture(texture)
         {
         }
 
-        void run(osg::RenderInfo& renderInfo, Misc::CallbackManager::View view) const override
+        bool operator()(osg::RenderInfo& renderInfo, Misc::CallbackManager::View view) const override
         {
             if (view == Misc::CallbackManager::View::Right)
-                return;
+                return false;
 
             int w = renderInfo.getCurrentCamera()->getViewport()->width();
             int h = renderInfo.getCurrentCamera()->getViewport()->height();
             mTexture->copyTexImage2D(*renderInfo.getState(), 0, 0, w, h);
 
-            mOneshot = false;
-        }
-
-        void reset()
-        {
-            mOneshot = true;
+            return true;
         }
 
     private:
-        mutable bool mOneshot;
         osg::ref_ptr<osg::Texture2D> mTexture;
     };
 
@@ -317,7 +310,6 @@ namespace MWGui
         }
 
         Misc::CallbackManager::instance().addCallbackOneshot(Misc::CallbackManager::DrawStage::Initial, mCopyFramebufferToTextureCallback);
-        mCopyFramebufferToTextureCallback->reset();
 
         mBackgroundImage->setBackgroundImage("");
         mBackgroundImage->setVisible(false);
