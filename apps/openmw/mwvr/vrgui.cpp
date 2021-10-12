@@ -328,6 +328,13 @@ namespace MWVR
             // So i just stretch the rectangle to the bottom.
             mRealRect.bottom = 1.f;
         }
+
+        if (mLayerName == "InputBlocker")
+        {
+            // Rotate
+            std::swap(mRealRect.bottom, mRealRect.top);
+            std::swap(mRealRect.left, mRealRect.right);
+        }
     }
 
     void VRGUILayer::update()
