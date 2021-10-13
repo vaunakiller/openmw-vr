@@ -73,11 +73,15 @@ namespace MWVR
 
         void setThumbstickDeadzone(float deadzoneRadius);
 
+        void turnLeftRight(const XR::InputAction* action, float dt);
+
     private:
         std::unique_ptr<OpenXRInput> mXRInput;
         std::unique_ptr<RealisticCombat::StateMachine> mRealisticCombat;
-        bool mActivationIndication{ false };
-        bool mHapticsEnabled{ true };
+        bool mActivationIndication = false;
+        bool mHapticsEnabled = true;
+        bool mSmoothTurning = true;
+        float mSnapAngle = 30.f;
 
     };
 }

@@ -196,6 +196,16 @@ namespace MWVR
 
         for (Settings::CategorySettingVector::const_iterator it = changed.begin(); it != changed.end(); ++it)
         {
+            if (it->first == "VR" && it->second == "snap angle")
+            {
+                mSnapAngle = Settings::Manager::getFloat("snap angle", "VR");
+                Log(Debug::Verbose) << "Snap angle set to: " << mSnapAngle;
+            }
+            if (it->first == "VR" && it->second == "smooth turning")
+            {
+                mSmoothTurning = Settings::Manager::getBool("smooth turning", "VR");
+                Log(Debug::Verbose) << "Smooth turning set to: " << mSmoothTurning;
+            }
             if (it->first == "VR" && it->second == "haptics enabled")
             {
                 mHapticsEnabled = Settings::Manager::getBool("haptics enabled", "VR");
@@ -210,6 +220,29 @@ namespace MWVR
     void VRInputManager::setThumbstickDeadzone(float deadzoneRadius)
     {
         mXRInput->setThumbstickDeadzone(deadzoneRadius);
+    }
+
+    void VRInputManager::turnLeftRight(const XR::InputAction* action, float dt)
+    {
+        auto path = VR::stringToVRPath("/world/user");
+        auto* stageToWorldBinding = static_cast<VR::StageToWorldBinding*>(VR::TrackingManager::instance().getTrackingSource(path));
+        if (mSmoothTurning)
+        {
+            float yaw = osg::DegreesToRadians(action->value()) * 200.f * dt;
+            // TODO: Hack, should have a cleaner way of accessing this
+            stageToWorldBinding->setWorldOrientation(yaw, true);
+        }
+        else
+        {
+            if (action->value() > 0.6f && action->previousValue() < 0.6f)
+            {
+                stageToWorldBinding->setWorldOrientation(osg::DegreesToRadians(mSnapAngle), true);
+            }
+            if (action->value() < -0.6f && action->previousValue() > -0.6f)
+            {
+                stageToWorldBinding->setWorldOrientation(-osg::DegreesToRadians(mSnapAngle), true);
+            }
+        }
     }
 
     void VRInputManager::requestRecenter(bool resetZ)
@@ -241,6 +274,8 @@ namespace MWVR
             grab)
         , mXRInput(new OpenXRInput(xrControllerSuggestionsFile))
         , mHapticsEnabled{ Settings::Manager::getBool("haptics enabled", "VR") }
+        , mSmoothTurning{ Settings::Manager::getBool("smooth turning", "VR") }
+        , mSnapAngle{ Settings::Manager::getFloat("snap angle", "VR") }
     {
         setThumbstickDeadzone(Settings::Manager::getFloat("joystick dead zone", "Input"));
     }
@@ -473,11 +508,7 @@ namespace MWVR
                 break;
             case MWInput::A_LookLeftRight:
             {
-                float yaw = osg::DegreesToRadians(action->value()) * 200.f * dt;
-                // TODO: Hack, should have a cleaner way of accessing this
-                auto path = VR::stringToVRPath("/world/user");
-                auto* stageToWorldBinding = static_cast<VR::StageToWorldBinding*>(VR::TrackingManager::instance().getTrackingSource(path));
-                stageToWorldBinding->setWorldOrientation(yaw, true);
+                turnLeftRight(action, dt);
                 break;
             }
             case MWInput::A_MoveLeftRight:
