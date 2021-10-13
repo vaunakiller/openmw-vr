@@ -252,6 +252,7 @@ namespace MWGui
         {
             getWidget(mVRMirrorTextureEye, "VRMirrorTextureEye");
             getWidget(mVRLeftHudPosition, "VRLeftHudPosition");
+            getWidget(mVRSnapAngle, "VRSnapAngle");
         }
 
 #ifndef WIN32
@@ -289,6 +290,7 @@ namespace MWGui
         {
             mVRMirrorTextureEye->eventComboChangePosition += MyGUI::newDelegate(this, &SettingsWindow::onVRMirrorTextureEyeChanged);
             mVRLeftHudPosition->eventComboChangePosition += MyGUI::newDelegate(this, &SettingsWindow::onVRLeftHudPositionChanged);
+            mVRSnapAngle->eventComboChangePosition += MyGUI::newDelegate(this, &SettingsWindow::onVRSnapAngleChanged);
         }
 
         center();
@@ -332,6 +334,13 @@ namespace MWGui
             for (unsigned i = 0; i < mVRLeftHudPosition->getItemCount(); i++)
                 if (Misc::StringUtils::ciEqual(leftHandHudPosition, mVRLeftHudPosition->getItem(i)))
                     mVRLeftHudPosition->setIndexSelected(i);
+
+            std::string snapAngle = Settings::Manager::getString("snap angle", "VR");
+            for (unsigned i = 0; i < mVRSnapAngle->getItemCount(); i++)
+            {
+                if (Misc::StringUtils::ciEqual(snapAngle, mVRSnapAngle->getItemNameAt(i)))
+                    mVRSnapAngle->setIndexSelected(i);
+            }
         }
 
         int waterTextureSize = Settings::Manager::getInt("rtt size", "Water");
@@ -425,6 +434,15 @@ namespace MWGui
     {
         auto setting = Misc::StringUtils::lowerCase(_sender->getItem(pos));
         Settings::Manager::setString("left hand hud position", "VR", setting);
+        apply();
+    }
+
+
+    void SettingsWindow::onVRSnapAngleChanged(MyGUI::ComboBox* _sender, size_t pos)
+    {
+        std::string settingString = _sender->getItemNameAt(pos);
+        settingString = Misc::StringUtils::lowerCase(settingString);
+        Settings::Manager::setString("snap angle", "VR", settingString);
         apply();
     }
 

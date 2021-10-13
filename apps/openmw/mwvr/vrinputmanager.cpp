@@ -203,6 +203,16 @@ namespace MWVR
 
         for (Settings::CategorySettingVector::const_iterator it = changed.begin(); it != changed.end(); ++it)
         {
+            if (it->first == "VR" && it->second == "snap angle")
+            {
+                mSnapAngle = Settings::Manager::getFloat("snap angle", "VR");
+                Log(Debug::Verbose) << "Snap angle set to: " << mSnapAngle;
+            }
+            if (it->first == "VR" && it->second == "smooth turning")
+            {
+                mSmoothTurning = Settings::Manager::getBool("smooth turning", "VR");
+                Log(Debug::Verbose) << "Smooth turning set to: " << mSmoothTurning;
+            }
             if (it->first == "VR" && it->second == "haptics enabled")
             {
                 mHapticsEnabled = Settings::Manager::getBool("haptics enabled", "VR");
@@ -303,6 +313,27 @@ namespace MWVR
         mAxisDeadzone->setDeadzoneRadius(deadzoneRadius);
     }
 
+    void VRInputManager::turnLeftRight(const Action* action, float dt)
+    {
+        auto* camera = reinterpret_cast<VRCamera*>(MWBase::Environment::get().getWorld()->getRenderingManager().getCamera());
+        if (mSmoothTurning)
+        {
+            float yaw = osg::DegreesToRadians(action->value()) * 200.f * dt;
+            camera->rotateStage(yaw);
+        }
+        else
+        {
+            if (action->value() > 0.6f && action->previousValue() < 0.6f)
+            {
+                camera->rotateStage(osg::DegreesToRadians(mSnapAngle));
+            }
+            if (action->value() < -0.6f && action->previousValue() > -0.6f)
+            {
+                camera->rotateStage(-osg::DegreesToRadians(mSnapAngle));
+            }
+        }
+    }
+
     void VRInputManager::requestRecenter(bool resetZ)
     {
         // TODO: Hack, should have a cleaner way of accessing this
@@ -333,6 +364,8 @@ namespace MWVR
         , mXRInput(new OpenXRInput(mAxisDeadzone))
         , mXrControllerSuggestionsFile(xrControllerSuggestionsFile)
         , mHapticsEnabled{ Settings::Manager::getBool("haptics enabled", "VR") }
+        , mSmoothTurning{ Settings::Manager::getBool("smooth turning", "VR") }
+        , mSnapAngle{ Settings::Manager::getFloat("snap angle", "VR") }
     {
         if (xrControllerSuggestionsFile.empty())
             throw std::runtime_error("No interaction profiles available (xrcontrollersuggestions.xml not found)");
@@ -613,9 +646,7 @@ namespace MWVR
                 break;
             case MWInput::A_LookLeftRight:
             {
-                float yaw = osg::DegreesToRadians(action->value()) * 200.f * dt;
-                // TODO: Hack, should have a cleaner way of accessing this
-                reinterpret_cast<VRCamera*>(MWBase::Environment::get().getWorld()->getRenderingManager().getCamera())->rotateStage(yaw);
+                turnLeftRight(action, dt);
                 break;
             }
             case MWInput::A_MoveLeftRight:

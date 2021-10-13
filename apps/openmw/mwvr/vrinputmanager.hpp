@@ -80,13 +80,16 @@ namespace MWVR
 
         void setThumbstickDeadzone(float deadzoneRadius);
 
+        void turnLeftRight(const Action* action, float dt);
+
     private:
         std::shared_ptr<AxisAction::Deadzone> mAxisDeadzone{ new AxisAction::Deadzone };
         std::unique_ptr<OpenXRInput> mXRInput;
         std::unique_ptr<RealisticCombat::StateMachine> mRealisticCombat;
-        std::string mXrControllerSuggestionsFile;
-        bool mActivationIndication{ false };
-        bool mHapticsEnabled{ true };
+        std::string mXrControllerSuggestionsFile;        bool mActivationIndication = false;
+        bool mHapticsEnabled = true;
+        bool mSmoothTurning = true;
+        float mSnapAngle = 30.f;
 
         std::map<std::string, std::string> mInteractionProfileLocalNames;
     };
