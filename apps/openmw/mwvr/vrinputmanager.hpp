@@ -74,6 +74,7 @@ namespace MWVR
         void setThumbstickDeadzone(float deadzoneRadius);
 
         void turnLeftRight(const XR::InputAction* action, float dt);
+        float smoothTurnRate(float dt) const;
 
     private:
         std::unique_ptr<OpenXRInput> mXRInput;
@@ -82,6 +83,7 @@ namespace MWVR
         bool mHapticsEnabled = true;
         bool mSmoothTurning = true;
         float mSnapAngle = 30.f;
+        float mSmoothTurnRate = 1.0f;
 
     };
 }
