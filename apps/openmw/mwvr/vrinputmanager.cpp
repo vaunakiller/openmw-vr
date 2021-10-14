@@ -208,6 +208,11 @@ namespace MWVR
                 mSnapAngle = Settings::Manager::getFloat("snap angle", "VR");
                 Log(Debug::Verbose) << "Snap angle set to: " << mSnapAngle;
             }
+            if (it->first == "VR" && it->second == "smooth turn rate")
+            {
+                mSmoothTurnRate = Settings::Manager::getFloat("smooth turn rate", "VR");
+                Log(Debug::Verbose) << "Smooth turning rate set to: " << mSmoothTurnRate;
+            }
             if (it->first == "VR" && it->second == "smooth turning")
             {
                 mSmoothTurning = Settings::Manager::getBool("smooth turning", "VR");
@@ -318,7 +323,7 @@ namespace MWVR
         auto* camera = reinterpret_cast<VRCamera*>(MWBase::Environment::get().getWorld()->getRenderingManager().getCamera());
         if (mSmoothTurning)
         {
-            float yaw = osg::DegreesToRadians(action->value()) * 200.f * dt;
+            float yaw = osg::DegreesToRadians(action->value()) * smoothTurnRate(dt);
             camera->rotateStage(yaw);
         }
         else
@@ -332,6 +337,11 @@ namespace MWVR
                 camera->rotateStage(-osg::DegreesToRadians(mSnapAngle));
             }
         }
+    }
+
+    float VRInputManager::smoothTurnRate(float dt) const
+    {
+        return 360.f * mSmoothTurnRate * dt;
     }
 
     void VRInputManager::requestRecenter(bool resetZ)
@@ -366,6 +376,7 @@ namespace MWVR
         , mHapticsEnabled{ Settings::Manager::getBool("haptics enabled", "VR") }
         , mSmoothTurning{ Settings::Manager::getBool("smooth turning", "VR") }
         , mSnapAngle{ Settings::Manager::getFloat("snap angle", "VR") }
+        , mSmoothTurnRate{ Settings::Manager::getFloat("smooth turn rate", "VR") }
     {
         if (xrControllerSuggestionsFile.empty())
             throw std::runtime_error("No interaction profiles available (xrcontrollersuggestions.xml not found)");

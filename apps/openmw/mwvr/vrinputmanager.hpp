@@ -81,6 +81,7 @@ namespace MWVR
         void setThumbstickDeadzone(float deadzoneRadius);
 
         void turnLeftRight(const Action* action, float dt);
+        float smoothTurnRate(float dt) const;
 
     private:
         std::shared_ptr<AxisAction::Deadzone> mAxisDeadzone{ new AxisAction::Deadzone };
@@ -90,6 +91,7 @@ namespace MWVR
         bool mHapticsEnabled = true;
         bool mSmoothTurning = true;
         float mSnapAngle = 30.f;
+        float mSmoothTurnRate = 1.0f;
 
         std::map<std::string, std::string> mInteractionProfileLocalNames;
     };
