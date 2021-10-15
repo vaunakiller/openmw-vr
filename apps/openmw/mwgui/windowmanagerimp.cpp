@@ -599,22 +599,26 @@ namespace MWGui
     void WindowManager::enableScene(bool enable)
     {
 
-        unsigned int disablemask = MWRender::Mask_GUI|MWRender::Mask_PreCompile;
+        unsigned int disableCullMask = MWRender::Mask_GUI | MWRender::Mask_PreCompile;
+        unsigned int disableUpdateMask = disableCullMask;
 
         // VR mode needs to render the 3D gui
         if (MWBase::Environment::get().getVrMode())
-            disablemask = MWRender::Mask_Pointer | MWRender::Mask_3DGUI | MWRender::Mask_PreCompile | MWRender::Mask_RenderToTexture;
+        {
+            disableCullMask = MWRender::Mask_Pointer | MWRender::Mask_3DGUI | MWRender::Mask_PreCompile | MWRender::Mask_RenderToTexture;
+            disableUpdateMask = disableCullMask | MWRender::Mask_GUI;
+        }
 
-        if (!enable && mViewer->getCamera()->getCullMask() != disablemask)
+        if (!enable && mViewer->getCamera()->getCullMask() != disableCullMask)
         {
             mOldUpdateMask = mViewer->getUpdateVisitor()->getTraversalMask();
             mOldCullMask = mViewer->getCamera()->getCullMask();
-            mViewer->getUpdateVisitor()->setTraversalMask(disablemask);
-            mViewer->getCamera()->setCullMask(disablemask);
-            mViewer->getCamera()->setCullMaskLeft(disablemask);
-            mViewer->getCamera()->setCullMaskRight(disablemask);
+            mViewer->getUpdateVisitor()->setTraversalMask(disableUpdateMask);
+            mViewer->getCamera()->setCullMask(disableCullMask);
+            mViewer->getCamera()->setCullMaskLeft(disableCullMask);
+            mViewer->getCamera()->setCullMaskRight(disableCullMask);
         }
-        else if (enable && mViewer->getCamera()->getCullMask() == disablemask)
+        else if (enable && mViewer->getCamera()->getCullMask() == disableCullMask)
         {
             mViewer->getUpdateVisitor()->setTraversalMask(mOldUpdateMask);
             mViewer->getCamera()->setCullMask(mOldCullMask);
