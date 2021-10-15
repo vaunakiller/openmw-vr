@@ -81,8 +81,14 @@ namespace MWVR
     void VRTrackingManager::removeListener(VRTrackingListener* listener)
     {
         for (auto it = mListeners.begin(); it != mListeners.end(); it++)
+        {
             if (*it == listener)
+            {
                 it = mListeners.erase(it);
+                if (it == mListeners.end())
+                    break;
+            }
+        }
     }
 
     VRPath VRTrackingManager::stringToVRPath(const std::string& path)
