@@ -600,9 +600,6 @@ MWShadowTechnique::ShadowData::ShadowData(MWShadowTechnique::ViewDependentData* 
     // set viewport
     _camera->setViewport(0,0,textureSize.x(),textureSize.y());
 
-    // Shadow casting should not obey indexed viewports
-    Misc::disableStereoForCamera(_camera);
-
 
     if (debug)
     {

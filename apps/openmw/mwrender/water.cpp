@@ -291,9 +291,6 @@ public:
 
         if (Settings::Manager::getFloat("refraction scale", "Water") != 1) // TODO: to be removed with issue #5709
             SceneUtil::ShadowManager::disableShadowsForStateSet(camera->getOrCreateStateSet());
-
-        if (MWBase::Environment::get().getResourceSystem()->getSceneManager()->getShaderManager().stereoGeometryShaderEnabled())
-            Misc::enableStereoForCamera(camera, true);
     }
 
     void apply(osg::Camera* camera) override
@@ -366,9 +363,6 @@ public:
         camera->setNodeMask(Mask_RenderToTexture);
 
         SceneUtil::ShadowManager::disableShadowsForStateSet(camera->getOrCreateStateSet());
-
-        if (MWBase::Environment::get().getResourceSystem()->getSceneManager()->getShaderManager().stereoGeometryShaderEnabled())
-            Misc::enableStereoForCamera(camera, true);
     }
 
     void apply(osg::Camera* camera) override
@@ -688,11 +682,6 @@ void Water::createShaderWaterStateSet(osg::Node* node, Reflection* reflection, R
     // use a define map to conditionally compile the shader
     std::map<std::string, std::string> defineMap;
     defineMap.insert(std::make_pair(std::string("refraction_enabled"), std::string(mRefraction ? "1" : "0")));
-
-    if (mResourceSystem->getSceneManager()->getShaderManager().stereoGeometryShaderEnabled())
-    {
-        defineMap["geometryShader"] = "1";
-    }
 
     Shader::ShaderManager& shaderMgr = mResourceSystem->getSceneManager()->getShaderManager();
     osg::ref_ptr<osg::Shader> vertexShader(shaderMgr.getShader("water_vertex.glsl", defineMap, osg::Shader::VERTEX));

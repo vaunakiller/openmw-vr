@@ -1417,12 +1417,12 @@ True: In non-combat mode camera is positioned behind the character's shoulder. C
 		   </widget>
 		  </item>
 		  <item row="5" column="0">
-		   <widget class="QCheckBox" name="useGeometryShaders">
+		   <widget class="QCheckBox" name="useOVRMultiView2">
 			<property name="toolTip">
-			 <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Makes OpenMW VR render stereo using geometry shaders instead of two render passes. Players with a CPU bound will benefit from this, but players with a gpu bound will not. E.g. with a high cell view distance (distant lands) this will degrade your performance instead. NOTE: This feature is experimental, broken on AMD GPUs, and untested on Intel.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
+			 <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Makes OpenMW VR render stereo using the OVR_MultiView2 extension to OpenGL instead of two render passes. You may need to disable this on older GPUs. &lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
 			</property>
 			<property name="text">
-			 <string>!!Experimental!!: Use geometry shaders.</string>
+			 <string>!!Experimental!!: Use OVR_MultiView2.</string>
 			</property>
 		   </widget>
 		  </item>

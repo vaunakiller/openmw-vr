@@ -88,7 +88,7 @@ namespace Misc
         {
             None = 0, //!< Stereo disabled (do nothing).
             BruteForce, //!< Two slave cameras culling and drawing everything.
-            GeometryShader_IndexedViewports, //!< Frustum camera culls and draws stereo into indexed viewports using an automatically generated geometry shader.
+            OVR_MultiView2, //!< Frustum camera culls and draws stereo into indexed viewports using an automatically generated geometry shader.
         };
 
         static StereoView& instance();
@@ -117,13 +117,6 @@ namespace Misc
         //! Set the cull callback on the appropriate camera object
         void setCullCallback(osg::ref_ptr<osg::NodeCallback> cb);
 
-        //! Apply the cullmask to the appropriate camera objects
-        void setCullMask(osg::Node::NodeMask cullMask);
-
-        //! Get the last applied cullmask.
-        osg::Node::NodeMask getCullMask();
-
-
         osg::Matrixd computeLeftEyeProjection(const osg::Matrixd& projection) const;
         osg::Matrixd computeLeftEyeView(const osg::Matrixd& view) const;
 
@@ -132,9 +125,7 @@ namespace Misc
 
     private:
         void setupBruteForceTechnique();
-        void setupGeometryShaderIndexedViewportTechnique();
         void removeBruteForceTechnique();
-        void removeGeometryShaderIndexedViewportTechnique();
         void disableStereo();
         void enableStereo();
 
@@ -145,12 +136,6 @@ namespace Misc
         osg::ref_ptr<osg::Group>        mStereoRoot;
         osg::ref_ptr<osg::Callback>     mUpdateCallback;
         Technique                       mTechnique;
-
-        // Keeps state relevant to doing stereo via the geometry shader
-        osg::ref_ptr<osg::Group>    mStereoGeometryShaderRoot{ new osg::Group };
-        osg::Node::NodeMask         mNoShaderMask;
-        osg::Node::NodeMask         mSceneMask;
-        osg::Node::NodeMask         mCullMask;
 
         // Keeps state and cameras relevant to doing stereo via brute force
         osg::ref_ptr<osg::Group>    mStereoBruteForceRoot{ new osg::Group };
@@ -168,12 +153,6 @@ namespace Misc
         // OSG camera callbacks set using set*callback. StereoView manages that these are always set on the appropriate camera(s);
         osg::ref_ptr<osg::NodeCallback>         mCullCallback{ nullptr };
     };
-
-    //! Overrides all stereo-related states/uniforms to disable stereo for the scene rendered by camera
-    void disableStereoForCamera(osg::Camera* camera);
-
-    //! Overrides all stereo-related states/uniforms to enable stereo for the scene rendered by camera
-    void enableStereoForCamera(osg::Camera* camera, bool horizontalSplit);
 
     //! Reads settings to determine stereo technique
     StereoView::Technique getStereoTechnique(void);

@@ -3,6 +3,7 @@
 #include <array>
 
 #include <components/config/gamesettings.hpp>
+#include <components/misc/stringops.hpp>
 #include <QFileDialog>
 #include <QCompleter>
 #include <QString>
@@ -237,7 +238,7 @@ bool Launcher::AdvancedPage::loadSettings()
     // VR
     {
         std::string stereoMethod = Settings::Manager::getString("stereo method", "Stereo");
-        useGeometryShaders->setChecked(stereoMethod == "GeometryShader");
+        useOVRMultiView2->setChecked(Misc::StringUtils::lowerCase(stereoMethod) == Misc::StringUtils::lowerCase("OVR_MultiView2"));
 
         loadSettingBool(useSharedShadowMaps, "shared shadow maps", "Stereo");
         loadSettingBool(preferDirectXSwapchains, "Prefer DirectX swapchains", "VR");
@@ -425,8 +426,8 @@ void Launcher::AdvancedPage::saveSettings()
     // VR
     {
         std::string stereoMethod = "BruteForce";
-        if (useGeometryShaders->isChecked())
-            stereoMethod = "GeometryShader";
+        if (useOVRMultiView2->isChecked())
+            stereoMethod = "OVR_MultiView2";
         if (stereoMethod != Settings::Manager::getString("stereo method", "Stereo"))
             Settings::Manager::setString("stereo method", "Stereo", stereoMethod);
 

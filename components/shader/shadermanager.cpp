@@ -3,7 +3,6 @@
 #include <fstream>
 #include <algorithm>
 #include <sstream>
-#include <regex>
 
 #include <osg/Program>
 
@@ -20,7 +19,7 @@ namespace Shader
     {
     }
 
-    void ShaderManager::setShaderPath(const std::string &path)
+    void ShaderManager::setShaderPath(const std::string& path)
     {
         mPath = path;
     }
@@ -72,7 +71,7 @@ namespace Shader
     static bool parseIncludes(const boost::filesystem::path& shaderPath, std::string& source, const std::string& fileName, int& fileNumber, std::set<boost::filesystem::path> includingFiles)
     {
         // An include is cyclic if it is being included by itself
-        if (includingFiles.insert(shaderPath/fileName).second == false)
+        if (includingFiles.insert(shaderPath / fileName).second == false)
         {
             Log(Debug::Error) << "Shader " << fileName << " error: Detected cyclic #includes";
             return false;
@@ -141,109 +140,6 @@ namespace Shader
             source.replace(foundPos, (end - foundPos + 1), toInsert.str());
         }
         return true;
-    }
-
-    struct DeclarationMeta
-    {
-        std::string interpolationType;
-        std::string interfaceKeyword;
-        std::string type;
-        std::string identifier;
-        std::string mangledIdentifier;
-    };
-
-    // Mangle identifiers of the interface declarations of this shader source, updating all identifiers, and returning a list of the declarations for use in generating
-    // a geometry shader.
-    // IN/OUT source: The source to mangle
-    // IN interfaceKeywordPattern: A regular expression matching all interface keywords to look for (e.g. "out|varying" when mangling output variables). Must not contain subexpressions.
-    // IN mangleString: Identifiers are mangled by prepending this string. Must be a valid identifier prefix.
-    // OUT declarations: All mangled declarations are added to this vector. Includes interpolation, interface, and type information as well as both the mangled and unmangled identifier.
-    static void mangleInterface(std::string& source, const std::string& interfaceKeywordPattern, const std::string& mangleString, std::vector<DeclarationMeta>& declarations)
-    {
-        std::string commentPattern = "//.*";
-        std::regex commentRegex(commentPattern);
-        std::string commentlessSource = std::regex_replace(source, commentRegex, "");
-
-        std::string identifierPattern = "[a-zA-Z_][0-9a-zA-Z_]*";
-        std::string declarationPattern = "(centroid|flat)?\\s*\\b(" + interfaceKeywordPattern + ")\\s+(" + identifierPattern + ")\\s+(" + identifierPattern + ")\\s*;";
-        std::regex declarationRegex(declarationPattern);
-        
-        std::vector<std::smatch> matches(std::sregex_iterator(commentlessSource.begin(), commentlessSource.end(), declarationRegex), std::sregex_iterator());
-        std::string replacementPattern;
-        for (auto& match : matches)
-        {
-            declarations.emplace_back(DeclarationMeta{ match[1].str(), match[2].str(), match[3].str(), match[4].str(), mangleString + match[4].str() });
-            if (!replacementPattern.empty())
-                replacementPattern += "|";
-            replacementPattern = replacementPattern + "(" + declarations.back().identifier + "\\b)";
-        }
-
-        if (!replacementPattern.empty())
-        {
-            std::regex replacementRegex(replacementPattern);
-            source = std::regex_replace(source, replacementRegex, mangleString + "$&");
-        }
-    }
-
-    static std::string generateGeometryShader(const std::string& geometryTemplate, const std::vector<DeclarationMeta>& declarations)
-    {
-        if (geometryTemplate.empty())
-            return "";
-
-        static std::map<std::string, std::string> overriddenForwardStatements =
-        {
-            {"linearDepth", "linearDepth = gl_Position.z;"},
-            {"euclideanDepth", "euclideanDepth = length(viewPos.xyz);"},
-            {"passViewPos", "passViewPos = viewPos.xyz;"},
-            {
-                "screenCoordsPassthrough",
-                "                mat4 scalemat = mat4(0.25, 0.0, 0.0, 0.0,\n"
-                "                    0.0, -0.5, 0.0, 0.0,\n"
-                "                    0.0, 0.0, 0.5, 0.0,\n"
-                "                    0.25, 0.5, 0.5, 1.0);\n"
-                "                vec4 texcoordProj = ((scalemat) * (gl_Position));\n"
-                "                screenCoordsPassthrough = texcoordProj.xyw;\n"
-                "                if(viewport == 1)\n"
-                "                    screenCoordsPassthrough.x += 0.5 * screenCoordsPassthrough.z;\n"
-            }
-        };
-
-        std::stringstream ssInputDeclarations;
-        std::stringstream ssOutputDeclarations;
-        std::stringstream ssForwardStatements;
-        std::stringstream ssExtraStatements;
-        std::set<std::string> identifiers;
-        for (auto& declaration : declarations)
-        {
-            if (!declaration.interpolationType.empty())
-            {
-                ssInputDeclarations << declaration.interpolationType << " ";
-                ssOutputDeclarations << declaration.interpolationType << " ";
-            }
-            ssInputDeclarations << "in " << declaration.type << " " << declaration.mangledIdentifier << "[3];\n";
-            ssOutputDeclarations << "out " << declaration.type << " " << declaration.identifier << ";\n";
-
-            if (overriddenForwardStatements.count(declaration.identifier) > 0)
-                ssForwardStatements << overriddenForwardStatements[declaration.identifier] << ";\n";
-            else
-                ssForwardStatements << "            " << declaration.identifier << " = " << declaration.mangledIdentifier << "[vertex];\n";
-
-            identifiers.insert(declaration.identifier);
-        }
-
-        // passViewPos output is required
-        if (identifiers.find("passViewPos") == identifiers.end())
-        {
-            Log(Debug::Error) << "Vertex shader is missing 'vec3 passViewPos' on its interface. Geometry shader will NOT work.";
-            return "";
-        }
-
-        std::string geometryShader = geometryTemplate;
-        geometryShader = std::regex_replace(geometryShader, std::regex("@INPUTS"), ssInputDeclarations.str());
-        geometryShader = std::regex_replace(geometryShader, std::regex("@OUTPUTS"), ssOutputDeclarations.str());
-        geometryShader = std::regex_replace(geometryShader, std::regex("@FORWARDING"), ssForwardStatements.str());
-
-        return geometryShader;
     }
 
     bool parseFors(std::string& source, const std::string& templateName)
@@ -394,11 +290,35 @@ namespace Shader
     {
         std::lock_guard<std::mutex> lock(mMutex);
 
+        // read the template if we haven't already
+        TemplateMap::iterator templateIt = mShaderTemplates.find(templateName);
+        if (templateIt == mShaderTemplates.end())
+        {
+            boost::filesystem::path path = (boost::filesystem::path(mPath) / templateName);
+            boost::filesystem::ifstream stream;
+            stream.open(path);
+            if (stream.fail())
+            {
+                Log(Debug::Error) << "Failed to open " << path.string();
+                return nullptr;
+            }
+            std::stringstream buffer;
+            buffer << stream.rdbuf();
+
+            // parse includes
+            int fileNumber = 1;
+            std::string source = buffer.str();
+            if (!addLineDirectivesAfterConditionalBlocks(source)
+                || !parseIncludes(boost::filesystem::path(mPath), source, templateName, fileNumber, {}))
+                return nullptr;
+
+            templateIt = mShaderTemplates.insert(std::make_pair(templateName, source)).first;
+        }
+
         ShaderMap::iterator shaderIt = mShaders.find(std::make_pair(templateName, defines));
         if (shaderIt == mShaders.end())
         {
-            std::string shaderSource = getTemplateSource(templateName);
-
+            std::string shaderSource = templateIt->second;
             if (!parseDefines(shaderSource, defines, mGlobalDefines, templateName) || !parseFors(shaderSource, templateName))
             {
                 // Add to the cache anyway to avoid logging the same error over and over.
@@ -407,31 +327,11 @@ namespace Shader
             }
 
             osg::ref_ptr<osg::Shader> shader(new osg::Shader(shaderType));
+            shader->setShaderSource(shaderSource);
             // Assign a unique prefix to allow the SharedStateManager to compare shaders efficiently.
             // Append shader source filename for debugging.
             static unsigned int counter = 0;
             shader->setName(Misc::StringUtils::format("%u %s", counter++, templateName));
-
-            if (mGeometryShadersEnabled && defines.count("geometryShader") && defines.find("geometryShader")->second == "1" && shaderType == osg::Shader::VERTEX)
-            {
-                std::vector<DeclarationMeta> declarations;
-                mangleInterface(shaderSource, "out|varying", "vertex_", declarations);
-                std::string geometryTemplate = getTemplateSource("stereo_geometry.glsl");
-                std::string geometryShaderSource = generateGeometryShader(geometryTemplate, declarations);
-                if (!geometryShaderSource.empty())
-                {
-                    osg::ref_ptr<osg::Shader> geometryShader(new osg::Shader(osg::Shader::GEOMETRY));
-                    geometryShader->setShaderSource(geometryShaderSource);
-                    geometryShader->setName(shader->getName() + ".geom");
-                    mGeometryShaders[shader] = geometryShader;
-                }
-                else
-                {
-                    Log(Debug::Error) << "Failed to generate geometry shader for " << templateName;
-                }
-            }
-
-            shader->setShaderSource(shaderSource);
 
             shaderIt = mShaders.insert(std::make_pair(std::make_pair(templateName, defines), shader)).first;
         }
@@ -450,13 +350,6 @@ namespace Shader
             program->addShader(fragmentShader);
             program->addBindAttribLocation("aOffset", 6);
             program->addBindAttribLocation("aRotation", 7);
-
-            auto git = mGeometryShaders.find(vertexShader);
-            if (git != mGeometryShaders.end())
-            {
-                program->addShader(git->second);
-            }
-
             found = mPrograms.insert(std::make_pair(std::make_pair(vertexShader, fragmentShader), program)).first;
         }
         return found->second;
@@ -467,23 +360,14 @@ namespace Shader
         return DefineMap(mGlobalDefines);
     }
 
-    void ShaderManager::setStereoGeometryShaderEnabled(bool enabled)
-    {
-        mGeometryShadersEnabled = enabled;
-    }
-
-    bool ShaderManager::stereoGeometryShaderEnabled() const
-    {
-        return mGeometryShadersEnabled;
-    }
-
     void ShaderManager::setGlobalDefines(DefineMap& globalDefines)
     {
         mGlobalDefines = globalDefines;
-        for (const auto& [key, shader]: mShaders)
+        for (auto shaderMapElement : mShaders)
         {
-            std::string templateId = key.first;
-            ShaderManager::DefineMap defines = key.second;
+            std::string templateId = shaderMapElement.first.first;
+            ShaderManager::DefineMap defines = shaderMapElement.first.second;
+            osg::ref_ptr<osg::Shader> shader = shaderMapElement.second;
             if (shader == nullptr)
                 // I'm not sure how to handle a shader that was already broken as there's no way to get a potential replacement to the nodes that need it.
                 continue;
@@ -499,42 +383,13 @@ namespace Shader
     void ShaderManager::releaseGLObjects(osg::State* state)
     {
         std::lock_guard<std::mutex> lock(mMutex);
-        for (const auto& [_, shader] : mShaders)
+        for (auto shader : mShaders)
         {
-            if (shader != nullptr)
-                shader->releaseGLObjects(state);
+            if (shader.second != nullptr)
+                shader.second->releaseGLObjects(state);
         }
-        for (const auto& [_, program] : mPrograms)
-            program->releaseGLObjects(state);
-    }
-
-    std::string ShaderManager::getTemplateSource(const std::string& templateName)
-    {
-        // read the template if we haven't already
-        TemplateMap::iterator templateIt = mShaderTemplates.find(templateName);
-        if (templateIt == mShaderTemplates.end())
-        {
-            boost::filesystem::path path = (boost::filesystem::path(mPath) / templateName);
-            boost::filesystem::ifstream stream;
-            stream.open(path);
-            if (stream.fail())
-            {
-                Log(Debug::Error) << "Failed to open " << path.string();
-                return std::string();
-            }
-            std::stringstream buffer;
-            buffer << stream.rdbuf();
-
-            // parse includes
-            int fileNumber = 1;
-            std::string source = buffer.str();
-            if (!addLineDirectivesAfterConditionalBlocks(source)
-                || !parseIncludes(boost::filesystem::path(mPath), source, templateName, fileNumber, {}))
-                return std::string();
-
-            templateIt = mShaderTemplates.insert(std::make_pair(templateName, source)).first;
-        }
-        return templateIt->second;
+        for (auto program : mPrograms)
+            program.second->releaseGLObjects(state);
     }
 
 }

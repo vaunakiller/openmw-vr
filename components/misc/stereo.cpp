@@ -263,9 +263,6 @@ namespace Misc
         , mStereoRoot(new osg::Group)
         , mUpdateCallback(new StereoUpdateCallback(this))
         , mTechnique(Technique::None)
-        , mNoShaderMask(noShaderMask)
-        , mSceneMask(sceneMask)
-        , mCullMask(0)
         , mMasterConfig(new SharedShadowMapConfig)
         , mSlaveConfig(new SharedShadowMapConfig)
         , mSharedShadowMaps(Settings::Manager::getBool("shared shadow maps", "Stereo"))
@@ -278,7 +275,6 @@ namespace Misc
 
         mStereoRoot->setName("Stereo Root");
         mStereoRoot->setDataVariance(osg::Object::STATIC);
-        mStereoRoot->addChild(mStereoGeometryShaderRoot);
         mStereoRoot->addChild(mStereoBruteForceRoot);
         mStereoRoot->addCullCallback(new StereoStatesetUpdateCallback(this));
 
@@ -297,7 +293,6 @@ namespace Misc
         mViewer = viewer;
         mRoot = viewer->getSceneData()->asGroup();
         mMainCamera = viewer->getCamera();
-        mCullMask = mMainCamera->getCullMask();
 
         setStereoTechnique(technique);
     }
@@ -309,12 +304,6 @@ namespace Misc
         mScene = findScene.mFoundNode;
         if (!mScene)
             throw std::logic_error("Couldn't find scene root");
-
-        if (mTechnique == Technique::GeometryShader_IndexedViewports)
-        {
-            mLeftCamera->addChild(mScene); // Use scene directly to avoid redundant shadow computation.
-            mRightCamera->addChild(mScene);
-        }
     }
 
     void StereoView::setupBruteForceTechnique()
@@ -370,34 +359,12 @@ namespace Misc
         }
     }
 
-    void StereoView::setupGeometryShaderIndexedViewportTechnique()
-    {
-        mLeftCamera = createCamera("Stereo Left", GL_NONE);
-        mRightCamera = createCamera("Stereo Right", GL_NONE);
-        mStereoBruteForceRoot->addChild(mLeftCamera);
-        mStereoBruteForceRoot->addChild(mRightCamera);
-
-        // Inject self as the root of the scene graph
-        mStereoGeometryShaderRoot->addChild(mRoot);
-        mViewer->setSceneData(mStereoRoot);
-    }
-
     void StereoView::removeBruteForceTechnique()
     {
         auto* ds = osg::DisplaySettings::instance().get();
         ds->setStereo(false);
         if(mMainCamera->getUserData() == mMasterConfig)
             mMainCamera->setUserData(nullptr);
-    }
-
-    void StereoView::removeGeometryShaderIndexedViewportTechnique()
-    {
-        mStereoGeometryShaderRoot->removeChild(mRoot);
-        mViewer->setSceneData(mRoot);
-        mStereoBruteForceRoot->removeChild(mLeftCamera);
-        mStereoBruteForceRoot->removeChild(mRightCamera);
-        mLeftCamera = nullptr;
-        mRightCamera = nullptr;
     }
 
     void StereoView::disableStereo()
@@ -409,14 +376,10 @@ namespace Misc
 
         switch (mTechnique)
         {
-        case Technique::GeometryShader_IndexedViewports:
-            removeGeometryShaderIndexedViewportTechnique(); break;
         case Technique::BruteForce:
             removeBruteForceTechnique(); break;
         default: break;
         }
-
-        mMainCamera->setCullMask(mCullMask);
     }
 
     void StereoView::enableStereo()
@@ -432,14 +395,10 @@ namespace Misc
 
         switch (mTechnique)
         {
-        case Technique::GeometryShader_IndexedViewports:
-            setupGeometryShaderIndexedViewportTechnique(); break;
         case Technique::BruteForce:
             setupBruteForceTechnique(); break;
         default: break;
         }
-
-        setCullMask(mCullMask);
     }
 
     void StereoView::setStereoTechnique(Technique technique)
@@ -547,16 +506,7 @@ namespace Misc
         auto frustumViewMatrix = viewMatrix * frustumView.pose.viewMatrix(true);
         auto frustumProjectionMatrix = frustumView.fov.perspectiveMatrix(near_ + nearFarOffset, far_ + nearFarOffset);
 
-        if (mTechnique == Technique::GeometryShader_IndexedViewports)
-        {
-
-            // Update camera with frustum matrices
-            mMainCamera->setViewMatrix(frustumViewMatrix);
-            mMainCamera->setProjectionMatrix(frustumProjectionMatrix);
-            mLeftCamera->getOrCreateStateSet()->setAttribute(new osg::ViewportIndexed(0, 0, 0, width / 2, height), osg::StateAttribute::OVERRIDE);
-            mRightCamera->getOrCreateStateSet()->setAttribute(new osg::ViewportIndexed(0, width / 2, 0, width / 2, height), osg::StateAttribute::OVERRIDE);
-        }
-        else
+        if (mTechnique == Technique::BruteForce)
         {
             mLeftCamera->setClearColor(mMainCamera->getClearColor());
             mRightCamera->setClearColor(mMainCamera->getClearColor());
@@ -603,47 +553,13 @@ namespace Misc
         mUpdateViewCallback = cb;
     }
 
-    void disableStereoForCamera(osg::Camera* camera)
-    {
-        auto* viewport = camera->getViewport();
-        camera->getOrCreateStateSet()->setAttribute(new osg::ViewportIndexed(0, viewport->x(), viewport->y(), viewport->width(), viewport->height()), osg::StateAttribute::OVERRIDE);
-        camera->getOrCreateStateSet()->addUniform(new osg::Uniform("geometryPassthrough", true), osg::StateAttribute::OVERRIDE);
-    }
-
-    void enableStereoForCamera(osg::Camera* camera, bool horizontalSplit)
-    {
-        auto* viewport = camera->getViewport();
-        auto x1 = viewport->x();
-        auto y1 = viewport->y();
-        auto width = viewport->width();
-        auto height = viewport->height();
-
-        auto x2 = x1;
-        auto y2 = y1;
-
-        if (horizontalSplit)
-        {
-            width /= 2;
-            x2 += width;
-        }
-        else
-        {
-            height /= 2;
-            y2 += height;
-        }
-
-        camera->getOrCreateStateSet()->setAttribute(new osg::ViewportIndexed(0, x1, y1, width, height));
-        camera->getOrCreateStateSet()->setAttribute(new osg::ViewportIndexed(1, x2, y2, width, height));
-        camera->getOrCreateStateSet()->addUniform(new osg::Uniform("geometryPassthrough", false));
-    }
-
     StereoView::Technique getStereoTechnique(void)
     {
         auto stereoMethodString = Settings::Manager::getString("stereo method", "Stereo");
         auto stereoMethodStringLowerCase = Misc::StringUtils::lowerCase(stereoMethodString);
-        if (stereoMethodStringLowerCase == "geometryshader")
+        if (stereoMethodStringLowerCase == "ovr_multiview2")
         {
-            return Misc::StereoView::Technique::GeometryShader_IndexedViewports;
+            return Misc::StereoView::Technique::OVR_MultiView2;
         }
         if (stereoMethodStringLowerCase == "bruteforce")
         {
@@ -664,27 +580,6 @@ namespace Misc
     void StereoView::setCullCallback(osg::ref_ptr<osg::NodeCallback> cb)
     {
         mMainCamera->setCullCallback(cb);
-    }
-
-    void StereoView::setCullMask(osg::Node::NodeMask cullMask)
-    {
-        mCullMask = cullMask;
-        if (mTechnique == Technique::GeometryShader_IndexedViewports)
-        {
-            mMainCamera->setCullMask(cullMask & ~mNoShaderMask);
-            mLeftCamera->setCullMask((cullMask & mNoShaderMask) | mSceneMask);
-            mRightCamera->setCullMask((cullMask & mNoShaderMask) | mSceneMask);
-        }
-        else
-        {
-            mMainCamera->setCullMask(cullMask);
-            mMainCamera->setCullMaskLeft(cullMask);
-            mMainCamera->setCullMaskRight(cullMask);
-        }
-    }
-    osg::Node::NodeMask StereoView::getCullMask()
-    {
-        return mCullMask;
     }
     osg::Matrixd StereoView::computeLeftEyeProjection(const osg::Matrixd& projection) const
     {

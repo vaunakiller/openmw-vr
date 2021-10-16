@@ -878,10 +878,9 @@ void OMW::Engine::prepareEngine (Settings::Manager & settings)
     if (mStereoEnabled)
     {
         // Set up stereo
-        // Stereo setup is split in two because the GeometryShader approach cannot be used before the RenderingManager has been created.
+        // Stereo setup is split in two because the shader-based approaches cannot be used before the RenderingManager has been created.
         // To be able to see the logo and initial loading screen the BruteForce technique must be set up here.
         mStereoView->initializeStereo(mViewer, Misc::StereoView::Technique::BruteForce);
-        mResourceSystem->getSceneManager()->getShaderManager().setStereoGeometryShaderEnabled(Misc::getStereoTechnique() == Misc::StereoView::Technique::GeometryShader_IndexedViewports);
     }
 
 #ifdef USE_OPENXR
@@ -926,8 +925,9 @@ void OMW::Engine::prepareEngine (Settings::Manager & settings)
         mStereoView->setStereoTechnique(Misc::getStereoTechnique());
         mStereoView->initializeScene();
 
-        if (mEnvironment.getVrMode())
-            mStereoView->setCullMask(mStereoView->getCullMask() & ~MWRender::VisMask::Mask_GUI);
+        // TODO: What do
+        //if (mEnvironment.getVrMode())
+            //mStereoView->setCullMask(mStereoView->getCullMask() & ~MWRender::VisMask::Mask_GUI);
     }
 
     window->setStore(mEnvironment.getWorld()->getStore());
