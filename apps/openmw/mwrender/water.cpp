@@ -270,7 +270,7 @@ class Refraction : public SceneUtil::RTTNode
 {
 public:
     Refraction(uint32_t rttSize)
-        : RTTNode(rttSize, rttSize, 1, false)
+        : RTTNode(rttSize, rttSize, 1, true)
     {
         mClipCullNode = new ClipCullNode;
     }
@@ -337,7 +337,7 @@ class Reflection : public SceneUtil::RTTNode
 {
 public:
     Reflection(uint32_t rttSize, bool isInterior)
-        : RTTNode(rttSize, rttSize, 0, false)
+        : RTTNode(rttSize, rttSize, 0, true)
     {
         setInterior(isInterior);
         mClipCullNode = new ClipCullNode;
