@@ -399,7 +399,7 @@ namespace MWGui
 
     void viewerTraversals(bool updateWindowManager) override;
   private:
-    unsigned int mOldUpdateMask; unsigned int mOldCullMask;
+    unsigned int mOldUpdateMask; unsigned int mOldCullMask; osg::Vec4 mOldClearColor;
 
     const MWWorld::ESMStore* mStore;
     bool mVRMode;

@@ -601,6 +601,7 @@ namespace MWGui
 
         unsigned int disableCullMask = MWRender::Mask_GUI | MWRender::Mask_PreCompile;
         unsigned int disableUpdateMask = disableCullMask;
+        osg::Vec4 disableClearColor = osg::Vec4(0, 0, 0, 1);
 
         // VR mode needs to render the 3D gui
         if (MWBase::Environment::get().getVrMode())
@@ -613,7 +614,9 @@ namespace MWGui
         {
             mOldUpdateMask = mViewer->getUpdateVisitor()->getTraversalMask();
             mOldCullMask = mViewer->getCamera()->getCullMask();
+            mOldClearColor = mViewer->getCamera()->getClearColor();
             mViewer->getUpdateVisitor()->setTraversalMask(disableUpdateMask);
+            mViewer->getCamera()->setClearColor(disableClearColor);
             mViewer->getCamera()->setCullMask(disableCullMask);
             mViewer->getCamera()->setCullMaskLeft(disableCullMask);
             mViewer->getCamera()->setCullMaskRight(disableCullMask);
@@ -621,6 +624,7 @@ namespace MWGui
         else if (enable && mViewer->getCamera()->getCullMask() == disableCullMask)
         {
             mViewer->getUpdateVisitor()->setTraversalMask(mOldUpdateMask);
+            mViewer->getCamera()->setClearColor(mOldClearColor);
             mViewer->getCamera()->setCullMask(mOldCullMask);
             mViewer->getCamera()->setCullMaskLeft(mOldCullMask);
             mViewer->getCamera()->setCullMaskRight(mOldCullMask);
