@@ -1,5 +1,8 @@
 #include "shadervisitor.hpp"
 
+#include <unordered_set>
+#include <set>
+
 #include <osg/AlphaFunc>
 #include <osg/Geometry>
 #include <osg/GLExtensions>
@@ -108,12 +111,10 @@ namespace Shader
         , mAutoUseSpecularMaps(false)
         , mApplyLightingToEnvMaps(false)
         , mConvertAlphaTestToAlphaToCoverage(false)
-        , mTranslucentFramebuffer(false)
         , mShaderManager(shaderManager)
         , mImageManager(imageManager)
         , mDefaultShaderPrefix(defaultShaderPrefix)
     {
-        mRequirements.emplace_back();
     }
 
     void ShaderVisitor::setForceShaders(bool force)
@@ -264,7 +265,7 @@ namespace Shader
                                 mRequirements.back().mShaderRequired = true;
                             }
                         }
-                        else if (!mTranslucentFramebuffer)
+                        else
                             Log(Debug::Error) << "ShaderVisitor encountered unknown texture " << texture;
                     }
                 }
@@ -418,7 +419,10 @@ namespace Shader
 
     void ShaderVisitor::pushRequirements(osg::Node& node)
     {
-        mRequirements.push_back(mRequirements.back());
+        if (mRequirements.empty())
+            mRequirements.emplace_back();
+        else
+            mRequirements.push_back(mRequirements.back());
         mRequirements.back().mNode = &node;
     }
 
@@ -513,6 +517,14 @@ namespace Shader
             // We could fall back to a texture size uniform if EXT_gpu_shader4 is missing
         }
 
+        bool simpleLighting = false;
+        node.getUserValue("simpleLighting", simpleLighting);
+        if (simpleLighting)
+        {
+            defineMap["forcePPL"] = "1";
+            defineMap["endLight"] = "0";
+        }
+
         if (writableStateSet->getMode(GL_ALPHA_TEST) != osg::StateAttribute::INHERIT && !previousAddedState->hasMode(GL_ALPHA_TEST))
             removedState->setMode(GL_ALPHA_TEST, writableStateSet->getMode(GL_ALPHA_TEST));
         // This disables the deprecated fixed-function alpha test
@@ -543,8 +555,6 @@ namespace Shader
             updateAddedState(*writableUserData, addedState);
         }
 
-        defineMap["translucentFramebuffer"] = mTranslucentFramebuffer ? "1" : "0";
-
         std::string shaderPrefix;
         if (!node.getUserValue("shaderPrefix", shaderPrefix))
             shaderPrefix = mDefaultShaderPrefix;
@@ -554,7 +564,7 @@ namespace Shader
 
         if (vertexShader && fragmentShader)
         {
-            auto program = mShaderManager.getProgram(vertexShader, fragmentShader);
+            auto program = mShaderManager.getProgram(vertexShader, fragmentShader, mProgramTemplate);
             writableStateSet->setAttributeAndModes(program, osg::StateAttribute::ON);
             addedState->setAttributeAndModes(program);
 
@@ -758,11 +768,6 @@ namespace Shader
     void ShaderVisitor::setConvertAlphaTestToAlphaToCoverage(bool convert)
     {
         mConvertAlphaTestToAlphaToCoverage = convert;
-    }
-
-    void ShaderVisitor::setTranslucentFramebuffer(bool translucent)
-    {
-        mTranslucentFramebuffer = translucent;
     }
 
     ReinstateRemovedStateVisitor::ReinstateRemovedStateVisitor(bool allowedToModifyStateSets)

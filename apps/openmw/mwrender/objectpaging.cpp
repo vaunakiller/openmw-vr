@@ -13,6 +13,7 @@
 #include <components/misc/resourcehelpers.hpp>
 #include <components/resource/scenemanager.hpp>
 #include <components/sceneutil/optimizer.hpp>
+#include <components/sceneutil/positionattitudetransform.hpp>
 #include <components/sceneutil/clone.hpp>
 #include <components/sceneutil/util.hpp>
 #include <components/vfs/manager.hpp>
@@ -590,15 +591,36 @@ namespace MWRender
                 if (!activeGrid && minSizeMerged != minSize && cnode->getBound().radius2() * cref->mScale*cref->mScale < (viewPoint-pos).length2()*minSizeMerged*minSizeMerged)
                     continue;
 
-                osg::Matrixf matrix;
-                matrix.preMultTranslate(pos - worldCenter);
-                matrix.preMultRotate( osg::Quat(ref.mPos.rot[2], osg::Vec3f(0,0,-1)) *
+                osg::Vec3f nodePos = pos - worldCenter;
+                osg::Quat nodeAttitude = osg::Quat(ref.mPos.rot[2], osg::Vec3f(0,0,-1)) *
                                         osg::Quat(ref.mPos.rot[1], osg::Vec3f(0,-1,0)) *
-                                        osg::Quat(ref.mPos.rot[0], osg::Vec3f(-1,0,0)) );
-                matrix.preMultScale(osg::Vec3f(ref.mScale, ref.mScale, ref.mScale));
-                osg::ref_ptr<osg::MatrixTransform> trans = new osg::MatrixTransform(matrix);
-                trans->setDataVariance(osg::Object::STATIC);
+                                        osg::Quat(ref.mPos.rot[0], osg::Vec3f(-1,0,0));
+                osg::Vec3f nodeScale = osg::Vec3f(ref.mScale, ref.mScale, ref.mScale);
 
+                osg::ref_ptr<osg::Group> trans;
+                if (merge)
+                {
+                    // Optimizer currently supports only MatrixTransforms.
+                    osg::Matrixf matrix;
+                    matrix.preMultTranslate(nodePos);
+                    matrix.preMultRotate(nodeAttitude);
+                    matrix.preMultScale(nodeScale);
+                    trans = new osg::MatrixTransform(matrix);
+                    trans->setDataVariance(osg::Object::STATIC);
+                }
+                else
+                {
+                    trans = new SceneUtil::PositionAttitudeTransform;
+                    SceneUtil::PositionAttitudeTransform* pat = static_cast<SceneUtil::PositionAttitudeTransform*>(trans.get());
+                    pat->setPosition(nodePos);
+                    pat->setScale(nodeScale);
+                    pat->setAttitude(nodeAttitude);
+                }
+
+                // DO NOT COPY AND PASTE THIS CODE. Cloning osg::Geometry without also cloning its contained Arrays is generally unsafe.
+                // In this specific case the operation is safe under the following two assumptions:
+                // - When Arrays are removed or replaced in the cloned geometry, the original Arrays in their place must outlive the cloned geometry regardless. (ensured by TemplateMultiRef)
+                // - Arrays that we add or replace in the cloned geometry must be explicitely forbidden from reusing BufferObjects of the original geometry. (ensured by needvbo() in optimizer.cpp)
                 copyop.setCopyFlags(merge ? osg::CopyOp::DEEP_COPY_NODES|osg::CopyOp::DEEP_COPY_DRAWABLES : osg::CopyOp::DEEP_COPY_NODES);
                 copyop.mOptimizeBillboards = (size > 1/4.f);
                 copyop.mNodePath.push_back(trans);
@@ -627,7 +649,8 @@ namespace MWRender
             }
             if (numinstances > 0)
             {
-                // add a ref to the original template, to hint to the cache that it's still being used and should be kept in cache
+                // add a ref to the original template to help verify the safety of shallow cloning operations
+                // in addition, we hint to the cache that it's still being used and should be kept in cache
                 templateRefs->addRef(cnode);
 
                 if (pair.second.mNeedCompile)
@@ -651,7 +674,7 @@ namespace MWRender
             }
             optimizer.setIsOperationPermissibleForObjectCallback(new CanOptimizeCallback);
             unsigned int options = SceneUtil::Optimizer::FLATTEN_STATIC_TRANSFORMS|SceneUtil::Optimizer::REMOVE_REDUNDANT_NODES|SceneUtil::Optimizer::MERGE_GEOMETRY;
-            mSceneManager->shareState(mergeGroup);
+
             optimizer.optimize(mergeGroup, options);
 
             group->addChild(mergeGroup);

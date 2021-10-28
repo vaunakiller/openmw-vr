@@ -62,20 +62,17 @@ namespace MWRender
 /// To use, simply create the scene as subgraph of this node, then do setPlane(const osg::Plane& plane);
 class ClipCullNode : public osg::Group
 {
-    class PlaneCullCallback : public osg::NodeCallback
+    class PlaneCullCallback : public SceneUtil::NodeCallback<PlaneCullCallback, osg::Node*, osgUtil::CullVisitor*>
     {
     public:
         /// @param cullPlane The culling plane (in world space).
         PlaneCullCallback(const osg::Plane* cullPlane)
-            : osg::NodeCallback()
-            , mCullPlane(cullPlane)
+            : mCullPlane(cullPlane)
         {
         }
 
-        void operator()(osg::Node* node, osg::NodeVisitor* nv) override
+        void operator()(osg::Node* node, osgUtil::CullVisitor* cv)
         {
-            osgUtil::CullVisitor* cv = static_cast<osgUtil::CullVisitor*>(nv);
-
             osg::Polytope::PlaneList origPlaneList = cv->getProjectionCullingStack().back().getFrustum().getPlaneList();
 
             osg::Plane plane = *mCullPlane;
@@ -87,7 +84,7 @@ class ClipCullNode : public osg::Group
 
             cv->getProjectionCullingStack().back().getFrustum().add(plane);
 
-            traverse(node, nv);
+            traverse(node, cv);
 
             // undo
             cv->getProjectionCullingStack().back().getFrustum().set(origPlaneList);
@@ -97,7 +94,7 @@ class ClipCullNode : public osg::Group
         const osg::Plane* mCullPlane;
     };
 
-    class FlipCallback : public osg::NodeCallback
+    class FlipCallback : public SceneUtil::NodeCallback<FlipCallback, osg::Node*, osgUtil::CullVisitor*>
     {
     public:
         FlipCallback(const osg::Plane* cullPlane)
@@ -105,9 +102,8 @@ class ClipCullNode : public osg::Group
         {
         }
 
-        void operator()(osg::Node* node, osg::NodeVisitor* nv) override
+        void operator()(osg::Node* node, osgUtil::CullVisitor* cv)
         {
-            osgUtil::CullVisitor* cv = static_cast<osgUtil::CullVisitor*>(nv);
             osg::Vec3d eyePoint = cv->getEyePoint();
 
             osg::RefMatrix* modelViewMatrix = new osg::RefMatrix(*cv->getModelViewMatrix());
@@ -127,7 +123,7 @@ class ClipCullNode : public osg::Group
             modelViewMatrix->preMultTranslate(mCullPlane->getNormal() * clipFudge);
 
             cv->pushModelViewMatrix(modelViewMatrix, osg::Transform::RELATIVE_RF);
-            traverse(node, nv);
+            traverse(node, cv);
             cv->popModelViewMatrix();
         }
 
@@ -170,31 +166,28 @@ private:
 
 /// This callback on the Camera has the effect of a RELATIVE_RF_INHERIT_VIEWPOINT transform mode (which does not exist in OSG).
 /// We want to keep the View Point of the parent camera so we will not have to recreate LODs.
-class InheritViewPointCallback : public osg::NodeCallback
+class InheritViewPointCallback : public SceneUtil::NodeCallback<InheritViewPointCallback, osg::Node*, osgUtil::CullVisitor*>
 {
 public:
         InheritViewPointCallback() {}
 
-    void operator()(osg::Node* node, osg::NodeVisitor* nv) override
+    void operator()(osg::Node* node, osgUtil::CullVisitor* cv)
     {
-        osgUtil::CullVisitor* cv = static_cast<osgUtil::CullVisitor*>(nv);
         osg::ref_ptr<osg::RefMatrix> modelViewMatrix = new osg::RefMatrix(*cv->getModelViewMatrix());
         cv->popModelViewMatrix();
         cv->pushModelViewMatrix(modelViewMatrix, osg::Transform::ABSOLUTE_RF_INHERIT_VIEWPOINT);
-        traverse(node, nv);
+        traverse(node, cv);
     }
 };
 
 /// Moves water mesh away from the camera slightly if the camera gets too close on the Z axis.
 /// The offset works around graphics artifacts that occurred with the GL_DEPTH_CLAMP when the camera gets extremely close to the mesh (seen on NVIDIA at least).
 /// Must be added as a Cull callback.
-class FudgeCallback : public osg::NodeCallback
+class FudgeCallback : public SceneUtil::NodeCallback<FudgeCallback, osg::Node*, osgUtil::CullVisitor*>
 {
 public:
-    void operator()(osg::Node* node, osg::NodeVisitor* nv) override
+    void operator()(osg::Node* node, osgUtil::CullVisitor* cv)
     {
-        osgUtil::CullVisitor* cv = static_cast<osgUtil::CullVisitor*>(nv);
-
         const float fudge = 0.2;
         if (std::abs(cv->getEyeLocal().z()) < fudge)
         {
@@ -207,11 +200,11 @@ public:
                 modelViewMatrix->preMultTranslate(osg::Vec3f(0,0,diff));
 
             cv->pushModelViewMatrix(modelViewMatrix, osg::Transform::RELATIVE_RF);
-            traverse(node, nv);
+            traverse(node, cv);
             cv->popModelViewMatrix();
         }
         else
-            traverse(node, nv);
+            traverse(node, cv);
     }
 };
 
@@ -271,6 +264,7 @@ class Refraction : public SceneUtil::RTTNode
 public:
     Refraction(uint32_t rttSize)
         : RTTNode(rttSize, rttSize, 1, true)
+        , mNodeMask(Refraction::sDefaultCullMask)
     {
         mClipCullNode = new ClipCullNode;
     }
@@ -283,8 +277,6 @@ public:
         camera->setName("RefractionCamera");
         camera->addCullCallback(new InheritViewPointCallback);
         camera->setComputeNearFarMode(osg::CullSettings::DO_NOT_COMPUTE_NEAR_FAR);
-
-        camera->setCullMask(Mask_Effect | Mask_Scene | Mask_Object | Mask_Static | Mask_Terrain | Mask_Actor | Mask_ParticleSystem | Mask_Sky | Mask_Sun | Mask_Player | Mask_Lighting | Mask_Groundcover);
 
         // No need for fog here, we are already applying fog on the water surface itself as well as underwater fog
         // assign large value to effectively turn off fog
@@ -307,6 +299,7 @@ public:
     void apply(osg::Camera* camera) override
     {
         camera->setViewMatrix(mViewMatrix);
+        camera->setCullMask(mNodeMask);
     }
 
     void setScene(osg::Node* scene)
@@ -328,10 +321,22 @@ public:
         mClipCullNode->setPlane(osg::Plane(osg::Vec3d(0, 0, -1), osg::Vec3d(0, 0, waterLevel)));
     }
 
+    void showWorld(bool show)
+    {
+        if (show)
+            mNodeMask = Refraction::sDefaultCullMask;
+        else
+            mNodeMask = Refraction::sDefaultCullMask & ~sToggleWorldMask;
+    }
+
 private:
     osg::ref_ptr<ClipCullNode> mClipCullNode;
     osg::ref_ptr<osg::Node> mScene;
     osg::Matrix mViewMatrix{ osg::Matrix::identity() };
+
+    unsigned int mNodeMask;
+
+    static constexpr unsigned int sDefaultCullMask = Mask_Effect | Mask_Scene | Mask_Object | Mask_Static | Mask_Terrain | Mask_Actor | Mask_ParticleSystem | Mask_Sky | Mask_Sun | Mask_Player | Mask_Lighting | Mask_Groundcover;
 };
 
 class Reflection : public SceneUtil::RTTNode
@@ -374,15 +379,8 @@ public:
 
     void setInterior(bool isInterior)
     {
-        int reflectionDetail = Settings::Manager::getInt("reflection detail", "Water");
-        reflectionDetail = std::min(5, std::max(isInterior ? 2 : 0, reflectionDetail));
-        unsigned int extraMask = 0;
-        if(reflectionDetail >= 1) extraMask |= Mask_Terrain;
-        if(reflectionDetail >= 2) extraMask |= Mask_Static;
-        if(reflectionDetail >= 3) extraMask |= Mask_Effect | Mask_ParticleSystem | Mask_Object;
-        if(reflectionDetail >= 4) extraMask |= Mask_Player | Mask_Actor;
-        if(reflectionDetail >= 5) extraMask |= Mask_Groundcover;
-        mNodeMask = Mask_Scene | Mask_Sky | Mask_Lighting | extraMask;
+        mInterior = isInterior;
+        mNodeMask = calcNodeMask();
     }
 
     void setWaterLevel(float waterLevel)
@@ -399,11 +397,34 @@ public:
         mClipCullNode->addChild(scene);
     }
 
+    void showWorld(bool show)
+    {
+        if (show)
+            mNodeMask = calcNodeMask();
+        else
+            mNodeMask = calcNodeMask() & ~sToggleWorldMask;
+    }
+
 private:
+
+    unsigned int calcNodeMask()
+    {
+        int reflectionDetail = Settings::Manager::getInt("reflection detail", "Water");
+        reflectionDetail = std::min(5, std::max(mInterior ? 2 : 0, reflectionDetail));
+        unsigned int extraMask = 0;
+        if(reflectionDetail >= 1) extraMask |= Mask_Terrain;
+        if(reflectionDetail >= 2) extraMask |= Mask_Static;
+        if(reflectionDetail >= 3) extraMask |= Mask_Effect | Mask_ParticleSystem | Mask_Object;
+        if(reflectionDetail >= 4) extraMask |= Mask_Player | Mask_Actor;
+        if(reflectionDetail >= 5) extraMask |= Mask_Groundcover;
+        return Mask_Scene | Mask_Sky | Mask_Lighting | extraMask;
+    }
+
     osg::ref_ptr<ClipCullNode> mClipCullNode;
     osg::ref_ptr<osg::Node> mScene;
     osg::Node::NodeMask mNodeMask;
     osg::Matrix mViewMatrix{ osg::Matrix::identity() };
+    bool mInterior;
 };
 
 /// DepthClampCallback enables GL_DEPTH_CLAMP for the current draw, if supported.
@@ -439,6 +460,7 @@ Water::Water(osg::Group *parent, osg::Group* sceneRoot, Resource::ResourceSystem
     , mToggled(true)
     , mTop(0)
     , mInterior(false)
+    , mShowWorld(true)
     , mCullCallback(nullptr)
     , mShaderWaterStateSetUpdater(nullptr)
 {
@@ -535,6 +557,8 @@ void Water::updateWaterMaterial()
                 mRefraction->addCullCallback(mCullCallback);
             mParent->addChild(mRefraction);
         }
+
+        showWorld(mShowWorld);
 
         createShaderWaterStateSet(mWaterNode, mReflection, mRefraction);
     }
@@ -686,9 +710,6 @@ void Water::createShaderWaterStateSet(osg::Node* node, Reflection* reflection, R
     normalMap->setFilter(osg::Texture::MAG_FILTER, osg::Texture::LINEAR);
     
 
-    auto method = mResourceSystem->getSceneManager()->getLightingMethod();
-    if (method == SceneUtil::LightingMethod::SingleUBO)
-        program->addBindUniformBlock("LightBufferBinding", static_cast<int>(Shader::UBOBinding::LightBuffer));
     mRainIntensityUpdater = new RainIntensityUpdater();
     node->setUpdateCallback(mRainIntensityUpdater);
 
@@ -836,6 +857,15 @@ void Water::removeCell(const MWWorld::CellStore *store)
 void Water::clearRipples()
 {
     mSimulation->clear();
+}
+
+void Water::showWorld(bool show)
+{
+    if (mReflection)
+        mReflection->showWorld(show);
+    if (mRefraction)
+        mRefraction->showWorld(show);
+    mShowWorld = show;
 }
 
 }

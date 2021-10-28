@@ -269,6 +269,8 @@ namespace MWGui
         const MWWorld::Store<ESM::GameSetting> &gmst =
             MWBase::Environment::get().getWorld()->getStore().get<ESM::GameSetting>();
 
+        if (mTotalBalance->getValue() == 0) mCurrentBalance = 0;
+
         // were there any items traded at all?
         const std::vector<ItemStack>& playerBought = playerItemModel->getItemsBorrowedToUs();
         const std::vector<ItemStack>& merchantBought = mTradeModel->getItemsBorrowedToUs();
@@ -409,9 +411,14 @@ namespace MWGui
 
     void TradeWindow::onBalanceValueChanged(int value)
     {
+        int previousBalance = mCurrentBalance;
+
         // Entering a "-" sign inverts the buying/selling state
         mCurrentBalance = (mCurrentBalance >= 0 ? 1 : -1) * value;
         updateLabels();
+
+        if (mCurrentBalance == 0)
+            mCurrentBalance = previousBalance;
 
         if (value != std::abs(value))
             mTotalBalance->setValue(std::abs(value));
@@ -422,6 +429,7 @@ namespace MWGui
         // prevent overflows, and prevent entering INT_MIN since abs(INT_MIN) is undefined
         if (mCurrentBalance == std::numeric_limits<int>::max() || mCurrentBalance == std::numeric_limits<int>::min()+1)
             return;
+        if (mTotalBalance->getValue() == 0) mCurrentBalance = 0;
         if (mCurrentBalance < 0) mCurrentBalance -= 1;
         else mCurrentBalance += 1;
         updateLabels();
@@ -429,6 +437,7 @@ namespace MWGui
 
     void TradeWindow::onDecreaseButtonTriggered()
     {
+        if (mTotalBalance->getValue() == 0) mCurrentBalance = 0;
         if (mCurrentBalance < 0) mCurrentBalance += 1;
         else mCurrentBalance -= 1;
         updateLabels();
@@ -438,8 +447,16 @@ namespace MWGui
     {
         MWWorld::Ptr player = MWMechanics::getPlayer();
         int playerGold = player.getClass().getContainerStore(player).count(MWWorld::ContainerStore::sGoldId);
-
         mPlayerGold->setCaptionWithReplacing("#{sYourGold} " + MyGUI::utility::toString(playerGold));
+
+        TradeItemModel* playerTradeModel = MWBase::Environment::get().getWindowManager()->getInventoryWindow()->getTradeModel();
+        const std::vector<ItemStack>& playerBorrowed = playerTradeModel->getItemsBorrowedToUs();
+        const std::vector<ItemStack>& merchantBorrowed = mTradeModel->getItemsBorrowedToUs();
+
+        if (playerBorrowed.empty() && merchantBorrowed.empty())
+        {
+            mCurrentBalance = 0;
+        }
 
         if (mCurrentBalance < 0)
         {

@@ -295,7 +295,7 @@ namespace MWBase
             virtual MWWorld::Ptr moveObject (const MWWorld::Ptr& ptr, const osg::Vec3f& position, bool movePhysics=true, bool moveToActive=false) = 0;
             ///< @return an updated Ptr in case the Ptr's cell changes
 
-            virtual MWWorld::Ptr moveObject(const MWWorld::Ptr &ptr, MWWorld::CellStore* newCell, const osg::Vec3f& position, bool movePhysics=true) = 0;
+            virtual MWWorld::Ptr moveObject(const MWWorld::Ptr &ptr, MWWorld::CellStore* newCell, const osg::Vec3f& position, bool movePhysics=true, bool keepActive=false) = 0;
             ///< @return an updated Ptr
 
             virtual MWWorld::Ptr moveObjectBy(const MWWorld::Ptr &ptr, const osg::Vec3f& vec, bool moveToActive, bool ignoreCollisions) = 0;
@@ -554,7 +554,7 @@ namespace MWBase
 
             virtual void castSpell (const MWWorld::Ptr& actor, bool manualSpell=false) = 0;
 
-            virtual void launchMagicBolt (const std::string& spellId, const MWWorld::Ptr& caster, const osg::Vec3f& fallbackDirection) = 0;
+            virtual void launchMagicBolt (const std::string& spellId, const MWWorld::Ptr& caster, const osg::Vec3f& fallbackDirection, int slot) = 0;
             virtual void launchProjectile (MWWorld::Ptr& actor, MWWorld::Ptr& projectile,
                                            const osg::Vec3f& worldPos, const osg::Quat& orient, MWWorld::Ptr& bow, float speed, float attackStrength) = 0;
             virtual void updateProjectilesCasters() = 0;
@@ -606,7 +606,7 @@ namespace MWBase
 
             virtual void explodeSpell(const osg::Vec3f& origin, const ESM::EffectList& effects, const MWWorld::Ptr& caster,
                                       const MWWorld::Ptr& ignore, ESM::RangeType rangeType, const std::string& id,
-                                      const std::string& sourceName, const bool fromProjectile=false) = 0;
+                                      const std::string& sourceName, const bool fromProjectile=false, int slot = 0) = 0;
 
             virtual void activate (const MWWorld::Ptr& object, const MWWorld::Ptr& actor) = 0;
 
@@ -668,14 +668,15 @@ namespace MWBase
 
             virtual bool hasCollisionWithDoor(const MWWorld::ConstPtr& door, const osg::Vec3f& position, const osg::Vec3f& destination) const = 0;
 
+            virtual bool isAreaOccupiedByOtherActor(const osg::Vec3f& position, const float radius,
+                const MWWorld::ConstPtr& ignore, std::vector<MWWorld::Ptr>* occupyingActors = nullptr) const = 0;
+
             /// @result pointer to the object and/or node the given node is currently pointing at
             /// @Return distance to the target object, or -1 if no object was targeted / in range
             virtual float getTargetObject(MWRender::RayResult& result, const osg::Vec3f& origin, const osg::Quat& orientation, float maxDistance, bool ignorePlayer) = 0;
 
             /// @Return ESM::Weapon::Type enum describing the type of weapon currently drawn by the player.
             virtual int getActiveWeaponType(void) = 0;
-			
-            virtual bool isAreaOccupiedByOtherActor(const osg::Vec3f& position, const float radius, const MWWorld::ConstPtr& ignore) const = 0;
 
             virtual void reportStats(unsigned int frameNumber, osg::Stats& stats) const = 0;
 

@@ -77,14 +77,14 @@ namespace MWMechanics
         MWMechanics::CreatureStats& creatureStats = ptr.getClass().getCreatureStats (ptr);
         MWMechanics::NpcStats& npcStats = ptr.getClass().getNpcStats (ptr);
 
-        npcStats.setNeedRecalcDynamicStats(true);
+        npcStats.recalculateMagicka();
 
         const ESM::NPC *player = ptr.get<ESM::NPC>()->mBase;
 
         // reset
         creatureStats.setLevel(player->mNpdt.mLevel);
         creatureStats.getSpells().clear(true);
-        creatureStats.modifyMagicEffects(MagicEffects());
+        creatureStats.getActiveSpells().clear(ptr);
 
         for (int i=0; i<27; ++i)
             npcStats.getSkill (i).setBase (player->mNpdt.mSkills[i]);
@@ -213,6 +213,7 @@ namespace MWMechanics
         int attributes[ESM::Attribute::Length];
         for (int i=0; i<ESM::Attribute::Length; ++i)
             attributes[i] = npcStats.getAttribute(i).getBase();
+        npcStats.updateHealth();
 
         std::vector<std::string> selectedSpells = autoCalcPlayerSpells(skills, attributes, race);
 
@@ -257,11 +258,11 @@ namespace MWMechanics
             mActors.castSpell(ptr, spellId, manualSpell);
     }
 
-    void MechanicsManager::remove(const MWWorld::Ptr& ptr)
+    void MechanicsManager::remove(const MWWorld::Ptr& ptr, bool keepActive)
     {
         if(ptr == MWBase::Environment::get().getWindowManager()->getWatchedActor())
             MWBase::Environment::get().getWindowManager()->watchActor(MWWorld::Ptr());
-        mActors.removeActor(ptr);
+        mActors.removeActor(ptr, keepActive);
         mObjects.removeObject(ptr);
     }
 
@@ -280,24 +281,6 @@ namespace MWMechanics
     {
         mActors.dropActors(cellStore, getPlayer());
         mObjects.dropObjects(cellStore);
-    }
-
-    void MechanicsManager::restoreStatsAfterCorprus(const MWWorld::Ptr& actor, const std::string& sourceId)
-    {
-        auto& stats = actor.getClass().getCreatureStats (actor);
-        auto& corprusSpells = stats.getCorprusSpells();
-
-        auto corprusIt = corprusSpells.find(sourceId);
-
-        if (corprusIt != corprusSpells.end())
-        {
-            for (int i = 0; i < ESM::Attribute::Length; ++i)
-            {
-                MWMechanics::AttributeValue attr = stats.getAttribute(i);
-                attr.restore(corprusIt->second.mWorsenings[i]);
-                actor.getClass().getCreatureStats(actor).setAttribute(i, attr);
-            }
-        }
     }
 
     void MechanicsManager::update(float duration, bool paused)
@@ -333,7 +316,7 @@ namespace MWMechanics
 
             // HACK? The player has been changed, so a new Animation object may
             // have been made for them. Make sure they're properly updated.
-            mActors.removeActor(ptr);
+            mActors.removeActor(ptr, true);
             mActors.addActor(ptr, true);
         }
 
@@ -571,7 +554,7 @@ namespace MWMechanics
     {
         // Make sure zero base price items/services can't be bought/sold for 1 gold
         // and return the intended base price for creature merchants
-        if (basePrice == 0 || ptr.getTypeName() == typeid(ESM::Creature).name())
+        if (basePrice == 0 || ptr.getType() == ESM::Creature::sRecordId)
             return basePrice;
 
         const MWMechanics::NpcStats &sellerStats = ptr.getClass().getNpcStats(ptr);
@@ -1777,17 +1760,6 @@ namespace MWMechanics
 
         MWWorld::Player* player = &MWBase::Environment::get().getWorld()->getPlayer();
 
-        if (actor == player->getPlayer())
-        {
-            if (werewolf)
-            {
-                player->saveStats();
-                player->setWerewolfStats();
-            }
-            else
-                player->restoreStats();
-        }
-
         // Werewolfs can not cast spells, so we need to unset the prepared spell if there is one.
         if (npcStats.getDrawState() == MWMechanics::DrawState_Spell)
             npcStats.setDrawState(MWMechanics::DrawState_Nothing);
@@ -1814,13 +1786,23 @@ namespace MWMechanics
             // Update the GUI only when called on the player
             MWBase::WindowManager* windowManager = MWBase::Environment::get().getWindowManager();
 
+            // Transforming removes all temporary effects
+            actor.getClass().getCreatureStats(actor).getActiveSpells().purge([] (const auto& params)
+            {
+                return params.getType() == ESM::ActiveSpells::Type_Consumable || params.getType() == ESM::ActiveSpells::Type_Temporary;
+            }, actor);
+            mActors.updateActor(actor, 0.f);
+
             if (werewolf)
             {
+                player->saveStats();
+                player->setWerewolfStats();
                 windowManager->forceHide(MWGui::GW_Inventory);
                 windowManager->forceHide(MWGui::GW_Magic);
             }
             else
             {
+                player->restoreStats();
                 windowManager->unsetForceHide(MWGui::GW_Inventory);
                 windowManager->unsetForceHide(MWGui::GW_Magic);
             }

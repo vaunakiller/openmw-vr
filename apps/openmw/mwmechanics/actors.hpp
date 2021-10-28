@@ -41,15 +41,7 @@ namespace MWMechanics
     {
             std::map<std::string, int> mDeathCount;
 
-            void addBoundItem (const std::string& itemId, const MWWorld::Ptr& actor);
-            void removeBoundItem (const std::string& itemId, const MWWorld::Ptr& actor);
-
-            void adjustMagicEffects (const MWWorld::Ptr& creature);
-
-            void calculateDynamicStats (const MWWorld::Ptr& ptr);
-
-            void calculateCreatureStatModifiers (const MWWorld::Ptr& ptr, float duration);
-            void calculateNpcStatModifiers (const MWWorld::Ptr& ptr, float duration);
+            void adjustMagicEffects (const MWWorld::Ptr& creature, float duration);
 
             void calculateRestoration (const MWWorld::Ptr& ptr, float duration);
 
@@ -94,7 +86,7 @@ namespace MWMechanics
             ///
             /// \note Dead actors are ignored.
 
-            void removeActor (const MWWorld::Ptr& ptr);
+            void removeActor (const MWWorld::Ptr& ptr, bool keepActive);
             ///< Deregister an actor for stats management
             ///
             /// \note Ignored, if \a ptr is not a registered actor.
@@ -208,7 +200,6 @@ namespace MWMechanics
 
     private:
         void updateVisibility (const MWWorld::Ptr& ptr, CharacterController* ctrl);
-        void applyCureEffects (const MWWorld::Ptr& actor);
 
         PtrActorMap mActors;
         float mTimerDisposeSummonsCorpses;

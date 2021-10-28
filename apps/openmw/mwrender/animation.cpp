@@ -88,22 +88,22 @@ namespace
         std::vector<osg::ref_ptr<osg::Node> > mToRemove;
     };
 
-    class DayNightCallback : public osg::NodeCallback
+    class DayNightCallback : public SceneUtil::NodeCallback<DayNightCallback, osg::Switch*>
     {
     public:
         DayNightCallback() : mCurrentState(0)
         {
         }
 
-        void operator()(osg::Node* node, osg::NodeVisitor* nv) override
+        void operator()(osg::Switch* node, osg::NodeVisitor* nv)
         {
             unsigned int state = MWBase::Environment::get().getWorld()->getNightDayMode();
-            const unsigned int newState = node->asGroup()->getNumChildren() > state ? state : 0;
+            const unsigned int newState = node->getNumChildren() > state ? state : 0;
 
             if (newState != mCurrentState)
             {
                 mCurrentState = newState;
-                node->asSwitch()->setSingleChildOn(mCurrentState);
+                node->setSingleChildOn(mCurrentState);
             }
 
             traverse(node, nv);
@@ -473,20 +473,18 @@ namespace MWRender
         }
     }
 
-    class ResetAccumRootCallback : public osg::NodeCallback
+    class ResetAccumRootCallback : public SceneUtil::NodeCallback<ResetAccumRootCallback, osg::MatrixTransform*>
     {
     public:
-        void operator()(osg::Node* node, osg::NodeVisitor* nv) override
+        void operator()(osg::MatrixTransform* transform, osg::NodeVisitor* nv)
         {
-            osg::MatrixTransform* transform = static_cast<osg::MatrixTransform*>(node);
-
             osg::Matrix mat = transform->getMatrix();
             osg::Vec3f position = mat.getTrans();
             position = osg::componentMultiply(mResetAxes, position);
             mat.setTrans(position);
             transform->setMatrix(mat);
 
-            traverse(node, nv);
+            traverse(transform, nv);
         }
 
         void setAccumulate(const osg::Vec3f& accumulate)
@@ -1375,10 +1373,10 @@ namespace MWRender
 
                 cache.insert(std::make_pair(model, created));
 
-                return sceneMgr->createInstance(created);
+                return sceneMgr->getInstance(created);
             }
             else
-                return sceneMgr->createInstance(found->second);
+                return sceneMgr->getInstance(found->second);
         }
         else
         {
@@ -1566,7 +1564,7 @@ namespace MWRender
             parentNode = mInsert;
         else
         {
-            NodeMap::const_iterator found = getNodeMap().find(Misc::StringUtils::lowerCase(bonename));
+            NodeMap::const_iterator found = getNodeMap().find(bonename);
             if (found == getNodeMap().end())
                 throw std::runtime_error("Can't find bone " + bonename);
 
@@ -1675,8 +1673,7 @@ namespace MWRender
 
     const osg::Node* Animation::getNode(const std::string &name) const
     {
-        std::string lowerName = Misc::StringUtils::lowerCase(name);
-        NodeMap::const_iterator found = getNodeMap().find(lowerName);
+        NodeMap::const_iterator found = getNodeMap().find(name);
         if (found == getNodeMap().end())
             return nullptr;
         else
@@ -1850,7 +1847,7 @@ namespace MWRender
             if (!ptr.getClass().getEnchantment(ptr).empty())
                 mGlowUpdater = SceneUtil::addEnchantedGlow(mObjectRoot, mResourceSystem, ptr.getClass().getEnchantmentColor(ptr));
         }
-        if (ptr.getTypeName() == typeid(ESM::Light).name() && allowLight)
+        if (ptr.getType() == ESM::Light::sRecordId && allowLight)
             addExtraLight(getOrCreateObjectRoot(), ptr.get<ESM::Light>()->mBase);
 
         if (!allowLight && mObjectRoot)
@@ -1879,7 +1876,7 @@ namespace MWRender
 
     bool ObjectAnimation::canBeHarvested() const
     {
-        if (mPtr.getTypeName() != typeid(ESM::Container).name())
+        if (mPtr.getType() != ESM::Container::sRecordId)
             return false;
 
         const MWWorld::LiveCellRef<ESM::Container>* ref = mPtr.get<ESM::Container>();

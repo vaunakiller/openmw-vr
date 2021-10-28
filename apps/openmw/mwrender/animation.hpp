@@ -6,8 +6,11 @@
 #include <components/sceneutil/controller.hpp>
 #include <components/sceneutil/textkeymap.hpp>
 #include <components/sceneutil/util.hpp>
+#include <components/sceneutil/nodecallback.hpp>
+#include <components/misc/stringops.hpp>
 
 #include <vector>
+#include <unordered_map>
 
 namespace ESM
 {
@@ -156,6 +159,8 @@ public:
 
     virtual bool updateCarriedLeftVisible(const int weaptype) const { return false; };
 
+    typedef std::unordered_map<std::string, osg::ref_ptr<osg::MatrixTransform>, Misc::StringUtils::CiHash, Misc::StringUtils::CiEqual> NodeMap;
+
 protected:
     class AnimationTime : public SceneUtil::ControllerSource
     {
@@ -245,12 +250,10 @@ protected:
 
     // Keep track of controllers that we added to our scene graph.
     // We may need to rebuild these controllers when the active animation groups / sources change.
-    std::vector<std::pair<osg::ref_ptr<osg::Node>, osg::ref_ptr<osg::NodeCallback>>> mActiveControllers;
+    std::vector<std::pair<osg::ref_ptr<osg::Node>, osg::ref_ptr<osg::Callback>>> mActiveControllers;
 
     std::shared_ptr<AnimationTime> mAnimationTimePtr[sNumBlendMasks];
 
-    // Stored in all lowercase for a case-insensitive lookup
-    typedef std::map<std::string, osg::ref_ptr<osg::MatrixTransform> > NodeMap;
     mutable NodeMap mNodeMap;
     mutable bool mNodeMapCreated;
 
@@ -506,7 +509,7 @@ public:
     bool canBeHarvested() const override;
 };
 
-class UpdateVfxCallback : public osg::NodeCallback
+class UpdateVfxCallback : public SceneUtil::NodeCallback<UpdateVfxCallback>
 {
 public:
     UpdateVfxCallback(EffectParams& params)
@@ -519,7 +522,7 @@ public:
     bool mFinished;
     EffectParams mParams;
 
-    void operator()(osg::Node* node, osg::NodeVisitor* nv) override;
+    void operator()(osg::Node* node, osg::NodeVisitor* nv);
 
 private:
     double mStartingTime;

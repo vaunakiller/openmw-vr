@@ -6,6 +6,7 @@
 #include "../mwmechanics/weapontype.hpp"
 
 #include <components/debug/debuglog.hpp>
+#include <components/settings/settings.hpp>
 #include <components/vr/trackingmanager.hpp>
 
 #include <iomanip>

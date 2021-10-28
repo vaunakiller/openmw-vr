@@ -30,6 +30,8 @@
 #include <osg/io_utils>
 #include <osg/Depth>
 
+#include <osgDB/SharedStateManager>
+
 #include <osgUtil/TransformAttributeFunctor>
 #include <osgUtil/Statistics>
 #include <osgUtil/MeshOptimizers>
@@ -82,6 +84,13 @@ void Optimizer::optimize(osg::Node* node, unsigned int options)
         CombineStaticTransformsVisitor cstv(this);
         node->accept(cstv);
         cstv.removeTransforms(node);
+    }
+
+    if (options & SHARE_DUPLICATE_STATE && _sharedStateManager)
+    {
+        if (_sharedStateMutex) _sharedStateMutex->lock();
+        _sharedStateManager->share(node);
+        if (_sharedStateMutex) _sharedStateMutex->unlock();
     }
 
     if (options & REMOVE_REDUNDANT_NODES)
@@ -162,7 +171,7 @@ class CollectLowestTransformsVisitor : public BaseOptimizerVisitor
             setTraversalMode(osg::NodeVisitor::TRAVERSE_PARENTS);
         }
 
-        void apply(osg::Node& node) override
+        void apply(osg::Group& node) override
         {
             if (node.getNumParents())
             {
@@ -171,7 +180,7 @@ class CollectLowestTransformsVisitor : public BaseOptimizerVisitor
             else
             {
                 // for all current objects mark a nullptr transform for them.
-                registerWithCurrentObjects(0);
+                registerWithCurrentObjects(static_cast<osg::Transform*>(nullptr));
             }
         }
 
@@ -189,15 +198,19 @@ class CollectLowestTransformsVisitor : public BaseOptimizerVisitor
             // for all current objects associated this transform with them.
             registerWithCurrentObjects(&transform);
         }
-
-        void apply(osg::Geode& geode) override
+        void apply(osg::MatrixTransform& transform) override
         {
-            traverse(geode);
+            // for all current objects associated this transform with them.
+            registerWithCurrentObjects(&transform);
         }
 
-        void apply(osg::Billboard& geode) override
+        void apply(osg::Node& node) override
         {
-            traverse(geode);
+            traverse(node);
+        }
+
+        void apply(osg::Geometry& geode) override
+        {
         }
 
         void collectDataFor(osg::Node* node)
@@ -284,7 +297,19 @@ class CollectLowestTransformsVisitor : public BaseOptimizerVisitor
 
             ObjectStruct():_canBeApplied(true),_moreThanOneMatrixRequired(false) {}
 
-            void add(osg::Transform* transform, bool canOptimize)
+            inline const osg::Matrix& getMatrix(osg::MatrixTransform* transform)
+            {
+                return transform->getMatrix();
+            }
+            osg::Matrix getMatrix(osg::Transform* transform)
+            {
+                osg::Matrix matrix;
+                transform->computeLocalToWorldMatrix(matrix, 0);
+                return matrix;
+            }
+            
+            template<typename T>
+            void add(T* transform, bool canOptimize)
             {
                 if (transform)
                 {
@@ -292,12 +317,10 @@ class CollectLowestTransformsVisitor : public BaseOptimizerVisitor
                     else if (transform->getReferenceFrame()!=osg::Transform::RELATIVE_RF) _moreThanOneMatrixRequired=true;
                     else
                     {
-                        if (_transformSet.empty()) transform->computeLocalToWorldMatrix(_firstMatrix,0);
+                        if (_transformSet.empty()) _firstMatrix = getMatrix(transform);
                         else
                         {
-                            osg::Matrix matrix;
-                            transform->computeLocalToWorldMatrix(matrix,0);
-                            if (_firstMatrix!=matrix) _moreThanOneMatrixRequired=true;
+                            if (_firstMatrix!=getMatrix(transform)) _moreThanOneMatrixRequired=true;
                         }
                     }
                 }
@@ -318,8 +341,8 @@ class CollectLowestTransformsVisitor : public BaseOptimizerVisitor
             TransformSet    _transformSet;
         };
 
-
-        void registerWithCurrentObjects(osg::Transform* transform)
+        template <typename T>
+        void registerWithCurrentObjects(T* transform)
         {
             for(ObjectList::iterator itr=_currentObjectList.begin();
                 itr!=_currentObjectList.end();
@@ -624,19 +647,23 @@ osg::Array* cloneArray(osg::Array* array, osg::VertexBufferObject*& vbo, const o
     return array;
 }
 
-void Optimizer::FlattenStaticTransformsVisitor::apply(osg::Drawable& drawable)
+void Optimizer::FlattenStaticTransformsVisitor::apply(osg::Geometry& geometry)
 {
-    osg::Geometry *geometry = drawable.asGeometry();
-    if((geometry) && (isOperationPermissibleForObject(&drawable)))
+    if(isOperationPermissibleForObject(&geometry))
     {
         osg::VertexBufferObject* vbo = nullptr;
-        if(geometry->getVertexArray() && geometry->getVertexArray()->referenceCount() > 1)
-            geometry->setVertexArray(cloneArray(geometry->getVertexArray(), vbo, geometry));
-        if(geometry->getNormalArray() && geometry->getNormalArray()->referenceCount() > 1)
-            geometry->setNormalArray(cloneArray(geometry->getNormalArray(), vbo, geometry));
-        if(geometry->getTexCoordArray(7) && geometry->getTexCoordArray(7)->referenceCount() > 1) // tangents
-            geometry->setTexCoordArray(7, cloneArray(geometry->getTexCoordArray(7), vbo, geometry));
+        if(geometry.getVertexArray() && geometry.getVertexArray()->referenceCount() > 1)
+            geometry.setVertexArray(cloneArray(geometry.getVertexArray(), vbo, &geometry));
+        if(geometry.getNormalArray() && geometry.getNormalArray()->referenceCount() > 1)
+            geometry.setNormalArray(cloneArray(geometry.getNormalArray(), vbo, &geometry));
+        if(geometry.getTexCoordArray(7) && geometry.getTexCoordArray(7)->referenceCount() > 1) // tangents
+            geometry.setTexCoordArray(7, cloneArray(geometry.getTexCoordArray(7), vbo, &geometry));
     }
+    _drawableSet.insert(&geometry);
+}
+
+void Optimizer::FlattenStaticTransformsVisitor::apply(osg::Drawable& drawable)
+{
     _drawableSet.insert(&drawable);
 }
 
@@ -662,6 +689,11 @@ void Optimizer::FlattenStaticTransformsVisitor::apply(osg::Transform& transform)
     traverse(transform);
 
     _transformStack.pop_back();
+}
+
+void Optimizer::FlattenStaticTransformsVisitor::apply(osg::MatrixTransform& transform)
+{
+    apply(static_cast<osg::Transform&>(transform));
 }
 
 bool Optimizer::FlattenStaticTransformsVisitor::removeTransforms(osg::Node* nodeWeCannotRemove)
@@ -741,7 +773,8 @@ bool Optimizer::CombineStaticTransformsVisitor::removeTransforms(osg::Node* node
         if (transform->getNumChildren()==1 &&
             transform->getChild(0)->asTransform()!=0 &&
             transform->getChild(0)->asTransform()->asMatrixTransform()!=0 &&
-            transform->getChild(0)->asTransform()->getDataVariance()==osg::Object::STATIC)
+            (!transform->getChild(0)->getStateSet() || transform->getChild(0)->getStateSet()->referenceCount()==1) &&
+            transform->getChild(0)->getDataVariance()==osg::Object::STATIC)
         {
             // now combine with its child.
             osg::MatrixTransform* child = transform->getChild(0)->asTransform()->asMatrixTransform();
@@ -903,11 +936,11 @@ void Optimizer::RemoveRedundantNodesVisitor::removeRedundantNodes()
                 unsigned int childIndex = (*pitr)->getChildIndex(group);
                 for (unsigned int i=0; i<group->getNumChildren(); ++i)
                 {
-                    osg::Node* child = group->getChild(i);
-                    (*pitr)->insertChild(childIndex++, child);
+                    if (i==0)
+                        (*pitr)->setChild(childIndex, group->getChild(i));
+                    else
+                        (*pitr)->insertChild(childIndex+i, group->getChild(i));
                 }
-
-                (*pitr)->removeChild(group);
             }
 
             group->removeChildren(0, group->getNumChildren());
@@ -1102,10 +1135,13 @@ bool isAbleToMerge(const osg::Geometry& g1, const osg::Geometry& g2)
 }
 
 
-void Optimizer::MergeGeometryVisitor::pushStateSet(osg::StateSet *stateSet)
+bool Optimizer::MergeGeometryVisitor::pushStateSet(osg::StateSet *stateSet)
 {
+    if (_mergeAlphaBlending || !stateSet || stateSet->getRenderBinMode() & osg::StateSet::INHERIT_RENDERBIN_DETAILS)
+        return false;
     _stateSetStack.push_back(stateSet);
     checkAlphaBlendingActive();
+    return true;
 }
 
 void Optimizer::MergeGeometryVisitor::popStateSet()
@@ -1135,15 +1171,14 @@ void Optimizer::MergeGeometryVisitor::checkAlphaBlendingActive()
 
 void Optimizer::MergeGeometryVisitor::apply(osg::Group &group)
 {
-    if (group.getStateSet())
-        pushStateSet(group.getStateSet());
+    bool pushed = pushStateSet(group.getStateSet());
 
     if (!_alphaBlendingActive || _mergeAlphaBlending)
         mergeGroup(group);
 
     traverse(group);
 
-    if (group.getStateSet())
+    if (pushed)
         popStateSet();
 }
 

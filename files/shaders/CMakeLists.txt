@@ -36,6 +36,9 @@ set(SHADER_FILES
     gui_fragment.glsl
     debug_vertex.glsl
     debug_fragment.glsl
+    sky_vertex.glsl
+    sky_fragment.glsl
+    skypasses.glsl
     stereo_geometry.glsl
 )
 

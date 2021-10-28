@@ -355,16 +355,16 @@ void VDSMCameraCullCallback::operator()(osg::Node* node, osg::NodeVisitor* nv)
 
 } // namespace
 
-MWShadowTechnique::ComputeLightSpaceBounds::ComputeLightSpaceBounds(osg::Viewport* viewport, const osg::Matrixd& projectionMatrix, osg::Matrixd& viewMatrix) :
+MWShadowTechnique::ComputeLightSpaceBounds::ComputeLightSpaceBounds() :
     osg::NodeVisitor(osg::NodeVisitor::TRAVERSE_ACTIVE_CHILDREN)
 {
     setCullingMode(osg::CullSettings::VIEW_FRUSTUM_CULLING);
+}
 
-    pushViewport(viewport);
-    pushProjectionMatrix(new osg::RefMatrix(projectionMatrix));
-    pushModelViewMatrix(new osg::RefMatrix(viewMatrix), osg::Transform::ABSOLUTE_RF);
-
-    setName("SceneUtil::MWShadowTechnique::ComputeLightSpaceBounds,AcceptedByComponentsTerrainQuadTreeWorld");
+void MWShadowTechnique::ComputeLightSpaceBounds::reset()
+{
+    osg::CullStack::reset();
+    _bb = osg::BoundingBox();
 }
 
 void MWShadowTechnique::ComputeLightSpaceBounds::apply(osg::Node& node)
@@ -380,6 +380,11 @@ void MWShadowTechnique::ComputeLightSpaceBounds::apply(osg::Node& node)
     popCurrentMask();
 }
 
+void MWShadowTechnique::ComputeLightSpaceBounds::apply(osg::Group& node)
+{
+    apply(static_cast<osg::Node&>(node));
+}
+
 void MWShadowTechnique::ComputeLightSpaceBounds::apply(osg::Drawable& drawable)
 {
     if (isCulled(drawable)) return;
@@ -393,12 +398,9 @@ void MWShadowTechnique::ComputeLightSpaceBounds::apply(osg::Drawable& drawable)
     popCurrentMask();
 }
 
-void MWShadowTechnique::ComputeLightSpaceBounds::apply(Terrain::QuadTreeWorld & quadTreeWorld)
+void MWShadowTechnique::ComputeLightSpaceBounds::apply(osg::Geometry& drawable)
 {
-    // For now, just expand the bounds fully as terrain will fill them up and possible ways to detect which terrain definitely won't cast shadows aren't implemented.
-
-    update(osg::Vec3(-1.0, -1.0, 0.0));
-    update(osg::Vec3(1.0, 1.0, 0.0));
+    apply(static_cast<osg::Drawable&>(drawable));
 }
 
 void MWShadowTechnique::ComputeLightSpaceBounds::apply(osg::Billboard&)
@@ -423,9 +425,9 @@ void MWShadowTechnique::ComputeLightSpaceBounds::apply(osg::Transform& transform
     // absolute transforms won't affect a shadow map so their subgraphs should be ignored.
     if (transform.getReferenceFrame() == osg::Transform::RELATIVE_RF)
     {
-        osg::ref_ptr<osg::RefMatrix> matrix = new osg::RefMatrix(*getModelViewMatrix());
+        osg::RefMatrix* matrix = createOrReuseMatrix(*getModelViewMatrix());
         transform.computeLocalToWorldMatrix(*matrix, this);
-        pushModelViewMatrix(matrix.get(), transform.getReferenceFrame());
+        pushModelViewMatrix(matrix, transform.getReferenceFrame());
 
         traverse(transform);
 
@@ -434,7 +436,11 @@ void MWShadowTechnique::ComputeLightSpaceBounds::apply(osg::Transform& transform
 
     // pop the culling mode.
     popCurrentMask();
+}
 
+void MWShadowTechnique::ComputeLightSpaceBounds::apply(osg::MatrixTransform& transform)
+{
+    apply(static_cast<osg::Transform&>(transform));
 }
 
 void MWShadowTechnique::ComputeLightSpaceBounds::apply(osg::Camera&)
@@ -1139,12 +1145,17 @@ void SceneUtil::MWShadowTechnique::castShadows(osgUtil::CullVisitor& cv, ViewDep
 
         // if we are using multiple shadow maps and CastShadowTraversalMask is being used
         // traverse the scene to compute the extents of the objects
-        if (/*numShadowMapsPerLight>1 &&*/ _shadowedScene->getCastsShadowTraversalMask()!=0xffffffff)
+        if (/*numShadowMapsPerLight>1 &&*/ (_shadowedScene->getCastsShadowTraversalMask() & _worldMask) == 0)
         {
             // osg::ElapsedTime timer;
 
             osg::ref_ptr<osg::Viewport> viewport = new osg::Viewport(0,0,2048,2048);
-            ComputeLightSpaceBounds clsb(viewport.get(), projectionMatrix, viewMatrix);
+            if (!_clsb) _clsb = new ComputeLightSpaceBounds;
+            ComputeLightSpaceBounds& clsb = *_clsb;
+            clsb.reset();
+            clsb.pushViewport(viewport);
+            clsb.pushProjectionMatrix(new osg::RefMatrix(projectionMatrix));
+            clsb.pushModelViewMatrix(new osg::RefMatrix(viewMatrix), osg::Transform::ABSOLUTE_RF);
             clsb.setTraversalMask(_shadowedScene->getCastsShadowTraversalMask());
 
             osg::Matrixd invertModelView;
@@ -1157,6 +1168,12 @@ void SceneUtil::MWShadowTechnique::castShadows(osgUtil::CullVisitor& cv, ViewDep
             clsb.pushCullingSet();
 
             _shadowedScene->accept(clsb);
+
+            clsb.popCullingSet();
+
+            clsb.popModelViewMatrix();
+            clsb.popProjectionMatrix();
+            clsb.popViewport();
 
             // OSG_NOTICE<<"Extents of LightSpace "<<clsb._bb.xMin()<<", "<<clsb._bb.xMax()<<", "<<clsb._bb.yMin()<<", "<<clsb._bb.yMax()<<", "<<clsb._bb.zMin()<<", "<<clsb._bb.zMax()<<std::endl;
             // OSG_NOTICE<<"  time "<<timer.elapsedTime_m()<<"ms, mask = "<<std::hex<<_shadowedScene->getCastsShadowTraversalMask()<<std::endl;

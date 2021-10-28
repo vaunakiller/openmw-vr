@@ -41,7 +41,6 @@
 #include <components/sceneutil/statesetupdater.hpp>
 #include <components/sceneutil/positionattitudetransform.hpp>
 #include <components/sceneutil/workqueue.hpp>
-#include <components/sceneutil/unrefqueue.hpp>
 #include <components/sceneutil/writescene.hpp>
 #include <components/sceneutil/shadow.hpp>
 
@@ -308,7 +307,7 @@ namespace MWRender
             try
             {
                 for (std::vector<std::string>::const_iterator it = mModels.begin(); it != mModels.end(); ++it)
-                    mResourceSystem->getSceneManager()->cacheInstance(*it);
+                    mResourceSystem->getSceneManager()->getTemplate(*it);
                 for (std::vector<std::string>::const_iterator it = mTextures.begin(); it != mTextures.end(); ++it)
                     mResourceSystem->getImageManager()->getImage(*it);
                 for (std::vector<std::string>::const_iterator it = mKeyframes.begin(); it != mKeyframes.end(); ++it)
@@ -335,12 +334,16 @@ namespace MWRender
         , mRootNode(rootNode)
         , mResourceSystem(resourceSystem)
         , mWorkQueue(workQueue)
-        , mUnrefQueue(new SceneUtil::UnrefQueue)
         , mNavigator(navigator)
         , mMinimumAmbientLuminance(0.f)
         , mNightEyeFactor(0.f)
+        // TODO: Near clip should not need to be bounded like this, but too small values break OSG shadow calculations CPU-side.
+        // See issue: #6072
+        , mNearClip(std::max(0.005f, Settings::Manager::getFloat("near clip", "Camera")))
+        , mViewDistance(Settings::Manager::getFloat("viewing distance", "Camera"))
         , mFieldOfViewOverridden(false)
         , mFieldOfViewOverride(0.f)
+        , mFieldOfView(std::min(std::max(1.f, Settings::Manager::getFloat("field of view", "Camera")), 179.f))
 #ifdef USE_OPENXR
         , mUserPointer(std::make_shared<MWVR::UserPointer>(rootNode))
 #endif
@@ -378,7 +381,6 @@ namespace MWRender
 
         // Let LightManager choose which backend to use based on our hint. For methods besides legacy lighting, this depends on support for various OpenGL extensions.
         osg::ref_ptr<SceneUtil::LightManager> sceneRoot = new SceneUtil::LightManager(lightingMethod == SceneUtil::LightingMethod::FFP);
-        resourceSystem->getSceneManager()->getShaderManager().setLightingMethod(sceneRoot->getLightingMethod());
         resourceSystem->getSceneManager()->setLightingMethod(sceneRoot->getLightingMethod());
         resourceSystem->getSceneManager()->setSupportedLightingMethods(sceneRoot->getSupportedLightingMethods());
         mMinimumAmbientLuminance = std::clamp(Settings::Manager::getFloat("minimum interior brightness", "Shaders"), 0.f, 1.f);
@@ -394,14 +396,14 @@ namespace MWRender
             shadowCastingTraversalMask |= Mask_Actor;
         if (Settings::Manager::getBool("player shadows", "Shadows"))
             shadowCastingTraversalMask |= Mask_Player;
-        if (Settings::Manager::getBool("terrain shadows", "Shadows"))
-            shadowCastingTraversalMask |= Mask_Terrain;
 
         int indoorShadowCastingTraversalMask = shadowCastingTraversalMask;
         if (Settings::Manager::getBool("object shadows", "Shadows"))
             shadowCastingTraversalMask |= (Mask_Object|Mask_Static);
+        if (Settings::Manager::getBool("terrain shadows", "Shadows"))
+            shadowCastingTraversalMask |= Mask_Terrain;
 
-        mShadowManager.reset(new SceneUtil::ShadowManager(sceneRoot, mRootNode, shadowCastingTraversalMask, indoorShadowCastingTraversalMask, mResourceSystem->getSceneManager()->getShaderManager()));
+        mShadowManager.reset(new SceneUtil::ShadowManager(sceneRoot, mRootNode, shadowCastingTraversalMask, indoorShadowCastingTraversalMask, Mask_Terrain|Mask_Object|Mask_Static, mResourceSystem->getSceneManager()->getShaderManager()));
 
         Shader::ShaderManager::DefineMap shadowDefines = mShadowManager->getShadowDefines();
         Shader::ShaderManager::DefineMap lightDefines = sceneRoot->getLightDefines();
@@ -436,7 +438,7 @@ namespace MWRender
         mRecastMesh.reset(new RecastMesh(mRootNode, Settings::Manager::getBool("enable recast mesh render", "Navigator")));
         mPathgrid.reset(new Pathgrid(mRootNode));
 
-        mObjects.reset(new Objects(mResourceSystem, sceneRoot, mUnrefQueue.get()));
+        mObjects.reset(new Objects(mResourceSystem, sceneRoot));
 
         if (getenv("OPENMW_DONT_PRECOMPILE") == nullptr)
         {
@@ -468,9 +470,10 @@ namespace MWRender
             const int vertexLodMod = Settings::Manager::getInt("vertex lod mod", "Terrain");
             float maxCompGeometrySize = Settings::Manager::getFloat("max composite geometry size", "Terrain");
             maxCompGeometrySize = std::max(maxCompGeometrySize, 1.f);
+            bool debugChunks = Settings::Manager::getBool("debug chunks", "Terrain");
             mTerrain.reset(new Terrain::QuadTreeWorld(
                 sceneRoot, mRootNode, mResourceSystem, mTerrainStorage.get(), Mask_Terrain, Mask_PreCompile, Mask_Debug,
-                compMapResolution, compMapLevel, lodFactor, vertexLodMod, maxCompGeometrySize));
+                compMapResolution, compMapLevel, lodFactor, vertexLodMod, maxCompGeometrySize, debugChunks));
             if (Settings::Manager::getBool("object paging", "Terrain"))
             {
                 mObjectPaging.reset(new ObjectPaging(mResourceSystem->getSceneManager()));
@@ -482,7 +485,6 @@ namespace MWRender
             mTerrain.reset(new Terrain::TerrainGrid(sceneRoot, mRootNode, mResourceSystem, mTerrainStorage.get(), Mask_Terrain, Mask_PreCompile, Mask_Debug));
 
         mTerrain->setTargetFrameRate(Settings::Manager::getFloat("target framerate", "Cells"));
-        mTerrain->setWorkQueue(mWorkQueue.get());
 
         if (groundcover)
         {
@@ -493,7 +495,6 @@ namespace MWRender
             static_cast<Terrain::QuadTreeWorld*>(mTerrain.get())->addChunkManager(mGroundcover.get());
             mResourceSystem->addResourceManager(mGroundcover.get());
 
-            float groundcoverDistance = std::max(0.f, Settings::Manager::getFloat("rendering distance", "Groundcover"));
             mGroundcover->setViewDistance(groundcoverDistance);
         }
 
@@ -543,6 +544,7 @@ namespace MWRender
         defaultMat->setDiffuse(osg::Material::FRONT_AND_BACK, osg::Vec4f(1,1,1,1));
         defaultMat->setSpecular(osg::Material::FRONT_AND_BACK, osg::Vec4f(0.f, 0.f, 0.f, 0.f));
         sceneRoot->getOrCreateStateSet()->setAttribute(defaultMat);
+        sceneRoot->getOrCreateStateSet()->addUniform(new osg::Uniform("emissiveMult", 1.f));
 
         mFog.reset(new FogManager());
 
@@ -574,12 +576,6 @@ namespace MWRender
         NifOsg::Loader::setIntersectionDisabledNodeMask(Mask_Effect);
         Nif::NIFFile::setLoadUnsupportedFiles(Settings::Manager::getBool("load unsupported nif files", "Models"));
 
-        // TODO: Near clip should not need to be bounded like this, but too small values break OSG shadow calculations CPU-side.
-        // See issue: #6072
-        mNearClip = std::max(0.005f, Settings::Manager::getFloat("near clip", "Camera"));
-        mViewDistance = Settings::Manager::getFloat("viewing distance", "Camera");
-        float fov = Settings::Manager::getFloat("field of view", "Camera");
-        mFieldOfView = std::min(std::max(1.f, fov), 179.f);
         float firstPersonFov = Settings::Manager::getFloat("first person field of view", "Camera");
         mFirstPersonFieldOfView = std::min(std::max(1.f, firstPersonFov), 179.f);
         mStateUpdater->setFogEnd(mViewDistance);
@@ -628,11 +624,6 @@ namespace MWRender
     SceneUtil::WorkQueue* RenderingManager::getWorkQueue()
     {
         return mWorkQueue.get();
-    }
-
-    SceneUtil::UnrefQueue* RenderingManager::getUnrefQueue()
-    {
-        return mUnrefQueue.get();
     }
 
     Terrain::World* RenderingManager::getTerrain()
@@ -822,12 +813,12 @@ namespace MWRender
         else if (mode == Render_Scene)
         {
             unsigned int mask = mViewer->getCamera()->getCullMask();
-            bool enabled = mask&Mask_Scene;
-            enabled = !enabled;
+            bool enabled = !(mask&sToggleWorldMask);
             if (enabled)
-                mask |= Mask_Scene;
+                mask |= sToggleWorldMask;
             else
-                mask &= ~Mask_Scene;
+                mask &= ~sToggleWorldMask;
+            mWater->showWorld(enabled);
             mViewer->getCamera()->setCullMask(mask);
             mViewer->getCamera()->setCullMaskLeft(mask);
             mViewer->getCamera()->setCullMaskRight(mask);
@@ -866,8 +857,6 @@ namespace MWRender
     void RenderingManager::update(float dt, bool paused)
     {
         reportStats();
-
-        mUnrefQueue->flush(mWorkQueue.get());
 
         float rainIntensity = mSky->getPrecipitationAlpha();
         mWater->setRainIntensity(rainIntensity);
@@ -1325,8 +1314,6 @@ namespace MWRender
         unsigned int frameNumber = mViewer->getFrameStamp()->getFrameNumber();
         if (stats->collectStats("resource"))
         {
-            stats->setAttribute(frameNumber, "UnrefQueue", mUnrefQueue->getNumItems());
-
             mTerrain->reportStats(frameNumber, stats);
         }
     }
@@ -1382,11 +1369,7 @@ namespace MWRender
                         defines[name] = key;
                     mResourceSystem->getSceneManager()->getShaderManager().setGlobalDefines(defines);
 
-                    mSceneRoot->removeUpdateCallback(mStateUpdater);
-                    mStateUpdater = new StateUpdater;
-                    mSceneRoot->addUpdateCallback(mStateUpdater);
-                    mStateUpdater->setFogEnd(mViewDistance);
-                    updateAmbient();
+                    mStateUpdater->reset();
 
                     mViewer->startThreading();
                 }

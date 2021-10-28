@@ -55,7 +55,7 @@ add_component_dir (shader
 
 add_component_dir (sceneutil
     clone attach visitor util statesetupdater controller skeleton riggeometry morphgeometry lightcontroller
-    lightmanager lightutil positionattitudetransform workqueue unrefqueue pathgridutil waterutil writescene serialize optimizer
+    lightmanager lightutil positionattitudetransform workqueue pathgridutil waterutil writescene serialize optimizer
     actorutil detourdebugdraw navmesh agentpath shadow mwshadowtechnique recastmesh shadowsbin osgacontroller rtt
     screencapture
     )
@@ -93,6 +93,7 @@ add_component_dir (esmterrain
 
 add_component_dir (misc
     constants utf8stream stringops resourcehelpers rng messageformatparser weakcache stereo callbackmanager thread
+    compression
     )
 
 add_component_dir (debug
@@ -201,6 +202,17 @@ add_component_dir(loadinglistener
     reporter
     )
 
+add_component_dir(sqlite3
+    db
+    statement
+    transaction
+)
+
+add_component_dir(esmloader
+    load
+    esmdata
+)
+
 if(BUILD_OPENMW_VR)
     add_component_dir(vr
         actionmanager
@@ -269,6 +281,8 @@ endif ()
 
 include_directories(${BULLET_INCLUDE_DIRS} ${CMAKE_CURRENT_BINARY_DIR})
 
+find_package(SQLite3 REQUIRED)
+
 add_library(components STATIC ${COMPONENT_FILES})
 
 target_link_libraries(components
@@ -301,6 +315,7 @@ target_link_libraries(components
     RecastNavigation::Recast
 
     Base64
+    SQLite::SQLite3
     )
 
 target_link_libraries(components ${BULLET_LIBRARIES})

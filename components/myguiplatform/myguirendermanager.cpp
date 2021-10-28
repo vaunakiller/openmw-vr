@@ -7,10 +7,8 @@
 #include <MyGUI_Enumerator.h>
 
 #include <osg/Drawable>
-#include <osg/BlendFunc>
 #include <osg/Texture2D>
 #include <osg/TexMat>
-#include <osg/ValueObject>
 
 #include <osgViewer/Viewer>
 
@@ -18,8 +16,7 @@
 
 #include <components/resource/imagemanager.hpp>
 #include <components/shader/shadermanager.hpp>
-
-#include <components/debug/debuglog.hpp>
+#include <components/sceneutil/nodecallback.hpp>
 
 #include "myguicompat.h"
 #include "myguitexture.hpp"
@@ -56,7 +53,7 @@ class Drawable : public osg::Drawable {
 public:
 
     // Stage 0: update widget animations and controllers. Run during the Update traversal.
-    class FrameUpdate : public osg::Drawable::UpdateCallback
+    class FrameUpdate : public SceneUtil::NodeCallback<FrameUpdate>
     {
     public:
         FrameUpdate()
@@ -69,9 +66,8 @@ public:
             mRenderManager = renderManager;
         }
 
-        void update(osg::NodeVisitor*, osg::Drawable*) override
+        void operator()(osg::Node*, osg::NodeVisitor*)
         {
-            if (mRenderManager)
                 mRenderManager->update();
         }
 
@@ -80,7 +76,7 @@ public:
     };
 
     // Stage 1: collect draw calls. Run during the Cull traversal.
-    class CollectDrawCalls : public osg::Drawable::CullCallback
+    class CollectDrawCalls : public SceneUtil::NodeCallback<CollectDrawCalls>
     {
     public:
         CollectDrawCalls()
@@ -94,12 +90,12 @@ public:
             mCamera = camera;
         }
 
+        void operator()(osg::Node*, osg::NodeVisitor*);
+
         void setFilter(std::string filter)
         {
             mFilter = filter;
         }
-
-        bool cull(osg::NodeVisitor*, osg::Drawable*, osg::State*) const override;
 
     private:
         GUICamera* mCamera;
@@ -410,7 +406,6 @@ public:
     std::string mFilter;
 };
 
-
 void GUICamera::begin()
 {
     mDrawable->clear();
@@ -418,16 +413,17 @@ void GUICamera::begin()
     mDrawable->setDataVariance(osg::Object::STATIC);
 }
 
-bool Drawable::CollectDrawCalls::cull(osg::NodeVisitor*, osg::Drawable*, osg::State*) const
+void Drawable::CollectDrawCalls::operator()(osg::Node*, osg::NodeVisitor*)
 {
-    if (!mCamera)
-        return false;
+    {
+        if (!mCamera)
+            return;
 
-    if (mFilter.empty())
-        mCamera->collectDrawCalls();
-    else
-        mCamera->collectDrawCalls(mFilter);
-    return false;
+        if (mFilter.empty())
+            mCamera->collectDrawCalls();
+        else
+            mCamera->collectDrawCalls(mFilter);
+    }
 }
 
 RenderManager::RenderManager(osgViewer::Viewer *viewer, osg::Group *sceneroot, Resource::ImageManager* imageManager, float scalingFactor)
@@ -501,8 +497,6 @@ void RenderManager::enableShaders(Shader::ShaderManager& shaderManager)
 
     mGuiStateSet->setAttributeAndModes(program, osg::StateAttribute::ON);
     mGuiStateSet->addUniform(new osg::Uniform("diffuseMap", 0));
-
-    Log(Debug::Debug) << "osgMyGUI::RenderManager: Shaders Enabled";
 }
 
 MyGUI::IVertexBuffer* RenderManager::createVertexBuffer()
@@ -522,24 +516,18 @@ void GUICamera::doRender(MyGUI::IVertexBuffer *buffer, MyGUI::ITexture *texture,
     batch.mVertexBuffer = static_cast<OSGVertexBuffer*>(buffer)->getVertexBuffer();
     batch.mArray = static_cast<OSGVertexBuffer*>(buffer)->getVertexArray();
     static_cast<OSGVertexBuffer*>(buffer)->markUsed();
-    bool premultipliedAlpha = false;
-    if (texture)
+
+    if (OSGTexture* osgtexture = static_cast<OSGTexture*>(texture))
     {
-        batch.mTexture = static_cast<OSGTexture*>(texture)->getTexture();
+        batch.mTexture = osgtexture->getTexture();
         if (batch.mTexture->getDataVariance() == osg::Object::DYNAMIC)
             mDrawable->setDataVariance(osg::Object::DYNAMIC); // only for this frame, reset in begin()
-        batch.mTexture->getUserValue("premultiplied alpha", premultipliedAlpha);
+        if (!mInjectState && osgtexture->getInjectState())
+            batch.mStateSet = osgtexture->getInjectState();
     }
 
     if (mInjectState)
         batch.mStateSet = mInjectState;
-    else if (premultipliedAlpha)
-    {
-        // This is hacky, but MyGUI made it impossible to use a custom layer for a nested node, so state couldn't be injected 'properly'
-        osg::ref_ptr<osg::StateSet> stateSet = new osg::StateSet();
-        stateSet->setAttribute(new osg::BlendFunc(osg::BlendFunc::ONE, osg::BlendFunc::ONE_MINUS_SRC_ALPHA));
-        batch.mStateSet = stateSet;
-    }
 
     mDrawable->addBatch(batch);
 }

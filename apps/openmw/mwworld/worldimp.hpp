@@ -378,7 +378,7 @@ namespace MWWorld
             MWWorld::Ptr moveObject (const Ptr& ptr, const osg::Vec3f& position, bool movePhysics=true, bool moveToActive=false) override;
             ///< @return an updated Ptr in case the Ptr's cell changes
 
-            MWWorld::Ptr moveObject (const Ptr& ptr, CellStore* newCell, const osg::Vec3f& position, bool movePhysics=true) override;
+            MWWorld::Ptr moveObject (const Ptr& ptr, CellStore* newCell, const osg::Vec3f& position, bool movePhysics=true, bool keepActive=false) override;
             ///< @return an updated Ptr
 
             MWWorld::Ptr moveObjectBy(const Ptr& ptr, const osg::Vec3f& vec, bool moveToActive, bool ignoreCollisions) override;
@@ -641,7 +641,7 @@ namespace MWWorld
              */
             void castSpell (const MWWorld::Ptr& actor, bool manualSpell=false) override;
 
-            void launchMagicBolt (const std::string& spellId, const MWWorld::Ptr& caster, const osg::Vec3f& fallbackDirection) override;
+            void launchMagicBolt (const std::string& spellId, const MWWorld::Ptr& caster, const osg::Vec3f& fallbackDirection, int slot) override;
             void launchProjectile (MWWorld::Ptr& actor, MWWorld::Ptr& projectile,
                                            const osg::Vec3f& worldPos, const osg::Quat& orient, MWWorld::Ptr& bow, float speed, float attackStrength) override;
             void updateProjectilesCasters() override;
@@ -686,7 +686,7 @@ namespace MWWorld
 
             void explodeSpell(const osg::Vec3f& origin, const ESM::EffectList& effects, const MWWorld::Ptr& caster, const MWWorld::Ptr& ignore,
                                       ESM::RangeType rangeType, const std::string& id, const std::string& sourceName,
-                                      const bool fromProjectile=false) override;
+                                      const bool fromProjectile=false, int slot = 0) override;
 
             void activate (const MWWorld::Ptr& object, const MWWorld::Ptr& actor) override;
 
@@ -740,6 +740,9 @@ namespace MWWorld
 
             bool hasCollisionWithDoor(const MWWorld::ConstPtr& door, const osg::Vec3f& position, const osg::Vec3f& destination) const override;
 
+            bool isAreaOccupiedByOtherActor(const osg::Vec3f& position, const float radius,
+                const MWWorld::ConstPtr& ignore, std::vector<MWWorld::Ptr>* occupyingActors) const override;
+
             /// Intersects the scene from the origin, in the specified orientation and distance, storing the %result in the result structure.
             /// @Return distance to the target object, or -1 if no object was targeted / in range
             float getTargetObject(MWRender::RayResult& result, const osg::Vec3f& origin, const osg::Quat& orientation, float maxDistance, bool ignorePlayer) override;
@@ -752,8 +755,6 @@ namespace MWWorld
 
             /// @Return ESM::Weapon::Type enum describing the type of weapon currently drawn by the player.
             int getActiveWeaponType(void) override;
-			
-            bool isAreaOccupiedByOtherActor(const osg::Vec3f& position, const float radius, const MWWorld::ConstPtr& ignore) const override;
 
             void reportStats(unsigned int frameNumber, osg::Stats& stats) const override;
 

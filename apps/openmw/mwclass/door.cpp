@@ -55,9 +55,9 @@ namespace MWClass
         }
     }
 
-    void Door::insertObject(const MWWorld::Ptr& ptr, const std::string& model, const osg::Quat& rotation, MWPhysics::PhysicsSystem& physics, bool skipAnimated) const
+    void Door::insertObject(const MWWorld::Ptr& ptr, const std::string& model, const osg::Quat& rotation, MWPhysics::PhysicsSystem& physics) const
     {
-        insertObjectPhysics(ptr, model, rotation, physics, skipAnimated);
+        insertObjectPhysics(ptr, model, rotation, physics);
 
         // Resume the door's opening/closing animation if it wasn't finished
         if (ptr.getRefData().getCustomData())
@@ -70,10 +70,10 @@ namespace MWClass
         }
     }
 
-    void Door::insertObjectPhysics(const MWWorld::Ptr& ptr, const std::string& model, const osg::Quat& rotation, MWPhysics::PhysicsSystem& physics, bool skipAnimated) const
+    void Door::insertObjectPhysics(const MWWorld::Ptr& ptr, const std::string& model, const osg::Quat& rotation, MWPhysics::PhysicsSystem& physics) const
     {
         if(!model.empty())
-            physics.addObject(ptr, model, rotation, MWPhysics::CollisionType_Door, skipAnimated);
+            physics.addObject(ptr, model, rotation, MWPhysics::CollisionType_Door);
     }
 
     bool Door::isDoor() const
@@ -264,7 +264,7 @@ namespace MWClass
     {
         std::shared_ptr<Class> instance (new Door);
 
-        registerClass (typeid (ESM::Door).name(), instance);
+        registerClass (ESM::Door::sRecordId, instance);
     }
 
     MWGui::ToolTipInfo Door::getToolTipInfo (const MWWorld::ConstPtr& ptr, int count) const

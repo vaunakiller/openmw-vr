@@ -9,11 +9,12 @@ unsigned int ESM::Filter::sRecordId = REC_FILT;
 void ESM::Filter::load (ESMReader& esm, bool &isDeleted)
 {
     isDeleted = false;
+    mRecordFlags = esm.getRecordFlags();
 
     while (esm.hasMoreSubs())
     {
         esm.getSubName();
-        uint32_t name = esm.retSubName().intval;
+        uint32_t name = esm.retSubName().toInt();
         switch (name)
         {
             case ESM::SREC_NAME:

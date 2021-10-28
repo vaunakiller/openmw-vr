@@ -17,6 +17,7 @@
 
 
 #include <osgViewer/Renderer>
+#include <osgViewer/Viewer>
 
 #include <components/sceneutil/visitor.hpp>
 #include <components/sceneutil/shadow.hpp>

@@ -150,6 +150,8 @@ else()
 endif()
 option(RECASTNAVIGATION_STATIC "Build recastnavigation static libraries" ${_recastnavigation_static_default})
 
+option(OPENMW_USE_SYSTEM_SQLITE3 "Use system provided SQLite3 library" ON)
+
 option(OPENMW_UNITY_BUILD "Use fewer compilation units to speed up compile time" FALSE)
 option(OPENMW_LTO_BUILD "Build OpenMW with Link-Time Optimization (Needs ~2GB of RAM)" OFF)
 
@@ -554,6 +556,10 @@ if (BUILD_OPENCS)
     add_subdirectory (extern/osgQt)
 endif()
 
+if (OPENMW_CXX_FLAGS)
+    set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} ${OPENMW_CXX_FLAGS}")
+endif()
+
 # Components
 add_subdirectory (components)
 
@@ -737,6 +743,8 @@ endif()
 if (BUILD_OPENMW AND APPLE)
     # Without these flags LuaJit crashes on startup on OSX
     set_target_properties(openmw PROPERTIES LINK_FLAGS "-pagezero_size 10000 -image_base 100000000")
+    target_compile_definitions(components PRIVATE GL_SILENCE_DEPRECATION=1)
+    target_compile_definitions(openmw PRIVATE GL_SILENCE_DEPRECATION=1)
 endif()
 
 # Apple bundling

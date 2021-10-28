@@ -32,6 +32,7 @@ declare -a CMAKE_CONF_OPTS=(
     -DCMAKE_INSTALL_PREFIX=install
     -DCMAKE_C_FLAGS='-Werror'
     -DCMAKE_CXX_FLAGS="${CXX_FLAGS}"
+    -DOPENMW_CXX_FLAGS="-Werror=implicit-fallthrough"
 )
 
 if [[ $CI_OPENMW_USE_STATIC_DEPS ]]; then
@@ -39,6 +40,7 @@ if [[ $CI_OPENMW_USE_STATIC_DEPS ]]; then
         -DOPENMW_USE_SYSTEM_MYGUI=OFF
         -DOPENMW_USE_SYSTEM_OSG=OFF
         -DOPENMW_USE_SYSTEM_BULLET=OFF
+        -DOPENMW_USE_SYSTEM_SQLITE3=OFF
     )
 fi
 

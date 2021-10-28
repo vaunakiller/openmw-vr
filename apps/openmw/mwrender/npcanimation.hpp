@@ -24,7 +24,7 @@ namespace MWSound
 namespace MWRender
 {
 
-class NeckController;
+class RotateController;
 class HeadAnimationTime;
 
 class NpcAnimation : 
@@ -34,7 +34,6 @@ class NpcAnimation :
 {
 public:
     void equipmentChanged() override;
-    void permanentEffectAdded(const ESM::MagicEffect *magicEffect, bool isNew) override;
 
 public:
     typedef std::map<ESM::PartReferenceType,std::string> PartBoneMap;
@@ -102,7 +101,7 @@ protected:
 
     void setRenderBin();
 
-    osg::ref_ptr<NeckController> mFirstPersonNeckController;
+    osg::ref_ptr<RotateController> mFirstPersonNeckController;
 
     static bool isFirstPersonPart(const ESM::BodyPart* bodypart);
     static bool isFemalePart(const ESM::BodyPart* bodypart);

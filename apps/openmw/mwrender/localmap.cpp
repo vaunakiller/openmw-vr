@@ -20,6 +20,7 @@
 #include <components/sceneutil/shadow.hpp>
 #include <components/sceneutil/util.hpp>
 #include <components/sceneutil/lightmanager.hpp>
+#include <components/sceneutil/nodecallback.hpp>
 #include <components/files/memorystream.hpp>
 #include <components/resource/scenemanager.hpp>
 
@@ -35,7 +36,7 @@
 namespace
 {
 
-    class CameraLocalUpdateCallback : public osg::NodeCallback
+    class CameraLocalUpdateCallback : public SceneUtil::NodeCallback<CameraLocalUpdateCallback, osg::Camera*>
     {
     public:
         CameraLocalUpdateCallback(MWRender::LocalMap* parent)
@@ -44,7 +45,7 @@ namespace
         {
         }
 
-        void operator()(osg::Node* node, osg::NodeVisitor*) override
+        void operator()(osg::Camera* node, osg::NodeVisitor*)
         {
             if (mRendered)
                 node->setNodeMask(0);
@@ -52,12 +53,11 @@ namespace
             if (!mRendered)
             {
                 mRendered = true;
-                mParent->markForRemoval(static_cast<osg::Camera*>(node));
+                mParent->markForRemoval(node);
             }
 
             // Note, we intentionally do not traverse children here. The map camera's scene data is the same as the master camera's,
             // so it has been updated already.
-            //traverse(node, nv);
         }
 
     private:
@@ -195,7 +195,7 @@ osg::ref_ptr<osg::Camera> LocalMap::createOrthographicCamera(float x, float y, f
     camera->setNodeMask(Mask_RenderToTexture);
 
     // Disable small feature culling, it's not going to be reliable for this camera
-    osg::Camera::CullingMode cullingMode = (osg::Camera::DEFAULT_CULLING|osg::Camera::FAR_PLANE_CULLING) & ~(osg::CullStack::SMALL_FEATURE_CULLING);
+    osg::Camera::CullingMode cullingMode = (osg::Camera::DEFAULT_CULLING|osg::Camera::FAR_PLANE_CULLING) & ~(osg::Camera::SMALL_FEATURE_CULLING);
     camera->setCullingMode(cullingMode);
 
     osg::ref_ptr<osg::StateSet> stateset = new osg::StateSet;

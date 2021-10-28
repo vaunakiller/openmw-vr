@@ -2,6 +2,7 @@
 set(GAME
     main.cpp
     engine.cpp
+    options.cpp
 
     ${CMAKE_SOURCE_DIR}/files/windows/openmw.rc
     ${CMAKE_SOURCE_DIR}/files/windows/openmw.exe.manifest
@@ -18,7 +19,7 @@ set(GAME_HEADER
 source_group(game FILES ${GAME} ${GAME_HEADER})
 
 add_openmw_dir (mwrender
-    actors objects renderingmanager animation rotatecontroller sky npcanimation vismask
+    actors objects renderingmanager animation rotatecontroller sky skyutil npcanimation vismask
     creatureanimation effectmanager util renderinginterface pathgrid rendermode weaponanimation screenshotmanager
     bulletdebugdraw globalmap characterpreview camera viewovershoulder localmap water terrainstorage ripplesimulation
     renderbin actoranimation landmanager navmesh actorspaths recastmesh fogmanager objectpaging groundcover postprocessor
@@ -58,7 +59,7 @@ add_openmw_dir (mwscript
 add_openmw_dir (mwlua
     luamanagerimp actions object worldview userdataserializer eventqueue query
     luabindings localscripts objectbindings cellbindings asyncbindings settingsbindings
-    camerabindings uibindings inputbindings
+    camerabindings uibindings inputbindings nearbybindings
     )
 
 add_openmw_dir (mwsound
@@ -92,8 +93,8 @@ add_openmw_dir (mwmechanics
     drawstate spells activespells npcstats aipackage aisequence aipursue alchemy aiwander aitravel aifollow aiavoiddoor aibreathe
     aicast aiescort aiface aiactivate aicombat recharge repair enchanting pathfinding pathgrid security spellcasting spellresistance
     disease pickpocket levelledlist combat steering obstacle autocalcspell difficultyscaling aicombataction actor summoning
-    character actors objects aistate trading weaponpriority spellpriority weapontype spellutil tickableeffects
-    spellabsorption linkedeffects
+    character actors objects aistate trading weaponpriority spellpriority weapontype spellutil
+    spellabsorption spelleffects
     )
 
 add_openmw_dir (mwstate

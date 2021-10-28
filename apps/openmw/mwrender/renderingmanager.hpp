@@ -59,7 +59,6 @@ namespace SceneUtil
 {
     class ShadowManager;
     class WorkQueue;
-    class UnrefQueue;
 }
 
 namespace DetourNavigator
@@ -127,7 +126,6 @@ namespace MWRender
         Resource::ResourceSystem* getResourceSystem();
 
         SceneUtil::WorkQueue* getWorkQueue();
-        SceneUtil::UnrefQueue* getUnrefQueue();
         Terrain::World* getTerrain();
 
 
@@ -281,7 +279,6 @@ namespace MWRender
         Resource::ResourceSystem* mResourceSystem;
 
         osg::ref_ptr<SceneUtil::WorkQueue> mWorkQueue;
-        osg::ref_ptr<SceneUtil::UnrefQueue> mUnrefQueue;
 
         osg::ref_ptr<osg::Light> mSunLight;
 

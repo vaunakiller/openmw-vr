@@ -4,6 +4,7 @@
 #include "frame.hpp"
 
 #include <components/debug/debuglog.hpp>
+#include <components/settings/settings.hpp>
 
 #include <cassert>
 

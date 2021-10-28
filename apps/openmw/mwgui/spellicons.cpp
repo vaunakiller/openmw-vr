@@ -24,56 +24,35 @@
 
 namespace MWGui
 {
-
-    void EffectSourceVisitor::visit (MWMechanics::EffectKey key, int effectIndex,
-                                     const std::string& sourceName, const std::string& sourceId, int casterActorId,
-                                     float magnitude, float remainingTime, float totalTime)
-    {
-        MagicEffectInfo newEffectSource;
-        newEffectSource.mKey = key;
-        newEffectSource.mMagnitude = static_cast<int>(magnitude);
-        newEffectSource.mPermanent = mIsPermanent;
-        newEffectSource.mRemainingTime = remainingTime;
-        newEffectSource.mSource = sourceName;
-        newEffectSource.mTotalTime = totalTime;
-
-        mEffectSources[key.mId].push_back(newEffectSource);
-    }
-
-
     void SpellIcons::updateWidgets(MyGUI::Widget *parent, bool adjustSize)
     {
-        // TODO: Tracking add/remove/expire would be better than force updating every frame
-
         MWWorld::Ptr player = MWMechanics::getPlayer();
         const MWMechanics::CreatureStats& stats = player.getClass().getCreatureStats(player);
 
-
-        EffectSourceVisitor visitor;
-
-        // permanent item enchantments & permanent spells
-        visitor.mIsPermanent = true;
-        MWWorld::InventoryStore& store = player.getClass().getInventoryStore(player);
-        store.visitEffectSources(visitor);
-        stats.getSpells().visitEffectSources(visitor);
-
-        // now add lasting effects
-        visitor.mIsPermanent = false;
-        stats.getActiveSpells().visitEffectSources(visitor);
-
-        std::map <int, std::vector<MagicEffectInfo> >& effects = visitor.mEffectSources;
+        std::map<int, std::vector<MagicEffectInfo>> effects;
+        for(const auto& params : stats.getActiveSpells())
+        {
+            for(const auto& effect : params.getEffects())
+            {
+                if(!(effect.mFlags & ESM::ActiveEffect::Flag_Applied))
+                    continue;
+                MagicEffectInfo newEffectSource;
+                newEffectSource.mKey = MWMechanics::EffectKey(effect.mEffectId, effect.mArg);
+                newEffectSource.mMagnitude = static_cast<int>(effect.mMagnitude);
+                newEffectSource.mPermanent = effect.mDuration == -1.f;
+                newEffectSource.mRemainingTime = effect.mTimeLeft;
+                newEffectSource.mSource = params.getDisplayName();
+                newEffectSource.mTotalTime = effect.mDuration;
+                effects[effect.mEffectId].push_back(newEffectSource);
+            }
+        }
 
         int w=2;
 
-        for(auto rit = effects.rbegin(); rit != effects.rend(); rit++)
+        std::vector<MyGUI::ImageBox*> images;
+
+        for (const auto& [effectId, effectInfos] : effects)
         {
-            auto& effectInfoPair = *rit;
-#if 0
-            // in VR mode, the effect box grows to the right so we want to invert the order to avoid reordering effects.
-        for (auto& effectInfoPair : effects)
-        {
-#endif
-            const int effectId = effectInfoPair.first;
             const ESM::MagicEffect* effect =
                 MWBase::Environment::get().getWorld ()->getStore ().get<ESM::MagicEffect>().find(effectId);
 
@@ -84,7 +63,6 @@ namespace MWGui
 
             static const float fadeTime = MWBase::Environment::get().getWorld()->getStore().get<ESM::GameSetting>().find("fMagicStartIconBlink")->mValue.getFloat();
 
-            std::vector<MagicEffectInfo>& effectInfos = effectInfoPair.second;
             bool addNewLine = false;
             for (const MagicEffectInfo& effectInfo : effectInfos)
             {
@@ -184,12 +162,26 @@ namespace MWGui
                 // Fade out
                 if (totalDuration >= fadeTime && fadeTime > 0.f)
                     image->setAlpha(std::min(remainingDuration/fadeTime, 1.f));
+
+                images.push_back(image);
             }
             else if (mWidgetMap.find(effectId) != mWidgetMap.end())
             {
                 MyGUI::ImageBox* image = mWidgetMap[effectId];
                 image->setVisible(false);
                 image->setAlpha(1.f);
+            }
+        }
+
+        if (MWBase::Environment::get().getVrMode())
+        {
+            // In VR mode, the effect box grows to the right.
+            // They are therefore added in the reverse order to retain positional stability.
+            int reverse_w = w;
+            for (auto* image: images)
+            {
+                reverse_w -= 16;
+                image->setPosition(reverse_w, 2);
             }
         }
 

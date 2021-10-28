@@ -2,6 +2,8 @@
 #include "instance.hpp"
 #include "extensions.hpp"
 
+#include <components/settings/settings.hpp>
+
 #include <openxr/openxr.h>
 #include <openxr/openxr_reflection.h>
 

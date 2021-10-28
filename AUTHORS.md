@@ -80,6 +80,7 @@ Programmers
     Federico Guerra (FedeWar)
     Fil Krynicki (filkry)
     Finbar Crago (finbar-crago)
+    Florent Teppe (Tetramir)
     Florian Weber (Florianjw)
     Frédéric Chardon (fr3dz10)
     Gaëtan Dezeiraud (Brouilles)
@@ -176,6 +177,7 @@ Programmers
     PlutonicOverkill
     Radu-Marius Popovici (rpopovici)
     Rafael Moura (dhustkoder)
+    Randy Davin (Kindi)
     rdimesio
     rexelion
     riothamus
@@ -228,6 +230,7 @@ Programmers
     Yuri Krupenin
     zelurker
     Noah Gooder
+    Andrew Appuhamy (andrew-app)
 
 Documentation
 -------------

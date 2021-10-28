@@ -226,7 +226,7 @@ namespace MWGui
         for (size_t i = 0; i < mModel->getItemCount(); ++i)
         {
             MWWorld::Ptr item = mModel->getItem(i).mBase;
-            if (item.getTypeName() != typeid(ESM::Ingredient).name())
+            if (item.getType() != ESM::Ingredient::sRecordId)
                 continue;
 
             mItemNames.insert(item.getClass().getName(item));
