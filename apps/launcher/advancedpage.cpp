@@ -4,6 +4,7 @@
 
 #include <components/config/gamesettings.hpp>
 #include <components/misc/stringops.hpp>
+#include <components/debug/debuglog.hpp>
 #include <QFileDialog>
 #include <QCompleter>
 #include <QString>
@@ -238,7 +239,14 @@ bool Launcher::AdvancedPage::loadSettings()
     // VR
     {
         std::string stereoMethod = Settings::Manager::getString("stereo method", "Stereo");
-        useOVRMultiView2->setChecked(Misc::StringUtils::lowerCase(stereoMethod) == Misc::StringUtils::lowerCase("OVR_MultiView2"));
+        std::string stereoMethodLowerCase = Misc::StringUtils::lowerCase(stereoMethod);
+        std::string OVR_MultiView2LowerCase = Misc::StringUtils::lowerCase("OVR_MultiView2");
+        bool useOvrMultiView2Checked = stereoMethodLowerCase == OVR_MultiView2LowerCase;
+        // OVR_multiview is the successor of geometry shader, so use it in its place.
+        // TODO: This should be removed before merge, no need to drag this history upstream.
+        std::string GeometryShaderLowerCase = Misc::StringUtils::lowerCase("GeometryShader");
+        useOvrMultiView2Checked = useOvrMultiView2Checked || (stereoMethodLowerCase == GeometryShaderLowerCase);
+        useOVRMultiView2->setChecked(useOvrMultiView2Checked);
 
         loadSettingBool(useSharedShadowMaps, "shared shadow maps", "Stereo");
         loadSettingBool(preferDirectXSwapchains, "Prefer DirectX swapchains", "VR");

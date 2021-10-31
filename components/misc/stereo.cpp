@@ -304,7 +304,11 @@ namespace Misc
 
         auto stereoMethodString = Settings::Manager::getString("stereo method", "Stereo");
         auto stereoMethodStringLowerCase = Misc::StringUtils::lowerCase(stereoMethodString);
-        if (stereoMethodStringLowerCase == "ovr_multiview2")
+        if (stereoMethodStringLowerCase == "ovr_multiview2"
+            // OVR_multiview is the successor of geometry shader, so use it in its place.
+            // TODO: This should be removed before merge, no need to drag this history upstream.
+            || stereoMethodStringLowerCase == "geometryshader"
+            )
         {
 #ifdef OSG_HAS_MULTIVIEW
             osg::ref_ptr<osg::GLExtensions> exts = osg::GLExtensions::Get(0, false);
