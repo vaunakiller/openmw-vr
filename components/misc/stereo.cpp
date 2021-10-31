@@ -214,7 +214,7 @@ namespace Misc
     protected:
         virtual void setDefaults(osg::StateSet* stateset) override
         {
-            stateset->addUniform(new osg::Uniform("projectionMatrix", osg::Matrixf{}), osg::StateAttribute::OVERRIDE);
+            stateset->addUniform(new osg::Uniform("projectionMatrix", osg::Matrixf{}));
         }
 
         virtual void apply(osg::StateSet* stateset, osg::NodeVisitor* /*nv*/) override

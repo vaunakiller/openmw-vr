@@ -90,7 +90,10 @@ namespace MWVR
             camera->setCullMask(MWRender::Mask_GUI);
             camera->setCullMaskLeft(MWRender::Mask_GUI);
             camera->setCullMaskRight(MWRender::Mask_GUI);
-            camera->setNodeMask(MWRender::Mask_RenderToTexture);
+
+            // Although strictly speaking a RenderToTexture node,
+            // We want to render this also when we don't want to render other RTT nodes.
+            camera->setNodeMask(MWRender::Mask_3DGUI);
 
             // No need for Update traversal since the mSceneRoot is already updated as part of the main scene graph
             // A double update would mess with the light collection (in addition to being plain redundant)
