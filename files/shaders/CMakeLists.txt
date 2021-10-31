@@ -7,6 +7,8 @@ set(SDIR ${CMAKE_CURRENT_SOURCE_DIR})
 set(DDIRRELATIVE resources/shaders)
 
 set(SHADER_FILES
+    3dgui_vertex.glsl
+    3dgui_fragment.glsl
     groundcover_vertex.glsl
     groundcover_fragment.glsl
     water_vertex.glsl
@@ -36,10 +38,11 @@ set(SHADER_FILES
     gui_fragment.glsl
     debug_vertex.glsl
     debug_fragment.glsl
+    multiview_fragment.glsl
+    multiview_vertex.glsl
     sky_vertex.glsl
     sky_fragment.glsl
     skypasses.glsl
-    stereo_geometry.glsl
 )
 
 copy_all_resource_files(${CMAKE_CURRENT_SOURCE_DIR} ${OPENMW_SHADERS_ROOT} ${DDIRRELATIVE} "${SHADER_FILES}")

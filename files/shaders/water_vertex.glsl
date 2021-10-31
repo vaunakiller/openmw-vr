@@ -1,6 +1,6 @@
-#version 120
+#version @GLSLVersion
 
-uniform mat4 projectionMatrix;
+#include "multiview_vertex.glsl"
 
 varying vec3  screenCoordsPassthrough;
 varying vec4  position;
@@ -11,7 +11,7 @@ varying float linearDepth;
 
 void main(void)
 {
-    gl_Position = projectionMatrix * (gl_ModelViewMatrix * gl_Vertex);
+    gl_Position = mw_stereoAwareProjectionMatrix() * (mw_stereoAwareModelViewMatrix() * gl_Vertex);
 
     mat4 scalemat = mat4(0.5, 0.0, 0.0, 0.0,
                          0.0, -0.5, 0.0, 0.0,

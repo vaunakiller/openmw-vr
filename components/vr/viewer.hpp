@@ -66,9 +66,9 @@ namespace VR
 
     private:
         osg::ref_ptr<osg::FrameBufferObject> getXrFramebuffer(uint32_t view, osg::State* state);
-        void blitXrFramebuffers(osg::State* state);
-        void blitMirrorTexture(osg::State* state);
-        void resolveMSAA(osg::State* state);
+        void blitXrFramebuffer(osg::State* state, int i);
+        void blitMirrorTexture(osg::State* state, int i);
+        void resolveMSAA(osg::State* state, osg::FrameBufferObject* fbo);
         void resolveGamma(osg::RenderInfo& info);
 
     private:
@@ -90,7 +90,7 @@ namespace VR
         bool mFlipMirrorTextureOrder{ false };
         MirrorTextureEye mMirrorTextureEye{ MirrorTextureEye::Both };
 
-        osg::ref_ptr<osg::FrameBufferObject> mDrawFramebuffer;
+        std::shared_ptr<Misc::StereoFramebuffer> mStereoFramebuffer;
         osg::ref_ptr<osg::FrameBufferObject> mMsaaResolveFramebuffer;
         osg::ref_ptr<osg::FrameBufferObject> mGammaResolveFramebuffer;
         osg::ref_ptr<osg::Texture2D> mMsaaResolveTexture;

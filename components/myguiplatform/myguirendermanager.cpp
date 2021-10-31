@@ -491,8 +491,8 @@ void RenderManager::shutdown()
 
 void RenderManager::enableShaders(Shader::ShaderManager& shaderManager)
 {
-    auto vertexShader = shaderManager.getShader("gui_vertex.glsl", {}, osg::Shader::VERTEX);
-    auto fragmentShader = shaderManager.getShader("gui_fragment.glsl", {}, osg::Shader::FRAGMENT);
+    auto vertexShader = shaderManager.getShader("gui_vertex.glsl", { {"GLSLVersion", "120"} }, osg::Shader::VERTEX);
+    auto fragmentShader = shaderManager.getShader("gui_fragment.glsl", { {"GLSLVersion", "120"} }, osg::Shader::FRAGMENT);
     auto program = shaderManager.getProgram(vertexShader, fragmentShader);
 
     mGuiStateSet->setAttributeAndModes(program, osg::StateAttribute::ON);

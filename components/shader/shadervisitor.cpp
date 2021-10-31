@@ -15,6 +15,7 @@
 
 #include <components/debug/debuglog.hpp>
 #include <components/misc/stringops.hpp>
+#include <components/misc/stereo.hpp>
 #include <components/resource/imagemanager.hpp>
 #include <components/vfs/manager.hpp>
 #include <components/sceneutil/riggeometry.hpp>
@@ -422,7 +423,7 @@ namespace Shader
         if (mRequirements.empty())
             mRequirements.emplace_back();
         else
-            mRequirements.push_back(mRequirements.back());
+        mRequirements.push_back(mRequirements.back());
         mRequirements.back().mNode = &node;
     }
 
@@ -553,6 +554,8 @@ namespace Shader
 
             updateAddedState(*writableUserData, addedState);
         }
+
+        Misc::StereoView::instance().shaderStereoDefines(defineMap);
 
         std::string shaderPrefix;
         if (!node.getUserValue("shaderPrefix", shaderPrefix))

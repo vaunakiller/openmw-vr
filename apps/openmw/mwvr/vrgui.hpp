@@ -210,7 +210,7 @@ namespace MWVR
         void setFocusWidget(MyGUI::Widget* widget);
         void configUpdated(const std::string& layer);
 
-        osg::ref_ptr<osgViewer::Viewer> mOsgViewer = nullptr;
+        osg::ref_ptr<osgViewer::Viewer> mOsgViewer;
         Resource::ResourceSystem* mResourceSystem;
         std::shared_ptr<UserPointer> mUserPointer;
 

@@ -749,7 +749,8 @@ namespace MWWorld
             case ESM::REC_WEAP: mWeapons.load(ref, deleted, store); break;
             case ESM::REC_BODY: mBodyParts.load(ref, deleted, store); break;
 
-            case 0: Log(Debug::Error) << "Cell reference '" + ref.mRefID + "' not found!"; return;
+            //case 0: Log(Debug::Error) << "Cell reference '" + ref.mRefID + "' not found!"; return;
+            case 0: return;
 
             default:
                 Log(Debug::Error) << "Error: Ignoring reference '" << ref.mRefID << "' of unhandled type";

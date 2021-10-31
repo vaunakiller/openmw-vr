@@ -100,7 +100,8 @@ namespace Debug
             break;
         }
 
-        Log(logSeverity) << "OpenGL " << typeStr << " [" << srcStr << "]: " << message;
+        if(logSeverity == Error)
+            Log(logSeverity) << "OpenGL " << typeStr << " [" << srcStr << "]: " << message;
 #endif
     }
 

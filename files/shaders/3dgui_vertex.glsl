@@ -2,11 +2,10 @@
 
 #include "multiview_vertex.glsl"
 
-centroid varying vec4 passColor;
+varying vec2 diffuseMapUV;
 
 void main()
 {
     gl_Position = mw_stereoAwareProjectionMatrix() * (mw_stereoAwareModelViewMatrix() * gl_Vertex);
-
-    passColor = gl_Color;
+    diffuseMapUV = gl_MultiTexCoord0.xy;
 }

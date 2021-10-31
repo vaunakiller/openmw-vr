@@ -3,7 +3,7 @@
 #include "callbackmanager.hpp"
 
 #include <osg/io_utils>
-#include <osg/ViewportIndexed>
+#include <osg/Texture2DArray>
 
 #include <osgUtil/CullVisitor>
 #include <osgUtil/RenderStage>
@@ -203,10 +203,10 @@ namespace Misc
     };
 
     // Update states during cull
-    class StereoStatesetUpdateCallback : public SceneUtil::StateSetUpdater
+    class BruteForceStereoStatesetUpdateCallback : public SceneUtil::StateSetUpdater
     {
     public:
-        StereoStatesetUpdateCallback(StereoView* view)
+        BruteForceStereoStatesetUpdateCallback(StereoView* view)
             : stereoView(view)
         {
         }
@@ -214,12 +214,47 @@ namespace Misc
     protected:
         virtual void setDefaults(osg::StateSet* stateset)
         {
-            auto stereoViewMatrixUniform = new osg::Uniform(osg::Uniform::FLOAT_MAT4, "stereoViewMatrices", 2);
-            stateset->addUniform(stereoViewMatrixUniform, osg::StateAttribute::OVERRIDE);
-            auto stereoViewProjectionsUniform = new osg::Uniform(osg::Uniform::FLOAT_MAT4, "stereoViewProjections", 2);
-            stateset->addUniform(stereoViewProjectionsUniform);
-            auto geometryPassthroughUniform = new osg::Uniform("geometryPassthrough", false);
-            stateset->addUniform(geometryPassthroughUniform);
+            stateset->addUniform(new osg::Uniform("projectionMatrix", osg::Matrixf{}), osg::StateAttribute::OVERRIDE);
+        }
+
+        virtual void apply(osg::StateSet* stateset, osg::NodeVisitor* /*nv*/)
+        {
+        }
+
+        void applyLeft(osg::StateSet* stateset, osgUtil::CullVisitor* nv) override
+        {
+            osg::Matrix dummy;
+            auto* uProjectionMatrix = stateset->getUniform("projectionMatrix");
+            if (uProjectionMatrix)
+                uProjectionMatrix->set(Misc::StereoView::instance().computeLeftEyeProjection(dummy));
+        }
+
+        void applyRight(osg::StateSet* stateset, osgUtil::CullVisitor* nv) override
+        {
+            osg::Matrix dummy;
+            auto* uProjectionMatrix = stateset->getUniform("projectionMatrix");
+            if (uProjectionMatrix)
+                uProjectionMatrix->set(Misc::StereoView::instance().computeRightEyeProjection(dummy));
+        }
+
+    private:
+        StereoView* stereoView;
+    };
+
+    // Update states during cull
+    class OVRMultiViewStereoStatesetUpdateCallback : public SceneUtil::StateSetUpdater
+    {
+    public:
+        OVRMultiViewStereoStatesetUpdateCallback(StereoView* view)
+            : stereoView(view)
+        {
+        }
+
+    protected:
+        virtual void setDefaults(osg::StateSet* stateset)
+        {
+            stateset->addUniform(new osg::Uniform(osg::Uniform::FLOAT_MAT4, "viewMatrixMultiView", 2));
+            stateset->addUniform(new osg::Uniform(osg::Uniform::FLOAT_MAT4, "projectionMatrixMultiView", 2));
         }
 
         virtual void apply(osg::StateSet* stateset, osg::NodeVisitor* /*nv*/)
@@ -238,25 +273,7 @@ namespace Misc
         return *sInstance;
     }
 
-    static osg::Camera*
-        createCamera(std::string name, GLbitfield clearMask)
-    {
-        auto* camera = new osg::Camera;
-
-        camera->setReferenceFrame(osg::Transform::ABSOLUTE_RF);
-        camera->setProjectionResizePolicy(osg::Camera::FIXED);
-        camera->setProjectionMatrix(osg::Matrix::identity());
-        camera->setViewMatrix(osg::Matrix::identity());
-        camera->setName(name);
-        camera->setDataVariance(osg::Object::STATIC);
-        camera->setRenderOrder(osg::Camera::NESTED_RENDER);
-        camera->setClearMask(clearMask);
-        camera->setUpdateCallback(new SceneUtil::StateSetUpdater());
-
-        return camera;
-    }
-
-    StereoView::StereoView(osg::Node::NodeMask noShaderMask, osg::Node::NodeMask sceneMask)
+    StereoView::StereoView()
         : mViewer(nullptr)
         , mMainCamera(nullptr)
         , mRoot(nullptr)
@@ -275,35 +292,87 @@ namespace Misc
 
         mStereoRoot->setName("Stereo Root");
         mStereoRoot->setDataVariance(osg::Object::STATIC);
-        mStereoRoot->addChild(mStereoBruteForceRoot);
-        mStereoRoot->addCullCallback(new StereoStatesetUpdateCallback(this));
+        mStereoRoot->addChild(mStereoShaderRoot);
 
         if (sInstance)
             throw std::logic_error("Double instance of StereoView");
         sInstance = this;
 
-        auto* ds = osg::DisplaySettings::instance().get();
-        ds->setStereo(true);
-        ds->setStereoMode(osg::DisplaySettings::StereoMode::HORIZONTAL_SPLIT);
-        ds->setUseSceneViewForStereoHint(true);
     }
 
-    void StereoView::initializeStereo(osgViewer::Viewer* viewer, Technique technique)
+    StereoView::Technique StereoView::stereoTechniqueFromSettings(void)
     {
+
+        auto stereoMethodString = Settings::Manager::getString("stereo method", "Stereo");
+        auto stereoMethodStringLowerCase = Misc::StringUtils::lowerCase(stereoMethodString);
+        if (stereoMethodStringLowerCase == "ovr_multiview2")
+        {
+#ifdef OSG_HAS_MULTIVIEW
+            osg::ref_ptr<osg::GLExtensions> exts = osg::GLExtensions::Get(0, false);
+            if(exts->glFramebufferTextureMultiviewOVR)
+                return Misc::StereoView::Technique::OVR_MultiView2;
+
+            mError = std::string("Stereo method setting is \"") + stereoMethodString + "\" but current GPU or driver does not support multiview, defaulting to BruteForce";
+            return Misc::StereoView::Technique::BruteForce;
+#else
+            mError = std::string("Stereo method setting is \"") + stereoMethodString + "\" but this version of OpenSceneGraph does not support multiview, defaulting to BruteForce";
+            return Misc::StereoView::Technique::BruteForce;
+#endif
+        }
+        if (stereoMethodStringLowerCase == "bruteforce")
+        {
+            return Misc::StereoView::Technique::BruteForce;
+        }
+        Log(Debug::Warning) << "Unknown stereo technique \"" << stereoMethodString << "\", defaulting to BruteForce";
+        return StereoView::Technique::BruteForce;
+    }
+
+    void StereoView::initializeStereo(osgViewer::Viewer* viewer)
+    {
+        mTechnique = stereoTechniqueFromSettings();
         mViewer = viewer;
         mRoot = viewer->getSceneData()->asGroup();
-        mMainCamera = viewer->getCamera();
 
-        setStereoTechnique(technique);
+        mMainCamera = viewer->getCamera();
+        auto mainCameraCB = mMainCamera->getUpdateCallback();
+        mMainCamera->removeUpdateCallback(mainCameraCB);
+        mMainCamera->addUpdateCallback(mUpdateCallback);
+        mMainCamera->addUpdateCallback(mainCameraCB);
+
+        switch (mTechnique)
+        {
+        case Technique::BruteForce:
+            setupBruteForceTechnique();
+            break;
+        case Technique::OVR_MultiView2:
+            setupOVRMultiView2Technique();
+            break;
+        default:
+            break;
+        }
     }
 
-    void StereoView::initializeScene()
+    void StereoView::shaderStereoDefines(Shader::ShaderManager::DefineMap& defines) const
     {
-        SceneUtil::FindByNameVisitor findScene("Scene Root");
-        mRoot->accept(findScene);
-        mScene = findScene.mFoundNode;
-        if (!mScene)
-            throw std::logic_error("Couldn't find scene root");
+        defines["useOVR_multiview"] = "0";
+        defines["numViews"] = "1";
+
+        if (mTechnique == Technique::OVR_MultiView2)
+        {
+            defines["GLSLVersion"] = "330 compatibility";
+            defines["useOVR_multiview"] = "1";
+            defines["numViews"] = "2";
+        }
+    }
+
+    void StereoView::setStereoFramebuffer(std::shared_ptr<StereoFramebuffer> fbo)
+    {
+        mStereoFramebuffer = fbo;
+    }
+
+    const std::string& StereoView::error() const
+    {
+        return mError;
     }
 
     void StereoView::setupBruteForceTechnique()
@@ -345,70 +414,39 @@ namespace Misc
         };
 
         auto* renderer = static_cast<osgViewer::Renderer*>(mMainCamera->getRenderer());
+        for (auto* sceneView : { renderer->getSceneView(0), renderer->getSceneView(1) })
+            sceneView->setComputeStereoMatricesCallback(new ComputeStereoMatricesCallback(this));
+
+        setupSharedShadows();
+    }
+
+    void StereoView::setupOVRMultiView2Technique()
+    {
+        mStereoShaderRoot->addCullCallback(new OVRMultiViewStereoStatesetUpdateCallback(this));
+        mStereoShaderRoot->addChild(mRoot);
+        
+        // Inject self as the root of the scene graph
+        if (mStereoFramebuffer)
+        {
+            mStereoFramebuffer->attachTo(mMainCamera, StereoFramebuffer::Attachment::Layered);
+        }
+
+        mViewer->setSceneData(mStereoRoot);
+    }
+
+    void StereoView::setupSharedShadows()
+    {
+        auto* renderer = static_cast<osgViewer::Renderer*>(mMainCamera->getRenderer());
 
         // osgViewer::Renderer always has two scene views
         for (auto* sceneView : { renderer->getSceneView(0), renderer->getSceneView(1) })
         {
-            sceneView->setComputeStereoMatricesCallback(new ComputeStereoMatricesCallback(this));
-
             if (mSharedShadowMaps)
             {
                 sceneView->getCullVisitorLeft()->setUserData(mMasterConfig);
                 sceneView->getCullVisitorRight()->setUserData(mSlaveConfig);
             }
         }
-    }
-
-    void StereoView::removeBruteForceTechnique()
-    {
-        auto* ds = osg::DisplaySettings::instance().get();
-        ds->setStereo(false);
-        if(mMainCamera->getUserData() == mMasterConfig)
-            mMainCamera->setUserData(nullptr);
-    }
-
-    void StereoView::disableStereo()
-    {
-        if (mTechnique == Technique::None)
-            return;
-
-        mMainCamera->removeUpdateCallback(mUpdateCallback);
-
-        switch (mTechnique)
-        {
-        case Technique::BruteForce:
-            removeBruteForceTechnique(); break;
-        default: break;
-        }
-    }
-
-    void StereoView::enableStereo()
-    {
-        if (mTechnique == Technique::None)
-            return;
-
-        // Update stereo statesets/matrices, but after the main camera updates.
-        auto mainCameraCB = mMainCamera->getUpdateCallback();
-        mMainCamera->removeUpdateCallback(mainCameraCB);
-        mMainCamera->addUpdateCallback(mUpdateCallback);
-        mMainCamera->addUpdateCallback(mainCameraCB);
-
-        switch (mTechnique)
-        {
-        case Technique::BruteForce:
-            setupBruteForceTechnique(); break;
-        default: break;
-        }
-    }
-
-    void StereoView::setStereoTechnique(Technique technique)
-    {
-        if (technique == mTechnique)
-            return;
-
-        disableStereo();
-        mTechnique = technique;
-        enableStereo();
     }
 
     void StereoView::update()
@@ -431,22 +469,15 @@ namespace Misc
         osg::Vec3d leftEye = left.pose.position;
         osg::Vec3d rightEye = right.pose.position;
 
-        osg::Matrix leftViewOffset = left.pose.viewMatrix(true);
-        osg::Matrix rightViewOffset = right.pose.viewMatrix(true);
+        mLeftViewOffsetMatrix = left.pose.viewMatrix(true);
+        mRightViewOffsetMatrix = right.pose.viewMatrix(true);
 
-        osg::Matrix leftViewMatrix = viewMatrix * leftViewOffset;
-        osg::Matrix rightViewMatrix = viewMatrix * rightViewOffset;
+        mLeftViewMatrix = viewMatrix * mLeftViewOffsetMatrix;
+        mRightViewMatrix = viewMatrix * mRightViewOffsetMatrix;
 
-        osg::Matrix leftProjectionMatrix = left.fov.perspectiveMatrix(near_, far_);
-        osg::Matrix rightProjectionMatrix = right.fov.perspectiveMatrix(near_, far_);
+        mLeftProjectionMatrix = left.fov.perspectiveMatrix(near_, far_);
+        mRightProjectionMatrix = right.fov.perspectiveMatrix(near_, far_);
 
-        mRightCamera->setViewMatrix(rightViewMatrix);
-        mLeftCamera->setViewMatrix(leftViewMatrix);
-        mRightCamera->setProjectionMatrix(rightProjectionMatrix);
-        mLeftCamera->setProjectionMatrix(leftProjectionMatrix);
-
-        auto width = mMainCamera->getViewport()->width();
-        auto height = mMainCamera->getViewport()->height();
 
         // To correctly cull when drawing stereo using the geometry shader, the main camera must
         // draw a fake view+perspective that includes the full frustums of both the left and right eyes.
@@ -508,12 +539,6 @@ namespace Misc
 
         if (mTechnique == Technique::BruteForce)
         {
-            mLeftCamera->setClearColor(mMainCamera->getClearColor());
-            mRightCamera->setClearColor(mMainCamera->getClearColor());
-
-            mLeftCamera->setViewport(0, 0, width / 2, height);
-            mRightCamera->setViewport(width / 2, 0, width / 2, height);
-
             if (mMasterConfig->_projection == nullptr)
                 mMasterConfig->_projection = new osg::RefMatrix;
             if (mMasterConfig->_modelView == nullptr)
@@ -523,50 +548,31 @@ namespace Misc
             {
                 mMasterConfig->_referenceFrame = mMainCamera->getReferenceFrame();
                 mMasterConfig->_modelView->set(frustumViewMatrix);
-                mMasterConfig->_projection->set(projectionMatrix);
+                mMasterConfig->_projection->set(frustumProjectionMatrix);
             }
+        }
+        else if (mTechnique == Technique::OVR_MultiView2)
+        {
+            mMainCamera->setViewMatrix(frustumViewMatrix);
+            mMainCamera->setProjectionMatrix(frustumProjectionMatrix);
         }
     }
 
     void StereoView::updateStateset(osg::StateSet* stateset)
     {
-        // Manage viewports in update to automatically catch window/resolution changes.
-        auto width = mMainCamera->getViewport()->width();
-        auto height = mMainCamera->getViewport()->height();
-        stateset->setAttribute(new osg::ViewportIndexed(0, 0, 0, width / 2, height));
-        stateset->setAttribute(new osg::ViewportIndexed(1, width / 2, 0, width / 2, height));
-
         // Update stereo uniforms
-        auto frustumViewMatrixInverse = osg::Matrix::inverse(mMainCamera->getViewMatrix());
-        //auto frustumViewProjectionMatrixInverse = osg::Matrix::inverse(mMainCamera->getProjectionMatrix()) * osg::Matrix::inverse(mMainCamera->getViewMatrix());
-        auto* stereoViewMatrixUniform = stateset->getUniform("stereoViewMatrices");
-        auto* stereoViewProjectionsUniform = stateset->getUniform("stereoViewProjections");
-
-        stereoViewMatrixUniform->setElement(0, frustumViewMatrixInverse * mLeftCamera->getViewMatrix());
-        stereoViewMatrixUniform->setElement(1, frustumViewMatrixInverse * mRightCamera->getViewMatrix());
-        stereoViewProjectionsUniform->setElement(0, frustumViewMatrixInverse * mLeftCamera->getViewMatrix() * mLeftCamera->getProjectionMatrix());
-        stereoViewProjectionsUniform->setElement(1, frustumViewMatrixInverse * mRightCamera->getViewMatrix() * mRightCamera->getProjectionMatrix());
+        auto * viewMatrixMultiViewUniform = stateset->getUniform("viewMatrixMultiView");
+        auto * projectionMatrixMultiViewUniform = stateset->getUniform("projectionMatrixMultiView");
+        
+        viewMatrixMultiViewUniform->setElement(0, mLeftViewOffsetMatrix);
+        viewMatrixMultiViewUniform->setElement(1, mRightViewOffsetMatrix);
+        projectionMatrixMultiViewUniform->setElement(0, mLeftProjectionMatrix);
+        projectionMatrixMultiViewUniform->setElement(1, mRightProjectionMatrix);
     }
 
     void StereoView::setUpdateViewCallback(std::shared_ptr<UpdateViewCallback> cb)
     {
         mUpdateViewCallback = cb;
-    }
-
-    StereoView::Technique getStereoTechnique(void)
-    {
-        auto stereoMethodString = Settings::Manager::getString("stereo method", "Stereo");
-        auto stereoMethodStringLowerCase = Misc::StringUtils::lowerCase(stereoMethodString);
-        if (stereoMethodStringLowerCase == "ovr_multiview2")
-        {
-            return Misc::StereoView::Technique::OVR_MultiView2;
-        }
-        if (stereoMethodStringLowerCase == "bruteforce")
-        {
-            return Misc::StereoView::Technique::BruteForce;
-        }
-        Log(Debug::Warning) << "Unknown stereo technique \"" << stereoMethodString << "\", defaulting to BruteForce";
-        return StereoView::Technique::BruteForce;
     }
 
     void StereoView::DefaultUpdateViewCallback::updateView(View& left, View& right)
@@ -583,18 +589,107 @@ namespace Misc
     }
     osg::Matrixd StereoView::computeLeftEyeProjection(const osg::Matrixd& projection) const
     {
-        return mLeftCamera->getProjectionMatrix();
+        return mLeftProjectionMatrix;
     }
     osg::Matrixd StereoView::computeLeftEyeView(const osg::Matrixd& view) const
     {
-        return mLeftCamera->getViewMatrix();
+        return mLeftViewMatrix;
     }
     osg::Matrixd StereoView::computeRightEyeProjection(const osg::Matrixd& projection) const
     {
-        return mRightCamera->getProjectionMatrix();
+        return mRightProjectionMatrix;
     }
     osg::Matrixd StereoView::computeRightEyeView(const osg::Matrixd& view) const
     {
-        return mRightCamera->getViewMatrix();
+        return mRightViewMatrix;
+    }
+
+    StereoFramebuffer::StereoFramebuffer(int width, int height, int samples)
+        : mWidth(width)
+        , mHeight(height)
+        , mSamples(samples)
+        , mLayeredFbo(new osg::FrameBufferObject)
+        , mUnlayeredFbo{ new osg::FrameBufferObject , new osg::FrameBufferObject }
+        , mColorTextureArray()
+        , mDepthTextureArray()
+    {
+    }
+
+    StereoFramebuffer::~StereoFramebuffer()
+    {
+    }
+
+    void StereoFramebuffer::attachColorComponent(GLint internalFormat)
+    {
+        mColorTextureArray = createTextureArray(internalFormat);
+#ifdef OSG_HAS_MULTIVIEW
+        mLayeredFbo->setAttachment(osg::Camera::COLOR_BUFFER, osg::FrameBufferAttachment(mColorTextureArray, osg::Camera::FACE_CONTROLLED_BY_MULTIVIEW_SHADER, 0));
+#endif
+        mUnlayeredFbo[0]->setAttachment(osg::Camera::COLOR_BUFFER, osg::FrameBufferAttachment(mColorTextureArray, 0, 0));
+        mUnlayeredFbo[1]->setAttachment(osg::Camera::COLOR_BUFFER, osg::FrameBufferAttachment(mColorTextureArray, 1, 0));
+    }
+
+    void StereoFramebuffer::attachDepthComponent(GLint internalFormat)
+    {
+        mDepthTextureArray = createTextureArray(internalFormat);
+#ifdef OSG_HAS_MULTIVIEW
+        mLayeredFbo->setAttachment(osg::Camera::DEPTH_BUFFER, osg::FrameBufferAttachment(mDepthTextureArray, osg::Camera::FACE_CONTROLLED_BY_MULTIVIEW_SHADER, 0));
+#endif
+        mUnlayeredFbo[0]->setAttachment(osg::Camera::DEPTH_BUFFER, osg::FrameBufferAttachment(mDepthTextureArray, 0, 0));
+        mUnlayeredFbo[1]->setAttachment(osg::Camera::DEPTH_BUFFER, osg::FrameBufferAttachment(mDepthTextureArray, 1, 0));
+    }
+
+    osg::FrameBufferObject* StereoFramebuffer::layeredFbo()
+    {
+        return mLayeredFbo;
+    }
+
+    osg::FrameBufferObject* StereoFramebuffer::unlayeredFbo(int i)
+    {
+        // Don't bother protecting, stl exception is informative enough
+        return mUnlayeredFbo[i];
+    }
+
+    void StereoFramebuffer::attachTo(osg::Camera* camera, Attachment attachment)
+    {
+        if (mColorTextureArray)
+        {
+            unsigned int level = 0;
+            switch (attachment)
+            {
+#ifdef OSG_HAS_MULTIVIEW
+            case Attachment::Layered:
+                level = osg::Camera::FACE_CONTROLLED_BY_MULTIVIEW_SHADER;
+                break;
+#endif
+            case Attachment::Left:
+                level = 0;
+                break;
+            case Attachment::Right:
+                level = 1;
+                break;
+            default:
+                break;
+            }
+
+            camera->attach(osg::Camera::COLOR_BUFFER, mColorTextureArray, 0, level);
+            if (mDepthTextureArray)
+                camera->attach(osg::Camera::DEPTH_BUFFER, mDepthTextureArray, 0, level);
+
+            camera->setRenderTargetImplementation(osg::Camera::FRAME_BUFFER_OBJECT);
+        }
+    }
+
+    osg::Texture2DArray* StereoFramebuffer::createTextureArray(GLint internalFormat)
+    {
+        osg::Texture2DArray* textureArray = new osg::Texture2DArray;
+        textureArray->setTextureSize(mWidth, mHeight, 2);
+        textureArray->setInternalFormat(internalFormat);
+        textureArray->setFilter(osg::Texture::MIN_FILTER, osg::Texture::LINEAR);
+        textureArray->setFilter(osg::Texture::MAG_FILTER, osg::Texture::LINEAR);
+        textureArray->setWrap(osg::Texture::WRAP_S, osg::Texture::CLAMP_TO_EDGE);
+        textureArray->setWrap(osg::Texture::WRAP_T, osg::Texture::CLAMP_TO_EDGE);
+        textureArray->setWrap(osg::Texture::WRAP_R, osg::Texture::CLAMP_TO_EDGE);
+        return textureArray;
     }
 }

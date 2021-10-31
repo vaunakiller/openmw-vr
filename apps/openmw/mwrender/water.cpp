@@ -263,7 +263,7 @@ class Refraction : public SceneUtil::RTTNode
 {
 public:
     Refraction(uint32_t rttSize)
-        : RTTNode(rttSize, rttSize, 1, true)
+        : RTTNode(rttSize, rttSize, 1, StereoAwareness::Aware)
         , mNodeMask(Refraction::sDefaultCullMask)
     {
         mClipCullNode = new ClipCullNode;
@@ -340,7 +340,7 @@ class Reflection : public SceneUtil::RTTNode
 {
 public:
     Reflection(uint32_t rttSize, bool isInterior)
-        : RTTNode(rttSize, rttSize, 0, true)
+        : RTTNode(rttSize, rttSize, 0, StereoAwareness::Aware)
     {
         setInterior(isInterior);
         mClipCullNode = new ClipCullNode;
@@ -464,6 +464,7 @@ Water::Water(osg::Group *parent, osg::Group* sceneRoot, Resource::ResourceSystem
     mWaterGeom->setDrawCallback(new DepthClampCallback);
     mWaterGeom->setNodeMask(Mask_Water);
     mWaterGeom->setDataVariance(osg::Object::STATIC);
+    mWaterGeom->setName("Water Geometry");
 
     mWaterNode = new osg::PositionAttitudeTransform;
     mWaterNode->setName("Water Root");
@@ -474,6 +475,7 @@ Water::Water(osg::Group *parent, osg::Group* sceneRoot, Resource::ResourceSystem
     osg::ref_ptr<osg::Geometry> geom2 (osg::clone(mWaterGeom.get(), osg::CopyOp::DEEP_COPY_NODES));
     createSimpleWaterStateSet(geom2, Fallback::Map::getFloat("Water_Map_Alpha"));
     geom2->setNodeMask(Mask_SimpleWater);
+    geom2->setName("Simple Water Geometry");
     mWaterNode->addChild(geom2);
  
     mSceneRoot->addChild(mWaterNode);
@@ -682,6 +684,8 @@ void Water::createShaderWaterStateSet(osg::Node* node, Reflection* reflection, R
     // use a define map to conditionally compile the shader
     std::map<std::string, std::string> defineMap;
     defineMap.insert(std::make_pair(std::string("refraction_enabled"), std::string(mRefraction ? "1" : "0")));
+
+    Misc::StereoView::instance().shaderStereoDefines(defineMap);
 
     Shader::ShaderManager& shaderMgr = mResourceSystem->getSceneManager()->getShaderManager();
     osg::ref_ptr<osg::Shader> vertexShader(shaderMgr.getShader("water_vertex.glsl", defineMap, osg::Shader::VERTEX));

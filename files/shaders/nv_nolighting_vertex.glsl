@@ -1,6 +1,6 @@
-#version 120
+#version @GLSLVersion
 
-uniform mat4 projectionMatrix;
+#include "multiview_vertex.glsl"
 
 #if @diffuseMap
 varying vec2 diffuseMapUV;
@@ -23,7 +23,7 @@ varying float passFalloff;
 
 void main(void)
 {
-    gl_Position = projectionMatrix * (gl_ModelViewMatrix * gl_Vertex);
+    gl_Position = mw_stereoAwareProjectionMatrix() * (mw_stereoAwareModelViewMatrix() * gl_Vertex);
 
     vec4 viewPos = (gl_ModelViewMatrix * gl_Vertex);
     gl_ClipVertex = viewPos;

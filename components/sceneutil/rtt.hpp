@@ -9,6 +9,7 @@
 namespace osg
 {
     class Texture2D;
+    class Texture2DArray;
     class Camera;
 }
 
@@ -32,7 +33,13 @@ namespace SceneUtil
     class RTTNode : public osg::Node
     {
     public:
-        RTTNode(uint32_t textureWidth, uint32_t textureHeight, int renderOrderNum, bool doPerViewMapping);
+        enum class StereoAwareness
+        {
+            Unaware,
+            Aware,
+        };
+
+        RTTNode(uint32_t textureWidth, uint32_t textureHeight, int renderOrderNum, StereoAwareness stereoAwareness);
         ~RTTNode();
 
         osg::Texture* getColorTexture(osgUtil::CullVisitor* cv);
@@ -49,10 +56,17 @@ namespace SceneUtil
 
         void cull(osgUtil::CullVisitor* cv);
 
+    protected:
+        bool shouldDoPerViewMapping();
+        bool shouldDoTextureArray();
+        osg::Texture2DArray* createTextureArray(GLint internalFormat);
+        osg::Texture2D* createTexture(GLint internalFormat);
+
     private:
         struct ViewDependentData
         {
             osg::ref_ptr<osg::Camera> mCamera;
+            unsigned int mFrameNumber = 0;
         };
 
         ViewDependentData* getViewDependentData(osgUtil::CullVisitor* cv);
@@ -62,7 +76,7 @@ namespace SceneUtil
         uint32_t mTextureWidth;
         uint32_t mTextureHeight;
         int mRenderOrderNum;
-        bool mDoPerViewMapping;
+        StereoAwareness mStereoAwareness;
     };
 }
 #endif

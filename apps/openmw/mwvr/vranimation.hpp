@@ -63,7 +63,8 @@ namespace MWVR
         void onTrackingUpdated(VR::TrackingManager& manager, VR::DisplayTime predictedDisplayTime) override;
 
     protected:
-        std::map<std::string, std::unique_ptr<TrackingController> > mVrControllers;
+        typedef std::unordered_map<std::string, std::unique_ptr<TrackingController>, Misc::StringUtils::CiHash, Misc::StringUtils::CiEqual> TrackingControllerMap;
+        TrackingControllerMap mVrControllers;
         osg::ref_ptr<HandController> mHandControllers[2];
         osg::ref_ptr<FingerController> mIndexFingerControllers[2];
         osg::ref_ptr<osg::MatrixTransform> mModelOffset;
