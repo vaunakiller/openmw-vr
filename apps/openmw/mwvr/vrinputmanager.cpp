@@ -468,6 +468,7 @@ namespace MWVR
                     break;
                 case MWInput::A_Use:
                     pointActivation(true);
+                    break;
                 default:
                     break;
                 }
@@ -654,6 +655,7 @@ namespace MWVR
                 case MWInput::A_Use:
                     if (mActivationIndication || MWBase::Environment::get().getWindowManager()->isGuiMode())
                         pointActivation(true);
+                    break;
                 default:
                     break;
                 }
