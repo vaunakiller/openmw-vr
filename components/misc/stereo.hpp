@@ -7,6 +7,7 @@
 #include <osg/StateSet>
 
 #include <memory>
+#include <array>
 
 #include <components/sceneutil/mwshadowtechnique.hpp>
 
@@ -16,6 +17,12 @@
 #undef far
 #endif
 
+namespace osg
+{
+    class FrameBufferObject;
+    class Texture2DArray;
+}
+
 namespace osgViewer
 {
     class Viewer;
@@ -23,6 +30,37 @@ namespace osgViewer
 
 namespace Misc
 {
+    class StereoFramebuffer
+    {
+    public:
+        StereoFramebuffer(int width, int height, int samples);
+        ~StereoFramebuffer();
+
+        void attachColorComponent(GLint internalFormat);
+        void attachDepthComponent(GLint internalFormat);
+
+        osg::FrameBufferObject* layeredFbo();
+        osg::FrameBufferObject* unlayeredFbo(int i);
+
+        enum class Attachment
+        {
+            Layered, Left, Right
+        };
+        void attachTo(osg::Camera* camera, Attachment attachment);
+
+    private:
+        osg::Texture2DArray* createTextureArray(GLint internalFormat);
+
+        int mWidth;
+        int mHeight;
+        int mSamples;
+        osg::ref_ptr<osg::FrameBufferObject> mLayeredFbo;
+        std::array<osg::ref_ptr<osg::FrameBufferObject>, 2> mUnlayeredFbo;
+        osg::ref_ptr<osg::Texture2DArray> mColorTextureArray;
+        osg::ref_ptr<osg::Texture2DArray> mDepthTextureArray;
+    };
+
+
     //! Represents the relative pose in space of some object
     struct Pose
     {
@@ -98,18 +136,14 @@ namespace Misc
         //! \param noShaderMask mask in all nodes that do not use shaders and must be rendered brute force.
         //! \param sceneMask must equal MWRender::VisMask::Mask_Scene. Necessary while VisMask is still not in components/
         //! \note the masks apply only to the GeometryShader_IndexdViewports technique and can be 0 for the BruteForce technique.
-        StereoView(osg::Node::NodeMask noShaderMask, osg::Node::NodeMask sceneMask);
+        StereoView();
 
         //! Updates uniforms with the view and projection matrices of each stereo view, and replaces the camera's view and projection matrix
         //! with a view and projection that closely envelopes the frustums of the two eyes.
         void update();
         void updateStateset(osg::StateSet* stateset);
 
-        void initializeStereo(osgViewer::Viewer* viewer, Technique technique);
-        //! Initialized scene. Call when the "scene root" node has been created
-        void initializeScene();
-
-        void setStereoTechnique(Technique technique);
+        void initializeStereo(osgViewer::Viewer* viewer);
 
         //! Callback that updates stereo configuration during the update pass
         void setUpdateViewCallback(std::shared_ptr<UpdateViewCallback> cb);
@@ -123,24 +157,42 @@ namespace Misc
         osg::Matrixd computeRightEyeProjection(const osg::Matrixd& projection) const;
         osg::Matrixd computeRightEyeView(const osg::Matrixd& view) const;
 
+        Technique getTechnique() const { return mTechnique; };
+
+        void shaderStereoDefines(Shader::ShaderManager::DefineMap& defines) const;
+
+        void setStereoFramebuffer(std::shared_ptr<StereoFramebuffer> fbo);
+
+        const std::string& error() const;
+
     private:
+        Technique stereoTechniqueFromSettings(void);
         void setupBruteForceTechnique();
-        void removeBruteForceTechnique();
-        void disableStereo();
-        void enableStereo();
+        void setupOVRMultiView2Technique();
+        void setupSharedShadows();
 
         osg::ref_ptr<osgViewer::Viewer> mViewer;
         osg::ref_ptr<osg::Camera>       mMainCamera;
         osg::ref_ptr<osg::Group>        mRoot;
-        osg::ref_ptr<osg::Group>        mScene;
         osg::ref_ptr<osg::Group>        mStereoRoot;
         osg::ref_ptr<osg::Callback>     mUpdateCallback;
         Technique                       mTechnique;
+        std::string                     mError;
 
-        // Keeps state and cameras relevant to doing stereo via brute force
-        osg::ref_ptr<osg::Group>    mStereoBruteForceRoot{ new osg::Group };
-        osg::ref_ptr<osg::Camera>   mLeftCamera{ new osg::Camera };
-        osg::ref_ptr<osg::Camera>   mRightCamera{ new osg::Camera };
+        // Stereo matrices
+        osg::Matrix                 mLeftViewMatrix;
+        osg::Matrix                 mLeftViewOffsetMatrix;
+        osg::Matrix                 mLeftProjectionMatrix;
+        osg::Matrix                 mRightViewMatrix;
+        osg::Matrix                 mRightViewOffsetMatrix;
+        osg::Matrix                 mRightProjectionMatrix;
+
+        // Keeps state relevant to OVR_MultiView2
+        osg::ref_ptr<osg::Group>    mStereoShaderRoot = new osg::Group;
+
+        osg::ref_ptr<osg::FrameBufferObject> mLayeredFbo;
+        osg::ref_ptr<osg::FrameBufferObject> mLeftFbo;
+        osg::ref_ptr<osg::FrameBufferObject> mRightFbo;
 
         using SharedShadowMapConfig = SceneUtil::MWShadowTechnique::SharedShadowMapConfig;
         osg::ref_ptr<SharedShadowMapConfig> mMasterConfig;
@@ -151,7 +203,9 @@ namespace Misc
         std::shared_ptr<UpdateViewCallback> mUpdateViewCallback;
 
         // OSG camera callbacks set using set*callback. StereoView manages that these are always set on the appropriate camera(s);
-        osg::ref_ptr<osg::NodeCallback>         mCullCallback{ nullptr };
+        osg::ref_ptr<osg::NodeCallback>         mCullCallback = nullptr;
+
+        std::shared_ptr<StereoFramebuffer> mStereoFramebuffer = nullptr;
     };
 
     //! Reads settings to determine stereo technique

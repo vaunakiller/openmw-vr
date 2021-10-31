@@ -510,7 +510,7 @@ namespace MWVR
 
         for (int i = 0; i < 2; ++i)
         {
-            auto forearm = mNodeMap.find(i == 0 ? "bip01 l forearm" : "bip01 r forearm");
+            auto forearm = mNodeMap.find(i == 0 ? "Bip01 L Forearm" : "Bip01 R Forearm");
             if (forearm != mNodeMap.end())
             {
                 auto controller = mVrControllers.find(forearm->first);
@@ -520,7 +520,7 @@ namespace MWVR
                 }
             }
 
-            auto hand = mNodeMap.find(i == 0 ? "bip01 l hand" : "bip01 r hand");
+            auto hand = mNodeMap.find(i == 0 ? "Bip01 L Hand" : "Bip01 R Hand");
             if (hand != mNodeMap.end())
             {
                 auto node = hand->second;
@@ -529,13 +529,13 @@ namespace MWVR
             }
         }
 
-        auto hand = mNodeMap.find("bip01 r hand");
+        auto hand = mNodeMap.find("Bip01 R Hand");
         if (hand != mNodeMap.end())
         {
             hand->second->removeChild(mWeaponDirectionTransform);
             hand->second->addChild(mWeaponDirectionTransform);
         }
-        auto finger = mNodeMap.find("bip01 r finger11");
+        auto finger = mNodeMap.find("Bip01 R Finger11");
         if (finger != mNodeMap.end())
         {
             mUserPointer->setParent(finger->second);

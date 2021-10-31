@@ -1,4 +1,6 @@
-#version 120
+#version @GLSLVersion
+
+#include "multiview_fragment.glsl"
 
 #if @useUBO
     #extension GL_ARB_uniform_buffer_object : require
@@ -138,10 +140,10 @@ varying float linearDepth;
 
 uniform sampler2D normalMap;
 
-uniform sampler2D reflectionMap;
+uniform mw_stereoAwareSampler2D reflectionMap;
 #if REFRACTION
-uniform sampler2D refractionMap;
-uniform sampler2D refractionDepthMap;
+uniform mw_stereoAwareSampler2D refractionMap;
+uniform mw_stereoAwareSampler2D refractionDepthMap;
 #endif
 
 uniform float osg_SimulationTime;
@@ -229,14 +231,14 @@ void main(void)
 
     vec2 screenCoordsOffset = normal.xy * REFL_BUMP;
 #if REFRACTION
-    float depthSample = linearizeDepth(texture2D(refractionDepthMap,screenCoords).x) * radialise;
-    float depthSampleDistorted = linearizeDepth(texture2D(refractionDepthMap,screenCoords-screenCoordsOffset).x) * radialise;
+    float depthSample = linearizeDepth(mw_stereoAwareTexture2D(refractionDepthMap,screenCoords).x) * radialise;
+    float depthSampleDistorted = linearizeDepth(mw_stereoAwareTexture2D(refractionDepthMap,screenCoords-screenCoordsOffset).x) * radialise;
     float surfaceDepth = linearizeDepth(gl_FragCoord.z) * radialise;
     float realWaterDepth = depthSample - surfaceDepth;  // undistorted water depth in view direction, independent of frustum
     screenCoordsOffset *= clamp(realWaterDepth / BUMP_SUPPRESS_DEPTH,0,1);
 #endif
     // reflection
-    vec3 reflection = texture2D(reflectionMap, screenCoords + screenCoordsOffset).rgb;
+    vec3 reflection = mw_stereoAwareTexture2D(reflectionMap, screenCoords + screenCoordsOffset).rgb;
 
     // specular
     float specular = pow(max(dot(reflect(vVec, normal), lVec), 0.0),SPEC_HARDNESS) * shadow;
@@ -247,7 +249,7 @@ void main(void)
 
 #if REFRACTION
     // refraction
-    vec3 refraction = texture2D(refractionMap, screenCoords - screenCoordsOffset).rgb;
+    vec3 refraction = mw_stereoAwareTexture2D(refractionMap, screenCoords - screenCoordsOffset).rgb;
     vec3 rawRefraction = refraction;
 
     // brighten up the refraction underwater

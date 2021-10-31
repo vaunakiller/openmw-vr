@@ -69,7 +69,7 @@ namespace MWVR
     {
     public:
         GUICamera(int width, int height, osg::Vec4 clearColor, osg::ref_ptr<osg::Node> scene)
-            : RTTNode(width, height, 1, false)
+            : RTTNode(width, height, 1, StereoAwareness::Unaware)
             , mScene(scene)
             , mClearColor(clearColor)
         {
@@ -187,6 +187,8 @@ namespace MWVR
         osg::ref_ptr<osg::Material> mat = new osg::Material;
         mat->setColorMode(osg::Material::AMBIENT_AND_DIFFUSE);
         stateSet->setAttribute(mat);
+
+        stateSet->setMode(GL_ALPHA_TEST, osg::StateAttribute::OFF);
 
         // Position in the game world
         mTransform->setScale(osg::Vec3(extent_units.x(), 1.f, extent_units.y()));
@@ -639,8 +641,25 @@ namespace MWVR
             updateSideBySideLayers();
         }
 
-        Resource::SceneManager* sceneManager = mResourceSystem->getSceneManager();
-        sceneManager->recreateShaders(layer->mGeometry);
+
+
+        Shader::ShaderManager::DefineMap defineMap{ {"GLSLVersion", "120"} };
+        Misc::StereoView::instance().shaderStereoDefines(defineMap);
+        auto& shaderManager = mResourceSystem->getSceneManager()->getShaderManager();
+
+        osg::ref_ptr<osg::Shader> vertexShader = shaderManager.getShader("3dgui_vertex.glsl", defineMap, osg::Shader::VERTEX);
+        osg::ref_ptr<osg::Shader> fragmentShader = shaderManager.getShader("3dgui_fragment.glsl", defineMap, osg::Shader::FRAGMENT);
+        if (vertexShader  && fragmentShader)
+        {
+            layer->mGeometry->getOrCreateStateSet()->setAttributeAndModes(shaderManager.getProgram(vertexShader, fragmentShader));
+        }
+        else
+        {
+            // Let the scene manager try
+            mResourceSystem->getSceneManager()->recreateShaders(layer->mGeometry, "objects", true);
+        }
+
+
     }
 
     void VRGUIManager::insertWidget(MWGui::Layout* widget)

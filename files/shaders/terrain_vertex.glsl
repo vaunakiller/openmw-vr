@@ -1,4 +1,6 @@
-#version 130
+#version @GLSLVersion
+
+#include "multiview_vertex.glsl"
 
 #if @useUBO
     #extension GL_ARB_uniform_buffer_object : require
@@ -7,8 +9,6 @@
 #if @useGPUShader4
     #extension GL_EXT_gpu_shader4: require
 #endif
-
-uniform mat4 projectionMatrix;
 
 varying vec2 uv;
 varying float euclideanDepth;
@@ -31,7 +31,7 @@ varying vec3 passNormal;
 
 void main(void)
 {
-    gl_Position = projectionMatrix * (gl_ModelViewMatrix * gl_Vertex);
+    gl_Position = mw_stereoAwareProjectionMatrix() * (mw_stereoAwareModelViewMatrix() * gl_Vertex);
 
     vec4 viewPos = (gl_ModelViewMatrix * gl_Vertex);
     gl_ClipVertex = viewPos;
