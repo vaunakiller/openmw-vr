@@ -212,12 +212,12 @@ namespace Misc
         }
 
     protected:
-        virtual void setDefaults(osg::StateSet* stateset)
+        virtual void setDefaults(osg::StateSet* stateset) override
         {
             stateset->addUniform(new osg::Uniform("projectionMatrix", osg::Matrixf{}), osg::StateAttribute::OVERRIDE);
         }
 
-        virtual void apply(osg::StateSet* stateset, osg::NodeVisitor* /*nv*/)
+        virtual void apply(osg::StateSet* stateset, osg::NodeVisitor* /*nv*/) override
         {
         }
 
@@ -226,7 +226,7 @@ namespace Misc
             osg::Matrix dummy;
             auto* uProjectionMatrix = stateset->getUniform("projectionMatrix");
             if (uProjectionMatrix)
-                uProjectionMatrix->set(Misc::StereoView::instance().computeLeftEyeProjection(dummy));
+                uProjectionMatrix->set(stereoView->computeLeftEyeProjection(dummy));
         }
 
         void applyRight(osg::StateSet* stateset, osgUtil::CullVisitor* nv) override
@@ -234,7 +234,7 @@ namespace Misc
             osg::Matrix dummy;
             auto* uProjectionMatrix = stateset->getUniform("projectionMatrix");
             if (uProjectionMatrix)
-                uProjectionMatrix->set(Misc::StereoView::instance().computeRightEyeProjection(dummy));
+                uProjectionMatrix->set(stereoView->computeRightEyeProjection(dummy));
         }
 
     private:
@@ -292,7 +292,6 @@ namespace Misc
 
         mStereoRoot->setName("Stereo Root");
         mStereoRoot->setDataVariance(osg::Object::STATIC);
-        mStereoRoot->addChild(mStereoShaderRoot);
 
         if (sInstance)
             throw std::logic_error("Double instance of StereoView");
@@ -381,6 +380,10 @@ namespace Misc
         ds->setStereo(true);
         ds->setStereoMode(osg::DisplaySettings::StereoMode::HORIZONTAL_SPLIT);
         ds->setUseSceneViewForStereoHint(true);
+        
+        mStereoRoot->addChild(mRoot);
+        mStereoRoot->addCullCallback(new BruteForceStereoStatesetUpdateCallback(this));
+        mViewer->setSceneData(mStereoRoot);
 
         struct ComputeStereoMatricesCallback : public osgUtil::SceneView::ComputeStereoMatricesCallback
         {
@@ -424,6 +427,7 @@ namespace Misc
     {
         mStereoShaderRoot->addCullCallback(new OVRMultiViewStereoStatesetUpdateCallback(this));
         mStereoShaderRoot->addChild(mRoot);
+        mStereoRoot->addChild(mStereoShaderRoot);
         
         // Inject self as the root of the scene graph
         if (mStereoFramebuffer)
@@ -613,6 +617,7 @@ namespace Misc
         , mColorTextureArray()
         , mDepthTextureArray()
     {
+    (void)mSamples;
     }
 
     StereoFramebuffer::~StereoFramebuffer()
