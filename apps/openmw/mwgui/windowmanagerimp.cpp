@@ -37,6 +37,8 @@
 #include <components/resource/imagemanager.hpp>
 #include <components/resource/scenemanager.hpp>
 
+#include <components/misc/stereo.hpp>
+
 #include <components/sceneutil/workqueue.hpp>
 
 #include <components/translation/translation.hpp>
@@ -302,7 +304,7 @@ namespace MWGui
                                         Settings::Manager::getFloat("contrast", "Video"));
 
         if (useShaders)
-            mGuiPlatform->getRenderManagerPtr()->enableShaders(mResourceSystem->getSceneManager()->getShaderManager());
+            mGuiPlatform->getRenderManagerPtr()->enableShaders(mResourceSystem->getSceneManager()->getShaderManager(), Misc::StereoView::instance().getTechnique() == Misc::StereoView::Technique::OVR_MultiView2);
 
         mStatsWatcher.reset(new StatsWatcher());
     }

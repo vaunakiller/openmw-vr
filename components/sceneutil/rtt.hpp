@@ -35,8 +35,9 @@ namespace SceneUtil
     public:
         enum class StereoAwareness
         {
-            Unaware,
-            Aware,
+            Unaware, //! RTT does not vary by view. A single RTT context is created
+            Aware, //! RTT varies by view. One RTT context per view is created. Textures are automatically created as arrays if multiview is enabled.
+            StereoUnawareMultiViewAware, //! RTT does not vary by view, but needs to be aware of MultiView and make texture arrays if multiview is enabled.
         };
 
         RTTNode(uint32_t textureWidth, uint32_t textureHeight, int renderOrderNum, StereoAwareness stereoAwareness);
@@ -46,6 +47,7 @@ namespace SceneUtil
 
         osg::Texture* getDepthTexture(osgUtil::CullVisitor* cv);
 
+        osg::Camera* getCamera(osgUtil::CullVisitor* cv);
 
         /// Apply state - to override in derived classes
         /// @note Due to the view mapping approach you *have* to apply all camera settings, even if they have not changed since the last frame.

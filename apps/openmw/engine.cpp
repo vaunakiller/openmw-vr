@@ -828,6 +828,12 @@ void OMW::Engine::prepareEngine (Settings::Manager & settings)
     else
         gameControllerdb = ""; //if it doesn't exist, pass in an empty string
 
+    if (mStereoEnabled)
+    {
+
+        mStereoView->initializeStereo(mViewer);
+    }
+
     // gui needs our shaders path before everything else
     mResourceSystem->getSceneManager()->setShaderPath((mResDir / "shaders").string());
 
@@ -874,12 +880,6 @@ void OMW::Engine::prepareEngine (Settings::Manager & settings)
 
     // Create sound system
     mEnvironment.setSoundManager (new MWSound::SoundManager(mVFS.get(), mUseSound));
-
-    if (mStereoEnabled)
-    {
-
-        mStereoView->initializeStereo(mViewer);
-    }
 
 #ifdef USE_OPENXR
     mXrEnvironment.setGUIManager(new MWVR::VRGUIManager(mViewer, mResourceSystem.get(), rootNode));

@@ -10,6 +10,7 @@
 #include <components/sceneutil/nodecallback.hpp>
 #include <components/settings/settings.hpp>
 #include <components/misc/stereo.hpp>
+#include <components/debug/debuglog.hpp>
 
 namespace SceneUtil
 {
@@ -51,7 +52,7 @@ namespace SceneUtil
 
     bool RTTNode::shouldDoPerViewMapping()
     {
-        if(mStereoAwareness == StereoAwareness::Unaware)
+        if(mStereoAwareness != StereoAwareness::Aware)
             return false;
         if (Misc::StereoView::instance().getTechnique() == Misc::StereoView::Technique::BruteForce)
             return true;
@@ -103,6 +104,11 @@ namespace SceneUtil
         return getViewDependentData(cv)->mCamera->getBufferAttachmentMap()[osg::Camera::DEPTH_BUFFER]._texture;
     }
 
+    osg::Camera* RTTNode::getCamera(osgUtil::CullVisitor* cv)
+    {
+        return getViewDependentData(cv)->mCamera;
+    }
+
     RTTNode::ViewDependentData* RTTNode::getViewDependentData(osgUtil::CullVisitor* cv)
     {
         if (!shouldDoPerViewMapping())
@@ -121,7 +127,7 @@ namespace SceneUtil
             camera->setRenderTargetImplementation(osg::Camera::FRAME_BUFFER_OBJECT);
             camera->setViewport(0, 0, mTextureWidth, mTextureHeight);
 
-            setDefaults(mViewDependentDataMap[cv]->mCamera.get());
+            setDefaults(camera);
 
 #ifdef OSG_HAS_MULTIVIEW
             if (shouldDoTextureArray())
@@ -131,7 +137,7 @@ namespace SceneUtil
                 {
                     auto colorBuffer = createTextureArray(GL_RGB);
                     camera->attach(osg::Camera::COLOR_BUFFER, colorBuffer, 0, osg::Camera::FACE_CONTROLLED_BY_MULTIVIEW_SHADER);
-                    //SceneUtil::attachAlphaToCoverageFriendlyFramebufferToCamera(camera, osg::Camera::COLOR_BUFFER, colorBuffer);
+                    SceneUtil::attachAlphaToCoverageFriendlyFramebufferToCamera(camera, osg::Camera::COLOR_BUFFER, colorBuffer, 0, osg::Camera::FACE_CONTROLLED_BY_MULTIVIEW_SHADER);
                 }
 
                 if (camera->getBufferAttachmentMap().count(osg::Camera::DEPTH_BUFFER) == 0)

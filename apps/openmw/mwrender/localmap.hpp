@@ -21,7 +21,7 @@ namespace ESM
 
 namespace osg
 {
-    class Texture2D;
+    class Texture;
     class Image;
     class Camera;
     class Group;
@@ -30,6 +30,8 @@ namespace osg
 
 namespace MWRender
 {
+    class LocalMapRenderToTexture;
+
     ///
     /// \brief Local map rendering
     ///
@@ -54,9 +56,9 @@ namespace MWRender
 
         void removeCell (MWWorld::CellStore* cell);
 
-        osg::ref_ptr<osg::Texture2D> getMapTexture (int x, int y);
+        osg::ref_ptr<osg::Texture> getMapTexture (int x, int y);
 
-        osg::ref_ptr<osg::Texture2D> getFogOfWarTexture (int x, int y);
+        osg::ref_ptr<osg::Texture> getFogOfWarTexture (int x, int y);
 
         void removeCamera(osg::Camera* cam);
 
@@ -104,7 +106,15 @@ namespace MWRender
         osg::ref_ptr<osg::Group> mRoot;
         osg::ref_ptr<osg::Node> mSceneRoot;
 
-        typedef std::vector< osg::ref_ptr<osg::Camera> > CameraVector;
+        struct RTTStruct
+        {
+            RTTStruct();
+            ~RTTStruct();
+            osg::ref_ptr<osg::Camera> camera;
+            osg::ref_ptr<LocalMapRenderToTexture> rttnode;
+        };
+
+        typedef std::vector< RTTStruct > CameraVector;
 
         CameraVector mActiveCameras;
 
@@ -123,8 +133,8 @@ namespace MWRender
             void saveFogOfWar(ESM::FogTexture& fog) const;
             void createFogOfWarTexture();
 
-            osg::ref_ptr<osg::Texture2D> mMapTexture;
-            osg::ref_ptr<osg::Texture2D> mFogOfWarTexture;
+            osg::ref_ptr<osg::Texture> mMapTexture;
+            osg::ref_ptr<osg::Texture> mFogOfWarTexture;
             osg::ref_ptr<osg::Image> mFogOfWarImage;
 
             bool needUpdate = true;
@@ -152,8 +162,8 @@ namespace MWRender
         void requestExteriorMap(const MWWorld::CellStore* cell);
         void requestInteriorMap(const MWWorld::CellStore* cell);
 
-        osg::ref_ptr<osg::Camera> createOrthographicCamera(float left, float top, float width, float height, const osg::Vec3d& upVector, float zmin, float zmax);
-        void setupRenderToTexture(osg::ref_ptr<osg::Camera> camera, int x, int y);
+        void createOrthographicCamera(osg::Camera*, float left, float top, float width, float height, const osg::Vec3d& upVector, float zmin, float zmax);
+        void setupRenderToTexture(RTTStruct rtt, int x, int y);
 
         bool mInterior;
         osg::BoundingBox mBounds;
