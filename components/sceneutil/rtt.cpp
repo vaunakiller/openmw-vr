@@ -36,6 +36,15 @@ namespace SceneUtil
 
     RTTNode::~RTTNode()
     {
+        for (auto& vdd : mViewDependentDataMap)
+        {
+            auto camera = vdd.second->mCamera;
+            if (camera)
+            {
+                camera->removeChildren(0, camera->getNumChildren());
+            }
+        }
+        mViewDependentDataMap.clear();
     }
 
     void RTTNode::cull(osgUtil::CullVisitor* cv)

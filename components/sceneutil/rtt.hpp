@@ -58,6 +58,9 @@ namespace SceneUtil
 
         void cull(osgUtil::CullVisitor* cv);
 
+        uint32_t width() { return mTextureWidth; }
+        uint32_t height() { return mTextureHeight; }
+
     protected:
         bool shouldDoPerViewMapping();
         bool shouldDoTextureArray();
