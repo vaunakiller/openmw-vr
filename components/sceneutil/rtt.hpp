@@ -20,6 +20,8 @@ namespace osgUtil
 
 namespace SceneUtil
 {
+    class CreateTextureViewsCallback;
+
     /// @brief Implements per-view RTT operations.
     /// @par With a naive RTT implementation, subsequent views of multiple views will overwrite the results of the previous views, leading to
     ///     the results of the last view being broadcast to all views. An error in all cases where the RTT result depends on the view.
@@ -61,25 +63,34 @@ namespace SceneUtil
         uint32_t width() { return mTextureWidth; }
         uint32_t height() { return mTextureHeight; }
 
+        void setColorBufferInternalFormat(GLint internalFormat);
+        void setDepthBufferInternalFormat(GLint internalFormat);
+
     protected:
         bool shouldDoPerViewMapping();
         bool shouldDoTextureArray();
+        bool shouldDoTextureView();
         osg::Texture2DArray* createTextureArray(GLint internalFormat);
         osg::Texture2D* createTexture(GLint internalFormat);
 
     private:
+        friend class CreateTextureViewsCallback;
         struct ViewDependentData
         {
             osg::ref_ptr<osg::Camera> mCamera;
+            osg::ref_ptr<osg::Texture> mColorTexture;
+            osg::ref_ptr<osg::Texture> mDepthTexture;
             unsigned int mFrameNumber = 0;
         };
 
         ViewDependentData* getViewDependentData(osgUtil::CullVisitor* cv);
 
-        typedef std::map< osgUtil::CullVisitor*, std::unique_ptr<ViewDependentData> >  ViewDependentDataMap;
+        typedef std::map< osgUtil::CullVisitor*, std::shared_ptr<ViewDependentData> >  ViewDependentDataMap;
         ViewDependentDataMap mViewDependentDataMap;
         uint32_t mTextureWidth;
         uint32_t mTextureHeight;
+        GLint mColorBufferInternalFormat;
+        GLint mDepthBufferInternalFormat;
         int mRenderOrderNum;
         StereoAwareness mStereoAwareness;
     };

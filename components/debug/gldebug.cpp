@@ -99,7 +99,7 @@ namespace Debug
             typeStr = "UNDEFINED";
             break;
         }
-
+        if(logSeverity == Error)
         Log(logSeverity) << "OpenGL " << typeStr << " [" << srcStr << "]: " << message;
 #endif
     }

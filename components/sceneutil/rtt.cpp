@@ -24,9 +24,64 @@ namespace SceneUtil
         }
     };
 
+    class CreateTextureViewsCallback : public osg::Camera::DrawCallback
+    {
+    public:
+        CreateTextureViewsCallback(std::shared_ptr<RTTNode::ViewDependentData> vdd, GLint colorFormat, GLint depthFormat)
+            : mVdd(vdd)
+            , mColorFormat(colorFormat)
+            , mDepthFormat(depthFormat)
+        {
+        }
+
+        void operator () (osg::RenderInfo& renderInfo) const override
+        {
+            if (mDone)
+                return;
+
+            auto* state = renderInfo.getState();
+            auto contextId = state->getContextID();
+            auto* gl = osg::GLExtensions::Get(contextId, false);
+
+            // The stereo manager checks for texture view support before enabling multiview, so this check is probably redundant.
+            if (gl->glTextureView)
+            {
+                auto sourceTexture = mVdd->mCamera->getBufferAttachmentMap()[osg::Camera::COLOR_BUFFER]._texture;
+                auto sourceTextureObject = sourceTexture->getTextureObject(contextId);
+                auto sourceId = sourceTextureObject->_id;
+
+                GLuint targetId = 0;
+                glGenTextures(1, &targetId);
+                gl->glTextureView(targetId, GL_TEXTURE_2D, sourceId, sourceTextureObject->_profile._internalFormat, 0, 1, 0, 1);
+
+                auto targetTexture = mVdd->mColorTexture;
+                auto targetTextureObject = new osg::Texture::TextureObject(targetTexture, targetId, GL_TEXTURE_2D);
+                targetTexture->setTextureObject(contextId, targetTextureObject);
+            }
+            else {
+                Log(Debug::Error) << "Requested glTextureView but glTextureView is not supported";
+            }
+
+            mDone = true;
+
+            // Don't hold on to the reference as we're not gonna run again.
+            // This should not cause an immediate deletion of the camera (and consequentially this callback)
+            // as the stategraph/renderbin holds a reference.
+            mVdd = nullptr;
+        }
+
+        mutable bool mDone = false;
+        // Use a weak pointer to prevent cyclic reference
+        mutable std::shared_ptr<RTTNode::ViewDependentData> mVdd;
+        const GLint mColorFormat;
+        const GLint mDepthFormat;
+    };
+
     RTTNode::RTTNode(uint32_t textureWidth, uint32_t textureHeight, int renderOrderNum, StereoAwareness stereoAwareness)
         : mTextureWidth(textureWidth)
         , mTextureHeight(textureHeight)
+        , mColorBufferInternalFormat(GL_RGB)
+        , mDepthBufferInternalFormat(GL_DEPTH_COMPONENT)
         , mRenderOrderNum(renderOrderNum)
         , mStereoAwareness(stereoAwareness)
     {
@@ -59,6 +114,16 @@ namespace SceneUtil
         vdd->mFrameNumber = frameNumber;
     }
 
+    void RTTNode::setColorBufferInternalFormat(GLint internalFormat)
+    {
+        mColorBufferInternalFormat = internalFormat;
+    }
+
+    void RTTNode::setDepthBufferInternalFormat(GLint internalFormat)
+    {
+        mDepthBufferInternalFormat = internalFormat;
+    }
+
     bool RTTNode::shouldDoPerViewMapping()
     {
         if(mStereoAwareness != StereoAwareness::Aware)
@@ -71,6 +136,15 @@ namespace SceneUtil
     bool RTTNode::shouldDoTextureArray()
     {
         if (mStereoAwareness == StereoAwareness::Unaware)
+            return false;
+        if (Misc::StereoView::instance().getTechnique() == Misc::StereoView::Technique::OVR_MultiView2)
+            return true;
+        return false;
+    }
+
+    bool RTTNode::shouldDoTextureView()
+    {
+        if (mStereoAwareness != StereoAwareness::StereoUnawareMultiViewAware)
             return false;
         if (Misc::StereoView::instance().getTechnique() == Misc::StereoView::Technique::OVR_MultiView2)
             return true;
@@ -105,12 +179,12 @@ namespace SceneUtil
 
     osg::Texture* RTTNode::getColorTexture(osgUtil::CullVisitor* cv)
     {
-        return getViewDependentData(cv)->mCamera->getBufferAttachmentMap()[osg::Camera::COLOR_BUFFER]._texture;
+        return getViewDependentData(cv)->mColorTexture;
     }
 
     osg::Texture* RTTNode::getDepthTexture(osgUtil::CullVisitor* cv)
     {
-        return getViewDependentData(cv)->mCamera->getBufferAttachmentMap()[osg::Camera::DEPTH_BUFFER]._texture;
+        return getViewDependentData(cv)->mDepthTexture;
     }
 
     osg::Camera* RTTNode::getCamera(osgUtil::CullVisitor* cv)
@@ -128,7 +202,8 @@ namespace SceneUtil
         if (mViewDependentDataMap.count(cv) == 0)
         {
             auto camera = new osg::Camera();
-            mViewDependentDataMap[cv].reset(new ViewDependentData);
+            auto vdd = std::make_shared<ViewDependentData>();
+            mViewDependentDataMap[cv] = vdd;
             mViewDependentDataMap[cv]->mCamera = camera;
 
             camera->setRenderOrder(osg::Camera::PRE_RENDER, mRenderOrderNum);
@@ -138,22 +213,39 @@ namespace SceneUtil
 
             setDefaults(camera);
 
+            if (camera->getBufferAttachmentMap().count(osg::Camera::COLOR_BUFFER))
+                vdd->mColorTexture = camera->getBufferAttachmentMap()[osg::Camera::COLOR_BUFFER]._texture;
+            if (camera->getBufferAttachmentMap().count(osg::Camera::DEPTH_BUFFER))
+                vdd->mDepthTexture = camera->getBufferAttachmentMap()[osg::Camera::DEPTH_BUFFER]._texture;
+
 #ifdef OSG_HAS_MULTIVIEW
             if (shouldDoTextureArray())
             {
                 // Create any buffer attachments not added in setDefaults
                 if (camera->getBufferAttachmentMap().count(osg::Camera::COLOR_BUFFER) == 0)
                 {
-                    auto colorBuffer = createTextureArray(GL_RGB);
-                    camera->attach(osg::Camera::COLOR_BUFFER, colorBuffer, 0, osg::Camera::FACE_CONTROLLED_BY_MULTIVIEW_SHADER);
-                    SceneUtil::attachAlphaToCoverageFriendlyFramebufferToCamera(camera, osg::Camera::COLOR_BUFFER, colorBuffer, 0, osg::Camera::FACE_CONTROLLED_BY_MULTIVIEW_SHADER);
+                    vdd->mColorTexture = createTextureArray(mColorBufferInternalFormat);
+                    
+                    camera->attach(osg::Camera::COLOR_BUFFER, vdd->mColorTexture, 0, osg::Camera::FACE_CONTROLLED_BY_MULTIVIEW_SHADER);
+                    SceneUtil::attachAlphaToCoverageFriendlyFramebufferToCamera(camera, osg::Camera::COLOR_BUFFER, vdd->mColorTexture, 0, osg::Camera::FACE_CONTROLLED_BY_MULTIVIEW_SHADER);
                 }
 
                 if (camera->getBufferAttachmentMap().count(osg::Camera::DEPTH_BUFFER) == 0)
                 {
-                    auto depthBuffer = createTextureArray(GL_DEPTH_COMPONENT);
+                    vdd->mDepthTexture = createTextureArray(mDepthBufferInternalFormat);
 
-                    camera->attach(osg::Camera::DEPTH_BUFFER, depthBuffer, 0, osg::Camera::FACE_CONTROLLED_BY_MULTIVIEW_SHADER);
+                    camera->attach(osg::Camera::DEPTH_BUFFER, vdd->mDepthTexture, 0, osg::Camera::FACE_CONTROLLED_BY_MULTIVIEW_SHADER);
+                }
+
+                if (shouldDoTextureView())
+                {
+                    // In this case, shaders being set to multiview forces us to render to a multiview framebuffer even though we don't need to.
+                    // To make the result compatible with the intended use, we have to return Texture2D views into the Texture2DArray.
+                    camera->setFinalDrawCallback(new CreateTextureViewsCallback(vdd, mColorBufferInternalFormat, mDepthBufferInternalFormat));
+
+                    // References are kept alive by the camera's attachment buffers, so just override the vdd textures with the views.
+                    vdd->mColorTexture = createTexture(mColorBufferInternalFormat);
+                    vdd->mDepthTexture = createTexture(mDepthBufferInternalFormat);
                 }
             }
             else
@@ -162,15 +254,15 @@ namespace SceneUtil
                 // Create any buffer attachments not added in setDefaults
                 if (camera->getBufferAttachmentMap().count(osg::Camera::COLOR_BUFFER) == 0)
                 {
-                    auto colorBuffer = createTexture(GL_RGB);
-                    camera->attach(osg::Camera::COLOR_BUFFER, colorBuffer);
-                    SceneUtil::attachAlphaToCoverageFriendlyFramebufferToCamera(camera, osg::Camera::COLOR_BUFFER, colorBuffer);
+                    vdd->mColorTexture = createTexture(mColorBufferInternalFormat);
+                    camera->attach(osg::Camera::COLOR_BUFFER, vdd->mColorTexture);
+                    SceneUtil::attachAlphaToCoverageFriendlyFramebufferToCamera(camera, osg::Camera::COLOR_BUFFER, vdd->mColorTexture);
                 }
 
                 if (camera->getBufferAttachmentMap().count(osg::Camera::DEPTH_BUFFER) == 0)
                 {
-                    auto depthBuffer = createTexture(GL_DEPTH_COMPONENT);
-                    camera->attach(osg::Camera::DEPTH_BUFFER, depthBuffer);
+                    vdd->mDepthTexture = createTexture(mDepthBufferInternalFormat);
+                    camera->attach(osg::Camera::DEPTH_BUFFER, vdd->mDepthTexture);
                 }
             }
         }

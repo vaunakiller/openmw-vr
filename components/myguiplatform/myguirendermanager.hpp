@@ -55,7 +55,6 @@ class RenderManager : public MyGUI::RenderManager
 {
     osg::ref_ptr<osgViewer::Viewer> mViewer;
     osg::ref_ptr<osg::StateSet> mGuiStateSet;
-    osg::ref_ptr<osg::StateSet> mGuiStateSetMultiView;
     osg::ref_ptr<osg::Group> mSceneRoot;
     std::set<GUICamera*> mGuiCameras;
     Resource::ImageManager* mImageManager;
@@ -79,7 +78,7 @@ public:
     void initialise();
     void shutdown();
 
-    void enableShaders(Shader::ShaderManager& shaderManager, bool enableTextureArrays);
+    void enableShaders(Shader::ShaderManager& shaderManager);
 
     static RenderManager& getInstance() { return *getInstancePtr(); }
     static RenderManager* getInstancePtr()

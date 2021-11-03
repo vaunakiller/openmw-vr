@@ -312,13 +312,18 @@ namespace Misc
         {
 #ifdef OSG_HAS_MULTIVIEW
             osg::ref_ptr<osg::GLExtensions> exts = osg::GLExtensions::Get(0, false);
-            if(exts->glFramebufferTextureMultiviewOVR)
+            if(exts->glFramebufferTextureMultiviewOVR && exts->glTextureView)
                 return Misc::StereoView::Technique::OVR_MultiView2;
 
-            mError = std::string("Stereo method setting is \"") + stereoMethodString + "\" but current GPU or driver does not support multiview, defaulting to BruteForce";
+            mError = std::string("Stereo method setting is \"") + stereoMethodString + "\" but current GPU or driver does not support the required extensions, expect worse performance.";
+            Log(Debug::Error) << mError;
+            if (!exts->glFramebufferTextureMultiviewOVR)
+                Log(Debug::Error) << "Missing extension: GL_OVR_multiview2";
+            if (!exts->glTextureView)
+                Log(Debug::Error) << "Missing extension: GL_ARB_texture_view";
             return Misc::StereoView::Technique::BruteForce;
 #else
-            mError = std::string("Stereo method setting is \"") + stereoMethodString + "\" but this version of OpenSceneGraph does not support multiview, defaulting to BruteForce";
+            mError = std::string("Stereo method setting is \"") + stereoMethodString + "\" but this version of OpenSceneGraph does not support multiview, expect worse performance";
             return Misc::StereoView::Technique::BruteForce;
 #endif
         }

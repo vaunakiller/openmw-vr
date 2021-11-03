@@ -137,6 +137,7 @@ namespace MWRender
             mPerspectiveMatrix = osg::Matrixf::perspective(fovYDegrees, width() / static_cast<float>(height()), 0.1f, 10000.f);
             mGroup->getOrCreateStateSet()->addUniform(new osg::Uniform("projectionMatrix", mPerspectiveMatrix));
             mViewMatrix = osg::Matrixf::identity();
+            setColorBufferInternalFormat(GL_RGBA);
         } 
 
         void setDefaults(osg::Camera* camera) override 

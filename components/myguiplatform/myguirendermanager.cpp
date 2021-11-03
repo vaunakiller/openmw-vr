@@ -17,7 +17,6 @@
 #include <components/resource/imagemanager.hpp>
 #include <components/shader/shadermanager.hpp>
 #include <components/sceneutil/nodecallback.hpp>
-#include <components/debug/debuglog.hpp>
 
 #include "myguicompat.h"
 #include "myguitexture.hpp"
@@ -50,7 +49,6 @@ class GUICamera;
 class Drawable : public osg::Drawable {
     osgMyGUI::RenderManager *mManager;
     osg::ref_ptr<osg::StateSet> mStateSet;
-    osg::ref_ptr<osg::StateSet> mStateSetMultiView;
 
 public:
 
@@ -124,12 +122,6 @@ public:
         {
             const Batch& batch = *it;
             osg::VertexBufferObject *vbo = batch.mVertexBuffer;
-            osg::Texture* texture = batch.mTexture;
-            if (texture && texture->getTextureTarget() != GL_TEXTURE_2D)
-            {
-                state->pushStateSet(mStateSetMultiView);
-                state->apply();
-            }
 
             if (batch.mStateSet)
             {
@@ -139,6 +131,7 @@ public:
 
             // A GUI element without an associated texture would be extremely rare.
             // It is worth it to use a dummy 1x1 black texture sampler instead of either adding a conditional or relinking shaders.
+            osg::Texture* texture = batch.mTexture;
             if(texture)
                 state->applyTextureAttribute(0, texture);
             else
@@ -167,12 +160,6 @@ public:
                 state->popStateSet();
                 state->apply();
             }
-
-            if (texture && texture->getTextureTarget() == GL_TEXTURE_2D_ARRAY)
-            {
-                state->popStateSet();
-                state->apply();
-            }
         }
 
         glDisableClientState(GL_VERTEX_ARRAY);
@@ -187,10 +174,9 @@ public:
     }
 
 public:
-    Drawable(std::string filter = "", osg::StateSet* stateset = nullptr, osg::StateSet* statesetMultiview = nullptr, osgMyGUI::RenderManager* manager = nullptr, osgMyGUI::GUICamera* camera = nullptr)
+    Drawable(std::string filter = "", osg::StateSet* stateset = nullptr, osgMyGUI::RenderManager* manager = nullptr, osgMyGUI::GUICamera* camera = nullptr)
         : mManager(manager)
         , mStateSet(stateset)
-        , mStateSetMultiView(statesetMultiview)
         , mWriteTo(0)
         , mReadFrom(0)
     {
@@ -374,7 +360,7 @@ osg::VertexBufferObject* OSGVertexBuffer::getVertexBuffer()
 class GUICamera : public osg::Camera, public StateInjectableRenderTarget
 {
 public:
-    GUICamera(osg::Camera::RenderOrder order, osg::StateSet* stateset, osg::StateSet* statesetMultiview, RenderManager* parent, std::string filter)
+    GUICamera(osg::Camera::RenderOrder order, osg::StateSet* stateset, RenderManager* parent, std::string filter)
         : mParent(parent)
         , mUpdate(false)
         , mFilter(filter)
@@ -386,7 +372,7 @@ public:
         setRenderOrder(order);
         setClearMask(GL_NONE);
         setName("GUI Camera");
-        mDrawable = new Drawable(filter, stateset, statesetMultiview, parent, this);
+        mDrawable = new Drawable(filter, stateset, parent, this);
         mDrawable->setName("GUI Drawable");
         mDrawable->setDataVariance(osg::Object::STATIC);
         addChild(mDrawable.get());
@@ -489,8 +475,6 @@ void RenderManager::initialise()
 
     mSceneRoot->addChild(createGUICamera(osg::Camera::POST_RENDER, ""));
 
-    mGuiStateSetMultiView = osg::clone(mGuiStateSet.get());
-
     MYGUI_PLATFORM_LOG(Info, getClassTypeName()<<" successfully initialized");
     mIsInitialise = true;
 }
@@ -505,28 +489,14 @@ void RenderManager::shutdown()
     mGuiCameras.clear();
 }
 
-void RenderManager::enableShaders(Shader::ShaderManager& shaderManager, bool enableTextureArrays)
+void RenderManager::enableShaders(Shader::ShaderManager& shaderManager)
 {
-    Shader::ShaderManager::DefineMap defineMap;
-    defineMap["GLSLVersion"] = "120";
-    defineMap["useTextureArrays"] = "0";
-    auto vertexShader = shaderManager.getShader("gui_vertex.glsl", defineMap, osg::Shader::VERTEX);
-    auto fragmentShader = shaderManager.getShader("gui_fragment.glsl", defineMap, osg::Shader::FRAGMENT);
+    auto vertexShader = shaderManager.getShader("gui_vertex.glsl", { {"GLSLVersion", "120"} }, osg::Shader::VERTEX);
+    auto fragmentShader = shaderManager.getShader("gui_fragment.glsl", { {"GLSLVersion", "120"} }, osg::Shader::FRAGMENT);
     auto program = shaderManager.getProgram(vertexShader, fragmentShader);
 
     mGuiStateSet->setAttributeAndModes(program, osg::StateAttribute::ON);
     mGuiStateSet->addUniform(new osg::Uniform("diffuseMap", 0));
-
-    if (enableTextureArrays)
-    {
-        defineMap["useTextureArrays"] = "1";
-        auto vertexShaderMV = shaderManager.getShader("gui_vertex.glsl", defineMap, osg::Shader::VERTEX);
-        auto fragmentShaderMV = shaderManager.getShader("gui_fragment.glsl", defineMap, osg::Shader::FRAGMENT);
-        auto programMV = shaderManager.getProgram(vertexShaderMV, fragmentShaderMV);
-
-        mGuiStateSetMultiView->setAttributeAndModes(programMV, osg::StateAttribute::ON);
-        mGuiStateSetMultiView->addUniform(new osg::Uniform("diffuseMap", 0));
-    }
 }
 
 MyGUI::IVertexBuffer* RenderManager::createVertexBuffer()
@@ -651,7 +621,7 @@ void RenderManager::setViewSize(int width, int height)
 
 osg::ref_ptr<osg::Camera> RenderManager::createGUICamera(int order, std::string layerFilter)
 {
-    osg::ref_ptr<GUICamera> camera = new GUICamera(static_cast<osg::Camera::RenderOrder>(order), mGuiStateSet, mGuiStateSetMultiView, this, layerFilter);
+    osg::ref_ptr<GUICamera> camera = new GUICamera(static_cast<osg::Camera::RenderOrder>(order), mGuiStateSet, this, layerFilter);
     mGuiCameras.insert(camera);
     camera->setViewport(0, 0, mViewSize.width, mViewSize.height);
     camera->setViewSize(mViewSize);
