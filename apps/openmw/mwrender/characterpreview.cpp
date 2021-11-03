@@ -131,7 +131,7 @@ namespace MWRender
     class CharacterPreviewRTTNode : public SceneUtil::RTTNode
     {
     public:
-        CharacterPreviewRTTNode::CharacterPreviewRTTNode(uint32_t sizeX, uint32_t sizeY)
+        CharacterPreviewRTTNode(uint32_t sizeX, uint32_t sizeY)
             : RTTNode(sizeX, sizeY, 0, StereoAwareness::StereoUnawareMultiViewAware)
         {
             mPerspectiveMatrix = osg::Matrixf::perspective(fovYDegrees, width() / static_cast<float>(height()), 0.1f, 10000.f);
