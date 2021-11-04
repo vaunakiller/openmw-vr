@@ -4070,11 +4070,11 @@ namespace MWWorld
             MWWorld::ConstContainerStoreIterator it = invStore.getSlot(MWWorld::InventoryStore::Slot_CarriedRight);
             if (it != invStore.end())
             {
-                if (it->getTypeDescription() == typeid(ESM::Weapon).name())
+                if (it->getTypeDescription() == "Weapon")
                     return ESM::Weapon::Type(it->get<ESM::Weapon>()->mBase->mData.mType);
-                if (it->getTypeDescription() == typeid(ESM::Lockpick).name())
+                if (it->getTypeDescription() == "Lockpick")
                     return ESM::Weapon::Type::PickProbe;
-                if (it->getTypeDescription() == typeid(ESM::Probe).name())
+                if (it->getTypeDescription() == "Probe")
                     return ESM::Weapon::Type::PickProbe;
             }
             return ESM::Weapon::Type::HandToHand;
