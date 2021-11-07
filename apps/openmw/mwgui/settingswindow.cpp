@@ -743,9 +743,12 @@ namespace MWGui
 
     void SettingsWindow::computeMinimumWindowSize()
     {
+        auto* window = mMainWidget->castType<MyGUI::Window>();
+        auto minSize = window->getMinSize();
+
         // Window should be at minimum wide enough to show all tabs.
         int tabBarWidth = 0;
-        for (auto i = 0; i < mSettingsTab->getItemCount(); i++)
+        for (uint32_t i = 0; i < mSettingsTab->getItemCount(); i++)
         {
             tabBarWidth += mSettingsTab->getButtonWidthAt(i);
         }
@@ -754,15 +757,14 @@ namespace MWGui
         int margins = mMainWidget->getWidth() - mSettingsTab->getWidth();
         int minimumWindowWidth = tabBarWidth + margins;
 
-        // We know the appropriate minimum width, but not height. An appropriate minimum height is set in the layout, but MyGUI does not appear 
-        // to have methods to read back what the current property is. Use the current height instead, as this can't be smaller than the actual
-        // min height and was probably computed to an appropriate height.
-        std::stringstream minSize;
-        minSize << (minimumWindowWidth) << " " << mMainWidget->getHeight();
-        mMainWidget->setProperty("MinSize", minSize.str());
+        if (minimumWindowWidth > minSize.width)
+        {
+            minSize.width = minimumWindowWidth;
+            window->setMinSize(minSize);
 
-        // Make a dummy call to setSize so MyGUI can apply any resize resulting from the change in MinSize
-        mMainWidget->setSize(mMainWidget->getSize());
+            // Make a dummy call to setSize so MyGUI can apply any resize resulting from the change in MinSize
+            mMainWidget->setSize(mMainWidget->getSize());
+        }
     }
 
     void SettingsWindow::resetScrollbars()
