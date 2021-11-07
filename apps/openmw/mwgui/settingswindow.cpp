@@ -754,13 +754,14 @@ namespace MWGui
         int margins = mMainWidget->getWidth() - mSettingsTab->getWidth();
         int minimumWindowWidth = tabBarWidth + margins;
 
-        // MyGUI does not appear to have methods to read back what the current MinSize property is
-        // so use the current height, which can't be smaller than the actual min height
+        // We know the appropriate minimum width, but not height. An appropriate minimum height is set in the layout, but MyGUI does not appear 
+        // to have methods to read back what the current property is. Use the current height instead, as this can't be smaller than the actual
+        // min height and was probably computed to an appropriate height.
         std::stringstream minSize;
         minSize << (minimumWindowWidth) << " " << mMainWidget->getHeight();
         mMainWidget->setProperty("MinSize", minSize.str());
 
-        // Automatically applies any resize resulting from change in MinSize
+        // Make a dummy call to setSize so MyGUI can apply any resize resulting from the change in MinSize
         mMainWidget->setSize(mMainWidget->getSize());
     }
 
