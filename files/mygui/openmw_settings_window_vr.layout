@@ -443,7 +443,7 @@
                             </Widget>
                             <Widget type="HBox" skin="" position="4 56 350 24">
                                 <Widget type="ComboBox" skin="MW_ComboBox" position="0 0 115 24" align="Left Top" name="WaterReflectionDetail">
-                                    <Property key="AddItem" value="Off"/>
+                                    <Property key="AddItem" value="Sky"/>
                                     <Property key="AddItem" value="Terrain"/>
                                     <Property key="AddItem" value="World"/>
                                     <Property key="AddItem" value="Objects"/>
@@ -498,7 +498,7 @@
                         </Widget>
                         <Widget type="ScrollBar" skin="MW_HScroll" position="0 104 352 18" align="HStretch Top">
                             <Property key="Range" value="8192"/>
-                            <Property key="Page" value="1"/>
+                            <Property key="Page" value="128"/>
                             <UserString key="SettingType" value="Slider"/>
                             <UserString key="SettingMin" value="0"/>
                             <UserString key="SettingMax" value="8192"/>
@@ -659,24 +659,24 @@
                         <Property key="Caption" value="Smooth turning"/>
                     </Widget>
                 </Widget>
-				<Widget type="HBox" skin="" position="4 34 260 24">
-					<Widget type="ComboBox" skin="MW_ComboBox" position="0 0 85 24" align="Left Top" name="VRSnapAngle">
-						<Property key="AddItem" value="10"/>
-						<Property key="AddItem" value="15"/>
-						<Property key="AddItem" value="20"/>
-						<Property key="AddItem" value="25"/>
-						<Property key="AddItem" value="30"/>
-						<Property key="AddItem" value="35"/>
-						<Property key="AddItem" value="40"/>
-						<Property key="AddItem" value="45"/>
-						<Property key="AddItem" value="50"/>
-						<Property key="AddItem" value="55"/>
-						<Property key="AddItem" value="60"/>
-					</Widget>
-					<Widget type="AutoSizedTextBox" skin="SandText" position="64 4 90 16" align="Left Top">
-						<Property key="Caption" value="Snap Turning Angle"/>
-					</Widget>
-				</Widget>
+                <Widget type="HBox" skin="" position="4 34 260 24">
+                    <Widget type="ComboBox" skin="MW_ComboBox" position="0 0 85 24" align="Left Top" name="VRSnapAngle">
+                        <Property key="AddItem" value="10"/>
+                        <Property key="AddItem" value="15"/>
+                        <Property key="AddItem" value="20"/>
+                        <Property key="AddItem" value="25"/>
+                        <Property key="AddItem" value="30"/>
+                        <Property key="AddItem" value="35"/>
+                        <Property key="AddItem" value="40"/>
+                        <Property key="AddItem" value="45"/>
+                        <Property key="AddItem" value="50"/>
+                        <Property key="AddItem" value="55"/>
+                        <Property key="AddItem" value="60"/>
+                    </Widget>
+                    <Widget type="AutoSizedTextBox" skin="SandText" position="64 4 90 16" align="Left Top">
+                        <Property key="Caption" value="Snap Turning Angle"/>
+                    </Widget>
+                </Widget>
                 <Widget type="TextBox" skin="NormalText" position="4 64 352 18" align="Left Bottom">
                     <Property key="Caption" value="Smooth Turn Rate"/>
                 </Widget>
@@ -708,28 +708,28 @@
                         <Property key="Caption" value="Show mirror texture"/>
                     </Widget>
                 </Widget>
-				<Widget type="Widget" skin="" position="24 172 300 230">
-					<Widget type="HBox" skin="" position="4 0 350 24">
-						<Widget type="ComboBox" skin="MW_ComboBox" position="0 0 85 24" align="Left Top" name="VRMirrorTextureEye">
-							<Property key="AddItem" value="Left"/>
-							<Property key="AddItem" value="Right"/>
-							<Property key="AddItem" value="Both"/>
-						</Widget>
-						<Widget type="AutoSizedTextBox" skin="SandText" position="64 4 90 16" align="Left Top">
-							<Property key="Caption" value="Mirror texture eye"/>
-						</Widget>
-					</Widget>
-					<Widget type="HBox" skin="" position="4 30 260 24">
-						<Widget type="AutoSizedButton" skin="MW_Button" position="0 0 24 24" align="Left Top">
-							<UserString key="SettingCategory" value="VR"/>
-							<UserString key="SettingName" value="flip mirror texture order"/>
-							<UserString key="SettingType" value="CheckButton"/>
-						</Widget>
-						<Widget type="AutoSizedTextBox" skin="SandText" position="28 4 95 16" align="Left Top">
-							<Property key="Caption" value="Flip mirror texture order"/>
-						</Widget>
-					</Widget>
-				</Widget>
+                <Widget type="Widget" skin="" position="24 172 300 230">
+                    <Widget type="HBox" skin="" position="4 0 350 24">
+                        <Widget type="ComboBox" skin="MW_ComboBox" position="0 0 85 24" align="Left Top" name="VRMirrorTextureEye">
+                            <Property key="AddItem" value="Left"/>
+                            <Property key="AddItem" value="Right"/>
+                            <Property key="AddItem" value="Both"/>
+                        </Widget>
+                        <Widget type="AutoSizedTextBox" skin="SandText" position="64 4 90 16" align="Left Top">
+                            <Property key="Caption" value="Mirror texture eye"/>
+                        </Widget>
+                    </Widget>
+                    <Widget type="HBox" skin="" position="4 30 260 24">
+                        <Widget type="AutoSizedButton" skin="MW_Button" position="0 0 24 24" align="Left Top">
+                            <UserString key="SettingCategory" value="VR"/>
+                            <UserString key="SettingName" value="flip mirror texture order"/>
+                            <UserString key="SettingType" value="CheckButton"/>
+                        </Widget>
+                        <Widget type="AutoSizedTextBox" skin="SandText" position="28 4 95 16" align="Left Top">
+                            <Property key="Caption" value="Flip mirror texture order"/>
+                        </Widget>
+                    </Widget>
+                </Widget>
                 <Widget type="HBox" skin="" position="4 232 260 24">
                     <Widget type="AutoSizedButton" skin="MW_Button" position="0 0 24 24" align="Left Top">
                         <UserString key="SettingCategory" value="VR"/>
@@ -760,15 +760,15 @@
                         <Property key="Caption" value="Seated play"/>
                     </Widget>
                 </Widget>
-				<Widget type="HBox" skin="" position="4 322 350 24">
-					<Widget type="ComboBox" skin="MW_ComboBox" position="0 0 85 24" align="Left Top" name="VRLeftHudPosition">
-						<Property key="AddItem" value="Wrist"/>
-						<Property key="AddItem" value="Top"/>
-					</Widget>
-					<Widget type="AutoSizedTextBox" skin="SandText" position="64 4 90 16" align="Left Top">
-						<Property key="Caption" value="Left Hand Hud Position"/>
-					</Widget>
-				</Widget>
+                <Widget type="HBox" skin="" position="4 322 350 24">
+                    <Widget type="ComboBox" skin="MW_ComboBox" position="0 0 85 24" align="Left Top" name="VRLeftHudPosition">
+                        <Property key="AddItem" value="Wrist"/>
+                        <Property key="AddItem" value="Top"/>
+                    </Widget>
+                    <Widget type="AutoSizedTextBox" skin="SandText" position="64 4 90 16" align="Left Top">
+                        <Property key="Caption" value="Left Hand Hud Position"/>
+                    </Widget>
+                </Widget>
             </Widget>
         </Widget>
         <Widget type="AutoSizedButton" skin="MW_Button" position="320 420 56 24" align="Right Bottom" name="OkButton">
