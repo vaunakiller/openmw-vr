@@ -82,24 +82,29 @@ namespace Debug
             break;
         case GL_DEBUG_TYPE_DEPRECATED_BEHAVIOR:
             typeStr = "DEPRECATED_BEHAVIOR";
+            logSeverity = Info;
             break;
         case GL_DEBUG_TYPE_UNDEFINED_BEHAVIOR:
             typeStr = "UNDEFINED_BEHAVIOR";
+            logSeverity = Warning;
             break;
         case GL_DEBUG_TYPE_PORTABILITY:
             typeStr = "PORTABILITY";
+            logSeverity = Warning;
             break;
         case GL_DEBUG_TYPE_PERFORMANCE:
             typeStr = "PERFORMANCE";
+            logSeverity = Info;
             break;
         case GL_DEBUG_TYPE_OTHER:
             typeStr = "OTHER";
+            logSeverity = Verbose;
             break;
         default:
             typeStr = "UNDEFINED";
             break;
         }
-        if(logSeverity == Error)
+
         Log(logSeverity) << "OpenGL " << typeStr << " [" << srcStr << "]: " << message;
 #endif
     }
