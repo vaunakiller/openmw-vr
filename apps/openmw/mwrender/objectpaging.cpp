@@ -428,7 +428,6 @@ namespace MWRender
                                 continue;
 
                             if (std::find(cell->mMovedRefs.begin(), cell->mMovedRefs.end(), ref.mRefNum) != cell->mMovedRefs.end()) continue;
-                            Misc::StringUtils::lowerCaseInPlace(ref.mRefID);
                             int type = store.findStatic(ref.mRefID);
                             if (!typeFilter(type,size>=2)) continue;
                             if (deleted) { refs.erase(ref.mRefNum); continue; }
@@ -444,7 +443,6 @@ namespace MWRender
                 for (auto [ref, deleted] : cell->mLeasedRefs)
                 {
                     if (deleted) { refs.erase(ref.mRefNum); continue; }
-                    Misc::StringUtils::lowerCaseInPlace(ref.mRefID);
                     int type = store.findStatic(ref.mRefID);
                     if (!typeFilter(type,size>=2)) continue;
                     refs[ref.mRefNum] = std::move(ref);
@@ -735,12 +733,8 @@ namespace MWRender
         }
         void clampToCell(osg::Vec3f& cellPos)
         {
-            osg::Vec2i min (mCell.x(), mCell.y());
-            osg::Vec2i max (mCell.x()+1, mCell.y()+1);
-            if (cellPos.x() < min.x()) cellPos.x() = min.x();
-            if (cellPos.x() > max.x()) cellPos.x() = max.x();
-            if (cellPos.y() < min.y()) cellPos.y() = min.y();
-            if (cellPos.y() > max.y()) cellPos.y() = max.y();
+            cellPos.x() = std::clamp<float>(cellPos.x(), mCell.x(), mCell.x() + 1);
+            cellPos.y() = std::clamp<float>(cellPos.y(), mCell.y(), mCell.y() + 1);
         }
         osg::Vec3f mPosition;
         osg::Vec2i mCell;

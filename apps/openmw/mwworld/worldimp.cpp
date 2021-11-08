@@ -28,10 +28,8 @@
 #include <components/sceneutil/positionattitudetransform.hpp>
 #include <components/sceneutil/visitor.hpp>
 
-#include <components/detournavigator/debug.hpp>
-#include <components/detournavigator/navigatorimpl.hpp>
-#include <components/detournavigator/navigatorstub.hpp>
-#include <components/detournavigator/recastglobalallocator.hpp>
+#include <components/detournavigator/navigator.hpp>
+#include <components/detournavigator/settings.hpp>
 
 #include "../mwbase/environment.hpp"
 #include "../mwbase/soundmanager.hpp"
@@ -121,6 +119,17 @@ namespace MWWorld
           LoadersContainer mLoaders;
     };
 
+    struct OMWScriptsLoader : public ContentLoader
+    {
+        ESMStore& mStore;
+        OMWScriptsLoader(Loading::Listener& listener, ESMStore& store) : ContentLoader(listener), mStore(store) {}
+        void load(const boost::filesystem::path& filepath, int& index) override
+        {
+            ContentLoader::load(filepath.filename(), index);
+            mStore.addOMWScripts(filepath.string());
+        }
+    };
+
     void World::adjustSky()
     {
         if (mSky && (isCellExterior() || isCellQuasiExterior()))
@@ -167,6 +176,9 @@ namespace MWWorld
         gameContentLoader.addLoader(".omwaddon", &esmLoader);
         gameContentLoader.addLoader(".project", &esmLoader);
 
+        OMWScriptsLoader omwScriptsLoader(*listener, mStore);
+        gameContentLoader.addLoader(".omwscripts", &omwScriptsLoader);
+
         loadContentFiles(fileCollections, contentFiles, groundcoverFiles, gameContentLoader);
 
         listener->loadingOff();
@@ -174,6 +186,10 @@ namespace MWWorld
         // insert records that may not be present in all versions of MW
         if (mEsm[0].getFormat() == 0)
             ensureNeededRecords();
+
+        // TODO: We can and should validate before we call loadContentFiles().
+        // Currently we validate here to prevent merge conflicts with groundcover ESMStore fixes.
+        validateMasterFiles(mEsm);
 
         mCurrentDate.reset(new DateTimeManager());
 
@@ -190,12 +206,11 @@ namespace MWWorld
         {
             auto navigatorSettings = DetourNavigator::makeSettingsFromSettingsManager();
             navigatorSettings.mSwimHeightScale = mSwimHeightScale;
-            DetourNavigator::RecastGlobalAllocator::init();
-            mNavigator.reset(new DetourNavigator::NavigatorImpl(navigatorSettings));
+            mNavigator = DetourNavigator::makeNavigator(navigatorSettings);
         }
         else
         {
-            mNavigator.reset(new DetourNavigator::NavigatorStub());
+            mNavigator = DetourNavigator::makeNavigatorStub();
         }
 
         mRendering.reset(new MWRender::RenderingManager(viewer, rootNode, std::move(camera), resourceSystem, workQueue, resourcePath, *mNavigator));
@@ -401,6 +416,23 @@ namespace MWWorld
                     throw std::runtime_error ("unknown record in saved game");
                 }
                 break;
+        }
+    }
+
+    void World::validateMasterFiles(const std::vector<ESM::ESMReader>& readers)
+    {
+        for (const auto& esm : readers)
+        {
+            assert(esm.getGameFiles().size() == esm.getParentFileIndices().size());
+            for (unsigned int i=0; i<esm.getParentFileIndices().size(); ++i)
+            {
+                if (!esm.isValidParentFileIndex(i))
+                {
+                    std::string fstring = "File " + esm.getName() + " asks for parent file " + esm.getGameFiles()[i].name
+                        + ", but it is not available or has been loaded in the wrong order. Please run the launcher to fix this issue.";
+                    throw std::runtime_error(fstring);
+                }
+            }
         }
     }
 
@@ -1283,14 +1315,14 @@ namespace MWWorld
         return moveObject(ptr, cell, position, movePhysics);
     }
 
-    MWWorld::Ptr World::moveObjectBy(const Ptr& ptr, const osg::Vec3f& vec, bool moveToActive, bool ignoreCollisions)
+    MWWorld::Ptr World::moveObjectBy(const Ptr& ptr, const osg::Vec3f& vec)
     {
         auto* actor = mPhysics->getActor(ptr);
         osg::Vec3f newpos = ptr.getRefData().getPosition().asVec3() + vec;
         if (actor)
-            actor->adjustPosition(vec, ignoreCollisions);
+            actor->adjustPosition(vec);
         if (ptr.getClass().isActor())
-            return moveObject(ptr, newpos, false, moveToActive && ptr != getPlayerPtr());
+            return moveObject(ptr, newpos, false, ptr != getPlayerPtr());
         return moveObject(ptr, newpos);
     }
 
@@ -1338,7 +1370,7 @@ namespace MWWorld
              * currently it's done so for rotating the camera, which needs
              * clamping.
              */
-            objRot[0] = osg::clampBetween(objRot[0], -osg::PIf / 2, osg::PIf / 2);
+            objRot[0] = std::clamp<float>(objRot[0], -osg::PI_2, osg::PI_2);
             objRot[1] = Misc::normalizeAngle(objRot[1]);
             objRot[2] = Misc::normalizeAngle(objRot[2]);
         }
@@ -1905,7 +1937,7 @@ namespace MWWorld
         const auto& magicEffects = player.getClass().getCreatureStats(player).getMagicEffects();
         if (!mGodMode)
             blind = static_cast<int>(magicEffects.get(ESM::MagicEffect::Blind).getMagnitude());
-        MWBase::Environment::get().getWindowManager()->setBlindness(std::max(0, std::min(100, blind)));
+        MWBase::Environment::get().getWindowManager()->setBlindness(std::clamp(blind, 0, 100));
 
         int nightEye = static_cast<int>(magicEffects.get(ESM::MagicEffect::NightEye).getMagnitude());
         mRendering->setNightEyeFactor(std::min(1.f, (nightEye/100.f)));
@@ -3852,7 +3884,7 @@ namespace MWWorld
             cast.mSlot = slot;
             ESM::EffectList effectsToApply;
             effectsToApply.mList = applyPair.second;
-            cast.inflict(applyPair.first, caster, effectsToApply, rangeType, false, true);
+            cast.inflict(applyPair.first, caster, effectsToApply, rangeType, true);
         }
     }
 
@@ -3995,7 +4027,7 @@ namespace MWWorld
 
         btVector3 aabbMin;
         btVector3 aabbMax;
-        object->getShapeInstance()->getCollisionShape()->getAabb(btTransform::getIdentity(), aabbMin, aabbMax);
+        object->getShapeInstance()->mCollisionShape->getAabb(btTransform::getIdentity(), aabbMin, aabbMax);
 
         const auto toLocal = object->getTransform().inverse();
         const auto localFrom = toLocal(Misc::Convert::toBullet(position));

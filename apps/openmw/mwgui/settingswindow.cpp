@@ -180,7 +180,7 @@ namespace MWGui
                     else
                         valueStr = MyGUI::utility::toString(int(value));
 
-                    value = std::max(min, std::min(value, max));
+                    value = std::clamp(value, min, max);
                     value = (value-min)/(max-min);
 
                     scroll->setScrollPosition(static_cast<size_t>(value * (scroll->getScrollRange() - 1)));
@@ -294,6 +294,8 @@ namespace MWGui
             mVRSnapAngle->eventComboChangePosition += MyGUI::newDelegate(this, &SettingsWindow::onVRSnapAngleChanged);
         }
 
+        computeMinimumWindowSize();
+
         center();
 
         mResetControlsButton->eventMouseButtonClick += MyGUI::newDelegate(this, &SettingsWindow::onResetDefaultBindings);
@@ -353,7 +355,7 @@ namespace MWGui
             mWaterTextureSize->setIndexSelected(2);
 
         int waterReflectionDetail = Settings::Manager::getInt("reflection detail", "Water");
-        waterReflectionDetail = std::min(5, std::max(0, waterReflectionDetail));
+        waterReflectionDetail = std::clamp(waterReflectionDetail, 0, 5);
         mWaterReflectionDetail->setIndexSelected(waterReflectionDetail);
 
         updateMaxLightsComboBox(mMaxLights);
@@ -818,6 +820,32 @@ namespace MWGui
     void SettingsWindow::onWindowResize(MyGUI::Window *_sender)
     {
         layoutControlsBox();
+    }
+
+    void SettingsWindow::computeMinimumWindowSize()
+    {
+        auto* window = mMainWidget->castType<MyGUI::Window>();
+        auto minSize = window->getMinSize();
+
+        // Window should be at minimum wide enough to show all tabs.
+        int tabBarWidth = 0;
+        for (uint32_t i = 0; i < mSettingsTab->getItemCount(); i++)
+        {
+            tabBarWidth += mSettingsTab->getButtonWidthAt(i);
+        }
+
+        // Need to include window margins
+        int margins = mMainWidget->getWidth() - mSettingsTab->getWidth();
+        int minimumWindowWidth = tabBarWidth + margins;
+
+        if (minimumWindowWidth > minSize.width)
+        {
+            minSize.width = minimumWindowWidth;
+            window->setMinSize(minSize);
+
+            // Make a dummy call to setSize so MyGUI can apply any resize resulting from the change in MinSize
+            mMainWidget->setSize(mMainWidget->getSize());
+        }
     }
 
     void SettingsWindow::resetScrollbars()

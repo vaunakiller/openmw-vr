@@ -84,6 +84,8 @@ namespace MWGui
             void updateSliderLabel(MyGUI::ScrollBar* scroller, const std::string& value);
 
             void layoutControlsBox();
+
+            void computeMinimumWindowSize();
         
         private:
             void resetScrollbars();

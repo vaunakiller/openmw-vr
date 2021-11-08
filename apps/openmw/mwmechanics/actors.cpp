@@ -1013,13 +1013,10 @@ namespace MWMechanics
     void Actors::updateProcessingRange()
     {
         // We have to cap it since using high values (larger than 7168) will make some quests harder or impossible to complete (bug #1876)
-        static const float maxProcessingRange = 7168.f;
-        static const float minProcessingRange = maxProcessingRange / 2.f;
+        static const float maxRange = 7168.f;
+        static const float minRange = maxRange / 2.f;
 
-        float actorsProcessingRange = Settings::Manager::getFloat("actors processing range", "Game");
-        actorsProcessingRange = std::min(actorsProcessingRange, maxProcessingRange);
-        actorsProcessingRange = std::max(actorsProcessingRange, minProcessingRange);
-        mActorsProcessingRange = actorsProcessingRange;
+        mActorsProcessingRange = std::clamp(Settings::Manager::getFloat("actors processing range", "Game"), minRange, maxRange);
     }
 
     void Actors::addActor (const MWWorld::Ptr& ptr, bool updateImmediately)
@@ -1315,7 +1312,7 @@ namespace MWMechanics
                 angleToApproachingActor = std::atan2(deltaPos.x(), deltaPos.y());
                 osg::Vec2f posAtT = relPos + relSpeed * t;
                 float coef = (posAtT.x() * relSpeed.x() + posAtT.y() * relSpeed.y()) / (collisionDist * collisionDist * maxSpeed);
-                coef *= osg::clampBetween((maxDistForPartialAvoiding - dist) / (maxDistForPartialAvoiding - maxDistForStrictAvoiding), 0.f, 1.f);
+                coef *= std::clamp((maxDistForPartialAvoiding - dist) / (maxDistForPartialAvoiding - maxDistForStrictAvoiding), 0.f, 1.f);
                 movementCorrection = posAtT * coef;
                 if (otherPtr.getClass().getCreatureStats(otherPtr).isDead())
                     // In case of dead body still try to go around (it looks natural), but reduce the correction twice.
@@ -1496,15 +1493,13 @@ namespace MWMechanics
                         stats.getAiSequence().execute(iter->first, *ctrl, duration, /*outOfRange*/true);
                     }
 
-                    if(iter->first.getClass().isNpc())
+                    if(inProcessingRange && iter->first.getClass().isNpc())
                     {
                         // We can not update drowning state for actors outside of AI distance - they can not resurface to breathe
-                        if (inProcessingRange)
-                            updateDrowning(iter->first, duration, ctrl->isKnockedOut(), isPlayer);
-
-                        if (timerUpdateEquippedLight == 0)
-                            updateEquippedLight(iter->first, updateEquippedLightInterval, showTorches);
+                        updateDrowning(iter->first, duration, ctrl->isKnockedOut(), isPlayer);
                     }
+                    if(timerUpdateEquippedLight == 0 && iter->first.getClass().hasInventoryStore(iter->first))
+                        updateEquippedLight(iter->first, updateEquippedLightInterval, showTorches);
 
                     if (luaControls && isConscious(iter->first))
                     {

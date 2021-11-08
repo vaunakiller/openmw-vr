@@ -93,7 +93,6 @@ namespace OMW
             std::string mCellName;
             std::vector<std::string> mContentFiles;
             std::vector<std::string> mGroundcoverFiles;
-            std::vector<std::string> mLuaScriptListFiles;
 
             bool mStereoEnabled;
             bool mStereoOverride;
@@ -174,7 +173,6 @@ namespace OMW
              */
             void addContentFile(const std::string& file);
             void addGroundcoverFile(const std::string& file);
-            void addLuaScriptListFile(const std::string& file);
 
             /// Disable or enable all sounds
             void setSoundUsage(bool soundUsage);

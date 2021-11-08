@@ -29,7 +29,7 @@ endif (GIT_CHECKOUT)
 # source files
 
 add_component_dir (lua
-    luastate scriptscontainer utilpackage serialization omwscriptsparser
+    luastate scriptscontainer utilpackage serialization configuration
     )
 
 add_component_dir (settings
@@ -196,6 +196,7 @@ add_component_dir(detournavigator
     offmeshconnectionsmanager
     preparednavmeshdata
     navmeshcacheitem
+    navigatorutils
     )
 
 add_component_dir(loadinglistener

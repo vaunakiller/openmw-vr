@@ -3,6 +3,7 @@
 
     Bug #1751: Birthsign abilities increase modified attribute values instead of base ones
     Bug #3246: ESSImporter: Most NPCs are dead on save load
+    Bug #3488: AI combat aiming is too slow
     Bug #3514: Editing a reference's position after loading an esp file makes the reference disappear
     Bug #3737: Scripts from The Underground 2 .esp do not play (all patched versions)
     Bug #3792: 1 frame late magicka recalc breaks early scripted magicka reactions to Intelligence change
@@ -12,7 +13,6 @@
     Bug #4602: Robert's Bodies: crash inside createInstance()
     Bug #4700: Editor: Incorrect command implementation
     Bug #4744: Invisible particles must still be processed
-    Bug #4752: UpdateCellCommand doesn't undo properly
     Bug #5088: Sky abruptly changes direction during certain weather transitions
     Bug #5100: Persuasion doesn't always clamp the resulting disposition
     Bug #5120: Scripted object spawning updates physics system
@@ -29,6 +29,7 @@
     Bug #5842: GetDisposition adds temporary disposition change from different actors
     Bug #5863: GetEffect should return true after the player has teleported
     Bug #5913: Failed assertion during Ritual of Trees quest
+    Bug #5937: Lights always need to be rotated by 90 degrees
     Bug #6037: Morrowind Content Language Cannot be Set to English in OpenMW Launcher
     Bug #6051: NaN water height in ESM file is not handled gracefully
     Bug #6066: addtopic "return" does not work from within script. No errors thrown
@@ -49,6 +50,8 @@
     Bug #6174: Spellmaking and Enchanting sliders differences from vanilla
     Bug #6184: Command and Calm and Demoralize and Frenzy and Rally magic effects inconsistencies with vanilla
     Bug #6197: Infinite Casting Loop
+    Bug #6253: Multiple instances of Reflect stack additively
+    Bug #6255: Reflect is different from vanilla
     Bug #6258: Barter menu glitches out when modifying prices
     Bug #6273: Respawning NPCs rotation is inconsistent
     Bug #6282: Laura craft doesn't follow the player character
@@ -64,6 +67,7 @@
     Bug #6326: Detect Enchantment/Key should detect items in unresolved containers
     Bug #6347: PlaceItem/PlaceItemCell/PlaceAt should work with levelled creatures
     Bug #6363: Some scripts in Morrowland fail to work
+    Bug #6376: Creatures should be able to use torches
     Feature #890: OpenMW-CS: Column filtering
     Feature #2554: Modifying an object triggers the instances table to scroll to the corresponding record
     Feature #2780: A way to see current OpenMW version in the console

@@ -345,7 +345,7 @@ namespace Shader
         if (found == mPrograms.end())
         {
             if (!programTemplate) programTemplate = mProgramTemplate;
-            osg::ref_ptr<osg::Program> program = programTemplate ? static_cast<osg::Program*>(programTemplate->clone(osg::CopyOp::SHALLOW_COPY)) : new osg::Program;
+            osg::ref_ptr<osg::Program> program = programTemplate ? cloneProgram(programTemplate) : osg::ref_ptr<osg::Program>(new osg::Program);
             program->addShader(vertexShader);
             program->addShader(fragmentShader);
             program->addBindAttribLocation("aOffset", 6);
@@ -353,6 +353,14 @@ namespace Shader
             found = mPrograms.insert(std::make_pair(std::make_pair(vertexShader, fragmentShader), program)).first;
         }
         return found->second;
+    }
+
+    osg::ref_ptr<osg::Program> ShaderManager::cloneProgram(const osg::Program* src)
+    {
+        osg::ref_ptr<osg::Program> program = static_cast<osg::Program*>(src->clone(osg::CopyOp::SHALLOW_COPY));
+        for (auto [name, idx] : src->getUniformBlockBindingList())
+            program->addBindUniformBlock(name, idx);
+        return program;
     }
 
     ShaderManager::DefineMap ShaderManager::getGlobalDefines()

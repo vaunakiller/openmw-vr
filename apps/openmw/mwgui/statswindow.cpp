@@ -603,8 +603,7 @@ namespace MWGui
                     text += "\n#{fontcolourhtml=normal}#{sExpelled}";
                 else
                 {
-                    int rank = factionPair.second;
-                    rank = std::max(0, std::min(9, rank));
+                    const int rank = std::clamp(factionPair.second, 0, 9);
                     text += std::string("\n#{fontcolourhtml=normal}") + faction->mRanks[rank];
 
                     if (rank < 9)
