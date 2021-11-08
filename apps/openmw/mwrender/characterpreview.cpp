@@ -151,6 +151,8 @@ namespace MWRender
             camera->setViewport(0, 0, width(), height());
             camera->setRenderOrder(osg::Camera::PRE_RENDER);
 #ifdef OSG_HAS_MULTIVIEW
+            // This all could probably be added to RTTNode, rather been done outside.
+            // Would need to add mipmap and multisample control to RTTNode.
             if (shouldDoTextureArray())
             {
                 camera->attach(osg::Camera::COLOR_BUFFER, createTextureArray(GL_RGBA), 0, osg::Camera::FACE_CONTROLLED_BY_MULTIVIEW_SHADER, false, Settings::Manager::getInt("antialiasing", "Video"));
