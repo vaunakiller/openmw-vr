@@ -232,7 +232,10 @@ namespace MWGui
 
         mCharacterSelection->setIndexSelected(selectedIndex);
         if (selectedIndex == MyGUI::ITEM_NONE)
+        {
             mCharacterSelection->setCaption("Select Character ...");
+            mCharacterSelectionButton->setCaption("Select Character ...");
+        }
         else
             mCharacterSelectionButton->setCaption(mCharacterSelection->getCaption());
 
