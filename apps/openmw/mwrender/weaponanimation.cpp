@@ -19,8 +19,7 @@
 #include "../mwmechanics/actorutil.hpp"
 
 #ifdef USE_OPENXR
-#include "../mwvr/vrenvironment.hpp"
-#include "../mwvr/vranimation.hpp"
+#include "../mwvr/vrutil.hpp"
 #endif
 
 #include "animation.hpp"
@@ -125,8 +124,10 @@ void WeaponAnimation::releaseArrow(MWWorld::Ptr actor, float attackStrength)
 #ifdef USE_OPENXR
     bool isPlayer = actor == MWMechanics::getPlayer();
     // In VR weapon aim is taken from the real orientation of the weapon.
-    if(isPlayer)
-        orient = MWVR::Environment::get().getPlayerAnimation()->getWeaponTransformMatrix().getRotate();
+    if (isPlayer)
+    {
+        orient = MWVR::Util::getWeaponPose().orientation;
+    }
 #endif
 
     const MWWorld::Store<ESM::GameSetting> &gmst =

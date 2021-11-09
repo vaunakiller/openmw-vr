@@ -3,8 +3,6 @@
 #include "platform.hpp"
 #include "swapchain.hpp"
 #include "typeconversion.hpp"
-//#include "vrenvironment.hpp"
-//#include "vrinputmanager.hpp"
 #include "session.hpp"
 
 #include <components/debug/debuglog.hpp>

@@ -61,7 +61,7 @@ namespace MWVR
     protected:
         void processAction(const class XR::InputAction* action, float dt, bool disableControls);
 
-        void updateActivationIndication(void);
+        void updateVRPointer(void);
         void pointActivation(bool onPress);
 
         void injectMousePress(int sdlButton, bool onPress);

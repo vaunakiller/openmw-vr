@@ -47,12 +47,6 @@ namespace MWVR
         /// Overriden to include VR modifications
         void updateParts() override;
 
-        /// Overrides finger animations to point forward
-        void setFingerPointingMode(bool enabled);
-
-        /// @return Whether animation is currently in finger pointing mode
-        bool fingerPointingMode() const { return mFingerPointingMode; }
-
         /// @return world transform that yields the position and orientation of the current weapon
         osg::Matrix getWeaponTransformMatrix() const;
 
@@ -69,7 +63,6 @@ namespace MWVR
         osg::ref_ptr<FingerController> mIndexFingerControllers[2];
         osg::ref_ptr<osg::MatrixTransform> mModelOffset;
 
-        bool mFingerPointingMode{ false };
         std::shared_ptr<UserPointer> mUserPointer;
         osg::ref_ptr<osg::MatrixTransform> mWeaponDirectionTransform{ nullptr };
         osg::ref_ptr<osg::MatrixTransform> mWeaponPointerTransform{ nullptr };

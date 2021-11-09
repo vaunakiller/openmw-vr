@@ -49,8 +49,7 @@
 #include "../mwphysics/projectile.hpp"
 
 #ifdef USE_OPENXR
-#include "../mwvr/vrenvironment.hpp"
-#include "../mwvr/vranimation.hpp"
+#include "../mwvr/vrutil.hpp"
 #endif
 
 namespace
@@ -274,11 +273,11 @@ namespace MWWorld
 
         osg::Quat orient;
 #ifdef USE_OPENXR
-        if (caster == MWBase::Environment::get().getWorld()->getPlayerPtr())
+        if (caster == MWBase::Environment::get().getWorld()->getPlayerPtr() && MWBase::Environment::get().getVrMode())
         {
-            osg::Matrix worldMatrix = MWVR::Environment::get().getPlayerAnimation()->getWeaponTransformMatrix();
-            orient = worldMatrix.getRotate();
-            pos = worldMatrix.getTrans();
+            auto weaponPose = MWVR::Util::getWeaponPose();
+            pos = weaponPose.position;
+            orient = weaponPose.orientation;
         }
         else
 #endif

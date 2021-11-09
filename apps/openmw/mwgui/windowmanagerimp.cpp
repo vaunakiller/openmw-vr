@@ -122,7 +122,6 @@
 
 #ifdef USE_OPENXR
 #include "../mwvr/vrmetamenu.hpp"
-#include "../mwvr/vrenvironment.hpp"
 #include "../mwvr/vrgui.hpp"
 #include "../mwvr/vrvirtualkeyboard.hpp"
 #endif
@@ -1820,8 +1819,7 @@ namespace MWGui
         mVideoBackground->setVisible(true);
 
 #ifdef USE_OPENXR
-        auto* vrGuiManager = MWVR::Environment::get().getGUIManager();
-        vrGuiManager->insertLayer(mVideoBackground->getLayer()->getName());
+        MWVR::VRGUIManager::instance().insertLayer(mVideoBackground->getLayer()->getName());
 #endif
 
         bool cursorWasVisible = mCursorVisible;
@@ -1870,7 +1868,7 @@ namespace MWGui
         updateVisible();
 
 #ifdef USE_OPENXR
-        vrGuiManager->removeLayer(mVideoBackground->getLayer()->getName());
+        MWVR::VRGUIManager::instance().removeLayer(mVideoBackground->getLayer()->getName());
 #endif
         mVideoBackground->setVisible(false);
         mVideoEnabled = false;

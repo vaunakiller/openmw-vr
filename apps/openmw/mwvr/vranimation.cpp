@@ -1,5 +1,4 @@
 #include "vranimation.hpp"
-#include "vrenvironment.hpp"
 #include "vrinputmanager.hpp"
 #include "vrcamera.hpp"
 #include "vrutil.hpp"
@@ -105,10 +104,12 @@ namespace MWVR
     public:
         HandController() = default;
         void setEnabled(bool enabled) { mEnabled = enabled; };
+        void setFingerPointingMode(bool fingerPointingMode) { mFingerPointingMode = fingerPointingMode; }
         void operator()(osg::Node* node, osg::NodeVisitor* nv);
 
     private:
         bool mEnabled = true;
+        bool mFingerPointingMode = false;
     };
 
     void HandController::operator()(osg::Node* node, osg::NodeVisitor* nv)
@@ -126,11 +127,10 @@ namespace MWVR
         osg::Quat rotate{ 0,0,0,1 };
         auto* world = MWBase::Environment::get().getWorld();
         auto windowManager = MWBase::Environment::get().getWindowManager();
-        auto animation = MWVR::Environment::get().getPlayerAnimation();
         auto weaponType = world->getActiveWeaponType();
         // Morrowind models do not hold most weapons at a natural angle, so i rotate the hand
         // to more natural angles on weapons to allow more comfortable combat.
-        if (!windowManager->isGuiMode() && !animation->fingerPointingMode())
+        if (!windowManager->isGuiMode() && !mFingerPointingMode)
         {
 
             switch (weaponType)
@@ -337,7 +337,7 @@ namespace MWVR
         // The player model needs to be pushed back a little to make sure the player's view point is naturally protruding 
         // Pushing the camera forward instead would produce an unnatural extra movement when rotating the player model.
         , mModelOffset(new osg::MatrixTransform(osg::Matrix::translate(osg::Vec3(0, -15, 0))))
-        , mUserPointer(Environment::get().getGUIManager()->getUserPointer())
+        , mUserPointer(MWVR::VRGUIManager::instance().getUserPointer())
     {
         for (int i = 0; i < 2; i++)
         {
@@ -456,33 +456,6 @@ namespace MWVR
         VR::Session::instance().setEyeLevel(charHeight*0.8375f); // approximation
     }
 
-    void VRAnimation::setFingerPointingMode(bool enabled)
-    {
-        if (enabled == mFingerPointingMode)
-            return;
-
-        auto finger = mNodeMap.find("bip01 r finger1");
-        if (finger != mNodeMap.end())
-        {
-            auto base_joint = finger->second;
-            auto second_joint = base_joint->getChild(0)->asTransform()->asMatrixTransform();
-            assert(second_joint);
-
-            base_joint->removeUpdateCallback(mIndexFingerControllers[0]);
-            second_joint->removeUpdateCallback(mIndexFingerControllers[1]);
-            if (enabled)
-            {
-                base_joint->addUpdateCallback(mIndexFingerControllers[0]);
-                second_joint->addUpdateCallback(mIndexFingerControllers[1]);
-
-            }
-        }
-
-        mUserPointer->setEnabled(enabled);
-
-        mFingerPointingMode = enabled;
-    }
-
     float VRAnimation::getVelocity(const std::string& groupname) const
     {
         return 0.0f;
@@ -490,6 +463,13 @@ namespace MWVR
 
     void VRAnimation::onTrackingUpdated(VR::TrackingManager& manager, VR::DisplayTime predictedDisplayTime)
     {
+        auto enabled = mUserPointer->enabled();
+
+        for (auto& handController : mHandControllers)
+            handController->setFingerPointingMode(enabled);
+        for (auto& indexFingerController : mIndexFingerControllers)
+            indexFingerController->setEnabled(enabled);
+
         for (auto& controller : mVrControllers)
             controller.second->onTrackingUpdated(manager, predictedDisplayTime);
 
@@ -535,11 +515,26 @@ namespace MWVR
             hand->second->removeChild(mWeaponDirectionTransform);
             hand->second->addChild(mWeaponDirectionTransform);
         }
-        auto finger = mNodeMap.find("Bip01 R Finger11");
-        if (finger != mNodeMap.end())
+
+        auto finger11 = mNodeMap.find("Bip01 R Finger11");
+        if (finger11 != mNodeMap.end())
         {
-            mUserPointer->setParent(finger->second);
+            mUserPointer->setParent(finger11->second);
         }
+
+        auto finger1 = mNodeMap.find("bip01 r finger1");
+        if (finger1 != mNodeMap.end())
+        {
+            auto base_joint = finger1->second;
+            auto second_joint = base_joint->getChild(0)->asTransform()->asMatrixTransform();
+            assert(second_joint);
+
+            base_joint->removeUpdateCallback(mIndexFingerControllers[0]);
+            base_joint->addUpdateCallback(mIndexFingerControllers[0]);
+            second_joint->removeUpdateCallback(mIndexFingerControllers[1]);
+            second_joint->addUpdateCallback(mIndexFingerControllers[1]);
+        }
+
         mSkeleton->setIsTracked(true);
     }
     void VRAnimation::enableHeadAnimation(bool)

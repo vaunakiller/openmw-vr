@@ -35,7 +35,6 @@
 #include <components/vr/session.hpp>
 #include <components/vr/trackingmanager.hpp>
 #include <components/vr/viewer.hpp>
-#include "../mwvr/vrenvironment.hpp"
 #include "../mwvr/vrgui.hpp"
 #include "../mwvr/vrinputmanager.hpp"
 #endif
@@ -654,8 +653,8 @@ namespace MWGui
         {
             VR::Session::instance().processChangedSettings(changed);
             VR::TrackingManager::instance().processChangedSettings(changed);
-            MWVR::Environment::get().getViewer()->processChangedSettings(changed);
-            MWVR::Environment::get().getGUIManager()->processChangedSettings(changed);
+            VR::Viewer::instance().processChangedSettings(changed);
+            MWVR::VRGUIManager::instance().processChangedSettings(changed);
         }
 #endif
         Settings::Manager::resetPendingChanges();

@@ -78,7 +78,6 @@
 #ifdef USE_OPENXR
 #include "../mwvr/vranimation.hpp"
 #include "../mwvr/vrpointer.hpp"
-#include "../mwvr/vrenvironment.hpp"
 #include "../mwvr/vrgui.hpp"
 #endif
 
@@ -355,7 +354,7 @@ namespace MWRender
             Log(Debug::Info) << "Using standard depth buffer";
 
 #ifdef USE_OPENXR
-        MWVR::Environment::get().getGUIManager()->setUserPointer(mUserPointer);
+        MWVR::VRGUIManager::instance().setUserPointer(mUserPointer);
 #endif
         auto lightingMethod = SceneUtil::LightManager::getLightingMethodFromString(Settings::Manager::getString("lighting method", "Shaders"));
 
@@ -1191,8 +1190,7 @@ namespace MWRender
     void RenderingManager::renderPlayer(const MWWorld::Ptr &player)
     {
 #ifdef USE_OPENXR
-        MWVR::Environment::get().setPlayerAnimation(new MWVR::VRAnimation(player, player.getRefData().getBaseNode(), mResourceSystem, false));
-        mPlayerAnimation = MWVR::Environment::get().getPlayerAnimation();
+        mPlayerAnimation = new MWVR::VRAnimation(player, player.getRefData().getBaseNode(), mResourceSystem, false);
 #else
         mPlayerAnimation = new NpcAnimation(player, player.getRefData().getBaseNode(), mResourceSystem, 0, NpcAnimation::VM_Normal,
                                                 mFirstPersonFieldOfView);
@@ -1261,6 +1259,11 @@ namespace MWRender
         float distanceMult = std::cos(osg::DegreesToRadians(fov)/2.f);
         mTerrain->setViewDistance(mViewDistance * (distanceMult ? 1.f/distanceMult : 1.f));
         }
+
+    void RenderingManager::enableVRPointer(bool enable)
+    {
+        mUserPointer->setEnabled(enable);
+    }
 
     void RenderingManager::updateTextureFiltering()
     {

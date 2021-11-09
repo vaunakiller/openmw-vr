@@ -2,7 +2,6 @@
 #include "vrgui.hpp"
 #include "vrinputmanager.hpp"
 #include "vranimation.hpp"
-#include "vrenvironment.hpp"
 
 #include <components/sceneutil/visitor.hpp>
 
@@ -128,8 +127,7 @@ namespace MWVR
         {
             recenter();
             Camera::updateCamera(mCamera);
-            auto* vrGuiManager = MWVR::Environment::get().getGUIManager();
-            vrGuiManager->updateTracking();
+            MWVR::VRGUIManager::instance().updateTracking();
         }
         else
         {

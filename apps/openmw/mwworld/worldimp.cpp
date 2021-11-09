@@ -78,7 +78,6 @@
 
 #ifdef USE_OPENXR
 #include "../mwvr/vranimation.hpp"
-#include "../mwvr/vrenvironment.hpp"
 #include "../mwvr/vrinputmanager.hpp"
 #include "../mwvr/vrpointer.hpp"
 #include "../mwvr/vrutil.hpp"
@@ -999,9 +998,7 @@ namespace MWWorld
         mRendering->getCamera()->instantTransition();
 
 #ifdef USE_OPENXR
-        auto* xrInput = MWVR::Environment::get().getInputManager();
-        if (xrInput)
-            xrInput->requestRecenter(false);
+        MWVR::Util::requestRecenter(false);
 #endif
     }
 
@@ -1022,9 +1019,7 @@ namespace MWWorld
         mRendering->getCamera()->instantTransition();
 
 #ifdef USE_OPENXR
-        auto* xrInput = MWVR::Environment::get().getInputManager();
-        if (xrInput)
-            xrInput->requestRecenter(false);
+        MWVR::Util::requestRecenter(false);
 #endif
     }
 
@@ -1116,9 +1111,9 @@ namespace MWWorld
         {
 #ifdef USE_OPENXR
             // Use current aim of weapon to impact
-            osg::Matrix worldMatrix = MWVR::Environment::get().getPlayerAnimation()->getWeaponTransformMatrix();
+            auto weaponPose = MWVR::Util::getWeaponPose();
             
-            auto result = mPhysics->getHitContact(ptr, worldMatrix.getTrans(), worldMatrix.getRotate(), distance, targets);
+            auto result = mPhysics->getHitContact(ptr, weaponPose.position, weaponPose.orientation, distance, targets);
             if (!result.first.isEmpty())
                 Log(Debug::Verbose) << "Hit: " << result.first.getTypeDescription();
             return result;
@@ -3142,11 +3137,11 @@ namespace MWWorld
                         * osg::Quat(actor.getRefData().getPosition().rot[2], osg::Vec3f(0,0,-1));
 
 #ifdef USE_OPENXR
-                if (actor == MWMechanics::getPlayer())
+                if (actor == getPlayerPtr())
                 {
-                    osg::Matrix worldMatrix = MWVR::Environment::get().getPlayerAnimation()->getWeaponTransformMatrix();
-                    origin = worldMatrix.getTrans();
-                    orient = worldMatrix.getRotate();
+                    auto weaponPose = MWVR::Util::getWeaponPose();
+                    origin = weaponPose.position;
+                    orient = weaponPose.orientation;
                 }
 #endif
                 Log(Debug::Verbose) << "Origin: " << origin;
@@ -4135,5 +4130,10 @@ namespace MWWorld
     std::vector<MWWorld::Ptr> World::getAll(const std::string& id)
     {
         return mCells.getAll(id);
+    }
+
+    void World::enableVRPointer(bool enable)
+    {
+        mRendering->enableVRPointer(enable);
     }
 }

@@ -52,8 +52,6 @@
 #include "spellcasting.hpp"
 
 #ifdef USE_OPENXR
-#include "../mwvr/vrenvironment.hpp"
-#include "../mwvr/vranimation.hpp"
 #include "../mwvr/vrutil.hpp"
 #endif
 

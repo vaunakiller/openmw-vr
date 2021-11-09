@@ -7,8 +7,7 @@
 #include "../mwbase/world.hpp"
 #include "../mwbase/statemanager.hpp"
 
-#include "vrenvironment.hpp"
-#include "vrinputmanager.hpp"
+#include "vrutil.hpp"
 
 namespace MWVR
 {
@@ -98,7 +97,7 @@ namespace MWVR
 
     void VrMetaMenu::onRecenter()
     {
-        Environment::get().getInputManager()->requestRecenter(true);
+        MWVR::Util::requestRecenter(true);
     }
 
     void VrMetaMenu::close()

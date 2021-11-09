@@ -20,6 +20,7 @@ namespace MWVR
         bool canPlaceObject() const;
         void setParent(osg::Group* group);
         void setEnabled(bool enabled);
+        bool enabled() const { return mEnabled; };
         float distanceToPointerTarget() const { return mDistanceToPointerTarget; }
     protected:
         void onTrackingUpdated(VR::TrackingManager& manager, VR::DisplayTime predictedDisplayTime) override;

@@ -1,12 +1,13 @@
 #include "vrutil.hpp"
 #include "vranimation.hpp"
-#include "vrenvironment.hpp"
 #include "vrgui.hpp"
 #include "vrpointer.hpp"
+#include "vrinputmanager.hpp"
 
 #include "../mwbase/environment.hpp"
 #include "../mwbase/windowmanager.hpp"
 #include "../mwbase/world.hpp"
+#include "../mwmechanics/actorutil.hpp"
 
 #include "../mwworld/class.hpp"
 #include "../mwrender/renderingmanager.hpp"
@@ -21,7 +22,7 @@ namespace MWVR
     {
         std::pair<MWWorld::Ptr, float> getPointerTarget()
         {
-            auto pointer = Environment::get().getGUIManager()->getUserPointer();
+            auto pointer = MWVR::VRGUIManager::instance().getUserPointer();
             return std::pair<MWWorld::Ptr, float>(pointer->getPointerTarget().mHitObject, pointer->distanceToPointerTarget());
         }
 
@@ -36,7 +37,8 @@ namespace MWVR
 
         std::pair<MWWorld::Ptr, float> getWeaponTarget()
         {
-            auto* anim = MWVR::Environment::get().getPlayerAnimation();
+            auto ptr = MWBase::Environment::get().getWorld()->getPlayerPtr();
+            auto* anim = MWBase::Environment::get().getWorld()->getAnimation(ptr);
 
             MWRender::RayResult result;
             auto distance = getPoseTarget(result, getNodePose(anim->getNode("weapon bone")), false);
@@ -71,6 +73,18 @@ namespace MWVR
             }
         }
 
+        Misc::Pose getWeaponPose()
+        {
+            auto ptr = MWBase::Environment::get().getWorld()->getPlayerPtr();
+            auto* anim = MWBase::Environment::get().getWorld()->getAnimation(ptr);
+            auto* vrAnim = static_cast<MWVR::VRAnimation*>(anim);
+            osg::Matrix worldMatrix = vrAnim->getWeaponTransformMatrix();
+            Misc::Pose pose;
+            pose.position = worldMatrix.getTrans();
+            pose.orientation = worldMatrix.getRotate();
+            return pose;
+        }
+
         Misc::Pose getNodePose(const osg::Node* node)
         {
             osg::Matrix worldMatrix = osg::computeLocalToWorld(node->getParentalNodePaths()[0]);
@@ -78,6 +92,14 @@ namespace MWVR
             pose.position = worldMatrix.getTrans();
             pose.orientation = worldMatrix.getRotate();
             return pose;
+        }
+        void requestRecenter(bool resetZ)
+        {
+            auto* inputManager = MWBase::Environment::get().getInputManager();
+            assert(inputManager);
+            auto vrInputManager = dynamic_cast<MWVR::VRInputManager*>(inputManager);
+            assert(vrInputManager);
+            vrInputManager->requestRecenter(resetZ);
         }
     }
 }

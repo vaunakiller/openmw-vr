@@ -72,6 +72,7 @@ namespace MWVR
     {
     public:
         VRGUITracking();
+        ~VRGUITracking();
 
         std::vector<VR::VRPath> listSupportedPaths() const override;
         void updateTracking(VR::DisplayTime predictedDisplayTime) override;
@@ -155,6 +156,8 @@ namespace MWVR
     class VRGUIManager
     {
     public:
+        static VRGUIManager& instance();
+
         VRGUIManager(
             osg::ref_ptr<osgViewer::Viewer> viewer,
             Resource::ResourceSystem* resourceSystem,
@@ -185,9 +188,6 @@ namespace MWVR
 
         /// Inject mouse click if applicable
         bool injectMouseClick(bool onPress);
-
-        /// Notify that widget is about to be destroyed.
-        void notifyWidgetUnlinked(MyGUI::Widget* widget);
 
         /// Update settings where applicable
         void processChangedSettings(const std::set< std::pair<std::string, std::string> >& changed);

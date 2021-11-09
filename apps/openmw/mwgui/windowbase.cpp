@@ -14,7 +14,6 @@
 
 #ifdef USE_OPENXR
 #include "../mwvr/vrgui.hpp"
-#include "../mwvr/vrenvironment.hpp"
 #endif
 
 using namespace MWGui;
@@ -66,11 +65,7 @@ void WindowBase::setVisible(bool visible)
     // to the VR GUI manager.
     if (this->isVisible() == visible)
     {
-        auto* vrGUIManager = MWVR::Environment::get().getGUIManager();
-        if (!vrGUIManager)
-            // May end up here before before rendering has been fully set up
-            return;
-        vrGUIManager->setVisible(this, visible);
+        MWVR::VRGUIManager::instance().setVisible(this, visible);
     }
 #endif
 }

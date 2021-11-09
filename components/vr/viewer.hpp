@@ -44,6 +44,8 @@ namespace VR
         };
 
     public:
+        static Viewer& instance();
+
         Viewer(
             std::unique_ptr<VR::Session> session,
             osg::ref_ptr<osgViewer::Viewer> viewer);

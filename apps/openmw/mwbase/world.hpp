@@ -681,6 +681,8 @@ namespace MWBase
             virtual void reportStats(unsigned int frameNumber, osg::Stats& stats) const = 0;
 
             virtual std::vector<MWWorld::Ptr> getAll(const std::string& id) = 0;
+
+            virtual void enableVRPointer(bool enable) = 0;
     };
 }
 

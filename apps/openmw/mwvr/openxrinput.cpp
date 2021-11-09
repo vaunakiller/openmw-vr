@@ -1,7 +1,5 @@
 #include "openxrinput.hpp"
 
-#include "vrenvironment.hpp"
-
 #include <openxr/openxr.h>
 
 #include <components/misc/stringops.hpp>

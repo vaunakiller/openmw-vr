@@ -17,7 +17,9 @@ namespace MWVR
         std::pair<MWWorld::Ptr, float> getTouchTarget();
         std::pair<MWWorld::Ptr, float> getWeaponTarget();
         float getPoseTarget(MWRender::RayResult& result, const Misc::Pose& pose, bool allowTelekinesis);
+        Misc::Pose getWeaponPose();
         Misc::Pose getNodePose(const osg::Node* node);
+        void requestRecenter(bool resetZ);
     }
 
 }

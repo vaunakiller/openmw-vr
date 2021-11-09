@@ -19,6 +19,8 @@
 
 #include <components/sdlutil/sdlgraphicswindow.hpp>
 
+#include <cassert>
+
 namespace VR
 {
     int parseResolution(std::string conf, int recommended, int max)
@@ -124,6 +126,14 @@ namespace VR
         Viewer* mViewer;
     };
 
+    Viewer* sViewer = nullptr;
+
+    Viewer& Viewer::instance()
+    {
+        assert(sViewer);
+        return *sViewer;
+    }
+
     Viewer::Viewer(
         std::unique_ptr<VR::Session> session,
         osg::ref_ptr<osgViewer::Viewer> viewer)
@@ -136,6 +146,11 @@ namespace VR
         , mUpdateViewCallback(new UpdateViewCallback(this))
         , mCallbacksConfigured(false)
     {
+        if (!sViewer)
+            sViewer = this;
+        else
+            throw std::logic_error("Duplicated VR::Viewer singleton");
+
         // Read swapchain configs
         std::array<std::string, 2> xConfString;
         std::array<std::string, 2> yConfString;
@@ -209,6 +224,7 @@ namespace VR
 
     Viewer::~Viewer(void)
     {
+        sViewer = nullptr;
     }
 
     static Viewer::MirrorTextureEye mirrorTextureEyeFromString(const std::string& str)

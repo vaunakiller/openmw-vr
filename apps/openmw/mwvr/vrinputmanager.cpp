@@ -2,7 +2,6 @@
 
 #include "vranimation.hpp"
 #include "vrcamera.hpp"
-#include "vrenvironment.hpp"
 #include "vrgui.hpp"
 #include "vrpointer.hpp"
 #include "openxrinput.hpp"
@@ -58,15 +57,11 @@ namespace MWVR
         mXRInput->notifyInteractionProfileChanged();
     }
 
-    void VRInputManager::updateActivationIndication(void)
+    void VRInputManager::updateVRPointer(void)
     {
         bool guiMode = MWBase::Environment::get().getWindowManager()->isGuiMode();
         bool show = guiMode | mActivationIndication;
-        auto* playerAnimation = Environment::get().getPlayerAnimation();
-        if (playerAnimation)
-        {
-            playerAnimation->setFingerPointingMode(show);
-        }
+        MWBase::Environment::get().getWorld()->enableVRPointer(show);
     }
 
     /**
@@ -80,7 +75,7 @@ namespace MWVR
         MWWorld::Ptr copyItem(const MWGui::ItemStack& item, size_t count, bool /*allowAutoEquip*/) override
         {
             MWBase::World* world = MWBase::Environment::get().getWorld();
-            auto pointer = Environment::get().getGUIManager()->getUserPointer();
+            auto pointer = MWVR::VRGUIManager::instance().getUserPointer();
 
             MWWorld::Ptr dropped;
             if (pointer->canPlaceObject())
@@ -112,7 +107,7 @@ namespace MWVR
             return;
         }
 
-        auto pointer = Environment::get().getGUIManager()->getUserPointer();
+        auto pointer = MWVR::VRGUIManager::instance().getUserPointer();
         if (pointer->getPointerTarget().mHit)
         {
             auto* node = pointer->getPointerTarget().mHitNode;
@@ -160,7 +155,7 @@ namespace MWVR
 
     void VRInputManager::injectMousePress(int sdlButton, bool onPress)
     {
-        if (Environment::get().getGUIManager()->injectMouseClick(onPress))
+        if (MWVR::VRGUIManager::instance().injectMouseClick(onPress))
             return;
 
         SDL_MouseButtonEvent arg;
@@ -312,15 +307,11 @@ namespace MWVR
         auto& actionSet = activeActionSet();
         actionSet.updateControls();
 
-        auto* vrGuiManager = Environment::get().getGUIManager();
-        if (vrGuiManager)
+        bool vrHasFocus = MWVR::VRGUIManager::instance().updateFocus();
+        auto guiCursor = MWVR::VRGUIManager::instance().guiCursor();
+        if (vrHasFocus)
         {
-            bool vrHasFocus = vrGuiManager->updateFocus();
-            auto guiCursor = vrGuiManager->guiCursor();
-            if (vrHasFocus)
-            {
-                mMouseManager->setMousePosition(guiCursor.x(), guiCursor.y());
-            }
+            mMouseManager->setMousePosition(guiCursor.x(), guiCursor.y());
         }
 
         while (auto* action = actionSet.nextAction())
@@ -328,7 +319,6 @@ namespace MWVR
             processAction(action, dt, disableControls);
         }
 
-        updateActivationIndication();
 
         MWInput::InputManager::update(dt, disableControls, disableEvents);
 
@@ -336,6 +326,7 @@ namespace MWVR
         if (MWBase::Environment::get().getStateManager()->getState() == MWBase::StateManager::State_NoGame)
             return;
 
+        updateVRPointer();
         bool guiMode = MWBase::Environment::get().getWindowManager()->isGuiMode();
 
         // OpenMW assumes all input will come via SDL which i often violate.
@@ -364,14 +355,13 @@ namespace MWVR
         // This ensures certain widgets like Notifications will be visible.
         if (!guiMode)
         {
-            vrGuiManager->updateTracking();
+            MWVR::VRGUIManager::instance().updateTracking();
         }
     }
 
     void VRInputManager::processAction(const XR::InputAction* action, float dt, bool disableControls)
     {
         static const bool isToggleSneak = Settings::Manager::getBool("toggle sneak", "Input");
-        auto* vrGuiManager = Environment::get().getGUIManager();
         auto* wm = MWBase::Environment::get().getWindowManager();
 
         // OpenMW does not currently provide any way to directly request skipping a video.
@@ -455,7 +445,7 @@ namespace MWVR
                     mActionManager->screenshot();
                     break;
                 case A_Recenter:
-                    vrGuiManager->updateTracking();
+                    MWVR::VRGUIManager::instance().updateTracking();
                     break;
                 case A_MenuSelect:
                     wm->injectKeyPress(MyGUI::KeyCode::Return, 0, false);
@@ -648,7 +638,7 @@ namespace MWVR
                     mActionManager->setAttemptJump(true);
                     break;
                 case A_Recenter:
-                    vrGuiManager->updateTracking();
+                    MWVR::VRGUIManager::instance().updateTracking();
                     if (!MWBase::Environment::get().getWindowManager()->isGuiMode())
                         requestRecenter(true);
                     break;

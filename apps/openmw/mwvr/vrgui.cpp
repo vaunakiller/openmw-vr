@@ -3,7 +3,6 @@
 #include <cmath>
 
 #include "vranimation.hpp"
-#include "vrenvironment.hpp"
 #include "vrpointer.hpp"
 #include "openxrinput.hpp"
 
@@ -451,6 +450,13 @@ namespace MWVR
         mUserPointer = userPointer;
     }
 
+    VRGUIManager* sManager = nullptr;
+    VRGUIManager& VRGUIManager::instance()
+    {
+        assert(sManager);
+        return *sManager;
+    }
+
     VRGUIManager::VRGUIManager(
         osg::ref_ptr<osgViewer::Viewer> viewer,
         Resource::ResourceSystem* resourceSystem,
@@ -462,6 +468,11 @@ namespace MWVR
         , mGUICamerasRootNode(rootNode)
         , mUiTracking(new VRGUITracking())
     {
+        if (!sManager)
+            sManager = this;
+        else
+            throw std::logic_error("Duplicated MWVR::VRGUIManager singleton");
+
         mGeometries->setName("VR GUI Geometry Root");
         mGeometries->setUpdateCallback(new VRGUIManagerUpdateCallback(this));
         mGeometries->setNodeMask(MWRender::VisMask::Mask_3DGUI);
@@ -586,6 +597,7 @@ namespace MWVR
 
     VRGUIManager::~VRGUIManager(void)
     {
+        sManager = nullptr;
     }
 
     static std::set<std::string> layerBlacklist =
@@ -833,12 +845,6 @@ namespace MWVR
         }
     }
 
-    void VRGUIManager::notifyWidgetUnlinked(MyGUI::Widget* widget)
-    {
-        if (widget == mFocusWidget)
-            mFocusWidget = nullptr;
-    }
-
     bool VRGUIManager::injectMouseClick(bool onPress)
     {
         // TODO: This relies on a MyGUI internal functions and may break un any future version.
@@ -978,6 +984,10 @@ namespace MWVR
         //stringToVRPath("/ui/anchors/wrist_hud/right/pose");
         //stringToVRPath("/ui/anchors/hand_top/left/pose");
         //stringToVRPath("/ui/anchors/hand_top/right/pose");
+    }
+
+    VRGUITracking::~VRGUITracking()
+    {
     }
 
     VR::TrackingPose VRGUITracking::locate(VR::VRPath path, VR::DisplayTime predictedDisplayTime)

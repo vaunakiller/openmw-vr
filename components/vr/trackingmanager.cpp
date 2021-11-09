@@ -129,8 +129,15 @@ namespace VR
     void TrackingManager::unregisterTrackingSource(TrackingSource* source)
     {
         for (auto it = mSources.begin(); it != mSources.end(); it++)
+        {
             if (*it == source)
+            {
                 it = mSources.erase(it);
+            }
+
+            if (it == mSources.end())
+                break;
+        }
     }
 
     void TrackingManager::updateTracking(const VR::Frame& frame)

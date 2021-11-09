@@ -462,6 +462,7 @@ OMW::Engine::Engine(Files::ConfigurationManager& configurationManager)
   , mCfgMgr(configurationManager)
 #ifdef USE_OPENXR
   , mVrTrackingManager(nullptr)
+  , mVrGUIManager(nullptr)
   , mXrInstance(nullptr)
 #endif
 {
@@ -748,7 +749,7 @@ void OMW::Engine::prepareEngine (Settings::Manager & settings)
     osg::ref_ptr<osg::Group> rootNode (new osg::Group);
     mViewer->setSceneData(rootNode);
 
-    mCallbackManager.reset(new Misc::CallbackManager(mViewer));
+    mCallbackManager = std::make_unique<Misc::CallbackManager>(mViewer);
 
     mVFS.reset(new VFS::Manager(mFSStrict));
 
@@ -883,8 +884,8 @@ void OMW::Engine::prepareEngine (Settings::Manager & settings)
     mEnvironment.setSoundManager (new MWSound::SoundManager(mVFS.get(), mUseSound));
 
 #ifdef USE_OPENXR
-    mXrEnvironment.setGUIManager(new MWVR::VRGUIManager(mViewer, mResourceSystem.get(), rootNode));
-    mXrEnvironment.getViewer()->configureCallbacks();
+    mVrGUIManager = std::make_unique<MWVR::VRGUIManager>(mViewer, mResourceSystem.get(), rootNode);
+    mVrViewer->configureCallbacks();
     auto cullMask = ~(MWRender::VisMask::Mask_UpdateVisitor | MWRender::VisMask::Mask_SimpleWater);
     cullMask &= ~MWRender::VisMask::Mask_GUI;
     cullMask |= MWRender::VisMask::Mask_3DGUI;
@@ -1081,7 +1082,7 @@ void OMW::Engine::go()
 
     mStereoEnabled = mEnvironment.getVrMode() || Settings::Manager::getBool("stereo enabled", "Stereo");
     // Instantiate the stereo view singleton before anything tries to use it
-    mStereoView.reset(new Misc::StereoView);
+    mStereoView = std::make_unique<Misc::StereoView>();
 
     // Setup viewer
     mViewer = new osgViewer::Viewer;
@@ -1291,6 +1292,6 @@ void OMW::Engine::configureVR(osg::GraphicsContext* gc)
 {
     mVrTrackingManager = std::make_unique<VR::TrackingManager>();
     mXrInstance = std::make_unique<XR::Instance>(gc);
-    mXrEnvironment.setViewer(new VR::Viewer(mXrInstance->createSession(), mViewer));
+    mVrViewer = std::make_unique<VR::Viewer>(mXrInstance->createSession(), mViewer);
 }
 #endif

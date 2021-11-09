@@ -13,10 +13,6 @@
 
 #include "mwworld/ptr.hpp"
 
-#ifdef USE_OPENXR
-#include "mwvr/vrenvironment.hpp"
-#endif
-
 namespace Resource
 {
     class ResourceSystem;
@@ -63,11 +59,17 @@ namespace VR
 {
     class Session;
     class TrackingManager;
+    class Viewer;
 }
 
 namespace XR
 {
     class Instance;
+}
+
+namespace MWVR
+{
+    class VRGUIManager;
 }
 
 struct SDL_Window;
@@ -228,9 +230,10 @@ namespace OMW
             class LuaWorker;
 
 #ifdef USE_OPENXR
-            MWVR::Environment mXrEnvironment;
             std::unique_ptr<VR::TrackingManager> mVrTrackingManager;
+            std::unique_ptr<MWVR::VRGUIManager> mVrGUIManager;
             std::unique_ptr<XR::Instance> mXrInstance;
+            std::unique_ptr<VR::Viewer> mVrViewer;
 #endif
     };
 }

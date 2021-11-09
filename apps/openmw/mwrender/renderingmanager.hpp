@@ -256,6 +256,8 @@ namespace MWRender
 
         void updateProjectionMatrix();
 
+        void enableVRPointer(bool enable);
+
     private:
         void updateTextureFiltering();
         void updateAmbient();

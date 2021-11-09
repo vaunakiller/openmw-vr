@@ -760,6 +760,8 @@ namespace MWWorld
             void reportStats(unsigned int frameNumber, osg::Stats& stats) const override;
 
             std::vector<MWWorld::Ptr> getAll(const std::string& id) override;
+
+            void enableVRPointer(bool enable) override;
     };
 }
 
