@@ -1437,16 +1437,6 @@ True: In non-combat mode camera is positioned behind the character's shoulder. C
 		   </widget>
 		  </item>
 		  <item row="7" column="0">
-		   <widget class="QCheckBox" name="useXrDebug">
-			<property name="toolTip">
-			 <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Makes OpenMW VR enable and use the XR_EXT_debug_utils extension, which may help produce more detailed debug information.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
-			</property>
-			<property name="text">
-			 <string>Debug: Enable extension XR_EXT_debug_utils</string>
-			</property>
-		   </widget>
-		  </item>
-		  <item row="8" column="0">
 		   <widget class="QCheckBox" name="logAllXrCalls">
 			<property name="toolTip">
 			 <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Makes OpenMW VR log every single OpenXR call. This degrades performance and creates a massive log. You probably want this disabled.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
@@ -1456,7 +1446,7 @@ True: In non-combat mode camera is positioned behind the character's shoulder. C
 			</property>
 		   </widget>
 		  </item>
-		  <item row="9" column="0">
+		  <item row="8" column="0">
 		   <widget class="QCheckBox" name="ignoreXrErrors">
 			<property name="toolTip">
 			 <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Makes OpenMW VR ignore unsuccessful calls to OpenXR. You probably want this enabled.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>

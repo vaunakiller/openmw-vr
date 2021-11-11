@@ -277,7 +277,7 @@ namespace MWVR
         if (extensionElement)
         {
             std::string extension = requireAttribute(extensionElement, "Name");
-            if (!XR::Extensions::instance().extensionEnabled(extension.c_str()))
+            if (!XR::Extensions::instance().extensionEnabled(extension))
             {
                 Log(Debug::Verbose) << "  Required extension '" << extension << "' not supported. Skipping interaction profile.";
                 return;

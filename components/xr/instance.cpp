@@ -189,7 +189,7 @@ namespace XR
 
     void Instance::setupDebugMessenger(void)
     {
-        if (mExtensions->extensionEnabled(XR_EXT_DEBUG_UTILS_EXTENSION_NAME))
+        if (EXT_debug_utils.enabled())
         {
             XrDebugUtilsMessengerCreateInfoEXT createInfo{};
             createInfo.type = XR_TYPE_DEBUG_UTILS_MESSENGER_CREATE_INFO_EXT;

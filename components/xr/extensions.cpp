@@ -10,6 +10,25 @@
 
 namespace XR
 {
+    Extension KHR_opengl_enable("XR_KHR_opengl_enable", Extension::EnableMode::Manual);
+    Extension KHR_D3D11_enable("XR_KHR_D3D11_enable", Extension::EnableMode::Manual);
+    Extension KHR_composition_layer_depth("XR_KHR_composition_layer_depth", Extension::EnableMode::Auto);
+    Extension EXT_debug_utils("XR_EXT_debug_utils", Extension::EnableMode::Auto);
+    Extension EXT_hp_mixed_reality_controller("XR_EXT_hp_mixed_reality_controller", Extension::EnableMode::Auto);
+    Extension HTC_vive_cosmos_controller_interaction("XR_HTC_vive_cosmos_controller_interaction", Extension::EnableMode::Auto);
+    Extension HUAWEI_controller_interaction("XR_HUAWEI_controller_interaction", Extension::EnableMode::Auto);
+
+    std::vector<Extension*> sExtensionsVector =
+    {
+        &KHR_opengl_enable,
+        &KHR_D3D11_enable,
+        &KHR_composition_layer_depth,
+        &EXT_debug_utils,
+        &EXT_hp_mixed_reality_controller,
+        &HTC_vive_cosmos_controller_interaction,
+        &HUAWEI_controller_interaction
+    };
+
     static Extensions* sExtensions = nullptr;
 
     Extensions& Extensions::instance()
@@ -47,21 +66,15 @@ namespace XR
             mAvailableLayers[layer.layerName] = layer;
             enumerateExtensions(layer.layerName, 4);
         }
+
+        for (auto* extension : sExtensionsVector)
+        {
+            initExtension(extension);
+        }
     }
 
     Extensions::~Extensions()
     {
-    }
-
-    bool Extensions::supportsExtension(const std::string& extensionName) const
-    {
-        return mAvailableExtensions.count(extensionName) > 0;
-    }
-
-    bool Extensions::supportsExtension(const std::string& extensionName, uint32_t minimumVersion) const
-    {
-        auto it = mAvailableExtensions.find(extensionName);
-        return it != mAvailableExtensions.end() && it->second.extensionVersion >= minimumVersion;
     }
 
     bool Extensions::supportsLayer(const std::string& layerName) const
@@ -69,66 +82,56 @@ namespace XR
         return mAvailableLayers.count(layerName) > 0;
     }
 
-    bool Extensions::supportsLayer(const std::string& layerName, uint32_t minimumVersion) const
+    bool Extensions::initExtension(Extension* extension)
     {
-        auto it = mAvailableLayers.find(layerName);
-        return it != mAvailableLayers.end() && it->second.layerVersion >= minimumVersion;
-    }
-
-    bool Extensions::enableExtension(const std::string& extensionName, bool optional)
-    {
-        auto it = mAvailableExtensions.find(extensionName);
+        auto it = mAvailableExtensions.find(extension->name());
         if (it != mAvailableExtensions.end())
         {
-            Log(Debug::Verbose) << "  " << extensionName << ": enabled";
-            mEnabledExtensions.push_back(extensionName);
-            return true;
+            extension->setSupported(true);
+            extension->setProperties(&it->second);
         }
-        else
-        {
-            Log(Debug::Verbose) << "  " << extensionName << ": disabled (not supported)";
-            if (!optional)
-            {
-                throw std::runtime_error(std::string("Required OpenXR extension ") + extensionName + " not supported by the runtime");
-            }
-            return false;
-        }
-    }
-
-    bool Extensions::enableExtension(const std::string& extensionName, bool optional, uint32_t minimumVersion)
-    {
-        auto it = mAvailableExtensions.find(extensionName);
-        if (it != mAvailableExtensions.end() && it->second.extensionVersion >= minimumVersion)
-        {
-            Log(Debug::Verbose) << "  " << extensionName << ": enabled";
-            mEnabledExtensions.push_back(extensionName);
-            return true;
-        }
-        else
-        {
-            Log(Debug::Verbose) << "  " << extensionName << ": disabled (not supported)";
-            if (!optional)
-            {
-                throw std::runtime_error(std::string("Required OpenXR extension ") + extensionName + " not supported by the runtime");
-            }
-            return false;
-        }
-    }
-
-    bool Extensions::extensionEnabled(const std::string& extensionName) const
-    {
-        for (const auto& extension : mEnabledExtensions)
-            if (extension == extensionName)
-                return true;
         return false;
     }
 
-    void Extensions::selectGraphicsAPIExtension(const std::string& extensionName)
+    bool Extensions::enableExtension(Extension* extension)
     {
-        mGraphicsAPIExtension = extensionName;
+        if (extension->shouldEnable())
+        {
+            if (extensionDisabledBySettings(extension))
+            {
+                Log(Debug::Verbose) << "  " << extension->name() << ": disabled (by config)";
+            }
+            else
+            {
+                Log(Debug::Verbose) << "  " << extension->name() << ": enabled";
+                mEnabledExtensions.push_back(extension);
+                extension->setEnabled(true);
+            }
+        }
+        else
+        {
+            if (extension->enableMode() == Extension::EnableMode::Auto || (extension->requested() && !extension->supported()))
+                Log(Debug::Verbose) << "  " << extension->name() << ": disabled (not supported)";
+            else
+                Log(Debug::Verbose) << "  " << extension->name() << ": disabled";
+        }
+        return extension->enabled();
     }
 
-    const std::string& Extensions::graphicsAPIExtensionName() const
+    bool Extensions::extensionDisabledBySettings(Extension* extension)
+    {
+        std::string setting = std::string() + "disable " + extension->name();
+        return Settings::Manager::getBool(setting, "VR Debug");
+    }
+
+    void Extensions::selectGraphicsAPIExtension(Extension* extension)
+    {
+        mGraphicsAPIExtension = extension;
+        if (mGraphicsAPIExtension)
+            mGraphicsAPIExtension->setRequested(true);
+    }
+
+    Extension* Extensions::graphicsAPIExtension() const
     {
         return mGraphicsAPIExtension;
     }
@@ -138,8 +141,8 @@ namespace XR
         setupExtensions();
 
         std::vector<const char*> cExtensionNames;
-        for (const auto& extensionName : mEnabledExtensions)
-            cExtensionNames.push_back(extensionName.c_str());
+        for (const auto* extension: mEnabledExtensions)
+            cExtensionNames.push_back(extension->name().c_str());
 
         XrInstance instance = XR_NULL_HANDLE;
         XrInstanceCreateInfo createInfo{};
@@ -153,6 +156,18 @@ namespace XR
         if (!XR_SUCCEEDED(res))
             initFailure(res, instance);
         return instance;
+    }
+
+    bool Extensions::extensionEnabled(const std::string& name) const
+    {
+        for (auto* extension : mEnabledExtensions)
+        {
+            if (extension->name() == name)
+            {
+                return true;
+            }
+        }
+        return false;
     }
 
     void Extensions::enumerateExtensions(const char* layerName, int logIndent)
@@ -179,39 +194,41 @@ namespace XR
         }
     }
 
-#if    !XR_KHR_composition_layer_depth \
-    || !XR_EXT_hp_mixed_reality_controller \
-    || !XR_EXT_debug_utils \
-    || !XR_HTC_vive_cosmos_controller_interaction \
-    || !XR_HUAWEI_controller_interaction
+    Extension::Extension(const char* name, EnableMode enableMode) 
+        : mName(name)
+        , mEnableMode(enableMode)
+        , mEnabled(false)
+        , mSupported(false)
+        , mProperties(nullptr)
+    {
+    }
 
-#error "OpenXR extensions missing. Please upgrade your copy of the OpenXR SDK to 1.0.13 minimum"
-#endif
+    bool Extension::operator==(const Extension& rhs)
+    {
+        return mName == rhs.mName;
+    }
+
+    bool Extension::shouldEnable() const
+    {
+        switch (mEnableMode)
+        {
+        case EnableMode::Auto:
+            return mSupported;
+        case EnableMode::Manual:
+            return mRequested && mSupported;
+        }
+        return false;
+    }
+
     void Extensions::setupExtensions()
     {
-        mEnabledExtensions.clear();
-
-        std::vector<const char*> optionalExtensions = {
-            XR_EXT_HP_MIXED_REALITY_CONTROLLER_EXTENSION_NAME,
-            XR_HTC_VIVE_COSMOS_CONTROLLER_INTERACTION_EXTENSION_NAME,
-            XR_HUAWEI_CONTROLLER_INTERACTION_EXTENSION_NAME
-        };
-
-        if (Settings::Manager::getBool("enable XR_KHR_composition_layer_depth", "VR Debug"))
-            optionalExtensions.emplace_back(XR_KHR_COMPOSITION_LAYER_DEPTH_EXTENSION_NAME);
-
-        if (Settings::Manager::getBool("enable XR_EXT_debug_utils", "VR Debug"))
-            optionalExtensions.emplace_back(XR_EXT_DEBUG_UTILS_EXTENSION_NAME);
-
         Log(Debug::Verbose) << "Using extensions:";
 
-        auto graphicsAPIExtension = graphicsAPIExtensionName();
-        if (graphicsAPIExtension.empty() || !enableExtension(graphicsAPIExtension, true))
-        {
-            throw std::runtime_error("No graphics APIs supported by openmw are supported by the OpenXR runtime.");
-        }
+        for (auto extension : sExtensionsVector)
+            enableExtension(extension);
 
-        for (auto optionalExtension : optionalExtensions)
-            enableExtension(optionalExtension, true);
+        auto graphicsAPI = graphicsAPIExtension();
+        if (!graphicsAPI || !graphicsAPI->enabled())
+            throw std::runtime_error("No graphics API supported by openmw are supported by the OpenXR runtime.");
     }
 }

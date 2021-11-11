@@ -78,13 +78,13 @@ namespace XR
 #ifdef XR_USE_GRAPHICS_API_D3D11
         if (mPrivate->mWGL_NV_DX_interop2)
         {
-            if (Extensions::instance().supportsExtension(XR_KHR_D3D11_ENABLE_EXTENSION_NAME))
+            if (KHR_D3D11_enable.supported())
             {
-                Extensions::instance().selectGraphicsAPIExtension(XR_KHR_D3D11_ENABLE_EXTENSION_NAME);
+                Extensions::instance().selectGraphicsAPIExtension(&KHR_D3D11_enable);
                 return true;
             }
             else
-                Log(Debug::Warning) << "Warning: Failed to select DirectX swapchains: OpenXR runtime does not support essential extension '" << XR_KHR_D3D11_ENABLE_EXTENSION_NAME << "'";
+                Log(Debug::Warning) << "Warning: Failed to select DirectX swapchains: OpenXR runtime does not support essential extension '" << KHR_D3D11_enable.name() << "'";
         }
         else
             Log(Debug::Warning) << "Warning: Failed to select DirectX swapchains: Essential WGL extension 'WGL_NV_DX_interop2' not supported by the graphics driver.";
@@ -95,28 +95,16 @@ namespace XR
     bool Platform::selectOpenGL()
     {
 #ifdef XR_USE_GRAPHICS_API_OPENGL
-        if (Extensions::instance().supportsExtension(XR_KHR_OPENGL_ENABLE_EXTENSION_NAME))
+        if (KHR_opengl_enable.supported())
         {
-            Extensions::instance().selectGraphicsAPIExtension(XR_KHR_OPENGL_ENABLE_EXTENSION_NAME);
+            Extensions::instance().selectGraphicsAPIExtension(&KHR_opengl_enable);
             return true;
         }
         else
-            Log(Debug::Warning) << "Warning: Failed to select OpenGL swapchains: OpenXR runtime does not support essential extension '" << XR_KHR_OPENGL_ENABLE_EXTENSION_NAME << "'";
+            Log(Debug::Warning) << "Warning: Failed to select OpenGL swapchains: OpenXR runtime does not support essential extension '" << KHR_opengl_enable.name() << "'";
 #endif
         return false;
     }
-
-#ifdef XR_USE_GRAPHICS_API_OPENGL
-#if    !XR_KHR_opengl_enable
-#error "OpenXR extensions missing. Please upgrade your copy of the OpenXR SDK to 1.0.13 minimum"
-#endif
-#endif
-
-#ifdef XR_USE_GRAPHICS_API_D3D11
-#if    !XR_KHR_D3D11_enable
-#error "OpenXR extensions missing. Please upgrade your copy of the OpenXR SDK to 1.0.13 minimum"
-#endif
-#endif
 
     void Platform::selectGraphicsAPIExtension()
     {
@@ -137,8 +125,7 @@ namespace XR
         XrSession session = XR_NULL_HANDLE;
         XrResult res = XR_SUCCESS;
 #ifdef _WIN32
-        std::string graphicsAPIExtension = Extensions::instance().graphicsAPIExtensionName();
-        if(graphicsAPIExtension == XR_KHR_OPENGL_ENABLE_EXTENSION_NAME)
+        if(KHR_opengl_enable.enabled())
         { 
             // Get system requirements
             PFN_xrGetOpenGLGraphicsRequirementsKHR p_getRequirements = nullptr;
@@ -172,7 +159,7 @@ namespace XR
             res = CHECK_XRCMD(xrCreateSession(instance, &createInfo, &session));
         }
 #ifdef XR_USE_GRAPHICS_API_D3D11
-        else if(graphicsAPIExtension == XR_KHR_D3D11_ENABLE_EXTENSION_NAME)
+        else if(KHR_D3D11_enable.enabled())
         {
             mDxInterop = std::make_shared<VR::DirectXWGLInterop>();
             PFN_xrGetD3D11GraphicsRequirementsKHR p_getRequirements = nullptr;
@@ -278,8 +265,7 @@ namespace XR
 
     int64_t Platform::selectColorFormat()
     {
-        std::string graphicsAPIExtension = Extensions::instance().graphicsAPIExtensionName();
-        if (graphicsAPIExtension == XR_KHR_OPENGL_ENABLE_EXTENSION_NAME)
+        if (KHR_opengl_enable.enabled())
         {
             std::vector<int64_t> requestedColorSwapchainFormats;
 
@@ -298,7 +284,7 @@ namespace XR
             return selectFormat(requestedColorSwapchainFormats);
         }
 #ifdef XR_USE_GRAPHICS_API_D3D11
-        else if (graphicsAPIExtension == XR_KHR_D3D11_ENABLE_EXTENSION_NAME)
+        else if (KHR_D3D11_enable.enabled())
         {
             std::vector<int64_t> requestedColorSwapchainFormats;
 
@@ -318,15 +304,14 @@ namespace XR
 #endif
         else
         {
-            throw std::logic_error("Enum value not implemented");
+            throw std::logic_error("Not implemented");
         }
 
     }
 
     int64_t Platform::selectDepthFormat()
     {
-        std::string graphicsAPIExtension = Extensions::instance().graphicsAPIExtensionName();
-        if (graphicsAPIExtension == XR_KHR_OPENGL_ENABLE_EXTENSION_NAME)
+        if (KHR_opengl_enable.enabled())
         {
             // Find supported depth swapchain format.
             std::vector<int64_t> requestedDepthSwapchainFormats = {
@@ -342,7 +327,7 @@ namespace XR
             return selectFormat(requestedDepthSwapchainFormats);
         }
 #ifdef XR_USE_GRAPHICS_API_D3D11
-        else if (graphicsAPIExtension == XR_KHR_D3D11_ENABLE_EXTENSION_NAME)
+        else if (KHR_D3D11_enable.enabled())
         {
             // Find supported color swapchain format.
             std::vector<int64_t> requestedDepthSwapchainFormats = {
@@ -356,7 +341,7 @@ namespace XR
 #endif
         else
         {
-            throw std::logic_error("Enum value not implemented");
+            throw std::logic_error("Not implemented");
         }
     }
 
@@ -494,20 +479,18 @@ namespace XR
             else
                 Debugging::setName(swapchain, "OpenMW XR Depth Swapchain " + name);
 
-#ifdef _WIN32
-            if (Extensions::instance().extensionEnabled(XR_KHR_D3D11_ENABLE_EXTENSION_NAME))
-            {
-                auto images = enumerateSwapchainImagesDirectX(swapchain);
-                return new VR::DirectXSwapchain(std::make_shared<Swapchain>(swapchain, images, width, height, samples, format), mDxInterop);
-                throw std::logic_error("Not implemented");
-            }
-            else
-#endif
-            if (Extensions::instance().extensionEnabled(XR_KHR_OPENGL_ENABLE_EXTENSION_NAME))
+            if (KHR_opengl_enable.enabled())
             {
                 auto images = enumerateSwapchainImagesOpenGL(swapchain);
                 return new Swapchain(swapchain, images, width, height, samples, format);
             }
+#ifdef _WIN32
+            else if (KHR_D3D11_enable.enabled())
+            {
+                auto images = enumerateSwapchainImagesDirectX(swapchain);
+                return new VR::DirectXSwapchain(std::make_shared<Swapchain>(swapchain, images, width, height, samples, format), mDxInterop);
+            }
+#endif
             else
             {
                 // TODO: Vulkan swapchains?
