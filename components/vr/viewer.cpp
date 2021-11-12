@@ -179,7 +179,11 @@ namespace VR
             Log(Debug::Verbose) << viewNames[i] << " resolution: Selected x=" << width << ", y=" << height;
 
             mColorSwapchain[i].reset(VR::Session::instance().createSwapchain(width, height, samples, VR::SwapchainUse::Color, viewNames[i]));
-            mDepthSwapchain[i].reset(VR::Session::instance().createSwapchain(width, height, samples, VR::SwapchainUse::Depth, viewNames[i]));
+
+            if (mSession->appShouldShareDepthInfo())
+            {
+                mDepthSwapchain[i].reset(VR::Session::instance().createSwapchain(width, height, samples, VR::SwapchainUse::Depth, viewNames[i]));
+            }
 
             mSubImages[i].width = width;
             mSubImages[i].height = height;
@@ -383,10 +387,11 @@ namespace VR
     osg::ref_ptr<osg::FrameBufferObject> Viewer::getXrFramebuffer(uint32_t view, osg::State* state)
     {
         auto colorImage = mColorSwapchain[view]->beginFrame(state->getGraphicsContext());
-        auto depthImage = mDepthSwapchain[view]->beginFrame(state->getGraphicsContext());
         auto it = mSwapchainFramebuffers.find(colorImage);
         if (it == mSwapchainFramebuffers.end())
         {
+            osg::ref_ptr<osg::FrameBufferObject> fbo = new osg::FrameBufferObject();
+
             // Wrap subimage textures in osg framebuffer objects
             auto colorTexture = new osg::Texture2D();
             colorTexture->setTextureSize(mFramebufferWidth, mFramebufferHeight);
@@ -394,17 +399,19 @@ namespace VR
             colorTexture->setFilter(osg::Texture::MAG_FILTER, osg::Texture::LINEAR);
             auto colorTextureObject = new osg::Texture::TextureObject(colorTexture, colorImage, GL_TEXTURE_2D);
             colorTexture->setTextureObject(state->getContextID(), colorTextureObject);
-
-            auto depthTexture = new osg::Texture2D();
-            depthTexture->setTextureSize(mFramebufferWidth, mFramebufferHeight);
-            depthTexture->setFilter(osg::Texture::MIN_FILTER, osg::Texture::LINEAR);
-            depthTexture->setFilter(osg::Texture::MAG_FILTER, osg::Texture::LINEAR);
-            auto depthTextureObject = new osg::Texture::TextureObject(depthTexture, depthImage, GL_TEXTURE_2D);
-            depthTexture->setTextureObject(state->getContextID(), depthTextureObject);
-
-            osg::ref_ptr<osg::FrameBufferObject> fbo = new osg::FrameBufferObject();
             fbo->setAttachment(osg::FrameBufferObject::BufferComponent::COLOR_BUFFER, osg::FrameBufferAttachment(colorTexture));
-            fbo->setAttachment(osg::FrameBufferObject::BufferComponent::DEPTH_BUFFER, osg::FrameBufferAttachment(depthTexture));
+
+            if (mSession->appShouldShareDepthInfo())
+            {
+                auto depthImage = mDepthSwapchain[view]->beginFrame(state->getGraphicsContext());
+                auto depthTexture = new osg::Texture2D();
+                depthTexture->setTextureSize(mFramebufferWidth, mFramebufferHeight);
+                depthTexture->setFilter(osg::Texture::MIN_FILTER, osg::Texture::LINEAR);
+                depthTexture->setFilter(osg::Texture::MAG_FILTER, osg::Texture::LINEAR);
+                auto depthTextureObject = new osg::Texture::TextureObject(depthTexture, depthImage, GL_TEXTURE_2D);
+                depthTexture->setTextureObject(state->getContextID(), depthTextureObject);
+                fbo->setAttachment(osg::FrameBufferObject::BufferComponent::DEPTH_BUFFER, osg::FrameBufferAttachment(depthTexture));
+            }
 
             it = mSwapchainFramebuffers.emplace(colorImage, fbo).first;
         }
@@ -433,11 +440,14 @@ namespace VR
 
         mGammaResolveFramebuffer->apply(*state, osg::FrameBufferObject::READ_FRAMEBUFFER);
         gl->glBlitFramebuffer(srcX0, srcY0, srcX1, srcY1, dstX0, dstY0, dstX1, dstY1, GL_COLOR_BUFFER_BIT, GL_NEAREST);
-        mMsaaResolveFramebuffer->apply(*state, osg::FrameBufferObject::READ_FRAMEBUFFER);
-        gl->glBlitFramebuffer(srcX0, srcY0, srcX1, srcY1, dstX0, dstY0, dstX1, dstY1, GL_DEPTH_BUFFER_BIT, GL_NEAREST);
-
         mColorSwapchain[i]->endFrame(state->getGraphicsContext());
-        mDepthSwapchain[i]->endFrame(state->getGraphicsContext());
+
+        if (mSession->appShouldShareDepthInfo())
+        {
+            mMsaaResolveFramebuffer->apply(*state, osg::FrameBufferObject::READ_FRAMEBUFFER);
+            gl->glBlitFramebuffer(srcX0, srcY0, srcX1, srcY1, dstX0, dstY0, dstX1, dstY1, GL_DEPTH_BUFFER_BIT, GL_NEAREST);
+            mDepthSwapchain[i]->endFrame(state->getGraphicsContext());
+        }
         gl->glBindFramebuffer(GL_FRAMEBUFFER_EXT, 0);
     }
 
@@ -598,10 +608,8 @@ namespace VR
 
     void Viewer::updateView(Misc::View& left, Misc::View& right)
     {
-        auto& session = VR::Session::instance();
-
-        auto frame = session.newFrame();
-        session.frameBeginUpdate(frame);
+        auto frame = mSession->newFrame();
+        mSession->frameBeginUpdate(frame);
 
         VR::TrackingManager::instance().updateTracking(frame);
 
@@ -611,15 +619,18 @@ namespace VR
         if (frame.shouldRender)
         {
             left = views[VR::Side_Left];
-            left.pose.position *= Constants::UnitsPerMeter * session.playerScale();
+            left.pose.position *= Constants::UnitsPerMeter * mSession->playerScale();
             right = views[VR::Side_Right];
-            right.pose.position *= Constants::UnitsPerMeter * session.playerScale();
+            right.pose.position *= Constants::UnitsPerMeter * mSession->playerScale();
 
             std::shared_ptr<VR::ProjectionLayer> layer = std::make_shared<VR::ProjectionLayer>();
             for (uint32_t i = 0; i < 2; i++)
             {
                 layer->views[i].colorSwapchain = mColorSwapchain[i];
-                layer->views[i].depthSwapchain = mDepthSwapchain[i];
+                if (mSession->appShouldShareDepthInfo())
+                {
+                    layer->views[i].depthSwapchain = mDepthSwapchain[i];
+                }
                 layer->views[i].subImage.width = mColorSwapchain[i]->width();
                 layer->views[i].subImage.height = mColorSwapchain[i]->height();
                 layer->views[i].subImage.x = 0;

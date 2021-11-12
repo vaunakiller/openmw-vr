@@ -44,6 +44,7 @@ namespace XR
         void endFrame(VR::Frame& frame);
         std::array<XrViewConfigurationView, 2> getRecommendedXrSwapchainConfig() const;
         XrInstance xrInstance() const { return mXrInstance; };
+        XrSystemId xrSystemId() const { return mSystemId; };
         PFN_xrVoidFunction xrGetFunction(const std::string& name);
         int64_t selectColorFormat();
         int64_t selectDepthFormat();

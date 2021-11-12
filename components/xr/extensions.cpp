@@ -17,6 +17,8 @@ namespace XR
     Extension EXT_hp_mixed_reality_controller("XR_EXT_hp_mixed_reality_controller", Extension::EnableMode::Auto);
     Extension HTC_vive_cosmos_controller_interaction("XR_HTC_vive_cosmos_controller_interaction", Extension::EnableMode::Auto);
     Extension HUAWEI_controller_interaction("XR_HUAWEI_controller_interaction", Extension::EnableMode::Auto);
+    Extension MSFT_composition_layer_reprojection("XR_MSFT_composition_layer_reprojection", Extension::EnableMode::Auto);
+    Extension FB_space_warp("XR_FB_space_warp", Extension::EnableMode::Auto);
 
     std::vector<Extension*> sExtensionsVector =
     {
@@ -26,7 +28,9 @@ namespace XR
         &EXT_debug_utils,
         &EXT_hp_mixed_reality_controller,
         &HTC_vive_cosmos_controller_interaction,
-        &HUAWEI_controller_interaction
+        &HUAWEI_controller_interaction,
+        &MSFT_composition_layer_reprojection,
+        &FB_space_warp
     };
 
     static Extensions* sExtensions = nullptr;

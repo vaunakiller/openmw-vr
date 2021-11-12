@@ -1262,7 +1262,9 @@ namespace MWRender
 
     void RenderingManager::enableVRPointer(bool enable)
     {
+#ifdef USE_OPENXR
         mUserPointer->setEnabled(enable);
+#endif
     }
 
     void RenderingManager::updateTextureFiltering()

@@ -131,6 +131,10 @@ namespace XR
         std::array<XrCompositionLayerDepthInfoKHR, 2> compositionLayerDepth{};
         compositionLayerDepth[0].type = XR_TYPE_COMPOSITION_LAYER_DEPTH_INFO_KHR;
         compositionLayerDepth[1].type = XR_TYPE_COMPOSITION_LAYER_DEPTH_INFO_KHR;
+
+        XrCompositionLayerReprojectionInfoMSFT reprojectionInfoDepth{};
+        reprojectionInfoDepth.type = XR_TYPE_COMPOSITION_LAYER_REPROJECTION_INFO_MSFT;
+        reprojectionInfoDepth.reprojectionMode = XR_REPROJECTION_MODE_DEPTH_MSFT;
         
         XrFrameEndInfo frameEndInfo{};
         frameEndInfo.type = XR_TYPE_FRAME_END_INFO;
@@ -159,9 +163,7 @@ namespace XR
                 xrView.subImage.swapchain = static_cast<XrSwapchain>(view.colorSwapchain->handle());
             }
 
-            bool includeDepth = XR::Extensions::instance().extensionEnabled(XR_KHR_COMPOSITION_LAYER_DEPTH_EXTENSION_NAME);
-
-            if (includeDepth)
+            if (appShouldShareDepthInfo())
             {
                 // TODO: Cache these values instead?
                 GLfloat depthRange[2] = { 0.f, 1.f };
@@ -190,6 +192,14 @@ namespace XR
                     auto& xrView = compositionLayerProjectionViews[i];
                     xrView.next = &xrDepth;
                 }
+            }
+
+            const void** layerNext = &layer.next;
+
+            if (mMSFTReprojectionModeDepth)
+            {
+                *layerNext = &reprojectionInfoDepth;
+                layerNext = &reprojectionInfoDepth.next;
             }
 
             frameEndInfo.layerCount = 1;
@@ -341,6 +351,7 @@ namespace XR
     {
         createXrReferenceSpaces();
         createXrTracker();
+        initMSFTReprojection();
     }
 
     void Session::cleanup()
@@ -378,6 +389,54 @@ namespace XR
         auto worldUserHeadPath = VR::stringToVRPath("/world/user/head/input/pose");
         mTrackerToWorldBinding = std::make_unique<VR::StageToWorldBinding>(worldUserPath, stageUserHeadPath);
         mTrackerToWorldBinding->bindPaths(worldUserHeadPath, stageUserHeadPath);
+    }
+
+    void Session::initCompositionLayerDepth()
+    {
+        setAppShouldShareDepthBuffer(KHR_composition_layer_depth.enabled());
+    }
+
+    PFN_xrEnumerateReprojectionModesMSFT enumerateReprojectionModesMSFT = nullptr;
+
+    std::string xrReprojectionModeMSFTToString(XrReprojectionModeMSFT mode)
+    {
+        switch (mode)
+        {
+        case XR_REPROJECTION_MODE_DEPTH_MSFT: return "XR_REPROJECTION_MODE_DEPTH_MSFT";
+        case XR_REPROJECTION_MODE_PLANAR_FROM_DEPTH_MSFT: return "XR_REPROJECTION_MODE_PLANAR_FROM_DEPTH_MSFT";
+        case XR_REPROJECTION_MODE_PLANAR_MANUAL_MSFT: return "XR_REPROJECTION_MODE_PLANAR_MANUAL_MSFT";
+        case XR_REPROJECTION_MODE_ORIENTATION_ONLY_MSFT: return "XR_REPROJECTION_MODE_ORIENTATION_ONLY_MSFT";
+        case XR_REPROJECTION_MODE_MAX_ENUM_MSFT: return "XR_REPROJECTION_MODE_MAX_ENUM_MSFT";
+        default: return std::string() + "Unknown (" + std::to_string(mode) + ")";
+        }
+    }
+
+    void Session::initMSFTReprojection()
+    {
+        if (MSFT_composition_layer_reprojection.enabled())
+        {
+            std::vector<XrReprojectionModeMSFT> modes;
+            enumerateReprojectionModesMSFT = reinterpret_cast<PFN_xrEnumerateReprojectionModesMSFT>(Instance::instance().xrGetFunction("xrEnumerateReprojectionModesMSFT"));
+
+            uint32_t count = 0;
+            enumerateReprojectionModesMSFT(Instance::instance().xrInstance(), Instance::instance().xrSystemId(), XR_VIEW_CONFIGURATION_TYPE_PRIMARY_STEREO, 0, &count, nullptr);
+            modes.resize(count);
+            enumerateReprojectionModesMSFT(Instance::instance().xrInstance(), Instance::instance().xrSystemId(), XR_VIEW_CONFIGURATION_TYPE_PRIMARY_STEREO, count, &count, modes.data());
+            Log(Debug::Verbose) << "Supported XrReprojectionModeMSFT values:";
+            for (auto mode : modes)
+            {
+                Log(Debug::Verbose) << "  " << xrReprojectionModeMSFTToString(mode);
+
+                switch (mode)
+                {
+                case XR_REPROJECTION_MODE_DEPTH_MSFT:
+                    mMSFTReprojectionModeDepth = true;
+                    break;
+                }
+            }
+
+            setAppShouldShareDepthBuffer(mMSFTReprojectionModeDepth);
+        }
     }
 
     VR::Swapchain* Session::createSwapchain(uint32_t width, uint32_t height, uint32_t samples, VR::SwapchainUse use, const std::string& name)

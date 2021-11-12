@@ -51,6 +51,8 @@ namespace VR
         void frameBeginRender(VR::Frame& frame);
         void frameEnd(osg::GraphicsContext* gc, VR::Frame& frame);
 
+        bool appShouldShareDepthInfo() const { return mAppShouldShareDepthBuffer; };
+
         virtual VR::Swapchain* createSwapchain(uint32_t width, uint32_t height, uint32_t samples, SwapchainUse use, const std::string& name) = 0;
 
         virtual std::array<Misc::View, 2> getPredictedViews(int64_t predictedDisplayTime, VR::ReferenceSpace space) = 0;
@@ -76,7 +78,12 @@ namespace VR
         //! This is where OpenXR implementations must call xrEndFrame()
         virtual void syncFrameEnd(VR::Frame& frame) = 0;
 
+        void setAppShouldShareDepthBuffer(bool arg) { mAppShouldShareDepthBuffer = arg; }
+
     private:
+
+        bool mAppShouldShareDepthBuffer = false;
+
         bool mSeatedPlay{ false };
         float mPlayerScale{ 1.f };
         float mEyeLevel{ 1.f };

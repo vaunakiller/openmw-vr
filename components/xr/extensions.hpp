@@ -90,6 +90,8 @@ namespace XR
     extern Extension EXT_debug_utils;
     extern Extension HTC_vive_cosmos_controller_interaction;
     extern Extension HUAWEI_controller_interaction;
+    extern Extension MSFT_composition_layer_reprojection;
+    extern Extension FB_space_warp;
 }
 
 #endif

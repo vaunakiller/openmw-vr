@@ -69,6 +69,8 @@ namespace XR
         void logXrReferenceSpaces();
 
         void createXrTracker();
+        void initCompositionLayerDepth();
+        void initMSFTReprojection();
 
         void destroyXrSession();
 
@@ -94,6 +96,8 @@ namespace XR
         bool mAppShouldSyncFrameLoop = false;
         bool mAppShouldRender = false;
         bool mAppShouldReadInput = false;
+
+        bool mMSFTReprojectionModeDepth = false;
     };
 
 }
