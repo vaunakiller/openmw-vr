@@ -386,7 +386,12 @@ namespace VR
 
     osg::ref_ptr<osg::FrameBufferObject> Viewer::getXrFramebuffer(uint32_t view, osg::State* state)
     {
-        auto colorImage = mColorSwapchain[view]->beginFrame(state->getGraphicsContext());
+        uint64_t colorImage = mColorSwapchain[view]->beginFrame(state->getGraphicsContext());
+
+        uint64_t depthImage = 0;
+        if(mSession->appShouldShareDepthInfo())
+            depthImage = mDepthSwapchain[view]->beginFrame(state->getGraphicsContext());
+
         auto it = mSwapchainFramebuffers.find(colorImage);
         if (it == mSwapchainFramebuffers.end())
         {
@@ -403,7 +408,6 @@ namespace VR
 
             if (mSession->appShouldShareDepthInfo())
             {
-                auto depthImage = mDepthSwapchain[view]->beginFrame(state->getGraphicsContext());
                 auto depthTexture = new osg::Texture2D();
                 depthTexture->setTextureSize(mFramebufferWidth, mFramebufferHeight);
                 depthTexture->setFilter(osg::Texture::MIN_FILTER, osg::Texture::LINEAR);
@@ -440,14 +444,16 @@ namespace VR
 
         mGammaResolveFramebuffer->apply(*state, osg::FrameBufferObject::READ_FRAMEBUFFER);
         gl->glBlitFramebuffer(srcX0, srcY0, srcX1, srcY1, dstX0, dstY0, dstX1, dstY1, GL_COLOR_BUFFER_BIT, GL_NEAREST);
-        mColorSwapchain[i]->endFrame(state->getGraphicsContext());
-
         if (mSession->appShouldShareDepthInfo())
         {
             mMsaaResolveFramebuffer->apply(*state, osg::FrameBufferObject::READ_FRAMEBUFFER);
             gl->glBlitFramebuffer(srcX0, srcY0, srcX1, srcY1, dstX0, dstY0, dstX1, dstY1, GL_DEPTH_BUFFER_BIT, GL_NEAREST);
-            mDepthSwapchain[i]->endFrame(state->getGraphicsContext());
         }
+
+        mColorSwapchain[i]->endFrame(state->getGraphicsContext());
+        if (mSession->appShouldShareDepthInfo())
+            mDepthSwapchain[i]->endFrame(state->getGraphicsContext());
+
         gl->glBindFramebuffer(GL_FRAMEBUFFER_EXT, 0);
     }
 

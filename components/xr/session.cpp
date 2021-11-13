@@ -351,6 +351,7 @@ namespace XR
     {
         createXrReferenceSpaces();
         createXrTracker();
+        initCompositionLayerDepth();
         initMSFTReprojection();
     }
 
