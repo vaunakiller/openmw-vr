@@ -156,50 +156,50 @@ Debian_Clang_tests_Debug:
     BUILD_TESTS_ONLY: 1
     CMAKE_BUILD_TYPE: Debug
 
-.MacOS:
-  image: macos-11-xcode-12
-  tags:
-    - shared-macos-amd64
-  stage: build
-  only:
-    variables:
-      - $CI_PROJECT_ID == "7107382"
-      - $CI_PIPELINE_SOURCE == "push"    
-  cache:
-    paths:
-    - ccache/
-  script:
-    - rm -fr build  # remove the build directory
-    - CI/before_install.osx.sh
-    - export CCACHE_BASEDIR="$(pwd)"
-    - export CCACHE_DIR="$(pwd)/ccache"
-    - mkdir -pv "${CCACHE_DIR}"
-    - ccache -z -M "${CCACHE_SIZE}"
-    - CI/before_script.osx.sh
-    - cd build; make -j $(sysctl -n hw.logicalcpu) package
-    - for dmg in *.dmg; do mv "$dmg" "${dmg%.dmg}_${CI_COMMIT_REF_NAME}_${CI_JOB_ID}.dmg"; done
-    - ccache -s
-  artifacts:
-    paths:
-      - build/OpenMW-*.dmg
-      - "build/**/*.log"
-
-macOS11_Xcode12:
-  extends: .MacOS
-  image: macos-11-xcode-12
-  cache:
-    key: macOS11_Xcode12.v1
-  variables:
-    CCACHE_SIZE: 3G
-
-macOS10.15_Xcode11:
-  extends: .MacOS
-  image: macos-10.15-xcode-11
-  allow_failure: true
-  cache:
-    key: macOS10.15_Xcode11.v1
-  variables:
-    CCACHE_SIZE: 3G
+#.MacOS:
+#  image: macos-11-xcode-12
+#  tags:
+#    - shared-macos-amd64
+#  stage: build
+#  only:
+#    variables:
+#      - $CI_PROJECT_ID == "7107382"
+#      - $CI_PIPELINE_SOURCE == "push"    
+#  cache:
+#    paths:
+#    - ccache/
+#  script:
+#    - rm -fr build  # remove the build directory
+#    - CI/before_install.osx.sh
+#    - export CCACHE_BASEDIR="$(pwd)"
+#    - export CCACHE_DIR="$(pwd)/ccache"
+#    - mkdir -pv "${CCACHE_DIR}"
+#    - ccache -z -M "${CCACHE_SIZE}"
+#    - CI/before_script.osx.sh
+#    - cd build; make -j $(sysctl -n hw.logicalcpu) package
+#    - for dmg in *.dmg; do mv "$dmg" "${dmg%.dmg}_${CI_COMMIT_REF_NAME}_${CI_JOB_ID}.dmg"; done
+#    - ccache -s
+#  artifacts:
+#    paths:
+#      - build/OpenMW-*.dmg
+#      - "build/**/*.log"
+#
+#macOS11_Xcode12:
+#  extends: .MacOS
+#  image: macos-11-xcode-12
+#  cache:
+#    key: macOS11_Xcode12.v1
+#  variables:
+#    CCACHE_SIZE: 3G
+#
+#macOS10.15_Xcode11:
+#  extends: .MacOS
+#  image: macos-10.15-xcode-11
+#  allow_failure: true
+#  cache:
+#    key: macOS10.15_Xcode11.v1
+#  variables:
+#    CCACHE_SIZE: 3G
 
 variables: &engine-targets
   targets: "openmw_vr,openmw-essimporter,openmw-iniimporter,openmw-launcher,openmw-wizard"
