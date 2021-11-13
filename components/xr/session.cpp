@@ -432,6 +432,8 @@ namespace XR
                 case XR_REPROJECTION_MODE_DEPTH_MSFT:
                     mMSFTReprojectionModeDepth = true;
                     break;
+                default:
+                    break;
                 }
             }
 
