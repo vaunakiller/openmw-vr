@@ -4,6 +4,7 @@
 #include <map>
 #include <set>
 #include <regex>
+#include <array>
 #include <MyGUI_Widget.h>
 
 #include <osg/Geometry>
@@ -109,6 +110,7 @@ namespace MWVR
 
     protected:
         friend class VRGUIManager;
+        osg::ref_ptr<osg::Geometry> createLayerGeometry();
         osg::ref_ptr<osg::Texture> menuTexture();
         void setAngle(float angle);
         void updatePose();
@@ -130,7 +132,7 @@ namespace MWVR
         std::string mLayerName;
         std::vector<MWGui::Layout*> mWidgets;
         osg::ref_ptr<osg::Group> mGeometryRoot;
-        osg::ref_ptr<osg::Geometry> mGeometry{ new osg::Geometry };
+        std::array<osg::ref_ptr<osg::Geometry>, 2> mGeometries;
         osg::ref_ptr<osg::PositionAttitudeTransform> mTransform{ new osg::PositionAttitudeTransform };
         osg::ref_ptr<osg::Group> mCameraRoot;
         osg::ref_ptr<GUICamera> mGUICamera;

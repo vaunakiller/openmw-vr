@@ -124,6 +124,48 @@ namespace MWVR
         osg::Vec4 mClearColor;
     };
 
+    osg::ref_ptr<osg::Geometry> VRGUILayer::createLayerGeometry()
+    {
+        float left = mConfig.center.x() - 0.5;
+        float right = left + 1.f;
+        float top = 0.5f + mConfig.center.y();
+        float bottom = top - 1.f;
+
+        osg::ref_ptr<osg::Geometry> geometry = new osg::Geometry();
+
+        // Define the menu quad
+        osg::Vec3 top_left(left, 1, top);
+        osg::Vec3 bottom_left(left, 1, bottom);
+        osg::Vec3 bottom_right(right, 1, bottom);
+        osg::Vec3 top_right(right, 1, top);
+
+        osg::ref_ptr<osg::Vec3Array> vertices{ new osg::Vec3Array(4) };
+        (*vertices)[0] = bottom_left;
+        (*vertices)[1] = top_left;
+        (*vertices)[2] = bottom_right;
+        (*vertices)[3] = top_right;
+        geometry->setVertexArray(vertices);
+
+        osg::ref_ptr<osg::Vec2Array> texCoords{ new osg::Vec2Array(4) };
+        (*texCoords)[0].set(0.0f, 0.0f);
+        (*texCoords)[1].set(0.0f, 1.0f);
+        (*texCoords)[2].set(1.0f, 0.0f);
+        (*texCoords)[3].set(1.0f, 1.0f);
+        geometry->setTexCoordArray(0, texCoords);
+
+        osg::ref_ptr<osg::Vec3Array> normals{ new osg::Vec3Array(1) };
+        (*normals)[0].set(0.0f, -1.0f, 0.0f);
+        geometry->setNormalArray(normals, osg::Array::BIND_OVERALL);
+
+        // TODO: Just use GL_TRIANGLES
+        geometry->addPrimitiveSet(new osg::DrawArrays(GL_TRIANGLE_STRIP, 0, 4));
+        geometry->setDataVariance(osg::Object::STATIC);
+        geometry->setSupportsDisplayList(false);
+        geometry->setName("VRGUILayer");
+
+        return geometry;
+    }
+
     VRGUILayer::VRGUILayer(
         osg::ref_ptr<osg::Group> geometryRoot,
         osg::ref_ptr<osg::Group> cameraRoot,
@@ -137,40 +179,6 @@ namespace MWVR
     {
         auto extent_units = config.extent * Constants::UnitsPerMeter;
 
-        float left = mConfig.center.x() - 0.5;
-        float right = left + 1.f;
-        float top = 0.5f + mConfig.center.y();
-        float bottom = top - 1.f;
-
-        // Define the menu quad
-        osg::Vec3 top_left(left, 1, top);
-        osg::Vec3 bottom_left(left, 1, bottom);
-        osg::Vec3 bottom_right(right, 1, bottom);
-        osg::Vec3 top_right(right, 1, top);
-
-        osg::ref_ptr<osg::Vec3Array> vertices{ new osg::Vec3Array(4) };
-        (*vertices)[0] = bottom_left;
-        (*vertices)[1] = top_left;
-        (*vertices)[2] = bottom_right;
-        (*vertices)[3] = top_right;
-        mGeometry->setVertexArray(vertices);
-
-        osg::ref_ptr<osg::Vec2Array> texCoords{ new osg::Vec2Array(4) };
-        (*texCoords)[0].set(0.0f, 0.0f);
-        (*texCoords)[1].set(0.0f, 1.0f);
-        (*texCoords)[2].set(1.0f, 0.0f);
-        (*texCoords)[3].set(1.0f, 1.0f);
-        mGeometry->setTexCoordArray(0, texCoords);
-
-        osg::ref_ptr<osg::Vec3Array> normals{ new osg::Vec3Array(1) };
-        (*normals)[0].set(0.0f, -1.0f, 0.0f);
-        mGeometry->setNormalArray(normals, osg::Array::BIND_OVERALL);
-
-        // TODO: Just use GL_TRIANGLES
-        mGeometry->addPrimitiveSet(new osg::DrawArrays(GL_TRIANGLE_STRIP, 0, 4));
-        mGeometry->setDataVariance(osg::Object::STATIC);
-        mGeometry->setSupportsDisplayList(false);
-        mGeometry->setName("VRGUILayer");
 
         // Create the camera that will render the menu texture
         std::string filter = mLayerName;
@@ -180,8 +188,11 @@ namespace MWVR
         mMyGUICamera = renderManager.createGUICamera(osg::Camera::NESTED_RENDER, filter);
         mGUICamera = new GUICamera(config.pixelResolution.x(), config.pixelResolution.y(), config.backgroundColor, mMyGUICamera);
 
+        mGeometries[0] = createLayerGeometry();
+        mGeometries[1] = createLayerGeometry();
+
         // Define state set that allows rendering with transparency
-        osg::StateSet* stateSet = mGeometry->getOrCreateStateSet();
+        osg::StateSet* stateSet = mGeometries[0]->getOrCreateStateSet();
         auto texture = menuTexture();
         texture->setName("diffuseMap");
         stateSet->setTextureAttributeAndModes(0, texture, osg::StateAttribute::ON);
@@ -191,10 +202,11 @@ namespace MWVR
         stateSet->setAttribute(mat);
 
         stateSet->setMode(GL_ALPHA_TEST, osg::StateAttribute::OFF);
+        mGeometries[1]->setStateSet(stateSet);
 
         // Position in the game world
         mTransform->setScale(osg::Vec3(extent_units.x(), 1.f, extent_units.y()));
-        mTransform->addChild(mGeometry);
+        mTransform->addChild(mGeometries[0]);
 
         // Add to scene graph
         mGeometryRoot->addChild(mTransform);
@@ -236,8 +248,6 @@ namespace MWVR
             mTrackedPose = tp.pose;
             updatePose();
         }
-
-        update();
     }
 
     void VRGUILayer::updatePose()
@@ -341,12 +351,15 @@ namespace MWVR
             mTransform->setScale(osg::Vec3(w / res, 1.f, h / res));
         }
 
+        mTransform->removeChild(0, mTransform->getNumChildren());
+        std::swap(mGeometries[0], mGeometries[1]);
         osg::ref_ptr<osg::Vec2Array> texCoords{ new osg::Vec2Array(4) };
         (*texCoords)[0].set(mRealRect.left, 1.f - mRealRect.bottom);
         (*texCoords)[1].set(mRealRect.left, 1.f - mRealRect.top);
         (*texCoords)[2].set(mRealRect.right, 1.f - mRealRect.bottom);
         (*texCoords)[3].set(mRealRect.right, 1.f - mRealRect.top);
-        mGeometry->setTexCoordArray(0, texCoords);
+        mGeometries[0]->setTexCoordArray(0, texCoords);
+        mTransform->addChild(mGeometries[0]);
     }
 
     void
@@ -372,25 +385,6 @@ namespace MWVR
             }
         }
     }
-
-    class VRGUIManagerUpdateCallback : public osg::Callback
-    {
-    public:
-        VRGUIManagerUpdateCallback(VRGUIManager* manager)
-            : mManager(manager)
-        {
-
-        }
-
-        bool run(osg::Object* object, osg::Object* data)
-        {
-            mManager->update();
-            return traverse(object, data);
-        }
-
-    private:
-        VRGUIManager* mManager;
-    };
 
     static const LayerConfig createDefaultConfig(int priority, bool background = true, SizingMode sizingMode = SizingMode::Auto, std::string extraLayers = "Popup")
     {
@@ -457,6 +451,24 @@ namespace MWVR
         return *sManager;
     }
 
+    class LayerUpdateCallback : public SceneUtil::NodeCallback<LayerUpdateCallback, osg::Node*>
+    {
+    public:
+        LayerUpdateCallback(VRGUIManager* manager)
+            : mManager(manager)
+        {
+        }
+
+        void operator()(osg::Node* node, osg::NodeVisitor* cv)
+        {
+            mManager->update();
+            traverse(node, cv);
+        }
+
+    private:
+        VRGUIManager* mManager;
+    };
+
     VRGUIManager::VRGUIManager(
         osg::ref_ptr<osgViewer::Viewer> viewer,
         Resource::ResourceSystem* resourceSystem,
@@ -474,8 +486,9 @@ namespace MWVR
             throw std::logic_error("Duplicated MWVR::VRGUIManager singleton");
 
         mGeometries->setName("VR GUI Geometry Root");
-        mGeometries->setUpdateCallback(new VRGUIManagerUpdateCallback(this));
+        mGeometries->setCullCallback(new LayerUpdateCallback(this));
         mGeometries->setNodeMask(MWRender::VisMask::Mask_3DGUI);
+        mGeometries->setCullingActive(false);
         mGeometriesRootNode->addChild(mGeometries);
 
         auto stateSet = mGeometries->getOrCreateStateSet();
@@ -648,7 +661,8 @@ namespace MWVR
         ));
         mLayers[name] = layer;
 
-        layer->mGeometry->setUserData(new VRGUILayerUserData(mLayers[name]));
+        for (auto& geometry : layer->mGeometries)
+            geometry->setUserData(new VRGUILayerUserData(mLayers[name]));
 
         if (config.sideBySide)
         {
@@ -656,22 +670,24 @@ namespace MWVR
             updateSideBySideLayers();
         }
 
-
-
         Shader::ShaderManager::DefineMap defineMap{ {"GLSLVersion", "120"} };
         Misc::StereoView::instance().shaderStereoDefines(defineMap);
         auto& shaderManager = mResourceSystem->getSceneManager()->getShaderManager();
 
         osg::ref_ptr<osg::Shader> vertexShader = shaderManager.getShader("3dgui_vertex.glsl", defineMap, osg::Shader::VERTEX);
         osg::ref_ptr<osg::Shader> fragmentShader = shaderManager.getShader("3dgui_fragment.glsl", defineMap, osg::Shader::FRAGMENT);
-        if (vertexShader  && fragmentShader)
+
+        for (auto& geometry : layer->mGeometries)
         {
-            layer->mGeometry->getOrCreateStateSet()->setAttributeAndModes(shaderManager.getProgram(vertexShader, fragmentShader));
-        }
-        else
-        {
-            // Let the scene manager try
-            mResourceSystem->getSceneManager()->recreateShaders(layer->mGeometry, "objects", true);
+            if (vertexShader && fragmentShader)
+            {
+                geometry->getOrCreateStateSet()->setAttributeAndModes(shaderManager.getProgram(vertexShader, fragmentShader));
+            }
+            else
+            {
+                // Let the scene manager try
+                mResourceSystem->getSceneManager()->recreateShaders(geometry, "objects", true);
+            }
         }
 
 
@@ -793,10 +809,8 @@ namespace MWVR
 
     void VRGUIManager::update()
     {
-        //auto xr = MWVR::Environment::get().getManager();
-        //if (xr)
-        //    if (!xr->appShouldRender())
-        //        updateTracking();
+        for (auto& layer : mLayers)
+            layer.second->update();
     }
 
     void VRGUIManager::setFocusLayer(VRGUILayer* layer)
