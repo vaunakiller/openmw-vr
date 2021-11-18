@@ -664,7 +664,7 @@ namespace Misc
     {
         bool getMultiviewSupported(unsigned int contextID)
         {
-#if OSG_HAS_MULTIVIEW
+#ifdef OSG_HAS_MULTIVIEW
             if (!Settings::Manager::getBool("multiview", "Stereo"))
             {
                 Log(Debug::Verbose) << "Disabling Multiview (disabled by config)";
