@@ -135,9 +135,9 @@ namespace VR
     }
 
     Viewer::Viewer(
-        std::unique_ptr<VR::Session> session,
+        std::shared_ptr<VR::Session> session,
         osg::ref_ptr<osgViewer::Viewer> viewer)
-        : mSession(std::move(session))
+        : mSession(session)
         , mViewer(viewer)
         , mSwapBuffersCallback(new SwapBuffersCallback(this))
         , mInitialDraw(new InitialDrawCallback(this))
@@ -565,7 +565,7 @@ namespace VR
 
         VR::Session::instance().frameBeginRender(mDrawFrame);
 
-        if (Misc::StereoView::instance().getTechnique() == Misc::StereoView::Technique::BruteForce)
+        if (!Misc::StereoView::instance().getMultiview())
         {
             osg::GraphicsOperation* graphicsOperation = info.getCurrentCamera()->getRenderer();
             osgViewer::Renderer* renderer = dynamic_cast<osgViewer::Renderer*>(graphicsOperation);
@@ -590,7 +590,7 @@ namespace VR
 
     void Viewer::preDrawCallback(osg::RenderInfo& info, Misc::CallbackManager::View view)
     {
-        if (Misc::StereoView::instance().getTechnique() == Misc::StereoView::Technique::BruteForce)
+        if (!Misc::StereoView::instance().getMultiview())
         {
             mStereoFramebuffer->unlayeredFbo(static_cast<int>(view))->apply(*info.getState());
         }

@@ -262,15 +262,15 @@ namespace XR
         mPlatform->eraseFormat(format);
     }
 
-    XR::Platform& Instance::platform()
+    Platform& Instance::platform()
     {
         return *mPlatform;
     }
 
-    std::unique_ptr<VR::Session> Instance::createSession()
+    std::shared_ptr<Session> Instance::createSession()
     {
         auto xrSession = mPlatform->createXrSession(mXrInstance, mSystemId);
-        return std::make_unique<Session>(xrSession, mViewConfigType);
+        return std::make_shared<Session>(xrSession, mViewConfigType);
     }
 
     std::array<XrViewConfigurationView, 2> Instance::getRecommendedXrSwapchainConfig() const

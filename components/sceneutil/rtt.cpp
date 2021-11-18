@@ -128,7 +128,7 @@ namespace SceneUtil
     {
         if(mStereoAwareness != StereoAwareness::Aware)
             return false;
-        if (Misc::StereoView::instance().getTechnique() == Misc::StereoView::Technique::BruteForce)
+        if (!Misc::StereoView::instance().getMultiview())
             return true;
         return false;
     }
@@ -137,7 +137,7 @@ namespace SceneUtil
     {
         if (mStereoAwareness == StereoAwareness::Unaware)
             return false;
-        if (Misc::StereoView::instance().getTechnique() == Misc::StereoView::Technique::OVR_MultiView2)
+        if (Misc::StereoView::instance().getMultiview())
             return true;
         return false;
     }
@@ -146,7 +146,7 @@ namespace SceneUtil
     {
         if (mStereoAwareness != StereoAwareness::StereoUnawareMultiViewAware)
             return false;
-        if (Misc::StereoView::instance().getTechnique() == Misc::StereoView::Technique::OVR_MultiView2)
+        if (Misc::StereoView::instance().getMultiview())
             return true;
         return false;
     }

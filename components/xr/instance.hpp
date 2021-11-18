@@ -9,7 +9,6 @@
 #include <components/sdlutil/sdlgraphicswindow.hpp>
 #include <components/misc/stereo.hpp>
 #include <components/vr/directx.hpp>
-#include <components/vr/directx.hpp>
 #include <components/vr/constants.hpp>
 
 #include <openxr/openxr.h>
@@ -22,14 +21,9 @@
 #include <chrono>
 #include <queue>
 
-namespace VR
-{
-    class Session;
-}
-
 namespace XR
 {
-
+    class Session;
 
     /// \brief Instantiates and manages and openxr instance.
     class Instance
@@ -51,7 +45,7 @@ namespace XR
         void eraseFormat(int64_t format);
         XR::Platform& platform();
 
-        std::unique_ptr<VR::Session> createSession();
+        std::shared_ptr<XR::Session> createSession();
 
     protected:
         void setupExtensionsAndLayers();

@@ -219,7 +219,7 @@ void LocalMap::createOrthographicCamera(osg::Camera* camera, float x, float y, f
 
     stateset->addUniform(new osg::Uniform("projectionMatrix", static_cast<osg::Matrixf>(camera->getProjectionMatrix())), osg::StateAttribute::ON|osg::StateAttribute::OVERRIDE);
 
-    if (Misc::StereoView::instance().getTechnique() == Misc::StereoView::Technique::OVR_MultiView2)
+    if (Misc::StereoView::instance().getMultiview())
     {
         auto* viewUniform = new osg::Uniform(osg::Uniform::FLOAT_MAT4, "viewMatrixMultiView", 2);
         auto* projUniform = new osg::Uniform(osg::Uniform::FLOAT_MAT4, "projectionMatrixMultiView", 2);

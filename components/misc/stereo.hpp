@@ -122,13 +122,6 @@ namespace Misc
             void updateView(View& left, View& right) override;
         };
 
-        enum class Technique
-        {
-            None = 0, //!< Stereo disabled (do nothing).
-            BruteForce, //!< Two slave cameras culling and drawing everything.
-            OVR_MultiView2, //!< Frustum camera culls and draws stereo into indexed viewports using an automatically generated geometry shader.
-        };
-
         static StereoView& instance();
 
         //! Adds two cameras in stereo to the mainCamera.
@@ -136,14 +129,14 @@ namespace Misc
         //! \param noShaderMask mask in all nodes that do not use shaders and must be rendered brute force.
         //! \param sceneMask must equal MWRender::VisMask::Mask_Scene. Necessary while VisMask is still not in components/
         //! \note the masks apply only to the GeometryShader_IndexdViewports technique and can be 0 for the BruteForce technique.
-        StereoView();
+        StereoView(osgViewer::Viewer* viewer);
 
         //! Updates uniforms with the view and projection matrices of each stereo view, and replaces the camera's view and projection matrix
         //! with a view and projection that closely envelopes the frustums of the two eyes.
         void update();
         void updateStateset(osg::StateSet* stateset);
 
-        void initializeStereo(osgViewer::Viewer* viewer);
+        void initializeStereo(osg::GraphicsContext* gc);
 
         //! Callback that updates stereo configuration during the update pass
         void setUpdateViewCallback(std::shared_ptr<UpdateViewCallback> cb);
@@ -157,16 +150,15 @@ namespace Misc
         osg::Matrixd computeRightEyeProjection(const osg::Matrixd& projection) const;
         osg::Matrixd computeRightEyeView(const osg::Matrixd& view) const;
 
-        Technique getTechnique() const { return mTechnique; };
-
         void shaderStereoDefines(Shader::ShaderManager::DefineMap& defines) const;
 
         void setStereoFramebuffer(std::shared_ptr<StereoFramebuffer> fbo);
 
         const std::string& error() const;
 
+        bool getMultiview() const { return mMultiview; }
+
     private:
-        Technique stereoTechniqueFromSettings(void);
         void setupBruteForceTechnique();
         void setupOVRMultiView2Technique();
         void setupSharedShadows();
@@ -176,8 +168,8 @@ namespace Misc
         osg::ref_ptr<osg::Group>        mRoot;
         osg::ref_ptr<osg::Group>        mStereoRoot;
         osg::ref_ptr<osg::Callback>     mUpdateCallback;
-        Technique                       mTechnique;
         std::string                     mError;
+        bool                            mMultiview;
 
         // Stereo matrices
         osg::Matrix                 mLeftViewMatrix;
@@ -204,12 +196,10 @@ namespace Misc
 
         // OSG camera callbacks set using set*callback. StereoView manages that these are always set on the appropriate camera(s);
         osg::ref_ptr<osg::NodeCallback>         mCullCallback = nullptr;
-
-        std::shared_ptr<StereoFramebuffer> mStereoFramebuffer = nullptr;
     };
 
-    //! Reads settings to determine stereo technique
-    StereoView::Technique getStereoTechnique(void);
+    //! Check if MultiView is supported
+    bool                  getMultiview(unsigned int contextID);
 }
 
 #endif

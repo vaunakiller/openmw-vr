@@ -273,18 +273,20 @@ namespace Misc
         return *sInstance;
     }
 
-    StereoView::StereoView()
-        : mViewer(nullptr)
-        , mMainCamera(nullptr)
-        , mRoot(nullptr)
+    StereoView::StereoView(osgViewer::Viewer* viewer)
+        : mViewer(viewer)
         , mStereoRoot(new osg::Group)
         , mUpdateCallback(new StereoUpdateCallback(this))
-        , mTechnique(Technique::None)
+        , mMultiview(false)
         , mMasterConfig(new SharedShadowMapConfig)
         , mSlaveConfig(new SharedShadowMapConfig)
         , mSharedShadowMaps(Settings::Manager::getBool("shared shadow maps", "Stereo"))
         , mUpdateViewCallback(new DefaultUpdateViewCallback)
     {
+        if (sInstance)
+            throw std::logic_error("Double instance of StereoView");
+        sInstance = this;
+
         mMasterConfig->_id = "STEREO";
         mMasterConfig->_master = true;
         mSlaveConfig->_id = "STEREO";
@@ -292,90 +294,46 @@ namespace Misc
 
         mStereoRoot->setName("Stereo Root");
         mStereoRoot->setDataVariance(osg::Object::STATIC);
-
-        if (sInstance)
-            throw std::logic_error("Double instance of StereoView");
-        sInstance = this;
-
     }
 
-    StereoView::Technique StereoView::stereoTechniqueFromSettings(void)
+    void StereoView::initializeStereo(osg::GraphicsContext* gc)
     {
+        mMainCamera = mViewer->getCamera();
+        mRoot = mViewer->getSceneData()->asGroup();
 
-        auto stereoMethodString = Settings::Manager::getString("stereo method", "Stereo");
-        auto stereoMethodStringLowerCase = Misc::StringUtils::lowerCase(stereoMethodString);
-        if (stereoMethodStringLowerCase == "ovr_multiview2"
-            // OVR_multiview is the successor of geometry shader, so use it in its place.
-            // TODO: This should be removed before merge, no need to drag this history upstream.
-            || stereoMethodStringLowerCase == "geometryshader"
-            )
-        {
-#ifdef OSG_HAS_MULTIVIEW
-            osg::ref_ptr<osg::GLExtensions> exts = osg::GLExtensions::Get(0, false);
-            if(exts->glFramebufferTextureMultiviewOVR && exts->glTextureView)
-                return Misc::StereoView::Technique::OVR_MultiView2;
-
-            mError = std::string("Stereo method setting is \"") + stereoMethodString + "\" but current GPU or driver does not support the required extensions, expect worse performance.";
-            Log(Debug::Error) << mError;
-            if (!exts->glFramebufferTextureMultiviewOVR)
-                Log(Debug::Error) << "Missing extension: GL_OVR_multiview2";
-            if (!exts->glTextureView)
-                Log(Debug::Error) << "Missing extension: GL_ARB_texture_view";
-            return Misc::StereoView::Technique::BruteForce;
-#else
-            mError = std::string("Stereo method setting is \"") + stereoMethodString + "\" but this version of OpenSceneGraph does not support multiview, expect worse performance";
-            return Misc::StereoView::Technique::BruteForce;
-#endif
-        }
-        if (stereoMethodStringLowerCase == "bruteforce")
-        {
-            return Misc::StereoView::Technique::BruteForce;
-        }
-        Log(Debug::Warning) << "Unknown stereo technique \"" << stereoMethodString << "\", defaulting to BruteForce";
-        return StereoView::Technique::BruteForce;
-    }
-
-    void StereoView::initializeStereo(osgViewer::Viewer* viewer)
-    {
-        mTechnique = stereoTechniqueFromSettings();
-        mViewer = viewer;
-        mRoot = viewer->getSceneData()->asGroup();
-
-        mMainCamera = viewer->getCamera();
         auto mainCameraCB = mMainCamera->getUpdateCallback();
         mMainCamera->removeUpdateCallback(mainCameraCB);
         mMainCamera->addUpdateCallback(mUpdateCallback);
         mMainCamera->addUpdateCallback(mainCameraCB);
 
-        switch (mTechnique)
-        {
-        case Technique::BruteForce:
-            setupBruteForceTechnique();
-            break;
-        case Technique::OVR_MultiView2:
+        auto ci = gc->getState()->getContextID();
+        mMultiview = Misc::getMultiview(ci);
+
+        if(mMultiview)
             setupOVRMultiView2Technique();
-            break;
-        default:
-            break;
-        }
+        else
+            setupBruteForceTechnique();
     }
 
     void StereoView::shaderStereoDefines(Shader::ShaderManager::DefineMap& defines) const
     {
-        defines["useOVR_multiview"] = "0";
-        defines["numViews"] = "1";
-
-        if (mTechnique == Technique::OVR_MultiView2)
+        if (mMultiview)
         {
             defines["GLSLVersion"] = "330 compatibility";
             defines["useOVR_multiview"] = "1";
             defines["numViews"] = "2";
         }
+        else
+        {
+            defines["useOVR_multiview"] = "0";
+            defines["numViews"] = "1";
+        }
     }
 
     void StereoView::setStereoFramebuffer(std::shared_ptr<StereoFramebuffer> fbo)
     {
-        mStereoFramebuffer = fbo;
+        if (mMultiview)
+            fbo->attachTo(mMainCamera, StereoFramebuffer::Attachment::Layered);
     }
 
     const std::string& StereoView::error() const
@@ -437,13 +395,8 @@ namespace Misc
         mStereoShaderRoot->addCullCallback(new OVRMultiViewStereoStatesetUpdateCallback(this));
         mStereoShaderRoot->addChild(mRoot);
         mStereoRoot->addChild(mStereoShaderRoot);
-        
-        // Inject self as the root of the scene graph
-        if (mStereoFramebuffer)
-        {
-            mStereoFramebuffer->attachTo(mMainCamera, StereoFramebuffer::Attachment::Layered);
-        }
 
+        // Inject self as the root of the scene graph
         mViewer->setSceneData(mStereoRoot);
     }
 
@@ -550,7 +503,12 @@ namespace Misc
         auto frustumViewMatrix = viewMatrix * frustumView.pose.viewMatrix(true);
         auto frustumProjectionMatrix = frustumView.fov.perspectiveMatrix(near_ + nearFarOffset, far_ + nearFarOffset);
 
-        if (mTechnique == Technique::BruteForce)
+        if (mMultiview)
+        {
+            mMainCamera->setViewMatrix(frustumViewMatrix);
+            mMainCamera->setProjectionMatrix(frustumProjectionMatrix);
+        }
+        else
         {
             if (mMasterConfig->_projection == nullptr)
                 mMasterConfig->_projection = new osg::RefMatrix;
@@ -563,11 +521,6 @@ namespace Misc
                 mMasterConfig->_modelView->set(frustumViewMatrix);
                 mMasterConfig->_projection->set(frustumProjectionMatrix);
             }
-        }
-        else if (mTechnique == Technique::OVR_MultiView2)
-        {
-            mMainCamera->setViewMatrix(frustumViewMatrix);
-            mMainCamera->setProjectionMatrix(frustumProjectionMatrix);
         }
     }
 
@@ -705,5 +658,47 @@ namespace Misc
         textureArray->setWrap(osg::Texture::WRAP_T, osg::Texture::CLAMP_TO_EDGE);
         textureArray->setWrap(osg::Texture::WRAP_R, osg::Texture::CLAMP_TO_EDGE);
         return textureArray;
+    }
+
+    namespace
+    {
+        bool getMultiviewSupported(unsigned int contextID)
+        {
+#if OSG_HAS_MULTIVIEW
+            if (!Settings::Manager::getBool("multiview", "Stereo"))
+            {
+                Log(Debug::Verbose) << "Disabling Multiview (disabled by config)";
+                return false;
+            }
+
+            if (!osg::isGLExtensionSupported(contextID, "GL_OVR_multiview"))
+            {
+                Log(Debug::Verbose) << "Disabling Multiview (opengl extension \"GL_OVR_multiview\" not supported)";
+                return false;
+            }
+
+            if (!osg::isGLExtensionSupported(contextID, "GL_OVR_multiview2"))
+            {
+                Log(Debug::Verbose) << "Disabling Multiview (opengl extension \"GL_OVR_multiview2\" not supported)";
+                return false;
+            }
+
+            if (!osg::isGLExtensionOrVersionSupported(contextID, "ARB_texture_view", 4.3))
+            {
+                Log(Debug::Verbose) << "Disabling Multiview (opengl extension \"ARB_texture_view\" not supported)";
+                return false;
+            }
+
+            return true;
+#else
+            return false;
+#endif
+        }
+    }
+
+    bool getMultiview(unsigned int contextID)
+    {
+        static bool multiView = getMultiviewSupported(contextID);
+        return multiView;
     }
 }

@@ -1417,7 +1417,7 @@ True: In non-combat mode camera is positioned behind the character's shoulder. C
 		   </widget>
 		  </item>
 		  <item row="5" column="0">
-		   <widget class="QCheckBox" name="useOVRMultiView2">
+		   <widget class="QCheckBox" name="useMultiview">
 			<property name="toolTip">
 			 <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Makes OpenMW VR render stereo using the OVR_MultiView2 extension to OpenGL instead of two render passes. You may need to disable this on older GPUs. &lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
 			</property>

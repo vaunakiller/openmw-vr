@@ -52,6 +52,7 @@
 #include <components/vr/trackingmanager.hpp>
 #include <components/vr/viewer.hpp>
 #include <components/xr/instance.hpp>
+#include <components/xr/session.hpp>
 
 #include "mwinput/inputmanagerimp.hpp"
 
@@ -89,12 +90,11 @@
 
 namespace
 {
-#ifdef USE_OPENXR
     // Callback to do construction with a graphics context
-    class VRRealizeOperation : public osg::GraphicsOperation
+    class MWRealizeOperation : public osg::GraphicsOperation
     {
     public:
-        VRRealizeOperation(OMW::Engine* engine, osg::ref_ptr<osg::GraphicsOperation> nestedOp);
+        MWRealizeOperation(OMW::Engine* engine, osg::ref_ptr<osg::GraphicsOperation> nestedOp);
         void operator()(osg::GraphicsContext* gc) override;
 
     private:
@@ -102,20 +102,19 @@ namespace
         osg::ref_ptr<osg::GraphicsOperation> mNestedOp;
     };
 
-    VRRealizeOperation::VRRealizeOperation(OMW::Engine* engine, osg::ref_ptr<osg::GraphicsOperation> nestedOp)
-        : osg::GraphicsOperation("VRRealizeOperation", false)
+    MWRealizeOperation::MWRealizeOperation(OMW::Engine* engine, osg::ref_ptr<osg::GraphicsOperation> nestedOp)
+        : osg::GraphicsOperation("MWRealizeOperation", false)
         , mEngine(engine)
         , mNestedOp(nestedOp)
     {
     }
 
-    void VRRealizeOperation::operator()(osg::GraphicsContext* gc)
+    void MWRealizeOperation::operator()(osg::GraphicsContext* gc)
     {
-        mEngine->configureVR(gc);
+        mEngine->realize(gc);
         if (mNestedOp)
             mNestedOp->operator()(gc);
     }
-#endif
 
     void checkSDLError(int ret)
     {
@@ -701,14 +700,9 @@ void OMW::Engine::createWindow(Settings::Manager& settings)
     camera->setGraphicsContext(graphicsWindow);
     camera->setViewport(0, 0, graphicsWindow->getTraits()->width, graphicsWindow->getTraits()->height);
 
-    if (Debug::shouldDebugOpenGL())
-        mViewer->setRealizeOperation(new Debug::EnableGLDebugOperation());
-
-#ifdef USE_OPENXR
-    // Set up the VR realize operation, with nesting of any other realize operations.
+    // Set up the realize operation, with nesting of any other realize operations.
     osg::ref_ptr<osg::GraphicsOperation> op = dynamic_cast<osg::GraphicsOperation*>(mViewer->getRealizeOperation());
-    mViewer->setRealizeOperation(new VRRealizeOperation(this, op));
-#endif
+    mViewer->setRealizeOperation(new MWRealizeOperation(this, op));
 
     mViewer->realize();
 
@@ -744,10 +738,13 @@ void OMW::Engine::prepareEngine (Settings::Manager & settings)
     mEnvironment.setStateManager (
         new MWState::StateManager (mCfgMgr.getUserDataPath() / "saves", mContentFiles));
 
-    createWindow(settings);
+    mStereoEnabled = mEnvironment.getVrMode() || Settings::Manager::getBool("stereo enabled", "Stereo");
+    mStereoView = std::make_unique<Misc::StereoView>(mViewer);
 
-    osg::ref_ptr<osg::Group> rootNode (new osg::Group);
+    osg::ref_ptr<osg::Group> rootNode(new osg::Group);
     mViewer->setSceneData(rootNode);
+
+    createWindow(settings);
 
     mCallbackManager = std::make_unique<Misc::CallbackManager>(mViewer);
 
@@ -824,12 +821,6 @@ void OMW::Engine::prepareEngine (Settings::Manager & settings)
     else
         gameControllerdb = ""; //if it doesn't exist, pass in an empty string
 
-    if (mStereoEnabled)
-    {
-
-        mStereoView->initializeStereo(mViewer);
-    }
-
     // gui needs our shaders path before everything else
     mResourceSystem->getSceneManager()->setShaderPath((mResDir / "shaders").string());
 
@@ -885,6 +876,7 @@ void OMW::Engine::prepareEngine (Settings::Manager & settings)
 
 #ifdef USE_OPENXR
     mVrGUIManager = std::make_unique<MWVR::VRGUIManager>(mViewer, mResourceSystem.get(), rootNode);
+    mVrViewer = std::make_unique<VR::Viewer>(mXrSession, mViewer);
     mVrViewer->configureCallbacks();
     auto cullMask = ~(MWRender::VisMask::Mask_UpdateVisitor | MWRender::VisMask::Mask_SimpleWater);
     cullMask &= ~MWRender::VisMask::Mask_GUI;
@@ -1079,10 +1071,6 @@ void OMW::Engine::go()
 #ifdef USE_OPENXR
     mEnvironment.setVrMode(true);
 #endif
-
-    mStereoEnabled = mEnvironment.getVrMode() || Settings::Manager::getBool("stereo enabled", "Stereo");
-    // Instantiate the stereo view singleton before anything tries to use it
-    mStereoView = std::make_unique<Misc::StereoView>();
 
     // Setup viewer
     mViewer = new osgViewer::Viewer;
@@ -1287,11 +1275,26 @@ void OMW::Engine::setRandomSeed(unsigned int seed)
     mRandomSeed = seed;
 }
 
+void OMW::Engine::realize(osg::GraphicsContext* gc)
+{
+
+    if (Debug::shouldDebugOpenGL())
+        Debug::EnableGLDebugOperation()(gc);
+
+    if (mStereoEnabled)
+        mStereoView->initializeStereo(gc);
+
+#ifdef USE_OPENXR
+    if (mEnvironment.getVrMode())
+        configureVR(gc);
+#endif
+}
+
 #ifdef USE_OPENXR
 void OMW::Engine::configureVR(osg::GraphicsContext* gc)
 {
     mVrTrackingManager = std::make_unique<VR::TrackingManager>();
     mXrInstance = std::make_unique<XR::Instance>(gc);
-    mVrViewer = std::make_unique<VR::Viewer>(mXrInstance->createSession(), mViewer);
+    mXrSession = mXrInstance->createSession();
 }
 #endif

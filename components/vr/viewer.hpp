@@ -47,7 +47,7 @@ namespace VR
         static Viewer& instance();
 
         Viewer(
-            std::unique_ptr<VR::Session> session,
+            std::shared_ptr<VR::Session> session,
             osg::ref_ptr<osgViewer::Viewer> viewer);
 
         ~Viewer(void);
@@ -76,7 +76,7 @@ namespace VR
     private:
         std::mutex mMutex{};
 
-        std::unique_ptr<VR::Session> mSession;
+        std::shared_ptr<VR::Session> mSession;
         osg::ref_ptr<osgViewer::Viewer> mViewer;
         osg::ref_ptr<SwapBuffersCallback> mSwapBuffersCallback;
         std::shared_ptr<InitialDrawCallback> mInitialDraw;

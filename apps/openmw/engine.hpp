@@ -65,6 +65,7 @@ namespace VR
 namespace XR
 {
     class Instance;
+    class Session;
 }
 
 namespace MWVR
@@ -221,6 +222,8 @@ namespace OMW
 
             void setRandomSeed(unsigned int seed);
 
+            void realize(osg::GraphicsContext* gc);
+
 #ifdef USE_OPENXR
             void configureVR(osg::GraphicsContext* gc);
 #endif
@@ -233,6 +236,7 @@ namespace OMW
             std::unique_ptr<VR::TrackingManager> mVrTrackingManager;
             std::unique_ptr<MWVR::VRGUIManager> mVrGUIManager;
             std::unique_ptr<XR::Instance> mXrInstance;
+            std::shared_ptr<XR::Session> mXrSession;
             std::unique_ptr<VR::Viewer> mVrViewer;
 #endif
     };

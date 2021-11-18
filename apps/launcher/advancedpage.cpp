@@ -238,16 +238,7 @@ bool Launcher::AdvancedPage::loadSettings()
 
     // VR
     {
-        std::string stereoMethod = Settings::Manager::getString("stereo method", "Stereo");
-        std::string stereoMethodLowerCase = Misc::StringUtils::lowerCase(stereoMethod);
-        std::string OVR_MultiView2LowerCase = Misc::StringUtils::lowerCase("OVR_MultiView2");
-        bool useOvrMultiView2Checked = stereoMethodLowerCase == OVR_MultiView2LowerCase;
-        // OVR_multiview is the successor of geometry shader, so use it in its place.
-        // TODO: This should be removed before merge, no need to drag this history upstream.
-        std::string GeometryShaderLowerCase = Misc::StringUtils::lowerCase("GeometryShader");
-        useOvrMultiView2Checked = useOvrMultiView2Checked || (stereoMethodLowerCase == GeometryShaderLowerCase);
-        useOVRMultiView2->setChecked(useOvrMultiView2Checked);
-
+        loadSettingBool(useMultiview, "multiview", "Stereo");
         loadSettingBool(useSharedShadowMaps, "shared shadow maps", "Stereo");
         loadSettingBool(preferDirectXSwapchains, "Prefer DirectX swapchains", "VR");
         loadSettingBool(preferSRGBSwapchains, "Prefer sRGB swapchains", "VR");
@@ -432,12 +423,7 @@ void Launcher::AdvancedPage::saveSettings()
 
     // VR
     {
-        std::string stereoMethod = "BruteForce";
-        if (useOVRMultiView2->isChecked())
-            stereoMethod = "OVR_MultiView2";
-        if (stereoMethod != Settings::Manager::getString("stereo method", "Stereo"))
-            Settings::Manager::setString("stereo method", "Stereo", stereoMethod);
-
+        saveSettingBool(useMultiview, "multiview", "Stereo");
         saveSettingBool(useSharedShadowMaps, "shared shadow maps", "Stereo");
         saveSettingBool(preferDirectXSwapchains, "Prefer sRGB swapchains", "VR");
         saveSettingBool(preferSRGBSwapchains, "Prefer DirectX swapchains", "VR");
