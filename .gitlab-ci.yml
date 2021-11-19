@@ -104,27 +104,27 @@ Debian_GCC_tests_Debug:
     BUILD_TESTS_ONLY: 1
     CMAKE_BUILD_TYPE: Debug
 
-Debian_GCC_Static_Deps:
-  extends: Debian_GCC
-  cache:
-    key: Debian_GCC_Static_Deps
-    paths:
-    - apt-cache/
-    - ccache/
-    - build/extern/fetched/
-  before_script:
-    - CI/install_debian_deps.sh gcc openmw-deps openmw-deps-static openxr-deps
-  variables:
-    CI_OPENMW_USE_STATIC_DEPS: 1
-  timeout: 3h
+#Debian_GCC_Static_Deps:
+#  extends: Debian_GCC
+#  cache:
+#    key: Debian_GCC_Static_Deps
+#    paths:
+#    - apt-cache/
+#    - ccache/
+#    - build/extern/fetched/
+#  before_script:
+#    - CI/install_debian_deps.sh gcc openmw-deps openmw-deps-static openxr-deps
+#  variables:
+#    CI_OPENMW_USE_STATIC_DEPS: 1
+#  timeout: 3h
 
-Debian_GCC_Static_Deps_tests:
-  extends: Debian_GCC_Static_Deps
-  cache:
-    key: Debian_GCC_Static_Deps_tests
-  variables:
-    CCACHE_SIZE: 1G
-    BUILD_TESTS_ONLY: 1
+#Debian_GCC_Static_Deps_tests:
+#  extends: Debian_GCC_Static_Deps
+#  cache:
+#    key: Debian_GCC_Static_Deps_tests
+#  variables:
+#    CCACHE_SIZE: 1G
+#    BUILD_TESTS_ONLY: 1
 
 Debian_Clang:
   extends: .Debian
