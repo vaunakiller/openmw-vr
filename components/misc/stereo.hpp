@@ -36,8 +36,8 @@ namespace Misc
         StereoFramebuffer(int width, int height, int samples);
         ~StereoFramebuffer();
 
-        void attachColorComponent(GLint internalFormat);
-        void attachDepthComponent(GLint internalFormat);
+        void attachColorComponent(GLint sourceFormat, GLint sourceType, GLint internalFormat);
+        void attachDepthComponent(GLint sourceFormat, GLint sourceType, GLint internalFormat);
 
         osg::FrameBufferObject* layeredFbo();
         osg::FrameBufferObject* unlayeredFbo(int i);
@@ -49,7 +49,7 @@ namespace Misc
         void attachTo(osg::Camera* camera, Attachment attachment);
 
     private:
-        osg::Texture2DArray* createTextureArray(GLint internalFormat);
+        osg::Texture2DArray* createTextureArray(GLint sourceFormat, GLint sourceType, GLint internalFormat);
 
         int mWidth;
         int mHeight;
@@ -94,7 +94,7 @@ namespace Misc
         bool operator==(const FieldOfView& rhs) const;
 
         //! Generate a perspective matrix from this fov
-        osg::Matrix perspectiveMatrix(float near, float far) const;
+        osg::Matrix perspectiveMatrix(float near, float far, bool reverseZ) const;
     };
 
     //! Represents an eye including both pose and fov.
@@ -144,11 +144,11 @@ namespace Misc
         //! Set the cull callback on the appropriate camera object
         void setCullCallback(osg::ref_ptr<osg::NodeCallback> cb);
 
-        osg::Matrixd computeLeftEyeProjection(const osg::Matrixd& projection) const;
-        osg::Matrixd computeLeftEyeView(const osg::Matrixd& view) const;
+        osg::Matrixd computeLeftEyeProjection(bool allowReverseZ) const;
+        osg::Matrixd computeLeftEyeView() const;
 
-        osg::Matrixd computeRightEyeProjection(const osg::Matrixd& projection) const;
-        osg::Matrixd computeRightEyeView(const osg::Matrixd& view) const;
+        osg::Matrixd computeRightEyeProjection(bool allowReverseZ) const;
+        osg::Matrixd computeRightEyeView() const;
 
         void shaderStereoDefines(Shader::ShaderManager::DefineMap& defines) const;
 
@@ -172,12 +172,12 @@ namespace Misc
         bool                            mMultiview;
 
         // Stereo matrices
+        View                        mLeftView;
         osg::Matrix                 mLeftViewMatrix;
         osg::Matrix                 mLeftViewOffsetMatrix;
-        osg::Matrix                 mLeftProjectionMatrix;
+        View                        mRightView;
         osg::Matrix                 mRightViewMatrix;
         osg::Matrix                 mRightViewOffsetMatrix;
-        osg::Matrix                 mRightProjectionMatrix;
 
         // Keeps state relevant to OVR_MultiView2
         osg::ref_ptr<osg::Group>    mStereoShaderRoot = new osg::Group;

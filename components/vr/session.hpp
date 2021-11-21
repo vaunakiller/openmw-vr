@@ -53,11 +53,15 @@ namespace VR
 
         bool appShouldShareDepthInfo() const { return mAppShouldShareDepthBuffer; };
 
-        virtual VR::Swapchain* createSwapchain(uint32_t width, uint32_t height, uint32_t samples, SwapchainUse use, const std::string& name) = 0;
+        virtual VR::Swapchain* createSwapchain(uint32_t width, uint32_t height, uint32_t samples, SwapchainUse use, const std::string& name, int64_t preferredFormat = 0) = 0;
 
         virtual std::array<Misc::View, 2> getPredictedViews(int64_t predictedDisplayTime, VR::ReferenceSpace space) = 0;
 
         virtual std::array<SwapchainConfig, 2> getRecommendedSwapchainConfig() const = 0;
+
+        virtual bool runtimeSupportsFormat(int64_t format) const = 0;
+
+        void setAppShouldShareDepthBuffer(bool arg) { mAppShouldShareDepthBuffer = arg; }
 
     protected:
         void setSeatedPlay(bool seatedPlay);
@@ -77,8 +81,6 @@ namespace VR
         //! Called once immediately after render work is complete.
         //! This is where OpenXR implementations must call xrEndFrame()
         virtual void syncFrameEnd(VR::Frame& frame) = 0;
-
-        void setAppShouldShareDepthBuffer(bool arg) { mAppShouldShareDepthBuffer = arg; }
 
     private:
 

@@ -442,9 +442,9 @@ namespace XR
         }
     }
 
-    VR::Swapchain* Session::createSwapchain(uint32_t width, uint32_t height, uint32_t samples, VR::SwapchainUse use, const std::string& name)
+    VR::Swapchain* Session::createSwapchain(uint32_t width, uint32_t height, uint32_t samples, VR::SwapchainUse use, const std::string& name, int64_t preferredFormat)
     {
-        return Instance::instance().platform().createSwapchain(width, height, samples, use, name);
+        return Instance::instance().platform().createSwapchain(width, height, samples, use, name, preferredFormat);
     }
 
     bool Session::xrNextEvent(XrEventDataBuffer& eventBuffer)
@@ -582,6 +582,11 @@ namespace XR
         }
 
         return configs;
+    }
+
+    bool Session::runtimeSupportsFormat(int64_t format) const
+    {
+        return Instance::instance().platform().runtimeSupportsFormat(format);
     }
 }
 

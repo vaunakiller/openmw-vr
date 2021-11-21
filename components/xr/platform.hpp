@@ -27,13 +27,14 @@ namespace XR
         void selectGraphicsAPIExtension();
         XrSession createXrSession(XrInstance instance, XrSystemId systemId);
 
-        int64_t selectColorFormat();
-        int64_t selectDepthFormat();
-        int64_t selectFormat(const std::vector<int64_t>& requestedFormats);
+        int64_t selectColorFormat(int64_t preferredFormat);
+        int64_t selectDepthFormat(int64_t preferredFormat);
+        int64_t selectFormat(int64_t preferredFormat, const std::vector<int64_t>& requestedFormats);
         void eraseFormat(int64_t format);
+        bool runtimeSupportsFormat(int64_t format) const;
         std::vector<int64_t> mSwapchainFormats{};
 
-        VR::Swapchain* createSwapchain(uint32_t width, uint32_t height, uint32_t samples, VR::SwapchainUse use, const std::string& name);
+        VR::Swapchain* createSwapchain(uint32_t width, uint32_t height, uint32_t samples, VR::SwapchainUse use, const std::string& name, int64_t preferredFormat = 0);
 
     private:
         bool selectDirectX();

@@ -263,7 +263,7 @@ namespace XR
                 0x18 , // DXGI_FORMAT_R10G10B10A2_UNORM
     */
 
-    int64_t Platform::selectColorFormat()
+    int64_t Platform::selectColorFormat(int64_t preferredFormat)
     {
         if (KHR_opengl_enable.enabled())
         {
@@ -281,7 +281,7 @@ namespace XR
             requestedColorSwapchainFormats.push_back(0x881B); // GL_RGB16F
             requestedColorSwapchainFormats.push_back(0x8C3A); // GL_R11F_G11F_B10F
 
-            return selectFormat(requestedColorSwapchainFormats);
+            return selectFormat(preferredFormat, requestedColorSwapchainFormats);
         }
 #ifdef XR_USE_GRAPHICS_API_D3D11
         else if (KHR_D3D11_enable.enabled())
@@ -299,7 +299,7 @@ namespace XR
             requestedColorSwapchainFormats.push_back(0xa); // DXGI_FORMAT_R16G16B16A16_FLOAT
             requestedColorSwapchainFormats.push_back(0x18); // DXGI_FORMAT_R10G10B10A2_UNORM
 
-            return selectFormat(requestedColorSwapchainFormats);
+            return selectFormat(preferredFormat, requestedColorSwapchainFormats);
         }
 #endif
         else
@@ -309,7 +309,7 @@ namespace XR
 
     }
 
-    int64_t Platform::selectDepthFormat()
+    int64_t Platform::selectDepthFormat(int64_t preferredFormat)
     {
         if (KHR_opengl_enable.enabled())
         {
@@ -324,7 +324,7 @@ namespace XR
                 // Need 32bit minimum: // 0x81A5, // GL_DEPTH_COMPONENT16
             };
 
-            return selectFormat(requestedDepthSwapchainFormats);
+            return selectFormat(preferredFormat, requestedDepthSwapchainFormats);
         }
 #ifdef XR_USE_GRAPHICS_API_D3D11
         else if (KHR_D3D11_enable.enabled())
@@ -336,7 +336,7 @@ namespace XR
                 0x28, // DXGI_FORMAT_D32_FLOAT
                 // Need 32bit minimum: 0x37, // DXGI_FORMAT_D16_UNORM
             };
-            return selectFormat(requestedDepthSwapchainFormats);
+            return selectFormat(preferredFormat, requestedDepthSwapchainFormats);
         }
 #endif
         else
@@ -357,8 +357,66 @@ namespace XR
         }
     }
 
-    int64_t Platform::selectFormat(const std::vector<int64_t>& requestedFormats)
+    int64_t openGLFormatToDirectXFormat(int64_t format)
     {
+        if (KHR_D3D11_enable.enabled())
+        {
+            switch (format)
+            {
+            case 0x8C43: // GL_SRGB8_ALPHA8
+                return 0x1d; // DXGI_FORMAT_R8G8B8A8_UNORM_SRGB
+            case 0x8058: // GL_RGBA8
+                return 0x1c; // DXGI_FORMAT_R8G8B8A8_UNORM
+            case 0x8F97: // GL_RGBA8_SNORM
+                return 0x1f; // DXGI_FORMAT_R8G8B8A8_UNORM_SRGB 
+            case 0x881A: // GL_RGBA16F
+                return 0xa; // DXGI_FORMAT_R8G8B8A8_UNORM_SRGB 
+            case 0x8CAC: // GL_DEPTH_COMPONENT32F
+            case 0x8DAB: // GL_DEPTH_COMPONENT32F_NV
+                return 0x28; // DXGI_FORMAT_D32_FLOAT
+            default:
+                return 0;
+            }
+        }
+
+        return 0;
+    }
+
+    bool Platform::runtimeSupportsFormat(int64_t format) const
+    {
+        if (KHR_D3D11_enable.enabled())
+        {
+            format = openGLFormatToDirectXFormat(format);
+            if (format == 0)
+                return false;
+        }
+
+        auto it =
+            std::find(mSwapchainFormats.begin(), mSwapchainFormats.end(), format);
+        if (it == std::end(mSwapchainFormats))
+        {
+            return false;
+        }
+        return *it;
+    }
+
+    int64_t Platform::selectFormat(int64_t preferredFormat, const std::vector<int64_t>& requestedFormats)
+    {
+        if (KHR_D3D11_enable.enabled())
+        {
+            preferredFormat = openGLFormatToDirectXFormat(preferredFormat);
+        }
+
+        if (preferredFormat != 0)
+        {
+            auto it =
+                std::find(mSwapchainFormats.begin(), mSwapchainFormats.end(), preferredFormat);
+            if (it != std::end(mSwapchainFormats))
+            {
+                return *it;
+            }
+        }
+
         auto it =
             std::find_first_of(std::begin(requestedFormats), std::end(requestedFormats),
                 mSwapchainFormats.begin(), mSwapchainFormats.end());
@@ -414,7 +472,7 @@ namespace XR
     }
 #endif
 
-    VR::Swapchain* Platform::createSwapchain(uint32_t width, uint32_t height, uint32_t samples, VR::SwapchainUse use, const std::string& name)
+    VR::Swapchain* Platform::createSwapchain(uint32_t width, uint32_t height, uint32_t samples, VR::SwapchainUse use, const std::string& name, int64_t preferredFormat)
     {
         std::string typeString = use == VR::SwapchainUse::Color ? "color" : "depth";
 
@@ -437,9 +495,9 @@ namespace XR
         {
             // Select a swapchain format.
             if (use == VR::SwapchainUse::Color)
-                format = selectColorFormat();
+                format = selectColorFormat(preferredFormat);
             else
-                format = selectDepthFormat();
+                format = selectDepthFormat(preferredFormat);
             if (format == 0) {
                 throw std::runtime_error(std::string("Swapchain ") + typeString + " format not supported");
             }

@@ -108,14 +108,14 @@ namespace MWRender
         {
             auto* uProjectionMatrix = stateset->getUniform("projectionMatrix");
             if (uProjectionMatrix)
-                uProjectionMatrix->set(Misc::StereoView::instance().computeLeftEyeProjection(mProjectionMatrix));
+                uProjectionMatrix->set(Misc::StereoView::instance().computeLeftEyeProjection(true));
         }
 
         void applyRight(osg::StateSet* stateset, osgUtil::CullVisitor* nv) override
         {
             auto* uProjectionMatrix = stateset->getUniform("projectionMatrix");
             if (uProjectionMatrix)
-                uProjectionMatrix->set(Misc::StereoView::instance().computeRightEyeProjection(mProjectionMatrix));
+                uProjectionMatrix->set(Misc::StereoView::instance().computeRightEyeProjection(true));
         }
 
         void setProjectionMatrix(const osg::Matrixf& projectionMatrix)

@@ -46,6 +46,8 @@ namespace XR
 
         std::array<VR::SwapchainConfig, 2> getRecommendedSwapchainConfig() const override;
 
+        bool runtimeSupportsFormat(int64_t format) const override;
+
     protected:
         void newFrame(uint64_t frameNo, bool& shouldSyncFrame, bool& shouldSyncInput) override;
         void syncFrameUpdate(uint64_t frameNo, bool& shouldRender, uint64_t& predictedDisplayTime, uint64_t& predictedDisplayPeriod) override;
@@ -74,7 +76,7 @@ namespace XR
 
         void destroyXrSession();
 
-        VR::Swapchain* createSwapchain(uint32_t width, uint32_t height, uint32_t samples, VR::SwapchainUse use, const std::string& name) override;
+        VR::Swapchain* createSwapchain(uint32_t width, uint32_t height, uint32_t samples, VR::SwapchainUse use, const std::string& name, int64_t preferredFormat) override;
 
     private:
         XrSession mXrSession;

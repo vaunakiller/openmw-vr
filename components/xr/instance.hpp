@@ -40,9 +40,6 @@ namespace XR
         XrInstance xrInstance() const { return mXrInstance; };
         XrSystemId xrSystemId() const { return mSystemId; };
         PFN_xrVoidFunction xrGetFunction(const std::string& name);
-        int64_t selectColorFormat();
-        int64_t selectDepthFormat();
-        void eraseFormat(int64_t format);
         XR::Platform& platform();
 
         std::shared_ptr<XR::Session> createSession();

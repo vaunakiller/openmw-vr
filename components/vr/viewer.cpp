@@ -17,6 +17,7 @@
 #include <components/vr/session.hpp>
 #include <components/vr/trackingmanager.hpp>
 
+#include <components/sceneutil/util.hpp>
 #include <components/sdlutil/sdlgraphicswindow.hpp>
 
 #include <cassert>
@@ -151,6 +152,24 @@ namespace VR
         else
             throw std::logic_error("Duplicated VR::Viewer singleton");
 
+        int depthFormat = GL_DEPTH_COMPONENT24;
+        int depthType = GL_FLOAT;
+
+        osg::GraphicsContext* gc = viewer->getCamera()->getGraphicsContext();
+        unsigned int contextID = gc->getState()->getContextID();
+        if (osg::isGLExtensionSupported(contextID, "GL_ARB_depth_buffer_float") && session->runtimeSupportsFormat(GL_DEPTH_COMPONENT32F))
+        {
+            depthFormat = GL_DEPTH_COMPONENT32F;
+        }
+        else if (osg::isGLExtensionSupported(contextID, "GL_NV_depth_buffer_float") && session->runtimeSupportsFormat(GL_DEPTH_COMPONENT32F_NV))
+        {
+            depthFormat = GL_DEPTH_COMPONENT32F_NV;
+        }
+
+        session->setAppShouldShareDepthBuffer(session->runtimeSupportsFormat(depthFormat));
+
+        depthType = SceneUtil::isFloatingPointDepthFormat(depthFormat) ? GL_FLOAT : GL_UNSIGNED_INT;
+
         // Read swapchain configs
         std::array<std::string, 2> xConfString;
         std::array<std::string, 2> yConfString;
@@ -182,7 +201,7 @@ namespace VR
 
             if (mSession->appShouldShareDepthInfo())
             {
-                mDepthSwapchain[i].reset(VR::Session::instance().createSwapchain(width, height, samples, VR::SwapchainUse::Depth, viewNames[i]));
+                mDepthSwapchain[i].reset(VR::Session::instance().createSwapchain(width, height, samples, VR::SwapchainUse::Depth, viewNames[i], depthFormat));
             }
 
             mSubImages[i].width = width;
@@ -199,8 +218,8 @@ namespace VR
             Log(Debug::Warning) << "Not implemented";
 
         mStereoFramebuffer.reset(new Misc::StereoFramebuffer(mFramebufferWidth, mFramebufferHeight, renderbufferSamples));
-        mStereoFramebuffer->attachColorComponent(GL_RGBA);
-        mStereoFramebuffer->attachDepthComponent(GL_DEPTH_COMPONENT);
+        mStereoFramebuffer->attachColorComponent(GL_RGB, GL_UNSIGNED_BYTE, GL_RGB);
+        mStereoFramebuffer->attachDepthComponent(GL_DEPTH_COMPONENT, depthType, depthFormat);
         Misc::StereoView::instance().setStereoFramebuffer(mStereoFramebuffer);
         mViewer->getCamera()->setViewport(0, 0, mFramebufferWidth, mFramebufferHeight);
 
@@ -210,7 +229,7 @@ namespace VR
         mMsaaResolveTexture->setTextureSize(mFramebufferWidth, mFramebufferHeight);
         mMsaaResolveTexture->setInternalFormat(GL_RGB);
         mMsaaResolveFramebuffer->setAttachment(osg::Camera::COLOR_BUFFER, osg::FrameBufferAttachment(mMsaaResolveTexture));
-        mMsaaResolveFramebuffer->setAttachment(osg::Camera::DEPTH_BUFFER, osg::FrameBufferAttachment(new osg::RenderBuffer(mFramebufferWidth, mFramebufferHeight, GL_DEPTH_COMPONENT24, 0)));
+        mMsaaResolveFramebuffer->setAttachment(osg::Camera::DEPTH_BUFFER, osg::FrameBufferAttachment(new osg::RenderBuffer(mFramebufferWidth, mFramebufferHeight, depthFormat, 0)));
 
         // The gamma resolve framebuffer will be used to write the result of gamma post-processing.
         mGammaResolveFramebuffer = new osg::FrameBufferObject();

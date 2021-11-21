@@ -245,23 +245,6 @@ namespace XR
         return function;
     }
 
-    int64_t Instance::selectColorFormat()
-    {
-        // Find supported color swapchain format.
-        return mPlatform->selectColorFormat();
-    }
-
-    int64_t Instance::selectDepthFormat()
-    {
-        // Find supported depth swapchain format.
-        return mPlatform->selectDepthFormat();
-    }
-
-    void Instance::eraseFormat(int64_t format)
-    {
-        mPlatform->eraseFormat(format);
-    }
-
     Platform& Instance::platform()
     {
         return *mPlatform;
