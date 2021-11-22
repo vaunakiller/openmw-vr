@@ -452,8 +452,12 @@ namespace MWVR
         float charHeight = charHeightBase * charHeightFactor;
         float realHeight = Settings::Manager::getFloat("real height", "VR");
         float sizeFactor = charHeight / realHeight;
+        float eyeLevel = charHeight * 0.8375f; // approximation
         VR::Session::instance().setPlayerScale(sizeFactor);
-        VR::Session::instance().setEyeLevel(charHeight*0.8375f); // approximation
+        VR::Session::instance().setEyeLevel(eyeLevel);
+        Log(Debug::Verbose) << "Calculated character height: " << charHeight;
+        Log(Debug::Verbose) << "Calculated player scale: " << sizeFactor;
+        Log(Debug::Verbose) << "Approximated eye level: " << eyeLevel;
     }
 
     float VRAnimation::getVelocity(const std::string& groupname) const

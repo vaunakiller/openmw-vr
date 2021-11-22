@@ -1,6 +1,7 @@
 #include "trackingsource.hpp"
 #include "trackingmanager.hpp"
 #include "frame.hpp"
+#include "session.hpp"
 
 #include <components/debug/debuglog.hpp>
 #include <components/misc/constants.hpp>
@@ -94,7 +95,7 @@ namespace VR
         auto stagePose = TrackingManager::instance().locate(it->second, predictedDisplayTime);
 
         auto worldPose = stagePose;
-        worldPose.pose.position *= mPlayerScale;
+        worldPose.pose.position *= Session::instance().playerScale();
         worldPose.pose.position *= Constants::UnitsPerMeter;
         worldPose.pose.position -= mLastPose.pose.position;
         worldPose.pose.position = mOrientation * worldPose.pose.position;

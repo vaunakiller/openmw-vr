@@ -65,9 +65,6 @@ namespace VR
         void setSeatedPlay(bool seatedPlay) { mSeatedPlay = seatedPlay; }
         bool getSeatedPlay() const { return mSeatedPlay; }
 
-        void setPlayerScale(float scale) { mPlayerScale = scale; }
-        bool getPlayerScale() const { return mPlayerScale; }
-
         //! The player's movement within the VR stage. This accumulates until the movement has been consumed by calling consumeMovement()
         osg::Vec3 movement() const { return mMovement; }
 
@@ -103,7 +100,6 @@ namespace VR
         bool mSeatedPlay = false;
         bool mHasTrackingData = false;
         float mEyeLevel = 0.f;
-        float mPlayerScale = 1.f;
         Misc::Pose mOriginWorldPose = Misc::Pose();
         TrackingPose mLastPose = VR::TrackingPose();
         osg::Vec3 mMovement = osg::Vec3(0, 0, 0);
