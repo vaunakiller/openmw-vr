@@ -91,6 +91,7 @@ namespace MWVR
         stageToWorldBinding->recenter(mShouldResetZ);
 
         mShouldRecenter = false;
+        mShouldResetZ = false;
         Log(Debug::Verbose) << "Recentered";
     }
 

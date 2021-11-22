@@ -446,9 +446,8 @@ namespace MWVR
         bool isMale = ref->mBase->isMale();
         float charHeightFactor = isMale ? race->mData.mHeight.mMale : race->mData.mHeight.mFemale;
         // Supposedly this is roughly the height of a 1.0 height race in meters.
-        //float charHeightBase = 1.8288f; 
-        // However, this is what gets me to eye level with them and must be closer to the correct value.
-        float charHeightBase = 1.975f;
+        //float charHeightBase = 1.8288f;
+        float charHeightBase = Settings::Manager::getFloat("character base height", "VR Debug");
         float charHeight = charHeightBase * charHeightFactor;
         float realHeight = Settings::Manager::getFloat("real height", "VR");
         float sizeFactor = charHeight / realHeight;
