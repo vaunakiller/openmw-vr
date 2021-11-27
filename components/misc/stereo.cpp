@@ -575,7 +575,6 @@ namespace Misc
         , mColorTextureArray()
         , mDepthTextureArray()
     {
-        (void)mSamples;
     }
 
     StereoFramebuffer::~StereoFramebuffer()
@@ -635,9 +634,16 @@ namespace Misc
                 break;
             }
 
-            camera->attach(osg::Camera::COLOR_BUFFER, mColorTextureArray, 0, level);
+            camera->attach(osg::Camera::COLOR_BUFFER, mColorTextureArray, 0, level, false, mSamples);
+            camera->getBufferAttachmentMap()[osg::Camera::COLOR_BUFFER]._internalFormat = mColorTextureArray->getInternalFormat();
+            camera->getBufferAttachmentMap()[osg::Camera::COLOR_BUFFER]._mipMapGeneration = false;
             if (mDepthTextureArray)
-                camera->attach(osg::Camera::DEPTH_BUFFER, mDepthTextureArray, 0, level);
+            {
+                camera->attach(osg::Camera::DEPTH_BUFFER, mDepthTextureArray, 0, level, false, mSamples);
+                // OSG does not initialize this itself, but tries to use it to determine the internal format to use for the multisampled fbo.
+                camera->getBufferAttachmentMap()[osg::Camera::DEPTH_BUFFER]._internalFormat = mDepthTextureArray->getInternalFormat();
+                camera->getBufferAttachmentMap()[osg::Camera::DEPTH_BUFFER]._mipMapGeneration = false;
+            }
 
             camera->setRenderTargetImplementation(osg::Camera::FRAME_BUFFER_OBJECT);
         }
@@ -686,6 +692,8 @@ namespace Misc
                 Log(Debug::Verbose) << "Disabling Multiview (opengl extension \"ARB_texture_view\" not supported)";
                 return false;
             }
+
+            Log(Debug::Verbose) << "Enabling Multiview";
 
             return true;
 #else
