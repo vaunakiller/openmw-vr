@@ -85,9 +85,8 @@ namespace VR
         std::shared_ptr<UpdateViewCallback> mUpdateViewCallback;
         bool mCallbacksConfigured{ false };
 
-        osg::ref_ptr<osg::FrameBufferObject> mMirrorFramebuffer;
+        //osg::ref_ptr<osg::FrameBufferObject> mMirrorFramebuffer;
         std::vector<VR::Side> mMirrorTextureViews;
-        bool mMirrorTextureShouldBeCleanedUp{ false };
         bool mMirrorTextureEnabled{ false };
         bool mFlipMirrorTextureOrder{ false };
         MirrorTextureEye mMirrorTextureEye{ MirrorTextureEye::Both };

@@ -280,7 +280,6 @@ namespace VR
         mMirrorTextureEnabled = Settings::Manager::getBool("mirror texture", "VR");
         mMirrorTextureEye = mirrorTextureEyeFromString(Settings::Manager::getString("mirror texture eye", "VR"));
         mFlipMirrorTextureOrder = Settings::Manager::getBool("flip mirror texture order", "VR");
-        mMirrorTextureShouldBeCleanedUp = true;
 
         mMirrorTextureViews.clear();
         if (mMirrorTextureEye == MirrorTextureEye::Left || mMirrorTextureEye == MirrorTextureEye::Both)
@@ -480,48 +479,23 @@ namespace VR
     {
         auto* gl = osg::GLExtensions::Get(state->getContextID(), false);
 
-        if (mMirrorTextureShouldBeCleanedUp)
-        {
-            // If mirror texture configuration has changed, just delete the existing mirror texture.
-            if (mMirrorFramebuffer)
-                mMirrorFramebuffer->releaseGLObjects(state);
-            mMirrorFramebuffer = nullptr;
-            mMirrorTextureShouldBeCleanedUp = false;
-        }
-
         auto* traits = SDLUtil::GraphicsWindowSDL2::findContext(*mViewer)->getTraits();
         int screenWidth = traits->width;
         int screenHeight = traits->height;
 
-        if (mMirrorTextureEnabled)
+        // Compute the dimensions of each eye on the mirror texture.
+        int dstWidth = screenWidth / mMirrorTextureViews.size();
+
+        // Blit each eye
+        // Which eye is blitted left/right is determined by which order left/right was added to mMirrorTextureViews
+        int dstX = 0;
+        gl->glBindFramebuffer(GL_FRAMEBUFFER_EXT, 0);
+        mGammaResolveFramebuffer->apply(*state, osg::FrameBufferObject::READ_FRAMEBUFFER);
+        for (auto viewId : mMirrorTextureViews)
         {
-            // Since OpenXR does not include native support for mirror textures, we have to generate them ourselves
-            if (!mMirrorFramebuffer)
-            {
-                // Create the mirror texture framebuffer if it doesn't exist yet
-                mMirrorFramebuffer = new osg::FrameBufferObject();
-                mMirrorFramebuffer->setAttachment(osg::Camera::COLOR_BUFFER, osg::FrameBufferAttachment(new osg::RenderBuffer(screenWidth, screenHeight, GL_RGB, 0)));
-            }
-
-            // Compute the dimensions of each eye on the mirror texture.
-            int dstWidth = screenWidth / mMirrorTextureViews.size();
-
-            // Blit each eye
-            // Which eye is blitted left/right is determined by which order left/right was added to mMirrorTextureViews
-            int dstX = 0;
-            mMirrorFramebuffer->apply(*state, osg::FrameBufferObject::DRAW_FRAMEBUFFER);
-            mGammaResolveFramebuffer->apply(*state, osg::FrameBufferObject::READ_FRAMEBUFFER);
-            for (auto viewId : mMirrorTextureViews)
-            {
-                if(viewId == static_cast<unsigned int>(i))
-                    gl->glBlitFramebuffer(0, 0, mFramebufferWidth, mFramebufferHeight, dstX, 0, dstX + dstWidth, screenHeight, GL_COLOR_BUFFER_BIT, GL_LINEAR);
-                dstX += dstWidth;
-            }
-
-            // Blit mirror texture to back buffer / window
-            gl->glBindFramebuffer(GL_FRAMEBUFFER_EXT, 0);
-            mMirrorFramebuffer->apply(*state, osg::FrameBufferObject::READ_FRAMEBUFFER);
-            gl->glBlitFramebuffer(0, 0, screenWidth, screenHeight, 0, 0, screenWidth, screenHeight, GL_COLOR_BUFFER_BIT, GL_NEAREST);
+            if(viewId == static_cast<unsigned int>(i))
+                gl->glBlitFramebuffer(0, 0, mFramebufferWidth, mFramebufferHeight, dstX, 0, dstX + dstWidth, screenHeight, GL_COLOR_BUFFER_BIT, GL_LINEAR);
+            dstX += dstWidth;
         }
     }
 
@@ -562,7 +536,8 @@ namespace VR
             auto src = mStereoFramebuffer->unlayeredFbo(i);
             resolveMSAA(state, src);
             resolveGamma(info);
-            blitMirrorTexture(state, i);
+            if (mMirrorTextureEnabled)
+                blitMirrorTexture(state, i);
             blitXrFramebuffer(state, i);
         }
 
