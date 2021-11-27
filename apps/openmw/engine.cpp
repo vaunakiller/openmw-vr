@@ -598,6 +598,9 @@ void OMW::Engine::createWindow(Settings::Manager& settings)
     bool windowBorder = settings.getBool("window border", "Video");
     bool vsync = settings.getBool("vsync", "Video");
     unsigned int antialiasing = std::max(0, settings.getInt("antialiasing", "Video"));
+    if (mEnvironment.getVrMode())
+        // MSAA needs to happen in offscreen buffers.
+        antialiasing = 0;
 
     int pos_x = SDL_WINDOWPOS_CENTERED_DISPLAY(screen),
         pos_y = SDL_WINDOWPOS_CENTERED_DISPLAY(screen);
