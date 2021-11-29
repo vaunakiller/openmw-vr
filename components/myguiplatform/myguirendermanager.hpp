@@ -56,7 +56,6 @@ class RenderManager : public MyGUI::RenderManager
     osg::ref_ptr<osgViewer::Viewer> mViewer;
     osg::ref_ptr<osg::StateSet> mGuiStateSet;
     osg::ref_ptr<osg::Group> mSceneRoot;
-    std::set<GUICamera*> mGuiCameras;
     Resource::ImageManager* mImageManager;
     MyGUI::IntSize mViewSize;
 
@@ -124,7 +123,6 @@ public:
 #endif
 
     osg::ref_ptr<osg::Camera> createGUICamera(int order, std::string layerFilter);
-    void deleteGUICamera(GUICamera* camera);
 };
 
 }

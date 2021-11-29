@@ -355,6 +355,11 @@ osg::VertexBufferObject* OSGVertexBuffer::getVertexBuffer()
 }
 
 // ---------------------------------------------------------------------------
+class GuiCameraUpdate : public SceneUtil::NodeCallback<GuiCameraUpdate, GUICamera*>
+{
+public:
+    void operator()(GUICamera* camera, osg::NodeVisitor*);
+};
 
 /// Camera used to draw a MyGUI layer
 class GUICamera : public osg::Camera, public StateInjectableRenderTarget
@@ -377,11 +382,11 @@ public:
         mDrawable->setDataVariance(osg::Object::STATIC);
         addChild(mDrawable.get());
         mDrawable->setCullingActive(false);
+        setUpdateCallback(new GuiCameraUpdate);
     }
 
     ~GUICamera()
     {
-        mParent->deleteGUICamera(this);
     }
     // Called by the cull traversal
     /** @see IRenderTarget::begin */
@@ -399,12 +404,19 @@ public:
 
     void setViewSize(MyGUI::IntSize viewSize);
 
+    void update();
+
     RenderManager* mParent;
     osg::ref_ptr<Drawable> mDrawable;
     MyGUI::RenderTargetInfo mInfo;
     bool mUpdate;
     std::string mFilter;
 };
+
+void GuiCameraUpdate::operator()(GUICamera* camera, osg::NodeVisitor*)
+{
+    camera->update();
+}
 
 void GUICamera::begin()
 {
@@ -418,6 +430,8 @@ void Drawable::CollectDrawCalls::operator()(osg::Node*, osg::NodeVisitor*)
     {
         if (!mCamera)
             return;
+
+        mCamera->update();
 
         if (mFilter.empty())
             mCamera->collectDrawCalls();
@@ -445,7 +459,6 @@ RenderManager::~RenderManager()
 {
     MYGUI_PLATFORM_LOG(Info, "* Shutdown: "<<getClassTypeName());
 
-    shutdown();
     destroyAllResources();
 
     mSceneRoot = nullptr;
@@ -481,12 +494,6 @@ void RenderManager::initialise()
 
 void RenderManager::shutdown()
 {
-    for (auto guiCamera : mGuiCameras)
-    {
-        guiCamera->removeChildren(0, guiCamera->getNumChildren());
-        mSceneRoot->removeChild(guiCamera);
-    }
-    mGuiCameras.clear();
 }
 
 void RenderManager::enableShaders(Shader::ShaderManager& shaderManager)
@@ -594,6 +601,7 @@ void GUICamera::collectDrawCalls(std::string filter)
 
 void GUICamera::setViewSize(MyGUI::IntSize viewSize)
 {
+    setViewport(0, 0, viewSize.width, viewSize.height);
     mInfo.maximumDepth = 1;
     mInfo.hOffset = 0;
     mInfo.vOffset = 0;
@@ -603,36 +611,27 @@ void GUICamera::setViewSize(MyGUI::IntSize viewSize)
     mUpdate = true;
 }
 
+void GUICamera::update()
+{
+    auto viewSize = mParent->getViewSize();
+    auto viewport = getViewport();
+    if(!viewport || viewport->width() != viewSize.width || viewport->height() != viewSize.height)
+        setViewSize(viewSize);
+}
+
 void RenderManager::setViewSize(int width, int height)
 {
     if(width < 1) width = 1;
     if(height < 1) height = 1;
 
     mViewSize.set(width * mInvScalingFactor, height * mInvScalingFactor);
-
-    for (auto* camera : mGuiCameras)
-    {
-        GUICamera* guiCamera = static_cast<GUICamera*>(camera);
-        guiCamera->setViewport(0, 0, width, height);
-        guiCamera->setViewSize(mViewSize);
-    }
     onResizeView(mViewSize);
 }
 
 osg::ref_ptr<osg::Camera> RenderManager::createGUICamera(int order, std::string layerFilter)
 {
-    osg::ref_ptr<GUICamera> camera = new GUICamera(static_cast<osg::Camera::RenderOrder>(order), mGuiStateSet, this, layerFilter);
-    mGuiCameras.insert(camera);
-    camera->setViewport(0, 0, mViewSize.width, mViewSize.height);
-    camera->setViewSize(mViewSize);
-    return camera;
+    return new GUICamera(static_cast<osg::Camera::RenderOrder>(order), mGuiStateSet, this, layerFilter);
 }
-
-void RenderManager::deleteGUICamera(GUICamera* camera)
-{
-    mGuiCameras.erase(camera);
-}
-
 
 bool RenderManager::isFormatSupported(MyGUI::PixelFormat /*format*/, MyGUI::TextureUsage /*usage*/)
 {
