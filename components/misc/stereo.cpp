@@ -3,6 +3,8 @@
 #include "callbackmanager.hpp"
 
 #include <osg/io_utils>
+#include <osg/Texture2D>
+#include <osg/Texture2DMultisample>
 #include <osg/Texture2DArray>
 
 #include <osgUtil/CullVisitor>
@@ -333,8 +335,7 @@ namespace Misc
 
     void StereoView::setStereoFramebuffer(std::shared_ptr<StereoFramebuffer> fbo)
     {
-        if (mMultiview)
-            fbo->attachTo(mMainCamera, StereoFramebuffer::Attachment::Layered);
+        fbo->attachTo(mMainCamera);
     }
 
     const std::string& StereoView::error() const
@@ -570,10 +571,9 @@ namespace Misc
         : mWidth(width)
         , mHeight(height)
         , mSamples(samples)
-        , mLayeredFbo(new osg::FrameBufferObject)
-        , mUnlayeredFbo{ new osg::FrameBufferObject , new osg::FrameBufferObject }
-        , mColorTextureArray()
-        , mDepthTextureArray()
+        , mMultiview(StereoView::instance().getMultiview())
+        , mMultiviewFbo{ new osg::FrameBufferObject }
+        , mFbo{ new osg::FrameBufferObject, new osg::FrameBufferObject }
     {
     }
 
@@ -583,70 +583,127 @@ namespace Misc
 
     void StereoFramebuffer::attachColorComponent(GLint sourceFormat, GLint sourceType, GLint internalFormat)
     {
-        mColorTextureArray = createTextureArray(sourceFormat, sourceType, internalFormat);
+        if (mMultiview)
+        {
 #ifdef OSG_HAS_MULTIVIEW
-        mLayeredFbo->setAttachment(osg::Camera::COLOR_BUFFER, osg::FrameBufferAttachment(mColorTextureArray, osg::Camera::FACE_CONTROLLED_BY_MULTIVIEW_SHADER, 0));
+            mMultiviewColorTexture = createTextureArray(sourceFormat, sourceType, internalFormat);
+            mMultiviewFbo->setAttachment(osg::Camera::COLOR_BUFFER, osg::FrameBufferAttachment(mMultiviewColorTexture, osg::Camera::FACE_CONTROLLED_BY_MULTIVIEW_SHADER, 0));
+            mFbo[0]->setAttachment(osg::Camera::COLOR_BUFFER, osg::FrameBufferAttachment(mMultiviewColorTexture, 0, 0));
+            mFbo[1]->setAttachment(osg::Camera::COLOR_BUFFER, osg::FrameBufferAttachment(mMultiviewColorTexture, 1, 0));
 #endif
-        mUnlayeredFbo[0]->setAttachment(osg::Camera::COLOR_BUFFER, osg::FrameBufferAttachment(mColorTextureArray, 0, 0));
-        mUnlayeredFbo[1]->setAttachment(osg::Camera::COLOR_BUFFER, osg::FrameBufferAttachment(mColorTextureArray, 1, 0));
+        }
+        else
+        {
+            for (unsigned i = 0; i < 2; i++)
+            {
+                if (mSamples > 1)
+                {
+                    auto colorTexture2DMsaa = createTextureMsaa(sourceFormat, sourceType, internalFormat);
+                    mColorTexture[i] = colorTexture2DMsaa;
+                    mFbo[i]->setAttachment(osg::Camera::COLOR_BUFFER, osg::FrameBufferAttachment(colorTexture2DMsaa));
+                }
+                else
+                {
+                    auto colorTexture2D = createTexture(sourceFormat, sourceType, internalFormat);
+                    mColorTexture[i] = colorTexture2D;
+                    mFbo[i]->setAttachment(osg::Camera::COLOR_BUFFER, osg::FrameBufferAttachment(colorTexture2D));
+                }
+            }
+        }
     }
 
     void StereoFramebuffer::attachDepthComponent(GLint sourceFormat, GLint sourceType, GLint internalFormat)
     {
-        mDepthTextureArray = createTextureArray(sourceFormat, sourceType, internalFormat);
-#ifdef OSG_HAS_MULTIVIEW
-        mLayeredFbo->setAttachment(osg::Camera::DEPTH_BUFFER, osg::FrameBufferAttachment(mDepthTextureArray, osg::Camera::FACE_CONTROLLED_BY_MULTIVIEW_SHADER, 0));
-#endif
-        mUnlayeredFbo[0]->setAttachment(osg::Camera::DEPTH_BUFFER, osg::FrameBufferAttachment(mDepthTextureArray, 0, 0));
-        mUnlayeredFbo[1]->setAttachment(osg::Camera::DEPTH_BUFFER, osg::FrameBufferAttachment(mDepthTextureArray, 1, 0));
-    }
-
-    osg::FrameBufferObject* StereoFramebuffer::layeredFbo()
-    {
-        return mLayeredFbo;
-    }
-
-    osg::FrameBufferObject* StereoFramebuffer::unlayeredFbo(int i)
-    {
-        // Don't bother protecting, stl exception is informative enough
-        return mUnlayeredFbo[i];
-    }
-
-    void StereoFramebuffer::attachTo(osg::Camera* camera, Attachment attachment)
-    {
-        if (mColorTextureArray)
+        if (mMultiview)
         {
-            unsigned int level = 0;
-            switch (attachment)
-            {
 #ifdef OSG_HAS_MULTIVIEW
-            case Attachment::Layered:
-                level = osg::Camera::FACE_CONTROLLED_BY_MULTIVIEW_SHADER;
-                break;
+            mMultiviewDepthTexture = createTextureArray(sourceFormat, sourceType, internalFormat);
+            mMultiviewFbo->setAttachment(osg::Camera::DEPTH_BUFFER, osg::FrameBufferAttachment(mMultiviewDepthTexture, osg::Camera::FACE_CONTROLLED_BY_MULTIVIEW_SHADER, 0));
+            mFbo[0]->setAttachment(osg::Camera::DEPTH_BUFFER, osg::FrameBufferAttachment(mMultiviewDepthTexture, 0, 0));
+            mFbo[1]->setAttachment(osg::Camera::DEPTH_BUFFER, osg::FrameBufferAttachment(mMultiviewDepthTexture, 1, 0));
 #endif
-            case Attachment::Left:
-                level = 0;
-                break;
-            case Attachment::Right:
-                level = 1;
-                break;
-            default:
-                break;
-            }
-
-            camera->attach(osg::Camera::COLOR_BUFFER, mColorTextureArray, 0, level, false, mSamples);
-            camera->getBufferAttachmentMap()[osg::Camera::COLOR_BUFFER]._internalFormat = mColorTextureArray->getInternalFormat();
-            camera->getBufferAttachmentMap()[osg::Camera::COLOR_BUFFER]._mipMapGeneration = false;
-            if (mDepthTextureArray)
+        }
+        else
+        {
+            for (unsigned i = 0; i < 2; i++)
             {
-                camera->attach(osg::Camera::DEPTH_BUFFER, mDepthTextureArray, 0, level, false, mSamples);
-                // OSG does not initialize this itself, but tries to use it to determine the internal format to use for the multisampled fbo.
-                camera->getBufferAttachmentMap()[osg::Camera::DEPTH_BUFFER]._internalFormat = mDepthTextureArray->getInternalFormat();
+                if (mSamples > 1)
+                {
+                    auto depthTexture2DMsaa = createTextureMsaa(sourceFormat, sourceType, internalFormat);
+                    mDepthTexture[i] = depthTexture2DMsaa;
+                    mFbo[i]->setAttachment(osg::Camera::DEPTH_BUFFER, osg::FrameBufferAttachment(depthTexture2DMsaa));
+                }
+                else
+                {
+                    auto depthTexture2D = createTexture(sourceFormat, sourceType, internalFormat);
+                    mDepthTexture[i] = depthTexture2D;
+                    mFbo[i]->setAttachment(osg::Camera::DEPTH_BUFFER, osg::FrameBufferAttachment(depthTexture2D));
+                }
+            }
+        }
+    }
+
+    osg::FrameBufferObject* StereoFramebuffer::multiviewFbo()
+    {
+        return mMultiviewFbo;
+    }
+
+    osg::FrameBufferObject* StereoFramebuffer::fbo(int i)
+    {
+        return mFbo[i];
+    }
+
+    void StereoFramebuffer::attachTo(osg::Camera* camera)
+    {
+#ifdef OSG_HAS_MULTIVIEW
+        if (mMultiview)
+        {
+            if (mMultiviewColorTexture)
+            {
+                camera->attach(osg::Camera::COLOR_BUFFER, mMultiviewColorTexture, 0, osg::Camera::FACE_CONTROLLED_BY_MULTIVIEW_SHADER, false, mSamples);
+                camera->getBufferAttachmentMap()[osg::Camera::COLOR_BUFFER]._internalFormat = mMultiviewColorTexture->getInternalFormat();
+                camera->getBufferAttachmentMap()[osg::Camera::COLOR_BUFFER]._mipMapGeneration = false;
+            }
+            if (mMultiviewDepthTexture)
+            {
+                camera->attach(osg::Camera::DEPTH_BUFFER, mMultiviewDepthTexture, 0, osg::Camera::FACE_CONTROLLED_BY_MULTIVIEW_SHADER, false, mSamples);
+                camera->getBufferAttachmentMap()[osg::Camera::DEPTH_BUFFER]._internalFormat = mMultiviewDepthTexture->getInternalFormat();
                 camera->getBufferAttachmentMap()[osg::Camera::DEPTH_BUFFER]._mipMapGeneration = false;
             }
-
             camera->setRenderTargetImplementation(osg::Camera::FRAME_BUFFER_OBJECT);
         }
+#endif
+    }
+
+    osg::Texture2D* StereoFramebuffer::createTexture(GLint sourceFormat, GLint sourceType, GLint internalFormat)
+    {
+        osg::Texture2D* texture = new osg::Texture2D;
+        texture->setTextureSize(mWidth, mHeight);
+        texture->setSourceFormat(sourceFormat);
+        texture->setSourceType(sourceType);
+        texture->setInternalFormat(internalFormat);
+        texture->setFilter(osg::Texture::MIN_FILTER, osg::Texture::LINEAR);
+        texture->setFilter(osg::Texture::MAG_FILTER, osg::Texture::LINEAR);
+        texture->setWrap(osg::Texture::WRAP_S, osg::Texture::CLAMP_TO_EDGE);
+        texture->setWrap(osg::Texture::WRAP_T, osg::Texture::CLAMP_TO_EDGE);
+        texture->setWrap(osg::Texture::WRAP_R, osg::Texture::CLAMP_TO_EDGE);
+        return texture;
+    }
+
+    osg::Texture2DMultisample* StereoFramebuffer::createTextureMsaa(GLint sourceFormat, GLint sourceType, GLint internalFormat)
+    {
+        osg::Texture2DMultisample* texture = new osg::Texture2DMultisample;
+        texture->setTextureSize(mWidth, mHeight);
+        texture->setNumSamples(mSamples);
+        texture->setSourceFormat(sourceFormat);
+        texture->setSourceType(sourceType);
+        texture->setInternalFormat(internalFormat);
+        texture->setFilter(osg::Texture::MIN_FILTER, osg::Texture::LINEAR);
+        texture->setFilter(osg::Texture::MAG_FILTER, osg::Texture::LINEAR);
+        texture->setWrap(osg::Texture::WRAP_S, osg::Texture::CLAMP_TO_EDGE);
+        texture->setWrap(osg::Texture::WRAP_T, osg::Texture::CLAMP_TO_EDGE);
+        texture->setWrap(osg::Texture::WRAP_R, osg::Texture::CLAMP_TO_EDGE);
+        return texture;
     }
 
     osg::Texture2DArray* StereoFramebuffer::createTextureArray(GLint sourceFormat, GLint sourceType, GLint internalFormat)

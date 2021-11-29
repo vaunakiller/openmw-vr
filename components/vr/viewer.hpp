@@ -71,7 +71,7 @@ namespace VR
         void blitXrFramebuffer(osg::State* state, int i);
         void blitMirrorTexture(osg::State* state, int i);
         void resolveMSAA(osg::State* state, osg::FrameBufferObject* fbo);
-        void resolveGamma(osg::RenderInfo& info);
+        void resolveGamma(osg::RenderInfo& info, int i);
 
     private:
         std::mutex mMutex{};
@@ -97,6 +97,7 @@ namespace VR
         osg::ref_ptr<osg::Texture2D> mMsaaResolveTexture;
         int mFramebufferWidth = 0;
         int mFramebufferHeight = 0;
+        int mFramebufferSamples = 0;
 
         std::array<std::shared_ptr<VR::Swapchain>, 2> mColorSwapchain;
         std::array<std::shared_ptr<VR::Swapchain>, 2> mDepthSwapchain;

@@ -472,13 +472,13 @@ namespace XR
     }
 #endif
 
-    VR::Swapchain* Platform::createSwapchain(uint32_t width, uint32_t height, uint32_t samples, VR::SwapchainUse use, const std::string& name, int64_t preferredFormat)
+    VR::Swapchain* Platform::createSwapchain(uint32_t width, uint32_t height, uint32_t samples, uint32_t arraySize, VR::SwapchainUse use, const std::string& name, int64_t preferredFormat)
     {
         std::string typeString = use == VR::SwapchainUse::Color ? "color" : "depth";
 
         XrSwapchainCreateInfo swapchainCreateInfo{};
         swapchainCreateInfo.type = XR_TYPE_SWAPCHAIN_CREATE_INFO;
-        swapchainCreateInfo.arraySize = 1;
+        swapchainCreateInfo.arraySize = arraySize;
         swapchainCreateInfo.width = width;
         swapchainCreateInfo.height = height;
         swapchainCreateInfo.mipCount = 1;

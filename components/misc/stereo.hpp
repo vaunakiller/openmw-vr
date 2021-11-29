@@ -20,6 +20,8 @@
 namespace osg
 {
     class FrameBufferObject;
+    class Texture2D;
+    class Texture2DMultisample;
     class Texture2DArray;
 }
 
@@ -39,25 +41,26 @@ namespace Misc
         void attachColorComponent(GLint sourceFormat, GLint sourceType, GLint internalFormat);
         void attachDepthComponent(GLint sourceFormat, GLint sourceType, GLint internalFormat);
 
-        osg::FrameBufferObject* layeredFbo();
-        osg::FrameBufferObject* unlayeredFbo(int i);
+        osg::FrameBufferObject* multiviewFbo();
+        osg::FrameBufferObject* fbo(int i);
 
-        enum class Attachment
-        {
-            Layered, Left, Right
-        };
-        void attachTo(osg::Camera* camera, Attachment attachment);
+        void attachTo(osg::Camera* camera);
 
     private:
+        osg::Texture2D* createTexture(GLint sourceFormat, GLint sourceType, GLint internalFormat);
+        osg::Texture2DMultisample* createTextureMsaa(GLint sourceFormat, GLint sourceType, GLint internalFormat);
         osg::Texture2DArray* createTextureArray(GLint sourceFormat, GLint sourceType, GLint internalFormat);
 
         int mWidth;
         int mHeight;
         int mSamples;
-        osg::ref_ptr<osg::FrameBufferObject> mLayeredFbo;
-        std::array<osg::ref_ptr<osg::FrameBufferObject>, 2> mUnlayeredFbo;
-        osg::ref_ptr<osg::Texture2DArray> mColorTextureArray;
-        osg::ref_ptr<osg::Texture2DArray> mDepthTextureArray;
+        bool mMultiview;
+        osg::ref_ptr<osg::FrameBufferObject> mMultiviewFbo;
+        std::array<osg::ref_ptr<osg::FrameBufferObject>, 2> mFbo;
+        osg::ref_ptr<osg::Texture2DArray> mMultiviewColorTexture;
+        std::array<osg::ref_ptr<osg::Texture>, 2> mColorTexture;
+        osg::ref_ptr<osg::Texture2DArray> mMultiviewDepthTexture;
+        std::array<osg::ref_ptr<osg::Texture>, 2> mDepthTexture;
     };
 
 

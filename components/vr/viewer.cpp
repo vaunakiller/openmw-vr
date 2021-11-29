@@ -197,11 +197,11 @@ namespace VR
             Log(Debug::Verbose) << viewNames[i] << " resolution: Max x=" << swapchainConfigs[i].maxWidth << ", y=" << swapchainConfigs[i].maxHeight;
             Log(Debug::Verbose) << viewNames[i] << " resolution: Selected x=" << width << ", y=" << height;
 
-            mColorSwapchain[i].reset(VR::Session::instance().createSwapchain(width, height, samples, VR::SwapchainUse::Color, viewNames[i]));
+            mColorSwapchain[i].reset(VR::Session::instance().createSwapchain(width, height, samples, 1, VR::SwapchainUse::Color, viewNames[i]));
 
             if (mSession->appShouldShareDepthInfo())
             {
-                mDepthSwapchain[i].reset(VR::Session::instance().createSwapchain(width, height, samples, VR::SwapchainUse::Depth, viewNames[i], depthFormat));
+                mDepthSwapchain[i].reset(VR::Session::instance().createSwapchain(width, height, samples, 1, VR::SwapchainUse::Depth, viewNames[i], depthFormat));
             }
 
             mSubImages[i].width = width;
@@ -210,14 +210,14 @@ namespace VR
         }
 
         // Determine samples and dimensions of framebuffers.
-        auto renderbufferSamples = Settings::Manager::getInt("antialiasing", "Video");
+        mFramebufferSamples = Settings::Manager::getInt("antialiasing", "Video");
         mFramebufferWidth = mSubImages[0].width;
         mFramebufferHeight = mSubImages[0].height;
 
         if (mSubImages[0].width != mSubImages[1].width || mSubImages[0].height != mSubImages[1].height)
             Log(Debug::Warning) << "Not implemented";
 
-        mStereoFramebuffer.reset(new Misc::StereoFramebuffer(mFramebufferWidth, mFramebufferHeight, renderbufferSamples));
+        mStereoFramebuffer.reset(new Misc::StereoFramebuffer(mFramebufferWidth, mFramebufferHeight, mFramebufferSamples));
         mStereoFramebuffer->attachColorComponent(GL_RGB, GL_UNSIGNED_BYTE, GL_RGB);
         mStereoFramebuffer->attachDepthComponent(GL_DEPTH_COMPONENT, depthType, depthFormat);
         Misc::StereoView::instance().setStereoFramebuffer(mStereoFramebuffer);
@@ -510,10 +510,15 @@ namespace VR
         gl->glBlitFramebuffer(0, 0, mFramebufferWidth, mFramebufferHeight, 0, 0, mFramebufferWidth, mFramebufferHeight, GL_DEPTH_BUFFER_BIT, GL_NEAREST);
     }
 
-    void Viewer::resolveGamma(osg::RenderInfo& info)
+    void Viewer::resolveGamma(osg::RenderInfo& info, int i)
     {
         auto* state = info.getState();
         auto* gl = osg::GLExtensions::Get(state->getContextID(), false);
+
+        // OSG already resolved MSAA if we're using multiview. But i haven't implemented using a texture view to sample it yet so blit it anyway.
+        // Without multiview we need to resolve MSAA anyway.
+        auto src = mStereoFramebuffer->fbo(i);
+        resolveMSAA(state, src);
 
         // Apply gamma by running a shader, sampling the colors we just blitted
         mGammaResolveFramebuffer->apply(*state, osg::FrameBufferObject::DRAW_FRAMEBUFFER);
@@ -533,9 +538,7 @@ namespace VR
 
         for (auto i = 0; i < 2; i++)
         {
-            auto src = mStereoFramebuffer->unlayeredFbo(i);
-            resolveMSAA(state, src);
-            resolveGamma(info);
+            resolveGamma(info, i);
             if (mMirrorTextureEnabled)
                 blitMirrorTexture(state, i);
             blitXrFramebuffer(state, i);
@@ -586,7 +589,7 @@ namespace VR
     {
         if (!Misc::StereoView::instance().getMultiview())
         {
-            mStereoFramebuffer->unlayeredFbo(static_cast<int>(view))->apply(*info.getState());
+            mStereoFramebuffer->fbo(static_cast<int>(view))->apply(*info.getState());
         }
     }
 
