@@ -12,9 +12,9 @@ OpenMW-VR is not yet a part of official OpenMW and must be installed separately.
 
 	.. note::
 		I no longer package the OpenMW wizard as CI jobs were becoming too slow and were
-        timing out. If you have not run the OpenMW wizard you should install any recent 
-        version of OpenMW and run the install wizard. This sets up configuration files
-        that are shared with OpenMW-VR.
+		timing out. If you have not run the OpenMW wizard you should install any recent 
+		version of OpenMW and run the install wizard. This sets up configuration files
+		that are shared with OpenMW-VR.
 
 Windows Binaries
 ================
