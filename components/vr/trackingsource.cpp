@@ -117,7 +117,7 @@ namespace VR
 
     void StageToWorldBinding::updateTracking(VR::DisplayTime predictedDisplayTime)
     {
-        mOriginWorldPose = Misc::Pose();
+        mOriginWorldPose = Stereo::Pose();
         if (mOrigin)
         {
             auto worldMatrix = osg::computeLocalToWorld(mOrigin->getParentalNodePaths()[0]);

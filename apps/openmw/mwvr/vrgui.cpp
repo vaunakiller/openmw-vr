@@ -670,7 +670,7 @@ namespace MWVR
         }
 
         Shader::ShaderManager::DefineMap defineMap{ {"GLSLVersion", "120"} };
-        Misc::StereoView::instance().shaderStereoDefines(defineMap);
+        Stereo::Manager::instance().shaderStereoDefines(defineMap);
         auto& shaderManager = mResourceSystem->getSceneManager()->getShaderManager();
 
         osg::ref_ptr<osg::Shader> vertexShader = shaderManager.getShader("3dgui_vertex.glsl", defineMap, osg::Shader::VERTEX);

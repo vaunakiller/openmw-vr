@@ -4,7 +4,7 @@
 #include <cstdint>
 #include "constants.hpp"
 
-#include <components/misc/stereo.hpp>
+#include <components/stereo/stereomanager.hpp>
 
 namespace VR
 {
@@ -21,7 +21,7 @@ namespace VR
     struct TrackingPose
     {
         TrackingStatus status = TrackingStatus::Unknown; //!< State of the prediction. 
-        Misc::Pose pose = {}; //!< The predicted pose. 
+        Stereo::Pose pose = {}; //!< The predicted pose. 
         DisplayTime time = 0; //!< The time for which the pose was predicted.
     };
 

@@ -100,7 +100,7 @@ namespace VR
         bool mSeatedPlay = false;
         bool mHasTrackingData = false;
         float mEyeLevel = 0.f;
-        Misc::Pose mOriginWorldPose = Misc::Pose();
+        Stereo::Pose mOriginWorldPose = Stereo::Pose();
         TrackingPose mLastPose = VR::TrackingPose();
         osg::Vec3 mMovement = osg::Vec3(0, 0, 0);
         osg::Quat mOrientation = osg::Quat(0, 0, 0, 1);

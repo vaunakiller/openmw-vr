@@ -9,9 +9,11 @@
 #include <components/debug/gldebug.hpp>
 
 #include <components/misc/stringops.hpp>
-#include <components/misc/stereo.hpp>
 #include <components/misc/callbackmanager.hpp>
 #include <components/misc/constants.hpp>
+
+#include <components/stereo/stereomanager.hpp>
+#include <components/stereo/multiview.hpp>
 
 #include <components/vr/layer.hpp>
 #include <components/vr/session.hpp>
@@ -47,12 +49,12 @@ namespace VR
         return recommended;
     }
 
-    struct UpdateViewCallback : public Misc::StereoView::UpdateViewCallback
+    struct UpdateViewCallback : public Stereo::Manager::UpdateViewCallback
     {
         UpdateViewCallback(Viewer* viewer) : mViewer(viewer) {};
 
         //! Called during the update traversal of every frame to source updated stereo values.
-        virtual void updateView(Misc::View& left, Misc::View& right) override
+        virtual void updateView(Stereo::View& left, Stereo::View& right) override
         {
             mViewer->updateView(left, right);
         }
@@ -217,10 +219,10 @@ namespace VR
         if (mSubImages[0].width != mSubImages[1].width || mSubImages[0].height != mSubImages[1].height)
             Log(Debug::Warning) << "Not implemented";
 
-        mStereoFramebuffer.reset(new Misc::StereoFramebuffer(mFramebufferWidth, mFramebufferHeight, mFramebufferSamples));
+        mStereoFramebuffer.reset(new Stereo::StereoFramebuffer(mFramebufferWidth, mFramebufferHeight, mFramebufferSamples));
         mStereoFramebuffer->attachColorComponent(GL_RGB, GL_UNSIGNED_BYTE, GL_RGB);
         mStereoFramebuffer->attachDepthComponent(GL_DEPTH_COMPONENT, depthType, depthFormat);
-        Misc::StereoView::instance().setStereoFramebuffer(mStereoFramebuffer);
+        Stereo::Manager::instance().setStereoFramebuffer(mStereoFramebuffer);
         mViewer->getCamera()->setViewport(0, 0, mFramebufferWidth, mFramebufferHeight);
 
         // The msaa-resolve framebuffer needs a texture, so we can sample it while applying gamma.
@@ -267,7 +269,7 @@ namespace VR
             return;
 
         // Give the main camera an initial draw callback that disables camera setup (we don't want it)
-        Misc::StereoView::instance().setUpdateViewCallback(mUpdateViewCallback);
+        Stereo::Manager::instance().setUpdateViewCallback(mUpdateViewCallback);
         Misc::CallbackManager::instance().addCallback(Misc::CallbackManager::DrawStage::Initial, mInitialDraw);
         Misc::CallbackManager::instance().addCallback(Misc::CallbackManager::DrawStage::PreDraw, mPreDraw);
         Misc::CallbackManager::instance().addCallback(Misc::CallbackManager::DrawStage::Final, mFinalDraw);
@@ -562,7 +564,7 @@ namespace VR
 
         VR::Session::instance().frameBeginRender(mDrawFrame);
 
-        if (!Misc::StereoView::instance().getMultiview())
+        if (!Stereo::getMultiview())
         {
             osg::GraphicsOperation* graphicsOperation = info.getCurrentCamera()->getRenderer();
             osgViewer::Renderer* renderer = dynamic_cast<osgViewer::Renderer*>(graphicsOperation);
@@ -587,7 +589,7 @@ namespace VR
 
     void Viewer::preDrawCallback(osg::RenderInfo& info, Misc::CallbackManager::View view)
     {
-        if (!Misc::StereoView::instance().getMultiview())
+        if (!Stereo::getMultiview())
         {
             mStereoFramebuffer->fbo(static_cast<int>(view))->apply(*info.getState());
         }
@@ -609,7 +611,7 @@ namespace VR
         VR::Session::instance().frameEnd(gc, mDrawFrame);
     }
 
-    void Viewer::updateView(Misc::View& left, Misc::View& right)
+    void Viewer::updateView(Stereo::View& left, Stereo::View& right)
     {
         auto frame = mSession->newFrame();
         mSession->frameBeginUpdate(frame);

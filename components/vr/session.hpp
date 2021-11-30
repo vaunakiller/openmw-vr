@@ -11,7 +11,7 @@
 
 #include <components/debug/debuglog.hpp>
 
-#include <components/misc/stereo.hpp>
+#include <components/stereo/stereomanager.hpp>
 
 #include <components/sdlutil/sdlgraphicswindow.hpp>
 
@@ -55,7 +55,7 @@ namespace VR
 
         virtual VR::Swapchain* createSwapchain(uint32_t width, uint32_t height, uint32_t samples, uint32_t arraySize, SwapchainUse use, const std::string& name, int64_t preferredFormat = 0) = 0;
 
-        virtual std::array<Misc::View, 2> getPredictedViews(int64_t predictedDisplayTime, VR::ReferenceSpace space) = 0;
+        virtual std::array<Stereo::View, 2> getPredictedViews(int64_t predictedDisplayTime, VR::ReferenceSpace space) = 0;
 
         virtual std::array<SwapchainConfig, 2> getRecommendedSwapchainConfig() const = 0;
 

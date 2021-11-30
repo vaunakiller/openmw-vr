@@ -125,9 +125,9 @@ namespace MWVR
 
     public:
         VR::VRPath mTrackingPath = 0;
-        Misc::Pose mTrackingPose = Misc::Pose();
+        Stereo::Pose mTrackingPose = Stereo::Pose();
 
-        Misc::Pose mTrackedPose{};
+        Stereo::Pose mTrackedPose{};
         LayerConfig mConfig;
         std::string mLayerName;
         std::vector<MWGui::Layout*> mWidgets;

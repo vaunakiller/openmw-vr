@@ -3,7 +3,7 @@
 
 #include <openxr/openxr.h>
 #include <components/vr/trackingsource.hpp>
-#include <components/misc/stereo.hpp>
+#include <components/stereo/stereomanager.hpp>
 
 #include <map>
 #include <array>
@@ -38,7 +38,7 @@ namespace XR
         VR::TrackingPose locate(VR::VRPath path, VR::DisplayTime predictedDisplayTime) override;
 
     private:
-        std::array<Misc::View, 2> locateViews(VR::DisplayTime predictedDisplayTime, XrSpace reference, XrSession session);
+        std::array<Stereo::View, 2> locateViews(VR::DisplayTime predictedDisplayTime, XrSpace reference, XrSession session);
         void update(VR::TrackingPose& pose, XrSpace space, VR::DisplayTime predictedDisplayTime);
 
         XrSpace mReferenceSpace;

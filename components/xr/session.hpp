@@ -3,7 +3,6 @@
 
 #include <mutex>
 
-#include <components/misc/stereo.hpp>
 #include <components/vr/session.hpp>
 #include <components/vr/constants.hpp>
 
@@ -40,7 +39,7 @@ namespace XR
 
         XR::Tracker& tracker() { return *mTracker; }
         VR::StageToWorldBinding& stageToWorldBinding() { return *mTrackerToWorldBinding; }
-        std::array<Misc::View, 2> getPredictedViews(int64_t predictedDisplayTime, VR::ReferenceSpace space) override;
+        std::array<Stereo::View, 2> getPredictedViews(int64_t predictedDisplayTime, VR::ReferenceSpace space) override;
 
         void xrDebugSetNames();
 

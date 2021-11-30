@@ -530,7 +530,7 @@ namespace XR
     }
 
 
-    std::array<Misc::View, 2>
+    std::array<Stereo::View, 2>
         Session::getPredictedViews(
             int64_t predictedDisplayTime,
             VR::ReferenceSpace space)
@@ -558,7 +558,7 @@ namespace XR
         }
         CHECK_XRCMD(xrLocateViews(mXrSession, &viewLocateInfo, &viewState, viewCount, &viewCount, xrViews.data()));
 
-        std::array<Misc::View, 2> vrViews{};
+        std::array<Stereo::View, 2> vrViews{};
         for (auto side : { VR::Side_Left, VR::Side_Right })
         {
             vrViews[side].pose = fromXR(xrViews[side].pose);

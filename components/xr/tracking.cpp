@@ -71,7 +71,7 @@ namespace XR
         throw std::logic_error("Invalid Argument");
     }
 
-    std::array<Misc::View, 2> Tracker::locateViews(VR::DisplayTime predictedDisplayTime, XrSpace reference, XrSession session)
+    std::array<Stereo::View, 2> Tracker::locateViews(VR::DisplayTime predictedDisplayTime, XrSpace reference, XrSession session)
     {
         std::array<XrView, 2> xrViews{};
         xrViews[0].type = XR_TYPE_VIEW;
@@ -89,7 +89,7 @@ namespace XR
 
         CHECK_XRCMD(xrLocateViews(session, &viewLocateInfo, &viewState, viewCount, &viewCount, xrViews.data()));
 
-        std::array<Misc::View, 2> vrViews{};
+        std::array<Stereo::View, 2> vrViews{};
         for (auto side : { VR::Side_Left, VR::Side_Right })
         {
             vrViews[side].pose = fromXR(xrViews[side].pose);

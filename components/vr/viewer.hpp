@@ -12,11 +12,16 @@
 #include <osg/RenderInfo>
 
 #include <components/sceneutil/positionattitudetransform.hpp>
-#include <components/misc/stereo.hpp>
 #include <components/misc/callbackmanager.hpp>
 #include <components/vr/constants.hpp>
 #include <components/vr/frame.hpp>
 #include <components/vr/layer.hpp>
+
+namespace Stereo
+{
+    class StereoFramebuffer;
+    struct View;
+}
 
 namespace VR
 {
@@ -60,7 +65,7 @@ namespace VR
         void configureCallbacks();
         void setupMirrorTexture();
         void processChangedSettings(const std::set< std::pair<std::string, std::string> >& changed);
-        void updateView(Misc::View& left, Misc::View& right);
+        void updateView(Stereo::View& left, Stereo::View& right);
 
         bool callbacksConfigured() { return mCallbacksConfigured; };
 
@@ -91,7 +96,7 @@ namespace VR
         bool mFlipMirrorTextureOrder{ false };
         MirrorTextureEye mMirrorTextureEye{ MirrorTextureEye::Both };
 
-        std::shared_ptr<Misc::StereoFramebuffer> mStereoFramebuffer;
+        std::shared_ptr<Stereo::StereoFramebuffer> mStereoFramebuffer;
         osg::ref_ptr<osg::FrameBufferObject> mMsaaResolveFramebuffer;
         osg::ref_ptr<osg::FrameBufferObject> mGammaResolveFramebuffer;
         osg::ref_ptr<osg::Texture2D> mMsaaResolveTexture;

@@ -1,6 +1,5 @@
-#include "stereo.hpp"
-#include "stringops.hpp"
-#include "callbackmanager.hpp"
+#include "stereomanager.hpp"
+#include "multiview.hpp"
 
 #include <osg/io_utils>
 #include <osg/Texture2D>
@@ -25,175 +24,16 @@
 
 #include <components/settings/settings.hpp>
 
-namespace Misc
+#include <components/misc/stringops.hpp>
+#include <components/misc/callbackmanager.hpp>
+
+namespace Stereo
 {
-
-    Pose Pose::operator+(const Pose& rhs)
-    {
-        Pose pose = *this;
-        pose.position += this->orientation * rhs.position;
-        pose.orientation = rhs.orientation * this->orientation;
-        return pose;
-    }
-
-    const Pose& Pose::operator+=(const Pose& rhs)
-    {
-        *this = *this + rhs;
-        return *this;
-    }
-
-    Pose Pose::operator*(float scalar)
-    {
-        Pose pose = *this;
-        pose.position *= scalar;
-        return pose;
-    }
-
-    const Pose& Pose::operator*=(float scalar)
-    {
-        *this = *this * scalar;
-        return *this;
-    }
-
-    Pose Pose::operator/(float scalar)
-    {
-        Pose pose = *this;
-        pose.position /= scalar;
-        return pose;
-    }
-    const Pose& Pose::operator/=(float scalar)
-    {
-        *this = *this / scalar;
-        return *this;
-    }
-
-    bool Pose::operator==(const Pose& rhs) const
-    {
-        return position == rhs.position && orientation == rhs.orientation;
-    }
-
-    osg::Matrix Pose::viewMatrix(bool useGLConventions)
-    {
-        if (useGLConventions)
-        {
-            // When applied as an offset to an existing view matrix,
-            // that view matrix will already convert points to a camera space
-            // with opengl conventions. So we need to convert offsets to opengl 
-            // conventions.
-            float y = position.y();
-            float z = position.z();
-            position.y() = z;
-            position.z() = -y;
-
-            y = orientation.y();
-            z = orientation.z();
-            orientation.y() = z;
-            orientation.z() = -y;
-
-            osg::Matrix viewMatrix;
-            viewMatrix.setTrans(-position);
-            viewMatrix.postMultRotate(orientation.conj());
-            return viewMatrix;
-        }
-        else
-        {
-            osg::Vec3d forward = orientation * osg::Vec3d(0, 1, 0);
-            osg::Vec3d up = orientation * osg::Vec3d(0, 0, 1);
-            osg::Matrix viewMatrix;
-            viewMatrix.makeLookAt(position, position + forward, up);
-
-            return viewMatrix;
-        }
-    }
-
-    bool FieldOfView::operator==(const FieldOfView& rhs) const
-    {
-        return angleDown == rhs.angleDown
-            && angleUp == rhs.angleUp
-            && angleLeft == rhs.angleLeft
-            && angleRight == rhs.angleRight;
-    }
-
-    // near and far named with an underscore because of windows' headers galaxy brain defines.
-    osg::Matrix FieldOfView::perspectiveMatrix(float near_, float far_, bool reverseZ) const
-    {
-        const float tanLeft = tanf(angleLeft);
-        const float tanRight = tanf(angleRight);
-        const float tanDown = tanf(angleDown);
-        const float tanUp = tanf(angleUp);
-
-        const float tanWidth = tanRight - tanLeft;
-        const float tanHeight = tanUp - tanDown;
-
-        const float offset = near_;
-
-        float matrix[16] = {};
-
-        matrix[0] = 2 / tanWidth;
-        matrix[4] = 0;
-        matrix[8] = (tanRight + tanLeft) / tanWidth;
-        matrix[12] = 0;
-
-        matrix[1] = 0;
-        matrix[5] = 2 / tanHeight;
-        matrix[9] = (tanUp + tanDown) / tanHeight;
-        matrix[13] = 0;
-
-        if (reverseZ) {
-            matrix[2] = 0;
-            matrix[6] = 0;
-            matrix[10] = (near_ + offset) / (far_ - near_);
-            matrix[14] = ((near_ + offset) * far_) / (far_ - near_);
-        }
-        else {
-            matrix[2] = 0;
-            matrix[6] = 0;
-            matrix[10] = -(far_ + offset) / (far_ - near_);
-            matrix[14] = -(far_ * (near_ + offset)) / (far_ - near_);
-        }
-
-        matrix[3] = 0;
-        matrix[7] = 0;
-        matrix[11] = -1;
-        matrix[15] = 0;
-
-        return osg::Matrix(matrix);
-    }
-
-    bool View::operator==(const View& rhs) const
-    {
-        return pose == rhs.pose && fov == rhs.fov;
-    }
-
-    std::ostream& operator <<(
-        std::ostream& os,
-        const Pose& pose)
-    {
-        os << "position=" << pose.position << ", orientation=" << pose.orientation;
-        return os;
-    }
-
-    std::ostream& operator <<(
-        std::ostream& os,
-        const FieldOfView& fov)
-    {
-        os << "left=" << fov.angleLeft << ", right=" << fov.angleRight << ", down=" << fov.angleDown << ", up=" << fov.angleUp;
-        return os;
-    }
-
-    std::ostream& operator <<(
-        std::ostream& os,
-        const View& view)
-    {
-        os << "pose=< " << view.pose << " >, fov=< " << view.fov << " >";
-        return os;
-    }
-
     // Update stereo view/projection during update
     class StereoUpdateCallback : public osg::Callback
     {
     public:
-        StereoUpdateCallback(StereoView* stereoView) : stereoView(stereoView) {}
+        StereoUpdateCallback(Manager* stereoView) : stereoView(stereoView) {}
 
         bool run(osg::Object* object, osg::Object* data) override
         {
@@ -202,15 +42,15 @@ namespace Misc
             return b;
         }
 
-        StereoView* stereoView;
+        Manager* stereoView;
     };
 
     // Update states during cull
     class BruteForceStereoStatesetUpdateCallback : public SceneUtil::StateSetUpdater
     {
     public:
-        BruteForceStereoStatesetUpdateCallback(StereoView* view)
-            : stereoView(view)
+        BruteForceStereoStatesetUpdateCallback(Manager* manager)
+            : mManager(manager)
         {
         }
 
@@ -229,7 +69,7 @@ namespace Misc
             osg::Matrix dummy;
             auto* uProjectionMatrix = stateset->getUniform("projectionMatrix");
             if (uProjectionMatrix)
-                uProjectionMatrix->set(stereoView->computeLeftEyeProjection(true));
+                uProjectionMatrix->set(mManager->computeLeftEyeProjection(true));
         }
 
         void applyRight(osg::StateSet* stateset, osgUtil::CullVisitor* nv) override
@@ -237,19 +77,19 @@ namespace Misc
             osg::Matrix dummy;
             auto* uProjectionMatrix = stateset->getUniform("projectionMatrix");
             if (uProjectionMatrix)
-                uProjectionMatrix->set(stereoView->computeRightEyeProjection(true));
+                uProjectionMatrix->set(mManager->computeRightEyeProjection(true));
         }
 
     private:
-        StereoView* stereoView;
+        Manager* mManager;
     };
 
     // Update states during cull
     class OVRMultiViewStereoStatesetUpdateCallback : public SceneUtil::StateSetUpdater
     {
     public:
-        OVRMultiViewStereoStatesetUpdateCallback(StereoView* view)
-            : stereoView(view)
+        OVRMultiViewStereoStatesetUpdateCallback(Manager* manager)
+            : mManager(manager)
         {
         }
 
@@ -262,21 +102,21 @@ namespace Misc
 
         virtual void apply(osg::StateSet* stateset, osg::NodeVisitor* /*nv*/)
         {
-            stereoView->updateStateset(stateset);
+            mManager->updateStateset(stateset);
         }
 
     private:
-        StereoView* stereoView;
+        Manager* mManager;
     };
 
-    static StereoView* sInstance = nullptr;
+    static Manager* sInstance = nullptr;
 
-    StereoView& StereoView::instance()
+    Manager& Manager::instance()
     {
         return *sInstance;
     }
 
-    StereoView::StereoView(osgViewer::Viewer* viewer)
+    Manager::Manager(osgViewer::Viewer* viewer)
         : mViewer(viewer)
         , mStereoRoot(new osg::Group)
         , mUpdateCallback(new StereoUpdateCallback(this))
@@ -287,7 +127,7 @@ namespace Misc
         , mUpdateViewCallback(new DefaultUpdateViewCallback)
     {
         if (sInstance)
-            throw std::logic_error("Double instance of StereoView");
+            throw std::logic_error("Double instance of Stereo::Manager");
         sInstance = this;
 
         mMasterConfig->_id = "STEREO";
@@ -299,7 +139,7 @@ namespace Misc
         mStereoRoot->setDataVariance(osg::Object::STATIC);
     }
 
-    void StereoView::initializeStereo(osg::GraphicsContext* gc)
+    void Manager::initializeStereo(osg::GraphicsContext* gc)
     {
         mMainCamera = mViewer->getCamera();
         mRoot = mViewer->getSceneData()->asGroup();
@@ -310,7 +150,7 @@ namespace Misc
         mMainCamera->addUpdateCallback(mainCameraCB);
 
         auto ci = gc->getState()->getContextID();
-        mMultiview = Misc::getMultiview(ci);
+        mMultiview = Stereo::getMultiview(ci);
 
         if(mMultiview)
             setupOVRMultiView2Technique();
@@ -318,7 +158,7 @@ namespace Misc
             setupBruteForceTechnique();
     }
 
-    void StereoView::shaderStereoDefines(Shader::ShaderManager::DefineMap& defines) const
+    void Manager::shaderStereoDefines(Shader::ShaderManager::DefineMap& defines) const
     {
         if (mMultiview)
         {
@@ -333,17 +173,17 @@ namespace Misc
         }
     }
 
-    void StereoView::setStereoFramebuffer(std::shared_ptr<StereoFramebuffer> fbo)
+    void Manager::setStereoFramebuffer(std::shared_ptr<StereoFramebuffer> fbo)
     {
         fbo->attachTo(mMainCamera);
     }
 
-    const std::string& StereoView::error() const
+    const std::string& Manager::error() const
     {
         return mError;
     }
 
-    void StereoView::setupBruteForceTechnique()
+    void Manager::setupBruteForceTechnique()
     {
         auto* ds = osg::DisplaySettings::instance().get();
         ds->setStereo(true);
@@ -356,8 +196,8 @@ namespace Misc
 
         struct ComputeStereoMatricesCallback : public osgUtil::SceneView::ComputeStereoMatricesCallback
         {
-            ComputeStereoMatricesCallback(StereoView* sv)
-                : mStereoView(sv)
+            ComputeStereoMatricesCallback(Manager* sv)
+                : mManager(sv)
             {
 
             }
@@ -365,28 +205,28 @@ namespace Misc
             osg::Matrixd computeLeftEyeProjection(const osg::Matrixd& projection) const override
             {
                 (void)projection;
-                return mStereoView->computeLeftEyeProjection(false);
+                return mManager->computeLeftEyeProjection(false);
             }
 
             osg::Matrixd computeLeftEyeView(const osg::Matrixd& view) const override
             {
                 (void)view;
-                return mStereoView->computeLeftEyeView();
+                return mManager->computeLeftEyeView();
             }
 
             osg::Matrixd computeRightEyeProjection(const osg::Matrixd& projection) const override
             {
                 (void)projection;
-                return mStereoView->computeRightEyeProjection(false);
+                return mManager->computeRightEyeProjection(false);
             }
 
             osg::Matrixd computeRightEyeView(const osg::Matrixd& view) const override
             {
                 (void)view;
-                return mStereoView->computeRightEyeView();
+                return mManager->computeRightEyeView();
             }
 
-            StereoView* mStereoView;
+            Manager* mManager;
         };
 
         auto* renderer = static_cast<osgViewer::Renderer*>(mMainCamera->getRenderer());
@@ -396,7 +236,7 @@ namespace Misc
         setupSharedShadows();
     }
 
-    void StereoView::setupOVRMultiView2Technique()
+    void Manager::setupOVRMultiView2Technique()
     {
         mStereoShaderRoot->addCullCallback(new OVRMultiViewStereoStatesetUpdateCallback(this));
         mStereoShaderRoot->addChild(mRoot);
@@ -406,7 +246,7 @@ namespace Misc
         mViewer->setSceneData(mStereoRoot);
     }
 
-    void StereoView::setupSharedShadows()
+    void Manager::setupSharedShadows()
     {
         auto* renderer = static_cast<osgViewer::Renderer*>(mMainCamera->getRenderer());
 
@@ -421,13 +261,13 @@ namespace Misc
         }
     }
 
-    void StereoView::update()
+    void Manager::update()
     {
         double near_ = 1.f;
         double far_ = 10000.f;
         if (!mUpdateViewCallback)
         {
-            Log(Debug::Error) << "StereoView: No update view callback. Stereo rendering will not work.";
+            Log(Debug::Error) << "Manager: No update view callback. Stereo rendering will not work.";
             return;
         }
         mUpdateViewCallback->updateView(mLeftView, mRightView);
@@ -515,7 +355,7 @@ namespace Misc
         }
     }
 
-    void StereoView::updateStateset(osg::StateSet* stateset)
+    void Manager::updateStateset(osg::StateSet* stateset)
     {
         // Update stereo uniforms
         auto * viewMatrixMultiViewUniform = stateset->getUniform("viewMatrixMultiView");
@@ -529,12 +369,12 @@ namespace Misc
         projectionMatrixMultiViewUniform->setElement(1, mRightView.fov.perspectiveMatrix(near_, far_, SceneUtil::getReverseZ()));
     }
 
-    void StereoView::setUpdateViewCallback(std::shared_ptr<UpdateViewCallback> cb)
+    void Manager::setUpdateViewCallback(std::shared_ptr<UpdateViewCallback> cb)
     {
         mUpdateViewCallback = cb;
     }
 
-    void StereoView::DefaultUpdateViewCallback::updateView(View& left, View& right)
+    void Manager::DefaultUpdateViewCallback::updateView(View& left, View& right)
     {
         left.pose.position = osg::Vec3(-2.2, 0, 0);
         right.pose.position = osg::Vec3(2.2, 0, 0);
@@ -542,27 +382,27 @@ namespace Misc
         right.fov = { -0.620896876, 0.767549932, 0.726982594, -0.837898076 };
     }
 
-    void StereoView::setCullCallback(osg::ref_ptr<osg::NodeCallback> cb)
+    void Manager::setCullCallback(osg::ref_ptr<osg::NodeCallback> cb)
     {
         mMainCamera->setCullCallback(cb);
     }
-    osg::Matrixd StereoView::computeLeftEyeProjection(bool allowReverseZ) const
+    osg::Matrixd Manager::computeLeftEyeProjection(bool allowReverseZ) const
     {
         auto near_ = Settings::Manager::getFloat("near clip", "Camera");
         auto far_ = Settings::Manager::getFloat("viewing distance", "Camera");
         return mLeftView.fov.perspectiveMatrix(near_, far_, allowReverseZ && SceneUtil::getReverseZ());
     }
-    osg::Matrixd StereoView::computeLeftEyeView() const
+    osg::Matrixd Manager::computeLeftEyeView() const
     {
         return mLeftViewMatrix;
     }
-    osg::Matrixd StereoView::computeRightEyeProjection(bool allowReverseZ) const
+    osg::Matrixd Manager::computeRightEyeProjection(bool allowReverseZ) const
     {
         auto near_ = Settings::Manager::getFloat("near clip", "Camera");
         auto far_ = Settings::Manager::getFloat("viewing distance", "Camera");
         return mRightView.fov.perspectiveMatrix(near_, far_, allowReverseZ && SceneUtil::getReverseZ());
     }
-    osg::Matrixd StereoView::computeRightEyeView() const
+    osg::Matrixd Manager::computeRightEyeView() const
     {
         return mRightViewMatrix;
     }
@@ -571,7 +411,7 @@ namespace Misc
         : mWidth(width)
         , mHeight(height)
         , mSamples(samples)
-        , mMultiview(StereoView::instance().getMultiview())
+        , mMultiview(getMultiview())
         , mMultiviewFbo{ new osg::FrameBufferObject }
         , mFbo{ new osg::FrameBufferObject, new osg::FrameBufferObject }
     {
@@ -719,49 +559,5 @@ namespace Misc
         textureArray->setWrap(osg::Texture::WRAP_T, osg::Texture::CLAMP_TO_EDGE);
         textureArray->setWrap(osg::Texture::WRAP_R, osg::Texture::CLAMP_TO_EDGE);
         return textureArray;
-    }
-
-    namespace
-    {
-        bool getMultiviewSupported(unsigned int contextID)
-        {
-#ifdef OSG_HAS_MULTIVIEW
-            if (!Settings::Manager::getBool("multiview", "Stereo"))
-            {
-                Log(Debug::Verbose) << "Disabling Multiview (disabled by config)";
-                return false;
-            }
-
-            if (!osg::isGLExtensionSupported(contextID, "GL_OVR_multiview"))
-            {
-                Log(Debug::Verbose) << "Disabling Multiview (opengl extension \"GL_OVR_multiview\" not supported)";
-                return false;
-            }
-
-            if (!osg::isGLExtensionSupported(contextID, "GL_OVR_multiview2"))
-            {
-                Log(Debug::Verbose) << "Disabling Multiview (opengl extension \"GL_OVR_multiview2\" not supported)";
-                return false;
-            }
-
-            if (!osg::isGLExtensionOrVersionSupported(contextID, "ARB_texture_view", 4.3))
-            {
-                Log(Debug::Verbose) << "Disabling Multiview (opengl extension \"ARB_texture_view\" not supported)";
-                return false;
-            }
-
-            Log(Debug::Verbose) << "Enabling Multiview";
-
-            return true;
-#else
-            return false;
-#endif
-        }
-    }
-
-    bool getMultiview(unsigned int contextID)
-    {
-        static bool multiView = getMultiviewSupported(contextID);
-        return multiView;
     }
 }

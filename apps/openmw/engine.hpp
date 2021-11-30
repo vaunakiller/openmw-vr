@@ -41,8 +41,12 @@ namespace MWLua
 
 namespace Misc
 {
-    struct StereoView;
     class CallbackManager;
+}
+
+namespace Stereo
+{
+    class Manager;
 }
 
 namespace Files
@@ -99,7 +103,7 @@ namespace OMW
 
             bool mStereoEnabled;
             bool mStereoOverride;
-            std::unique_ptr<Misc::StereoView> mStereoView;
+            std::unique_ptr<Stereo::Manager> mStereoManager;
 
             std::unique_ptr<Misc::CallbackManager> mCallbackManager;
 

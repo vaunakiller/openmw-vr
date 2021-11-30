@@ -18,8 +18,6 @@
 
 #include "mwshadowtechnique.hpp"
 
-#include <components/misc/stereo.hpp>
-
 #include <osgShadow/ShadowedScene>
 #include <osg/CullFace>
 #include <osg/Geometry>

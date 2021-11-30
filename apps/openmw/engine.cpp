@@ -35,7 +35,8 @@
 
 #include <components/compiler/extensions0.hpp>
 
-#include <components/misc/stereo.hpp>
+#include <components/stereo/stereomanager.hpp>
+
 #include <components/misc/callbackmanager.hpp>
 
 #include <components/sceneutil/workqueue.hpp>
@@ -442,7 +443,7 @@ OMW::Engine::Engine(Files::ConfigurationManager& configurationManager)
   , mScreenCaptureOperation(nullptr)
   , mStereoEnabled(false)
   , mStereoOverride(false)
-  , mStereoView(nullptr)
+  , mStereoManager(nullptr)
   , mSkipMenu (false)
   , mUseSound (true)
   , mCompileAll (false)
@@ -483,7 +484,7 @@ OMW::Engine::~Engine()
     if (mScreenCaptureOperation != nullptr)
         mScreenCaptureOperation->stop();
 
-    mStereoView = nullptr;
+    mStereoManager = nullptr;
 
     mEnvironment.cleanup();
 
@@ -742,7 +743,7 @@ void OMW::Engine::prepareEngine (Settings::Manager & settings)
         new MWState::StateManager (mCfgMgr.getUserDataPath() / "saves", mContentFiles));
 
     mStereoEnabled = mEnvironment.getVrMode() || Settings::Manager::getBool("stereo enabled", "Stereo");
-    mStereoView = std::make_unique<Misc::StereoView>(mViewer);
+    mStereoManager = std::make_unique<Stereo::Manager>(mViewer);
 
     osg::ref_ptr<osg::Group> rootNode(new osg::Group);
     mViewer->setSceneData(rootNode);
@@ -1119,9 +1120,9 @@ void OMW::Engine::go()
             mViewer->getCamera()->setCullMask(mViewer->getCamera()->getCullMask() & ~(MWRender::VisMask::Mask_GUI));
         }
 
-        if (!mStereoView->error().empty())
+        if (!mStereoManager->error().empty())
         {
-            mEnvironment.getWindowManager()->messageBox(mStereoView->error());
+            mEnvironment.getWindowManager()->messageBox(mStereoManager->error());
         }
     }
 
@@ -1285,7 +1286,7 @@ void OMW::Engine::realize(osg::GraphicsContext* gc)
         Debug::EnableGLDebugOperation()(gc);
 
     if (mStereoEnabled)
-        mStereoView->initializeStereo(gc);
+        mStereoManager->initializeStereo(gc);
 
 #ifdef USE_OPENXR
     if (mEnvironment.getVrMode())

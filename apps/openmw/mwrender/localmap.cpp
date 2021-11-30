@@ -15,7 +15,7 @@
 #include <components/esm/fogstate.hpp>
 #include <components/esm/loadcell.hpp>
 #include <components/misc/constants.hpp>
-#include <components/misc/stereo.hpp>
+#include <components/stereo/multiview.hpp>
 #include <components/settings/settings.hpp>
 #include <components/sceneutil/visitor.hpp>
 #include <components/sceneutil/shadow.hpp>
@@ -219,7 +219,7 @@ void LocalMap::createOrthographicCamera(osg::Camera* camera, float x, float y, f
 
     stateset->addUniform(new osg::Uniform("projectionMatrix", static_cast<osg::Matrixf>(camera->getProjectionMatrix())), osg::StateAttribute::ON|osg::StateAttribute::OVERRIDE);
 
-    if (Misc::StereoView::instance().getMultiview())
+    if (Stereo::getMultiview())
     {
         auto* viewUniform = new osg::Uniform(osg::Uniform::FLOAT_MAT4, "viewMatrixMultiView", 2);
         auto* projUniform = new osg::Uniform(osg::Uniform::FLOAT_MAT4, "projectionMatrixMultiView", 2);

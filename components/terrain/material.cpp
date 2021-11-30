@@ -7,7 +7,7 @@
 #include <osg/TexMat>
 #include <osg/BlendFunc>
 
-#include <components/misc/stereo.hpp>
+#include <components/stereo/stereomanager.hpp>
 #include <components/shader/shadermanager.hpp>
 #include <components/sceneutil/util.hpp>
 
@@ -252,7 +252,7 @@ namespace Terrain
                 defineMap["specularMap"] = it->mSpecular ? "1" : "0";
                 defineMap["parallax"] = (it->mNormalMap && it->mParallax) ? "1" : "0";
 
-                Misc::StereoView::instance().shaderStereoDefines(defineMap);
+                Stereo::Manager::instance().shaderStereoDefines(defineMap);
 
                 osg::ref_ptr<osg::Shader> vertexShader = shaderManager->getShader("terrain_vertex.glsl", defineMap, osg::Shader::VERTEX);
                 osg::ref_ptr<osg::Shader> fragmentShader = shaderManager->getShader("terrain_fragment.glsl", defineMap, osg::Shader::FRAGMENT);

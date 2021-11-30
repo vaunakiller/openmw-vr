@@ -23,7 +23,7 @@
 
 #include <components/debug/debuglog.hpp>
 
-#include <components/misc/stereo.hpp>
+#include <components/stereo/stereomanager.hpp>
 
 #include <components/resource/resourcesystem.hpp>
 #include <components/resource/imagemanager.hpp>
@@ -108,14 +108,14 @@ namespace MWRender
         {
             auto* uProjectionMatrix = stateset->getUniform("projectionMatrix");
             if (uProjectionMatrix)
-                uProjectionMatrix->set(Misc::StereoView::instance().computeLeftEyeProjection(true));
+                uProjectionMatrix->set(Stereo::Manager::instance().computeLeftEyeProjection(true));
         }
 
         void applyRight(osg::StateSet* stateset, osgUtil::CullVisitor* nv) override
         {
             auto* uProjectionMatrix = stateset->getUniform("projectionMatrix");
             if (uProjectionMatrix)
-                uProjectionMatrix->set(Misc::StereoView::instance().computeRightEyeProjection(true));
+                uProjectionMatrix->set(Stereo::Manager::instance().computeRightEyeProjection(true));
         }
 
         void setProjectionMatrix(const osg::Matrixf& projectionMatrix)

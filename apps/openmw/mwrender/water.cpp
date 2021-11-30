@@ -33,7 +33,7 @@
 #include <components/sceneutil/lightmanager.hpp>
 
 #include <components/misc/constants.hpp>
-#include <components/misc/stereo.hpp>
+#include <components/stereo/stereomanager.hpp>
 
 #include <components/nifosg/controller.hpp>
 
@@ -684,7 +684,7 @@ void Water::createShaderWaterStateSet(osg::Node* node, Reflection* reflection, R
     std::map<std::string, std::string> defineMap;
     defineMap.insert(std::make_pair(std::string("refraction_enabled"), std::string(mRefraction ? "1" : "0")));
 
-    Misc::StereoView::instance().shaderStereoDefines(defineMap);
+    Stereo::Manager::instance().shaderStereoDefines(defineMap);
 
     Shader::ShaderManager& shaderMgr = mResourceSystem->getSceneManager()->getShaderManager();
     osg::ref_ptr<osg::Shader> vertexShader(shaderMgr.getShader("water_vertex.glsl", defineMap, osg::Shader::VERTEX));

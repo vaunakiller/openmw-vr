@@ -28,22 +28,22 @@ namespace XR
         return XrQuaternionf{ static_cast<float>(quat.x()), static_cast<float>(quat.z()), static_cast<float>(-quat.y()), static_cast<float>(quat.w()) };
     }
 
-    Misc::Pose fromXR(XrPosef pose)
+    Stereo::Pose fromXR(XrPosef pose)
     {
-        return Misc::Pose{ fromXR(pose.position), fromXR(pose.orientation) };
+        return Stereo::Pose{ fromXR(pose.position), fromXR(pose.orientation) };
     }
 
-    XrPosef toXR(Misc::Pose pose)
+    XrPosef toXR(Stereo::Pose pose)
     {
         return XrPosef{ toXR(pose.orientation), toXR(pose.position) };
     }
 
-    Misc::FieldOfView fromXR(XrFovf fov)
+    Stereo::FieldOfView fromXR(XrFovf fov)
     {
-        return Misc::FieldOfView{ fov.angleLeft, fov.angleRight, fov.angleUp, fov.angleDown };
+        return Stereo::FieldOfView{ fov.angleLeft, fov.angleRight, fov.angleUp, fov.angleDown };
     }
 
-    XrFovf toXR(Misc::FieldOfView fov)
+    XrFovf toXR(Stereo::FieldOfView fov)
     {
         return XrFovf{ fov.angleLeft, fov.angleRight, fov.angleUp, fov.angleDown };
     }

@@ -15,7 +15,7 @@
 
 #include <components/debug/debuglog.hpp>
 #include <components/misc/stringops.hpp>
-#include <components/misc/stereo.hpp>
+#include <components/stereo/stereomanager.hpp>
 #include <components/resource/imagemanager.hpp>
 #include <components/vfs/manager.hpp>
 #include <components/sceneutil/riggeometry.hpp>
@@ -266,8 +266,8 @@ namespace Shader
                                 mRequirements.back().mShaderRequired = true;
                             }
                         }
-                        else
-                            Log(Debug::Error) << "ShaderVisitor encountered unknown texture " << texture;
+                        //else
+                        //    Log(Debug::Error) << "ShaderVisitor encountered unknown texture " << texture;
                     }
                 }
             }
@@ -346,11 +346,13 @@ namespace Shader
 
         const osg::StateSet::AttributeList& attributes = stateset->getAttributeList();
         osg::StateSet::AttributeList removedAttributes;
-        if (osg::ref_ptr<osg::StateSet> removedState = getRemovedState(*stateset))
+        osg::ref_ptr<osg::StateSet> removedState = getRemovedState(*stateset);
+        if (removedState)
             removedAttributes = removedState->getAttributeList();
         osg::ref_ptr<AddedState> addedState = getAddedState(*stateset);
+        std::initializer_list<const osg::StateSet::AttributeList*> list{ &attributes, &removedAttributes };
 
-        for (const auto* attributeMap : std::initializer_list<const osg::StateSet::AttributeList*>{ &attributes, &removedAttributes })
+        for (const auto* attributeMap : list)
         {
             for (osg::StateSet::AttributeList::const_iterator it = attributeMap->begin(); it != attributeMap->end(); ++it)
             {
@@ -555,7 +557,7 @@ namespace Shader
             updateAddedState(*writableUserData, addedState);
         }
 
-        Misc::StereoView::instance().shaderStereoDefines(defineMap);
+        Stereo::Manager::instance().shaderStereoDefines(defineMap);
 
         std::string shaderPrefix;
         if (!node.getUserValue("shaderPrefix", shaderPrefix))

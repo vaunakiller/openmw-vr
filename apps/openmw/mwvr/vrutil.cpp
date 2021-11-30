@@ -45,7 +45,7 @@ namespace MWVR
             return std::pair<MWWorld::Ptr, float>(result.mHitObject, distance);
         }
 
-        float getPoseTarget(MWRender::RayResult& result, const Misc::Pose& pose, bool allowTelekinesis)
+        float getPoseTarget(MWRender::RayResult& result, const Stereo::Pose& pose, bool allowTelekinesis)
         {
             auto* wm = MWBase::Environment::get().getWindowManager();
             auto* world = MWBase::Environment::get().getWorld();
@@ -73,22 +73,22 @@ namespace MWVR
             }
         }
 
-        Misc::Pose getWeaponPose()
+        Stereo::Pose getWeaponPose()
         {
             auto ptr = MWBase::Environment::get().getWorld()->getPlayerPtr();
             auto* anim = MWBase::Environment::get().getWorld()->getAnimation(ptr);
             auto* vrAnim = static_cast<MWVR::VRAnimation*>(anim);
             osg::Matrix worldMatrix = vrAnim->getWeaponTransformMatrix();
-            Misc::Pose pose;
+            Stereo::Pose pose;
             pose.position = worldMatrix.getTrans();
             pose.orientation = worldMatrix.getRotate();
             return pose;
         }
 
-        Misc::Pose getNodePose(const osg::Node* node)
+        Stereo::Pose getNodePose(const osg::Node* node)
         {
             osg::Matrix worldMatrix = osg::computeLocalToWorld(node->getParentalNodePaths()[0]);
-            Misc::Pose pose;
+            Stereo::Pose pose;
             pose.position = worldMatrix.getTrans();
             pose.orientation = worldMatrix.getRotate();
             return pose;

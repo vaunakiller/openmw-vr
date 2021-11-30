@@ -23,7 +23,7 @@
 
 #include <components/misc/rng.hpp>
 #include <components/misc/resourcehelpers.hpp>
-#include <components/misc/stereo.hpp>
+#include <components/stereo/stereomanager.hpp>
 
 #include <components/nifosg/particle.hpp>
 
@@ -333,7 +333,7 @@ namespace MWRender
         if (mSceneManager->getForceShaders())
         {
             Shader::ShaderManager::DefineMap defines = {};
-            Misc::StereoView::instance().shaderStereoDefines(defines);
+            Stereo::Manager::instance().shaderStereoDefines(defines);
             auto vertex = mSceneManager->getShaderManager().getShader("sky_vertex.glsl", defines, osg::Shader::VERTEX);
             auto fragment = mSceneManager->getShaderManager().getShader("sky_fragment.glsl", defines, osg::Shader::FRAGMENT);
             auto program = mSceneManager->getShaderManager().getProgram(vertex, fragment);

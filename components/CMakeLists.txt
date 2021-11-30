@@ -92,8 +92,12 @@ add_component_dir (esmterrain
     )
 
 add_component_dir (misc
-    constants utf8stream stringops resourcehelpers rng messageformatparser weakcache stereo callbackmanager thread
+    constants utf8stream stringops resourcehelpers rng messageformatparser weakcache callbackmanager thread
     compression
+    )
+
+add_component_dir (stereo
+    multiview stereomanager types
     )
 
 add_component_dir (debug

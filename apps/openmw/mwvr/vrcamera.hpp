@@ -62,7 +62,7 @@ namespace MWVR
         void onTrackingUpdated(VR::TrackingManager& manager, VR::DisplayTime predictedDisplayTime) override;
 
     private:
-        Misc::Pose mHeadPose{};
+        Stereo::Pose mHeadPose{};
         bool mShouldRecenter{ true };
         bool mShouldResetZ{ true };
         bool mHasTrackingData{ false };

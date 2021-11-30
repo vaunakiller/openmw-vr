@@ -4,7 +4,7 @@
 #include <cstdint>
 #include <memory>
 
-#include <components/misc/stereo.hpp>
+#include <components/stereo/stereomanager.hpp>
 
 namespace VR
 {
@@ -36,7 +36,7 @@ namespace VR
         std::shared_ptr<Swapchain> colorSwapchain;
         std::shared_ptr<Swapchain> depthSwapchain;
         SubImage subImage;
-        Misc::View view;
+        Stereo::View view;
     };
 
     struct ProjectionLayer : public Layer

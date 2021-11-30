@@ -9,7 +9,7 @@
 
 #include <components/sceneutil/nodecallback.hpp>
 #include <components/settings/settings.hpp>
-#include <components/misc/stereo.hpp>
+#include <components/stereo/multiview.hpp>
 #include <components/debug/debuglog.hpp>
 
 namespace SceneUtil
@@ -128,7 +128,7 @@ namespace SceneUtil
     {
         if(mStereoAwareness != StereoAwareness::Aware)
             return false;
-        if (!Misc::StereoView::instance().getMultiview())
+        if (!Stereo::getMultiview())
             return true;
         return false;
     }
@@ -137,7 +137,7 @@ namespace SceneUtil
     {
         if (mStereoAwareness == StereoAwareness::Unaware)
             return false;
-        if (Misc::StereoView::instance().getMultiview())
+        if (Stereo::getMultiview())
             return true;
         return false;
     }
@@ -146,7 +146,7 @@ namespace SceneUtil
     {
         if (mStereoAwareness != StereoAwareness::StereoUnawareMultiViewAware)
             return false;
-        if (Misc::StereoView::instance().getMultiview())
+        if (Stereo::getMultiview())
             return true;
         return false;
     }

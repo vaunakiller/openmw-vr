@@ -7,7 +7,7 @@
 
 #include <components/debug/debuglog.hpp>
 #include <components/sdlutil/sdlgraphicswindow.hpp>
-#include <components/misc/stereo.hpp>
+#include <components/stereo/stereomanager.hpp>
 #include <components/vr/directx.hpp>
 #include <components/vr/constants.hpp>
 
