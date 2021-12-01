@@ -68,7 +68,7 @@ public:
 
         void operator()(osg::Node*, osg::NodeVisitor*)
         {
-                mRenderManager->update();
+            mRenderManager->update();
         }
 
     private:
@@ -413,9 +413,10 @@ public:
     std::string mFilter;
 };
 
-void GuiCameraUpdate::operator()(GUICamera* camera, osg::NodeVisitor*)
+void GuiCameraUpdate::operator()(GUICamera* camera, osg::NodeVisitor* nv)
 {
     camera->update();
+    traverse(camera, nv);
 }
 
 void GUICamera::begin()
