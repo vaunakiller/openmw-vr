@@ -7,6 +7,8 @@
 #include <components/settings/settings.hpp>
 #include <components/debug/debuglog.hpp>
 
+#include <algorithm>
+
 namespace Stereo
 {
     namespace
