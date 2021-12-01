@@ -24,59 +24,6 @@ namespace SceneUtil
         }
     };
 
-    class CreateTextureViewsCallback : public osg::Camera::DrawCallback
-    {
-    public:
-        CreateTextureViewsCallback(std::shared_ptr<RTTNode::ViewDependentData> vdd, GLint colorFormat, GLint depthFormat)
-            : mVdd(vdd)
-            , mColorFormat(colorFormat)
-            , mDepthFormat(depthFormat)
-        {
-        }
-
-        void operator () (osg::RenderInfo& renderInfo) const override
-        {
-            if (mDone)
-                return;
-
-            auto* state = renderInfo.getState();
-            auto contextId = state->getContextID();
-            auto* gl = osg::GLExtensions::Get(contextId, false);
-
-            // The stereo manager checks for texture view support before enabling multiview, so this check is probably redundant.
-            if (gl->glTextureView)
-            {
-                auto sourceTexture = mVdd->mCamera->getBufferAttachmentMap()[osg::Camera::COLOR_BUFFER]._texture;
-                auto sourceTextureObject = sourceTexture->getTextureObject(contextId);
-                auto sourceId = sourceTextureObject->_id;
-
-                GLuint targetId = 0;
-                glGenTextures(1, &targetId);
-                gl->glTextureView(targetId, GL_TEXTURE_2D, sourceId, sourceTextureObject->_profile._internalFormat, 0, 1, 0, 1);
-
-                auto targetTexture = mVdd->mColorTexture;
-                auto targetTextureObject = new osg::Texture::TextureObject(targetTexture, targetId, GL_TEXTURE_2D);
-                targetTexture->setTextureObject(contextId, targetTextureObject);
-            }
-            else {
-                Log(Debug::Error) << "Requested glTextureView but glTextureView is not supported";
-            }
-
-            mDone = true;
-
-            // Don't hold on to the reference as we're not gonna run again.
-            // This should not cause an immediate deletion of the camera (and consequentially this callback)
-            // as the stategraph/renderbin holds a reference.
-            mVdd = nullptr;
-        }
-
-        mutable bool mDone = false;
-        // Use a weak pointer to prevent cyclic reference
-        mutable std::shared_ptr<RTTNode::ViewDependentData> mVdd;
-        const GLint mColorFormat;
-        const GLint mDepthFormat;
-    };
-
     RTTNode::RTTNode(uint32_t textureWidth, uint32_t textureHeight, int renderOrderNum, StereoAwareness stereoAwareness)
         : mTextureWidth(textureWidth)
         , mTextureHeight(textureHeight)
@@ -239,13 +186,10 @@ namespace SceneUtil
 
                 if (shouldDoTextureView())
                 {
-                    // In this case, shaders being set to multiview forces us to render to a multiview framebuffer even though we don't need to.
-                    // To make the result compatible with the intended use, we have to return Texture2D views into the Texture2DArray.
-                    camera->setFinalDrawCallback(new CreateTextureViewsCallback(vdd, mColorBufferInternalFormat, mDepthBufferInternalFormat));
-
-                    // References are kept alive by the camera's attachment buffers, so just override the vdd textures with the views.
-                    vdd->mColorTexture = createTexture(mColorBufferInternalFormat);
-                    vdd->mDepthTexture = createTexture(mDepthBufferInternalFormat);
+                    // In this case, shaders being set to multiview forces us to render to a multiview framebuffer even though we don't need that.
+                    // This forces us to make Texture2DArray. To make this possible to sample as a Texture2D, make a Texture2D view into the texture array.
+                    vdd->mColorTexture = Stereo::createTextureView_Texture2DFromTexture2DArray(static_cast<osg::Texture2DArray*>(vdd->mColorTexture.get()), 0);
+                    vdd->mDepthTexture = Stereo::createTextureView_Texture2DFromTexture2DArray(static_cast<osg::Texture2DArray*>(vdd->mDepthTexture.get()), 0);
                 }
             }
             else
