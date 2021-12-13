@@ -560,13 +560,13 @@ if [ -z $SKIP_DOWNLOAD ]; then
 
 	# OSGoS
 	download "OSGoS 3.6.5 (MultiView)" \
-		"https://gitlab.com/madsbuvi/openmw-deps/-/raw/openmw-vr-ovr_multiview/windows/OSG-3.6-multiview-8c3a49c-msvc${MSVC_REAL_YEAR}-win${BITS}.7z" \
-		"OSG-3.6-multiview-8c3a49c-msvc${MSVC_REAL_YEAR}-win${BITS}.7z"
+		"https://gitlab.com/madsbuvi/openmw-deps/-/raw/openmw-vr-ovr_multiview/windows/OSG-3.6-multiview-nodisplaylists-8c3a49c32-msvc${MSVC_REAL_YEAR}-win${BITS}.7z" \
+		"OSG-3.6-multiview-nodisplaylists-8c3a49c32-msvc${MSVC_REAL_YEAR}-win${BITS}.7z"
 
 	if [ -n "$PDBS" ]; then
 		download "OSGoS symbols" \
-            "https://gitlab.com/madsbuvi/openmw-deps/-/raw/openmw-vr-ovr_multiview/windows/OSG-3.6-multiview-8c3a49c-msvc${MSVC_REAL_YEAR}-win${BITS}-sym.7z" \
-			"OSG-3.6-multiview-8c3a49c-msvc${MSVC_REAL_YEAR}-win${BITS}-sym.7z"
+            "https://gitlab.com/madsbuvi/openmw-deps/-/raw/openmw-vr-ovr_multiview/windows/OSG-3.6-multiview-nodisplaylists-8c3a49c32-msvc${MSVC_REAL_YEAR}-win${BITS}-sym.7z" \
+			"OSG-3.6-multiview-nodisplaylists-8c3a49c32-msvc${MSVC_REAL_YEAR}-win${BITS}-sym.7z"
 	fi
 
 	# SDL2
@@ -780,9 +780,9 @@ printf "OSGoS 3.6.5... "
 		printf "Exists. "
 	elif [ -z $SKIP_EXTRACT ]; then
 		rm -rf OSG
-		eval 7z x -y "${DEPS}/OSG-3.6-multiview-8c3a49c-msvc${MSVC_REAL_YEAR}-win${BITS}.7z" $STRIP
-		[ -n "$PDBS" ] && eval 7z x -y "${DEPS}/OSG-3.6-multiview-8c3a49c-msvc${MSVC_REAL_YEAR}-win${BITS}-sym.7z" $STRIP
-		mv "OSG-3.6-multiview-8c3a49c-msvc${MSVC_REAL_YEAR}-win${BITS}" OSG
+		eval 7z x -y "${DEPS}/OSG-3.6-multiview-nodisplaylists-8c3a49c32-msvc${MSVC_REAL_YEAR}-win${BITS}.7z" $STRIP
+		[ -n "$PDBS" ] && eval 7z x -y "${DEPS}/OSG-3.6-multiview-nodisplaylists-8c3a49c32-msvc${MSVC_REAL_YEAR}-win${BITS}-sym.7z" $STRIP
+		mv "OSG-3.6-multiview-nodisplaylists-8c3a49c32-msvc${MSVC_REAL_YEAR}-win${BITS}" OSG
 	fi
 	OSG_SDK="$(real_pwd)/OSG"
 	add_cmake_opts -DOSG_DIR="$OSG_SDK"
