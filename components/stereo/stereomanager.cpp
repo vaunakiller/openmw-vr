@@ -5,6 +5,7 @@
 #include <osg/Texture2D>
 #include <osg/Texture2DMultisample>
 #include <osg/Texture2DArray>
+#include <osg/DisplaySettings>
 
 #include <osgUtil/CullVisitor>
 #include <osgUtil/RenderStage>
@@ -238,6 +239,15 @@ namespace Stereo
 
     void Manager::setupOVRMultiView2Technique()
     {
+#ifdef OSG_MADSBUVI_DISPLAY_LIST_PATCH
+        if (Settings::Manager::getBool("disable display lists for multiview", "Stereo"))
+        {
+            auto* ds = osg::DisplaySettings::instance().get();
+            ds->setDisplayListHint(osg::DisplaySettings::DISPLAYLIST_DISABLED);
+            Log(Debug::Verbose) << "Disabling display lists";
+        }
+#endif
+
         mStereoShaderRoot->addCullCallback(new OVRMultiViewStereoStatesetUpdateCallback(this));
         mStereoShaderRoot->addChild(mRoot);
         mStereoRoot->addChild(mStereoShaderRoot);

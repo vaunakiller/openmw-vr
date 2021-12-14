@@ -2,6 +2,18 @@
 Common Problems
 ###############
 
+Right eye is not rendering right
+###############
+
+:Symptoms:
+	Parts of the scene is missing on the right eye.
+
+:Cause:
+	Driver bug.
+
+:Fix:
+	Either enable "Disable display lists" or uncheck "OVR_MultiView2" in the launcher.
+
 Bad performance
 ###############
 
@@ -14,7 +26,8 @@ Bad performance
 
 :Fix:
 	Reduce shadow complexity or disable shadows altogether. Reduce water shader complexity or disable it altogether.
-        Make sure "Use shared shadow maps" is enabled in the launcher (launcher->advanced->VR).
+        Make sure "Use shared shadow maps" is enabled in the launcher (launcher->advanced->VR). Make sure "OVR_MultiView2"
+        is enabled in the launcher
 
 My Controller doesn't work
 ##########################
@@ -28,7 +41,7 @@ My Controller doesn't work
         If there is none, then OpenMW-VR has not added support for your controller yet.
 
 :Fix 1:
-    Write your own profile. Consult the openxr spec for the exact interction profile Path, extension name, and available
+    Write your own profile. Consult the openxr spec for the exact interaction profile Path, extension name, and available
     action paths. Feel free to send me this profile, either in an issue or a MR.
 
 :Fix 2:

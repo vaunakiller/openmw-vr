@@ -8,8 +8,14 @@ Navigate to the Installation Guide on the left for help with installing OpenMW-V
 Before Launching
 ****************
 Before launching, you should run the openmw-launcher from your openmw-vr dir and go to the advaced->VR tab.
-Here you should input your real height in meters. There are some other options here that you don't need to care about,
-except maybe the melee combat swing speed if the default doesn't work well for you.
+Here you should input your real height in meters. If the defaults for combat swing speeds do not work for you, requiring
+too fast or too slow swing speeds, you can alter the speed settings here.
+
+OVR_MultiView2
+==============
+This feature, if enabled and your GPU supports it, will grant a significant performance boost to openmw-vr. If enabled,
+but your GPU does not support it, this setting has no effect. Note that some GPUs have buggy drivers and will have to
+disable display lists while using OVR_MultiView2.
 
 In-game settings
 ****************

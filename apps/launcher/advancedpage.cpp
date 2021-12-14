@@ -239,6 +239,7 @@ bool Launcher::AdvancedPage::loadSettings()
     // VR
     {
         loadSettingBool(useMultiview, "multiview", "Stereo");
+        loadSettingBool(disableDisplayList, "disable display lists for multiview", "Stereo");
         loadSettingBool(useSharedShadowMaps, "shared shadow maps", "Stereo");
         loadSettingBool(preferDirectXSwapchains, "Prefer DirectX swapchains", "VR");
         loadSettingBool(preferSRGBSwapchains, "Prefer sRGB swapchains", "VR");
@@ -424,6 +425,7 @@ void Launcher::AdvancedPage::saveSettings()
     // VR
     {
         saveSettingBool(useMultiview, "multiview", "Stereo");
+        saveSettingBool(disableDisplayList, "disable display lists for multiview", "Stereo");
         saveSettingBool(useSharedShadowMaps, "shared shadow maps", "Stereo");
         saveSettingBool(preferDirectXSwapchains, "Prefer sRGB swapchains", "VR");
         saveSettingBool(preferSRGBSwapchains, "Prefer DirectX swapchains", "VR");
