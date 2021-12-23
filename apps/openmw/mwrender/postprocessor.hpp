@@ -7,9 +7,16 @@
 #include <osg/Camera>
 #include <osg/ref_ptr>
 
+#include <memory>
+
 namespace osgViewer
 {
     class Viewer;
+}
+
+namespace Stereo
+{
+    class MultiviewFramebuffer;
 }
 
 namespace MWRender
@@ -36,6 +43,7 @@ namespace MWRender
         osg::ref_ptr<osg::Group> mRootNode;
         osg::ref_ptr<osg::Camera> mHUDCamera;
 
+        std::shared_ptr<Stereo::MultiviewFramebuffer> mMultiviewFbo;
         osg::ref_ptr<osg::FrameBufferObject> mMsaaFbo;
         osg::ref_ptr<osg::FrameBufferObject> mFbo;
         osg::ref_ptr<osg::RenderBuffer> mFirstPersonDepthRBProxy;

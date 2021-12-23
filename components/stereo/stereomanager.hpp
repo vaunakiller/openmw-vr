@@ -27,36 +27,7 @@ namespace osgViewer
 
 namespace Stereo
 {
-    class StereoFramebuffer
-    {
-    public:
-        StereoFramebuffer(int width, int height, int samples);
-        ~StereoFramebuffer();
-
-        void attachColorComponent(GLint sourceFormat, GLint sourceType, GLint internalFormat);
-        void attachDepthComponent(GLint sourceFormat, GLint sourceType, GLint internalFormat);
-
-        osg::FrameBufferObject* multiviewFbo();
-        osg::FrameBufferObject* fbo(int i);
-
-        void attachTo(osg::Camera* camera);
-
-    private:
-        osg::Texture2D* createTexture(GLint sourceFormat, GLint sourceType, GLint internalFormat);
-        osg::Texture2DMultisample* createTextureMsaa(GLint sourceFormat, GLint sourceType, GLint internalFormat);
-        osg::Texture2DArray* createTextureArray(GLint sourceFormat, GLint sourceType, GLint internalFormat);
-
-        int mWidth;
-        int mHeight;
-        int mSamples;
-        bool mMultiview;
-        osg::ref_ptr<osg::FrameBufferObject> mMultiviewFbo;
-        std::array<osg::ref_ptr<osg::FrameBufferObject>, 2> mFbo;
-        osg::ref_ptr<osg::Texture2DArray> mMultiviewColorTexture;
-        std::array<osg::ref_ptr<osg::Texture>, 2> mColorTexture;
-        osg::ref_ptr<osg::Texture2DArray> mMultiviewDepthTexture;
-        std::array<osg::ref_ptr<osg::Texture>, 2> mDepthTexture;
-    };
+    class MultiviewFramebuffer;
 
     //! Represent two eyes. The eyes are in relative terms, and are assumed to lie on the horizon plane.
     class Manager
@@ -83,7 +54,7 @@ namespace Stereo
         //! \param noShaderMask mask in all nodes that do not use shaders and must be rendered brute force.
         //! \param sceneMask must equal MWRender::VisMask::Mask_Scene. Necessary while VisMask is still not in components/
         //! \note the masks apply only to the GeometryShader_IndexdViewports technique and can be 0 for the BruteForce technique.
-        Manager(osgViewer::Viewer* viewer);
+        Manager(osgViewer::Viewer* viewer, bool stereoEnabled);
 
         //! Updates uniforms with the view and projection matrices of each stereo view, and replaces the camera's view and projection matrix
         //! with a view and projection that closely envelopes the frustums of the two eyes.
@@ -106,9 +77,11 @@ namespace Stereo
 
         void shaderStereoDefines(Shader::ShaderManager::DefineMap& defines) const;
 
-        void setStereoFramebuffer(std::shared_ptr<StereoFramebuffer> fbo);
+        void setMultiviewFramebuffer(std::shared_ptr<MultiviewFramebuffer> fbo);
 
         const std::string& error() const;
+
+        bool stereoEnabled() const { return mStereoEnabled; };
 
     private:
         void setupBruteForceTechnique();
@@ -121,6 +94,7 @@ namespace Stereo
         osg::ref_ptr<osg::Group>        mStereoRoot;
         osg::ref_ptr<osg::Callback>     mUpdateCallback;
         std::string                     mError;
+        bool                            mStereoEnabled;
         bool                            mMultiview;
 
         // Stereo matrices
@@ -133,10 +107,6 @@ namespace Stereo
 
         // Keeps state relevant to OVR_MultiView2
         osg::ref_ptr<osg::Group>    mStereoShaderRoot = new osg::Group;
-
-        osg::ref_ptr<osg::FrameBufferObject> mLayeredFbo;
-        osg::ref_ptr<osg::FrameBufferObject> mLeftFbo;
-        osg::ref_ptr<osg::FrameBufferObject> mRightFbo;
 
         using SharedShadowMapConfig = SceneUtil::MWShadowTechnique::SharedShadowMapConfig;
         osg::ref_ptr<SharedShadowMapConfig> mMasterConfig;

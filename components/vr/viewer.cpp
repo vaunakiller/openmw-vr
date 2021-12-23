@@ -219,19 +219,24 @@ namespace VR
         if (mSubImages[0].width != mSubImages[1].width || mSubImages[0].height != mSubImages[1].height)
             Log(Debug::Warning) << "Not implemented";
 
-        mStereoFramebuffer.reset(new Stereo::StereoFramebuffer(mFramebufferWidth, mFramebufferHeight, mFramebufferSamples));
-        mStereoFramebuffer->attachColorComponent(GL_RGB, GL_UNSIGNED_BYTE, GL_RGB);
-        mStereoFramebuffer->attachDepthComponent(GL_DEPTH_COMPONENT, depthType, depthFormat);
-        Stereo::Manager::instance().setStereoFramebuffer(mStereoFramebuffer);
+        mMultiviewFramebuffer.reset(new Stereo::MultiviewFramebuffer(mFramebufferWidth, mFramebufferHeight, mFramebufferSamples));
+        mMultiviewFramebuffer->attachColorComponent(GL_RGB, GL_UNSIGNED_BYTE, GL_RGB);
+        mMultiviewFramebuffer->attachDepthComponent(GL_DEPTH_COMPONENT, depthType, depthFormat);
+        Stereo::Manager::instance().setMultiviewFramebuffer(mMultiviewFramebuffer);
         mViewer->getCamera()->setViewport(0, 0, mFramebufferWidth, mFramebufferHeight);
 
         // The msaa-resolve framebuffer needs a texture, so we can sample it while applying gamma.
         mMsaaResolveFramebuffer = new osg::FrameBufferObject();
-        mMsaaResolveTexture = new osg::Texture2D();
-        mMsaaResolveTexture->setTextureSize(mFramebufferWidth, mFramebufferHeight);
-        mMsaaResolveTexture->setInternalFormat(GL_RGB);
-        mMsaaResolveFramebuffer->setAttachment(osg::Camera::COLOR_BUFFER, osg::FrameBufferAttachment(mMsaaResolveTexture));
-        mMsaaResolveFramebuffer->setAttachment(osg::Camera::DEPTH_BUFFER, osg::FrameBufferAttachment(new osg::RenderBuffer(mFramebufferWidth, mFramebufferHeight, depthFormat, 0)));
+        mMsaaResolveColorTexture = new osg::Texture2D();
+        mMsaaResolveColorTexture->setTextureSize(mFramebufferWidth, mFramebufferHeight);
+        mMsaaResolveColorTexture->setInternalFormat(GL_RGB);
+        mMsaaResolveDepthTexture = new osg::Texture2D();
+        mMsaaResolveDepthTexture->setTextureSize(mFramebufferWidth, mFramebufferHeight);
+        mMsaaResolveDepthTexture->setSourceFormat(GL_DEPTH_COMPONENT);
+        mMsaaResolveDepthTexture->setSourceType(depthType);
+        mMsaaResolveDepthTexture->setInternalFormat(depthFormat);
+        mMsaaResolveFramebuffer->setAttachment(osg::Camera::COLOR_BUFFER, osg::FrameBufferAttachment(mMsaaResolveColorTexture));
+        mMsaaResolveFramebuffer->setAttachment(osg::Camera::DEPTH_BUFFER, osg::FrameBufferAttachment(mMsaaResolveDepthTexture));
 
         // The gamma resolve framebuffer will be used to write the result of gamma post-processing.
         mGammaResolveFramebuffer = new osg::FrameBufferObject();
@@ -365,7 +370,7 @@ namespace VR
             program->compileGLObjects(*state);
             stateset->setAttributeAndModes(program, osg::StateAttribute::ON);
 
-            stateset->setTextureAttributeAndModes(0, mMsaaResolveTexture, osg::StateAttribute::PROTECTED);
+            stateset->setTextureAttributeAndModes(0, mMsaaResolveColorTexture, osg::StateAttribute::PROTECTED);
             stateset->setTextureMode(0, GL_TEXTURE_2D, osg::StateAttribute::PROTECTED);
 
             gammaUniform = new osg::Uniform("gamma", Settings::Manager::getFloat("gamma", "Video"));
@@ -519,8 +524,11 @@ namespace VR
 
         // OSG already resolved MSAA if we're using multiview. But i haven't implemented using a texture view to sample it yet so blit it anyway.
         // Without multiview we need to resolve MSAA anyway.
-        auto src = mStereoFramebuffer->fbo(i);
-        resolveMSAA(state, src);
+        auto src = mMultiviewFramebuffer->layerFbo(i);
+        if(mMultiviewFramebuffer->samples() > 1 && !Stereo::getMultiview())
+            resolveMSAA(state, mMultiviewFramebuffer->layerMsaaFbo(i));
+        else
+            resolveMSAA(state, mMultiviewFramebuffer->layerFbo(i));
 
         // Apply gamma by running a shader, sampling the colors we just blitted
         mGammaResolveFramebuffer->apply(*state, osg::FrameBufferObject::DRAW_FRAMEBUFFER);
@@ -591,7 +599,10 @@ namespace VR
     {
         if (!Stereo::getMultiview())
         {
-            mStereoFramebuffer->fbo(static_cast<int>(view))->apply(*info.getState());
+            if(mMultiviewFramebuffer->samples() > 1)
+                mMultiviewFramebuffer->layerMsaaFbo(static_cast<int>(view))->apply(*info.getState());
+            else
+                mMultiviewFramebuffer->layerFbo(static_cast<int>(view))->apply(*info.getState());
         }
     }
 

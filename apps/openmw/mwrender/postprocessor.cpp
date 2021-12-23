@@ -37,8 +37,8 @@ namespace
     class CullCallback : public SceneUtil::NodeCallback<CullCallback, osg::Node*, osgUtil::CullVisitor*>
     {
     public:
-        CullCallback()
-            : mLastFrameNumber(0)
+        CullCallback(MWRender::PostProcessor* pp)
+            : mPostProcessor(pp)
         {
         }
 
@@ -46,36 +46,21 @@ namespace
         {
             osgUtil::RenderStage* renderStage = cv->getCurrentRenderStage();
 
-            unsigned int frame = cv->getTraversalNumber();
-            if (frame != mLastFrameNumber)
+            if (!mPostProcessor->getMsaaFbo())
             {
-                mLastFrameNumber = frame;
-
-                MWRender::PostProcessor* postProcessor = dynamic_cast<MWRender::PostProcessor*>(cv->getCurrentCamera()->getUserData());
-
-                if (!postProcessor)
-                {
-                    Log(Debug::Error) << "Failed retrieving user data for master camera: FBO setup failed";
-                    traverse(node, cv);
-                    return;
-                }
-
-                if (!postProcessor->getMsaaFbo())
-                {
-                    renderStage->setFrameBufferObject(postProcessor->getFbo());
-                }
-                else
-                {
-                    renderStage->setMultisampleResolveFramebufferObject(postProcessor->getFbo());
-                    renderStage->setFrameBufferObject(postProcessor->getMsaaFbo());
-                }
+                renderStage->setFrameBufferObject(mPostProcessor->getFbo());
+            }
+            else
+            {
+                renderStage->setMultisampleResolveFramebufferObject(mPostProcessor->getFbo());
+                renderStage->setFrameBufferObject(mPostProcessor->getMsaaFbo());
             }
 
             traverse(node, cv);
         }
 
     private:
-        unsigned int mLastFrameNumber;
+        MWRender::PostProcessor* mPostProcessor;
     };
 
     struct ResizedCallback : osg::GraphicsContext::ResizedCallback
@@ -149,13 +134,12 @@ namespace MWRender
 
         // We need to manually set the FBO and resolve FBO during the cull callback. If we were using a separate
         // RTT camera this would not be needed.
-        mViewer->getCamera()->addCullCallback(new CullCallback);
+        mViewer->getCamera()->addCullCallback(new CullCallback(this));
         mViewer->getCamera()->setRenderTargetImplementation(osg::Camera::FRAME_BUFFER_OBJECT);
         mViewer->getCamera()->attach(osg::Camera::COLOR_BUFFER0, mSceneTex);
         mViewer->getCamera()->attach(osg::Camera::DEPTH_BUFFER, mDepthTex);
 
         mViewer->getCamera()->getGraphicsContext()->setResizedCallback(new ResizedCallback(this));
-        mViewer->getCamera()->setUserData(this);
     }
 
     void PostProcessor::resize(int width, int height)
@@ -191,6 +175,74 @@ namespace MWRender
         mRendering.updateProjectionMatrix();
     }
 
+    class HUDCameraStatesetUpdater : public SceneUtil::StateSetUpdater
+    {
+    public:
+    public:
+        HUDCameraStatesetUpdater(osg::ref_ptr<osg::Camera> HUDCamera, osg::ref_ptr<osg::Program> program, osg::ref_ptr<osg::Texture2D> sceneTex)
+            : mHUDCamera(HUDCamera)
+            , mProgram(program)
+            , mSceneTex(sceneTex)
+        {
+        }
+
+        void setDefaults(osg::StateSet* stateset) override
+        {
+            stateset->setTextureAttributeAndModes(0, mSceneTex, osg::StateAttribute::ON);
+            stateset->setAttributeAndModes(mProgram, osg::StateAttribute::ON);
+            stateset->addUniform(new osg::Uniform("sceneTex", 0));
+            stateset->setMode(GL_LIGHTING, osg::StateAttribute::OFF);
+            stateset->setMode(GL_DEPTH_TEST, osg::StateAttribute::OFF);
+
+            if (osg::DisplaySettings::instance()->getStereo())
+            {
+                stateset->setAttribute(new osg::Viewport);
+                stateset->addUniform(new osg::Uniform("viewportIndex", 0));
+            }
+        }
+
+        void apply(osg::StateSet* stateset, osg::NodeVisitor* nv) override
+        {
+            // Nothing to do
+        }
+
+        void applyLeft(osg::StateSet* stateset, osgUtil::CullVisitor* cv) override
+        {
+            auto* viewportIndexUniform = stateset->getUniform("viewportIndex");
+            viewportIndexUniform->set(0);
+            auto viewport = static_cast<osg::Viewport*>(stateset->getAttribute(osg::StateAttribute::VIEWPORT));
+            auto fullViewport = mHUDCamera->getViewport();
+            viewport->setViewport(
+                0,
+                0,
+                fullViewport->width() / 2,
+                fullViewport->height()
+            );
+
+            Log(Debug::Verbose) << "YES HELLO THIS IS LEFT HAND SIDE REPORTING FOR DUTY";
+        }
+
+        void applyRight(osg::StateSet* stateset, osgUtil::CullVisitor* cv) override
+        {
+            auto* viewportIndexUniform = stateset->getUniform("viewportIndex");
+            viewportIndexUniform->set(1);
+            auto viewport = static_cast<osg::Viewport*>(stateset->getAttribute(osg::StateAttribute::VIEWPORT));
+            auto fullViewport = mHUDCamera->getViewport();
+            viewport->setViewport(
+                fullViewport->width() / 2,
+                0,
+                fullViewport->width() / 2,
+                fullViewport->height()
+            );
+            Log(Debug::Verbose) << "YES HELLO THIS IS RIGHT HAND SIDE REPORTING FOR DUTY";
+        }
+
+    private:
+        osg::ref_ptr<osg::Camera> mHUDCamera;
+        osg::ref_ptr<osg::Program> mProgram;
+        osg::ref_ptr<osg::Texture2D> mSceneTex;
+    };
+
     void PostProcessor::createTexturesAndCamera(int width, int height)
     {
         mDepthTex = new osg::Texture2D;
@@ -219,6 +271,7 @@ namespace MWRender
         mHUDCamera->setReferenceFrame(osg::Camera::ABSOLUTE_RF);
         mHUDCamera->setRenderOrder(osg::Camera::POST_RENDER);
         mHUDCamera->setClearColor(osg::Vec4(0.45, 0.45, 0.14, 1.0));
+        mHUDCamera->setClearMask(0);
         mHUDCamera->setProjectionMatrix(osg::Matrix::ortho2D(0, 1, 0, 1));
         mHUDCamera->setAllowEventFocus(false);
         mHUDCamera->setViewport(0, 0, width, height);
@@ -236,6 +289,23 @@ namespace MWRender
             }
         )GLSL";
 
+        // Calculates correct UV coordinates when dealing with OSG's built-in stereo
+        constexpr char vertSrcOSGStereo[] = R"GLSL(
+            #version 120
+
+            // Not to be confused with the indexed viewport feature of OpenGL.
+            uniform int viewportIndex;
+
+            varying vec2 uv;
+
+            void main()
+            {
+                gl_Position = vec4(gl_Vertex.xy, 0.0, 1.0);
+                uv = gl_Position.xy * 0.5 + 0.5;
+                uv.x = (uv.x + viewportIndex) * 0.5;
+            }
+        )GLSL";
+
         constexpr char fragSrc[] = R"GLSL(
             #version 120
 
@@ -248,7 +318,9 @@ namespace MWRender
             }
         )GLSL";
 
-        osg::ref_ptr<osg::Shader> vertShader = new osg::Shader(osg::Shader::VERTEX, vertSrc);
+        auto isOSGStereo = osg::DisplaySettings::instance()->getStereo();
+
+        osg::ref_ptr<osg::Shader> vertShader = new osg::Shader(osg::Shader::VERTEX, isOSGStereo ? vertSrcOSGStereo : vertSrc);
         osg::ref_ptr<osg::Shader> fragShader = new osg::Shader(osg::Shader::FRAGMENT, fragSrc);
 
         osg::ref_ptr<osg::Program> program = new osg::Program;
@@ -257,13 +329,14 @@ namespace MWRender
 
         mHUDCamera->addChild(createFullScreenTri());
         mHUDCamera->setNodeMask(Mask_RenderToTexture);
+        mHUDCamera->setCullCallback(new HUDCameraStatesetUpdater(mHUDCamera, program, mSceneTex));
 
-        auto* stateset = mHUDCamera->getOrCreateStateSet();
-        stateset->setTextureAttributeAndModes(0, mSceneTex, osg::StateAttribute::ON);
-        stateset->setAttributeAndModes(program, osg::StateAttribute::ON);
-        stateset->addUniform(new osg::Uniform("sceneTex", 0));
-        stateset->setMode(GL_LIGHTING, osg::StateAttribute::OFF);
-        stateset->setMode(GL_DEPTH_TEST, osg::StateAttribute::OFF);
+        //auto* stateset = mHUDCamera->getOrCreateStateSet();
+        //stateset->setTextureAttributeAndModes(0, mSceneTex, osg::StateAttribute::ON);
+        //stateset->setAttributeAndModes(program, osg::StateAttribute::ON);
+        //stateset->addUniform(new osg::Uniform("sceneTex", 0));
+        //stateset->setMode(GL_LIGHTING, osg::StateAttribute::OFF);
+        //stateset->setMode(GL_DEPTH_TEST, osg::StateAttribute::OFF);
     }
 
 }

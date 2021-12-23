@@ -19,7 +19,7 @@
 
 namespace Stereo
 {
-    class StereoFramebuffer;
+    class MultiviewFramebuffer;
     struct View;
 }
 
@@ -96,10 +96,11 @@ namespace VR
         bool mFlipMirrorTextureOrder{ false };
         MirrorTextureEye mMirrorTextureEye{ MirrorTextureEye::Both };
 
-        std::shared_ptr<Stereo::StereoFramebuffer> mStereoFramebuffer;
+        std::shared_ptr<Stereo::MultiviewFramebuffer> mMultiviewFramebuffer;
         osg::ref_ptr<osg::FrameBufferObject> mMsaaResolveFramebuffer;
         osg::ref_ptr<osg::FrameBufferObject> mGammaResolveFramebuffer;
-        osg::ref_ptr<osg::Texture2D> mMsaaResolveTexture;
+        osg::ref_ptr<osg::Texture2D> mMsaaResolveColorTexture;
+        osg::ref_ptr<osg::Texture2D> mMsaaResolveDepthTexture;
         int mFramebufferWidth = 0;
         int mFramebufferHeight = 0;
         int mFramebufferSamples = 0;
