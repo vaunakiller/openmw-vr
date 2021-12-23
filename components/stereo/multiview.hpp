@@ -46,9 +46,10 @@ namespace Stereo
         void attachDepthComponent(GLint sourceFormat, GLint sourceType, GLint internalFormat);
 
         osg::FrameBufferObject* fbo();
-        //osg::FrameBufferObject* msaaFbo();
+        osg::FrameBufferObject* msaaFbo();
         osg::FrameBufferObject* layerFbo(int i);
-        osg::FrameBufferObject* layerMsaaFbo(int i);
+        osg::Texture2D* layerColorBuffer(int i);
+        osg::Texture2D* layerDepthBuffer(int i);
 
         void attachTo(osg::Camera* camera);
 
@@ -65,13 +66,12 @@ namespace Stereo
         int mSamples;
         bool mMultiview;
         osg::ref_ptr<osg::FrameBufferObject> mFbo;
-        //osg::ref_ptr<osg::FrameBufferObject> mMsaaFbo;
+        osg::ref_ptr<osg::FrameBufferObject> mMsaaFbo;
         std::array<osg::ref_ptr<osg::FrameBufferObject>, 2> mLayerFbo;
-        std::array<osg::ref_ptr<osg::FrameBufferObject>, 2> mLayerMsaaFbo;
         osg::ref_ptr<osg::Texture2DArray> mMultiviewColorTexture;
-        //osg::ref_ptr<osg::Texture2DMultisampleArray> mMultiviewMsaaColorTexture;
+        osg::ref_ptr<osg::Texture2DMultisampleArray> mMultiviewMsaaColorTexture;
         osg::ref_ptr<osg::Texture2DArray> mMultiviewDepthTexture;
-        //osg::ref_ptr<osg::Texture2DMultisampleArray> mMultiviewMsaaDepthTexture;
+        osg::ref_ptr<osg::Texture2DMultisampleArray> mMultiviewMsaaDepthTexture;
         std::array<osg::ref_ptr<osg::Texture2D>, 2> mColorTexture;
         std::array<osg::ref_ptr<osg::Texture2DMultisample>, 2> mMsaaColorTexture;
         std::array<osg::ref_ptr<osg::Texture2D>, 2> mDepthTexture;

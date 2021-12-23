@@ -137,6 +137,35 @@ namespace VR
         return *sViewer;
     }
 
+    //class CullCallback : public SceneUtil::NodeCallback<CullCallback, osg::Node*, osgUtil::CullVisitor*>
+    //{
+    //public:
+    //    CullCallback(MWRender::PostProcessor* pp)
+    //        : mPostProcessor(pp)
+    //    {
+    //    }
+
+    //    void operator()(osg::Node* node, osgUtil::CullVisitor* cv)
+    //    {
+    //        osgUtil::RenderStage* renderStage = cv->getCurrentRenderStage();
+
+    //        if (!mPostProcessor->getMsaaFbo())
+    //        {
+    //            renderStage->setFrameBufferObject(mPostProcessor->getFbo());
+    //        }
+    //        else
+    //        {
+    //            renderStage->setMultisampleResolveFramebufferObject(mPostProcessor->getFbo());
+    //            renderStage->setFrameBufferObject(mPostProcessor->getMsaaFbo());
+    //        }
+
+    //        traverse(node, cv);
+    //    }
+
+    //private:
+    //    MWRender::PostProcessor* mPostProcessor;
+    //};
+
     Viewer::Viewer(
         std::shared_ptr<VR::Session> session,
         osg::ref_ptr<osgViewer::Viewer> viewer)
@@ -525,9 +554,9 @@ namespace VR
         // OSG already resolved MSAA if we're using multiview. But i haven't implemented using a texture view to sample it yet so blit it anyway.
         // Without multiview we need to resolve MSAA anyway.
         auto src = mMultiviewFramebuffer->layerFbo(i);
-        if(mMultiviewFramebuffer->samples() > 1 && !Stereo::getMultiview())
-            resolveMSAA(state, mMultiviewFramebuffer->layerMsaaFbo(i));
-        else
+        //if(mMultiviewFramebuffer->samples() > 1 && !Stereo::getMultiview())
+        //    resolveMSAA(state, mMultiviewFramebuffer->layerMsaaFbo(i));
+        //else
             resolveMSAA(state, mMultiviewFramebuffer->layerFbo(i));
 
         // Apply gamma by running a shader, sampling the colors we just blitted
@@ -599,9 +628,9 @@ namespace VR
     {
         if (!Stereo::getMultiview())
         {
-            if(mMultiviewFramebuffer->samples() > 1)
-                mMultiviewFramebuffer->layerMsaaFbo(static_cast<int>(view))->apply(*info.getState());
-            else
+            //if(mMultiviewFramebuffer->samples() > 1)
+            //    mMultiviewFramebuffer->layerMsaaFbo(static_cast<int>(view))->apply(*info.getState());
+            //else
                 mMultiviewFramebuffer->layerFbo(static_cast<int>(view))->apply(*info.getState());
         }
     }

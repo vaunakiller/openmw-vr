@@ -97,8 +97,8 @@ namespace VR
         MirrorTextureEye mMirrorTextureEye{ MirrorTextureEye::Both };
 
         std::shared_ptr<Stereo::MultiviewFramebuffer> mMultiviewFramebuffer;
-        osg::ref_ptr<osg::FrameBufferObject> mMsaaResolveFramebuffer;
         osg::ref_ptr<osg::FrameBufferObject> mGammaResolveFramebuffer;
+        osg::ref_ptr<osg::FrameBufferObject> mMsaaResolveFramebuffer;
         osg::ref_ptr<osg::Texture2D> mMsaaResolveColorTexture;
         osg::ref_ptr<osg::Texture2D> mMsaaResolveDepthTexture;
         int mFramebufferWidth = 0;
