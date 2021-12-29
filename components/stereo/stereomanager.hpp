@@ -77,8 +77,6 @@ namespace Stereo
 
         void shaderStereoDefines(Shader::ShaderManager::DefineMap& defines) const;
 
-        void setMultiviewFramebuffer(std::shared_ptr<MultiviewFramebuffer> fbo);
-
         const std::string& error() const;
 
         bool stereoEnabled() const { return mStereoEnabled; };

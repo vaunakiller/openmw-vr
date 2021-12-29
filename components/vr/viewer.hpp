@@ -29,7 +29,6 @@ namespace VR
     class TrackingManager;
     class Session;
     struct InitialDrawCallback;
-    struct PredrawCallback;
     struct FinaldrawCallback;
     struct UpdateViewCallback;
     struct SwapBuffersCallback;
@@ -59,7 +58,6 @@ namespace VR
 
         void swapBuffersCallback(osg::GraphicsContext* gc);
         void initialDrawCallback(osg::RenderInfo& info, Misc::CallbackManager::View view);
-        void preDrawCallback(osg::RenderInfo& info, Misc::CallbackManager::View view);
         void finalDrawCallback(osg::RenderInfo& info, Misc::CallbackManager::View view);
         void blit(osg::RenderInfo& gc);
         void configureCallbacks();
@@ -69,13 +67,12 @@ namespace VR
 
         bool callbacksConfigured() { return mCallbacksConfigured; };
 
-        bool applyGamma(osg::RenderInfo& info);
+        bool applyGamma(osg::RenderInfo& info, int i);
 
     private:
         osg::ref_ptr<osg::FrameBufferObject> getXrFramebuffer(uint32_t view, osg::State* state);
         void blitXrFramebuffer(osg::State* state, int i);
         void blitMirrorTexture(osg::State* state, int i);
-        void resolveMSAA(osg::State* state, osg::FrameBufferObject* fbo);
         void resolveGamma(osg::RenderInfo& info, int i);
 
     private:
@@ -85,12 +82,10 @@ namespace VR
         osg::ref_ptr<osgViewer::Viewer> mViewer;
         osg::ref_ptr<SwapBuffersCallback> mSwapBuffersCallback;
         std::shared_ptr<InitialDrawCallback> mInitialDraw;
-        std::shared_ptr<PredrawCallback> mPreDraw;
         std::shared_ptr<FinaldrawCallback> mFinalDraw;
         std::shared_ptr<UpdateViewCallback> mUpdateViewCallback;
         bool mCallbacksConfigured{ false };
 
-        //osg::ref_ptr<osg::FrameBufferObject> mMirrorFramebuffer;
         std::vector<VR::Side> mMirrorTextureViews;
         bool mMirrorTextureEnabled{ false };
         bool mFlipMirrorTextureOrder{ false };
@@ -98,9 +93,6 @@ namespace VR
 
         std::shared_ptr<Stereo::MultiviewFramebuffer> mMultiviewFramebuffer;
         osg::ref_ptr<osg::FrameBufferObject> mGammaResolveFramebuffer;
-        osg::ref_ptr<osg::FrameBufferObject> mMsaaResolveFramebuffer;
-        osg::ref_ptr<osg::Texture2D> mMsaaResolveColorTexture;
-        osg::ref_ptr<osg::Texture2D> mMsaaResolveDepthTexture;
         int mFramebufferWidth = 0;
         int mFramebufferHeight = 0;
         int mFramebufferSamples = 0;

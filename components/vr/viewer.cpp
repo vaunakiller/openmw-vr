@@ -75,24 +75,6 @@ namespace VR
         Viewer* mViewer;
     };
 
-    struct PredrawCallback : public Misc::CallbackManager::MwDrawCallback
-    {
-    public:
-        PredrawCallback(Viewer* viewer)
-            : mViewer(viewer)
-        {}
-
-        bool operator()(osg::RenderInfo& info, Misc::CallbackManager::View view) const override 
-        { 
-            mViewer->preDrawCallback(info, view); 
-            return true;
-        };
-
-    private:
-
-        Viewer* mViewer;
-    };
-
     struct InitialDrawCallback : public Misc::CallbackManager::MwDrawCallback
     {
     public:
@@ -137,34 +119,54 @@ namespace VR
         return *sViewer;
     }
 
-    //class CullCallback : public SceneUtil::NodeCallback<CullCallback, osg::Node*, osgUtil::CullVisitor*>
-    //{
-    //public:
-    //    CullCallback(MWRender::PostProcessor* pp)
-    //        : mPostProcessor(pp)
-    //    {
-    //    }
+    class CullCallback : public SceneUtil::NodeCallback<CullCallback, osg::Node*, osgUtil::CullVisitor*>
+    {
+    public:
+        CullCallback(Stereo::MultiviewFramebuffer* multiviewFramebuffer)
+            : mMultiviewFramebuffer(multiviewFramebuffer)
+        {
+        }
 
-    //    void operator()(osg::Node* node, osgUtil::CullVisitor* cv)
-    //    {
-    //        osgUtil::RenderStage* renderStage = cv->getCurrentRenderStage();
+        void operator()(osg::Node* node, osgUtil::CullVisitor* cv)
+        {
+            osgUtil::RenderStage* renderStage = cv->getCurrentRenderStage();
 
-    //        if (!mPostProcessor->getMsaaFbo())
-    //        {
-    //            renderStage->setFrameBufferObject(mPostProcessor->getFbo());
-    //        }
-    //        else
-    //        {
-    //            renderStage->setMultisampleResolveFramebufferObject(mPostProcessor->getFbo());
-    //            renderStage->setFrameBufferObject(mPostProcessor->getMsaaFbo());
-    //        }
+            auto view = Misc::CallbackManager::instance().getView(cv);
+            bool msaa = mMultiviewFramebuffer->samples() > 1;
 
-    //        traverse(node, cv);
-    //    }
+            if (!Stereo::getMultiview())
+            {
+                int view_i = 0;
+                switch (view)
+                {
+                case Misc::CallbackManager::View::Left:
+                    view_i = 0;
+                    break;
+                case Misc::CallbackManager::View::Right:
+                    view_i = 1;
+                    break;
+                default:
+                    Log(Debug::Error) << "Unexpected view, defaulting to 0";
+                    view_i = 0;
+                    break;
+                }
+                if (msaa)
+                {
+                    renderStage->setFrameBufferObject(mMultiviewFramebuffer->layerMsaaFbo(view_i));
+                    renderStage->setMultisampleResolveFramebufferObject(mMultiviewFramebuffer->layerFbo(view_i));
+                }
+                else
+                {
+                    renderStage->setFrameBufferObject(mMultiviewFramebuffer->layerFbo(view_i));
+                }
+            }
 
-    //private:
-    //    MWRender::PostProcessor* mPostProcessor;
-    //};
+            traverse(node, cv);
+        }
+
+    private:
+        Stereo::MultiviewFramebuffer* mMultiviewFramebuffer;
+    };
 
     Viewer::Viewer(
         std::shared_ptr<VR::Session> session,
@@ -173,7 +175,6 @@ namespace VR
         , mViewer(viewer)
         , mSwapBuffersCallback(new SwapBuffersCallback(this))
         , mInitialDraw(new InitialDrawCallback(this))
-        , mPreDraw(new PredrawCallback(this))
         , mFinalDraw(new FinaldrawCallback(this))
         , mUpdateViewCallback(new UpdateViewCallback(this))
         , mCallbacksConfigured(false)
@@ -251,21 +252,12 @@ namespace VR
         mMultiviewFramebuffer.reset(new Stereo::MultiviewFramebuffer(mFramebufferWidth, mFramebufferHeight, mFramebufferSamples));
         mMultiviewFramebuffer->attachColorComponent(GL_RGB, GL_UNSIGNED_BYTE, GL_RGB);
         mMultiviewFramebuffer->attachDepthComponent(GL_DEPTH_COMPONENT, depthType, depthFormat);
-        Stereo::Manager::instance().setMultiviewFramebuffer(mMultiviewFramebuffer);
-        mViewer->getCamera()->setViewport(0, 0, mFramebufferWidth, mFramebufferHeight);
+        if (Stereo::getMultiview())
+            mMultiviewFramebuffer->attachTo(mViewer->getCamera());
+        else
+            mViewer->getCamera()->setCullCallback(new CullCallback(mMultiviewFramebuffer.get()));
 
-        // The msaa-resolve framebuffer needs a texture, so we can sample it while applying gamma.
-        mMsaaResolveFramebuffer = new osg::FrameBufferObject();
-        mMsaaResolveColorTexture = new osg::Texture2D();
-        mMsaaResolveColorTexture->setTextureSize(mFramebufferWidth, mFramebufferHeight);
-        mMsaaResolveColorTexture->setInternalFormat(GL_RGB);
-        mMsaaResolveDepthTexture = new osg::Texture2D();
-        mMsaaResolveDepthTexture->setTextureSize(mFramebufferWidth, mFramebufferHeight);
-        mMsaaResolveDepthTexture->setSourceFormat(GL_DEPTH_COMPONENT);
-        mMsaaResolveDepthTexture->setSourceType(depthType);
-        mMsaaResolveDepthTexture->setInternalFormat(depthFormat);
-        mMsaaResolveFramebuffer->setAttachment(osg::Camera::COLOR_BUFFER, osg::FrameBufferAttachment(mMsaaResolveColorTexture));
-        mMsaaResolveFramebuffer->setAttachment(osg::Camera::DEPTH_BUFFER, osg::FrameBufferAttachment(mMsaaResolveDepthTexture));
+        mViewer->getCamera()->setViewport(0, 0, mFramebufferWidth, mFramebufferHeight);
 
         // The gamma resolve framebuffer will be used to write the result of gamma post-processing.
         mGammaResolveFramebuffer = new osg::FrameBufferObject();
@@ -305,7 +297,6 @@ namespace VR
         // Give the main camera an initial draw callback that disables camera setup (we don't want it)
         Stereo::Manager::instance().setUpdateViewCallback(mUpdateViewCallback);
         Misc::CallbackManager::instance().addCallback(Misc::CallbackManager::DrawStage::Initial, mInitialDraw);
-        Misc::CallbackManager::instance().addCallback(Misc::CallbackManager::DrawStage::PreDraw, mPreDraw);
         Misc::CallbackManager::instance().addCallback(Misc::CallbackManager::DrawStage::Final, mFinalDraw);
 
         mCallbacksConfigured = true;
@@ -349,7 +340,7 @@ namespace VR
             setupMirrorTexture();
     }
 
-    bool Viewer::applyGamma(osg::RenderInfo& info)
+    bool Viewer::applyGamma(osg::RenderInfo& info, int i)
     {
         osg::State* state = info.getState();
         static const char* vSource = "#version 120\n varying vec2 uv; void main(){ gl_Position = vec4(gl_Vertex.xy*2.0 - 1, 0, 1); uv = gl_Vertex.xy;}";
@@ -398,8 +389,6 @@ namespace VR
             program->addShader(fShader);
             program->compileGLObjects(*state);
             stateset->setAttributeAndModes(program, osg::StateAttribute::ON);
-
-            stateset->setTextureAttributeAndModes(0, mMsaaResolveColorTexture, osg::StateAttribute::PROTECTED);
             stateset->setTextureMode(0, GL_TEXTURE_2D, osg::StateAttribute::PROTECTED);
 
             gammaUniform = new osg::Uniform("gamma", Settings::Manager::getFloat("gamma", "Video"));
@@ -421,6 +410,8 @@ namespace VR
 
             gammaUniform->set(Settings::Manager::getFloat("gamma", "Video"));
             contrastUniform->set(Settings::Manager::getFloat("contrast", "Video"));
+            stateset->setTextureAttributeAndModes(0, mMultiviewFramebuffer->layerColorBuffer(i), osg::StateAttribute::PROTECTED);
+
             state->pushStateSet(stateset);
             state->apply();
 
@@ -500,7 +491,7 @@ namespace VR
         gl->glBlitFramebuffer(srcX0, srcY0, srcX1, srcY1, dstX0, dstY0, dstX1, dstY1, GL_COLOR_BUFFER_BIT, GL_NEAREST);
         if (mSession->appShouldShareDepthInfo())
         {
-            mMsaaResolveFramebuffer->apply(*state, osg::FrameBufferObject::READ_FRAMEBUFFER);
+            mMultiviewFramebuffer->layerFbo(i)->apply(*state, osg::FrameBufferObject::READ_FRAMEBUFFER);
             gl->glBlitFramebuffer(srcX0, srcY0, srcX1, srcY1, dstX0, dstY0, dstX1, dstY1, GL_DEPTH_BUFFER_BIT, GL_NEAREST);
         }
 
@@ -535,37 +526,18 @@ namespace VR
         }
     }
 
-    void Viewer::resolveMSAA(osg::State* state, osg::FrameBufferObject* fbo)
-    {
-        auto* gl = osg::GLExtensions::Get(state->getContextID(), false);
-            
-        // Resolve MSAA by blitting color to a non-multisampled framebuffer
-        mMsaaResolveFramebuffer->apply(*state, osg::FrameBufferObject::DRAW_FRAMEBUFFER);
-        fbo->apply(*state, osg::FrameBufferObject::READ_FRAMEBUFFER);
-        gl->glBlitFramebuffer(0, 0, mFramebufferWidth, mFramebufferHeight, 0, 0, mFramebufferWidth, mFramebufferHeight, GL_COLOR_BUFFER_BIT, GL_NEAREST);
-        gl->glBlitFramebuffer(0, 0, mFramebufferWidth, mFramebufferHeight, 0, 0, mFramebufferWidth, mFramebufferHeight, GL_DEPTH_BUFFER_BIT, GL_NEAREST);
-    }
-
     void Viewer::resolveGamma(osg::RenderInfo& info, int i)
     {
         auto* state = info.getState();
         auto* gl = osg::GLExtensions::Get(state->getContextID(), false);
 
-        // OSG already resolved MSAA if we're using multiview. But i haven't implemented using a texture view to sample it yet so blit it anyway.
-        // Without multiview we need to resolve MSAA anyway.
-        auto src = mMultiviewFramebuffer->layerFbo(i);
-        //if(mMultiviewFramebuffer->samples() > 1 && !Stereo::getMultiview())
-        //    resolveMSAA(state, mMultiviewFramebuffer->layerMsaaFbo(i));
-        //else
-            resolveMSAA(state, mMultiviewFramebuffer->layerFbo(i));
-
-        // Apply gamma by running a shader, sampling the colors we just blitted
+        // Apply gamma by running a shader, sampling the colors that were rendered
         mGammaResolveFramebuffer->apply(*state, osg::FrameBufferObject::DRAW_FRAMEBUFFER);
         bool shouldDoGamma = Settings::Manager::getBool("gamma postprocessing", "VR Debug");
-        if (!shouldDoGamma || !applyGamma(info))
+        if (!shouldDoGamma || !applyGamma(info, i))
         {
-            mMsaaResolveFramebuffer->apply(*state, osg::FrameBufferObject::READ_FRAMEBUFFER);
             // Gamma should not / failed to be applied. Blit the colors unmodified
+            mMultiviewFramebuffer->layerFbo(i)->apply(*state, osg::FrameBufferObject::READ_FRAMEBUFFER);
             gl->glBlitFramebuffer(0, 0, mFramebufferWidth, mFramebufferHeight, 0, 0, mFramebufferWidth, mFramebufferHeight, GL_COLOR_BUFFER_BIT, GL_NEAREST);
         }
     }
@@ -608,7 +580,6 @@ namespace VR
             if (renderer != nullptr)
             {
                 // Disable normal OSG FBO camera setup
-                renderer->setCameraRequiresSetUp(false);
                 // OSG's internal stereo offers no option to let you control the viewport, and recomputes the render stage's viewport every time without exception.
                 // So i have to override it in this callback so so that the viewport of each eye will encompass the entire texture.
                 for (int i = 0; i < 2; i++)
@@ -621,17 +592,6 @@ namespace VR
                         viewport->setViewport(0, 0, mFramebufferWidth, mFramebufferHeight);
                 }
             }
-        }
-    }
-
-    void Viewer::preDrawCallback(osg::RenderInfo& info, Misc::CallbackManager::View view)
-    {
-        if (!Stereo::getMultiview())
-        {
-            //if(mMultiviewFramebuffer->samples() > 1)
-            //    mMultiviewFramebuffer->layerMsaaFbo(static_cast<int>(view))->apply(*info.getState());
-            //else
-                mMultiviewFramebuffer->layerFbo(static_cast<int>(view))->apply(*info.getState());
         }
     }
 
