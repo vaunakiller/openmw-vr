@@ -154,35 +154,27 @@ namespace MWVR
         Camera::reset();
     }
 
-    void VRCamera::rotateCamera(float pitch, float roll, float yaw, bool adjust)
-    {
-        if (adjust)
-        {
-            pitch += getPitch();
-            yaw += getYaw();
-        }
-        setYaw(yaw);
-        setPitch(pitch);
-    }
+    //void VRCamera::rotateCamera(float pitch, float roll, float yaw, bool adjust)
+    //{
+    //    if (adjust)
+    //    {
+    //        pitch += getPitch();
+    //        yaw += getYaw();
+    //    }
+    //    setYaw(yaw);
+    //    setPitch(pitch);
+    //}
 
     void VRCamera::toggleViewMode(bool force)
     {
         mFirstPersonView = true;
     }
-    bool VRCamera::toggleVanityMode(bool enable)
+
+    void VRCamera::getPosition(osg::Vec3d& position) const
     {
-        // Vanity mode makes no sense in VR
-        return Camera::toggleVanityMode(false);
+        position = mHeadPose.position;
     }
-    void VRCamera::allowVanityMode(bool allow)
-    {
-        // Vanity mode makes no sense in VR
-        mVanityAllowed = false;
-    }
-    void VRCamera::getPosition(osg::Vec3d& focal, osg::Vec3d& camera) const
-    {
-        camera = focal = mHeadPose.position;
-    }
+
     void VRCamera::getOrientation(osg::Quat& orientation) const
     {
         orientation = mHeadPose.orientation;

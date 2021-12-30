@@ -15,7 +15,7 @@ namespace DetourNavigator
 {
     template <class Callback>
     void getTilesPositions(const osg::Vec3f& aabbMin, const osg::Vec3f& aabbMax,
-        const Settings& settings, Callback&& callback)
+        const RecastSettings& settings, Callback&& callback)
     {
         auto min = toNavMeshCoordinates(settings, aabbMin);
         auto max = toNavMeshCoordinates(settings, aabbMax);
@@ -40,7 +40,7 @@ namespace DetourNavigator
 
     template <class Callback>
     void getTilesPositions(const btCollisionShape& shape, const btTransform& transform,
-        const Settings& settings, Callback&& callback)
+        const RecastSettings& settings, Callback&& callback)
     {
         btVector3 aabbMin;
         btVector3 aabbMax;
@@ -50,13 +50,13 @@ namespace DetourNavigator
     }
 
     template <class Callback>
-    void getTilesPositions(const int cellSize, const osg::Vec3f& shift,
-        const Settings& settings, Callback&& callback)
+    void getTilesPositions(const int cellSize, const btVector3& shift,
+        const RecastSettings& settings, Callback&& callback)
     {
         using Misc::Convert::toOsg;
 
         const auto halfCellSize = cellSize / 2;
-        const btTransform transform(btMatrix3x3::getIdentity(), Misc::Convert::toBullet(shift));
+        const btTransform transform(btMatrix3x3::getIdentity(), shift);
         auto aabbMin = transform(btVector3(-halfCellSize, -halfCellSize, 0));
         auto aabbMax = transform(btVector3(halfCellSize, halfCellSize, 0));
 

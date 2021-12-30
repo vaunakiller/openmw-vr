@@ -28,11 +28,12 @@
 
 #include <components/sceneutil/rtt.hpp>
 #include <components/sceneutil/shadow.hpp>
-#include <components/sceneutil/util.hpp>
+#include <components/sceneutil/depth.hpp>
 #include <components/sceneutil/waterutil.hpp>
 #include <components/sceneutil/lightmanager.hpp>
 
 #include <components/misc/constants.hpp>
+#include <components/misc/stringops.hpp>
 #include <components/stereo/stereomanager.hpp>
 
 #include <components/nifosg/controller.hpp>
@@ -271,7 +272,6 @@ public:
 
     void setDefaults(osg::Camera* camera) override
     {
-        SceneUtil::setCameraClearDepth(camera);
         camera->setReferenceFrame(osg::Camera::RELATIVE_RF);
         camera->setSmallFeatureCullingPixelSize(Settings::Manager::getInt("small feature culling pixel size", "Water"));
         camera->setName("RefractionCamera");
@@ -347,7 +347,6 @@ public:
 
     void setDefaults(osg::Camera* camera) override
     {
-        SceneUtil::setCameraClearDepth(camera);
         camera->setReferenceFrame(osg::Camera::RELATIVE_RF);
         camera->setSmallFeatureCullingPixelSize(Settings::Manager::getInt("small feature culling pixel size", "Water"));
         camera->setName("ReflectionCamera");
@@ -650,7 +649,7 @@ public:
         {
             stateset->setMode(GL_BLEND, osg::StateAttribute::ON);
             stateset->setRenderBinDetails(MWRender::RenderBin_Water, "RenderBin");
-            osg::ref_ptr<osg::Depth> depth = SceneUtil::createDepth();
+            osg::ref_ptr<osg::Depth> depth = new SceneUtil::AutoDepth;
             depth->setWriteMask(false);
             stateset->setAttributeAndModes(depth, osg::StateAttribute::ON);
         }
@@ -682,7 +681,9 @@ void Water::createShaderWaterStateSet(osg::Node* node, Reflection* reflection, R
 {
     // use a define map to conditionally compile the shader
     std::map<std::string, std::string> defineMap;
-    defineMap.insert(std::make_pair(std::string("refraction_enabled"), std::string(mRefraction ? "1" : "0")));
+    defineMap["refraction_enabled"] = std::string(mRefraction ? "1" : "0");
+    const auto rippleDetail = std::clamp(Settings::Manager::getInt("rain ripple detail", "Water"), 0, 2);
+    defineMap["rain_ripple_detail"] = std::to_string(rippleDetail);
 
     Stereo::Manager::instance().shaderStereoDefines(defineMap);
 

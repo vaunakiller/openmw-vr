@@ -14,7 +14,7 @@
 #include <components/sceneutil/controller.hpp>
 #include <components/sceneutil/shadow.hpp>
 #include <components/sceneutil/visitor.hpp>
-#include <components/sceneutil/util.hpp>
+#include <components/sceneutil/depth.hpp>
 
 #include <components/resource/scenemanager.hpp>
 #include <components/resource/imagemanager.hpp>
@@ -301,7 +301,7 @@ namespace MWRender
         mAtmosphereNightUpdater = new AtmosphereNightUpdater(mSceneManager->getImageManager(), forceShaders);
         atmosphereNight->addUpdateCallback(mAtmosphereNightUpdater);
 
-        mSun.reset(new Sun(mEarlyRenderBinRoot, *mSceneManager->getImageManager()));
+        mSun.reset(new Sun(mEarlyRenderBinRoot, *mSceneManager));
         mMasser.reset(new Moon(mEarlyRenderBinRoot, *mSceneManager, Fallback::Map::getFloat("Moons_Masser_Size")/125, Moon::Type_Masser));
         mSecunda.reset(new Moon(mEarlyRenderBinRoot, *mSceneManager, Fallback::Map::getFloat("Moons_Secunda_Size")/125, Moon::Type_Secunda));
 
@@ -341,7 +341,7 @@ namespace MWRender
             mEarlyRenderBinRoot->getOrCreateStateSet()->setAttributeAndModes(program, osg::StateAttribute::ON|osg::StateAttribute::OVERRIDE);
         }
 
-        auto depth = SceneUtil::createDepth();
+        osg::ref_ptr<osg::Depth> depth = new SceneUtil::AutoDepth;
         depth->setWriteMask(false);
         mEarlyRenderBinRoot->getOrCreateStateSet()->setAttributeAndModes(depth);
         mEarlyRenderBinRoot->getOrCreateStateSet()->setMode(GL_BLEND, osg::StateAttribute::ON);

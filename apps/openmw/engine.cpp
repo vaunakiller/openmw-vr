@@ -48,6 +48,8 @@
 #include <components/misc/frameratelimiter.hpp>
 
 #include <components/sceneutil/screencapture.hpp>
+#include <components/sceneutil/depth.hpp>
+#include <components/sceneutil/util.hpp>
 
 #include <components/vr/session.hpp>
 #include <components/vr/trackingmanager.hpp>
@@ -283,6 +285,47 @@ namespace
     {
         void operator()(std::string) const {}
     };
+
+    class IdentifyOpenGLOperation : public osg::GraphicsOperation
+    {
+    public:
+        IdentifyOpenGLOperation() : GraphicsOperation("IdentifyOpenGLOperation", false)
+        {}
+
+        void operator()(osg::GraphicsContext* graphicsContext) override
+        {
+            Log(Debug::Info) << "OpenGL Vendor: " << glGetString(GL_VENDOR);
+            Log(Debug::Info) << "OpenGL Renderer: " << glGetString(GL_RENDERER);
+            Log(Debug::Info) << "OpenGL Version: " << glGetString(GL_VERSION);
+        }
+    };
+
+    class InitializeStereoOperation : public osg::GraphicsOperation
+    {
+    public:
+        InitializeStereoOperation() : GraphicsOperation("InitializeStereoOperation", false)
+        {}
+
+        void operator()(osg::GraphicsContext* graphicsContext) override
+        {
+            Stereo::Manager::instance().initializeStereo(graphicsContext);
+        }
+    };
+
+    class InitializeVrOperation : public osg::GraphicsOperation
+    {
+    public:
+        InitializeVrOperation(OMW::Engine* engine) : GraphicsOperation("InitializeVrOperation", false)
+            , mEngine(engine)
+        {}
+
+        void operator()(osg::GraphicsContext* graphicsContext) override
+        {
+            mEngine->configureVR(graphicsContext);
+        }
+
+        OMW::Engine* mEngine;
+    };
 }
 
 void OMW::Engine::executeLocalScripts()
@@ -337,6 +380,10 @@ bool OMW::Engine::frame(float frametime)
 
         // Main menu opened? Then scripts are also paused.
         bool paused = mEnvironment.getWindowManager()->containsMode(MWGui::GM_MainMenu);
+
+        // Should be called after input manager update and before any change to the game world.
+        // It applies to the game world queued changes from the previous frame.
+        mLuaManager->synchronizedUpdate();
 
         // update game state
         {
@@ -616,6 +663,10 @@ void OMW::Engine::createWindow(Settings::Manager& settings)
     if(fullscreen)
         flags |= SDL_WINDOW_FULLSCREEN;
 
+    // Allows for Windows snapping features to properly work in borderless window
+    SDL_SetHint("SDL_BORDERLESS_WINDOWED_STYLE", "1");
+    SDL_SetHint("SDL_BORDERLESS_RESIZABLE_STYLE", "1");
+
     if (!windowBorder)
         flags |= SDL_WINDOW_BORDERLESS;
 
@@ -704,9 +755,21 @@ void OMW::Engine::createWindow(Settings::Manager& settings)
     camera->setGraphicsContext(graphicsWindow);
     camera->setViewport(0, 0, graphicsWindow->getTraits()->width, graphicsWindow->getTraits()->height);
 
-    // Set up the realize operation, with nesting of any other realize operations.
-    osg::ref_ptr<osg::GraphicsOperation> op = dynamic_cast<osg::GraphicsOperation*>(mViewer->getRealizeOperation());
-    mViewer->setRealizeOperation(new MWRealizeOperation(this, op));
+    osg::ref_ptr<SceneUtil::OperationSequence> realizeOperations = new SceneUtil::OperationSequence(false);
+    mViewer->setRealizeOperation(realizeOperations);
+    realizeOperations->add(new IdentifyOpenGLOperation());
+
+    if (Debug::shouldDebugOpenGL())
+        realizeOperations->add(new Debug::EnableGLDebugOperation());
+
+
+    if (mStereoEnabled)
+        realizeOperations->add(new InitializeStereoOperation());
+
+#ifdef USE_OPENXR
+    if (mEnvironment.getVrMode())
+        realizeOperations->add(new InitializeVrOperation(this));
+#endif
 
     mViewer->realize();
 
@@ -830,6 +893,22 @@ void OMW::Engine::prepareEngine (Settings::Manager & settings)
 
     osg::ref_ptr<osg::GLExtensions> exts = osg::GLExtensions::Get(0, false);
     bool shadersSupported = exts && (exts->glslLanguageVersion >= 1.2f);
+    bool enableReverseZ = false;
+
+    if (Settings::Manager::getBool("reverse z", "Camera"))
+    {
+        if (exts && exts->isClipControlSupported)
+        {
+            enableReverseZ = true;
+            Log(Debug::Info) << "Using reverse-z depth buffer";
+        }
+        else
+            Log(Debug::Warning) << "GL_ARB_clip_control not supported: disabling reverse-z depth buffer";
+    }
+    else
+        Log(Debug::Info) << "Using standard depth buffer";
+
+    SceneUtil::AutoDepth::setReversed(enableReverseZ);
 
 #if OSG_VERSION_LESS_THAN(3, 6, 6)
     // hack fix for https://github.com/openscenegraph/OpenSceneGraph/issues/1028
@@ -974,10 +1053,8 @@ public:
             mThread = std::thread([this]{ threadBody(); });
     };
 
-    void allowUpdate(double dt)
+    void allowUpdate()
     {
-        mDt = dt;
-        mIsGuiMode = mEngine->mEnvironment.getWindowManager()->isGuiMode();
         if (!mThread)
             return;
         {
@@ -996,7 +1073,6 @@ public:
         }
         else
             update();
-        mEngine->mLuaManager->applyQueuedChanges();
     };
 
     void join()
@@ -1020,7 +1096,7 @@ private:
         const unsigned int frameNumber = viewer->getFrameStamp()->getFrameNumber();
         ScopedProfile<UserStatsType::Lua> profile(frameStart, frameNumber, *osg::Timer::instance(), *viewer->getViewerStats());
 
-        mEngine->mLuaManager->update(mIsGuiMode, mDt);
+        mEngine->mLuaManager->update();
     }
 
     void threadBody()
@@ -1045,8 +1121,6 @@ private:
     std::condition_variable mCV;
     bool mUpdateRequest = false;
     bool mJoinRequest = false;
-    double mDt = 0;
-    bool mIsGuiMode = false;
     std::optional<std::thread> mThread;
 };
 
@@ -1177,7 +1251,7 @@ void OMW::Engine::go()
 
             mEnvironment.getWorld()->updateWindowManager();
 
-            luaWorker.allowUpdate(dt);  // if there is a separate Lua thread, it starts the update now
+            luaWorker.allowUpdate();  // if there is a separate Lua thread, it starts the update now
 
             mViewer->renderingTraversals();
 
@@ -1208,8 +1282,6 @@ void OMW::Engine::go()
 
     // Save user settings
     settings.saveUser(settingspath);
-
-    mViewer->stopThreading();
 
     Log(Debug::Info) << "Quitting peacefully.";
 }
@@ -1277,21 +1349,6 @@ void OMW::Engine::setSaveGameFile(const std::string &savegame)
 void OMW::Engine::setRandomSeed(unsigned int seed)
 {
     mRandomSeed = seed;
-}
-
-void OMW::Engine::realize(osg::GraphicsContext* gc)
-{
-
-    if (Debug::shouldDebugOpenGL())
-        Debug::EnableGLDebugOperation()(gc);
-
-    if (mStereoEnabled)
-        mStereoManager->initializeStereo(gc);
-
-#ifdef USE_OPENXR
-    if (mEnvironment.getVrMode())
-        configureVR(gc);
-#endif
 }
 
 #ifdef USE_OPENXR

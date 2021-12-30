@@ -78,36 +78,33 @@ namespace MWLua
         mInitialized = true;
     }
 
-    void LuaManager::update(bool paused, float dt)
+    void LuaManager::update()
     {
+        if (mPlayer.isEmpty())
+            return;  // The game is not started yet.
+
+        float frameDuration = MWBase::Environment::get().getFrameDuration();
         ObjectRegistry* objectRegistry = mWorldView.getObjectRegistry();
 
-        if (!mPlayer.isEmpty())
+        MWWorld::Ptr newPlayerPtr = MWBase::Environment::get().getWorld()->getPlayerPtr();
+        if (!(getId(mPlayer) == getId(newPlayerPtr)))
+            throw std::logic_error("Player Refnum was changed unexpectedly");
+        if (!mPlayer.isInCell() || !newPlayerPtr.isInCell() || mPlayer.getCell() != newPlayerPtr.getCell())
         {
-            MWWorld::Ptr newPlayerPtr = MWBase::Environment::get().getWorld()->getPlayerPtr();
-            if (!(getId(mPlayer) == getId(newPlayerPtr)))
-                throw std::logic_error("Player Refnum was changed unexpectedly");
-            if (!mPlayer.isInCell() || !newPlayerPtr.isInCell() || mPlayer.getCell() != newPlayerPtr.getCell())
-            {
-                mPlayer = newPlayerPtr;  // player was moved to another cell, update ptr in registry
-                objectRegistry->registerPtr(mPlayer);
-            }
+            mPlayer = newPlayerPtr;  // player was moved to another cell, update ptr in registry
+            objectRegistry->registerPtr(mPlayer);
         }
-        mWorldView.update();
 
-        if (paused)
-        {
-            mInputEvents.clear();
-            return;
-        }
+        mWorldView.update();
 
         std::vector<GlobalEvent> globalEvents = std::move(mGlobalEvents);
         std::vector<LocalEvent> localEvents = std::move(mLocalEvents);
         mGlobalEvents = std::vector<GlobalEvent>();
         mLocalEvents = std::vector<LocalEvent>();
 
+        if (!mWorldView.isPaused())
         {  // Update time and process timers
-            double seconds = mWorldView.getGameTimeInSeconds() + dt;
+            double seconds = mWorldView.getGameTimeInSeconds() + frameDuration;
             mWorldView.setGameTimeInSeconds(seconds);
             double hours = mWorldView.getGameTimeInHours();
 
@@ -136,14 +133,6 @@ namespace MWLua
         mQueuedCallbacks.clear();
 
         // Engine handlers in local scripts
-        PlayerScripts* playerScripts = dynamic_cast<PlayerScripts*>(mPlayer.getRefData().getLuaScripts());
-        if (playerScripts)
-        {
-            for (const auto& event : mInputEvents)
-                playerScripts->processInputEvent(event);
-        }
-        mInputEvents.clear();
-
         for (const LocalEngineEvent& e : mLocalEngineEvents)
         {
             LObject obj(e.mDest, objectRegistry);
@@ -158,8 +147,11 @@ namespace MWLua
         }
         mLocalEngineEvents.clear();
 
-        for (LocalScripts* scripts : mActiveLocalScripts)
-            scripts->update(dt);
+        if (!mWorldView.isPaused())
+        {
+            for (LocalScripts* scripts : mActiveLocalScripts)
+                scripts->update(frameDuration);
+        }
 
         // Engine handlers in global scripts
         if (mPlayerChanged)
@@ -177,22 +169,37 @@ namespace MWLua
             mGlobalScripts.actorActive(GObject(id, objectRegistry));
         mActorAddedEvents.clear();
 
-        mGlobalScripts.update(dt);
+        if (!mWorldView.isPaused())
+            mGlobalScripts.update(frameDuration);
     }
 
-    void LuaManager::applyQueuedChanges()
+    void LuaManager::synchronizedUpdate()
     {
+        if (mPlayer.isEmpty())
+            return;  // The game is not started yet.
+
+        // We apply input events in `synchronizedUpdate` rather than in `update` in order to reduce input latency.
+        PlayerScripts* playerScripts = dynamic_cast<PlayerScripts*>(mPlayer.getRefData().getLuaScripts());
+        if (playerScripts && !MWBase::Environment::get().getWindowManager()->containsMode(MWGui::GM_MainMenu))
+        {
+            for (const auto& event : mInputEvents)
+                playerScripts->processInputEvent(event);
+        }
+        mInputEvents.clear();
+        if (playerScripts && !mWorldView.isPaused())
+            playerScripts->inputUpdate(MWBase::Environment::get().getFrameDuration());
+
         MWBase::WindowManager* windowManager = MWBase::Environment::get().getWindowManager();
         for (const std::string& message : mUIMessages)
             windowManager->messageBox(message);
         mUIMessages.clear();
 
         for (std::unique_ptr<Action>& action : mActionQueue)
-            action->apply(mWorldView);
+            action->safeApply(mWorldView);
         mActionQueue.clear();
         
         if (mTeleportPlayerAction)
-            mTeleportPlayerAction->apply(mWorldView);
+            mTeleportPlayerAction->safeApply(mWorldView);
         mTeleportPlayerAction.reset();
     }
 
@@ -215,6 +222,7 @@ namespace MWLua
             mPlayer.getRefData().setLuaScripts(nullptr);
             mPlayer = MWWorld::Ptr();
         }
+        clearUserInterface();
     }
 
     void LuaManager::setupPlayer(const MWWorld::Ptr& ptr)
@@ -420,6 +428,7 @@ namespace MWLua
                 continue;
             ESM::LuaScripts data;
             scripts->save(data);
+            clearUserInterface();
             scripts->load(data);
         }
         for (LocalScripts* scripts : mActiveLocalScripts)

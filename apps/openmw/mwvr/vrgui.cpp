@@ -254,7 +254,7 @@ namespace MWVR
 
         auto orientation = mRotation * mTrackedPose.orientation;
 
-        if(mLayerName == "StatusHUD" || mLayerName == "VirtualKeyboard")
+        if(mLayerName == "HUD" || mLayerName == "VirtualKeyboard")
         {
             orientation = osg::Quat(osg::PI_2, osg::Vec3(0, 0, 1)) * orientation;
         }
@@ -551,7 +551,7 @@ namespace MWVR
             "/world/user/hand/left/input/aim/pose",
             ""
         };
-        LayerConfig statusHUDConfig = LayerConfig
+        LayerConfig HUDConfig = LayerConfig
         {
             0,
             false, // side-by-side
@@ -586,7 +586,7 @@ namespace MWVR
         mLayerConfigs = std::map<std::string, LayerConfig>
         {
             {"DefaultConfig", defaultConfig},
-            {"StatusHUD", statusHUDConfig},
+            {"HUD", HUDConfig},
             {"Tooltip", popupConfig},
             {"JournalBooks", journalBooksConfig},
             {"InventoryCompanionWindow", inventoryCompanionWindowConfig},

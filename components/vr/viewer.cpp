@@ -19,6 +19,7 @@
 #include <components/vr/session.hpp>
 #include <components/vr/trackingmanager.hpp>
 
+#include <components/sceneutil/depth.hpp>
 #include <components/sceneutil/util.hpp>
 #include <components/sdlutil/sdlgraphicswindow.hpp>
 

@@ -209,6 +209,8 @@ if (NOT OPENMW_USE_SYSTEM_SQLITE3)
     set(SQLite3_LIBRARY sqlite3 PARENT_SCOPE)
 endif()
 
+add_subdirectory(smhasher)
+
 # Note: This must be placed after OpenSceneGraph to avoid a target name collision on "uninstall", 
 # as OSG does not check that this target doesn't already exist.
 if(BUILD_OPENMW_VR)

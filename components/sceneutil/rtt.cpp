@@ -9,6 +9,7 @@
 
 #include <components/sceneutil/nodecallback.hpp>
 #include <components/settings/settings.hpp>
+#include <components/sceneutil/depth.hpp>
 #include <components/stereo/multiview.hpp>
 #include <components/debug/debuglog.hpp>
 
@@ -157,6 +158,7 @@ namespace SceneUtil
             camera->setClearMask(GL_DEPTH_BUFFER_BIT | GL_COLOR_BUFFER_BIT);
             camera->setRenderTargetImplementation(osg::Camera::FRAME_BUFFER_OBJECT);
             camera->setViewport(0, 0, mTextureWidth, mTextureHeight);
+            SceneUtil::setCameraClearDepth(camera);
 
             setDefaults(camera);
 

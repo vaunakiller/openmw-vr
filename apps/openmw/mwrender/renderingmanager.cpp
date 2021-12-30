@@ -35,7 +35,7 @@
 
 #include <components/settings/settings.hpp>
 
-#include <components/sceneutil/util.hpp>
+#include <components/sceneutil/depth.hpp>
 #include <components/sceneutil/visitor.hpp>
 #include <components/sceneutil/lightmanager.hpp>
 #include <components/sceneutil/statesetupdater.hpp>
@@ -53,6 +53,7 @@
 
 #include "../mwworld/cellstore.hpp"
 #include "../mwworld/class.hpp"
+#include "../mwworld/groundcoverstore.hpp"
 #include "../mwgui/loadingscreen.hpp"
 #include "../mwbase/windowmanager.hpp"
 #include "../mwmechanics/actorutil.hpp"
@@ -63,7 +64,6 @@
 #include "vismask.hpp"
 #include "pathgrid.hpp"
 #include "camera.hpp"
-#include "viewovershoulder.hpp"
 #include "water.hpp"
 #include "terrainstorage.hpp"
 #include "navmesh.hpp"
@@ -144,6 +144,7 @@ namespace MWRender
             stateset->addUniform(new osg::Uniform("linearFac", 0.f));
             stateset->addUniform(new osg::Uniform("near", 0.f));
             stateset->addUniform(new osg::Uniform("far", 0.f));
+            stateset->addUniform(new osg::Uniform("screenRes", osg::Vec2f{}));
             if (mUsePlayerUniforms)
             {
                 stateset->addUniform(new osg::Uniform("windSpeed", 0.0f));
@@ -164,6 +165,10 @@ namespace MWRender
             auto* uFar = stateset->getUniform("far");
             if (uFar)
                 uFar->set(mFar);
+
+            auto* uScreenRes = stateset->getUniform("screenRes");
+            if (uScreenRes)
+                uScreenRes->set(mScreenRes);
 
             if (mUsePlayerUniforms)
             {
@@ -192,6 +197,11 @@ namespace MWRender
             mFar = far;
         }
 
+        void setScreenRes(float width, float height)
+        {
+            mScreenRes = osg::Vec2f(width, height);
+        }
+
         void setWindSpeed(float windSpeed)
         {
             mWindSpeed = windSpeed;
@@ -210,6 +220,7 @@ namespace MWRender
         bool mUsePlayerUniforms;
         float mWindSpeed;
         osg::Vec3f mPlayerPos;
+        osg::Vec2f mScreenRes;
     };
 
     class StateUpdater : public SceneUtil::StateSetUpdater
@@ -326,7 +337,7 @@ namespace MWRender
 
     RenderingManager::RenderingManager(osgViewer::Viewer* viewer, osg::ref_ptr<osg::Group> rootNode, std::unique_ptr<Camera> camera,
                                        Resource::ResourceSystem* resourceSystem, SceneUtil::WorkQueue* workQueue,
-                                       const std::string& resourcePath, DetourNavigator::Navigator& navigator)
+                                       const std::string& resourcePath, DetourNavigator::Navigator& navigator, const MWWorld::GroundcoverStore& groundcoverStore)
         : mViewer(viewer)
         , mRootNode(rootNode)
         , mResourceSystem(resourceSystem)
@@ -346,13 +357,7 @@ namespace MWRender
         , mUserPointer(std::make_shared<MWVR::UserPointer>(rootNode))
 #endif
     {
-        bool reverseZ = SceneUtil::getReverseZ();
-
-        if (reverseZ)
-            Log(Debug::Info) << "Using reverse-z depth buffer";
-        else
-            Log(Debug::Info) << "Using standard depth buffer";
-
+        bool reverseZ = SceneUtil::AutoDepth::isReversed();
 #ifdef USE_OPENXR
         MWVR::VRGUIManager::instance().setUserPointer(mUserPointer);
 #endif
@@ -492,11 +497,9 @@ namespace MWRender
             float density = Settings::Manager::getFloat("density", "Groundcover");
             density = std::clamp(density, 0.f, 1.f);
 
-            mGroundcover.reset(new Groundcover(mResourceSystem->getSceneManager(), density));
+            mGroundcover.reset(new Groundcover(mResourceSystem->getSceneManager(), density, groundcoverDistance, groundcoverStore));
             static_cast<Terrain::QuadTreeWorld*>(mTerrain.get())->addChunkManager(mGroundcover.get());
             mResourceSystem->addResourceManager(mGroundcover.get());
-
-            mGroundcover->setViewDistance(groundcoverDistance);
         }
 
         mStateUpdater = new StateUpdater;
@@ -507,6 +510,7 @@ namespace MWRender
 
         mPerViewUniformStateUpdater = new PerViewUniformStateUpdater();
         rootNode->addCullCallback(mPerViewUniformStateUpdater);
+        //resourceSystem->getSceneManager()->setOpaqueDepthTex(mPostProcessor->getOpaqueDepthTex());
 
         //mPostProcessor = new PostProcessor(*this, viewer, mRootNode);
         //resourceSystem->getSceneManager()->setDepthFormat(mPostProcessor->getDepthFormat());
@@ -518,8 +522,6 @@ namespace MWRender
         mWater.reset(new Water(sceneRoot->getParent(0), sceneRoot, mResourceSystem, mViewer->getIncrementalCompileOperation(), resourcePath));
         mCamera = std::move(camera);
 
-        if (Settings::Manager::getBool("view over shoulder", "Camera"))
-            mViewOverShoulderController.reset(new ViewOverShoulderController(mCamera.get()));
 
         mScreenshotManager.reset(new ScreenshotManager(viewer, mRootNode, sceneRoot, mResourceSystem, mWater.get()));
 
@@ -546,6 +548,7 @@ namespace MWRender
         defaultMat->setSpecular(osg::Material::FRONT_AND_BACK, osg::Vec4f(0.f, 0.f, 0.f, 0.f));
         sceneRoot->getOrCreateStateSet()->setAttribute(defaultMat);
         sceneRoot->getOrCreateStateSet()->addUniform(new osg::Uniform("emissiveMult", 1.f));
+        sceneRoot->getOrCreateStateSet()->addUniform(new osg::Uniform("specStrength", 1.f));
 
         mFog.reset(new FogManager());
 
@@ -589,7 +592,7 @@ namespace MWRender
         if (reverseZ)
         {
             osg::ref_ptr<osg::ClipControl> clipcontrol = new osg::ClipControl(osg::ClipControl::LOWER_LEFT, osg::ClipControl::ZERO_TO_ONE);
-            mRootNode->getOrCreateStateSet()->setAttributeAndModes(SceneUtil::createDepth(), osg::StateAttribute::ON);
+            mRootNode->getOrCreateStateSet()->setAttributeAndModes(new SceneUtil::AutoDepth, osg::StateAttribute::ON);
             mRootNode->getOrCreateStateSet()->setAttributeAndModes(clipcontrol, osg::StateAttribute::ON);
         }
 
@@ -877,15 +880,9 @@ namespace MWRender
         updateNavMesh();
         updateRecastMesh();
 
-        if (mViewOverShoulderController)
-            mViewOverShoulderController->update();
         mCamera->update(dt, paused);
 
-        osg::Vec3d focal, cameraPos;
-        mCamera->getPosition(focal, cameraPos);
-        mCurrentCameraPos = cameraPos;
-
-        bool isUnderwater = mWater->isUnderwater(cameraPos);
+        bool isUnderwater = mWater->isUnderwater(mCamera->getPosition());
         mStateUpdater->setFogStart(mFog->getFogStart(isUnderwater));
         mStateUpdater->setFogEnd(mFog->getFogEnd(isUnderwater));
         setFogColor(mFog->getFogColor(isUnderwater));
@@ -1242,7 +1239,7 @@ namespace MWRender
 
         mViewer->getCamera()->setProjectionMatrixAsPerspective(fov, aspect, mNearClip, mViewDistance);
 
-        if (SceneUtil::getReverseZ())
+        if (SceneUtil::AutoDepth::isReversed())
         {
             mSharedUniformStateUpdater->setLinearFac(-mNearClip / (mViewDistance - mNearClip) - 1.f);
             mPerViewUniformStateUpdater->setProjectionMatrix(SceneUtil::getReversedZProjectionMatrixAsPerspective(fov, aspect, mNearClip, mViewDistance));
@@ -1252,6 +1249,7 @@ namespace MWRender
 
         mSharedUniformStateUpdater->setNear(mNearClip);
         mSharedUniformStateUpdater->setFar(mViewDistance);
+        mSharedUniformStateUpdater->setScreenRes(mViewer->getCamera()->getViewport()->width(), mViewer->getCamera()->getViewport()->height()); 
 
         // Since our fog is not radial yet, we should take FOV in account, otherwise terrain near viewing distance may disappear.
         // Limit FOV here just for sure, otherwise viewing distance can be too high.
@@ -1318,19 +1316,26 @@ namespace MWRender
 
     void RenderingManager::processChangedSettings(const Settings::CategorySettingVector &changed)
     {
+        // Only perform a projection matrix update once if a relevant setting is changed.
+        bool updateProjection = false;
+
         for (Settings::CategorySettingVector::const_iterator it = changed.begin(); it != changed.end(); ++it)
         {
             if (it->first == "Camera" && it->second == "field of view")
             {
                 mFieldOfView = Settings::Manager::getFloat("field of view", "Camera");
-                updateProjectionMatrix();
+                updateProjection = true;
+            }
+            else if (it->first == "Video" && (it->second == "resolution x" || it->second == "resolution y"))
+            {
+                updateProjection = true;
             }
             else if (it->first == "Camera" && it->second == "viewing distance")
             {
                 mViewDistance = Settings::Manager::getFloat("viewing distance", "Camera");
                 if(!Settings::Manager::getBool("use distant fog", "Fog"))
                     mStateUpdater->setFogEnd(mViewDistance);
-                updateProjectionMatrix();
+                updateProjection = true;
             }
             else if (it->first == "General" && (it->second == "texture filter" ||
                                                 it->second == "texture mipmap" ||
@@ -1373,6 +1378,11 @@ namespace MWRender
                 }
             }
         }
+
+        if (updateProjection)
+        {
+            updateProjectionMatrix();
+    }
     }
 
     float RenderingManager::getNearClipDistance() const
@@ -1475,9 +1485,7 @@ namespace MWRender
         {
             try
             {
-                const auto locked = it->second->lockConst();
-                mNavMesh->update(locked->getImpl(), mNavMeshNumber, locked->getGeneration(),
-                                 locked->getNavMeshRevision(), mNavigator.getSettings());
+                mNavMesh->update(*it->second->lockConst(), mNavMeshNumber, mNavigator.getSettings());
             }
             catch (const std::exception& e)
             {

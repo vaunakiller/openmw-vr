@@ -22,6 +22,7 @@
 #include <components/sceneutil/statesetupdater.hpp>
 #include <components/sceneutil/visitor.hpp>
 #include <components/sceneutil/util.hpp>
+#include <components/sceneutil/depth.hpp>
 
 #include <components/settings/settings.hpp>
 
@@ -176,10 +177,10 @@ namespace Stereo
         }
     }
 
-    void Manager::setMultiviewFramebuffer(std::shared_ptr<MultiviewFramebuffer> fbo)
-    {
-        fbo->attachTo(mMainCamera);
-    }
+    //void Manager::setMultiviewFramebuffer(std::shared_ptr<MultiviewFramebuffer> fbo)
+    //{
+    //    fbo->attachTo(mMainCamera);
+    //}
 
     const std::string& Manager::error() const
     {
@@ -377,8 +378,8 @@ namespace Stereo
         
         viewMatrixMultiViewUniform->setElement(0, mLeftViewOffsetMatrix);
         viewMatrixMultiViewUniform->setElement(1, mRightViewOffsetMatrix);
-        projectionMatrixMultiViewUniform->setElement(0, mLeftView.fov.perspectiveMatrix(near_, far_, SceneUtil::getReverseZ()));
-        projectionMatrixMultiViewUniform->setElement(1, mRightView.fov.perspectiveMatrix(near_, far_, SceneUtil::getReverseZ()));
+        projectionMatrixMultiViewUniform->setElement(0, mLeftView.fov.perspectiveMatrix(near_, far_, SceneUtil::AutoDepth::isReversed()));
+        projectionMatrixMultiViewUniform->setElement(1, mRightView.fov.perspectiveMatrix(near_, far_, SceneUtil::AutoDepth::isReversed()));
     }
 
     void Manager::setUpdateViewCallback(std::shared_ptr<UpdateViewCallback> cb)
@@ -402,7 +403,7 @@ namespace Stereo
     {
         auto near_ = Settings::Manager::getFloat("near clip", "Camera");
         auto far_ = Settings::Manager::getFloat("viewing distance", "Camera");
-        return mLeftView.fov.perspectiveMatrix(near_, far_, allowReverseZ && SceneUtil::getReverseZ());
+        return mLeftView.fov.perspectiveMatrix(near_, far_, allowReverseZ && SceneUtil::AutoDepth::isReversed());
     }
     osg::Matrixd Manager::computeLeftEyeView() const
     {
@@ -412,7 +413,7 @@ namespace Stereo
     {
         auto near_ = Settings::Manager::getFloat("near clip", "Camera");
         auto far_ = Settings::Manager::getFloat("viewing distance", "Camera");
-        return mRightView.fov.perspectiveMatrix(near_, far_, allowReverseZ && SceneUtil::getReverseZ());
+        return mRightView.fov.perspectiveMatrix(near_, far_, allowReverseZ && SceneUtil::AutoDepth::isReversed());
     }
     osg::Matrixd Manager::computeRightEyeView() const
     {
