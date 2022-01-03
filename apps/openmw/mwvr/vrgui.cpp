@@ -721,14 +721,18 @@ namespace MWVR
         if (it == mLayers.end())
             return;
 
-        auto layer = it->second;
+        auto &layer = it->second;
 
-        for (auto it2 = mSideBySideLayers.begin(); it2 < mSideBySideLayers.end(); it2++)
+        for (auto it2 = mSideBySideLayers.begin(); it2 != mSideBySideLayers.end();)
         {
             if (*it2 == layer)
             {
-                mSideBySideLayers.erase(it2);
+                it2 = mSideBySideLayers.erase(it2);
                 updateSideBySideLayers();
+            }
+            else
+            {
+                ++it2;
             }
         }
 
