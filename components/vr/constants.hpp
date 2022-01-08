@@ -11,13 +11,22 @@ namespace VR
     };
     
     //! Self-descriptive.
-    //! I avoid using enum class for thsi enum, as it is frequently used as an index.
+    //! I avoid using enum class for this enum, as it is frequently used as an index.
     enum Side : unsigned
     {
         Side_Left = 0,
         Side_Right = 1
     };
 
+    //! Equivalent to OpenXR subactions, but as an enum instead of XrPath
+    enum class SubAction
+    {
+        Head,
+        HandLeft,
+        HandRight,
+        Gamepad,
+        ALL
+    };
 
     //! Describes the status of the tracking data. Negative values indicate failure, non-zero positive values are success states.
     enum class TrackingStatus : signed

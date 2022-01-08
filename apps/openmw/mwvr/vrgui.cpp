@@ -253,7 +253,7 @@ namespace MWVR
     {
 
         auto orientation = mRotation * mTrackedPose.orientation;
-        bool leftPointer = Settings::Manager::getBool("left hand pointer", "VR");
+        bool leftPointer = Settings::Manager::getBool("left handed mode", "VR");
 
         // StatusHUD is always on left arm (until left-hand weapon support is added)
         // VirtualKeyboard is always opposite of the pointer
@@ -542,7 +542,7 @@ namespace MWVR
         if (Misc::StringUtils::ciEqual(handHudSetting, "top"))
             handHudOffset = gHandHudOffsetTop;
 
-        bool leftPointer = Settings::Manager::getBool("left hand pointer", "VR");
+        bool leftPointer = Settings::Manager::getBool("left handed mode", "VR");
         std::string leftAim = "/world/user/hand/left/input/aim/pose";
         std::string rightAim = "/world/user/hand/right/input/aim/pose";
 

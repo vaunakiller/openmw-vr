@@ -12,7 +12,7 @@ namespace XR
         XrActionType actionType,
         const std::string& actionName,
         const std::string& localName)
-        : mAction(action)
+        : mXrAction(action)
         , mType(actionType)
         , mName(actionName)
         , mLocalName(localName)
@@ -21,9 +21,9 @@ namespace XR
     }
 
     Action::~Action() {
-        if (mAction)
+        if (mXrAction)
         {
-            CHECK_XRCMD(xrDestroyAction(mAction));
+            CHECK_XRCMD(xrDestroyAction(mXrAction));
         }
     }
 
@@ -31,7 +31,7 @@ namespace XR
     {
         XrActionStateGetInfo getInfo{};
         getInfo.type = XR_TYPE_ACTION_STATE_GET_INFO;
-        getInfo.action = mAction;
+        getInfo.action = mXrAction;
         getInfo.subactionPath = subactionPath;
 
         XrActionStateFloat xrValue{};
@@ -47,7 +47,7 @@ namespace XR
     {
         XrActionStateGetInfo getInfo{};
         getInfo.type = XR_TYPE_ACTION_STATE_GET_INFO;
-        getInfo.action = mAction;
+        getInfo.action = mXrAction;
         getInfo.subactionPath = subactionPath;
 
         XrActionStateBoolean xrValue{};
@@ -55,7 +55,9 @@ namespace XR
         CHECK_XRCMD(xrGetActionStateBoolean(XR::Session::instance().xrSession(), &getInfo, &xrValue));
 
         if (xrValue.isActive)
+        {
             value = xrValue.currentState;
+        }
         return xrValue.isActive;
     }
 
@@ -64,7 +66,7 @@ namespace XR
     {
         XrActionStateGetInfo getInfo{};
         getInfo.type = XR_TYPE_ACTION_STATE_GET_INFO;
-        getInfo.action = mAction;
+        getInfo.action = mXrAction;
         getInfo.subactionPath = subactionPath;
 
         XrActionStatePose xrValue{};
@@ -86,7 +88,7 @@ namespace XR
 
         XrHapticActionInfo hapticActionInfo{};
         hapticActionInfo.type = XR_TYPE_HAPTIC_ACTION_INFO;
-        hapticActionInfo.action = mAction;
+        hapticActionInfo.action = mXrAction;
         hapticActionInfo.subactionPath = subactionPath;
         CHECK_XRCMD(xrApplyHapticFeedback(XR::Session::instance().xrSession(), &hapticActionInfo, (XrHapticBaseHeader*)&vibration));
         return true;
@@ -98,23 +100,40 @@ namespace XR
     //! Magnitude above which an axis action is considered active
     static float gAxisEpsilon{ 0.01f };
 
+    HapticsAction::HapticsAction(std::shared_ptr<Action> action, VR::SubAction subAction) 
+        : mAction{ std::move(action) }
+        , mSubAction(subAction)
+        , mSubActionPath(subActionPath(subAction))
+    {
+    }
+
     void HapticsAction::apply(float amplitude)
     {
         mAmplitude = std::max(0.f, std::min(1.f, amplitude));
-        mXRAction->applyHaptics(XR_NULL_PATH, mAmplitude);
+        mAction->applyHaptics(XR_NULL_PATH, mAmplitude);
     }
 
-    PoseAction::PoseAction(std::unique_ptr<XR::Action> xrAction)
-        : mXRAction(std::move(xrAction))
+    PoseAction::PoseAction(std::shared_ptr<Action> action, VR::SubAction subAction)
+        : mAction(std::move(action))
+        , mSubAction(subAction)
+        , mSubActionPath(subActionPath(subAction))
         , mXRSpace{ XR_NULL_HANDLE }
     {
         XrActionSpaceCreateInfo createInfo{};
         createInfo.type = XR_TYPE_ACTION_SPACE_CREATE_INFO;
-        createInfo.action = mXRAction->xrAction();
+        createInfo.action = mAction->xrAction();
         createInfo.poseInActionSpace.orientation.w = 1.f;
-        createInfo.subactionPath = XR_NULL_PATH;
+        createInfo.subactionPath = mSubActionPath;
         CHECK_XRCMD(xrCreateActionSpace(XR::Session::instance().xrSession(), &createInfo, &mXRSpace));
-        XR::Debugging::setName(mXRSpace, "OpenMW XR Action Space " + mXRAction->mName);
+        XR::Debugging::setName(mXRSpace, "OpenMW XR Action Space " + mAction->mName);
+    }
+
+    InputAction::InputAction(int openMWAction, std::shared_ptr<Action> action, VR::SubAction subAction)
+        : mAction(std::move(action))
+        , mOpenMWAction(openMWAction)
+        , mSubAction(subAction)
+        , mSubActionPath(subActionPath(subAction))
+    {
     }
 
     void InputAction::updateAndQueue(std::deque<const InputAction*>& queue)
@@ -136,7 +155,7 @@ namespace XR
     {
         mActive = false;
         bool old = mPressed;
-        mXRAction->getBool(0, mPressed);
+        mAction->getBool(mSubActionPath, mPressed);
         bool changed = old != mPressed;
         if (changed && mPressed)
         {
@@ -158,7 +177,7 @@ namespace XR
     {
         mActive = false;
         bool old = mPressed;
-        mXRAction->getBool(0, mPressed);
+        mAction->getBool(mSubActionPath, mPressed);
         bool changed = old != mPressed;
         if (changed && mPressed)
         {
@@ -183,15 +202,15 @@ namespace XR
 
     void ButtonHoldAction::update()
     {
-        mXRAction->getBool(0, mPressed);
+        mAction->getBool(mSubActionPath, mPressed);
         mActive = mPressed;
 
         mValue = mPressed ? 1.f : 0.f;
     }
 
 
-    AxisAction::AxisAction(int openMWAction, std::unique_ptr<XR::Action> xrAction, std::shared_ptr<AxisAction::Deadzone> deadzone)
-        : InputAction(openMWAction, std::move(xrAction))
+    AxisAction::AxisAction(int openMWAction, std::shared_ptr<XR::Action> action, VR::SubAction subAction, std::shared_ptr<AxisAction::Deadzone> deadzone)
+        : InputAction(openMWAction, std::move(action), subAction)
         , mDeadzone(deadzone)
     {
     }
@@ -199,7 +218,7 @@ namespace XR
     void AxisAction::update()
     {
         mActive = false;
-        mXRAction->getFloat(0, mValue);
+        mAction->getFloat(mSubActionPath, mValue);
         mDeadzone->applyDeadzone(mValue);
 
         if (std::fabs(mValue) > gAxisEpsilon)
@@ -226,5 +245,30 @@ namespace XR
         float activeRadius = mActiveRadiusOuter - mActiveRadiusInner;
         assert(activeRadius > 0.f);
         mActiveScale = 1.f / activeRadius;
+    }
+
+    XrPath subActionPath(VR::SubAction subAction)
+    {
+        const char* cpath = nullptr;
+        switch (subAction)
+        {
+        case VR::SubAction::Gamepad:
+            cpath = "/user/gamepad";
+            break;
+        case VR::SubAction::Head:
+            cpath = "user/head";
+            break;
+        case VR::SubAction::HandLeft:
+            cpath = "/user/hand/left";
+            break;
+        case VR::SubAction::HandRight:
+            cpath = "/user/hand/right";
+            break;
+        default:
+            return XR_NULL_PATH;
+        }
+        XrPath xrpath = 0;
+        CHECK_XRCMD(xrStringToPath(XR::Instance::instance().xrInstance(), cpath, &xrpath));
+        return xrpath;
     }
 }

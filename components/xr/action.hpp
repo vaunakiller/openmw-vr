@@ -3,6 +3,8 @@
 
 #include <openxr/openxr.h>
 
+#include <components/vr/constants.hpp>
+
 #include <string>
 #include <deque>
 #include <memory>
@@ -18,6 +20,8 @@ namespace XR
         Axis
     };
 
+    XrPath subActionPath(VR::SubAction subAction);
+
     /// \brief C++ wrapper for the XrAction type
     class Action
     {
@@ -28,14 +32,14 @@ namespace XR
         Action(XrAction action, XrActionType actionType, const std::string& actionName, const std::string& localName);
         ~Action();
 
-        XrAction xrAction() { return mAction; }
+        XrAction xrAction() { return mXrAction; }
 
         bool getFloat(XrPath subactionPath, float& value);
         bool getBool(XrPath subactionPath, bool& value);
         bool getPoseIsActive(XrPath subactionPath);
         bool applyHaptics(XrPath subactionPath, float amplitude);
 
-        XrAction mAction = XR_NULL_HANDLE;
+        XrAction mXrAction = XR_NULL_HANDLE;
         XrActionType mType;
         std::string mName;
         std::string mLocalName;
@@ -45,16 +49,20 @@ namespace XR
     class HapticsAction
     {
     public:
-        HapticsAction(std::unique_ptr<XR::Action> xrAction) : mXRAction{ std::move(xrAction) } {};
+        HapticsAction(std::shared_ptr<Action> action, VR::SubAction subAction);
 
         //! Apply vibration at the given amplitude
         void apply(float amplitude);
 
         //! Convenience
-        XrAction xrAction() { return mXRAction->xrAction(); }
+        XrAction xrAction() { return mAction->xrAction(); }
+
+        VR::SubAction subAction() const { return mSubAction; }
 
     private:
-        std::unique_ptr<XR::Action> mXRAction;
+        std::shared_ptr<Action> mAction;
+        VR::SubAction mSubAction;
+        XrPath mSubActionPath;
         float mAmplitude{ 0.f };
     };
 
@@ -62,16 +70,20 @@ namespace XR
     class PoseAction
     {
     public:
-        PoseAction(std::unique_ptr<XR::Action> xrAction);
+        PoseAction(std::shared_ptr<Action> action, VR::SubAction subAction);
 
         //! Convenience
-        XrAction xrAction() { return mXRAction->xrAction(); }
+        XrAction xrAction() { return mAction->xrAction(); }
 
         //! Action space
         XrSpace xrSpace() { return mXRSpace; }
 
+        VR::SubAction subAction() const { return mSubAction; }
+
     private:
-        std::unique_ptr<XR::Action> mXRAction;
+        std::shared_ptr<Action> mAction;
+        VR::SubAction mSubAction;
+        XrPath mSubActionPath;
         XrSpace mXRSpace;
     };
 
@@ -80,7 +92,7 @@ namespace XR
     class InputAction
     {
     public:
-        InputAction(int openMWAction, std::unique_ptr<Action> xrAction) : mXRAction(std::move(xrAction)), mOpenMWAction(openMWAction) {}
+        InputAction(int openMWAction, std::shared_ptr<Action> action, VR::SubAction subAction);
         virtual ~InputAction() {};
 
         //! True if action changed to being released in the last update
@@ -109,14 +121,18 @@ namespace XR
         virtual bool shouldQueue() const = 0;
 
         //! Convenience
-        XrAction xrAction() { return mXRAction->xrAction(); }
+        XrAction xrAction() { return mAction->xrAction(); }
 
         //! Update and queue action if applicable
         void updateAndQueue(std::deque<const InputAction*>& queue);
 
+        VR::SubAction subAction() const { return mSubAction; }
+
     protected:
-        std::unique_ptr<XR::Action> mXRAction;
+        std::shared_ptr<Action> mAction;
         int mOpenMWAction;
+        VR::SubAction mSubAction;
+        XrPath mSubActionPath;
         float mValue{ 0.f };
         float mPrevious{ 0.f };
         bool mActive{ false };
@@ -197,7 +213,7 @@ namespace XR
         };
 
     public:
-        AxisAction(int openMWAction, std::unique_ptr<XR::Action> xrAction, std::shared_ptr<AxisAction::Deadzone> deadzone);
+        AxisAction(int openMWAction, std::shared_ptr<Action> xrAction, VR::SubAction subAction, std::shared_ptr<AxisAction::Deadzone> deadzone);
 
         static const XrActionType ActionType = XR_ACTION_TYPE_FLOAT_INPUT;
 

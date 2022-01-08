@@ -761,7 +761,7 @@ namespace MWWorld
 
             std::vector<MWWorld::Ptr> getAll(const std::string& id) override;
 
-            void enableVRPointer(bool enable) override;
+            void enableVRPointer(bool left, bool right) override;
     };
 }
 

@@ -76,7 +76,6 @@ You will not make an interaction profile work by removing the extension requirem
             <Binding ActionName="weapon" Path="/user/hand/right/input/a/click"/>
             <Binding ActionName="inventory" Path="/user/hand/right/input/b/click"/>
             <Binding ActionName="activate_touched" Path="/user/hand/right/input/squeeze/value"/>
-            <Binding ActionName="activate" Path="/user/hand/right/input/squeeze/value"/>
             <Binding ActionName="look_left_right" Path="/user/hand/right/input/thumbstick/x"/>
             <Binding ActionName="auto_move" Path="/user/hand/right/input/thumbstick/click"/>
             <Binding ActionName="use" Path="/user/hand/right/input/trigger/value"/>
@@ -106,7 +105,6 @@ You will not make an interaction profile work by removing the extension requirem
             <Binding ActionName="weapon" Path="/user/hand/right/input/trackpad/click"/>
             <Binding ActionName="use" Path="/user/hand/right/input/trigger/value"/>
             <Binding ActionName="activate_touched" Path="/user/hand/right/input/squeeze/click"/>
-            <Binding ActionName="activate" Path="/user/hand/right/input/squeeze/click"/>
         </ActionSet>
         <ActionSet Name="GUI">
             <Binding ActionName="menu_back" Path="/user/hand/left/input/trackpad/click"/>
@@ -133,7 +131,6 @@ You will not make an interaction profile work by removing the extension requirem
             <Binding ActionName="look_left_right" Path="/user/hand/right/input/thumbstick/x"/>
             <Binding ActionName="use" Path="/user/hand/right/input/trigger/value"/>
             <Binding ActionName="activate_touched" Path="/user/hand/right/input/squeeze/force"/>
-            <Binding ActionName="activate" Path="/user/hand/right/input/squeeze/force"/>
         </ActionSet>
         <ActionSet Name="GUI">
             <Binding ActionName="reposition_menu" Path="/user/hand/left/input/thumbstick/click"/>
@@ -159,7 +156,6 @@ You will not make an interaction profile work by removing the extension requirem
             <Binding ActionName="weapon" Path="/user/hand/right/input/trackpad/click"/>
             <Binding ActionName="use" Path="/user/hand/right/input/trigger/value"/>
             <Binding ActionName="activate_touched" Path="/user/hand/right/input/squeeze/click"/>
-            <Binding ActionName="activate" Path="/user/hand/right/input/squeeze/click"/>
         </ActionSet>
         <ActionSet Name="GUI">
             <Binding ActionName="menu_up_down" Path="/user/hand/right/input/trackpad/y"/>
@@ -189,7 +185,6 @@ You will not make an interaction profile work by removing the extension requirem
             <Binding ActionName="auto_move" Path="/user/hand/right/input/thumbstick/click"/>
             <Binding ActionName="use" Path="/user/hand/right/input/trigger/value"/>
             <Binding ActionName="activate_touched" Path="/user/hand/right/input/squeeze/value"/>
-            <Binding ActionName="activate" Path="/user/hand/right/input/squeeze/value"/>
         </ActionSet>
         <ActionSet Name="GUI">
             <Binding ActionName="reposition_menu" Path="/user/hand/left/input/menu/click"/>
@@ -215,7 +210,6 @@ You will not make an interaction profile work by removing the extension requirem
             <Binding ActionName="weapon" Path="/user/hand/right/input/trackpad/click"/>
             <Binding ActionName="use" Path="/user/hand/right/input/trigger/click"/>
             <Binding ActionName="activate_touched" Path="/user/hand/right/input/squeeze/click"/>
-            <Binding ActionName="activate" Path="/user/hand/right/input/squeeze/click"/>
         </ActionSet>
         <ActionSet Name="GUI">
             <Binding ActionName="menu_back" Path="/user/hand/left/input/trackpad/click"/>
@@ -245,7 +239,6 @@ You will not make an interaction profile work by removing the extension requirem
             <Binding ActionName="auto_move" Path="/user/hand/right/input/thumbstick/click"/>
             <Binding ActionName="use" Path="/user/hand/right/input/trigger/click"/>
             <Binding ActionName="activate_touched" Path="/user/hand/right/input/squeeze/click"/>
-            <Binding ActionName="activate" Path="/user/hand/right/input/squeeze/click"/>
         </ActionSet>
         <ActionSet Name="GUI">
             <Binding ActionName="reposition_menu" Path="/user/hand/left/input/menu/click"/>

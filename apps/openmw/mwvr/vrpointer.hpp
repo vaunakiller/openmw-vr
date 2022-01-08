@@ -20,6 +20,7 @@ namespace MWVR
         bool canPlaceObject() const;
         void setParent(osg::Group* group);
         void setEnabled(bool enabled);
+        void setHandEnabled(bool left, bool right);
         bool enabled() const { return mEnabled; };
         float distanceToPointerTarget() const { return mDistanceToPointerTarget; }
     protected:
@@ -34,12 +35,15 @@ namespace MWVR
 
         osg::ref_ptr<osg::Group> mParent{ nullptr };
         osg::ref_ptr<osg::Group> mRoot{ nullptr };
-        VR::VRPath mHandPath;
+        VR::VRPath mLeftHandPath;
+        VR::VRPath mRightHandPath;
 
-        bool mEnabled;
+        bool mEnabled{ true };
         MWRender::RayResult mPointerTarget{};
         float mDistanceToPointerTarget{ -1.f };
         bool mCanPlaceObject{ false };
+        bool mLeftHandEnabled = true;
+        bool mRightHandEnabled = true;
     };
 }
 

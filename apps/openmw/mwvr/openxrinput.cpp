@@ -62,7 +62,6 @@ namespace MWVR
         getActionSet(MWActionSet::Gameplay).createMWAction(XR::ControlType::Press, A_VrMetaMenu, "meta_menu", "Meta Menu");
         getActionSet(MWActionSet::Gameplay).createMWAction(XR::ControlType::LongPress, A_Recenter, "reposition_menu", "Reposition Menu");
         getActionSet(MWActionSet::Gameplay).createMWAction(XR::ControlType::Press, MWInput::A_Inventory, "inventory", "Inventory");
-        getActionSet(MWActionSet::Gameplay).createMWAction(XR::ControlType::Press, MWInput::A_Activate, "activate", "Activate");
         getActionSet(MWActionSet::Gameplay).createMWAction(XR::ControlType::Hold, MWInput::A_Use, "use", "Use");
         getActionSet(MWActionSet::Gameplay).createMWAction(XR::ControlType::Hold, MWInput::A_Jump, "jump", "Jump");
         getActionSet(MWActionSet::Gameplay).createMWAction(XR::ControlType::Press, MWInput::A_ToggleWeapon, "weapon", "Weapon");
@@ -79,7 +78,7 @@ namespace MWVR
         getActionSet(MWActionSet::Gameplay).createMWAction(XR::ControlType::Press, MWInput::A_Journal, "journal_book", "Journal Book");
         getActionSet(MWActionSet::Gameplay).createMWAction(XR::ControlType::Press, MWInput::A_QuickSave, "quick_save", "Quick Save");
         getActionSet(MWActionSet::Gameplay).createMWAction(XR::ControlType::Press, MWInput::A_Rest, "rest", "Rest");
-        getActionSet(MWActionSet::Gameplay).createMWAction(XR::ControlType::Axis, A_ActivateTouch, "activate_touched", "Activate Touch");
+        getActionSet(MWActionSet::Gameplay).createMWAction(XR::ControlType::Axis, A_ActivateTouch, "activate_touched", "Activate Touch", { VR::SubAction::HandLeft, VR::SubAction::HandRight });
         getActionSet(MWActionSet::Gameplay).createMWAction(XR::ControlType::Press, MWInput::A_AlwaysRun, "always_run", "Always Run");
         getActionSet(MWActionSet::Gameplay).createMWAction(XR::ControlType::Press, MWInput::A_AutoMove, "auto_move", "Auto Move");
         getActionSet(MWActionSet::Gameplay).createMWAction(XR::ControlType::Press, MWInput::A_ToggleHUD, "toggle_hud", "Toggle HUD");
@@ -99,8 +98,7 @@ namespace MWVR
 
     void OpenXRInput::createPoseActions()
     {
-        getActionSet(MWActionSet::Tracking).createPoseAction(VR::Side_Left, "left_hand_pose", "Left Hand Pose");
-        getActionSet(MWActionSet::Tracking).createPoseAction(VR::Side_Right, "right_hand_pose", "Right Hand Pose");
+        getActionSet(MWActionSet::Tracking).createPoseAction("hand_pose", "Hand Pose", { VR::SubAction::HandLeft, VR::SubAction::HandRight });
 
         auto stageUserHandLeftPath = VR::stringToVRPath("/stage/user/hand/left/input/aim/pose");
         auto stageUserHandRightPath = VR::stringToVRPath("/stage/user/hand/right/input/aim/pose");
@@ -109,16 +107,15 @@ namespace MWVR
 
         XR::Session::instance().tracker().setTrackingActionSet(&getActionSet(MWActionSet::Tracking));
 
-        XR::Session::instance().tracker().addTrackingSpace(stageUserHandLeftPath, getActionSet(MWActionSet::Tracking).xrActionSpace(VR::Side_Left));
-        XR::Session::instance().tracker().addTrackingSpace(stageUserHandRightPath, getActionSet(MWActionSet::Tracking).xrActionSpace(VR::Side_Right));
+        XR::Session::instance().tracker().addTrackingSpace(stageUserHandLeftPath, getActionSet(MWActionSet::Tracking).xrActionSpace(VR::SubAction::HandLeft));
+        XR::Session::instance().tracker().addTrackingSpace(stageUserHandRightPath, getActionSet(MWActionSet::Tracking).xrActionSpace(VR::SubAction::HandRight));
         XR::Session::instance().stageToWorldBinding().bindPaths(worldUserHandLeftPath, stageUserHandLeftPath);
         XR::Session::instance().stageToWorldBinding().bindPaths(worldUserHandRightPath, stageUserHandRightPath);
     }
 
     void OpenXRInput::createHapticActions()
     {
-        getActionSet(MWActionSet::Haptics).createHapticsAction(VR::Side_Left, "left_hand_haptics", "Left Hand Haptics");
-        getActionSet(MWActionSet::Haptics).createHapticsAction(VR::Side_Right, "right_hand_haptics", "Right Hand Haptics");
+        getActionSet(MWActionSet::Haptics).createHapticsAction("hand_haptics", "Hand Haptics", { VR::SubAction::HandLeft, VR::SubAction::HandRight });
     }
 
     void OpenXRInput::readXrControllerSuggestions()

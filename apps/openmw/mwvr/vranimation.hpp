@@ -50,6 +50,9 @@ namespace MWVR
         /// @return world transform that yields the position and orientation of the current weapon
         osg::Matrix getWeaponTransformMatrix() const;
 
+        /// Enable pointers
+        void enablePointers(bool left, bool right);
+
     protected:
 
         float getVelocity(const std::string& groupname) const override;

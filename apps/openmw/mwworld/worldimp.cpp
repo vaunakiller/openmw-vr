@@ -4132,8 +4132,8 @@ namespace MWWorld
         return mCells.getAll(id);
     }
 
-    void World::enableVRPointer(bool enable)
+    void World::enableVRPointer(bool left, bool right)
     {
-        mRendering->enableVRPointer(enable);
+        mRendering->enableVRPointer(left, right);
     }
 }

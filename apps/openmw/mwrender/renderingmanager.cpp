@@ -1260,10 +1260,12 @@ namespace MWRender
         mTerrain->setViewDistance(mViewDistance * (distanceMult ? 1.f/distanceMult : 1.f));
         }
 
-    void RenderingManager::enableVRPointer(bool enable)
+    void RenderingManager::enableVRPointer(bool left, bool right)
     {
 #ifdef USE_OPENXR
-        mUserPointer->setEnabled(enable);
+        mUserPointer->setHandEnabled(left, right);
+        if (mPlayerAnimation)
+            static_cast<MWVR::VRAnimation*>(mPlayerAnimation.get())->enablePointers(left, right);
 #endif
     }
 

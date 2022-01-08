@@ -29,7 +29,7 @@ namespace MWVR
         std::pair<MWWorld::Ptr, float> getTouchTarget()
         {
             MWRender::RayResult result;
-            std::string pointer = Settings::Manager::getBool("left hand pointer", "VR") ?
+            std::string pointer = Settings::Manager::getBool("left handed mode", "VR") ?
                 "/world/user/hand/left/input/aim/pose"
                 : "/world/user/hand/right/input/aim/pose";
 

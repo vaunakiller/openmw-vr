@@ -33,11 +33,8 @@ namespace MWVR
         mPointerTransform->setName("Pointer Transform");
         mPointerTransform->setNodeMask(MWRender::VisMask::Mask_Pointer);
 
-        std::string pointer = Settings::Manager::getBool("left hand pointer", "VR") ?
-            "/world/user/hand/left/input/aim/pose"
-            : "/world/user/hand/right/input/aim/pose";
-
-        mHandPath = VR::stringToVRPath(pointer);
+        mLeftHandPath = VR::stringToVRPath("/world/user/hand/left/input/aim/pose");
+        mRightHandPath = VR::stringToVRPath("/world/user/hand/right/input/aim/pose");
 
         setEnabled(true);
     }
@@ -74,13 +71,29 @@ namespace MWVR
         mEnabled = enabled;
     }
 
+    void UserPointer::setHandEnabled(bool left, bool right)
+    {
+        mLeftHandEnabled = left;
+        mRightHandEnabled = right;
+        setEnabled(left || right);
+    }
+
     void UserPointer::onTrackingUpdated(VR::TrackingManager& manager, VR::DisplayTime predictedDisplayTime)
     {
         // If no parent is set, then the actor is currently unloaded
         // And we need to point directly from tracking data and the root
         if (!mParent)
         {
-            auto tp = manager.locate(mHandPath, predictedDisplayTime);
+            bool leftHanded = Settings::Manager::getBool("left handed mode", "VR");
+            auto path = mRightHandPath;
+            if (mLeftHandEnabled && mRightHandEnabled && leftHanded)
+                path = mLeftHandPath;
+            else if (mLeftHandEnabled)
+                path = mLeftHandPath;
+            else if (mRightHandEnabled)
+                path = mRightHandPath;
+
+            auto tp = manager.locate(path, predictedDisplayTime);
             osg::Matrix worldReference = osg::Matrix::identity();
             worldReference.preMultTranslate(tp.pose.position);
             worldReference.preMultRotate(tp.pose.orientation);

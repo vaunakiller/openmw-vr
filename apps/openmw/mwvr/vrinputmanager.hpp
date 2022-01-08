@@ -79,7 +79,8 @@ namespace MWVR
     private:
         std::unique_ptr<OpenXRInput> mXRInput;
         std::unique_ptr<RealisticCombat::StateMachine> mRealisticCombat;
-        bool mActivationIndication = false;
+        bool mPointerLeft = false;
+        bool mPointerRight = false;
         bool mHapticsEnabled = true;
         bool mSmoothTurning = true;
         float mSnapAngle = 30.f;

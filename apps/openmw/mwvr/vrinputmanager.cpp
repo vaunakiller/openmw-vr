@@ -60,8 +60,7 @@ namespace MWVR
     void VRInputManager::updateVRPointer(void)
     {
         bool guiMode = MWBase::Environment::get().getWindowManager()->isGuiMode();
-        bool show = guiMode | mActivationIndication;
-        MWBase::Environment::get().getWorld()->enableVRPointer(show);
+        MWBase::Environment::get().getWorld()->enableVRPointer(guiMode || mPointerLeft, guiMode || mPointerRight);
     }
 
     /**
@@ -176,13 +175,13 @@ namespace MWVR
     void VRInputManager::applyHapticsLeftHand(float intensity)
     {
         if (mHapticsEnabled)
-            mXRInput->getActionSet(MWActionSet::Haptics).applyHaptics(VR::Side_Left, intensity);
+            mXRInput->getActionSet(MWActionSet::Haptics).applyHaptics(VR::SubAction::HandLeft, intensity);
     }
 
     void VRInputManager::applyHapticsRightHand(float intensity)
     {
         if (mHapticsEnabled)
-            mXRInput->getActionSet(MWActionSet::Haptics).applyHaptics(VR::Side_Right, intensity);
+            mXRInput->getActionSet(MWActionSet::Haptics).applyHaptics(VR::SubAction::HandRight, intensity);
     }
 
     void VRInputManager::processChangedSettings(const std::set<std::pair<std::string, std::string>>& changed)
@@ -507,7 +506,11 @@ namespace MWVR
             {
             case A_ActivateTouch:
                 resetIdleTime();
-                mActivationIndication = action->isActive();
+
+                if (action->subAction() == VR::SubAction::HandLeft)
+                    mPointerLeft = action->isActive();
+                if (action->subAction() == VR::SubAction::HandRight)
+                    mPointerRight = action->isActive();
                 break;
             case MWInput::A_LookLeftRight:
             {
@@ -527,7 +530,7 @@ namespace MWVR
                 break;
             }
             case MWInput::A_Use:
-                if (!(mActivationIndication || MWBase::Environment::get().getWindowManager()->isGuiMode()))
+                if (!(mPointerLeft || mPointerRight || MWBase::Environment::get().getWindowManager()->isGuiMode()))
                     mBindingsManager->ics().getChannel(MWInput::A_Use)->setValue(action->value());
                 break;
             default:
@@ -644,7 +647,7 @@ namespace MWVR
                         requestRecenter(true);
                     break;
                 case MWInput::A_Use:
-                    if (mActivationIndication || MWBase::Environment::get().getWindowManager()->isGuiMode())
+                    if (mPointerLeft || mPointerRight || MWBase::Environment::get().getWindowManager()->isGuiMode())
                         pointActivation(true);
                     break;
                 default:
@@ -659,7 +662,7 @@ namespace MWVR
                 {
                 case MWInput::A_Use:
                     mBindingsManager->ics().getChannel(MWInput::A_Use)->setValue(0.f);
-                    if (mActivationIndication || MWBase::Environment::get().getWindowManager()->isGuiMode())
+                    if (mPointerLeft || mPointerRight || MWBase::Environment::get().getWindowManager()->isGuiMode())
                         pointActivation(false);
                     break;
                 case MWInput::A_Sneak:

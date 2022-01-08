@@ -242,6 +242,7 @@ bool Launcher::AdvancedPage::loadSettings()
         loadSettingBool(disableDisplayList, "disable display lists for multiview", "Stereo");
         loadSettingBool(useSharedShadowMaps, "shared shadow maps", "Stereo");
         loadSettingBool(preferDirectXSwapchains, "Prefer DirectX swapchains", "VR");
+        loadSettingBool(leftHandedMode, "left handed mode", "VR");
         loadSettingBool(preferSRGBSwapchains, "Prefer sRGB swapchains", "VR");
         loadSettingBool(logAllXrCalls, "log all openxr calls", "VR Debug");
         loadSettingBool(ignoreXrErrors, "continue on errors", "VR Debug");
@@ -428,6 +429,7 @@ void Launcher::AdvancedPage::saveSettings()
         saveSettingBool(disableDisplayList, "disable display lists for multiview", "Stereo");
         saveSettingBool(useSharedShadowMaps, "shared shadow maps", "Stereo");
         saveSettingBool(preferDirectXSwapchains, "Prefer sRGB swapchains", "VR");
+        saveSettingBool(leftHandedMode, "left handed mode", "VR");
         saveSettingBool(preferSRGBSwapchains, "Prefer DirectX swapchains", "VR");
         saveSettingBool(logAllXrCalls, "log all openxr calls", "VR Debug");
         saveSettingBool(ignoreXrErrors, "continue on errors", "VR Debug");

@@ -468,18 +468,6 @@ namespace MWVR
 
     void VRAnimation::onTrackingUpdated(VR::TrackingManager& manager, VR::DisplayTime predictedDisplayTime)
     {
-        auto enabled = mUserPointer->enabled();
-
-        for (auto& handController : mHandControllers)
-            handController->setFingerPointingMode(enabled);
-
-        bool leftPointer = Settings::Manager::getBool("left hand pointer", "VR");
-
-        for (auto& indexFingerController : mLeftIndexFingerControllers)
-            indexFingerController->setEnabled(enabled && leftPointer);
-        for (auto& indexFingerController : mRightIndexFingerControllers)
-            indexFingerController->setEnabled(enabled && !leftPointer);
-
         for (auto& controller : mVrControllers)
             controller.second->onTrackingUpdated(manager, predictedDisplayTime);
 
@@ -497,15 +485,6 @@ namespace MWVR
     void VRAnimation::addControllers()
     {
         NpcAnimation::addControllers();
-
-        bool leftPointer = Settings::Manager::getBool("left hand pointer", "VR");
-        std::string finger = leftPointer ? "Bip01 L Finger11" : "Bip01 R Finger11";
-        auto finger11 = mNodeMap.find(finger);
-
-        if (finger11 != mNodeMap.end())
-        {
-            mUserPointer->setParent(finger11->second);
-        }
 
         for (int i = 0; i < 2; ++i)
         {
@@ -528,7 +507,7 @@ namespace MWVR
             }
 
             auto finger1 = mNodeMap.find(i == 0 ? "bip01 l finger1" : "bip01 r finger1");
-            auto mIndexFingerControllers = i == 0 ? mLeftIndexFingerControllers : mRightIndexFingerControllers;
+            auto* indexFingerControllers = i == 0 ? mLeftIndexFingerControllers : mRightIndexFingerControllers;
 
             if (finger1 != mNodeMap.end())
             {
@@ -536,10 +515,10 @@ namespace MWVR
                 auto second_joint = base_joint->getChild(0)->asTransform()->asMatrixTransform();
                 assert(second_joint);
 
-                base_joint->removeUpdateCallback(mIndexFingerControllers[0]);
-                base_joint->addUpdateCallback(mIndexFingerControllers[0]);
-                second_joint->removeUpdateCallback(mIndexFingerControllers[1]);
-                second_joint->addUpdateCallback(mIndexFingerControllers[1]);
+                base_joint->removeUpdateCallback(indexFingerControllers[0]);
+                base_joint->addUpdateCallback(indexFingerControllers[0]);
+                second_joint->removeUpdateCallback(indexFingerControllers[1]);
+                second_joint->addUpdateCallback(indexFingerControllers[1]);
             }
         }
 
@@ -553,10 +532,12 @@ namespace MWVR
 
         mSkeleton->setIsTracked(true);
     }
+
     void VRAnimation::enableHeadAnimation(bool)
     {
         NpcAnimation::enableHeadAnimation(false);
     }
+
     void VRAnimation::setAccurateAiming(bool)
     {
         NpcAnimation::setAccurateAiming(false);
@@ -565,5 +546,34 @@ namespace MWVR
     osg::Matrix VRAnimation::getWeaponTransformMatrix() const
     {
         return osg::computeLocalToWorld(mWeaponDirectionTransform->getParentalNodePaths()[0]);
+    }
+
+    void VRAnimation::enablePointers(bool left, bool right)
+    {
+        mHandControllers[0]->setFingerPointingMode(left);
+        mHandControllers[1]->setFingerPointingMode(right);
+        mLeftIndexFingerControllers[0]->setEnabled(left);
+        mLeftIndexFingerControllers[1]->setEnabled(left);
+        mRightIndexFingerControllers[0]->setEnabled(right);
+        mRightIndexFingerControllers[1]->setEnabled(right);
+
+        bool leftHanded = Settings::Manager::getBool("left handed mode", "VR");
+
+        std::string finger;
+        if (left && right)
+        {
+            finger = leftHanded ? "Bip01 L Finger11" : "Bip01 R Finger11";
+        }
+        else if(left)
+            finger = "Bip01 L Finger11";
+        else if(right)
+            finger = "Bip01 R Finger11";
+
+        auto finger11 = mNodeMap.find(finger);
+
+        if (finger11 != mNodeMap.end())
+        {
+            mUserPointer->setParent(finger11->second);
+        }
     }
 }
