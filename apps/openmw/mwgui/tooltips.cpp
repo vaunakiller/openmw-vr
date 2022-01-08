@@ -9,6 +9,7 @@
 
 #include <components/settings/settings.hpp>
 #include <components/widgets/box.hpp>
+#include <components/vr/vr.hpp>
 
 #include "../mwbase/world.hpp"
 #include "../mwbase/environment.hpp"
@@ -57,7 +58,7 @@ namespace MWGui
         mMainWidget->setNeedMouseFocus(false);
 
         // Tooltip delay is not useful in vr as a player cannot be perfectly still.
-        if (!MWBase::Environment::get().getVrMode())
+        if (!VR::getVR())
             mDelay = Settings::Manager::getFloat("tooltip delay", "GUI");
         mRemainingDelay = mDelay;
 

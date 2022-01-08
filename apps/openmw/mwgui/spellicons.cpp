@@ -7,6 +7,7 @@
 
 #include <components/esm/loadmgef.hpp>
 #include <components/settings/settings.hpp>
+#include <components/vr/vr.hpp>
 
 #include "../mwbase/world.hpp"
 #include "../mwbase/environment.hpp"
@@ -173,7 +174,7 @@ namespace MWGui
             }
         }
 
-        if (MWBase::Environment::get().getVrMode())
+        if (VR::getVR())
         {
             // In VR mode, the effect box grows to the right.
             // They are therefore added in the reverse order to retain positional stability.

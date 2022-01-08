@@ -59,6 +59,11 @@ namespace osgViewer
     class ScreenCaptureHandler;
 }
 
+namespace SceneUtil
+{
+    class SelectDepthFormatOperation;
+}
+
 namespace VR
 {
     class Session;
@@ -97,14 +102,12 @@ namespace OMW
             osg::ref_ptr<osgViewer::Viewer> mViewer;
             osg::ref_ptr<osgViewer::ScreenCaptureHandler> mScreenCaptureHandler;
             osg::ref_ptr<SceneUtil::AsyncScreenCaptureOperation> mScreenCaptureOperation;
+            osg::ref_ptr<SceneUtil::SelectDepthFormatOperation> mSelectDepthFormatOperation;
             std::string mCellName;
             std::vector<std::string> mContentFiles;
             std::vector<std::string> mGroundcoverFiles;
 
-            bool mStereoEnabled;
-            bool mStereoOverride;
             std::unique_ptr<Stereo::Manager> mStereoManager;
-
             std::unique_ptr<Misc::CallbackManager> mCallbackManager;
 
             bool mSkipMenu;
@@ -226,11 +229,7 @@ namespace OMW
 
             void setRandomSeed(unsigned int seed);
 
-            void realize(osg::GraphicsContext* gc);
-
-#ifdef USE_OPENXR
             void configureVR(osg::GraphicsContext* gc);
-#endif
 
         private:
             Files::ConfigurationManager& mCfgMgr;

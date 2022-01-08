@@ -29,6 +29,8 @@ namespace Stereo
 {
     class MultiviewFramebuffer;
 
+    bool getStereo();
+
     //! Represent two eyes. The eyes are in relative terms, and are assumed to lie on the horizon plane.
     class Manager
     {
@@ -54,7 +56,7 @@ namespace Stereo
         //! \param noShaderMask mask in all nodes that do not use shaders and must be rendered brute force.
         //! \param sceneMask must equal MWRender::VisMask::Mask_Scene. Necessary while VisMask is still not in components/
         //! \note the masks apply only to the GeometryShader_IndexdViewports technique and can be 0 for the BruteForce technique.
-        Manager(osgViewer::Viewer* viewer, bool stereoEnabled);
+        Manager(osgViewer::Viewer* viewer);
 
         //! Updates uniforms with the view and projection matrices of each stereo view, and replaces the camera's view and projection matrix
         //! with a view and projection that closely envelopes the frustums of the two eyes.
@@ -79,7 +81,11 @@ namespace Stereo
 
         const std::string& error() const;
 
-        bool stereoEnabled() const { return mStereoEnabled; };
+        const std::shared_ptr<MultiviewFramebuffer>& multiviewFramebuffer() { return mMultiviewFramebuffer; };
+
+        void overrideEyeResolution(int width, int height);
+
+        void updateStereoFramebuffer();
 
     private:
         void setupBruteForceTechnique();
@@ -92,8 +98,10 @@ namespace Stereo
         osg::ref_ptr<osg::Group>        mStereoRoot;
         osg::ref_ptr<osg::Callback>     mUpdateCallback;
         std::string                     mError;
-        bool                            mStereoEnabled;
-        bool                            mMultiview;
+        std::shared_ptr<MultiviewFramebuffer> mMultiviewFramebuffer;
+        int                             mEyeWidthOverride;
+        int                             mEyeHeightOverride;
+        bool                            mEyeResolutionOverriden;
 
         // Stereo matrices
         View                        mLeftView;
@@ -113,9 +121,6 @@ namespace Stereo
 
         // Updates stereo configuration during the update pass
         std::shared_ptr<UpdateViewCallback> mUpdateViewCallback;
-
-        // OSG camera callbacks set using set*callback. StereoView manages that these are always set on the appropriate camera(s);
-        osg::ref_ptr<osg::NodeCallback>         mCullCallback = nullptr;
     };
 }
 

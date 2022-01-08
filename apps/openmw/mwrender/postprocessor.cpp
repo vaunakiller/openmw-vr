@@ -4,6 +4,7 @@
 #include <osg/Camera>
 #include <osg/Callback>
 #include <osg/Texture2D>
+#include <osg/Texture2DArray>
 #include <osg/FrameBufferObject>
 
 #include <osgViewer/Viewer>
@@ -12,6 +13,9 @@
 #include <components/sceneutil/depth.hpp>
 #include <components/sceneutil/nodecallback.hpp>
 #include <components/debug/debuglog.hpp>
+
+#include <components/stereo/multiview.hpp>
+#include <components/stereo/stereomanager.hpp>
 
 #include "vismask.hpp"
 
@@ -73,6 +77,7 @@ namespace
         {
             gc->resizedImplementation(x, y, width, height);
             mPostProcessor->resize(width, height);
+            Stereo::Manager::instance().updateStereoFramebuffer();
         }
 
         MWRender::PostProcessor* mPostProcessor;
@@ -172,12 +177,15 @@ namespace MWRender
         mRootNode->addChild(rootNode);
         mViewer->setSceneData(mRootNode);
 
-        // We need to manually set the FBO and resolve FBO during the cull callback. If we were using a separate
-        // RTT camera this would not be needed.
-        mViewer->getCamera()->addCullCallback(new CullCallback(this));
-        mViewer->getCamera()->setRenderTargetImplementation(osg::Camera::FRAME_BUFFER_OBJECT);
-        mViewer->getCamera()->attach(osg::Camera::COLOR_BUFFER0, mSceneTex);
-        mViewer->getCamera()->attach(osg::Camera::DEPTH_BUFFER, mDepthTex);
+        if (!Stereo::getStereo())
+        {
+            // We need to manually set the FBO and resolve FBO during the cull callback. If we were using a separate
+            // RTT camera this would not be needed.
+            mViewer->getCamera()->addCullCallback(new CullCallback(this));
+            mViewer->getCamera()->setRenderTargetImplementation(osg::Camera::FRAME_BUFFER_OBJECT);
+            mViewer->getCamera()->attach(osg::Camera::COLOR_BUFFER0, mSceneTex);
+            mViewer->getCamera()->attach(osg::Camera::DEPTH_BUFFER, mDepthTex);
+        }
 
         mViewer->getCamera()->getGraphicsContext()->setResizedCallback(new ResizedCallback(this));
     }
@@ -251,13 +259,18 @@ namespace MWRender
 
         void apply(osg::StateSet* stateset, osg::NodeVisitor* nv) override
         {
-            // Nothing to do
+            if (Stereo::getMultiview())
+            {
+                auto& multiviewFbo = Stereo::Manager::instance().multiviewFramebuffer();
+                stateset->setTextureAttributeAndModes(0, multiviewFbo->multiviewColorBuffer(), osg::StateAttribute::ON);
+            }
         }
 
         void applyLeft(osg::StateSet* stateset, osgUtil::CullVisitor* cv) override
         {
-            auto* viewportIndexUniform = stateset->getUniform("viewportIndex");
-            viewportIndexUniform->set(0);
+            auto& multiviewFbo = Stereo::Manager::instance().multiviewFramebuffer();
+            stateset->setTextureAttributeAndModes(0, multiviewFbo->layerColorBuffer(0), osg::StateAttribute::ON);
+
             auto viewport = static_cast<osg::Viewport*>(stateset->getAttribute(osg::StateAttribute::VIEWPORT));
             auto fullViewport = mHUDCamera->getViewport();
             viewport->setViewport(
@@ -266,14 +279,13 @@ namespace MWRender
                 fullViewport->width() / 2,
                 fullViewport->height()
             );
-
-            Log(Debug::Verbose) << "YES HELLO THIS IS LEFT HAND SIDE REPORTING FOR DUTY";
         }
 
         void applyRight(osg::StateSet* stateset, osgUtil::CullVisitor* cv) override
         {
-            auto* viewportIndexUniform = stateset->getUniform("viewportIndex");
-            viewportIndexUniform->set(1);
+            auto& multiviewFbo = Stereo::Manager::instance().multiviewFramebuffer();
+            stateset->setTextureAttributeAndModes(0, multiviewFbo->layerColorBuffer(1), osg::StateAttribute::ON);
+
             auto viewport = static_cast<osg::Viewport*>(stateset->getAttribute(osg::StateAttribute::VIEWPORT));
             auto fullViewport = mHUDCamera->getViewport();
             viewport->setViewport(
@@ -282,7 +294,6 @@ namespace MWRender
                 fullViewport->width() / 2,
                 fullViewport->height()
             );
-            Log(Debug::Verbose) << "YES HELLO THIS IS RIGHT HAND SIDE REPORTING FOR DUTY";
         }
 
     private:
@@ -343,23 +354,6 @@ namespace MWRender
             }
         )GLSL";
 
-        // Calculates correct UV coordinates when dealing with OSG's built-in stereo
-        constexpr char vertSrcOSGStereo[] = R"GLSL(
-            #version 120
-
-            // Not to be confused with the indexed viewport feature of OpenGL.
-            uniform int viewportIndex;
-
-            varying vec2 uv;
-
-            void main()
-            {
-                gl_Position = vec4(gl_Vertex.xy, 0.0, 1.0);
-                uv = gl_Position.xy * 0.5 + 0.5;
-                uv.x = (uv.x + viewportIndex) * 0.5;
-            }
-        )GLSL";
-
         constexpr char fragSrc[] = R"GLSL(
             #version 120
 
@@ -372,10 +366,28 @@ namespace MWRender
             }
         )GLSL";
 
-        auto isOSGStereo = osg::DisplaySettings::instance()->getStereo();
+        constexpr char fragSrcMultiview[] = R"GLSL(
+            #version 330 compatibility
 
-        osg::ref_ptr<osg::Shader> vertShader = new osg::Shader(osg::Shader::VERTEX, isOSGStereo ? vertSrcOSGStereo : vertSrc);
-        osg::ref_ptr<osg::Shader> fragShader = new osg::Shader(osg::Shader::FRAGMENT, fragSrc);
+            #extension GL_EXT_texture_array : require
+
+            varying vec2 uv;
+            uniform sampler2DArray sceneTex;
+
+            void main()
+            {
+                vec3 array_uv = vec3(uv.x * 2, uv.y, 0);
+                if(array_uv.x >= 1.0)
+                {
+                    array_uv.x -= 1.0;
+                    array_uv.z = 1;
+                }
+                gl_FragData[0] = texture2DArray(sceneTex, array_uv);
+            }
+        )GLSL";
+
+        osg::ref_ptr<osg::Shader> vertShader = new osg::Shader(osg::Shader::VERTEX, vertSrc);
+        osg::ref_ptr<osg::Shader> fragShader = new osg::Shader(osg::Shader::FRAGMENT, Stereo::getMultiview() ? fragSrcMultiview : fragSrc);
 
         osg::ref_ptr<osg::Program> program = new osg::Program;
         program->addShader(vertShader);
@@ -384,13 +396,6 @@ namespace MWRender
         mHUDCamera->addChild(createFullScreenTri());
         mHUDCamera->setNodeMask(Mask_RenderToTexture);
         mHUDCamera->setCullCallback(new HUDCameraStatesetUpdater(mHUDCamera, program, mSceneTex));
-
-        //auto* stateset = mHUDCamera->getOrCreateStateSet();
-        //stateset->setTextureAttributeAndModes(0, mSceneTex, osg::StateAttribute::ON);
-        //stateset->setAttributeAndModes(program, osg::StateAttribute::ON);
-        //stateset->addUniform(new osg::Uniform("sceneTex", 0));
-        //stateset->setMode(GL_LIGHTING, osg::StateAttribute::OFF);
-        //stateset->setMode(GL_DEPTH_TEST, osg::StateAttribute::OFF);
     }
 
 }

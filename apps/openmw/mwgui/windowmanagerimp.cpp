@@ -55,6 +55,8 @@
 
 #include <components/lua_ui/widgetlist.hpp>
 
+#include <components/vr/vr.hpp>
+
 #include "../mwbase/inputmanager.hpp"
 #include "../mwbase/statemanager.hpp"
 #include "../mwbase/soundmanager.hpp"
@@ -245,7 +247,7 @@ namespace MWGui
         MyGUI::FactoryManager::getInstance().registerFactory<AutoSizedResourceSkin>("Resource", "AutoSizedResourceSkin");
 
 #ifdef USE_OPENXR
-        if (MWBase::Environment::get().getVrMode())
+        if (VR::getVR())
             MWVR::VRGUIManager::registerMyGUIFactories();
 #endif
 
@@ -300,7 +302,7 @@ namespace MWGui
 
         mShowOwned = Settings::Manager::getInt("show owned", "Game");
 
-        mVideoWrapper = new SDLUtil::VideoWrapper(window, viewer, MWBase::Environment::get().getVrMode() != true);
+        mVideoWrapper = new SDLUtil::VideoWrapper(window, viewer, VR::getVR() != true);
         mVideoWrapper->setGammaContrast(Settings::Manager::getFloat("gamma", "Video"),
                                         Settings::Manager::getFloat("contrast", "Video"));
 
@@ -607,7 +609,7 @@ namespace MWGui
         osg::Vec4 disableClearColor = osg::Vec4(0, 0, 0, 1);
 
         // VR mode needs to render the 3D gui
-        if (MWBase::Environment::get().getVrMode())
+        if (VR::getVR())
         {
             disableCullMask = MWRender::Mask_Pointer | MWRender::Mask_3DGUI | MWRender::Mask_PreCompile;
             disableUpdateMask = disableCullMask | MWRender::Mask_GUI;

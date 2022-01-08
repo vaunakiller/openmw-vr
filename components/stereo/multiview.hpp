@@ -20,6 +20,8 @@ namespace osg
 
 namespace Stereo
 {
+    class SetupLayeredFramebufferCullCallback;
+
     //! Check if TextureView is supported. Results are undefined if called before configureExtensions().
     bool                  getTextureViewSupported();
 
@@ -48,11 +50,15 @@ namespace Stereo
         osg::FrameBufferObject* multiviewFbo();
         osg::FrameBufferObject* layerFbo(int i);
         osg::FrameBufferObject* layerMsaaFbo(int i);
+        osg::Texture2DArray* multiviewColorBuffer();
         osg::Texture2D* layerColorBuffer(int i);
         osg::Texture2D* layerDepthBuffer(int i);
 
         void attachTo(osg::Camera* camera);
+        void detachFrom(osg::Camera* camera);
 
+        int width() const { return mWidth; }
+        int height() const { return mHeight; }
         int samples() const { return mSamples; };
 
     private:
@@ -65,6 +71,7 @@ namespace Stereo
         int mHeight;
         int mSamples;
         bool mMultiview;
+        osg::ref_ptr<SetupLayeredFramebufferCullCallback> mCullCallback;
         osg::ref_ptr<osg::FrameBufferObject> mMultiviewFbo;
         std::array<osg::ref_ptr<osg::FrameBufferObject>, 2> mLayerFbo;
         std::array<osg::ref_ptr<osg::FrameBufferObject>, 2> mLayerMsaaFbo;

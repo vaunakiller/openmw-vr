@@ -6,9 +6,13 @@
 #include <osg/Texture2DMultisample>
 #include <osg/Texture2DArray>
 #include <osg/Texture2DMultisampleArray>
+#include <osgUtil/RenderStage>
 
+#include <components/misc/callbackmanager.hpp>
+#include <components/sceneutil/nodecallback.hpp>
 #include <components/settings/settings.hpp>
 #include <components/debug/debuglog.hpp>
+#include <components/stereo/stereomanager.hpp>
 
 #include <algorithm>
 
@@ -61,7 +65,7 @@ namespace Stereo
 
         bool getMultiviewImpl(unsigned int contextID)
         {
-            if (!Settings::Manager::getBool("stereo enabled", "Stereo"))
+            if (!Stereo::getStereo())
             {
                 Log(Debug::Verbose) << "Disabling Multiview (disabled by config)";
                 return false;
@@ -223,6 +227,61 @@ namespace Stereo
         return texture2d;
     }
 
+    class SetupLayeredFramebufferCullCallback : public SceneUtil::NodeCallback<SetupLayeredFramebufferCullCallback, osg::Node*, osgUtil::CullVisitor*>
+    {
+    public:
+        SetupLayeredFramebufferCullCallback(Stereo::MultiviewFramebuffer* multiviewFramebuffer)
+            : mMultiviewFramebuffer(multiviewFramebuffer)
+        {
+            mViewport = new osg::Viewport(0, 0, multiviewFramebuffer->width(), multiviewFramebuffer->height());
+            mViewportStateset = new osg::StateSet();
+            mViewportStateset->setAttribute(mViewport.get());
+        }
+
+        void operator()(osg::Node* node, osgUtil::CullVisitor* cv)
+        {
+            osgUtil::RenderStage* renderStage = cv->getCurrentRenderStage();
+
+            auto view = Misc::CallbackManager::instance().getView(cv);
+            bool msaa = mMultiviewFramebuffer->samples() > 1;
+
+            int view_i = 0;
+            switch (view)
+            {
+            case Misc::CallbackManager::View::Left:
+                view_i = 0;
+                break;
+            case Misc::CallbackManager::View::Right:
+                view_i = 1;
+                break;
+            default:
+                Log(Debug::Error) << "Unexpected view, defaulting to 0";
+                view_i = 0;
+                break;
+            }
+            if (msaa)
+            {
+                renderStage->setFrameBufferObject(mMultiviewFramebuffer->layerMsaaFbo(view_i));
+                renderStage->setMultisampleResolveFramebufferObject(mMultiviewFramebuffer->layerFbo(view_i));
+            }
+            else
+            {
+                renderStage->setFrameBufferObject(mMultiviewFramebuffer->layerFbo(view_i));
+            }
+
+            // OSG tries to do a horizontal split, but we want to render to separate framebuffers instead.
+            renderStage->setViewport(mViewport);
+            cv->pushStateSet(mViewportStateset.get());
+            traverse(node, cv);
+            cv->popStateSet();
+        }
+
+    private:
+        Stereo::MultiviewFramebuffer* mMultiviewFramebuffer;
+        osg::ref_ptr<osg::Viewport> mViewport;
+        osg::ref_ptr<osg::StateSet> mViewportStateset;
+    };
+
     MultiviewFramebuffer::MultiviewFramebuffer(int width, int height, int samples)
         : mWidth(width)
         , mHeight(height)
@@ -311,6 +370,11 @@ namespace Stereo
         return mLayerMsaaFbo[i];
     }
 
+    osg::Texture2DArray* MultiviewFramebuffer::multiviewColorBuffer()
+    {
+        return mMultiviewColorTexture;
+    }
+
     osg::Texture2D* MultiviewFramebuffer::layerColorBuffer(int i)
     {
         return mColorTexture[i];
@@ -338,8 +402,38 @@ namespace Stereo
                 camera->getBufferAttachmentMap()[osg::Camera::DEPTH_BUFFER]._mipMapGeneration = false;
             }
         }
+        else
 #endif
+        {
+            // Without multiview, we want one framebuffer per eye. OSG has no built-in support for this, so we have to set this up in a callback
+            if (!mCullCallback)
+                mCullCallback = new SetupLayeredFramebufferCullCallback(this);
+            camera->addCullCallback(mCullCallback);
+        }
         camera->setRenderTargetImplementation(osg::Camera::FRAME_BUFFER_OBJECT);
+    }
+
+    void MultiviewFramebuffer::detachFrom(osg::Camera* camera)
+    {
+#ifdef OSG_HAS_MULTIVIEW
+        if (mMultiview)
+        {
+            if (mMultiviewColorTexture)
+            {
+                camera->detach(osg::Camera::COLOR_BUFFER);
+            }
+            if (mMultiviewDepthTexture)
+            {
+                camera->detach(osg::Camera::DEPTH_BUFFER);
+            }
+        }
+        else
+#endif
+        {
+            if (mCullCallback)
+                camera->removeCullCallback(mCullCallback);
+        }
+        camera->setRenderTargetImplementation(osg::Camera::FRAME_BUFFER);
     }
 
     osg::Texture2D* MultiviewFramebuffer::createTexture(GLint sourceFormat, GLint sourceType, GLint internalFormat)

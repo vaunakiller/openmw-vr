@@ -4,6 +4,7 @@
 
 #include <SDL_opengl_glext.h>
 
+#include <components/debug/debuglog.hpp>
 #include <components/settings/settings.hpp>
 
 #ifndef GL_DEPTH32F_STENCIL8_NV
@@ -59,5 +60,62 @@ namespace SceneUtil
         };
 
         return std::find(formats.cbegin(), formats.cend(), format) != formats.cend();
+    }
+
+    void SelectDepthFormatOperation::operator()(osg::GraphicsContext* graphicsContext)
+    {
+        bool enableReverseZ = false;
+
+        if (Settings::Manager::getBool("reverse z", "Camera"))
+        {
+            osg::ref_ptr<osg::GLExtensions> exts = osg::GLExtensions::Get(0, false);
+            if (exts && exts->isClipControlSupported)
+            {
+                enableReverseZ = true;
+                Log(Debug::Info) << "Using reverse-z depth buffer";
+            }
+            else
+                Log(Debug::Warning) << "GL_ARB_clip_control not supported: disabling reverse-z depth buffer";
+        }
+        else
+            Log(Debug::Info) << "Using standard depth buffer";
+
+        SceneUtil::AutoDepth::setReversed(enableReverseZ);
+
+        constexpr char errPreamble[] = "Postprocessing and floating point depth buffers disabled: ";
+        std::vector<GLenum> requestedFormats;
+        unsigned int contextID = graphicsContext->getState()->getContextID();
+        osg::GLExtensions* ext = graphicsContext->getState()->get<osg::GLExtensions>();
+        if (SceneUtil::AutoDepth::isReversed())
+        {
+            if (osg::isGLExtensionSupported(contextID, "GL_ARB_depth_buffer_float"))
+                requestedFormats.push_back(GL_DEPTH_COMPONENT32F);
+            else if (osg::isGLExtensionSupported(contextID, "GL_NV_depth_buffer_float"))
+                requestedFormats.push_back(GL_DEPTH_COMPONENT32F_NV);
+            else
+            {
+                Log(Debug::Warning) << errPreamble << "'GL_ARB_depth_buffer_float' and 'GL_NV_depth_buffer_float' unsupported.";
+            }
+        }
+        requestedFormats.push_back(GL_DEPTH_COMPONENT24);
+
+        if (mSupportedFormats.empty())
+        {
+            SceneUtil::AutoDepth::setDepthFormat(requestedFormats.front());
+        }
+        else
+        {
+            requestedFormats.push_back(GL_DEPTH24_STENCIL8);
+            requestedFormats.push_back(GL_DEPTH_COMPONENT32);
+            requestedFormats.push_back(0x81A6); // GL_DEPTH_COMPONENT24
+            for (auto requestedFormat : requestedFormats)
+            {
+                if (std::find(mSupportedFormats.cbegin(), mSupportedFormats.cend(), requestedFormat) != mSupportedFormats.cend())
+                {
+                    SceneUtil::AutoDepth::setDepthFormat(requestedFormat);
+                    break;
+                }
+            }
+        }
     }
 }

@@ -54,6 +54,7 @@
 #include <components/vr/session.hpp>
 #include <components/vr/trackingmanager.hpp>
 #include <components/vr/viewer.hpp>
+#include <components/vr/vr.hpp>
 #include <components/xr/instance.hpp>
 #include <components/xr/session.hpp>
 
@@ -93,32 +94,6 @@
 
 namespace
 {
-    // Callback to do construction with a graphics context
-    class MWRealizeOperation : public osg::GraphicsOperation
-    {
-    public:
-        MWRealizeOperation(OMW::Engine* engine, osg::ref_ptr<osg::GraphicsOperation> nestedOp);
-        void operator()(osg::GraphicsContext* gc) override;
-
-    private:
-        OMW::Engine* mEngine;
-        osg::ref_ptr<osg::GraphicsOperation> mNestedOp;
-    };
-
-    MWRealizeOperation::MWRealizeOperation(OMW::Engine* engine, osg::ref_ptr<osg::GraphicsOperation> nestedOp)
-        : osg::GraphicsOperation("MWRealizeOperation", false)
-        , mEngine(engine)
-        , mNestedOp(nestedOp)
-    {
-    }
-
-    void MWRealizeOperation::operator()(osg::GraphicsContext* gc)
-    {
-        mEngine->realize(gc);
-        if (mNestedOp)
-            mNestedOp->operator()(gc);
-    }
-
     void checkSDLError(int ret)
     {
         if (ret != 0)
@@ -488,8 +463,7 @@ OMW::Engine::Engine(Files::ConfigurationManager& configurationManager)
   , mEncoding(ToUTF8::WINDOWS_1252)
   , mEncoder(nullptr)
   , mScreenCaptureOperation(nullptr)
-  , mStereoEnabled(false)
-  , mStereoOverride(false)
+  , mSelectDepthFormatOperation(new SceneUtil::SelectDepthFormatOperation())
   , mStereoManager(nullptr)
   , mSkipMenu (false)
   , mUseSound (true)
@@ -646,7 +620,7 @@ void OMW::Engine::createWindow(Settings::Manager& settings)
     bool windowBorder = settings.getBool("window border", "Video");
     bool vsync = settings.getBool("vsync", "Video");
     unsigned int antialiasing = std::max(0, settings.getInt("antialiasing", "Video"));
-    if (mEnvironment.getVrMode())
+    if (VR::getVR())
         // MSAA needs to happen in offscreen buffers.
         antialiasing = 0;
 
@@ -762,14 +736,13 @@ void OMW::Engine::createWindow(Settings::Manager& settings)
     if (Debug::shouldDebugOpenGL())
         realizeOperations->add(new Debug::EnableGLDebugOperation());
 
-
-    if (mStereoEnabled)
-        realizeOperations->add(new InitializeStereoOperation());
-
-#ifdef USE_OPENXR
-    if (mEnvironment.getVrMode())
+    if (VR::getVR())
         realizeOperations->add(new InitializeVrOperation(this));
-#endif
+
+    realizeOperations->add(mSelectDepthFormatOperation);
+
+    if (Stereo::getStereo())
+        realizeOperations->add(new InitializeStereoOperation());
 
     mViewer->realize();
 
@@ -805,8 +778,7 @@ void OMW::Engine::prepareEngine (Settings::Manager & settings)
     mEnvironment.setStateManager (
         new MWState::StateManager (mCfgMgr.getUserDataPath() / "saves", mContentFiles));
 
-    mStereoEnabled = mEnvironment.getVrMode() || Settings::Manager::getBool("stereo enabled", "Stereo") || osg::DisplaySettings::instance().get()->getStereo();
-    mStereoManager = std::make_unique<Stereo::Manager>(mViewer, mStereoEnabled);
+    mStereoManager = std::make_unique<Stereo::Manager>(mViewer);
 
     osg::ref_ptr<osg::Group> rootNode(new osg::Group);
     mViewer->setSceneData(rootNode);
@@ -893,22 +865,6 @@ void OMW::Engine::prepareEngine (Settings::Manager & settings)
 
     osg::ref_ptr<osg::GLExtensions> exts = osg::GLExtensions::Get(0, false);
     bool shadersSupported = exts && (exts->glslLanguageVersion >= 1.2f);
-    bool enableReverseZ = false;
-
-    if (Settings::Manager::getBool("reverse z", "Camera"))
-    {
-        if (exts && exts->isClipControlSupported)
-        {
-            enableReverseZ = true;
-            Log(Debug::Info) << "Using reverse-z depth buffer";
-        }
-        else
-            Log(Debug::Warning) << "GL_ARB_clip_control not supported: disabling reverse-z depth buffer";
-    }
-    else
-        Log(Debug::Info) << "Using standard depth buffer";
-
-    SceneUtil::AutoDepth::setReversed(enableReverseZ);
 
 #if OSG_VERSION_LESS_THAN(3, 6, 6)
     // hack fix for https://github.com/openscenegraph/OpenSceneGraph/issues/1028
@@ -1127,6 +1083,12 @@ private:
 // Initialise and enter main loop.
 void OMW::Engine::go()
 {
+#ifdef USE_OPENXR
+    VR::setVR(true);
+#else
+    VR::setVR(false);
+#endif
+
     assert (!mContentFiles.empty());
 
     Log(Debug::Info) << "OSG version: " << osgGetVersion();
@@ -1145,10 +1107,6 @@ void OMW::Engine::go()
 
     // Create encoder
     mEncoder = new ToUTF8::Utf8Encoder(mEncoding);
-
-#ifdef USE_OPENXR
-    mEnvironment.setVrMode(true);
-#endif
 
     // Setup viewer
     mViewer = new osgViewer::Viewer;
@@ -1186,14 +1144,14 @@ void OMW::Engine::go()
     if (stats.is_open())
         Resource::CollectStatistics(mViewer);
 
-    // TODO: Move this to wherever Mask_GUI is being re-enabled.
-    if (mStereoEnabled)
+    // TODO: Prevent Mask_GUI from being re-enabled instead
+    if (VR::getVR())
     {
-        if (mEnvironment.getVrMode())
-        {
-            mViewer->getCamera()->setCullMask(mViewer->getCamera()->getCullMask() & ~(MWRender::VisMask::Mask_GUI));
-        }
+        mViewer->getCamera()->setCullMask(mViewer->getCamera()->getCullMask() & ~(MWRender::VisMask::Mask_GUI));
+    }
 
+    if (Stereo::getStereo())
+    {
         if (!mStereoManager->error().empty())
         {
             mEnvironment.getWindowManager()->messageBox(mStereoManager->error());
@@ -1351,11 +1309,12 @@ void OMW::Engine::setRandomSeed(unsigned int seed)
     mRandomSeed = seed;
 }
 
-#ifdef USE_OPENXR
 void OMW::Engine::configureVR(osg::GraphicsContext* gc)
 {
+#ifdef USE_OPENXR
     mVrTrackingManager = std::make_unique<VR::TrackingManager>();
     mXrInstance = std::make_unique<XR::Instance>(gc);
     mXrSession = mXrInstance->createSession();
-}
+    mSelectDepthFormatOperation->setSupportedFormats(mXrInstance->platform().supportedSwapchainFormatsGL());
 #endif
+}

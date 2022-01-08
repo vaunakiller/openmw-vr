@@ -24,6 +24,8 @@
 
 #include <components/settings/settings.hpp>
 
+#include <components/vr/vr.hpp>
+
 #include "../mwworld/manualref.hpp"
 #include "../mwworld/class.hpp"
 #include "../mwworld/esmstore.hpp"
@@ -275,7 +277,7 @@ namespace MWWorld
 
         osg::Quat orient;
 #ifdef USE_OPENXR
-        if (caster == MWBase::Environment::get().getWorld()->getPlayerPtr() && MWBase::Environment::get().getVrMode())
+        if (caster == MWBase::Environment::get().getWorld()->getPlayerPtr() && VR::getVR())
         {
             auto weaponPose = MWVR::Util::getWeaponPose();
             pos = weaponPose.position;

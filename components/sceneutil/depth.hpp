@@ -68,9 +68,25 @@ namespace SceneUtil
             return AutoDepth::sReversed;
         }
 
+        static void setDepthFormat(GLenum type)
+        {
+            sDepthFormat = type;
+        }
+
+        static GLenum depthFormat()
+        {
+            return AutoDepth::sDepthFormat;
+        }
+
+        static GLenum depthType()
+        {
+            return SceneUtil::isFloatingPointDepthFormat(sDepthFormat) ? GL_FLOAT : GL_UNSIGNED_INT;
+        }
+
     private:
 
         static inline bool sReversed = false;
+        static inline GLenum sDepthFormat = GL_DEPTH_COMPONENT24;
 
         osg::Depth::Function getReversedDepthFunction() const
         {
@@ -111,6 +127,23 @@ namespace SceneUtil
 
             traverse(node);
         }
+    };
+
+    class SelectDepthFormatOperation : public osg::GraphicsOperation
+    {
+    public:
+        SelectDepthFormatOperation() : GraphicsOperation("SelectDepthFormatOperation", false)
+        {}
+
+        void operator()(osg::GraphicsContext* graphicsContext) override;
+
+        void setSupportedFormats(const std::vector<GLenum>& supportedFormats)
+        {
+            mSupportedFormats = supportedFormats;
+        }
+
+    private:
+        std::vector<GLenum> mSupportedFormats;
     };
 }
 

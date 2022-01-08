@@ -12,6 +12,7 @@
 #include <components/sceneutil/depth.hpp>
 #include <components/stereo/multiview.hpp>
 #include <components/debug/debuglog.hpp>
+#include <components/misc/callbackmanager.hpp>
 
 namespace SceneUtil
 {
@@ -57,6 +58,11 @@ namespace SceneUtil
         if (frameNumber > vdd->mFrameNumber)
         {
             apply(vdd->mCamera);
+            auto& cm = Misc::CallbackManager::instance();
+            if (cm.getView(cv) == Misc::CallbackManager::View::Left)
+                applyLeft(vdd->mCamera);
+            if (cm.getView(cv) == Misc::CallbackManager::View::Right)
+                applyRight(vdd->mCamera);
             vdd->mCamera->accept(*cv);
         }
         vdd->mFrameNumber = frameNumber;

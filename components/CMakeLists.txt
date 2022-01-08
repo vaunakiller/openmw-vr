@@ -244,8 +244,8 @@ if(BUILD_OPENMW_VR)
         trackingmanager
         trackingpath
         trackingsource
-        view
         viewer
+        vr
     )
     add_component_dir(xr
         action

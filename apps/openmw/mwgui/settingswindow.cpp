@@ -21,6 +21,7 @@
 #include <components/resource/resourcesystem.hpp>
 #include <components/resource/scenemanager.hpp>
 #include <components/sceneutil/lightmanager.hpp>
+#include <components/vr/vr.hpp>
 
 #include "../mwbase/environment.hpp"
 #include "../mwbase/world.hpp"
@@ -249,7 +250,7 @@ namespace MWGui
         getWidget(mLightsResetButton, "LightsResetButton");
         getWidget(mMaxLights, "MaxLights");
 
-        if (MWBase::Environment::get().getVrMode())
+        if (VR::getVR())
         {
             getWidget(mVRMirrorTextureEye, "VRMirrorTextureEye");
             getWidget(mVRLeftHudPosition, "VRLeftHudPosition");
@@ -288,7 +289,7 @@ namespace MWGui
         mKeyboardSwitch->eventMouseButtonClick += MyGUI::newDelegate(this, &SettingsWindow::onKeyboardSwitchClicked);
         mControllerSwitch->eventMouseButtonClick += MyGUI::newDelegate(this, &SettingsWindow::onControllerSwitchClicked);
 
-        if (MWBase::Environment::get().getVrMode())
+        if (VR::getVR())
         {
             mVRMirrorTextureEye->eventComboChangePosition += MyGUI::newDelegate(this, &SettingsWindow::onVRMirrorTextureEyeChanged);
             mVRLeftHudPosition->eventComboChangePosition += MyGUI::newDelegate(this, &SettingsWindow::onVRLeftHudPositionChanged);
@@ -327,7 +328,7 @@ namespace MWGui
         std::string tmip = Settings::Manager::getString("texture mipmap", "General");
         mTextureFilteringButton->setCaption(textureMipmappingToStr(tmip));
 
-        if (MWBase::Environment::get().getVrMode())
+        if (VR::getVR())
         {
             std::string mirrorTextureEye = Settings::Manager::getString("mirror texture eye", "VR");
             for (unsigned i = 0; i < mVRMirrorTextureEye->getItemCount(); i++)
@@ -660,7 +661,7 @@ namespace MWGui
         MWBase::Environment::get().getInputManager()->processChangedSettings(changed);
         MWBase::Environment::get().getMechanicsManager()->processChangedSettings(changed);
 #ifdef USE_OPENXR
-        if (MWBase::Environment::get().getVrMode())
+        if (VR::getVR())
         {
             VR::Session::instance().processChangedSettings(changed);
             VR::TrackingManager::instance().processChangedSettings(changed);

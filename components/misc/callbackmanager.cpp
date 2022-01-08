@@ -98,7 +98,7 @@ namespace Misc
                     newRenderStageRight->setStereoView(View::Right);
                     sceneView->setRenderStageRight(newRenderStageRight);
 
-                    // OSG should always creates all 3 cull visitors, but i branch anyway in case there are variants that don't.
+                    // OSG should always creates all 3 cull visitors, but keep this check just in case there are variants that don't.
                     auto* cvMain = sceneView->getCullVisitor();
                     auto* cvLeft = sceneView->getCullVisitorLeft();
                     auto* cvRight = sceneView->getCullVisitorRight();
@@ -226,221 +226,24 @@ namespace Misc
     {
     }
 
-    // This is a copy of DrawInnerOperation from RenderStage.cpp
-    // Only changed to match namesapces
-    struct DrawInnerOperation : public osg::Operation
-    {
-        DrawInnerOperation(osgUtil::RenderStage* stage, osg::RenderInfo& renderInfo) :
-            osg::Referenced(true),
-            osg::Operation("DrawInnerStage", false),
-            _stage(stage),
-            _renderInfo(renderInfo) {}
-
-        virtual void operator () (osg::Object* object)
-        {
-            osg::GraphicsContext* context = dynamic_cast<osg::GraphicsContext*>(object);
-            if (!context) return;
-
-            // OSG_NOTICE<<"DrawInnerOperation operator"<<std::endl;
-            if (_stage && context)
-            {
-                osgUtil::RenderLeaf* previous = 0;
-                bool doCopyTexture = false;
-                _renderInfo.setState(context->getState());
-                _stage->drawInner(_renderInfo, previous, doCopyTexture);
-            }
-        }
-
-        osgUtil::RenderStage* _stage;
-        osg::RenderInfo _renderInfo;
-    };
-
-    // Note: With the exception of mw*Callback(), this is a copy of draw() from RenderStage.cpp edited only for namespacing.
-    // It will have to be manually maintained if changes happen upstream.
     void CustomRenderStage::draw(osg::RenderInfo& renderInfo, osgUtil::RenderLeaf*& previous)
     {
+        // Need to inject initial/final draw callbacks roughly where they are in OSG.
+        // But i don't want to copy the entire RenderStage::draw method in here. 
+        // I set the initial view matrix, and make an otherwise redundant push/pop of the camera to replicate the state expected in OSG's initial/final callback.
         if (_stageDrawnThisFrame) return;
 
-        if (_initialViewMatrix.valid()) renderInfo.getState()->setInitialViewMatrix(_initialViewMatrix.get());
-
-        // push the stages camera so that drawing code can query it
-        if (_camera.valid()) renderInfo.pushCamera(_camera.get());
-
-        _stageDrawnThisFrame = true;
-
-        if (_camera.valid() && _camera->getInitialDrawCallback())
-        {
-            // if we have a camera with a initial draw callback invoke it.
-            _camera->getInitialDrawCallback()->run(renderInfo);
-        }
         if (mCallbackManager)
+        {
+            if (_initialViewMatrix.valid()) renderInfo.getState()->setInitialViewMatrix(_initialViewMatrix.get());
+            if (_camera.valid()) renderInfo.pushCamera(_camera.get());
             mCallbackManager->callback(CallbackManager::DrawStage::Initial, mView, renderInfo);
-
-        // note, SceneView does call to drawPreRenderStages explicitly
-        // so there is no need to call it here.
-        drawPreRenderStages(renderInfo, previous);
-
-        if (_cameraRequiresSetUp || (_camera.valid() && _cameraAttachmentMapModifiedCount != _camera->getAttachmentMapModifiedCount()))
-        {
-            runCameraSetUp(renderInfo);
         }
-
-        osg::State& state = *renderInfo.getState();
-
-        osg::State* useState = &state;
-        osg::GraphicsContext* callingContext = state.getGraphicsContext();
-        osg::GraphicsContext* useContext = callingContext;
-        osg::OperationThread* useThread = 0;
-        osg::RenderInfo useRenderInfo(renderInfo);
-
-        osgUtil::RenderLeaf* saved_previous = previous;
-
-        if (_graphicsContext.valid() && _graphicsContext != callingContext)
-        {
-            // show we release the context so that others can use it?? will do so right
-            // now as an experiment.
-            callingContext->releaseContext();
-
-            // OSG_NOTICE<<"  enclosing state before - "<<state.getStateSetStackSize()<<std::endl;
-
-            useState = _graphicsContext->getState();
-            useContext = _graphicsContext.get();
-            useThread = useContext->getGraphicsThread();
-            useRenderInfo.setState(useState);
-
-            // synchronize the frame stamps
-            useState->setFrameStamp(const_cast<osg::FrameStamp*>(state.getFrameStamp()));
-
-            // map the DynamicObjectCount across to the new window
-            useState->setDynamicObjectCount(state.getDynamicObjectCount());
-            useState->setDynamicObjectRenderingCompletedCallback(state.getDynamicObjectRenderingCompletedCallback());
-
-            if (!useThread)
-            {
-                previous = 0;
-                useContext->makeCurrent();
-
-                // OSG_NOTICE<<"  nested state before - "<<useState->getStateSetStackSize()<<std::endl;
-            }
-        }
-
-        unsigned int originalStackSize = useState->getStateSetStackSize();
-
-        if (_camera.valid() && _camera->getPreDrawCallback())
-        {
-            // if we have a camera with a pre draw callback invoke it.
-            _camera->getPreDrawCallback()->run(renderInfo);
-        }
+        osgUtil::RenderStage::draw(renderInfo, previous);
         if (mCallbackManager)
-            mCallbackManager->callback(CallbackManager::DrawStage::PreDraw, mView, renderInfo);
-
-        bool doCopyTexture = _texture.valid() ?
-            (callingContext != useContext) :
-            false;
-
-        if (useThread)
         {
-#if 1
-            osg::ref_ptr<osg::BlockAndFlushOperation> block = new osg::BlockAndFlushOperation;
-
-            useThread->add(new DrawInnerOperation(this, renderInfo));
-
-            useThread->add(block.get());
-
-            // wait till the DrawInnerOperations is complete.
-            block->block();
-
-            doCopyTexture = false;
-
-#else
-            useThread->add(new DrawInnerOperation(this, renderInfo), true);
-
-            doCopyTexture = false;
-#endif
-        }
-        else
-        {
-            drawInner(useRenderInfo, previous, doCopyTexture);
-
-            if (useRenderInfo.getUserData() != renderInfo.getUserData())
-            {
-                renderInfo.setUserData(useRenderInfo.getUserData());
-            }
-
-        }
-
-        if (useState != &state)
-        {
-            // reset the local State's DynamicObjectCount
-            state.setDynamicObjectCount(useState->getDynamicObjectCount());
-            useState->setDynamicObjectRenderingCompletedCallback(0);
-        }
-
-
-        // now copy the rendered image to attached texture.
-        if (_texture.valid() && !doCopyTexture)
-        {
-            if (callingContext && useContext != callingContext)
-            {
-                // make the calling context use the pbuffer context for reading.
-                callingContext->makeContextCurrent(useContext);
-            }
-
-            copyTexture(renderInfo);
-        }
-
-        if (_camera.valid() && _camera->getPostDrawCallback())
-        {
-            // if we have a camera with a post draw callback invoke it.
-            _camera->getPostDrawCallback()->run(renderInfo);
-        }
-        if (mCallbackManager)
-            mCallbackManager->callback(CallbackManager::DrawStage::PostDraw, mView, renderInfo);
-
-        if (_graphicsContext.valid() && _graphicsContext != callingContext)
-        {
-            useState->popStateSetStackToSize(originalStackSize);
-
-            if (!useThread)
-            {
-
-
-                // flush any command left in the useContex's FIFO
-                // to ensure that textures are updated before main thread commenses.
-                glFlush();
-
-
-                useContext->releaseContext();
-            }
-        }
-
-        if (callingContext && useContext != callingContext)
-        {
-            // restore the graphics context.
-
-            previous = saved_previous;
-
-            // OSG_NOTICE<<"  nested state after - "<<useState->getStateSetStackSize()<<std::endl;
-            // OSG_NOTICE<<"  enclosing state after - "<<state.getStateSetStackSize()<<std::endl;
-
-            callingContext->makeCurrent();
-        }
-
-        // render all the post draw callbacks
-        drawPostRenderStages(renderInfo, previous);
-
-        if (_camera.valid() && _camera->getFinalDrawCallback())
-        {
-            // if we have a camera with a final callback invoke it.
-            _camera->getFinalDrawCallback()->run(renderInfo);
-        }
-        if (mCallbackManager)
             mCallbackManager->callback(CallbackManager::DrawStage::Final, mView, renderInfo);
-
-        // pop the render stages camera.
-        if (_camera.valid()) renderInfo.popCamera();
-
-        // clean up state graph to make sure RenderLeaf etc, can be reused
-        if (_rootStateGraph.valid()) _rootStateGraph->clean();
+            if (_camera.valid()) renderInfo.popCamera();
+        }
     }
 }

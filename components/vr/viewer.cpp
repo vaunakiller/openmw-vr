@@ -120,55 +120,6 @@ namespace VR
         return *sViewer;
     }
 
-    class CullCallback : public SceneUtil::NodeCallback<CullCallback, osg::Node*, osgUtil::CullVisitor*>
-    {
-    public:
-        CullCallback(Stereo::MultiviewFramebuffer* multiviewFramebuffer)
-            : mMultiviewFramebuffer(multiviewFramebuffer)
-        {
-        }
-
-        void operator()(osg::Node* node, osgUtil::CullVisitor* cv)
-        {
-            osgUtil::RenderStage* renderStage = cv->getCurrentRenderStage();
-
-            auto view = Misc::CallbackManager::instance().getView(cv);
-            bool msaa = mMultiviewFramebuffer->samples() > 1;
-
-            if (!Stereo::getMultiview())
-            {
-                int view_i = 0;
-                switch (view)
-                {
-                case Misc::CallbackManager::View::Left:
-                    view_i = 0;
-                    break;
-                case Misc::CallbackManager::View::Right:
-                    view_i = 1;
-                    break;
-                default:
-                    Log(Debug::Error) << "Unexpected view, defaulting to 0";
-                    view_i = 0;
-                    break;
-                }
-                if (msaa)
-                {
-                    renderStage->setFrameBufferObject(mMultiviewFramebuffer->layerMsaaFbo(view_i));
-                    renderStage->setMultisampleResolveFramebufferObject(mMultiviewFramebuffer->layerFbo(view_i));
-                }
-                else
-                {
-                    renderStage->setFrameBufferObject(mMultiviewFramebuffer->layerFbo(view_i));
-                }
-            }
-
-            traverse(node, cv);
-        }
-
-    private:
-        Stereo::MultiviewFramebuffer* mMultiviewFramebuffer;
-    };
-
     Viewer::Viewer(
         std::shared_ptr<VR::Session> session,
         osg::ref_ptr<osgViewer::Viewer> viewer)
@@ -184,24 +135,6 @@ namespace VR
             sViewer = this;
         else
             throw std::logic_error("Duplicated VR::Viewer singleton");
-
-        int depthFormat = GL_DEPTH_COMPONENT24;
-        int depthType = GL_FLOAT;
-
-        osg::GraphicsContext* gc = viewer->getCamera()->getGraphicsContext();
-        unsigned int contextID = gc->getState()->getContextID();
-        if (osg::isGLExtensionSupported(contextID, "GL_ARB_depth_buffer_float") && session->runtimeSupportsFormat(GL_DEPTH_COMPONENT32F))
-        {
-            depthFormat = GL_DEPTH_COMPONENT32F;
-        }
-        else if (osg::isGLExtensionSupported(contextID, "GL_NV_depth_buffer_float") && session->runtimeSupportsFormat(GL_DEPTH_COMPONENT32F_NV))
-        {
-            depthFormat = GL_DEPTH_COMPONENT32F_NV;
-        }
-
-        session->setAppShouldShareDepthBuffer(session->runtimeSupportsFormat(depthFormat));
-
-        depthType = SceneUtil::isFloatingPointDepthFormat(depthFormat) ? GL_FLOAT : GL_UNSIGNED_INT;
 
         // Read swapchain configs
         std::array<std::string, 2> xConfString;
@@ -222,20 +155,9 @@ namespace VR
             auto width = parseResolution(xConfString[i], swapchainConfigs[i].recommendedWidth, swapchainConfigs[i].maxWidth);
             auto height = parseResolution(yConfString[i], swapchainConfigs[i].recommendedHeight, swapchainConfigs[i].maxHeight);
 
-            // Note: Multisampling is applied to the OSG framebuffers' renderbuffers, and is resolved during post-processing.
-            // So we request 1 sample to get non-multisampled framebuffers from OpenXR.
-            auto samples = 1;
-
             Log(Debug::Verbose) << viewNames[i] << " resolution: Recommended x=" << swapchainConfigs[i].recommendedWidth << ", y=" << swapchainConfigs[i].recommendedHeight;
             Log(Debug::Verbose) << viewNames[i] << " resolution: Max x=" << swapchainConfigs[i].maxWidth << ", y=" << swapchainConfigs[i].maxHeight;
             Log(Debug::Verbose) << viewNames[i] << " resolution: Selected x=" << width << ", y=" << height;
-
-            mColorSwapchain[i].reset(VR::Session::instance().createSwapchain(width, height, samples, 1, VR::SwapchainUse::Color, viewNames[i]));
-
-            if (mSession->appShouldShareDepthInfo())
-            {
-                mDepthSwapchain[i].reset(VR::Session::instance().createSwapchain(width, height, samples, 1, VR::SwapchainUse::Depth, viewNames[i], depthFormat));
-            }
 
             mSubImages[i].width = width;
             mSubImages[i].height = height;
@@ -243,20 +165,11 @@ namespace VR
         }
 
         // Determine samples and dimensions of framebuffers.
-        mFramebufferSamples = Settings::Manager::getInt("antialiasing", "Video");
         mFramebufferWidth = mSubImages[0].width;
         mFramebufferHeight = mSubImages[0].height;
 
         if (mSubImages[0].width != mSubImages[1].width || mSubImages[0].height != mSubImages[1].height)
-            Log(Debug::Warning) << "Not implemented";
-
-        mMultiviewFramebuffer.reset(new Stereo::MultiviewFramebuffer(mFramebufferWidth, mFramebufferHeight, mFramebufferSamples));
-        mMultiviewFramebuffer->attachColorComponent(GL_RGB, GL_UNSIGNED_BYTE, GL_RGB);
-        mMultiviewFramebuffer->attachDepthComponent(GL_DEPTH_COMPONENT, depthType, depthFormat);
-        if (Stereo::getMultiview())
-            mMultiviewFramebuffer->attachTo(mViewer->getCamera());
-        else
-            mViewer->getCamera()->setCullCallback(new CullCallback(mMultiviewFramebuffer.get()));
+            Log(Debug::Warning) << "Warning: Eyes have differing resolutions. This case is not implemented";
 
         mViewer->getCamera()->setViewport(0, 0, mFramebufferWidth, mFramebufferHeight);
 
@@ -264,12 +177,10 @@ namespace VR
         mGammaResolveFramebuffer = new osg::FrameBufferObject();
         mGammaResolveFramebuffer->setAttachment(osg::Camera::COLOR_BUFFER, osg::FrameBufferAttachment(new osg::RenderBuffer(mFramebufferWidth, mFramebufferHeight, GL_RGB, 0)));
 
-        // TODO: Needed?
-        //SceneUtil::attachAlphaToCoverageFriendlyFramebufferToCamera(mViewer->getCamera(), osg::Camera::COLOR_BUFFER, colorBuffer);
-
         mViewer->setReleaseContextAtEndOfFrameHint(false);
         mViewer->getCamera()->getGraphicsContext()->setSwapCallback(mSwapBuffersCallback);
         mViewer->getCamera()->setViewport(0, 0, mFramebufferWidth, mFramebufferHeight);
+        Stereo::Manager::instance().overrideEyeResolution(mFramebufferWidth, mFramebufferHeight);
 
         setupMirrorTexture();
     }
@@ -411,7 +322,7 @@ namespace VR
 
             gammaUniform->set(Settings::Manager::getFloat("gamma", "Video"));
             contrastUniform->set(Settings::Manager::getFloat("contrast", "Video"));
-            stateset->setTextureAttributeAndModes(0, mMultiviewFramebuffer->layerColorBuffer(i), osg::StateAttribute::PROTECTED);
+            stateset->setTextureAttributeAndModes(0, Stereo::Manager::instance().multiviewFramebuffer()->layerColorBuffer(i), osg::StateAttribute::PROTECTED);
 
             state->pushStateSet(stateset);
             state->apply();
@@ -492,7 +403,7 @@ namespace VR
         gl->glBlitFramebuffer(srcX0, srcY0, srcX1, srcY1, dstX0, dstY0, dstX1, dstY1, GL_COLOR_BUFFER_BIT, GL_NEAREST);
         if (mSession->appShouldShareDepthInfo())
         {
-            mMultiviewFramebuffer->layerFbo(i)->apply(*state, osg::FrameBufferObject::READ_FRAMEBUFFER);
+            Stereo::Manager::instance().multiviewFramebuffer()->layerFbo(i)->apply(*state, osg::FrameBufferObject::READ_FRAMEBUFFER);
             gl->glBlitFramebuffer(srcX0, srcY0, srcX1, srcY1, dstX0, dstY0, dstX1, dstY1, GL_DEPTH_BUFFER_BIT, GL_NEAREST);
         }
 
@@ -538,7 +449,7 @@ namespace VR
         if (!shouldDoGamma || !applyGamma(info, i))
         {
             // Gamma should not / failed to be applied. Blit the colors unmodified
-            mMultiviewFramebuffer->layerFbo(i)->apply(*state, osg::FrameBufferObject::READ_FRAMEBUFFER);
+            Stereo::Manager::instance().multiviewFramebuffer()->layerFbo(i)->apply(*state, osg::FrameBufferObject::READ_FRAMEBUFFER);
             gl->glBlitFramebuffer(0, 0, mFramebufferWidth, mFramebufferHeight, 0, 0, mFramebufferWidth, mFramebufferHeight, GL_COLOR_BUFFER_BIT, GL_NEAREST);
         }
     }
@@ -571,29 +482,7 @@ namespace VR
             mDrawFrame = mReadyFrames.front();
             mReadyFrames.pop();
         }
-
         VR::Session::instance().frameBeginRender(mDrawFrame);
-
-        if (!Stereo::getMultiview())
-        {
-            osg::GraphicsOperation* graphicsOperation = info.getCurrentCamera()->getRenderer();
-            osgViewer::Renderer* renderer = dynamic_cast<osgViewer::Renderer*>(graphicsOperation);
-            if (renderer != nullptr)
-            {
-                // Disable normal OSG FBO camera setup
-                // OSG's internal stereo offers no option to let you control the viewport, and recomputes the render stage's viewport every time without exception.
-                // So i have to override it in this callback so so that the viewport of each eye will encompass the entire texture.
-                for (int i = 0; i < 2; i++)
-                {
-                    if (auto* viewport = renderer->getSceneView(i)->getRenderStage()->getViewport())
-                        viewport->setViewport(0, 0, mFramebufferWidth, mFramebufferHeight);
-                    if (auto* viewport = renderer->getSceneView(i)->getRenderStageLeft()->getViewport())
-                        viewport->setViewport(0, 0, mFramebufferWidth, mFramebufferHeight);
-                    if (auto* viewport = renderer->getSceneView(i)->getRenderStageRight()->getViewport())
-                        viewport->setViewport(0, 0, mFramebufferWidth, mFramebufferHeight);
-                }
-            }
-        }
     }
 
     void Viewer::finalDrawCallback(osg::RenderInfo& info, Misc::CallbackManager::View view)
@@ -610,6 +499,24 @@ namespace VR
     void Viewer::swapBuffersCallback(osg::GraphicsContext* gc)
     {
         VR::Session::instance().frameEnd(gc, mDrawFrame);
+    }
+
+    std::shared_ptr<VR::Swapchain> Viewer::colorSwapchain(int i)
+    {
+        if (!mColorSwapchain[i])
+        {
+            mColorSwapchain[i].reset(VR::Session::instance().createSwapchain(mFramebufferWidth, mFramebufferHeight, 1, 1, VR::SwapchainUse::Color, i == 0 ? "LeftEye" : "RightEye"));
+        }
+        return mColorSwapchain[i];
+    }
+
+    std::shared_ptr<VR::Swapchain> Viewer::depthSwapchain(int i)
+    {
+        if (!mDepthSwapchain[i])
+        {
+            mDepthSwapchain[i].reset(VR::Session::instance().createSwapchain(mFramebufferWidth, mFramebufferHeight, 1, 1, VR::SwapchainUse::Depth, i == 0 ? "LeftEye" : "RightEye", SceneUtil::AutoDepth::depthFormat()));
+        }
+        return mDepthSwapchain[i];
     }
 
     void Viewer::updateView(Stereo::View& left, Stereo::View& right)
@@ -632,13 +539,13 @@ namespace VR
             std::shared_ptr<VR::ProjectionLayer> layer = std::make_shared<VR::ProjectionLayer>();
             for (uint32_t i = 0; i < 2; i++)
             {
-                layer->views[i].colorSwapchain = mColorSwapchain[i];
+                layer->views[i].colorSwapchain = colorSwapchain(i);
                 if (mSession->appShouldShareDepthInfo())
                 {
-                    layer->views[i].depthSwapchain = mDepthSwapchain[i];
+                    layer->views[i].depthSwapchain = depthSwapchain(i);
                 }
-                layer->views[i].subImage.width = mColorSwapchain[i]->width();
-                layer->views[i].subImage.height = mColorSwapchain[i]->height();
+                layer->views[i].subImage.width = mFramebufferWidth;
+                layer->views[i].subImage.height = mFramebufferHeight;
                 layer->views[i].subImage.x = 0;
                 layer->views[i].subImage.y = 0;
                 layer->views[i].view = stageViews[i];

@@ -29,6 +29,8 @@
 #include <components/misc/stringops.hpp>
 #include <components/misc/callbackmanager.hpp>
 
+#include <components/vr/vr.hpp>
+
 namespace Stereo
 {
     // Update stereo view/projection during update
@@ -118,12 +120,13 @@ namespace Stereo
         return *sInstance;
     }
 
-    Manager::Manager(osgViewer::Viewer* viewer, bool stereoEnabled)
+    Manager::Manager(osgViewer::Viewer* viewer)
         : mViewer(viewer)
         , mStereoRoot(new osg::Group)
         , mUpdateCallback(new StereoUpdateCallback(this))
-        , mStereoEnabled(stereoEnabled)
-        , mMultiview(false)
+        , mEyeWidthOverride(0)
+        , mEyeHeightOverride(0)
+        , mEyeResolutionOverriden(false)
         , mMasterConfig(new SharedShadowMapConfig)
         , mSlaveConfig(new SharedShadowMapConfig)
         , mSharedShadowMaps(Settings::Manager::getBool("shared shadow maps", "Stereo"))
@@ -153,10 +156,11 @@ namespace Stereo
         mMainCamera->addUpdateCallback(mainCameraCB);
 
         auto ci = gc->getState()->getContextID();
-        Stereo::configureExtensions(ci);
-        mMultiview = Stereo::getMultiview();
+        configureExtensions(ci);
 
-        if(mMultiview)
+        updateStereoFramebuffer();
+
+        if(getMultiview())
             setupOVRMultiView2Technique();
         else
             setupBruteForceTechnique();
@@ -164,7 +168,7 @@ namespace Stereo
 
     void Manager::shaderStereoDefines(Shader::ShaderManager::DefineMap& defines) const
     {
-        if (mMultiview)
+        if (getMultiview())
         {
             defines["GLSLVersion"] = "330 compatibility";
             defines["useOVR_multiview"] = "1";
@@ -177,14 +181,19 @@ namespace Stereo
         }
     }
 
-    //void Manager::setMultiviewFramebuffer(std::shared_ptr<MultiviewFramebuffer> fbo)
-    //{
-    //    fbo->attachTo(mMainCamera);
-    //}
-
     const std::string& Manager::error() const
     {
         return mError;
+    }
+
+    void Manager::overrideEyeResolution(int width, int height)
+    {
+        mEyeWidthOverride = width;
+        mEyeHeightOverride = height;
+        mEyeResolutionOverriden = true;
+
+        if (mMultiviewFramebuffer)
+            updateStereoFramebuffer();
     }
 
     void Manager::setupBruteForceTechnique()
@@ -242,6 +251,9 @@ namespace Stereo
 
     void Manager::setupOVRMultiView2Technique()
     {
+        auto* ds = osg::DisplaySettings::instance().get();
+        ds->setStereo(false);
+
 #ifdef OSG_MADSBUVI_DISPLAY_LIST_PATCH
         if (Settings::Manager::getBool("disable display lists for multiview", "Stereo"))
         {
@@ -251,7 +263,7 @@ namespace Stereo
         }
 #endif
 
-        mStereoShaderRoot->addCullCallback(new OVRMultiViewStereoStatesetUpdateCallback(this));
+        mMainCamera->addCullCallback(new OVRMultiViewStereoStatesetUpdateCallback(this));
         mStereoShaderRoot->addChild(mRoot);
         mStereoRoot->addChild(mStereoShaderRoot);
 
@@ -272,6 +284,26 @@ namespace Stereo
                 sceneView->getCullVisitorRight()->setUserData(mSlaveConfig);
             }
         }
+    }
+
+    void Manager::updateStereoFramebuffer()
+    {
+        auto samples = Settings::Manager::getInt("antialiasing", "Video");
+
+        auto width = mMainCamera->getViewport()->width() / 2;
+        auto height = mMainCamera->getViewport()->height();
+        if (mEyeResolutionOverriden)
+        {
+            width = mEyeWidthOverride;
+            height = mEyeHeightOverride;
+        }
+
+        if (mMultiviewFramebuffer)
+            mMultiviewFramebuffer->detachFrom(mMainCamera);
+        mMultiviewFramebuffer = std::make_shared<MultiviewFramebuffer>(width, height, samples);
+        mMultiviewFramebuffer->attachColorComponent(GL_RGB, GL_UNSIGNED_BYTE, GL_RGB);
+        mMultiviewFramebuffer->attachDepthComponent(GL_DEPTH_COMPONENT, SceneUtil::AutoDepth::depthType(), SceneUtil::AutoDepth::depthFormat());
+        mMultiviewFramebuffer->attachTo(mMainCamera);
     }
 
     void Manager::update()
@@ -309,19 +341,6 @@ namespace Stereo
         View frustumView;
 
         // Compute Frustum angles. A simple min/max.
-        /* Example values for reference:
-            Left:
-            angleLeft   -0.767549932    float
-            angleRight   0.620896876    float
-            angleDown   -0.837898076    float
-            angleUp	     0.726982594    float
-
-            Right:
-            angleLeft   -0.620896876    float
-            angleRight   0.767549932    float
-            angleDown   -0.837898076    float
-            angleUp	     0.726982594    float
-        */
         frustumView.fov.angleLeft = std::min(mLeftView.fov.angleLeft, mRightView.fov.angleLeft);
         frustumView.fov.angleRight = std::max(mLeftView.fov.angleRight, mRightView.fov.angleRight);
         frustumView.fov.angleDown = std::min(mLeftView.fov.angleDown, mRightView.fov.angleDown);
@@ -347,7 +366,7 @@ namespace Stereo
         auto frustumViewMatrix = viewMatrix * frustumView.pose.viewMatrix(true);
         auto frustumProjectionMatrix = frustumView.fov.perspectiveMatrix(near_ + nearFarOffset, far_ + nearFarOffset, false);
 
-        if (mMultiview)
+        if (getMultiview())
         {
             mMainCamera->setViewMatrix(frustumViewMatrix);
             mMainCamera->setProjectionMatrix(frustumProjectionMatrix);
@@ -399,24 +418,42 @@ namespace Stereo
     {
         mMainCamera->setCullCallback(cb);
     }
+
     osg::Matrixd Manager::computeLeftEyeProjection(bool allowReverseZ) const
     {
         auto near_ = Settings::Manager::getFloat("near clip", "Camera");
         auto far_ = Settings::Manager::getFloat("viewing distance", "Camera");
         return mLeftView.fov.perspectiveMatrix(near_, far_, allowReverseZ && SceneUtil::AutoDepth::isReversed());
     }
+
     osg::Matrixd Manager::computeLeftEyeView() const
     {
         return mLeftViewMatrix;
     }
+
     osg::Matrixd Manager::computeRightEyeProjection(bool allowReverseZ) const
     {
         auto near_ = Settings::Manager::getFloat("near clip", "Camera");
         auto far_ = Settings::Manager::getFloat("viewing distance", "Camera");
         return mRightView.fov.perspectiveMatrix(near_, far_, allowReverseZ && SceneUtil::AutoDepth::isReversed());
     }
+
     osg::Matrixd Manager::computeRightEyeView() const
     {
         return mRightViewMatrix;
+    }
+
+    namespace
+    {
+        bool getStereoImpl()
+        {
+            return VR::getVR() || Settings::Manager::getBool("stereo enabled", "Stereo") || osg::DisplaySettings::instance().get()->getStereo();
+        }
+    }
+
+    bool getStereo()
+    {
+        static bool stereo = getStereoImpl();
+        return stereo;
     }
 }

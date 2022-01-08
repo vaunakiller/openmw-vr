@@ -74,6 +74,8 @@ namespace VR
         void blitXrFramebuffer(osg::State* state, int i);
         void blitMirrorTexture(osg::State* state, int i);
         void resolveGamma(osg::RenderInfo& info, int i);
+        std::shared_ptr<VR::Swapchain> colorSwapchain(int i);
+        std::shared_ptr<VR::Swapchain> depthSwapchain(int i);
 
     private:
         std::mutex mMutex{};
@@ -91,11 +93,9 @@ namespace VR
         bool mFlipMirrorTextureOrder{ false };
         MirrorTextureEye mMirrorTextureEye{ MirrorTextureEye::Both };
 
-        std::shared_ptr<Stereo::MultiviewFramebuffer> mMultiviewFramebuffer;
         osg::ref_ptr<osg::FrameBufferObject> mGammaResolveFramebuffer;
         int mFramebufferWidth = 0;
         int mFramebufferHeight = 0;
-        int mFramebufferSamples = 0;
 
         std::array<std::shared_ptr<VR::Swapchain>, 2> mColorSwapchain;
         std::array<std::shared_ptr<VR::Swapchain>, 2> mDepthSwapchain;

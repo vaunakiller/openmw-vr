@@ -8,6 +8,7 @@
 #include <components/debug/debuglog.hpp>
 #include <components/sdlutil/sdlinputwrapper.hpp>
 #include <components/sdlutil/sdlmappings.hpp>
+#include <components/vr/vr.hpp>
 
 #include "../mwbase/environment.hpp"
 #include "../mwbase/inputmanager.hpp"
@@ -65,7 +66,7 @@ namespace MWInput
 
     void MouseManager::mouseMoved(const SDLUtil::MouseMotionEvent &arg)
     {
-        if (MWBase::Environment::get().getVrMode())
+        if (VR::getVR())
             return;
 
         mBindingsManager->mouseMoved(arg);
@@ -256,7 +257,7 @@ namespace MWInput
 
     void MouseManager::injectMouseMove(float xMove, float yMove, float mouseWheelMove)
     {
-        if (MWBase::Environment::get().getVrMode())
+        if (VR::getVR())
             return;
         mGuiCursorX += xMove;
         mGuiCursorY += yMove;

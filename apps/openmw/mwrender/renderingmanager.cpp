@@ -24,6 +24,7 @@
 #include <components/debug/debuglog.hpp>
 
 #include <components/stereo/stereomanager.hpp>
+#include <components/stereo/multiview.hpp>
 
 #include <components/resource/resourcesystem.hpp>
 #include <components/resource/imagemanager.hpp>
@@ -369,7 +370,8 @@ namespace MWRender
                             || Settings::Manager::getBool("force shaders", "Shaders")
                             || Settings::Manager::getBool("enable shadows", "Shadows")
                             || lightingMethod != SceneUtil::LightingMethod::FFP
-                            || reverseZ;
+                            || reverseZ
+                            || Stereo::getMultiview();
         resourceSystem->getSceneManager()->setForceShaders(forceShaders);
          
         // FIXME: calling dummy method because terrain needs to know whether lighting is clamped
@@ -510,13 +512,13 @@ namespace MWRender
 
         mPerViewUniformStateUpdater = new PerViewUniformStateUpdater();
         rootNode->addCullCallback(mPerViewUniformStateUpdater);
-        //resourceSystem->getSceneManager()->setOpaqueDepthTex(mPostProcessor->getOpaqueDepthTex());
 
-        //mPostProcessor = new PostProcessor(*this, viewer, mRootNode);
-        //resourceSystem->getSceneManager()->setDepthFormat(mPostProcessor->getDepthFormat());
+        mPostProcessor = new PostProcessor(viewer, mRootNode);
+        resourceSystem->getSceneManager()->setDepthFormat(mPostProcessor->getDepthFormat());
+        resourceSystem->getSceneManager()->setOpaqueDepthTex(mPostProcessor->getOpaqueDepthTex());
 
-        //if (reverseZ && !SceneUtil::isFloatingPointDepthFormat(mPostProcessor->getDepthFormat()))
-        //    Log(Debug::Warning) << "Floating point depth format not in use but reverse-z buffer is enabled, consider disabling it.";
+        if (reverseZ && !SceneUtil::isFloatingPointDepthFormat(mPostProcessor->getDepthFormat()))
+            Log(Debug::Warning) << "Floating point depth format not in use but reverse-z buffer is enabled, consider disabling it.";
 
         // water goes after terrain for correct waterculling order
         mWater.reset(new Water(sceneRoot->getParent(0), sceneRoot, mResourceSystem, mViewer->getIncrementalCompileOperation(), resourcePath));

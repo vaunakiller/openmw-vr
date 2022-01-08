@@ -21,6 +21,7 @@
 #include <components/settings/settings.hpp>
 
 #include <components/files/memorystream.hpp>
+#include <components/vr/vr.hpp>
 
 #include "../mwbase/statemanager.hpp"
 #include "../mwbase/environment.hpp"
@@ -55,7 +56,7 @@ namespace MWGui
         getWidget(mCharacterSelection, "SelectCharacter");
         getWidget(mCharacterSelectionButton, "SelectCharacterButton");
 
-        if (MWBase::Environment::get().getVrMode())
+        if (VR::getVR())
         {
 #ifdef USE_OPENXR
             mCharacterSelectionListBox = new MWVR::VrListBox();
@@ -167,7 +168,7 @@ namespace MWGui
         if (mSaving)
             MWBase::Environment::get().getWindowManager()->setKeyFocusWidget(mSaveNameEdit);
         else
-            if (MWBase::Environment::get().getVrMode())
+            if (VR::getVR())
                 MWBase::Environment::get().getWindowManager()->setKeyFocusWidget(mCharacterSelectionButton);
             else
                 MWBase::Environment::get().getWindowManager()->setKeyFocusWidget(mSaveList);
@@ -248,7 +249,7 @@ namespace MWGui
         mSaving = !load;
         mSaveNameEdit->setVisible(!load);
 
-        if (MWBase::Environment::get().getVrMode())
+        if (VR::getVR())
         {
             mCharacterSelectionButton->setUserString("Hidden", load ? "false" : "true");
             mCharacterSelectionButton->setVisible(load);
