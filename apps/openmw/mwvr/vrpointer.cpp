@@ -33,7 +33,11 @@ namespace MWVR
         mPointerTransform->setName("Pointer Transform");
         mPointerTransform->setNodeMask(MWRender::VisMask::Mask_Pointer);
 
-        mHandPath = VR::stringToVRPath("/world/user/hand/right/input/aim/pose");
+        std::string pointer = Settings::Manager::getBool("left hand pointer", "VR") ?
+            "/world/user/hand/left/input/aim/pose"
+            : "/world/user/hand/right/input/aim/pose";
+
+        mHandPath = VR::stringToVRPath(pointer);
 
         setEnabled(true);
     }

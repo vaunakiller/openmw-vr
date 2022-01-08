@@ -253,10 +253,17 @@ namespace MWVR
     {
 
         auto orientation = mRotation * mTrackedPose.orientation;
+        bool leftPointer = Settings::Manager::getBool("left hand pointer", "VR");
 
-        if(mLayerName == "StatusHUD" || mLayerName == "VirtualKeyboard")
+        // StatusHUD is always on left arm (until left-hand weapon support is added)
+        // VirtualKeyboard is always opposite of the pointer
+        if (mLayerName == "StatusHUD" || (!leftPointer && mLayerName == "VirtualKeyboard"))
         {
             orientation = osg::Quat(osg::PI_2, osg::Vec3(0, 0, 1)) * orientation;
+        }
+        else if (leftPointer && mLayerName == "VirtualKeyboard")
+        {
+            orientation = osg::Quat(osg::PI_2, osg::Vec3(0, 0, -1)) * orientation;
         }
 
         // Orient the offset and move the layer
@@ -416,8 +423,8 @@ namespace MWVR
         return config;
     }
 
-    static osg::Vec3 gLeftHudOffsetTop = osg::Vec3(-0.200f, -.05f, .066f);
-    static osg::Vec3 gLeftHudOffsetWrist = osg::Vec3(-0.200f, -.090f, -.033f);
+    static osg::Vec3 gHandHudOffsetTop = osg::Vec3(-0.200f, -.05f, .066f);
+    static osg::Vec3 gHandHudOffsetWrist = osg::Vec3(-0.200f, -.090f, -.033f);
 
     void VRGUIManager::setGeometryRoot(osg::Group* root)
     {
@@ -529,13 +536,22 @@ namespace MWVR
         LayerConfig inventoryCompanionWindowConfig = createSideBySideConfig(4);
         LayerConfig dialogueWindowConfig = createSideBySideConfig(5);
 
-        osg::Vec3 leftHudOffset = gLeftHudOffsetWrist;
+        osg::Vec3 handHudOffset = gHandHudOffsetWrist;
 
-        std::string leftHudSetting = Settings::Manager::getString("left hand hud position", "VR");
-        if (Misc::StringUtils::ciEqual(leftHudSetting, "top"))
-            leftHudOffset = gLeftHudOffsetTop;
+        std::string handHudSetting = Settings::Manager::getString("left hand hud position", "VR");
+        if (Misc::StringUtils::ciEqual(handHudSetting, "top"))
+            handHudOffset = gHandHudOffsetTop;
 
-        osg::Vec3 vkeyboardOffset = leftHudOffset + osg::Vec3(0,0.0001,0);
+        bool leftPointer = Settings::Manager::getBool("left hand pointer", "VR");
+        std::string leftAim = "/world/user/hand/left/input/aim/pose";
+        std::string rightAim = "/world/user/hand/right/input/aim/pose";
+
+        // For some reason flipping to the right hand requires a different offset
+        osg::Vec3 vkeyboardOffset = handHudOffset +
+            (leftPointer ? osg::Vec3(0.4, 0.0001, 0) : osg::Vec3(0, 0.0001, 0));
+
+        std::string pointer = leftPointer ? leftAim : rightAim;
+        std::string oppositePointer = leftPointer ? rightAim : leftAim;
 
         LayerConfig virtualKeyboardConfig = LayerConfig{
             10,
@@ -548,7 +564,7 @@ namespace MWVR
             osg::Vec2i(2048,2048), // Texture resolution
             osg::Vec2(1,1),
             SizingMode::Auto,
-            "/world/user/hand/left/input/aim/pose",
+            oppositePointer,
             ""
         };
         LayerConfig statusHUDConfig = LayerConfig
@@ -556,14 +572,15 @@ namespace MWVR
             0,
             false, // side-by-side
             osg::Vec4{}, // background
-            leftHudOffset, // offset (meters)
+            handHudOffset, // offset (meters)
             osg::Vec2(0.f,0.5f), // center (model space)
             osg::Vec2(.1f, .1f), // extent (meters)
             1024, // resolution (pixels per meter)
             osg::Vec2i(1024,1024),
             defaultConfig.myGUIViewSize,
             SizingMode::Auto,
-            "/world/user/hand/left/input/aim/pose",
+            // TODO: Place on opposite side of the main weapon hand in correct orientation
+            leftAim,
             ""
         };
 
@@ -579,7 +596,7 @@ namespace MWVR
             osg::Vec2i(2048,2048),
             defaultConfig.myGUIViewSize,
             SizingMode::Auto,
-            "/world/user/hand/right/input/aim/pose",
+            pointer,
             ""
         };
 
@@ -867,7 +884,7 @@ namespace MWVR
         // TODO: This relies on a MyGUI internal functions and may break un any future version.
         if (mFocusWidget)
         {
-            if(onPress)
+            if (onPress)
                 mFocusWidget->_riseMouseButtonClick();
             return true;
         }
@@ -880,12 +897,12 @@ namespace MWVR
         {
             if (it->first == "VR" && it->second == "left hand hud position")
             {
-                std::string leftHudSetting = Settings::Manager::getString("left hand hud position", "VR");
-                if (Misc::StringUtils::ciEqual(leftHudSetting, "top"))
-                    mLayerConfigs["StatusHUD"].offset = gLeftHudOffsetTop;
+                std::string handHudSetting = Settings::Manager::getString("left hand hud position", "VR");
+                if (Misc::StringUtils::ciEqual(handHudSetting, "top"))
+                    mLayerConfigs["StatusHUD"].offset = gHandHudOffsetTop;
                 else
-                    mLayerConfigs["StatusHUD"].offset = gLeftHudOffsetWrist;
-                mLayerConfigs["VirtualKeyboard"].offset = mLayerConfigs["StatusHUD"].offset + osg::Vec3(0,0.0001,0);
+                    mLayerConfigs["StatusHUD"].offset = gHandHudOffsetWrist;
+                mLayerConfigs["VirtualKeyboard"].offset = mLayerConfigs["StatusHUD"].offset + osg::Vec3(0, 0.0001, 0);
 
                 configUpdated("StatusHUD");
                 configUpdated("VirtualKeyboard");
@@ -980,8 +997,8 @@ namespace MWVR
         // This could be generalized with another config entry, but i don't think any other
         // widgets/layers need it so i'm hardcoding it for the VirtualKeyboard for now.
         if (
-               mFocusLayer 
-            && mFocusLayer->mLayerName == "VirtualKeyboard" 
+            mFocusLayer
+            && mFocusLayer->mLayerName == "VirtualKeyboard"
             && MyGUI::InputManager::getInstance().isModalAny())
         {
             auto* widget = MyGUI::LayerManager::getInstance().getWidgetFromPoint((int)x, (int)y);

@@ -333,7 +333,8 @@ namespace MWVR
         // Note that i let it construct as 3rd person and then later update it to VM_VRFirstPerson
         // when the character controller updates
         : MWRender::NpcAnimation(ptr, parentNode, resourceSystem, disableSounds, VM_Normal, 55.f)
-        , mIndexFingerControllers{ nullptr, nullptr }
+        , mLeftIndexFingerControllers{ nullptr, nullptr }
+        , mRightIndexFingerControllers{ nullptr, nullptr }
         // The player model needs to be pushed back a little to make sure the player's view point is naturally protruding 
         // Pushing the camera forward instead would produce an unnatural extra movement when rotating the player model.
         , mModelOffset(new osg::MatrixTransform(osg::Matrix::translate(osg::Vec3(0, -15, 0))))
@@ -341,8 +342,9 @@ namespace MWVR
     {
         for (int i = 0; i < 2; i++)
         {
-            mIndexFingerControllers[i] = new FingerController;
             mHandControllers[i] = new HandController;
+            mLeftIndexFingerControllers[i] = new FingerController;
+            mRightIndexFingerControllers[i] = new FingerController;
         }
 
         mWeaponDirectionTransform = new osg::MatrixTransform();
@@ -470,8 +472,13 @@ namespace MWVR
 
         for (auto& handController : mHandControllers)
             handController->setFingerPointingMode(enabled);
-        for (auto& indexFingerController : mIndexFingerControllers)
-            indexFingerController->setEnabled(enabled);
+
+        bool leftPointer = Settings::Manager::getBool("left hand pointer", "VR");
+
+        for (auto& indexFingerController : mLeftIndexFingerControllers)
+            indexFingerController->setEnabled(enabled && leftPointer);
+        for (auto& indexFingerController : mRightIndexFingerControllers)
+            indexFingerController->setEnabled(enabled && !leftPointer);
 
         for (auto& controller : mVrControllers)
             controller.second->onTrackingUpdated(manager, predictedDisplayTime);
@@ -490,6 +497,15 @@ namespace MWVR
     void VRAnimation::addControllers()
     {
         NpcAnimation::addControllers();
+
+        bool leftPointer = Settings::Manager::getBool("left hand pointer", "VR");
+        std::string finger = leftPointer ? "Bip01 L Finger11" : "Bip01 R Finger11";
+        auto finger11 = mNodeMap.find(finger);
+
+        if (finger11 != mNodeMap.end())
+        {
+            mUserPointer->setParent(finger11->second);
+        }
 
         for (int i = 0; i < 2; ++i)
         {
@@ -510,32 +526,29 @@ namespace MWVR
                 node->removeUpdateCallback(mHandControllers[i]);
                 node->addUpdateCallback(mHandControllers[i]);
             }
+
+            auto finger1 = mNodeMap.find(i == 0 ? "bip01 l finger1" : "bip01 r finger1");
+            auto mIndexFingerControllers = i == 0 ? mLeftIndexFingerControllers : mRightIndexFingerControllers;
+
+            if (finger1 != mNodeMap.end())
+            {
+                auto& base_joint = finger1->second;
+                auto second_joint = base_joint->getChild(0)->asTransform()->asMatrixTransform();
+                assert(second_joint);
+
+                base_joint->removeUpdateCallback(mIndexFingerControllers[0]);
+                base_joint->addUpdateCallback(mIndexFingerControllers[0]);
+                second_joint->removeUpdateCallback(mIndexFingerControllers[1]);
+                second_joint->addUpdateCallback(mIndexFingerControllers[1]);
+            }
         }
 
+        // TODO: Allow left-hand weapons?
         auto hand = mNodeMap.find("Bip01 R Hand");
         if (hand != mNodeMap.end())
         {
             hand->second->removeChild(mWeaponDirectionTransform);
             hand->second->addChild(mWeaponDirectionTransform);
-        }
-
-        auto finger11 = mNodeMap.find("Bip01 R Finger11");
-        if (finger11 != mNodeMap.end())
-        {
-            mUserPointer->setParent(finger11->second);
-        }
-
-        auto finger1 = mNodeMap.find("bip01 r finger1");
-        if (finger1 != mNodeMap.end())
-        {
-            auto base_joint = finger1->second;
-            auto second_joint = base_joint->getChild(0)->asTransform()->asMatrixTransform();
-            assert(second_joint);
-
-            base_joint->removeUpdateCallback(mIndexFingerControllers[0]);
-            base_joint->addUpdateCallback(mIndexFingerControllers[0]);
-            second_joint->removeUpdateCallback(mIndexFingerControllers[1]);
-            second_joint->addUpdateCallback(mIndexFingerControllers[1]);
         }
 
         mSkeleton->setIsTracked(true);

@@ -60,7 +60,8 @@ namespace MWVR
         typedef std::unordered_map<std::string, std::unique_ptr<TrackingController>, Misc::StringUtils::CiHash, Misc::StringUtils::CiEqual> TrackingControllerMap;
         TrackingControllerMap mVrControllers;
         osg::ref_ptr<HandController> mHandControllers[2];
-        osg::ref_ptr<FingerController> mIndexFingerControllers[2];
+        osg::ref_ptr<FingerController> mLeftIndexFingerControllers[2];
+        osg::ref_ptr<FingerController> mRightIndexFingerControllers[2];
         osg::ref_ptr<osg::MatrixTransform> mModelOffset;
 
         std::shared_ptr<UserPointer> mUserPointer;

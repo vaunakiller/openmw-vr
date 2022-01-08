@@ -341,6 +341,7 @@ namespace MWVR
             auto playerPtr = world->getPlayerPtr();
             if (!mRealisticCombat || mRealisticCombat->ptr() != playerPtr)
             {
+                // TODO: de-hardcode right-handedness for when ability to equip weapons with left hand is completed
                 auto trackingPath = VR::stringToVRPath("/stage/user/hand/right/input/aim/pose");
                 mRealisticCombat.reset(new RealisticCombat::StateMachine(playerPtr, trackingPath));
             }
