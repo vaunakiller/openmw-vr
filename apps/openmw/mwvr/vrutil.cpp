@@ -29,8 +29,12 @@ namespace MWVR
         std::pair<MWWorld::Ptr, float> getTouchTarget()
         {
             MWRender::RayResult result;
-            auto rightHandPath = VR::stringToVRPath("/world/user/hand/right/input/aim/pose");
-            auto pose = VR::TrackingManager::instance().locate(rightHandPath, 0).pose;
+            std::string pointer = Settings::Manager::getBool("left hand pointer", "VR") ?
+                "/world/user/hand/left/input/aim/pose"
+                : "/world/user/hand/right/input/aim/pose";
+
+            auto handPath = VR::stringToVRPath(pointer);
+            auto pose = VR::TrackingManager::instance().locate(handPath, 0).pose;
             auto distance = getPoseTarget(result, pose, true);
             return std::pair<MWWorld::Ptr, float>(result.mHitObject, distance);
         }
