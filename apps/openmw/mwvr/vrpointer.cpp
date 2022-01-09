@@ -86,12 +86,8 @@ namespace MWVR
         {
             bool leftHanded = Settings::Manager::getBool("left handed mode", "VR");
             auto path = mRightHandPath;
-            if (mLeftHandEnabled && mRightHandEnabled && leftHanded)
+            if (leftHanded && mLeftHandEnabled)
                 path = mLeftHandPath;
-            else if (mLeftHandEnabled)
-                path = mLeftHandPath;
-            else if (mRightHandEnabled)
-                path = mRightHandPath;
 
             auto tp = manager.locate(path, predictedDisplayTime);
             osg::Matrix worldReference = osg::Matrix::identity();
