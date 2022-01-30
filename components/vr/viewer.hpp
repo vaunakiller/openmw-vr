@@ -74,8 +74,8 @@ namespace VR
         void blitXrFramebuffer(osg::State* state, int i);
         void blitMirrorTexture(osg::State* state, int i);
         void resolveGamma(osg::RenderInfo& info, int i);
-        std::shared_ptr<VR::Swapchain> colorSwapchain(int i);
-        std::shared_ptr<VR::Swapchain> depthSwapchain(int i);
+        //std::shared_ptr<VR::Swapchain> colorSwapchain(int i);
+        //std::shared_ptr<VR::Swapchain> depthSwapchain(int i);
 
     private:
         std::mutex mMutex{};
@@ -94,6 +94,7 @@ namespace VR
         MirrorTextureEye mMirrorTextureEye{ MirrorTextureEye::Both };
 
         osg::ref_ptr<osg::FrameBufferObject> mGammaResolveFramebuffer;
+        osg::ref_ptr<osg::FrameBufferObject> mXrFramebuffer;
         int mFramebufferWidth = 0;
         int mFramebufferHeight = 0;
 
@@ -101,7 +102,7 @@ namespace VR
         std::array<std::shared_ptr<VR::Swapchain>, 2> mDepthSwapchain;
         std::array<VR::SubImage, 2> mSubImages;
 
-        std::map<uint64_t, osg::ref_ptr<osg::FrameBufferObject> > mSwapchainFramebuffers;
+        std::map< std::pair<uint64_t, uint32_t>, osg::ref_ptr<osg::FrameBufferObject> > mSwapchainFramebuffers;
 
         std::queue<VR::Frame> mReadyFrames;
         VR::Frame mDrawFrame;

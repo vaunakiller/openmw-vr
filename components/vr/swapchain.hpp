@@ -23,7 +23,8 @@ namespace VR
     class Swapchain
     {
     public:
-        Swapchain(uint32_t width, uint32_t height, uint32_t samples, uint32_t format, bool mustFlipVertical);
+        Swapchain(uint32_t width, uint32_t height, uint32_t samples, uint32_t format, uint32_t arraySize, uint32_t textureTarget, uint32_t size, bool mustFlipVertical);
+
         virtual ~Swapchain() {};
 
         //! Acquire a rendering surface from this swapchain
@@ -44,6 +45,18 @@ namespace VR
         //! Pixel format of the surface
         uint32_t format() const { return mFormat; };
 
+        //! Array depth of the surface
+        uint32_t arraySize() const { return mArraySize; };
+
+        //! Array depth of the surface
+        uint32_t textureTarget() const { return mTextureTarget; };
+
+        //! Get the currently active opengl image
+        uint64_t image() const { return mImage; };
+
+        //! The number of images in the swapchain
+        uint32_t size() const { return mSize; };
+
         //! Underlying handle
         virtual void* handle() const = 0;
 
@@ -55,7 +68,12 @@ namespace VR
         uint32_t mHeight;
         uint32_t mSamples;
         uint32_t mFormat;
+        uint32_t mArraySize;
+        uint32_t mTextureTarget;
+        uint32_t mSize;
         bool mMustFlipVertical;
+
+        uint64_t mImage;
 
     private:
     };

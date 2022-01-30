@@ -54,7 +54,7 @@ namespace VR
     class DirectXSharedImage
     {
     public:
-        DirectXSharedImage(uint64_t image, DXGI_FORMAT format, std::shared_ptr<DirectXWGLInterop> wglInterop);
+        DirectXSharedImage(uint64_t image, uint32_t glTextureTarget, DXGI_FORMAT format, std::shared_ptr<DirectXWGLInterop> wglInterop);
         ~DirectXSharedImage();
 
         uint64_t beginFrame(osg::GraphicsContext* gc);
@@ -69,16 +69,16 @@ namespace VR
         void* mDxResourceShareHandle = nullptr;
 
         ID3D11Texture2D* mDxImage;
-        uint32_t mBufferBits;
     };
 
     DirectXSwapchain::DirectXSwapchain(std::shared_ptr<Swapchain> swapchain, std::shared_ptr<DirectXWGLInterop> wglInterop)
-        : Swapchain(swapchain->width(), swapchain->height(), swapchain->samples(), swapchain->format(), true)
+        : Swapchain(*swapchain)
         , mSwapchain(swapchain)
         , mWglInterop(wglInterop)
         , mSharedImages()
         , mCurrentImage(0)
     {
+        mMustFlipVertical = true;
     }
 
     DirectXSwapchain::~DirectXSwapchain()
@@ -92,10 +92,10 @@ namespace VR
         auto it = mSharedImages.find(mCurrentImage);
         if (it == mSharedImages.end())
         {
-            it = mSharedImages.emplace(mCurrentImage, std::make_unique<DirectXSharedImage>(mCurrentImage, static_cast<DXGI_FORMAT>(mSwapchain->format()), mWglInterop)).first;
+            it = mSharedImages.emplace(mCurrentImage, std::make_unique<DirectXSharedImage>(mCurrentImage, textureTarget(), static_cast<DXGI_FORMAT>(mSwapchain->format()), mWglInterop)).first;
         }
 
-        return it->second->beginFrame(gc);
+        return mImage = it->second->beginFrame(gc);
     }
 
     void DirectXSwapchain::endFrame(osg::GraphicsContext* gc)
@@ -108,9 +108,10 @@ namespace VR
 
         it->second->endFrame(gc);
         mSwapchain->endFrame(gc);
+        mImage = 0;
     }
 
-    DirectXSharedImage::DirectXSharedImage(uint64_t image, DXGI_FORMAT format, std::shared_ptr<DirectXWGLInterop> wglInterop)
+    DirectXSharedImage::DirectXSharedImage(uint64_t image, uint32_t glTextureTarget, DXGI_FORMAT format, std::shared_ptr<DirectXWGLInterop> wglInterop)
         : mWglInterop(wglInterop)
         , mDxImage(reinterpret_cast<ID3D11Texture2D*>(image))
     {
@@ -119,17 +120,15 @@ namespace VR
 
         glGenTextures(1, &mGlTextureName);
 
-        //auto* xr = Environment::get().getManager();
-        mDxResourceShareHandle = mWglInterop->DXRegisterObject(mDxImage, mGlTextureName, GL_TEXTURE_2D, true, nullptr);
+        mDxResourceShareHandle = mWglInterop->DXRegisterObject(mDxImage, mGlTextureName, glTextureTarget, true, nullptr);
 
         if (!mDxResourceShareHandle)
         {
             // Some OpenXR runtimes return textures that cannot be directly shared.
             // So we need to make a second texture to use as an intermediary.
-            D3D11_TEXTURE2D_DESC desc = D3D11_TEXTURE2D_DESC();
+            D3D11_TEXTURE2D_DESC desc{};
             mDxImage->GetDesc(&desc);
-
-            D3D11_TEXTURE2D_DESC sharedTextureDesc = D3D11_TEXTURE2D_DESC();
+            D3D11_TEXTURE2D_DESC sharedTextureDesc{};
             sharedTextureDesc.Width = desc.Width;
             sharedTextureDesc.Height = desc.Height;
             sharedTextureDesc.MipLevels = desc.MipLevels;
@@ -141,9 +140,10 @@ namespace VR
             sharedTextureDesc.CPUAccessFlags = 0;
             sharedTextureDesc.MiscFlags = 0;;
 
+            //mDevice->CreateTexture2D(&sharedTextureDesc, nullptr, &mSharedTexture);
             mDevice->CreateTexture2D(&sharedTextureDesc, nullptr, &mSharedTexture);
 
-            mDxResourceShareHandle = mWglInterop->DXRegisterObject(mSharedTexture, mGlTextureName, GL_TEXTURE_2D, true, nullptr);
+            mDxResourceShareHandle = mWglInterop->DXRegisterObject(mSharedTexture, mGlTextureName, glTextureTarget, true, nullptr);
         }
     }
 

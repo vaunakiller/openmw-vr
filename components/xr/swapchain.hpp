@@ -15,7 +15,7 @@ namespace XR
     class Swapchain : public VR::Swapchain
     {
     public:
-        Swapchain(XrSwapchain swapchain, std::vector<uint64_t> images, uint32_t width, uint32_t height, uint32_t samples, uint32_t format);
+        Swapchain(XrSwapchain swapchain, std::vector<uint64_t> images, uint32_t width, uint32_t height, uint32_t samples, uint32_t format, uint32_t arraySize, uint32_t textureTarget);
         ~Swapchain() override;
 
         XrSwapchain xrSwapchain() const { return mXrSwapchain; };

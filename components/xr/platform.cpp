@@ -666,13 +666,13 @@ namespace XR
             if (KHR_opengl_enable.enabled())
             {
                 auto images = enumerateSwapchainImagesOpenGL(swapchain);
-                return new Swapchain(swapchain, images, width, height, samples, format);
+                return new Swapchain(swapchain, images, width, height, samples, format, arraySize, arraySize > 1 ? GL_TEXTURE_2D_ARRAY : GL_TEXTURE_2D);
             }
 #ifdef _WIN32
             else if (KHR_D3D11_enable.enabled())
             {
                 auto images = enumerateSwapchainImagesDirectX(swapchain);
-                return new VR::DirectXSwapchain(std::make_shared<Swapchain>(swapchain, images, width, height, samples, format), mDxInterop);
+                return new VR::DirectXSwapchain(std::make_shared<Swapchain>(swapchain, images, width, height, samples, format, arraySize, arraySize > 1 ? GL_TEXTURE_2D_ARRAY : GL_TEXTURE_2D), mDxInterop);
             }
 #endif
             else
