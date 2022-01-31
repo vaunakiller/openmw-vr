@@ -5,7 +5,6 @@
 #include <osg/Texture2D>
 #include <osg/Texture2DMultisample>
 #include <osg/Texture2DArray>
-#include <osg/Texture2DMultisampleArray>
 #include <osgUtil/RenderStage>
 
 #include <components/misc/callbackmanager.hpp>
@@ -471,22 +470,6 @@ namespace Stereo
     {
         osg::Texture2DArray* textureArray = new osg::Texture2DArray;
         textureArray->setTextureSize(mWidth, mHeight, 2);
-        textureArray->setSourceFormat(sourceFormat);
-        textureArray->setSourceType(sourceType);
-        textureArray->setInternalFormat(internalFormat);
-        textureArray->setFilter(osg::Texture::MIN_FILTER, osg::Texture::LINEAR);
-        textureArray->setFilter(osg::Texture::MAG_FILTER, osg::Texture::LINEAR);
-        textureArray->setWrap(osg::Texture::WRAP_S, osg::Texture::CLAMP_TO_EDGE);
-        textureArray->setWrap(osg::Texture::WRAP_T, osg::Texture::CLAMP_TO_EDGE);
-        textureArray->setWrap(osg::Texture::WRAP_R, osg::Texture::CLAMP_TO_EDGE);
-        return textureArray;
-    }
-
-    osg::Texture2DMultisampleArray* MultiviewFramebuffer::createTextureMsaaArray(GLint sourceFormat, GLint sourceType, GLint internalFormat)
-    {
-        osg::Texture2DMultisampleArray* textureArray = new osg::Texture2DMultisampleArray;
-        textureArray->setTextureSize(mWidth, mHeight, 2);
-        textureArray->setNumSamples(mSamples);
         textureArray->setSourceFormat(sourceFormat);
         textureArray->setSourceType(sourceType);
         textureArray->setInternalFormat(internalFormat);

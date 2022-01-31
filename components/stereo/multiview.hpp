@@ -15,7 +15,6 @@ namespace osg
     class Texture2D;
     class Texture2DMultisample;
     class Texture2DArray;
-    class Texture2DMultisampleArray;
 }
 
 namespace Stereo
@@ -27,9 +26,6 @@ namespace Stereo
 
     //! Check if Multiview should be used. Results are undefined if called before configureExtensions().
     bool                  getMultiview();
-
-    //! Check if Multiview should be used. Results are undefined if called before configureExtensions().
-    bool                  getMultiviewSupported();
 
     //! Use the provided context to check what extensions are supported and configure use of multiview based on extensions and settings.
     void                  configureExtensions(unsigned int contextID);
@@ -65,7 +61,6 @@ namespace Stereo
         osg::Texture2D* createTexture(GLint sourceFormat, GLint sourceType, GLint internalFormat);
         osg::Texture2DMultisample* createTextureMsaa(GLint sourceFormat, GLint sourceType, GLint internalFormat);
         osg::Texture2DArray* createTextureArray(GLint sourceFormat, GLint sourceType, GLint internalFormat);
-        osg::Texture2DMultisampleArray* createTextureMsaaArray(GLint sourceFormat, GLint sourceType, GLint internalFormat);
 
         int mWidth;
         int mHeight;
