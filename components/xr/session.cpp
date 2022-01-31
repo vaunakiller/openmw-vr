@@ -8,6 +8,7 @@
 #include <components/vr/layer.hpp>
 
 #include <cassert>
+#include <sstream>
 
 namespace XR
 {

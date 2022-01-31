@@ -7,6 +7,8 @@
 #include <openxr/openxr.h>
 #include <openxr/openxr_reflection.h>
 
+#include <sstream>
+
 namespace XR
 {
     XrResult CheckXrResult(XrResult res, const char* originator, const char* sourceLocation) {

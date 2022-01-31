@@ -20,6 +20,7 @@
 #include <iostream>
 #include <stdexcept>
 #include <cassert>
+#include <sstream>
 
 
 namespace XR

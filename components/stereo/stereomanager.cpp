@@ -53,7 +53,7 @@ namespace Stereo
     };
 #else
     // A dummy type to avoid the need to preprocessor switch away inconsequential calls.
-    struct MultiviewFrustumCallback
+    struct MultiviewFrustumCallback : public osg::Referenced
     {
         osg::BoundingBoxd mBoundingBox;
     };

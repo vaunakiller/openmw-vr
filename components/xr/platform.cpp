@@ -30,6 +30,7 @@
 #include <deque>
 #include <cassert>
 #include <optional>
+#include <sstream>
 
 namespace XR
 {
