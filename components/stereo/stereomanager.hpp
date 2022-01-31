@@ -106,12 +106,9 @@ namespace Stereo
         bool                            mEyeResolutionOverriden;
 
         // Stereo matrices
-        View                        mLeftView;
-        osg::Matrix                 mLeftViewMatrix;
-        osg::Matrix                 mLeftViewOffsetMatrix;
-        View                        mRightView;
-        osg::Matrix                 mRightViewMatrix;
-        osg::Matrix                 mRightViewOffsetMatrix;
+        std::array<View, 2>         mView;
+        std::array<osg::Matrix, 2>  mViewMatrix;
+        std::array<osg::Matrix, 2>  mViewOffsetMatrix;
 
         // Keeps state relevant to OVR_MultiView2
         osg::ref_ptr<osg::Group>    mStereoShaderRoot;

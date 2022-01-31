@@ -33,15 +33,15 @@
 
 namespace Stereo
 {
+#ifdef OSG_HAS_MULTIVIEW
     struct MultiviewFrustumCallback : public osg::CullSettings::InitialFrustumCallback
     {
-        MultiviewFrustumCallback(osg::Camera* camera)
-            : mCamera(camera)
+        MultiviewFrustumCallback()
         {
 
         }
 
-        virtual void setInitialFrustum(osg::CullStack& cullStack, osg::Polytope& frustum) const
+        void setInitialFrustum(osg::CullStack& cullStack, osg::Polytope& frustum) const override
         {
             auto cm = cullStack.getCullingMode();
             bool nearCulling = !!(cm & osg::CullSettings::NEAR_PLANE_CULLING);
@@ -49,40 +49,15 @@ namespace Stereo
             frustum.setToBoundingBox(mBoundingBox, nearCulling, farCulling);
         }
 
-        void update()
-        {
-            mBoundingBox.init();
-
-            static const std::vector<osg::Vec3d> clipCorners{
-                {-1.0, -1.0, -1.0},
-                { 1.0, -1.0, -1.0},
-                { 1.0, -1.0,  1.0},
-                {-1.0, -1.0,  1.0},
-                {-1.0,  1.0, -1.0},
-                { 1.0,  1.0, -1.0},
-                { 1.0,  1.0,  1.0},
-                {-1.0,  1.0,  1.0}
-            };
-
-            for (int view : {0, 1})
-            {
-                osg::Matrix clipToMasterView;
-                clipToMasterView.invert(mViewMatrix[view] * mProjectionMatrix[view]);
-
-                for (auto& clipCorner : clipCorners)
-                {
-                    auto masterViewVertice = clipCorner * clipToMasterView;
-                    auto masterClipVertice = masterViewVertice * mCamera->getProjectionMatrix();
-                    mBoundingBox.expandBy(masterClipVertice);
-                }
-            }
-        }
-
         osg::BoundingBoxd mBoundingBox;
-        std::array<osg::Matrixd, 2> mProjectionMatrix;
-        std::array<osg::Matrixd, 2> mViewMatrix;
-        osg::ref_ptr<osg::Camera> mCamera;
     };
+#else
+    // A dummy type to avoid the need to preprocessor switch away inconsequential calls.
+    struct MultiviewFrustumCallback
+    {
+        osg::BoundingBoxd mBoundingBox;
+    };
+#endif
 
     // Update stereo view/projection during update
     class StereoUpdateCallback : public osg::Callback
@@ -180,7 +155,7 @@ namespace Stereo
         , mEyeHeightOverride(0)
         , mEyeResolutionOverriden(false)
         , mStereoShaderRoot(new osg::Group)
-        , mMultiviewFrustumCallback(new MultiviewFrustumCallback(mMainCamera))
+        , mMultiviewFrustumCallback(new MultiviewFrustumCallback)
         , mMasterConfig(new SharedShadowMapConfig)
         , mSlaveConfig(new SharedShadowMapConfig)
         , mSharedShadowMaps(Settings::Manager::getBool("shared shadow maps", "Stereo"))
@@ -322,7 +297,10 @@ namespace Stereo
         mMainCamera->addCullCallback(new OVRMultiViewStereoStatesetUpdateCallback(this));
         mStereoShaderRoot->addChild(mRoot);
         mStereoRoot->addChild(mStereoShaderRoot);
+
+#ifdef OSG_HAS_MULTIVIEW
         mMainCamera->setInitialFrustumCallback(mMultiviewFrustumCallback);
+#endif
 
         // Inject self as the root of the scene graph
         mViewer->setSceneData(mStereoRoot);
@@ -373,33 +351,46 @@ namespace Stereo
             Log(Debug::Error) << "Manager: No update view callback. Stereo rendering will not work.";
             return;
         }
-        mUpdateViewCallback->updateView(mLeftView, mRightView);
+        mUpdateViewCallback->updateView(mView[0], mView[1]);
         auto viewMatrix = mViewer->getCamera()->getViewMatrix();
-        auto projectionMatrix = mViewer->getCamera()->getProjectionMatrix();
         near_ = Settings::Manager::getFloat("near clip", "Camera");
         far_ = Settings::Manager::getFloat("viewing distance", "Camera");
 
-        osg::Vec3d leftEye = mLeftView.pose.position;
-        osg::Vec3d rightEye = mRightView.pose.position;
-
-        mLeftViewOffsetMatrix = mLeftView.pose.viewMatrix(true);
-        mRightViewOffsetMatrix = mRightView.pose.viewMatrix(true);
-
-        mLeftViewMatrix = viewMatrix * mLeftViewOffsetMatrix;
-        mRightViewMatrix = viewMatrix * mRightViewOffsetMatrix;
-
-        auto projectionMatrixLeft = mLeftView.fov.perspectiveMatrix(near_, far_, false);
-        auto projectionMatrixRight = mRightView.fov.perspectiveMatrix(near_, far_, false);
-
-        mMultiviewFrustumCallback->mProjectionMatrix[0] = projectionMatrixLeft;
-        mMultiviewFrustumCallback->mProjectionMatrix[1] = projectionMatrixRight;
-        mMultiviewFrustumCallback->mViewMatrix[0] = mLeftViewOffsetMatrix;
-        mMultiviewFrustumCallback->mViewMatrix[1] = mRightViewOffsetMatrix;
-        mMultiviewFrustumCallback->update();
-
         mMasterConfig->_referenceFrame = mMainCamera->getReferenceFrame();
         mMasterConfig->_useCustomFrustum = true;
-        mMasterConfig->_customFrustum = mMultiviewFrustumCallback->mBoundingBox;
+        mMasterConfig->_customFrustum.init();
+
+        static const std::vector<osg::Vec3d> clipCorners{
+            {-1.0, -1.0, -1.0},
+            { 1.0, -1.0, -1.0},
+            { 1.0, -1.0,  1.0},
+            {-1.0, -1.0,  1.0},
+            {-1.0,  1.0, -1.0},
+            { 1.0,  1.0, -1.0},
+            { 1.0,  1.0,  1.0},
+            {-1.0,  1.0,  1.0}
+        };
+
+        for (int view : {0, 1})
+        {
+            mViewOffsetMatrix[view] = mView[view].pose.viewMatrix(true);
+
+            mViewMatrix[view] = viewMatrix * mViewOffsetMatrix[view];
+
+            auto projectionMatrix = mView[view].fov.perspectiveMatrix(near_, far_, false);
+
+            osg::Matrix clipToMasterView;
+            clipToMasterView.invert(mViewOffsetMatrix[view] * projectionMatrix);
+
+            for (const auto& clipCorner : clipCorners)
+            {
+                auto masterViewVertice = clipCorner * clipToMasterView;
+                auto masterClipVertice = masterViewVertice * mMainCamera->getProjectionMatrix();
+                mMasterConfig->_customFrustum.expandBy(masterClipVertice);
+            }
+        }
+
+        mMultiviewFrustumCallback->mBoundingBox = mMasterConfig->_customFrustum;
     }
 
     void Manager::updateStateset(osg::StateSet* stateset)
@@ -409,11 +400,12 @@ namespace Stereo
         auto * projectionMatrixMultiViewUniform = stateset->getUniform("projectionMatrixMultiView");
         auto near_ = Settings::Manager::getFloat("near clip", "Camera");
         auto far_ = Settings::Manager::getFloat("viewing distance", "Camera");
-        
-        viewMatrixMultiViewUniform->setElement(0, mLeftViewOffsetMatrix);
-        viewMatrixMultiViewUniform->setElement(1, mRightViewOffsetMatrix);
-        projectionMatrixMultiViewUniform->setElement(0, mLeftView.fov.perspectiveMatrix(near_, far_, SceneUtil::AutoDepth::isReversed()));
-        projectionMatrixMultiViewUniform->setElement(1, mRightView.fov.perspectiveMatrix(near_, far_, SceneUtil::AutoDepth::isReversed()));
+
+        for (int view : {0, 1})
+        {
+            viewMatrixMultiViewUniform->setElement(view, mViewOffsetMatrix[view]);
+            projectionMatrixMultiViewUniform->setElement(view, mView[view].fov.perspectiveMatrix(near_, far_, SceneUtil::AutoDepth::isReversed()));
+        }
     }
 
     void Manager::setUpdateViewCallback(std::shared_ptr<UpdateViewCallback> cb)
@@ -438,24 +430,24 @@ namespace Stereo
     {
         auto near_ = Settings::Manager::getFloat("near clip", "Camera");
         auto far_ = Settings::Manager::getFloat("viewing distance", "Camera");
-        return mLeftView.fov.perspectiveMatrix(near_, far_, allowReverseZ && SceneUtil::AutoDepth::isReversed());
+        return mView[0].fov.perspectiveMatrix(near_, far_, allowReverseZ && SceneUtil::AutoDepth::isReversed());
     }
 
     osg::Matrixd Manager::computeLeftEyeView() const
     {
-        return mLeftViewMatrix;
+        return mViewMatrix[0];
     }
 
     osg::Matrixd Manager::computeRightEyeProjection(bool allowReverseZ) const
     {
         auto near_ = Settings::Manager::getFloat("near clip", "Camera");
         auto far_ = Settings::Manager::getFloat("viewing distance", "Camera");
-        return mRightView.fov.perspectiveMatrix(near_, far_, allowReverseZ && SceneUtil::AutoDepth::isReversed());
+        return mView[1].fov.perspectiveMatrix(near_, far_, allowReverseZ && SceneUtil::AutoDepth::isReversed());
     }
 
     osg::Matrixd Manager::computeRightEyeView() const
     {
-        return mRightViewMatrix;
+        return mViewMatrix[1];
     }
 
     namespace
