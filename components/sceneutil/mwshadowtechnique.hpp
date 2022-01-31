@@ -119,9 +119,14 @@ namespace SceneUtil {
         struct Frustum
         {
             Frustum(osgUtil::CullVisitor* cv, double minZNear, double maxZFar);
+            void setCustomClipSpace(const osg::BoundingBoxd& clipCornersOverride);
+            void init();
 
             osg::Matrixd projectionMatrix;
             osg::Matrixd modelViewMatrix;
+
+            bool useCustomClipSpace;
+            osg::BoundingBoxd customClipSpace;
 
             typedef std::vector<osg::Vec3d> Vertices;
             Vertices corners;
@@ -154,11 +159,9 @@ namespace SceneUtil {
             /// If true, this camera will generate the shadow map
             bool            _master{ false };
 
-            /// If set, will override projection matrix of camera when generating shadow map.
-            osg::ref_ptr<osg::RefMatrix> _projection{ nullptr };
-
-            /// If set, will override model view matrix of camera when generating shadow map.
-            osg::ref_ptr<osg::RefMatrix> _modelView{ nullptr };
+            /// The frustum to draw shadows from.
+            bool _useCustomFrustum{ false };
+            osg::BoundingBoxd _customFrustum;
 
             /// Reference frame of the view matrix
             osg::Transform::ReferenceFrame
@@ -228,6 +231,7 @@ namespace SceneUtil {
             virtual ~ViewDependentData() {}
 
             MWShadowTechnique*          _viewDependentShadowMap;
+            SharedShadowMapConfig*      _sharedShadowMapConfig;
 
             std::array<osg::ref_ptr<osg::StateSet>, 2> _stateset;
 

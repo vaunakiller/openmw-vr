@@ -28,6 +28,7 @@ namespace osgViewer
 namespace Stereo
 {
     class MultiviewFramebuffer;
+    struct MultiviewFrustumCallback;
 
     bool getStereo();
 
@@ -57,6 +58,7 @@ namespace Stereo
         //! \param sceneMask must equal MWRender::VisMask::Mask_Scene. Necessary while VisMask is still not in components/
         //! \note the masks apply only to the GeometryShader_IndexdViewports technique and can be 0 for the BruteForce technique.
         Manager(osgViewer::Viewer* viewer);
+        ~Manager();
 
         //! Updates uniforms with the view and projection matrices of each stereo view, and replaces the camera's view and projection matrix
         //! with a view and projection that closely envelopes the frustums of the two eyes.
@@ -112,7 +114,8 @@ namespace Stereo
         osg::Matrix                 mRightViewOffsetMatrix;
 
         // Keeps state relevant to OVR_MultiView2
-        osg::ref_ptr<osg::Group>    mStereoShaderRoot = new osg::Group;
+        osg::ref_ptr<osg::Group>    mStereoShaderRoot;
+        osg::ref_ptr<MultiviewFrustumCallback> mMultiviewFrustumCallback;
 
         using SharedShadowMapConfig = SceneUtil::MWShadowTechnique::SharedShadowMapConfig;
         osg::ref_ptr<SharedShadowMapConfig> mMasterConfig;

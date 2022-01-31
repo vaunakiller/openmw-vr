@@ -33,6 +33,57 @@
 
 namespace Stereo
 {
+    struct MultiviewFrustumCallback : public osg::CullSettings::InitialFrustumCallback
+    {
+        MultiviewFrustumCallback(osg::Camera* camera)
+            : mCamera(camera)
+        {
+
+        }
+
+        virtual void setInitialFrustum(osg::CullStack& cullStack, osg::Polytope& frustum) const
+        {
+            auto cm = cullStack.getCullingMode();
+            bool nearCulling = !!(cm & osg::CullSettings::NEAR_PLANE_CULLING);
+            bool farCulling = !!(cm & osg::CullSettings::FAR_PLANE_CULLING);
+            frustum.setToBoundingBox(mBoundingBox, nearCulling, farCulling);
+        }
+
+        void update()
+        {
+            mBoundingBox.init();
+
+            static const std::vector<osg::Vec3d> clipCorners{
+                {-1.0, -1.0, -1.0},
+                { 1.0, -1.0, -1.0},
+                { 1.0, -1.0,  1.0},
+                {-1.0, -1.0,  1.0},
+                {-1.0,  1.0, -1.0},
+                { 1.0,  1.0, -1.0},
+                { 1.0,  1.0,  1.0},
+                {-1.0,  1.0,  1.0}
+            };
+
+            for (int view : {0, 1})
+            {
+                osg::Matrix clipToWorld;
+                clipToWorld.invert(mProjectionMatrix[view] * mViewMatrix[view]);
+
+                for (auto& clipCorner : clipCorners)
+                {
+                    auto worldVertice = clipCorner * clipToWorld;
+                    auto masterClipVertice = worldVertice * mCamera->getProjectionMatrix();
+                    mBoundingBox.expandBy(masterClipVertice);
+                }
+            }
+        }
+
+        osg::BoundingBoxd mBoundingBox;
+        std::array<osg::Matrixd, 2> mProjectionMatrix;
+        std::array<osg::Matrixd, 2> mViewMatrix;
+        osg::ref_ptr<osg::Camera> mCamera;
+    };
+
     // Update stereo view/projection during update
     class StereoUpdateCallback : public osg::Callback
     {
@@ -122,11 +173,14 @@ namespace Stereo
 
     Manager::Manager(osgViewer::Viewer* viewer)
         : mViewer(viewer)
+        , mMainCamera(mViewer->getCamera())
         , mStereoRoot(new osg::Group)
         , mUpdateCallback(new StereoUpdateCallback(this))
         , mEyeWidthOverride(0)
         , mEyeHeightOverride(0)
         , mEyeResolutionOverriden(false)
+        , mStereoShaderRoot(new osg::Group)
+        , mMultiviewFrustumCallback(new MultiviewFrustumCallback(mMainCamera))
         , mMasterConfig(new SharedShadowMapConfig)
         , mSlaveConfig(new SharedShadowMapConfig)
         , mSharedShadowMaps(Settings::Manager::getBool("shared shadow maps", "Stereo"))
@@ -145,9 +199,12 @@ namespace Stereo
         mStereoRoot->setDataVariance(osg::Object::STATIC);
     }
 
+    Manager::~Manager()
+    {
+    }
+
     void Manager::initializeStereo(osg::GraphicsContext* gc)
     {
-        mMainCamera = mViewer->getCamera();
         mRoot = mViewer->getSceneData()->asGroup();
 
         auto mainCameraCB = mMainCamera->getUpdateCallback();
@@ -164,6 +221,8 @@ namespace Stereo
             setupOVRMultiView2Technique();
         else
             setupBruteForceTechnique();
+
+        setupSharedShadows();
     }
 
     void Manager::shaderStereoDefines(Shader::ShaderManager::DefineMap& defines) const
@@ -245,8 +304,6 @@ namespace Stereo
         auto* renderer = static_cast<osgViewer::Renderer*>(mMainCamera->getRenderer());
         for (auto* sceneView : { renderer->getSceneView(0), renderer->getSceneView(1) })
             sceneView->setComputeStereoMatricesCallback(new ComputeStereoMatricesCallback(this));
-
-        setupSharedShadows();
     }
 
     void Manager::setupOVRMultiView2Technique()
@@ -257,7 +314,6 @@ namespace Stereo
 #ifdef OSG_MADSBUVI_DISPLAY_LIST_PATCH
         if (Settings::Manager::getBool("disable display lists for multiview", "Stereo"))
         {
-            auto* ds = osg::DisplaySettings::instance().get();
             ds->setDisplayListHint(osg::DisplaySettings::DISPLAYLIST_DISABLED);
             Log(Debug::Verbose) << "Disabling display lists";
         }
@@ -266,6 +322,7 @@ namespace Stereo
         mMainCamera->addCullCallback(new OVRMultiViewStereoStatesetUpdateCallback(this));
         mStereoShaderRoot->addChild(mRoot);
         mStereoRoot->addChild(mStereoShaderRoot);
+        mMainCamera->setInitialFrustumCallback(mMultiviewFrustumCallback);
 
         // Inject self as the root of the scene graph
         mViewer->setSceneData(mStereoRoot);
@@ -280,6 +337,7 @@ namespace Stereo
         {
             if (mSharedShadowMaps)
             {
+                sceneView->getCullVisitor()->setUserData(mMasterConfig);
                 sceneView->getCullVisitorLeft()->setUserData(mMasterConfig);
                 sceneView->getCullVisitorRight()->setUserData(mSlaveConfig);
             }
@@ -330,61 +388,18 @@ namespace Stereo
         mLeftViewMatrix = viewMatrix * mLeftViewOffsetMatrix;
         mRightViewMatrix = viewMatrix * mRightViewOffsetMatrix;
 
+        auto projectionMatrixLeft = mLeftView.fov.perspectiveMatrix(near_, far_, false);
+        auto projectionMatrixRight = mRightView.fov.perspectiveMatrix(near_, far_, false);
 
-        // To correctly cull when drawing stereo using the geometry shader, the main camera must
-        // draw a fake view+perspective that includes the full frustums of both the left and right eyes.
-        // This frustum will be computed as a perspective frustum from a position P slightly behind the eyes L and R
-        // where it creates the minimum frustum encompassing both eyes' frustums.
-        // NOTE: I make an assumption that the eyes lie in a horizontal plane relative to the base view,
-        // and lie mirrored around the Y axis (straight ahead).
-        // Re-think this if that turns out to be a bad assumption.
-        View frustumView;
+        mMultiviewFrustumCallback->mProjectionMatrix[0] = projectionMatrixLeft;
+        mMultiviewFrustumCallback->mProjectionMatrix[1] = projectionMatrixRight;
+        mMultiviewFrustumCallback->mViewMatrix[0] = mLeftViewOffsetMatrix;
+        mMultiviewFrustumCallback->mViewMatrix[1] = mRightViewOffsetMatrix;
+        mMultiviewFrustumCallback->update();
 
-        // Compute Frustum angles. A simple min/max.
-        frustumView.fov.angleLeft = std::min(mLeftView.fov.angleLeft, mRightView.fov.angleLeft);
-        frustumView.fov.angleRight = std::max(mLeftView.fov.angleRight, mRightView.fov.angleRight);
-        frustumView.fov.angleDown = std::min(mLeftView.fov.angleDown, mRightView.fov.angleDown);
-        frustumView.fov.angleUp = std::max(mLeftView.fov.angleUp, mRightView.fov.angleUp);
-
-        // Use the law of sines on the triangle spanning PLR to determine P
-        double angleLeft = std::abs(frustumView.fov.angleLeft);
-        double angleRight = std::abs(frustumView.fov.angleRight);
-        double lengthRL = (rightEye - leftEye).length();
-        double ratioRL = lengthRL / std::sin(osg::PI - angleLeft - angleRight);
-        double lengthLP = ratioRL * std::sin(angleRight);
-
-        osg::Vec3d directionLP = osg::Vec3(std::cos(-angleLeft), std::sin(-angleLeft), 0);
-        osg::Vec3d LP = directionLP * lengthLP;
-        frustumView.pose.position = leftEye + LP;
-        //frustumView.pose.position.x() += 1000;
-
-        // Base view position is 0.0, by definition.
-        // The length of the vector P is therefore the required offset to near/far.
-        auto nearFarOffset = frustumView.pose.position.length();
-
-        // Generate the frustum matrices
-        auto frustumViewMatrix = viewMatrix * frustumView.pose.viewMatrix(true);
-        auto frustumProjectionMatrix = frustumView.fov.perspectiveMatrix(near_ + nearFarOffset, far_ + nearFarOffset, false);
-
-        if (getMultiview())
-        {
-            mMainCamera->setViewMatrix(frustumViewMatrix);
-            mMainCamera->setProjectionMatrix(frustumProjectionMatrix);
-        }
-        else
-        {
-            if (mMasterConfig->_projection == nullptr)
-                mMasterConfig->_projection = new osg::RefMatrix;
-            if (mMasterConfig->_modelView == nullptr)
-                mMasterConfig->_modelView = new osg::RefMatrix;
-
-            if (mSharedShadowMaps)
-            {
-                mMasterConfig->_referenceFrame = mMainCamera->getReferenceFrame();
-                mMasterConfig->_modelView->set(frustumViewMatrix);
-                mMasterConfig->_projection->set(frustumProjectionMatrix);
-            }
-        }
+        mMasterConfig->_referenceFrame = mMainCamera->getReferenceFrame();
+        mMasterConfig->_useCustomFrustum = true;
+        mMasterConfig->_customFrustum = mMultiviewFrustumCallback->mBoundingBox;
     }
 
     void Manager::updateStateset(osg::StateSet* stateset)

@@ -650,40 +650,61 @@ MWShadowTechnique::Frustum::Frustum(osgUtil::CullVisitor* cv, double minZNear, d
         OSG_INFO<<"zNear = "<<zNear<<", zFar = "<<zFar<<std::endl;
         OSG_INFO<<"Projection matrix after clamping "<<projectionMatrix<<std::endl;
     }
+}
 
-    corners[0].set(-1.0,-1.0,-1.0);
-    corners[1].set(1.0,-1.0,-1.0);
-    corners[2].set(1.0,-1.0,1.0);
-    corners[3].set(-1.0,-1.0,1.0);
-    corners[4].set(-1.0,1.0,-1.0);
-    corners[5].set(1.0,1.0,-1.0);
-    corners[6].set(1.0,1.0,1.0);
-    corners[7].set(-1.0,1.0,1.0);
+void SceneUtil::MWShadowTechnique::Frustum::setCustomClipSpace(const osg::BoundingBoxd& clipCornersOverride)
+{
+    useCustomClipSpace = true;
+    customClipSpace = clipCornersOverride;
+}
 
+void SceneUtil::MWShadowTechnique::Frustum::init()
+{
     osg::Matrixd clipToWorld;
     clipToWorld.invert(modelViewMatrix * projectionMatrix);
 
+    if (useCustomClipSpace)
+    {
+        corners.clear();
+        // Add corners in the same order OSG expects them
+        for (int i : {0, 1, 5, 4, 2, 3, 7, 6})
+        {
+            corners.push_back(customClipSpace.corner(i));
+        }
+    }
+    else
+    {
+        corners[0].set(-1.0, -1.0, -1.0);
+        corners[1].set(1.0, -1.0, -1.0);
+        corners[2].set(1.0, -1.0, 1.0);
+        corners[3].set(-1.0, -1.0, 1.0);
+        corners[4].set(-1.0, 1.0, -1.0);
+        corners[5].set(1.0, 1.0, -1.0);
+        corners[6].set(1.0, 1.0, 1.0);
+        corners[7].set(-1.0, 1.0, 1.0);
+    }
+
     // transform frustum corners from clipspace to world coords, and compute center
-    for(Vertices::iterator itr = corners.begin();
+    for (Vertices::iterator itr = corners.begin();
         itr != corners.end();
         ++itr)
     {
         *itr = (*itr) * clipToWorld;
 
-        OSG_INFO<<"   corner "<<*itr<<std::endl;
+        OSG_INFO << "   corner " << *itr << std::endl;
     }
 
     // compute eye point
-    eye = osg::Vec3d(0.0,0.0,0.0) * osg::Matrix::inverse(modelViewMatrix);
+    eye = osg::Vec3d(0.0, 0.0, 0.0) * osg::Matrix::inverse(modelViewMatrix);
 
     // compute center and the frustumCenterLine
-    centerNearPlane = (corners[0]+corners[1]+corners[5]+corners[4])*0.25;
-    centerFarPlane = (corners[3]+corners[2]+corners[6]+corners[7])*0.25;
-    center = (centerNearPlane+centerFarPlane)*0.5;
-    frustumCenterLine = centerFarPlane-centerNearPlane;
+    centerNearPlane = (corners[0] + corners[1] + corners[5] + corners[4]) * 0.25;
+    centerFarPlane = (corners[3] + corners[2] + corners[6] + corners[7]) * 0.25;
+    center = (centerNearPlane + centerFarPlane) * 0.5;
+    frustumCenterLine = centerFarPlane - centerNearPlane;
     frustumCenterLine.normalize();
 
-    OSG_INFO<<"   center "<<center<<std::endl;
+    OSG_INFO << "   center " << center << std::endl;
 
     faces[0].push_back(0);
     faces[0].push_back(3);
@@ -747,8 +768,8 @@ MWShadowTechnique::Frustum::Frustum(osgUtil::CullVisitor* cv, double minZNear, d
     edges[9].push_back(5); edges[9].push_back(6); // corner points on edge
     edges[9].push_back(3); edges[9].push_back(1); // faces on edge
 
-    edges[10].push_back(6);edges[10].push_back(7); // corner points on edge
-    edges[10].push_back(3);edges[10].push_back(5); // faces on edge
+    edges[10].push_back(6); edges[10].push_back(7); // corner points on edge
+    edges[10].push_back(3); edges[10].push_back(5); // faces on edge
 
     edges[11].push_back(7); edges[11].push_back(4); // corner points on edge
     edges[11].push_back(3); edges[11].push_back(0); // faces on edge
@@ -760,7 +781,8 @@ MWShadowTechnique::Frustum::Frustum(osgUtil::CullVisitor* cv, double minZNear, d
 // ViewDependentData
 //
 MWShadowTechnique::ViewDependentData::ViewDependentData(MWShadowTechnique* vdsm):
-    _viewDependentShadowMap(vdsm)
+    _viewDependentShadowMap(vdsm),
+    _sharedShadowMapConfig(nullptr)
 {
     OSG_INFO<<"ViewDependentData::ViewDependentData()"<<this<<std::endl;
     for (auto& perFrameStateset : _stateset)
@@ -998,10 +1020,7 @@ bool MWShadowTechnique::trySharedShadowMap(osgUtil::CullVisitor& cv, ViewDepende
     if (sharedConfig->_master)
     {
         addSharedVdd(*sharedConfig, vdd);
-        if(sharedConfig->_projection)
-            cv.pushProjectionMatrix(sharedConfig->_projection);
-        if(sharedConfig->_modelView)
-            cv.pushModelViewMatrix(sharedConfig->_modelView, sharedConfig->_referenceFrame);
+        vdd->_sharedShadowMapConfig = sharedConfig;
         return false;
     }
     else
@@ -1030,14 +1049,6 @@ void SceneUtil::MWShadowTechnique::endSharedShadowMap(osgUtil::CullVisitor& cv)
     if (!sharedConfig)
     {
         return;
-    }
-
-    if (sharedConfig->_master)
-    {
-        if (sharedConfig->_projection)
-            cv.popProjectionMatrix();
-        if (sharedConfig->_modelView)
-            cv.popModelViewMatrix();
     }
 }
 
@@ -1075,6 +1086,9 @@ void SceneUtil::MWShadowTechnique::castShadows(osgUtil::CullVisitor& cv, ViewDep
     }
 
     Frustum frustum(&cv, minZNear, maxZFar);
+    if (vdd->_sharedShadowMapConfig && vdd->_sharedShadowMapConfig->_useCustomFrustum)
+        frustum.setCustomClipSpace(vdd->_sharedShadowMapConfig->_customFrustum);
+    frustum.init();
     if (_debugHud)
     {
         osg::ref_ptr<osg::Vec3Array> vertexArray = new osg::Vec3Array();
@@ -1811,7 +1825,14 @@ osg::Polytope MWShadowTechnique::computeLightViewFrustumPolytope(Frustum& frustu
     OSG_INFO<<"computeLightViewFrustumPolytope()"<<std::endl;
 
     osg::Polytope polytope;
-    polytope.setToUnitFrustum();
+    if (frustum.useCustomClipSpace)
+    {
+        polytope.setToBoundingBox(frustum.customClipSpace);
+    }
+    else
+    {
+        polytope.setToUnitFrustum();
+    }
 
     polytope.transformProvidingInverse( frustum.projectionMatrix );
     polytope.transformProvidingInverse( frustum.modelViewMatrix );
