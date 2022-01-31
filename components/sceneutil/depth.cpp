@@ -85,7 +85,6 @@ namespace SceneUtil
         constexpr char errPreamble[] = "Postprocessing and floating point depth buffers disabled: ";
         std::vector<GLenum> requestedFormats;
         unsigned int contextID = graphicsContext->getState()->getContextID();
-        osg::GLExtensions* ext = graphicsContext->getState()->get<osg::GLExtensions>();
         if (SceneUtil::AutoDepth::isReversed())
         {
             if (osg::isGLExtensionSupported(contextID, "GL_ARB_depth_buffer_float"))
