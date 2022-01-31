@@ -429,8 +429,8 @@ void Launcher::AdvancedPage::saveSettings()
         saveSettingBool(useMultiview, "multiview", "Stereo");
         saveSettingBool(disableDisplayList, "disable display lists for multiview", "Stereo");
         saveSettingBool(useSharedShadowMaps, "shared shadow maps", "Stereo");
-        saveSettingBool(preferDirectXSwapchains, "Prefer sRGB swapchains", "VR");
-        saveSettingBool(preferSRGBSwapchains, "Prefer DirectX swapchains", "VR");
+        saveSettingBool(preferDirectXSwapchains, "Prefer DirectX swapchains", "VR");
+        saveSettingBool(preferSRGBSwapchains, "Prefer sRGB swapchains", "VR");
         saveSettingBool(logAllXrCalls, "log all openxr calls", "VR Debug");
         saveSettingBool(ignoreXrErrors, "continue on errors", "VR Debug");
 

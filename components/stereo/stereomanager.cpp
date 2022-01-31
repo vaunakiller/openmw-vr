@@ -66,13 +66,13 @@ namespace Stereo
 
             for (int view : {0, 1})
             {
-                osg::Matrix clipToWorld;
-                clipToWorld.invert(mProjectionMatrix[view] * mViewMatrix[view]);
+                osg::Matrix clipToMasterView;
+                clipToMasterView.invert(mViewMatrix[view] * mProjectionMatrix[view]);
 
                 for (auto& clipCorner : clipCorners)
                 {
-                    auto worldVertice = clipCorner * clipToWorld;
-                    auto masterClipVertice = worldVertice * mCamera->getProjectionMatrix();
+                    auto masterViewVertice = clipCorner * clipToMasterView;
+                    auto masterClipVertice = masterViewVertice * mCamera->getProjectionMatrix();
                     mBoundingBox.expandBy(masterClipVertice);
                 }
             }
