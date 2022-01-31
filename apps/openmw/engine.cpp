@@ -1,8 +1,6 @@
 #include "engine.hpp"
 
-#include <condition_variable>
 #include <iomanip>
-#include <fstream>
 #include <chrono>
 #include <thread>
 
@@ -11,7 +9,6 @@
 #include <osg/Version>
 
 #include <osgViewer/ViewerEventHandlers>
-#include <osgDB/ReadFile>
 #include <osgDB/WriteFile>
 
 #include <SDL.h>
@@ -821,7 +818,7 @@ void OMW::Engine::prepareEngine (Settings::Manager & settings)
 
     mViewer->addEventHandler(mScreenCaptureHandler);
 
-    mLuaManager = new MWLua::LuaManager(mVFS.get());
+    mLuaManager = new MWLua::LuaManager(mVFS.get(), (mResDir / "lua_libs").string());
     mEnvironment.setLuaManager(mLuaManager);
 
     // Create input and UI first to set up a bootstrapping environment for
@@ -998,6 +995,7 @@ void OMW::Engine::prepareEngine (Settings::Manager & settings)
     }
 
     mLuaManager->init();
+    mLuaManager->loadPermanentStorage(mCfgMgr.getUserConfigPath().string());
 }
 
 class OMW::Engine::LuaWorker
@@ -1240,6 +1238,7 @@ void OMW::Engine::go()
 
     // Save user settings
     settings.saveUser(settingspath);
+    mLuaManager->savePermanentStorage(mCfgMgr.getUserConfigPath().string());
 
     Log(Debug::Info) << "Quitting peacefully.";
 }

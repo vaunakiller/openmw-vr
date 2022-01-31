@@ -9,7 +9,7 @@
 #include <deque>
 #include <tuple>
 
-#include <components/esm/cellid.hpp>
+#include <components/esm3/cellid.hpp>
 
 #include <osg/Timer>
 

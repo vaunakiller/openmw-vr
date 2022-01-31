@@ -18,6 +18,7 @@
     Bug #4602: Robert's Bodies: crash inside createInstance()
     Bug #4700: Editor: Incorrect command implementation
     Bug #4744: Invisible particles must still be processed
+    Bug #4949: Incorrect particle lighting
     Bug #5088: Sky abruptly changes direction during certain weather transitions
     Bug #5100: Persuasion doesn't always clamp the resulting disposition
     Bug #5120: Scripted object spawning updates physics system
@@ -37,6 +38,7 @@
     Bug #5842: GetDisposition adds temporary disposition change from different actors
     Bug #5863: GetEffect should return true after the player has teleported
     Bug #5913: Failed assertion during Ritual of Trees quest
+    Bug #5928: Glow in the Dahrk functionality used without mod installed
     Bug #5937: Lights always need to be rotated by 90 degrees
     Bug #6037: Morrowind Content Language Cannot be Set to English in OpenMW Launcher
     Bug #6051: NaN water height in ESM file is not handled gracefully
@@ -70,6 +72,7 @@
     Bug #6289: Keyword search in dialogues expected the text to be all ASCII characters
     Bug #6291: Can't pickup the dead mage's journal from the mysterious hunter mod
     Bug #6302: Teleporting disabled actor breaks its disabled state
+    Bug #6303: After "go to jail" weapon can stuck in the ready to attack state
     Bug #6307: Pathfinding in Infidelities quest from Tribunal addon is broken
     Bug #6321: Arrow enchantments should always be applied to the target
     Bug #6322: Total sold/cost should reset to 0 when there are no items offered
@@ -77,6 +80,7 @@
     Bug #6324: Special Slave Companions: Can't buy the slave companions
     Bug #6326: Detect Enchantment/Key should detect items in unresolved containers
     Bug #6327: Blocking roots the character in place
+    Bug #6333: Werewolf stat changes should be implemented as damage/fortifications
     Bug #6343: Magic projectile speed doesn't take race weight into account
     Bug #6347: PlaceItem/PlaceItemCell/PlaceAt should work with levelled creatures
     Bug #6354: SFX abruptly cut off after crossing max distance; implement soft fading of sound effects
@@ -95,6 +99,7 @@
     Bug #6517: Rotations for KeyframeData in NIFs should be optional
     Bug #6519: Effects tooltips for ingredients work incorrectly
     Bug #6523: Disintegrate Weapon is resisted by Resist Magicka instead of Sanctuary
+    Bug #6544: Far from world origin objects jitter when camera is still
     Feature #890: OpenMW-CS: Column filtering
     Feature #1465: "Reset" argument for AI functions
     Feature #2554: Modifying an object triggers the instances table to scroll to the corresponding record
@@ -122,8 +127,11 @@
     Feature #6288: Preserve the "blocked" record flag for referenceable objects.
     Feature #6380: Commas are treated as whitespace in vanilla
     Feature #6419: Topics shouldn't be greyed out if they can produce another topic reference
+    Feature #6534: Shader-based object texture blending
     Task #6201: Remove the "Note: No relevant classes found. No output generated" warnings
     Task #6264: Remove the old classes in animation.cpp
+    Task #6553: Simplify interpreter instruction registration
+    Task #6564: Remove predefined data paths `data="?global?data"`, `data=./data`
 
 0.47.0
 ------

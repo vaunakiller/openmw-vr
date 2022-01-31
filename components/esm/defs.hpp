@@ -41,9 +41,6 @@ enum RangeType
     RT_Target = 2
 };
 
-#pragma pack(push)
-#pragma pack(1)
-
 // Position and rotation
 struct Position
 {
@@ -68,7 +65,6 @@ struct Position
         return tuple(l) < tuple(r);
     }
 };
-#pragma pack(pop)
 
 bool inline operator== (const Position& left, const Position& right) noexcept
 {
@@ -96,7 +92,7 @@ struct FourCC
     static constexpr unsigned int value = (((((d << 8) | c) << 8) | b) << 8) | a;
 };
 
-enum RecNameInts
+enum RecNameInts : unsigned int
 {
     // format 0 / legacy
     REC_ACTI = FourCC<'A','C','T','I'>::value,

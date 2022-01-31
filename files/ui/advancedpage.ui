@@ -14,7 +14,7 @@
    <item>
     <widget class="QTabWidget" name="AdvancedTabWidget">
      <property name="currentIndex">
-      <number>1</number>
+      <number>0</number>
      </property>
      <widget class="QWidget" name="GameMechanics">
       <attribute name="title">
@@ -553,6 +553,25 @@
                  </widget>
                 </item>
                </layout>
+              </item>
+             </layout>
+            </widget>
+           </item>
+           <item>
+            <widget class="QGroupBox" name="miscGroup">
+             <property name="title">
+              <string>Models</string>
+             </property>
+             <layout class="QGridLayout" name="miscLayout">
+              <item row="0" column="0">
+               <widget class="QCheckBox" name="nightDaySwitchesCheckBox">
+                <property name="toolTip">
+                  <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;If this setting is true, supporting models will make use of day night switch nodes.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
+                </property>
+                <property name="text">
+                 <string>Day night switch nodes</string>
+                </property>
+               </widget>
               </item>
              </layout>
             </widget>

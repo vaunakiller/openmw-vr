@@ -1433,7 +1433,7 @@ void SceneUtil::MWShadowTechnique::castShadows(osgUtil::CullVisitor& cv, ViewDep
                     std::string validRegionUniformName = "validRegionMatrix" + std::to_string(sm_i);
                     osg::ref_ptr<osg::Uniform> validRegionUniform;
 
-                    for (auto uniform : _uniforms[cv.getTraversalNumber() % 2])
+                    for (const auto & uniform : _uniforms[cv.getTraversalNumber() % 2])
                     {
                         if (uniform->getName() == validRegionUniformName)
                             validRegionUniform = uniform;

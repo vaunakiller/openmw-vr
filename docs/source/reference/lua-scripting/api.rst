@@ -8,7 +8,7 @@ Lua API reference
     engine_handlers
     user_interface
     openmw_util
-    openmw_settings
+    openmw_storage
     openmw_core
     openmw_async
     openmw_query
@@ -18,7 +18,9 @@ Lua API reference
     openmw_input
     openmw_ui
     openmw_camera
+    openmw_aux_calendar
     openmw_aux_util
+    openmw_aux_time
     interface_camera
 
 
@@ -43,8 +45,8 @@ Player scripts are local scripts that are attached to a player.
 |:ref:`openmw.util <Package openmw.util>`                 | everywhere         | | Defines utility functions and classes like 3D vectors,      |
 |                                                         |                    | | that don't depend on the game world.                        |
 +---------------------------------------------------------+--------------------+---------------------------------------------------------------+
-|:ref:`openmw.settings <Package openmw.settings>`         | everywhere         | | Access to GMST records in content files (implemented) and   |
-|                                                         |                    | | to mod settings (not implemented).                          |
+|:ref:`openmw.storage <Package openmw.storage>`           | everywhere         | | Storage API. In particular can be used to store data        |
+|                                                         |                    | | between game sessions.                                      |
 +---------------------------------------------------------+--------------------+---------------------------------------------------------------+
 |:ref:`openmw.core <Package openmw.core>`                 | everywhere         | | Functions that are common for both global and local scripts |
 +---------------------------------------------------------+--------------------+---------------------------------------------------------------+
@@ -73,7 +75,11 @@ Sources can be found in ``resources/vfs/openmw_aux``. In theory mods can overrid
 +---------------------------------------------------------+--------------------+---------------------------------------------------------------+
 | Built-in library                                        | Can be used        | Description                                                   |
 +=========================================================+====================+===============================================================+
+|:ref:`openmw_aux.calendar <Package openmw_aux.calendar>` | everywhere         | | Game time calendar                                          |
++---------------------------------------------------------+--------------------+---------------------------------------------------------------+
 |:ref:`openmw_aux.util <Package openmw_aux.util>`         | everywhere         | | Miscellaneous utils                                         |
++---------------------------------------------------------+--------------------+---------------------------------------------------------------+
+|:ref:`openmw_aux.time <Package openmw_aux.time>`         | everywhere         | | Timers and game time utils                                  |
 +---------------------------------------------------------+--------------------+---------------------------------------------------------------+
 
 **Interfaces of built-in scripts**

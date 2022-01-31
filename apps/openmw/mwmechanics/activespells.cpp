@@ -7,7 +7,7 @@
 #include <components/misc/rng.hpp>
 #include <components/misc/stringops.hpp>
 
-#include <components/esm/loadmgef.hpp>
+#include <components/esm3/loadmgef.hpp>
 
 #include <components/settings/settings.hpp>
 
@@ -218,8 +218,7 @@ namespace MWMechanics
                         return params.mSlot == slotIndex && params.mType == ESM::ActiveSpells::Type_Enchantment && params.mId == slot->getCellRef().getRefId();
                     }) != mSpells.end())
                         continue;
-                    ActiveSpellParams params(*slot, enchantment, slotIndex, ptr);
-                    mSpells.emplace_back(params);
+                    const ActiveSpellParams& params = mSpells.emplace_back(ActiveSpellParams{*slot, enchantment, slotIndex, ptr});
                     for(const auto& effect : params.mEffects)
                         MWMechanics::playEffects(ptr, *world->getStore().get<ESM::MagicEffect>().find(effect.mEffectId), playNonLooping);
                 }

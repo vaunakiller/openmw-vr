@@ -249,6 +249,7 @@ namespace MWRender
         , mEnabled(true)
         , mSunEnabled(true)
         , mPrecipitationAlpha(0.f)
+        , mDirtyParticlesEffect(false)
     {
         osg::ref_ptr<CameraRelativeTransform> skyroot = new CameraRelativeTransform;
         skyroot->setName("Sky Root");
@@ -540,8 +541,7 @@ namespace MWRender
         if (!enabled && mParticleNode && mParticleEffect)
         {
             mCurrentParticleEffect.clear();
-            mParticleNode->removeChild(mParticleEffect);
-            mParticleEffect = nullptr;
+            mDirtyParticlesEffect = true;
         }
 
         mEnabled = enabled;
@@ -613,8 +613,9 @@ namespace MWRender
         if (mIsStorm)
             mStormDirection = weather.mStormDirection;
 
-        if (mCurrentParticleEffect != weather.mParticleEffect)
+        if (mDirtyParticlesEffect || (mCurrentParticleEffect != weather.mParticleEffect))
         {
+            mDirtyParticlesEffect = false;
             mCurrentParticleEffect = weather.mParticleEffect;
 
             // cleanup old particles
@@ -639,7 +640,6 @@ namespace MWRender
                     mParticleNode = new osg::PositionAttitudeTransform;
                     mParticleNode->addCullCallback(mUnderwaterSwitch);
                     mParticleNode->setNodeMask(Mask_WeatherParticles);
-                    mParticleNode->getOrCreateStateSet();
                     mRootNode->addChild(mParticleNode);
                 }
 
@@ -671,7 +671,6 @@ namespace MWRender
                         ps->getParticle(particleIndex)->update(0, true);
                     }
 
-                    ps->getOrCreateStateSet();
                     ps->setUserValue("simpleLighting", true);
                 }
 

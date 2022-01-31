@@ -1,6 +1,6 @@
 #include "stat.hpp"
 
-#include <components/esm/statstate.hpp>
+#include <components/esm3/statstate.hpp>
 
 namespace MWMechanics
 {
@@ -269,12 +269,7 @@ namespace MWMechanics
 
     void AttributeValue::damage(float damage)
     {
-        float threshold = mBase + mModifier;
-
-        if (mDamage + damage > threshold)
-            mDamage = threshold;
-        else
-            mDamage += damage;
+        mDamage += damage;
     }
     void AttributeValue::restore(float amount)
     {

@@ -1,7 +1,7 @@
 #include "aifollow.hpp"
 
-#include <components/esm/aisequence.hpp>
-#include <components/esm/loadcell.hpp>
+#include <components/esm3/aisequence.hpp>
+#include <components/esm3/loadcell.hpp>
 
 #include "../mwbase/world.hpp"
 #include "../mwbase/environment.hpp"
@@ -28,18 +28,18 @@ namespace MWMechanics
 {
 int AiFollow::mFollowIndexCounter = 0;
 
-AiFollow::AiFollow(const std::string &actorId, float duration, float x, float y, float z, bool repeat)
+AiFollow::AiFollow(std::string_view actorId, float duration, float x, float y, float z, bool repeat)
 : TypedAiPackage<AiFollow>(repeat), mAlwaysFollow(false), mDuration(duration), mRemainingDuration(duration), mX(x), mY(y), mZ(z)
 , mCellId(""), mActive(false), mFollowIndex(mFollowIndexCounter++)
 {
-    mTargetActorRefId = actorId;
+    mTargetActorRefId = std::string(actorId);
 }
 
-AiFollow::AiFollow(const std::string &actorId, const std::string &cellId, float duration, float x, float y, float z, bool repeat)
+AiFollow::AiFollow(std::string_view actorId, std::string_view cellId, float duration, float x, float y, float z, bool repeat)
 : TypedAiPackage<AiFollow>(repeat), mAlwaysFollow(false), mDuration(duration), mRemainingDuration(duration), mX(x), mY(y), mZ(z)
 , mCellId(cellId), mActive(false), mFollowIndex(mFollowIndexCounter++)
 {
-    mTargetActorRefId = actorId;
+    mTargetActorRefId = std::string(actorId);
 }
 
 AiFollow::AiFollow(const MWWorld::Ptr& actor, bool commanded)

@@ -28,8 +28,8 @@
 #include <components/sdlutil/sdlcursormanager.hpp>
 #include <components/sdlutil/sdlvideowrapper.hpp>
 
-#include <components/esm/esmreader.hpp>
-#include <components/esm/esmwriter.hpp>
+#include <components/esm3/esmreader.hpp>
+#include <components/esm3/esmwriter.hpp>
 
 #include <components/fontloader/fontloader.hpp>
 
@@ -53,7 +53,7 @@
 #include <components/misc/resourcehelpers.hpp>
 #include <components/misc/frameratelimiter.hpp>
 
-#include <components/lua_ui/widgetlist.hpp>
+#include <components/lua_ui/util.hpp>
 
 #include <components/vr/vr.hpp>
 
@@ -544,6 +544,8 @@ namespace MWGui
     {
         try
         {
+            LuaUi::clearUserInterface();
+
             mStatsWatcher.reset();
 
             MyGUI::LanguageManager::getInstance().eventRequestTag.clear();

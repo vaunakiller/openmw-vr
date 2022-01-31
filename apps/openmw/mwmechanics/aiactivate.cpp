@@ -1,6 +1,6 @@
 #include "aiactivate.hpp"
 
-#include <components/esm/aisequence.hpp>
+#include <components/esm3/aisequence.hpp>
 
 #include "../mwbase/world.hpp"
 #include "../mwbase/environment.hpp"
@@ -13,7 +13,7 @@
 
 namespace MWMechanics
 {
-    AiActivate::AiActivate(const std::string &objectId, bool repeat)
+    AiActivate::AiActivate(std::string_view objectId, bool repeat)
         : TypedAiPackage<AiActivate>(repeat), mObjectId(objectId)
     {
     }

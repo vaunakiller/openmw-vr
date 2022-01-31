@@ -2,11 +2,9 @@
 
 #include <limits>
 #include <chrono>
-#include <thread>
 #include <atomic>
 
 #include <BulletCollision/CollisionDispatch/btCollisionObject.h>
-#include <BulletCollision/CollisionShapes/btCompoundShape.h>
 
 #include <components/debug/debuglog.hpp>
 #include <components/loadinglistener/loadinglistener.hpp>
@@ -14,7 +12,6 @@
 #include <components/settings/settings.hpp>
 #include <components/resource/resourcesystem.hpp>
 #include <components/resource/scenemanager.hpp>
-#include <components/resource/bulletshape.hpp>
 #include <components/sceneutil/positionattitudetransform.hpp>
 #include <components/detournavigator/navigator.hpp>
 #include <components/detournavigator/debug.hpp>
@@ -511,8 +508,7 @@ namespace MWWorld
         if (mCurrentCell == nullptr)
             return;
 
-        const auto player = MWBase::Environment::get().getWorld()->getPlayerPtr();
-        mNavigator.updatePlayerPosition(player.getRefData().getPosition().asVec3());
+        mNavigator.updatePlayerPosition(pos);
 
         if (!mCurrentCell->isExterior())
             return;

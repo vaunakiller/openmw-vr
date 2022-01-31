@@ -15,10 +15,11 @@ Here are starting points for learning Lua:
 Each script works in a separate sandbox and doesn't have any access to the underlying operating system.
 Only a limited list of allowed standard libraries can be used:
 `coroutine <https://www.lua.org/manual/5.1/manual.html#5.2>`__,
-`math <https://www.lua.org/manual/5.1/manual.html#5.6>`__,
+`math <https://www.lua.org/manual/5.1/manual.html#5.6>`__ (except `math.randomseed` -- it is called by the engine on startup and not available from scripts),
 `string <https://www.lua.org/manual/5.1/manual.html#5.4>`__,
-`table <https://www.lua.org/manual/5.1/manual.html#5.5>`__.
-These libraries are loaded automatically and are always available (except the function `math.randomseed` -- it is called by the engine on startup and not available from scripts).
+`table <https://www.lua.org/manual/5.1/manual.html#5.5>`__,
+`os <https://www.lua.org/manual/5.1/manual.html#5.8>`__ (only `os.date`, `os.difftime`, `os.time`).
+These libraries are loaded automatically and are always available.
 
 Allowed `basic functions <https://www.lua.org/manual/5.1/manual.html#5.1>`__:
 ``assert``, ``error``, ``ipairs``, ``next``, ``pairs``, ``pcall``, ``print``, ``select``, ``tonumber``, ``tostring``, ``type``, ``unpack``, ``xpcall``, ``rawequal``, ``rawget``, ``rawset``, ``getmetatable``, ``setmetatable``.
@@ -245,10 +246,13 @@ See :ref:`Engine handlers reference`.
 onSave and onLoad
 =================
 
-When a game is saved or loaded, the engine calls the engine handlers `onSave` or `onLoad` for every script.
+When a game is saved or loaded, the engine calls the engine handlers `onSave` or `onLoad` to save or load each script.
 The value that `onSave` returns will be passed to `onLoad` when the game is loaded.
 It is the only way to save the internal state of a script. All other script variables will be lost after closing the game.
 The saved state must be :ref:`serializable <Serializable data>`.
+
+Note that `onLoad` means loading a script rather than loading a game.
+If a script did not exist when a game was saved then `onLoad` will not be called, but `onInit` will.
 
 `onSave` and `onLoad` can be called even for objects in inactive state, so it shouldn't use `openmw.nearby`.
 
@@ -333,8 +337,8 @@ Player scripts are local scripts that are attached to a player.
 |:ref:`openmw.util <Package openmw.util>`                 | everywhere         | | Defines utility functions and classes like 3D vectors,      |
 |                                                         |                    | | that don't depend on the game world.                        |
 +---------------------------------------------------------+--------------------+---------------------------------------------------------------+
-|:ref:`openmw.settings <Package openmw.settings>`         | everywhere         | | Access to GMST records in content files (implemented) and   |
-|                                                         |                    | | to mod settings (not implemented).                          |
+|:ref:`openmw.storage <Package openmw.storage>`           | everywhere         | | Storage API. In particular can be used to store data        |
+|                                                         |                    | | between game sessions.                                      |
 +---------------------------------------------------------+--------------------+---------------------------------------------------------------+
 |:ref:`openmw.core <Package openmw.core>`                 | everywhere         | | Functions that are common for both global and local scripts |
 +---------------------------------------------------------+--------------------+---------------------------------------------------------------+
@@ -364,15 +368,19 @@ Sources can be found in ``resources/vfs/openmw_aux``. In theory mods can overrid
 +---------------------------------------------------------+--------------------+---------------------------------------------------------------+
 | Built-in library                                        | Can be used        | Description                                                   |
 +=========================================================+====================+===============================================================+
+|:ref:`openmw_aux.calendar <Package openmw_aux.calendar>` | everywhere         | | Game time calendar                                          |
++---------------------------------------------------------+--------------------+---------------------------------------------------------------+
 |:ref:`openmw_aux.util <Package openmw_aux.util>`         | everywhere         | | Miscellaneous utils                                         |
++---------------------------------------------------------+--------------------+---------------------------------------------------------------+
+|:ref:`openmw_aux.time <Package openmw_aux.time>`         | everywhere         | | Timers and game time utils                                  |
 +---------------------------------------------------------+--------------------+---------------------------------------------------------------+
 
 They can be loaded with ``require`` the same as API packages. For example:
 
 .. code-block:: Lua
 
-    local aux_util = require('openmw_aux.util')
-    aux_util.runEveryNSeconds(15, doSomething)  -- run `doSomething()` every 15 seconds
+    local time = require('openmw_aux.time')
+    time.runRepeatedly(doSomething, 15 * time.second)  -- run `doSomething()` every 15 seconds
 
 
 Script interfaces

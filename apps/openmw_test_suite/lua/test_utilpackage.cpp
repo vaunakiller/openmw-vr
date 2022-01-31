@@ -10,12 +10,6 @@ namespace
 {
     using namespace testing;
 
-    template <typename T>
-    T get(sol::state& lua, std::string luaCode)
-    {
-        return lua.safe_script("return " + luaCode).get<T>();
-    }
-
     std::string getAsString(sol::state& lua, std::string luaCode)
     {
         return LuaUtil::toString(lua.safe_script("return " + luaCode));
@@ -74,6 +68,52 @@ namespace
         EXPECT_TRUE(get<bool>(lua, "v2 == util.vector3(3/5, 4/5, 0)"));
         lua.safe_script("_, len = util.vector3(0, 0, 0):normalize()");
         EXPECT_FLOAT_EQ(get<float>(lua, "len"), 0);
+    }
+
+    TEST(LuaUtilPackageTest, Vector4)
+    {
+        sol::state lua;
+        lua.open_libraries(sol::lib::base, sol::lib::math, sol::lib::string);
+        lua["util"] = LuaUtil::initUtilPackage(lua);
+        lua.safe_script("v = util.vector4(5, 12, 13, 15)");
+        EXPECT_FLOAT_EQ(get<float>(lua, "v.x"), 5);
+        EXPECT_FLOAT_EQ(get<float>(lua, "v.y"), 12);
+        EXPECT_FLOAT_EQ(get<float>(lua, "v.z"), 13);
+        EXPECT_FLOAT_EQ(get<float>(lua, "v.w"), 15);
+        EXPECT_EQ(get<std::string>(lua, "tostring(v)"), "(5, 12, 13, 15)");
+        EXPECT_FLOAT_EQ(get<float>(lua, "util.vector4(4, 0, 0, 3):length()"), 5);
+        EXPECT_FLOAT_EQ(get<float>(lua, "util.vector4(4, 0, 0, 3):length2()"), 25);
+        EXPECT_FALSE(get<bool>(lua, "util.vector4(1, 2, 3, 4) == util.vector4(1, 3, 2, 4)"));
+        EXPECT_TRUE(get<bool>(lua, "util.vector4(1, 2, 3, 4) + util.vector4(2, 5, 1, 2) == util.vector4(3, 7, 4, 6)"));
+        EXPECT_TRUE(get<bool>(lua, "util.vector4(1, 2, 3, 4) - util.vector4(2, 5, 1, 7) == -util.vector4(1, 3, -2, 3)"));
+        EXPECT_TRUE(get<bool>(lua, "util.vector4(1, 2, 3, 4) == util.vector4(2, 4, 6, 8) / 2"));
+        EXPECT_TRUE(get<bool>(lua, "util.vector4(1, 2, 3, 4) * 2 == util.vector4(2, 4, 6, 8)"));
+        EXPECT_FLOAT_EQ(get<float>(lua, "util.vector4(3, 2, 1, 4) * v"), 5 * 3 + 12 * 2 + 13 * 1 + 15 * 4);
+        EXPECT_FLOAT_EQ(get<float>(lua, "util.vector4(3, 2, 1, 4):dot(v)"), 5 * 3 + 12 * 2 + 13 * 1 + 15 * 4);
+        lua.safe_script("v2, len = util.vector4(3, 0, 0, 4):normalize()");
+        EXPECT_FLOAT_EQ(get<float>(lua, "len"), 5);
+        EXPECT_TRUE(get<bool>(lua, "v2 == util.vector4(3/5, 0, 0, 4/5)"));
+        lua.safe_script("_, len = util.vector4(0, 0, 0, 0):normalize()");
+        EXPECT_FLOAT_EQ(get<float>(lua, "len"), 0);
+    }
+
+    TEST(LuaUtilPackageTest, Color)
+    {
+        sol::state lua;
+        lua.open_libraries(sol::lib::base, sol::lib::math, sol::lib::string);
+        lua["util"] = LuaUtil::initUtilPackage(lua);
+        lua.safe_script("brown = util.color.rgba(0.75, 0.25, 0, 1)");
+        EXPECT_EQ(get<std::string>(lua, "tostring(brown)"), "(0.75, 0.25, 0, 1)");
+        lua.safe_script("blue = util.color.rgb(0, 1, 0, 1)");
+        EXPECT_EQ(get<std::string>(lua, "tostring(blue)"), "(0, 1, 0, 1)");
+        lua.safe_script("red = util.color.hex('ff0000')");
+        EXPECT_EQ(get<std::string>(lua, "tostring(red)"), "(1, 0, 0, 1)");
+        lua.safe_script("green = util.color.hex('00FF00')");
+        EXPECT_EQ(get<std::string>(lua, "tostring(green)"), "(0, 1, 0, 1)");
+        lua.safe_script("darkRed = util.color.hex('a01112')");
+        EXPECT_EQ(get<std::string>(lua, "darkRed:asHex()"), "a01112");
+        EXPECT_TRUE(get<bool>(lua, "green:asRgba() == util.vector4(0, 1, 0, 1)"));
+        EXPECT_TRUE(get<bool>(lua, "red:asRgb() == util.vector3(1, 0, 0)"));
     }
 
     TEST(LuaUtilPackageTest, Transform)

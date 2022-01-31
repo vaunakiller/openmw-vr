@@ -4,14 +4,14 @@
 #include <list>
 #include <unordered_set>
 #include <map>
-#include <set>
 #include <fstream>
 #include <cmath>
+#include <memory>
 
 #include <boost/program_options.hpp>
 
-#include <components/esm/esmreader.hpp>
-#include <components/esm/esmwriter.hpp>
+#include <components/esm3/esmreader.hpp>
+#include <components/esm3/esmwriter.hpp>
 #include <components/esm/records.hpp>
 
 #include "record.hpp"
@@ -28,7 +28,7 @@ struct ESMData
     unsigned int version;
     std::vector<ESM::Header::MasterData> masters;
 
-    std::deque<EsmTool::RecordBase *> mRecords;
+    std::deque<std::unique_ptr<EsmTool::RecordBase>> mRecords;
     // Value: (Reference, Deleted flag)
     std::map<ESM::Cell *, std::deque<std::pair<ESM::CellRef, bool> > > mCellRefs;
     std::map<int, int> mRecordStats;
@@ -364,7 +364,7 @@ int load(Arguments& info)
             uint32_t flags;
             esm.getRecHeader(flags);
 
-            EsmTool::RecordBase *record = EsmTool::RecordBase::create(n);
+            auto record = EsmTool::RecordBase::create(n);
             if (record == nullptr)
             {
                 if (skipped.count(n.toInt()) == 0)
@@ -409,20 +409,13 @@ int load(Arguments& info)
 
             if (save)
             {
-                info.data.mRecords.push_back(record);
-            }
-            else
-            {
-                delete record;
+                info.data.mRecords.push_back(std::move(record));
             }
             ++info.data.mRecordStats[n.toInt()];
         }
 
     } catch(std::exception &e) {
         std::cout << "\nERROR:\n\n  " << e.what() << std::endl;
-
-        for (const EsmTool::RecordBase* record : info.data.mRecords)
-            delete record;
 
         info.data.mRecords.clear();
         return 1;
@@ -486,7 +479,7 @@ int clone(Arguments& info)
     esm.save(save);
 
     int saved = 0;
-    for (EsmTool::RecordBase* record : info.data.mRecords)
+    for (auto& record : info.data.mRecords)
     {
         if (i <= 0)
             break;

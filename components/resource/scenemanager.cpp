@@ -273,7 +273,7 @@ namespace Resource
                correct format for OpenMW: <Description>alphatest mode value MaterialName</Description>
                                       e.g <Description>alphatest GEQUAL 0.8 MyAlphaTestedMaterial</Description> */
             std::vector<std::string> descriptions = node.getDescriptions();
-            for (auto description : descriptions)
+            for (const auto & description : descriptions)
             {
                 mDescriptions.emplace_back(description);
             }
@@ -281,7 +281,7 @@ namespace Resource
             // Iterate each description, and see if the current node uses the specified material for alpha testing
             if (node.getStateSet())
             {
-                for (auto description : mDescriptions)
+                for (const auto & description : mDescriptions)
                 {
                     std::vector<std::string> descriptionParts;
                     std::istringstream descriptionStringStream(description);
@@ -340,13 +340,15 @@ namespace Resource
         return mForceShaders;
     }
 
-    void SceneManager::recreateShaders(osg::ref_ptr<osg::Node> node, const std::string& shaderPrefix, bool forceShadersForNode, const osg::Program* programTemplate)
+    void SceneManager::recreateShaders(osg::ref_ptr<osg::Node> node, const std::string& shaderPrefix, bool forceShadersForNode, const osg::Program* programTemplate, bool disableSoftParticles)
     {
         osg::ref_ptr<Shader::ShaderVisitor> shaderVisitor(createShaderVisitor(shaderPrefix));
         shaderVisitor->setAllowedToModifyStateSets(false);
         shaderVisitor->setProgramTemplate(programTemplate);
         if (forceShadersForNode)
             shaderVisitor->setForceShaders(true);
+        if (disableSoftParticles)
+            shaderVisitor->setOpaqueDepthTex(nullptr);
         node->accept(*shaderVisitor);
     }
 

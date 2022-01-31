@@ -11,7 +11,6 @@
 #include <osg/Group>
 #include <osg/UserDataContainer>
 #include <osg/ComputeBoundsVisitor>
-#include <osg/Depth>
 #include <osg/ClipControl>
 #include <osg/ViewportIndexed>
 
@@ -28,7 +27,6 @@
 
 #include <components/resource/resourcesystem.hpp>
 #include <components/resource/imagemanager.hpp>
-#include <components/resource/scenemanager.hpp>
 #include <components/resource/keyframemanager.hpp>
 
 #include <components/shader/removedalphafunc.hpp>
@@ -48,7 +46,7 @@
 #include <components/terrain/terraingrid.hpp>
 #include <components/terrain/quadtreeworld.hpp>
 
-#include <components/esm/loadcell.hpp>
+#include <components/esm3/loadcell.hpp>
 
 #include <components/detournavigator/navigator.hpp>
 
@@ -56,7 +54,6 @@
 #include "../mwworld/class.hpp"
 #include "../mwworld/groundcoverstore.hpp"
 #include "../mwgui/loadingscreen.hpp"
-#include "../mwbase/windowmanager.hpp"
 #include "../mwmechanics/actorutil.hpp"
 
 #include "sky.hpp"
@@ -367,6 +364,7 @@ namespace MWRender
         resourceSystem->getSceneManager()->setParticleSystemMask(MWRender::Mask_ParticleSystem);
         // Shadows and radial fog have problems with fixed-function mode
         bool forceShaders = Settings::Manager::getBool("radial fog", "Shaders")
+                            || Settings::Manager::getBool("soft particles", "Shaders")
                             || Settings::Manager::getBool("force shaders", "Shaders")
                             || Settings::Manager::getBool("enable shadows", "Shadows")
                             || lightingMethod != SceneUtil::LightingMethod::FFP
@@ -1234,7 +1232,10 @@ namespace MWRender
 
     void RenderingManager::updateProjectionMatrix()
     {
-        double aspect = mViewer->getCamera()->getViewport()->aspectRatio();
+        double width = Settings::Manager::getInt("resolution x", "Video");
+        double height = Settings::Manager::getInt("resolution y", "Video");
+
+        double aspect = (height == 0.0) ? 1.0 : width / height;
         float fov = mFieldOfView;
         if (mFieldOfViewOverridden)
             fov = mFieldOfViewOverride;
@@ -1251,7 +1252,7 @@ namespace MWRender
 
         mSharedUniformStateUpdater->setNear(mNearClip);
         mSharedUniformStateUpdater->setFar(mViewDistance);
-        mSharedUniformStateUpdater->setScreenRes(mViewer->getCamera()->getViewport()->width(), mViewer->getCamera()->getViewport()->height()); 
+        mSharedUniformStateUpdater->setScreenRes(width, height);
 
         // Since our fog is not radial yet, we should take FOV in account, otherwise terrain near viewing distance may disappear.
         // Limit FOV here just for sure, otherwise viewing distance can be too high.

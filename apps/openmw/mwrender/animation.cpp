@@ -7,6 +7,7 @@
 #include <osg/BlendFunc>
 #include <osg/Material>
 #include <osg/Switch>
+#include <osg/LightModel>
 
 #include <osgParticle/ParticleSystem>
 #include <osgParticle/ParticleProcessor>
@@ -373,6 +374,19 @@ namespace
     private:
         int mEffectId;
     };
+
+    osg::ref_ptr<osg::LightModel> getVFXLightModelInstance()
+    {
+        static osg::ref_ptr<osg::LightModel> lightModel = nullptr;
+
+        if (!lightModel)
+        {
+            lightModel = new osg::LightModel;
+            lightModel->setAmbientIntensity({1,1,1,1});
+        }
+
+        return lightModel;
+    }
 }
 
 namespace MWRender
@@ -1601,7 +1615,9 @@ namespace MWRender
         parentNode->addChild(trans);
 
         osg::ref_ptr<osg::Node> node = mResourceSystem->getSceneManager()->getInstance(model, trans);
-        node->getOrCreateStateSet()->setMode(GL_LIGHTING, osg::StateAttribute::OFF);
+
+        // Morrowind has a white ambient light attached to the root VFX node of the scenegraph
+        node->getOrCreateStateSet()->setAttributeAndModes(getVFXLightModelInstance(), osg::StateAttribute::ON | osg::StateAttribute::OVERRIDE);
 
         SceneUtil::FindMaxControllerLengthVisitor findMaxLengthVisitor;
         node->accept(findMaxLengthVisitor);
@@ -1869,7 +1885,7 @@ namespace MWRender
             visitor.remove();
         }
 
-        if (SceneUtil::hasUserDescription(mObjectRoot, Constants::NightDayLabel))
+        if (Settings::Manager::getBool("day night switches", "Game") && SceneUtil::hasUserDescription(mObjectRoot, Constants::NightDayLabel))
         {
             AddSwitchCallbacksVisitor visitor;
             mObjectRoot->accept(visitor);

@@ -11,10 +11,10 @@
 
 #include <components/debug/debuglog.hpp>
 
-#include <components/esm/esmreader.hpp>
-#include <components/esm/esmwriter.hpp>
-#include <components/esm/cellid.hpp>
-#include <components/esm/cellref.hpp>
+#include <components/esm3/esmreader.hpp>
+#include <components/esm3/esmwriter.hpp>
+#include <components/esm3/cellid.hpp>
+#include <components/esm3/cellref.hpp>
 
 #include <components/misc/constants.hpp>
 #include <components/misc/mathutil.hpp>
@@ -1315,15 +1315,14 @@ namespace MWWorld
 
     void World::scaleObject (const Ptr& ptr, float scale)
     {
+        if (scale == ptr.getCellRef().getScale())
+            return;
         if (mPhysics->getActor(ptr))
             mNavigator->removeAgent(getPathfindingHalfExtents(ptr));
 
-        if (scale != ptr.getCellRef().getScale())
-        {
-            ptr.getCellRef().setScale(scale);
-            mRendering->pagingBlacklistObject(mStore.find(ptr.getCellRef().getRefId()), ptr);
-            mWorldScene->removeFromPagedRefs(ptr);
-        }
+        ptr.getCellRef().setScale(scale);
+        mRendering->pagingBlacklistObject(mStore.find(ptr.getCellRef().getRefId()), ptr);
+        mWorldScene->removeFromPagedRefs(ptr);
 
         if(ptr.getRefData().getBaseNode() != nullptr)
             mWorldScene->updateObjectScale(ptr);
@@ -3673,13 +3672,12 @@ namespace MWWorld
 
     void World::goToJail()
     {
+        const MWWorld::Ptr player = getPlayerPtr();
         if (!mGoToJail)
         {
             // Reset bounty and forget the crime now, but don't change cell yet (the player should be able to read the dialog text first)
             mGoToJail = true;
             mPlayerInJail = true;
-
-            MWWorld::Ptr player = getPlayerPtr();
 
             int bounty = player.getClass().getNpcStats(player).getBounty();
             player.getClass().getNpcStats(player).setBounty(0);
@@ -3693,6 +3691,12 @@ namespace MWWorld
         }
         else
         {
+            if (MWBase::Environment::get().getMechanicsManager()->isAttackPreparing(player))
+            {
+                mPlayer->setAttackingOrSpell(false);
+            }
+
+            mPlayer->setDrawState(MWMechanics::DrawState_Nothing);
             mGoToJail = false;
 
             MWBase::Environment::get().getWindowManager()->removeGuiMode(MWGui::GM_Dialogue);

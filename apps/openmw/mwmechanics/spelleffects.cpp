@@ -2,7 +2,7 @@
 
 #include <algorithm>
 
-#include <components/esm/loadmgef.hpp>
+#include <components/esm3/loadmgef.hpp>
 #include <components/misc/rng.hpp>
 #include <components/settings/settings.hpp>
 
@@ -46,7 +46,7 @@ namespace
         {
             auto& creatureStats = target.getClass().getCreatureStats(target);
             auto stat = creatureStats.getAiSetting(setting);
-            stat.setModifier(static_cast<int>(stat.getModifier() - magnitude));
+            stat.setModifier(static_cast<int>(stat.getModifier() + magnitude));
             creatureStats.setAiSetting(setting, stat);
         }
     }
@@ -74,6 +74,8 @@ namespace
     {
         auto& creatureStats = target.getClass().getCreatureStats(target);
         auto attr = creatureStats.getAttribute(effect.mArg);
+        if(effect.mEffectId == ESM::MagicEffect::DamageAttribute)
+            magnitude = std::min(attr.getModified(), magnitude);
         attr.damage(magnitude);
         creatureStats.setAttribute(effect.mArg, attr);
     }
@@ -98,6 +100,8 @@ namespace
     {
         auto& npcStats = target.getClass().getNpcStats(target);
         auto& skill = npcStats.getSkill(effect.mArg);
+        if(effect.mEffectId == ESM::MagicEffect::DamageSkill)
+            magnitude = std::min(skill.getModified(), magnitude);
         skill.damage(magnitude);
     }
 
@@ -491,11 +495,11 @@ void applyMagicEffect(const MWWorld::Ptr& target, const MWWorld::Ptr& caster, co
             break;
         case ESM::MagicEffect::FrenzyCreature:
         case ESM::MagicEffect::FrenzyHumanoid:
-            modifyAiSetting(target, effect, ESM::MagicEffect::FrenzyCreature, CreatureStats::AI_Fight, -effect.mMagnitude, invalid);
+            modifyAiSetting(target, effect, ESM::MagicEffect::FrenzyCreature, CreatureStats::AI_Fight, effect.mMagnitude, invalid);
             break;
         case ESM::MagicEffect::CalmCreature:
         case ESM::MagicEffect::CalmHumanoid:
-            modifyAiSetting(target, effect, ESM::MagicEffect::CalmCreature, CreatureStats::AI_Fight, effect.mMagnitude, invalid);
+            modifyAiSetting(target, effect, ESM::MagicEffect::CalmCreature, CreatureStats::AI_Fight, -effect.mMagnitude, invalid);
             if(!invalid && effect.mMagnitude > 0)
             {
                 auto& creatureStats = target.getClass().getCreatureStats(target);
@@ -914,8 +918,8 @@ MagicApplicationResult applyMagicEffect(const MWWorld::Ptr& target, const MWWorl
             oldMagnitude = effect.mMagnitude;
         else
         {
-            if(spellParams.getType() == ESM::ActiveSpells::Type_Consumable || spellParams.getType() == ESM::ActiveSpells::Type_Temporary)
-                playEffects(target, *magicEffect);
+            if(spellParams.getType() != ESM::ActiveSpells::Type_Enchantment)
+                playEffects(target, *magicEffect, spellParams.getType() == ESM::ActiveSpells::Type_Consumable || spellParams.getType() == ESM::ActiveSpells::Type_Temporary);
             if(effect.mEffectId == ESM::MagicEffect::Soultrap && !target.getClass().isNpc() && target.getType() == ESM::Creature::sRecordId && target.get<ESM::Creature>()->mBase->mData.mSoul == 0 && caster == getPlayer())
                 MWBase::Environment::get().getWindowManager()->messageBox("#{sMagicInvalidTarget}");
         }
@@ -998,11 +1002,11 @@ void removeMagicEffect(const MWWorld::Ptr& target, ActiveSpells::ActiveSpellPara
             break;
         case ESM::MagicEffect::FrenzyCreature:
         case ESM::MagicEffect::FrenzyHumanoid:
-            modifyAiSetting(target, effect, ESM::MagicEffect::FrenzyCreature, CreatureStats::AI_Fight, effect.mMagnitude, invalid);
+            modifyAiSetting(target, effect, ESM::MagicEffect::FrenzyCreature, CreatureStats::AI_Fight, -effect.mMagnitude, invalid);
             break;
         case ESM::MagicEffect::CalmCreature:
         case ESM::MagicEffect::CalmHumanoid:
-            modifyAiSetting(target, effect, ESM::MagicEffect::CalmCreature, CreatureStats::AI_Fight, -effect.mMagnitude, invalid);
+            modifyAiSetting(target, effect, ESM::MagicEffect::CalmCreature, CreatureStats::AI_Fight, effect.mMagnitude, invalid);
             break;
         case ESM::MagicEffect::DemoralizeCreature:
         case ESM::MagicEffect::DemoralizeHumanoid:

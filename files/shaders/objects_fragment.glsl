@@ -146,7 +146,7 @@ void main()
 
 #if @decalMap
     vec4 decalTex = texture2D(decalMap, decalMapUV);
-    gl_FragData[0].xyz = mix(gl_FragData[0].xyz, decalTex.xyz, decalTex.a);
+    gl_FragData[0].xyz = mix(gl_FragData[0].xyz, decalTex.xyz, decalTex.a * diffuseColor.a);
 #endif
 
 #if @envMap
@@ -226,7 +226,7 @@ void main()
 #endif
     gl_FragData[0].xyz = mix(gl_FragData[0].xyz, gl_Fog.color.xyz, fogValue);
 
-#if @softParticles
+#if !defined(FORCE_OPAQUE) && @softParticles
     gl_FragData[0].a *= calcSoftParticleFade();
 #endif
 
