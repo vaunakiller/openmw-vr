@@ -1,4 +1,3 @@
-#include "..\..\..\components\widgets\virtualkeyboardmanager.hpp"
 #include "vrvirtualkeyboard.hpp"
 
 #include <MyGUI_InputManager.h>
