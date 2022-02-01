@@ -23,9 +23,14 @@ if (GTEST_FOUND AND GMOCK_FOUND)
         lua/test_serialization.cpp
         lua/test_querypackage.cpp
         lua/test_configuration.cpp
+        lua/test_i18n.cpp
+        lua/test_storage.cpp
+
+        lua/test_ui_content.cpp
 
         misc/test_stringops.cpp
         misc/test_endianness.cpp
+        misc/test_resourcehelpers.cpp
         misc/progressreporter.cpp
         misc/compression.cpp
 
@@ -38,10 +43,14 @@ if (GTEST_FOUND AND GMOCK_FOUND)
         detournavigator/recastmeshobject.cpp
         detournavigator/navmeshtilescache.cpp
         detournavigator/tilecachedrecastmeshmanager.cpp
-        detournavigator/serialization/binaryreader.cpp
-        detournavigator/serialization/binarywriter.cpp
-        detournavigator/serialization/sizeaccumulator.cpp
-        detournavigator/serialization/integration.cpp
+        detournavigator/navmeshdb.cpp
+        detournavigator/serialization.cpp
+        detournavigator/asyncnavmeshupdater.cpp
+
+        serialization/binaryreader.cpp
+        serialization/binarywriter.cpp
+        serialization/sizeaccumulator.cpp
+        serialization/integration.cpp
 
         settings/parser.cpp
 
@@ -59,13 +68,15 @@ if (GTEST_FOUND AND GMOCK_FOUND)
 
         esmloader/load.cpp
         esmloader/esmdata.cpp
+
+        files/hash.cpp
     )
 
     source_group(apps\\openmw_test_suite FILES openmw_test_suite.cpp ${UNITTEST_SRC_FILES})
 
     openmw_add_executable(openmw_test_suite openmw_test_suite.cpp ${UNITTEST_SRC_FILES})
 
-    target_link_libraries(openmw_test_suite ${GMOCK_LIBRARIES} components ${LUA_LIBRARIES})
+    target_link_libraries(openmw_test_suite ${GMOCK_LIBRARIES} components)
     # Fix for not visible pthreads functions for linker with glibc 2.15
     if (UNIX AND NOT APPLE)
         target_link_libraries(openmw_test_suite ${CMAKE_THREAD_LIBS_INIT})
@@ -75,14 +86,6 @@ if (GTEST_FOUND AND GMOCK_FOUND)
         add_definitions(--coverage)
         target_link_libraries(openmw_test_suite gcov)
     endif()
-
-    if (MSVC)
-        if (CMAKE_CL_64)
-            # Debug version of openmw_unit_tests needs increased number of sections beyond 2^16
-            # just like openmw and openmw-cs
-            set (CMAKE_CXX_FLAGS_DEBUG "${CMAKE_CXX_FLAGS_DEBUG} /bigobj")
-        endif (CMAKE_CL_64)
-    endif (MSVC)
 
     file(DOWNLOAD
         https://gitlab.com/OpenMW/example-suite/-/raw/8966dab24692555eec720c854fb0f73d108070cd/data/template.omwgame

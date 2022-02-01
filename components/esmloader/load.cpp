@@ -4,16 +4,16 @@
 #include "record.hpp"
 
 #include <components/debug/debuglog.hpp>
-#include <components/esm/cellref.hpp>
+#include <components/esm3/cellref.hpp>
 #include <components/esm/defs.hpp>
-#include <components/esm/esmreader.hpp>
-#include <components/esm/loadacti.hpp>
-#include <components/esm/loadcell.hpp>
-#include <components/esm/loadcont.hpp>
-#include <components/esm/loaddoor.hpp>
-#include <components/esm/loadgmst.hpp>
-#include <components/esm/loadland.hpp>
-#include <components/esm/loadstat.hpp>
+#include <components/esm3/esmreader.hpp>
+#include <components/esm3/loadacti.hpp>
+#include <components/esm3/loadcell.hpp>
+#include <components/esm3/loadcont.hpp>
+#include <components/esm3/loaddoor.hpp>
+#include <components/esm3/loadgmst.hpp>
+#include <components/esm3/loadland.hpp>
+#include <components/esm3/loadstat.hpp>
 #include <components/files/collections.hpp>
 #include <components/files/multidircollection.hpp>
 #include <components/misc/resourcehelpers.hpp>
@@ -22,6 +22,7 @@
 #include <algorithm>
 #include <cstddef>
 #include <map>
+#include <set>
 #include <string>
 #include <string_view>
 #include <type_traits>
@@ -206,15 +207,33 @@ namespace EsmLoader
         {
             ShallowContent result;
 
+            const std::set<std::string> supportedFormats {
+                ".esm",
+                ".esp",
+                ".omwgame",
+                ".omwaddon",
+                ".project",
+            };
+
             for (std::size_t i = 0; i < contentFiles.size(); ++i)
             {
                 const std::string &file = contentFiles[i];
-                const Files::MultiDirCollection& collection = fileCollections.getCollection(boost::filesystem::path(file).extension().string());
+                const std::string extension = Misc::StringUtils::lowerCase(boost::filesystem::path(file).extension().string());
+
+                if (supportedFormats.find(extension) == supportedFormats.end())
+                {
+                    Log(Debug::Warning) << "Skipping unsupported content file: " << file;
+                    continue;
+                }
+
+                const Files::MultiDirCollection& collection = fileCollections.getCollection(extension);
 
                 ESM::ESMReader& reader = readers[i];
                 reader.setEncoder(encoder);
                 reader.setIndex(static_cast<int>(i));
                 reader.open(collection.getPath(file).string());
+                if (query.mLoadCells)
+                    reader.resolveParentFileIndices(readers);
 
                 loadEsm(query, readers[i], result);
             }

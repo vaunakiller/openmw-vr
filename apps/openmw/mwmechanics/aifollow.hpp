@@ -4,17 +4,15 @@
 #include "typedaipackage.hpp"
 
 #include <string>
+#include <string_view>
 
 #include <components/esm/defs.hpp>
 
 #include "../mwworld/ptr.hpp"
 
-namespace ESM
-{
-namespace AiSequence
+namespace ESM::AiSequence
 {
     struct AiFollow;
-}
 }
 
 namespace MWMechanics
@@ -40,12 +38,10 @@ namespace MWMechanics
     class AiFollow final : public TypedAiPackage<AiFollow>
     {
         public:
-            AiFollow(const std::string &actorId, float duration, float x, float y, float z);
-            AiFollow(const std::string &actorId, const std::string &CellId, float duration, float x, float y, float z);
             /// Follow Actor for duration or until you arrive at a world position
-            AiFollow(const MWWorld::Ptr& actor, float duration, float X, float Y, float Z);
+            AiFollow(std::string_view actorId, float duration, float x, float y, float z, bool repeat);
             /// Follow Actor for duration or until you arrive at a position in a cell
-            AiFollow(const MWWorld::Ptr& actor, const std::string &CellId, float duration, float X, float Y, float Z);
+            AiFollow(std::string_view actorId, std::string_view cellId, float duration, float x, float y, float z, bool repeat);
             /// Follow Actor indefinitively
             AiFollow(const MWWorld::Ptr& actor, bool commanded=false);
 

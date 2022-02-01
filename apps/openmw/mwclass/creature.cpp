@@ -1,11 +1,9 @@
 #include "creature.hpp"
 
-#include <climits> // INT_MIN
-
 #include <components/misc/rng.hpp>
 #include <components/debug/debuglog.hpp>
-#include <components/esm/loadcrea.hpp>
-#include <components/esm/creaturestate.hpp>
+#include <components/esm3/loadcrea.hpp>
+#include <components/esm3/creaturestate.hpp>
 #include <components/settings/settings.hpp>
 
 #include "../mwmechanics/creaturestats.hpp"
@@ -772,9 +770,7 @@ namespace MWClass
         {
             if (!ptr.getRefData().getCustomData())
             {
-                // FIXME: the use of mGoldPool can be replaced with another flag the next time
-                // the save file format is changed
-                if (creatureState.mCreatureStats.mGoldPool == INT_MIN)
+                if (creatureState.mCreatureStats.mMissingACDT)
                     ensureCustomData(ptr);
                 else
                 {

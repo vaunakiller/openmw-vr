@@ -59,8 +59,6 @@ namespace VR
 
         virtual std::array<SwapchainConfig, 2> getRecommendedSwapchainConfig() const = 0;
 
-        virtual bool runtimeSupportsFormat(int64_t format) const = 0;
-
         void setAppShouldShareDepthBuffer(bool arg) { mAppShouldShareDepthBuffer = arg; }
 
     protected:

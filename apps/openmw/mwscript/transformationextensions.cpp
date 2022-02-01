@@ -2,7 +2,7 @@
 
 #include <components/sceneutil/positionattitudetransform.hpp>
 
-#include <components/esm/loadcell.hpp>
+#include <components/esm3/loadcell.hpp>
 
 #include <components/compiler/opcodes.hpp>
 
@@ -355,7 +355,8 @@ namespace MWScript
                     if (ptr.getContainerStore())
                         return;
 
-                    if (ptr == MWMechanics::getPlayer())
+                    bool isPlayer = ptr == MWMechanics::getPlayer();
+                    if (isPlayer)
                     {
                         MWBase::Environment::get().getWorld()->getPlayer().setTeleported(true);
                     }
@@ -378,17 +379,21 @@ namespace MWScript
                     }
                     catch(std::exception&)
                     {
-                        // cell not found, move to exterior instead (vanilla PositionCell compatibility)
+                        // cell not found, move to exterior instead if moving the player (vanilla PositionCell compatibility)
                         const ESM::Cell* cell = MWBase::Environment::get().getWorld()->getExterior(cellID);
+                        if(!cell)
+                        {
+                            std::string error = "Warning: PositionCell: unknown interior cell (" + cellID + ")";
+                            if(isPlayer)
+                                error += ", moving to exterior instead";
+                            runtime.getContext().report (error);
+                            Log(Debug::Warning) << error;
+                            if(!isPlayer)
+                                return;
+                        }
                         int cx,cy;
                         MWBase::Environment::get().getWorld()->positionToIndex(x,y,cx,cy);
                         store = MWBase::Environment::get().getWorld()->getExterior(cx,cy);
-                        if(!cell)
-                        {
-                            std::string error = "Warning: PositionCell: unknown interior cell (" + cellID + "), moving to exterior instead";
-                            runtime.getContext().report (error);
-                            Log(Debug::Warning) << error;
-                        }
                     }
                     if(store)
                     {
@@ -400,7 +405,7 @@ namespace MWScript
                         // Note that you must specify ZRot in minutes (1 degree = 60 minutes; north = 0, east = 5400, south = 10800, west = 16200)
                         // except for when you position the player, then degrees must be used.
                         // See "Morrowind Scripting for Dummies (9th Edition)" pages 50 and 54 for reference.
-                        if(ptr != MWMechanics::getPlayer())
+                        if(!isPlayer)
                             zRot = zRot/60.0f;
                         rot.z() = osg::DegreesToRadians(zRot);
                         MWBase::Environment::get().getWorld()->rotateObject(ptr,rot);
@@ -622,12 +627,13 @@ namespace MWScript
                     runtime.pop();
 
                     auto rot = ptr.getRefData().getPosition().asRotationVec3();
-                    if (axis == "x")
+                    // Regardless of the axis argument, the player may only be rotated on Z
+                    if (axis == "z" || MWMechanics::getPlayer() == ptr)
+                        rot.z() += rotation;
+                    else if (axis == "x")
                         rot.x() += rotation;
                     else if (axis == "y")
                         rot.y() += rotation;
-                    else if (axis == "z")
-                        rot.z() += rotation;
                     MWBase::Environment::get().getWorld()->rotateObject(ptr,rot);
                 }
         };
@@ -793,47 +799,47 @@ namespace MWScript
 
         void installOpcodes (Interpreter::Interpreter& interpreter)
         {
-            interpreter.installSegment5(Compiler::Transformation::opcodeGetDistance, new OpGetDistance<ImplicitRef>);
-            interpreter.installSegment5(Compiler::Transformation::opcodeGetDistanceExplicit, new OpGetDistance<ExplicitRef>);
-            interpreter.installSegment5(Compiler::Transformation::opcodeSetScale,new OpSetScale<ImplicitRef>);
-            interpreter.installSegment5(Compiler::Transformation::opcodeSetScaleExplicit,new OpSetScale<ExplicitRef>);
-            interpreter.installSegment5(Compiler::Transformation::opcodeSetAngle,new OpSetAngle<ImplicitRef>);
-            interpreter.installSegment5(Compiler::Transformation::opcodeSetAngleExplicit,new OpSetAngle<ExplicitRef>);
-            interpreter.installSegment5(Compiler::Transformation::opcodeGetScale,new OpGetScale<ImplicitRef>);
-            interpreter.installSegment5(Compiler::Transformation::opcodeGetScaleExplicit,new OpGetScale<ExplicitRef>);
-            interpreter.installSegment5(Compiler::Transformation::opcodeGetAngle,new OpGetAngle<ImplicitRef>);
-            interpreter.installSegment5(Compiler::Transformation::opcodeGetAngleExplicit,new OpGetAngle<ExplicitRef>);
-            interpreter.installSegment5(Compiler::Transformation::opcodeGetPos,new OpGetPos<ImplicitRef>);
-            interpreter.installSegment5(Compiler::Transformation::opcodeGetPosExplicit,new OpGetPos<ExplicitRef>);
-            interpreter.installSegment5(Compiler::Transformation::opcodeSetPos,new OpSetPos<ImplicitRef>);
-            interpreter.installSegment5(Compiler::Transformation::opcodeSetPosExplicit,new OpSetPos<ExplicitRef>);
-            interpreter.installSegment5(Compiler::Transformation::opcodeGetStartingPos,new OpGetStartingPos<ImplicitRef>);
-            interpreter.installSegment5(Compiler::Transformation::opcodeGetStartingPosExplicit,new OpGetStartingPos<ExplicitRef>);
-            interpreter.installSegment5(Compiler::Transformation::opcodePosition,new OpPosition<ImplicitRef>);
-            interpreter.installSegment5(Compiler::Transformation::opcodePositionExplicit,new OpPosition<ExplicitRef>);
-            interpreter.installSegment5(Compiler::Transformation::opcodePositionCell,new OpPositionCell<ImplicitRef>);
-            interpreter.installSegment5(Compiler::Transformation::opcodePositionCellExplicit,new OpPositionCell<ExplicitRef>);
-            interpreter.installSegment5(Compiler::Transformation::opcodePlaceItemCell,new OpPlaceItemCell);
-            interpreter.installSegment5(Compiler::Transformation::opcodePlaceItem,new OpPlaceItem);
-            interpreter.installSegment5(Compiler::Transformation::opcodePlaceAtPc,new OpPlaceAt<ImplicitRef, true>);
-            interpreter.installSegment5(Compiler::Transformation::opcodePlaceAtMe,new OpPlaceAt<ImplicitRef, false>);
-            interpreter.installSegment5(Compiler::Transformation::opcodePlaceAtMeExplicit,new OpPlaceAt<ExplicitRef, false>);
-            interpreter.installSegment5(Compiler::Transformation::opcodeModScale,new OpModScale<ImplicitRef>);
-            interpreter.installSegment5(Compiler::Transformation::opcodeModScaleExplicit,new OpModScale<ExplicitRef>);
-            interpreter.installSegment5(Compiler::Transformation::opcodeRotate,new OpRotate<ImplicitRef>);
-            interpreter.installSegment5(Compiler::Transformation::opcodeRotateExplicit,new OpRotate<ExplicitRef>);
-            interpreter.installSegment5(Compiler::Transformation::opcodeRotateWorld,new OpRotateWorld<ImplicitRef>);
-            interpreter.installSegment5(Compiler::Transformation::opcodeRotateWorldExplicit,new OpRotateWorld<ExplicitRef>);
-            interpreter.installSegment5(Compiler::Transformation::opcodeSetAtStart,new OpSetAtStart<ImplicitRef>);
-            interpreter.installSegment5(Compiler::Transformation::opcodeSetAtStartExplicit,new OpSetAtStart<ExplicitRef>);
-            interpreter.installSegment5(Compiler::Transformation::opcodeMove,new OpMove<ImplicitRef>);
-            interpreter.installSegment5(Compiler::Transformation::opcodeMoveExplicit,new OpMove<ExplicitRef>);
-            interpreter.installSegment5(Compiler::Transformation::opcodeMoveWorld,new OpMoveWorld<ImplicitRef>);
-            interpreter.installSegment5(Compiler::Transformation::opcodeMoveWorldExplicit,new OpMoveWorld<ExplicitRef>);
-            interpreter.installSegment5(Compiler::Transformation::opcodeGetStartingAngle, new OpGetStartingAngle<ImplicitRef>);
-            interpreter.installSegment5(Compiler::Transformation::opcodeGetStartingAngleExplicit, new OpGetStartingAngle<ExplicitRef>);
-            interpreter.installSegment5(Compiler::Transformation::opcodeResetActors, new OpResetActors);
-            interpreter.installSegment5(Compiler::Transformation::opcodeFixme, new OpFixme);
+            interpreter.installSegment5<OpGetDistance<ImplicitRef>>(Compiler::Transformation::opcodeGetDistance);
+            interpreter.installSegment5<OpGetDistance<ExplicitRef>>(Compiler::Transformation::opcodeGetDistanceExplicit);
+            interpreter.installSegment5<OpSetScale<ImplicitRef>>(Compiler::Transformation::opcodeSetScale);
+            interpreter.installSegment5<OpSetScale<ExplicitRef>>(Compiler::Transformation::opcodeSetScaleExplicit);
+            interpreter.installSegment5<OpSetAngle<ImplicitRef>>(Compiler::Transformation::opcodeSetAngle);
+            interpreter.installSegment5<OpSetAngle<ExplicitRef>>(Compiler::Transformation::opcodeSetAngleExplicit);
+            interpreter.installSegment5<OpGetScale<ImplicitRef>>(Compiler::Transformation::opcodeGetScale);
+            interpreter.installSegment5<OpGetScale<ExplicitRef>>(Compiler::Transformation::opcodeGetScaleExplicit);
+            interpreter.installSegment5<OpGetAngle<ImplicitRef>>(Compiler::Transformation::opcodeGetAngle);
+            interpreter.installSegment5<OpGetAngle<ExplicitRef>>(Compiler::Transformation::opcodeGetAngleExplicit);
+            interpreter.installSegment5<OpGetPos<ImplicitRef>>(Compiler::Transformation::opcodeGetPos);
+            interpreter.installSegment5<OpGetPos<ExplicitRef>>(Compiler::Transformation::opcodeGetPosExplicit);
+            interpreter.installSegment5<OpSetPos<ImplicitRef>>(Compiler::Transformation::opcodeSetPos);
+            interpreter.installSegment5<OpSetPos<ExplicitRef>>(Compiler::Transformation::opcodeSetPosExplicit);
+            interpreter.installSegment5<OpGetStartingPos<ImplicitRef>>(Compiler::Transformation::opcodeGetStartingPos);
+            interpreter.installSegment5<OpGetStartingPos<ExplicitRef>>(Compiler::Transformation::opcodeGetStartingPosExplicit);
+            interpreter.installSegment5<OpPosition<ImplicitRef>>(Compiler::Transformation::opcodePosition);
+            interpreter.installSegment5<OpPosition<ExplicitRef>>(Compiler::Transformation::opcodePositionExplicit);
+            interpreter.installSegment5<OpPositionCell<ImplicitRef>>(Compiler::Transformation::opcodePositionCell);
+            interpreter.installSegment5<OpPositionCell<ExplicitRef>>(Compiler::Transformation::opcodePositionCellExplicit);
+            interpreter.installSegment5<OpPlaceItemCell>(Compiler::Transformation::opcodePlaceItemCell);
+            interpreter.installSegment5<OpPlaceItem>(Compiler::Transformation::opcodePlaceItem);
+            interpreter.installSegment5<OpPlaceAt<ImplicitRef, true>>(Compiler::Transformation::opcodePlaceAtPc);
+            interpreter.installSegment5<OpPlaceAt<ImplicitRef, false>>(Compiler::Transformation::opcodePlaceAtMe);
+            interpreter.installSegment5<OpPlaceAt<ExplicitRef, false>>(Compiler::Transformation::opcodePlaceAtMeExplicit);
+            interpreter.installSegment5<OpModScale<ImplicitRef>>(Compiler::Transformation::opcodeModScale);
+            interpreter.installSegment5<OpModScale<ExplicitRef>>(Compiler::Transformation::opcodeModScaleExplicit);
+            interpreter.installSegment5<OpRotate<ImplicitRef>>(Compiler::Transformation::opcodeRotate);
+            interpreter.installSegment5<OpRotate<ExplicitRef>>(Compiler::Transformation::opcodeRotateExplicit);
+            interpreter.installSegment5<OpRotateWorld<ImplicitRef>>(Compiler::Transformation::opcodeRotateWorld);
+            interpreter.installSegment5<OpRotateWorld<ExplicitRef>>(Compiler::Transformation::opcodeRotateWorldExplicit);
+            interpreter.installSegment5<OpSetAtStart<ImplicitRef>>(Compiler::Transformation::opcodeSetAtStart);
+            interpreter.installSegment5<OpSetAtStart<ExplicitRef>>(Compiler::Transformation::opcodeSetAtStartExplicit);
+            interpreter.installSegment5<OpMove<ImplicitRef>>(Compiler::Transformation::opcodeMove);
+            interpreter.installSegment5<OpMove<ExplicitRef>>(Compiler::Transformation::opcodeMoveExplicit);
+            interpreter.installSegment5<OpMoveWorld<ImplicitRef>>(Compiler::Transformation::opcodeMoveWorld);
+            interpreter.installSegment5<OpMoveWorld<ExplicitRef>>(Compiler::Transformation::opcodeMoveWorldExplicit);
+            interpreter.installSegment5<OpGetStartingAngle<ImplicitRef>>(Compiler::Transformation::opcodeGetStartingAngle);
+            interpreter.installSegment5<OpGetStartingAngle<ExplicitRef>>(Compiler::Transformation::opcodeGetStartingAngleExplicit);
+            interpreter.installSegment5<OpResetActors>(Compiler::Transformation::opcodeResetActors);
+            interpreter.installSegment5<OpFixme>(Compiler::Transformation::opcodeFixme);
         }
     }
 }

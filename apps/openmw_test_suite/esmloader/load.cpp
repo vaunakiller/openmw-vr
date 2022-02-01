@@ -1,4 +1,12 @@
-#include <components/esmloader/load.cpp>
+#include <components/esm3/loadacti.hpp>
+#include <components/esm3/loadcell.hpp>
+#include <components/esm3/loadcont.hpp>
+#include <components/esm3/loaddoor.hpp>
+#include <components/esm3/loadgmst.hpp>
+#include <components/esm3/loadland.hpp>
+#include <components/esm3/loadstat.hpp>
+#include <components/esmloader/esmdata.hpp>
+#include <components/esmloader/load.hpp>
 #include <components/files/collections.hpp>
 #include <components/files/multidircollection.hpp>
 #include <components/to_utf8/to_utf8.hpp>
@@ -93,6 +101,29 @@ namespace
         std::vector<ESM::ESMReader> readers(mContentFiles.size());
         ToUTF8::Utf8Encoder* const encoder = nullptr;
         const EsmData esmData = loadEsmData(query, mContentFiles, mFileCollections, readers, encoder);
+        EXPECT_EQ(esmData.mActivators.size(), 0);
+        EXPECT_EQ(esmData.mCells.size(), 0);
+        EXPECT_EQ(esmData.mContainers.size(), 0);
+        EXPECT_EQ(esmData.mDoors.size(), 0);
+        EXPECT_EQ(esmData.mGameSettings.size(), 0);
+        EXPECT_EQ(esmData.mLands.size(), 0);
+        EXPECT_EQ(esmData.mStatics.size(), 0);
+    }
+
+    TEST_F(EsmLoaderTest, loadEsmDataShouldSkipUnsupportedFormats)
+    {
+        Query query;
+        query.mLoadActivators = true;
+        query.mLoadCells = true;
+        query.mLoadContainers = true;
+        query.mLoadDoors = true;
+        query.mLoadGameSettings = true;
+        query.mLoadLands = true;
+        query.mLoadStatics = true;
+        const std::vector<std::string> contentFiles {{"script.omwscripts"}};
+        std::vector<ESM::ESMReader> readers(contentFiles.size());
+        ToUTF8::Utf8Encoder* const encoder = nullptr;
+        const EsmData esmData = loadEsmData(query, contentFiles, mFileCollections, readers, encoder);
         EXPECT_EQ(esmData.mActivators.size(), 0);
         EXPECT_EQ(esmData.mCells.size(), 0);
         EXPECT_EQ(esmData.mContainers.size(), 0);

@@ -34,15 +34,12 @@ namespace MWVR
 
         /// Set where the camera is looking at. Uses Morrowind (euler) angles
         /// \param rot Rotation angles in radians
-        void rotateCamera(float pitch, float roll, float yaw, bool adjust) override;
+        //void rotateCamera(float pitch, float roll, float yaw, bool adjust) override;
 
         void toggleViewMode(bool force = false) override;
 
-        bool toggleVanityMode(bool enable) override;
-        void allowVanityMode(bool allow) override;
-
         /// Stores focal and camera world positions in passed arguments
-        void getPosition(osg::Vec3d& focal, osg::Vec3d& camera) const override;
+        void getPosition(osg::Vec3d& camera) const override;
 
         /// Store camera orientation in passed arguments
         void getOrientation(osg::Quat& orientation) const override;

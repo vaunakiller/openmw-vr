@@ -4,7 +4,7 @@
     <Layer name="Scene" overlapped="false" pick="false"/>
     <Layer name="Overlay" overlapped="false" pick="false"/>
     <Layer name="AdditiveOverlay" type="AdditiveLayer" pick="false"/>
-    <Layer name="StatusHUD" overlapped="false" pick="true"/>
+    <Layer name="HUD" overlapped="false" pick="true"/>
     <Layer name="Menu" overlapped="false" pick="true"/>
     <Layer name="InventoryCompanionWindow" overlapped="true" pick="true"/>
     <Layer name="InventoryWindow" overlapped="true" pick="true"/>
@@ -24,6 +24,7 @@
     <Layer name="Tooltip" overlapped="true" pick="true"/>
     <Layer name="Popup" overlapped="true" pick="true"/>
     <Layer name="DragAndDrop" overlapped="false" pick="false"/>
+    <Layer name="DrowningBar" overlapped="false" pick="false"/>
     <Layer name="LoadingScreen" overlapped="false" pick="true"/>
     <Layer name="MessageBox" overlapped="false" pick="true"/>
     <Layer name="InputBlocker" overlapped="false" pick="true"/>

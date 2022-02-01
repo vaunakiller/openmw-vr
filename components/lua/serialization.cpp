@@ -1,9 +1,16 @@
 #include "serialization.hpp"
 
+#include <osg/Matrixf>
+#include <osg/Quat>
 #include <osg/Vec2f>
 #include <osg/Vec3f>
+#include <osg/Vec4f>
 
+#include <components/misc/color.hpp>
 #include <components/misc/endianness.hpp>
+
+#include "luastate.hpp"
+#include "utilpackage.hpp"
 
 namespace LuaUtil
 {
@@ -20,6 +27,10 @@ namespace LuaUtil
 
         VEC2 =         0x10,
         VEC3 =         0x11,
+        TRANSFORM_M =  0x12,
+        TRANSFORM_Q =  0x13,
+        VEC4 =         0x14,
+        COLOR =        0x15,
 
         // All values should be lesser than 0x20 (SHORT_STRING_FLAG).
     };
@@ -91,17 +102,54 @@ namespace LuaUtil
         {
             appendType(out, SerializedType::VEC2);
             osg::Vec2f v = data.as<osg::Vec2f>();
-            appendValue<float>(out, v.x());
-            appendValue<float>(out, v.y());
+            appendValue<double>(out, v.x());
+            appendValue<double>(out, v.y());
             return;
         }
         if (data.is<osg::Vec3f>())
         {
             appendType(out, SerializedType::VEC3);
             osg::Vec3f v = data.as<osg::Vec3f>();
-            appendValue<float>(out, v.x());
-            appendValue<float>(out, v.y());
-            appendValue<float>(out, v.z());
+            appendValue<double>(out, v.x());
+            appendValue<double>(out, v.y());
+            appendValue<double>(out, v.z());
+            return;
+        }
+        if (data.is<TransformM>())
+        {
+            appendType(out, SerializedType::TRANSFORM_M);
+            osg::Matrixf matrix = data.as<TransformM>().mM;
+            for (size_t i = 0; i < 4; i++)
+                for (size_t j = 0; j < 4; j++)
+                    appendValue<double>(out, matrix(i,j));
+            return;
+        }
+        if (data.is<TransformQ>())
+        {
+            appendType(out, SerializedType::TRANSFORM_Q);
+            osg::Quat quat = data.as<TransformQ>().mQ;
+            for(size_t i = 0; i < 4; i++)
+                appendValue<double>(out, quat[i]);
+            return;
+        }
+        if (data.is<osg::Vec4f>())
+        {
+            appendType(out, SerializedType::VEC4);
+            osg::Vec4f v = data.as<osg::Vec4f>();
+            appendValue<double>(out, v.x());
+            appendValue<double>(out, v.y());
+            appendValue<double>(out, v.z());
+            appendValue<double>(out, v.w());
+            return;
+        }
+        if (data.is<Misc::Color>())
+        {
+            appendType(out, SerializedType::COLOR);
+            Misc::Color v = data.as<Misc::Color> ();
+            appendValue<float>(out, v.r());
+            appendValue<float>(out, v.g());
+            appendValue<float>(out, v.b());
+            appendValue<float>(out, v.a());
             return;
         }
         if (customSerializer && customSerializer->serialize(out, data))
@@ -147,7 +195,8 @@ namespace LuaUtil
             throw std::runtime_error("Unknown Lua type.");
     }
 
-    static void deserializeImpl(sol::state& lua, std::string_view& binaryData, const UserdataSerializer* customSerializer)
+    static void deserializeImpl(lua_State* lua, std::string_view& binaryData,
+                                const UserdataSerializer* customSerializer, bool readOnly)
     {
         if (binaryData.empty())
             throw std::runtime_error("Unexpected end of serialized data.");
@@ -176,22 +225,22 @@ namespace LuaUtil
         if (type & SHORT_STRING_FLAG)
         {
             size_t size = type & 0x1f;
-            sol::stack::push<std::string_view>(lua.lua_state(), binaryData.substr(0, size));
+            sol::stack::push<std::string_view>(lua, binaryData.substr(0, size));
             binaryData = binaryData.substr(size);
             return;
         }
         switch (static_cast<SerializedType>(type))
         {
             case SerializedType::NUMBER:
-                sol::stack::push<double>(lua.lua_state(), getValue<double>(binaryData));
+                sol::stack::push<double>(lua, getValue<double>(binaryData));
                 return;
             case SerializedType::BOOLEAN:
-                sol::stack::push<bool>(lua.lua_state(), getValue<char>(binaryData) != 0);
+                sol::stack::push<bool>(lua, getValue<char>(binaryData) != 0);
                 return;
             case SerializedType::LONG_STRING:
             {
                 uint32_t size = getValue<uint32_t>(binaryData);
-                sol::stack::push<std::string_view>(lua.lua_state(), binaryData.substr(0, size));
+                sol::stack::push<std::string_view>(lua, binaryData.substr(0, size));
                 binaryData = binaryData.substr(size);
                 return;
             }
@@ -200,30 +249,67 @@ namespace LuaUtil
                 lua_createtable(lua, 0, 0);
                 while (!binaryData.empty() && binaryData[0] != char(SerializedType::TABLE_END))
                 {
-                    deserializeImpl(lua, binaryData, customSerializer);
-                    deserializeImpl(lua, binaryData, customSerializer);
+                    deserializeImpl(lua, binaryData, customSerializer, readOnly);
+                    deserializeImpl(lua, binaryData, customSerializer, readOnly);
                     lua_settable(lua, -3);
                 }
                 if (binaryData.empty())
                     throw std::runtime_error("Unexpected end of serialized data.");
                 binaryData = binaryData.substr(1);
+                if (readOnly)
+                    sol::stack::push(lua, makeReadOnly(sol::stack::pop<sol::table>(lua)));
                 return;
             }
             case SerializedType::TABLE_END:
                 throw std::runtime_error("Unexpected end of table during deserialization.");
             case SerializedType::VEC2:
             {
-                float x = getValue<float>(binaryData);
-                float y = getValue<float>(binaryData);
-                sol::stack::push<osg::Vec2f>(lua.lua_state(), osg::Vec2f(x, y));
+                float x = getValue<double>(binaryData);
+                float y = getValue<double>(binaryData);
+                sol::stack::push<osg::Vec2f>(lua, osg::Vec2f(x, y));
                 return;
             }
             case SerializedType::VEC3:
             {
-                float x = getValue<float>(binaryData);
-                float y = getValue<float>(binaryData);
-                float z = getValue<float>(binaryData);
-                sol::stack::push<osg::Vec3f>(lua.lua_state(), osg::Vec3f(x, y, z));
+                float x = getValue<double>(binaryData);
+                float y = getValue<double>(binaryData);
+                float z = getValue<double>(binaryData);
+                sol::stack::push<osg::Vec3f>(lua, osg::Vec3f(x, y, z));
+                return;
+            }
+            case SerializedType::TRANSFORM_M:
+            {
+                osg::Matrixf mat;
+                for (int i = 0; i < 4; i++)
+                    for (int j = 0; j < 4; j++)
+                        mat(i, j) = getValue<double>(binaryData);
+                sol::stack::push<TransformM>(lua, asTransform(mat));
+                return;
+            }
+            case SerializedType::TRANSFORM_Q:
+            {
+                osg::Quat q;
+                for (int i = 0; i < 4; i++)
+                    q[i] = getValue<double>(binaryData);
+                sol::stack::push<TransformQ>(lua, asTransform(q));
+                return;
+            }
+            case SerializedType::VEC4:
+            {
+                float x = getValue<double>(binaryData);
+                float y = getValue<double>(binaryData);
+                float z = getValue<double>(binaryData);
+                float w = getValue<double>(binaryData);
+                sol::stack::push<osg::Vec4f>(lua, osg::Vec4f(x, y, z, w));
+                return;
+            }
+            case SerializedType::COLOR:
+            {
+                float r = getValue<float>(binaryData);
+                float g = getValue<float>(binaryData);
+                float b = getValue<float>(binaryData);
+                float a = getValue<float>(binaryData);
+                sol::stack::push<Misc::Color>(lua, Misc::Color(r, g, b, a));
                 return;
             }
         }
@@ -240,7 +326,8 @@ namespace LuaUtil
         return res;
     }
 
-    sol::object deserialize(sol::state& lua, std::string_view binaryData, const UserdataSerializer* customSerializer)
+    sol::object deserialize(lua_State* lua, std::string_view binaryData,
+                            const UserdataSerializer* customSerializer, bool readOnly)
     {
         if (binaryData.empty())
             return sol::nil;
@@ -248,10 +335,10 @@ namespace LuaUtil
             throw std::runtime_error("Incorrect version of Lua serialization format: " +
                                      std::to_string(static_cast<unsigned>(binaryData[0])));
         binaryData = binaryData.substr(1);
-        deserializeImpl(lua, binaryData, customSerializer);
+        deserializeImpl(lua, binaryData, customSerializer, readOnly);
         if (!binaryData.empty())
             throw std::runtime_error("Unexpected data after serialized object");
-        return sol::stack::pop<sol::object>(lua.lua_state());
+        return sol::stack::pop<sol::object>(lua);
     }
 
 }

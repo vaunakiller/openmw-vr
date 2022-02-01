@@ -20,13 +20,17 @@ namespace Misc
     struct CallbackInfo;
 
     /// Manager of DrawCallbacks on an OSG camera.
-    /// The motivation behind this class is that OSG's draw callbacks are inherently thread unsafe.
-    /// Primarily, as the main thread has no way to synchronize with the draw thread when adding/removing draw callbacks, 
-    /// when adding a draw callback the callback must manually compare frame numbers to make sure it doesn't fire for the 
-    /// previous frame's draw traversals. This class automates this.
-    /// Secondly older versions of OSG that are still supported by openmw do not support nested callbacks. And the ones that do
-    /// make no attempt at synchronizing adding/removing nested callbacks, causing a potentially fatal race condition when needing
-    /// to dynamically add or remove a nested callback.
+    /// The motivation behind this class is that OSG's draw callbacks are unsafe and inherently unreliable.
+    ///  - OSG does not synchronize set/add/remove DrawCallback methods, making them thread unsafe. The update thread needs to manipulate
+    ///     callbacks without racing the draw thread. This class synchronizes access.
+    ///  - When adding a draw callback during the update traversals of the next frame, the callback must manually compare frame numbers to avoid firing for the 
+    ///     frame currently being drawn. This class automates this.
+    ///  - The set*DrawCallback calls do not respect nesting and will delete any other draw callbacks. Meaning your callback will
+    ///     (seemingly) randomly disappear. This class does not have this issue.
+    ///  - Your must manually implement oneshot callbacks. This class automates this. \sa addCallbackOneshot, waitCallbackOneshot
+    ///  - OSG draw callbacks provide no information about stereo. This class adds this information.
+    /// 
+    /// \note Only initial and final draw are implemented, as the render stage details would make implementing predraw/postdraw a bigger task.
     class CallbackManager
     {
 
@@ -34,27 +38,26 @@ namespace Misc
         enum class DrawStage
         {
             Initial = 0, 
-            PreDraw = 1, 
-            PostDraw = 2, 
-            Final = 3,
-            StagesMax = 4
+            Final = 1,
+            StagesMax = 2
         };
         enum class View
         {
             Left, Right, NotApplicable
         };
 
-        //! A draw callback that adds stereo information to the operator by means of the StereoDrawCallback::View enumerator.
-        //! When not rendering stereo, this enum will always be "NotApplicable".
+        //! A draw callback that adds stereo information to the operator, as the StereoDrawCallback::View enumerator.
+        //! When not rendering stereo or rendering stereo with multiview, this enum will always be "NotApplicable".
         //! 
-        //! When rendering stereo, this enum will correspond to the current draw traversal.
-        //! If the stereo method requires two traversals, one callback will be issued for each (one Left, and one Right).
-        //! If the stereo method has only one traversal (geometry shaders, ovr multiview, instancing, etc.) then the enum will always be "NotApplicable".
+        //! When rendering stereo and multiview is not enabled, this enum will correspond to the current draw traversal. 
+        //! One callback will be issued for each (one Left, and one Right).
         //! 
-        //! Note that every callback that changes behaviour with stereo or number of traversals should use the MwDrawCallback and vary behaviour by View,
+        //! Note that every callback whose behaviour changes with stereo or number of traversals should check the value of view,
         //! even if it does not care about Stereo.
-        //! For example, a common pattern is to use the FinalDrawCallback to sync on end of frame rendering. If activated on View::Left, this will be activated
-        //! when only one of two views has completed rendering.
+        //! For example, a common pattern is to use DrawStage::Final to sync on end of frame rendering. If run on View::Left, this will be
+        //! when only one of two views has completed rendering. Instead it should be run only when the value of view is not View::Left.
+        //! 
+        //! \note On oneshot callbacks: These are only consumed if the callback operator returns true.
 
         struct MwDrawCallback
         {

@@ -27,7 +27,7 @@ add_openmw_dir (mwrender
 
 add_openmw_dir (mwinput
     actions actionmanager bindingsmanager controllermanager controlswitch
-    inputmanagerimp mousemanager keyboardmanager sdlmappings sensormanager
+    inputmanagerimp mousemanager keyboardmanager sensormanager gyromanager
     )
 
 add_openmw_dir (mwgui
@@ -74,7 +74,7 @@ add_openmw_dir (mwworld
     actionequip timestamp actionalchemy cellstore actionapply actioneat
     store esmstore fallback actionrepair actionsoulgem livecellref actiondoor
     contentloader esmloader actiontrap cellreflist cellref weather projectilemanager
-    cellpreloader datetimemanager
+    cellpreloader datetimemanager groundcoverstore magiceffects
     )
 
 add_openmw_dir (mwphysics
@@ -133,7 +133,6 @@ set(OPENMW_LINK_TARGETS
     "osg-ffmpeg-videoplayer"
     "oics"
     components
-    ${LUA_LIBRARIES}
 )
 
 if (USE_SYSTEM_TINYXML)
@@ -160,8 +159,7 @@ endif()
 if(APPLE)
     set(BUNDLE_RESOURCES_DIR "${APP_BUNDLE_DIR}/Contents/Resources")
 
-    set(OPENMW_MYGUI_FILES_ROOT ${BUNDLE_RESOURCES_DIR})
-    set(OPENMW_SHADERS_ROOT ${BUNDLE_RESOURCES_DIR})
+    set(OPENMW_RESOURCES_ROOT ${BUNDLE_RESOURCES_DIR})
 
     add_subdirectory(../../files/ ${CMAKE_CURRENT_BINARY_DIR}/files)
 
@@ -223,6 +221,11 @@ if(BUILD_OPENMW)
             POST_BUILD
             COMMAND cp "${OpenMW_BINARY_DIR}/resources/version" "${BUNDLE_RESOURCES_DIR}/resources")
     endif(APPLE)
+    
+
+    if (MSVC AND CMAKE_VERSION VERSION_GREATER_EQUAL 3.16)
+        target_precompile_headers(openmw PRIVATE ${SOL_INCLUDE_DIR}/sol/sol.hpp)
+    endif ()
 
     if (WIN32)
         INSTALL(TARGETS openmw RUNTIME DESTINATION ".")
@@ -249,6 +252,10 @@ if(BUILD_OPENMW_VR)
         ${GAME} ${GAME_HEADER}
         ${APPLE_BUNDLE_RESOURCES}
     )
+
+    if (MSVC AND CMAKE_VERSION VERSION_GREATER_EQUAL 3.16)
+        target_precompile_headers(openmw_vr PRIVATE ${SOL_INCLUDE_DIR}/sol/sol.hpp)
+    endif ()
 
     configure_resource_file(${OpenMW_SOURCE_DIR}/files/xrcontrollersuggestions.xml
         "${OpenMW_BINARY_DIR}" "xrcontrollersuggestions.xml")

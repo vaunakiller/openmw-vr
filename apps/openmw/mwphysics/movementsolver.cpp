@@ -5,7 +5,7 @@
 #include <BulletCollision/CollisionShapes/btCollisionShape.h>
 #include <BulletCollision/CollisionShapes/btConvexShape.h>
 
-#include <components/esm/loadgmst.hpp>
+#include <components/esm3/loadgmst.hpp>
 #include <components/misc/convert.hpp>
 
 #include "../mwbase/world.hpp"
@@ -134,8 +134,6 @@ namespace MWPhysics
 
         // Adjust for collision mesh offset relative to actor's "location"
         // (doTrace doesn't take local/interior collision shape translation into account, so we have to do it on our own)
-        // for compatibility with vanilla assets, we have to derive this from the vertical half extent instead of from internal hull translation
-        // if not for this hack, the "correct" collision hull position would be physicActor->getScaledMeshTranslation()
         actor.mPosition.z() += actor.mHalfExtentsZ; // vanilla-accurate
 
         float swimlevel = actor.mSwimLevel + actor.mHalfExtentsZ;
@@ -252,6 +250,8 @@ namespace MWPhysics
                 remainingTime *= (1.0f-tracer.mFraction);
 
                 auto planeNormal = tracer.mPlaneNormal;
+                // need to know the unadjusted normal to handle certain types of seams properly
+                const auto origPlaneNormal = planeNormal;
 
                 // If we touched the ground this frame, and whatever we ran into is a wall of some sort,
                 // pretend that its collision normal is pointing horizontally
@@ -275,10 +275,11 @@ namespace MWPhysics
                 bool usedSeamLogic = false;
 
                 // check for the current and previous collision planes forming an acute angle; slide along the seam if they do
+                // for this, we want to use the original plane normal, or else certain types of geometry will snag
                 if(numTimesSlid > 0)
                 {
-                    auto dotA = lastSlideNormal * planeNormal;
-                    auto dotB = lastSlideNormalFallback * planeNormal;
+                    auto dotA = lastSlideNormal * origPlaneNormal;
+                    auto dotB = lastSlideNormalFallback * origPlaneNormal;
                     if(numTimesSlid <= 1) // ignore fallback normal if this is only the first or second slide
                         dotB = 1.0;
                     if(dotA <= 0.0 || dotB <= 0.0)
@@ -291,14 +292,14 @@ namespace MWPhysics
                             lastSlideNormal = lastSlideNormalFallback;
                         }
 
-                        auto constraintVector = bestNormal ^ planeNormal; // cross product
+                        auto constraintVector = bestNormal ^ origPlaneNormal; // cross product
                         if(constraintVector.length2() > 0) // only if it's not zero length
                         {
                             constraintVector.normalize();
                             newVelocity = project(velocity, constraintVector);
 
                             // version of surface rejection for acute crevices/seams
-                            auto averageNormal = bestNormal + planeNormal;
+                            auto averageNormal = bestNormal + origPlaneNormal;
                             averageNormal.normalize();
                             tracer.doTrace(actor.mCollisionObject, newPosition, newPosition + averageNormal*(sCollisionMargin*2.0), collisionWorld);
                             newPosition = (newPosition + tracer.mEndPos)/2.0;
@@ -309,27 +310,40 @@ namespace MWPhysics
                 }
                 // otherwise just keep the normal vector rejection
 
-                // if this isn't the first iteration, or if the first iteration is also the last iteration,
                 // move away from the collision plane slightly, if possible
                 // this reduces getting stuck in some concave geometry, like the gaps above the railings in some ald'ruhn buildings
                 // this is different from the normal collision margin, because the normal collision margin is along the movement path,
                 // but this is along the collision normal
-                if(!usedSeamLogic && (iterations > 0 || remainingTime < 0.01f))
+                if(!usedSeamLogic)
                 {
                     tracer.doTrace(actor.mCollisionObject, newPosition, newPosition + planeNormal*(sCollisionMargin*2.0), collisionWorld);
                     newPosition = (newPosition + tracer.mEndPos)/2.0;
                 }
 
-                // Do not allow sliding up steep slopes if there is gravity.
-                if (newPosition.z() >= swimlevel && !actor.mFlying && !isWalkableSlope(planeNormal))
-                    newVelocity.z() = std::min(newVelocity.z(), velocity.z());
+                // short circuit if we went backwards, but only if it was mostly horizontal and we're on the ground
+                if (seenGround && newVelocity * origVelocity <= 0.0f)
+                {
+                    auto perpendicular = newVelocity ^ origVelocity;
+                    if (perpendicular.length2() > 0.0f)
+                    {
+                        perpendicular.normalize();
+                        if (std::abs(perpendicular.z()) > 0.7071f)
+                            break;
+                    }
+                }
 
-                if (newVelocity * origVelocity <= 0.0f)
-                    break;
+                // Do not allow sliding up steep slopes if there is gravity.
+                // The purpose of this is to prevent air control from letting you slide up tall, unwalkable slopes.
+                // For that purpose, it is not necessary to do it when trying to slide along acute seams/crevices (i.e. usedSeamLogic)
+                // and doing so would actually break air control in some situations where vanilla allows air control.
+                // Vanilla actually allows you to slide up slopes as long as you're in the "walking" animation, which can be true even
+                // in the air, so allowing this for seams isn't a compatibility break.
+                if (newPosition.z() >= swimlevel && !actor.mFlying && !isWalkableSlope(planeNormal) && !usedSeamLogic)
+                    newVelocity.z() = std::min(newVelocity.z(), velocity.z());
 
                 numTimesSlid += 1;
                 lastSlideNormalFallback = lastSlideNormal;
-                lastSlideNormal = planeNormal;
+                lastSlideNormal = origPlaneNormal;
                 velocity = newVelocity;
             }
         }
@@ -449,8 +463,6 @@ namespace MWPhysics
             }
         }
 
-        // use vanilla-accurate collision hull position hack (do same hitbox offset hack as movement solver)
-        // if vanilla compatibility didn't matter, the "correct" collision hull position would be physicActor->getScaledMeshTranslation()
         const auto verticalHalfExtent = osg::Vec3f(0.0, 0.0, actor.mHalfExtentsZ);
 
         // use a 3d approximation of the movement vector to better judge player intent

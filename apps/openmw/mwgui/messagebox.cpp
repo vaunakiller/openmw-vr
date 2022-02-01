@@ -147,7 +147,6 @@ namespace MWGui
         return mInterMessageBoxe != nullptr;
     }
 
-
     bool MessageBoxManager::removeMessageBox (MessageBox *msgbox)
     {
         std::vector<MessageBox*>::iterator it;
@@ -161,6 +160,11 @@ namespace MWGui
             }
         }
         return false;
+    }
+
+    const std::vector<MessageBox*> MessageBoxManager::getActiveMessageBoxes()
+    {
+        return mMessageBoxes;
     }
 
     int MessageBoxManager::readPressedButton (bool reset)

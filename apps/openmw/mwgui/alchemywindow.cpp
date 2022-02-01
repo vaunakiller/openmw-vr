@@ -16,10 +16,10 @@
 #include "../mwmechanics/actorutil.hpp"
 
 #include "../mwworld/class.hpp"
-#include "../mwworld/esmstore.hpp"
 
 #include <MyGUI_Macros.h>
 #include <components/esm/records.hpp>
+#include <components/vr/vr.hpp>
 
 #include "inventoryitemmodel.hpp"
 #include "sortfilteritemmodel.hpp"
@@ -66,7 +66,7 @@ namespace MWGui
         getWidget(mFilterEdit, "FilterEdit");
         getWidget(mFilterButton, "FilterButton");
 
-        if (MWBase::Environment::get().getVrMode())
+        if (VR::getVR())
         {
 #ifdef USE_OPENXR
             mFilterListBox = new MWVR::VrListBox();

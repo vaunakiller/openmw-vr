@@ -4,8 +4,8 @@
 #include <components/debug/debuglog.hpp>
 
 namespace XR {
-    Swapchain::Swapchain(XrSwapchain swapchain, std::vector<uint64_t> images, uint32_t width, uint32_t height, uint32_t samples, uint32_t format)
-        : VR::Swapchain(width, height, samples, format, false)
+    Swapchain::Swapchain(XrSwapchain swapchain, std::vector<uint64_t> images, uint32_t width, uint32_t height, uint32_t samples, uint32_t format, uint32_t arraySize, uint32_t textureTarget)
+        : VR::Swapchain(width, height, samples, format, arraySize, textureTarget, images.size(), false)
         , mXrSwapchain(swapchain)
         , mImages(images)
     {
@@ -27,7 +27,7 @@ namespace XR {
             wait();
         }
 
-        return mImages[mAcquiredIndex];
+        return mImage = mImages[mAcquiredIndex];
     }
 
     void Swapchain::endFrame(osg::GraphicsContext* gc)
@@ -36,6 +36,7 @@ namespace XR {
         {
             release();
         }
+        mImage = 0;
     }
 
     void Swapchain::acquire()
@@ -43,8 +44,6 @@ namespace XR {
         XrSwapchainImageAcquireInfo acquireInfo{};
         acquireInfo.type = XR_TYPE_SWAPCHAIN_IMAGE_ACQUIRE_INFO;
         mIsAcquired = XR_SUCCEEDED(CHECK_XRCMD(xrAcquireSwapchainImage(mXrSwapchain, &acquireInfo, &mAcquiredIndex)));
-        //if (mIsIndexAcquired)
-        // TODO:   xr->xrResourceAcquired();
     }
 
     void Swapchain::wait()
@@ -59,13 +58,11 @@ namespace XR {
     {
         XrSwapchainImageReleaseInfo releaseInfo{};
         releaseInfo.type = XR_TYPE_SWAPCHAIN_IMAGE_RELEASE_INFO;
-        //mImages[mAcquiredIndex]->blit(gc, readBuffer, mConfig.offsetWidth, mConfig.offsetHeight);
 
         mIsReady = !XR_SUCCEEDED(CHECK_XRCMD(xrReleaseSwapchainImage(mXrSwapchain, &releaseInfo)));
         if (!mIsReady)
         {
             mIsAcquired = false;
-        // TODO:    xr->xrResourceReleased();
         }
     }
 

@@ -1,7 +1,7 @@
 #ifndef OPENMW_MWWORLD_CELLREF_H
 #define OPENMW_MWWORLD_CELLREF_H
 
-#include <components/esm/cellref.hpp>
+#include <components/esm3/cellref.hpp>
 
 namespace ESM
 {
@@ -37,9 +37,6 @@ namespace MWWorld
 
         // Id of object being referenced
         const std::string& getRefId() const { return mCellRef.mRefID; }
-
-        // Reference to ID of the object being referenced
-        const std::string& getRefIdRef() const { return mCellRef.mRefID; }  // TODO replace with getRefId
 
         // For doors - true if this door teleports to somewhere else, false
         // if it should open through animation.

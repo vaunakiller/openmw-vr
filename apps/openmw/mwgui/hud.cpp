@@ -16,7 +16,6 @@
 #include "../mwworld/class.hpp"
 #include "../mwworld/esmstore.hpp"
 
-#include "../mwmechanics/creaturestats.hpp"
 #include "../mwmechanics/npcstats.hpp"
 #include "../mwmechanics/actorutil.hpp"
 
@@ -85,7 +84,7 @@ namespace MWGui
         , mMinimap(nullptr)
         , mCrosshair(nullptr)
         , mCellNameBox(nullptr)
-        , mDrowningFrame(nullptr)
+        , mDrowningBar(nullptr)
         , mDrowningFlash(nullptr)
         , mHealthManaStaminaBaseLeft(0)
         , mWeapBoxBaseLeft(0)
@@ -129,6 +128,7 @@ namespace MWGui
         fatigueFrame->eventMouseButtonClick += MyGUI::newDelegate(this, &HUD::onHMSClicked);
 
         //Drowning bar
+        getWidget(mDrowningBar, "DrowningBar");
         getWidget(mDrowningFrame, "DrowningFrame");
         getWidget(mDrowning, "Drowning");
         getWidget(mDrowningFlash, "Flash");
@@ -234,7 +234,7 @@ namespace MWGui
 
     void HUD::setDrowningBarVisible(bool visible)
     {
-        mDrowningFrame->setVisible(visible);
+        mDrowningBar->setVisible(visible);
     }
 
     void HUD::onWorldClicked(MyGUI::Widget* _sender)
@@ -379,9 +379,6 @@ namespace MWGui
             mWeaponSpellBox->setPosition(mWeaponSpellBox->getPosition() + MyGUI::IntPoint(0,20));
         }
 
-        if (mIsDrowning)
-            mDrowningFlashTheta += dt * osg::PI*2;
-
         mSpellIcons->updateWidgets(mEffectBox, true);
 
         if (mEnemyActorId != -1 && mEnemyHealth->getVisible())
@@ -389,8 +386,13 @@ namespace MWGui
             updateEnemyHealthBar();
         }
 
+        if (mDrowningBar->getVisible())
+            mDrowningBar->setPosition(mMainWidget->getWidth()/2 - mDrowningFrame->getWidth()/2, mMainWidget->getTop());
+
         if (mIsDrowning)
         {
+            mDrowningFlashTheta += dt * osg::PI*2;
+
             float intensity = (cos(mDrowningFlashTheta) + 2.0f) / 3.0f;
 
             mDrowningFlash->setAlpha(intensity);

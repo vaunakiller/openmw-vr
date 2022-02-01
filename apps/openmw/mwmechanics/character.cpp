@@ -1953,7 +1953,7 @@ void CharacterController::update(float duration)
         bool flying = world->isFlying(mPtr);
         bool solid = world->isActorCollisionEnabled(mPtr);
         // Can't run and sneak while flying (see speed formula in Npc/Creature::getSpeed)
-        bool sneak = cls.getCreatureStats(mPtr).getStance(MWMechanics::CreatureStats::Stance_Sneak) && !flying;
+        bool sneak = cls.getCreatureStats(mPtr).getStance(MWMechanics::CreatureStats::Stance_Sneak) && !flying && !inwater;
         bool isrunning = cls.getCreatureStats(mPtr).getStance(MWMechanics::CreatureStats::Stance_Run) && !flying;
         CreatureStats &stats = cls.getCreatureStats(mPtr);
         Movement& movementSettings = cls.getMovementSettings(mPtr);
@@ -2070,7 +2070,7 @@ void CharacterController::update(float duration)
         vec.x() *= speed;
         vec.y() *= speed;
 
-        if(mHitState != CharState_None && mJumpState == JumpState_None)
+        if(mHitState != CharState_None && mHitState != CharState_Block && mJumpState == JumpState_None)
             vec = osg::Vec3f();
 
         CharacterState movestate = CharState_None;

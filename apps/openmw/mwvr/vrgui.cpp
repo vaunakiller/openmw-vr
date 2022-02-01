@@ -257,7 +257,7 @@ namespace MWVR
 
         // StatusHUD is always on left arm (until left-hand weapon support is added)
         // VirtualKeyboard is always opposite of the pointer
-        if (mLayerName == "StatusHUD" || (!leftPointer && mLayerName == "VirtualKeyboard"))
+        if (mLayerName == "HUD" || (!leftPointer && mLayerName == "VirtualKeyboard"))
         {
             orientation = osg::Quat(osg::PI_2, osg::Vec3(0, 0, 1)) * orientation;
         }
@@ -567,7 +567,7 @@ namespace MWVR
             oppositePointer,
             ""
         };
-        LayerConfig statusHUDConfig = LayerConfig
+        LayerConfig HUDConfig = LayerConfig
         {
             0,
             false, // side-by-side
@@ -603,7 +603,7 @@ namespace MWVR
         mLayerConfigs = std::map<std::string, LayerConfig>
         {
             {"DefaultConfig", defaultConfig},
-            {"StatusHUD", statusHUDConfig},
+            {"HUD", HUDConfig},
             {"Tooltip", popupConfig},
             {"JournalBooks", journalBooksConfig},
             {"InventoryCompanionWindow", inventoryCompanionWindowConfig},

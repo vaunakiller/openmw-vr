@@ -3,17 +3,25 @@
 stages:
   - build
 
-.Debian_Image:
+# https://blog.nimbleways.com/let-s-make-faster-gitlab-ci-cd-pipelines/
+variables:
+  FF_USE_NEW_SHELL_ESCAPE: "true"
+  FF_USE_FASTZIP: "true"
+  # These can be specified per job or per pipeline
+  ARTIFACT_COMPRESSION_LEVEL: "fast"
+  CACHE_COMPRESSION_LEVEL: "fast"
+
+.Ubuntu_Image:
   tags:
     - docker
     - linux
-  image: debian:bullseye
+  image: ubuntu:focal
   rules:
     - if: $CI_PIPELINE_SOURCE == "push"  
+  
 
-
-.Debian:
-  extends: .Debian_Image
+.Ubuntu:
+  extends: .Ubuntu_Image
   cache:
     paths:
     - apt-cache/
@@ -35,12 +43,12 @@ stages:
       - build/install/
 
 Clang_Tidy:
-  extends: .Debian_Image
+  extends: .Ubuntu_Image
   stage: build
   rules:
     - if: '$CI_PIPELINE_SOURCE == "schedule"'
   before_script:
-    - CI/install_debian_deps.sh gcc openmw-deps openmw-deps-dynamic clang-tidy clang openxr-deps
+    - CI/install_debian_deps.sh gcc openmw-deps openmw-deps-dynamic clang-tidy clang
   script:
     - CI/before_script.linux.sh
     - cd build
@@ -50,36 +58,43 @@ Clang_Tidy:
     CXX: clang++
     CI_CLANG_TIDY: 1
   timeout: 8h
+  artifacts:
+    paths: []
+    expire_in: 1 minute
 
 Coverity:
-  extends: .Debian_Image
+  extends: .Ubuntu_Image
   stage: build
   rules:
     - if: $CI_PIPELINE_SOURCE == "schedule"
   before_script:
-    - CI/install_debian_deps.sh gcc openmw-deps openmw-deps-dynamic coverity openxr-deps
+    - CI/install_debian_deps.sh clang openmw-deps openmw-deps-dynamic
     - curl -o /tmp/cov-analysis-linux64.tgz https://scan.coverity.com/download/linux64 --form project=$COVERITY_SCAN_PROJECT_NAME --form token=$COVERITY_SCAN_TOKEN
     - tar xfz /tmp/cov-analysis-linux64.tgz
   script:
     - CI/before_script.linux.sh
     # Remove the specific targets and build everything once we can do it under 3h
-    - cov-analysis-linux64-*/bin/cov-build --dir cov-int cmake --build build -- -j $(nproc) openmw esmtool bsatool niftest openmw-wizard openmw-launcher openmw-iniimporter openmw-essimporter
+    - cov-analysis-linux64-*/bin/cov-build --dir cov-int cmake --build build -- -j $(nproc) openmw esmtool bsatool niftest openmw-wizard openmw-launcher openmw-iniimporter openmw-essimporter openmw-navmeshtool openmw-cs
   after_script:
     - tar cfz cov-int.tar.gz cov-int
     - curl https://scan.coverity.com/builds?project=$COVERITY_SCAN_PROJECT_NAME
       --form token=$COVERITY_SCAN_TOKEN --form email=$GITLAB_USER_EMAIL
-      --form file=@cov-int.tar.gz --form version="`git describe --tags`"
-      --form description="`git describe --tags` / $CI_COMMIT_TITLE / $CI_COMMIT_REF_NAME:$CI_PIPELINE_ID"
+      --form file=@cov-int.tar.gz --form version="$CI_COMMIT_REF_NAME:$CI_COMMIT_SHORT_SHA"
+      --form description="CI_COMMIT_SHORT_SHA / $CI_COMMIT_TITLE / $CI_COMMIT_REF_NAME:$CI_PIPELINE_ID"
   variables:
-    CC: gcc
-    CXX: g++
+    CC: clang
+    CXX: clang++
+    CXXFLAGS: -O0
+  artifacts:
+    paths: 
+      - /builds/OpenMW/openmw/cov-int/build-log.txt
 
-Debian_GCC:
-  extends: .Debian
+Ubuntu_GCC:
+  extends: .Ubuntu
   cache:
-    key: Debian_GCC.v2
+    key: Ubuntu_GCC.v2
   before_script:
-    - CI/install_debian_deps.sh gcc openmw-deps openmw-deps-dynamic openxr-deps
+    - CI/install_debian_deps.sh gcc openmw-deps openmw-deps-dynamic
   variables:
     CC: gcc
     CXX: g++
@@ -87,51 +102,117 @@ Debian_GCC:
   # When CCache doesn't exist (e.g. first build on a fork), build takes more than 1h, which is the default for forks.
   timeout: 2h
 
-Debian_GCC_tests:
-  extends: Debian_GCC
+Ubuntu_GCC_tests:
+  extends: Ubuntu_GCC
   cache:
-    key: Debian_GCC_tests.v2
+    key: Ubuntu_GCC_tests.v3
   variables:
     CCACHE_SIZE: 1G
     BUILD_TESTS_ONLY: 1
+  artifacts:
+    paths: []
+    expire_in: 1 minute
 
-Debian_GCC_tests_Debug:
-  extends: Debian_GCC
+Ubuntu_GCC_tests_Debug:
+  extends: Ubuntu_GCC
   cache:
-    key: Debian_GCC_tests_Debug.v1
+    key: Ubuntu_GCC_tests_Debug.v1
   variables:
     CCACHE_SIZE: 1G
     BUILD_TESTS_ONLY: 1
     CMAKE_BUILD_TYPE: Debug
+  artifacts:
+    paths: []
+    expire_in: 1 minute
 
-#Debian_GCC_Static_Deps:
-#  extends: Debian_GCC
-#  cache:
-#    key: Debian_GCC_Static_Deps
-#    paths:
-#    - apt-cache/
-#    - ccache/
-#    - build/extern/fetched/
-#  before_script:
-#    - CI/install_debian_deps.sh gcc openmw-deps openmw-deps-static openxr-deps
-#  variables:
-#    CI_OPENMW_USE_STATIC_DEPS: 1
-#  timeout: 3h
-
-#Debian_GCC_Static_Deps_tests:
-#  extends: Debian_GCC_Static_Deps
-#  cache:
-#    key: Debian_GCC_Static_Deps_tests
-#  variables:
-#    CCACHE_SIZE: 1G
-#    BUILD_TESTS_ONLY: 1
-
-Debian_Clang:
-  extends: .Debian
-  before_script:
-    - CI/install_debian_deps.sh clang openmw-deps openmw-deps-dynamic openxr-deps
+Ubuntu_GCC_tests_asan:
+  extends: Ubuntu_GCC
   cache:
-    key: Debian_Clang.v2
+    key: Ubuntu_GCC_asan.v1
+  variables:
+    CCACHE_SIZE: 1G
+    BUILD_TESTS_ONLY: 1
+    CMAKE_BUILD_TYPE: Debug
+    CMAKE_CXX_FLAGS_DEBUG: -g -O1 -fno-omit-frame-pointer -fsanitize=address -fsanitize=pointer-compare -fsanitize=pointer-subtract -fsanitize=leak
+    CMAKE_EXE_LINKER_FLAGS: -fsanitize=address -fsanitize=pointer-compare -fsanitize=pointer-subtract -fsanitize=leak
+    ASAN_OPTIONS: halt_on_error=1:strict_string_checks=1:detect_stack_use_after_return=1:check_initialization_order=1:strict_init_order=1
+  artifacts:
+    paths: []
+    expire_in: 1 minute
+
+Ubuntu_GCC_tests_ubsan:
+  extends: Ubuntu_GCC
+  cache:
+    key: Ubuntu_GCC_ubsan.v1
+  variables:
+    CCACHE_SIZE: 1G
+    BUILD_TESTS_ONLY: 1
+    CMAKE_BUILD_TYPE: Debug
+    CMAKE_CXX_FLAGS_DEBUG: -g -O0 -fsanitize=undefined
+    UBSAN_OPTIONS: print_stacktrace=1:halt_on_error=1
+  artifacts:
+    paths: []
+    expire_in: 1 minute
+
+Ubuntu_GCC_tests_tsan:
+  extends: Ubuntu_GCC
+  cache:
+    key: Ubuntu_GCC_tsan.v1
+  variables:
+    CCACHE_SIZE: 1G
+    BUILD_TESTS_ONLY: 1
+    CMAKE_BUILD_TYPE: Debug
+    CMAKE_CXX_FLAGS_DEBUG: -g -O2 -fno-omit-frame-pointer -fno-optimize-sibling-calls -fsanitize=thread -fPIE
+    CMAKE_EXE_LINKER_FLAGS: -pthread -pie -fsanitize=thread
+    TSAN_OPTIONS: second_deadlock_stack=1:halt_on_error=1
+  artifacts:
+    paths: []
+    expire_in: 1 minute
+
+Ubuntu_Static_Deps:
+  extends: Ubuntu_Clang
+  rules:
+    - if: $CI_PIPELINE_SOURCE == "push"  
+      changes:
+        - "**/CMakeLists.txt"
+        - "cmake/**/*"
+        - "CI/**/*"
+        - ".gitlab-ci.yml"
+  cache:
+    key: Ubuntu_Static_Deps.V1
+    paths:
+      - apt-cache/
+      - ccache/
+      - build/extern/fetched/
+  before_script:
+    - CI/install_debian_deps.sh clang openmw-deps openmw-deps-static
+  variables:
+    CI_OPENMW_USE_STATIC_DEPS: 1
+    CC: clang
+    CXX: clang++
+    CXXFLAGS: -O0
+  timeout: 3h
+
+Ubuntu_Static_Deps_tests:
+  extends: Ubuntu_Static_Deps
+  cache:
+    key: Ubuntu_Static_Deps_tests.V1
+  variables:
+    CCACHE_SIZE: 1G
+    BUILD_TESTS_ONLY: 1
+    CC: clang
+    CXX: clang++
+    CXXFLAGS: -O0
+  artifacts:
+    paths: []
+    expire_in: 1 minute
+
+Ubuntu_Clang:
+  extends: .Ubuntu
+  before_script:
+    - CI/install_debian_deps.sh clang openmw-deps openmw-deps-dynamic
+  cache:
+    key: Ubuntu_Clang.v2
   variables:
     CC: clang
     CXX: clang++
@@ -139,74 +220,78 @@ Debian_Clang:
   # When CCache doesn't exist (e.g. first build on a fork), build takes more than 1h, which is the default for forks.
   timeout: 2h
 
-Debian_Clang_tests:
-  extends: Debian_Clang
+Ubuntu_Clang_tests:
+  extends: Ubuntu_Clang
   cache:
-    key: Debian_Clang_tests.v2
+    key: Ubuntu_Clang_tests.v3
   variables:
     CCACHE_SIZE: 1G
     BUILD_TESTS_ONLY: 1
+  artifacts:
+    paths: []
+    expire_in: 1 minute
 
-Debian_Clang_tests_Debug:
-  extends: Debian_Clang
+Ubuntu_Clang_tests_Debug:
+  extends: Ubuntu_Clang
   cache:
-    key: Debian_Clang_tests_Debug.v1
+    key: Ubuntu_Clang_tests_Debug.v1
   variables:
     CCACHE_SIZE: 1G
     BUILD_TESTS_ONLY: 1
     CMAKE_BUILD_TYPE: Debug
+  artifacts:
+    paths: []
+    expire_in: 1 minute
 
-#.MacOS:
-#  image: macos-11-xcode-12
-#  tags:
-#    - shared-macos-amd64
-#  stage: build
-#  only:
-#    variables:
-#      - $CI_PROJECT_ID == "7107382"
-#      - $CI_PIPELINE_SOURCE == "push"    
-#  cache:
-#    paths:
-#    - ccache/
-#  script:
-#    - rm -fr build  # remove the build directory
-#    - CI/before_install.osx.sh
-#    - export CCACHE_BASEDIR="$(pwd)"
-#    - export CCACHE_DIR="$(pwd)/ccache"
-#    - mkdir -pv "${CCACHE_DIR}"
-#    - ccache -z -M "${CCACHE_SIZE}"
-#    - CI/before_script.osx.sh
-#    - cd build; make -j $(sysctl -n hw.logicalcpu) package
-#    - for dmg in *.dmg; do mv "$dmg" "${dmg%.dmg}_${CI_COMMIT_REF_NAME}_${CI_JOB_ID}.dmg"; done
-#    - ccache -s
-#  artifacts:
-#    paths:
-#      - build/OpenMW-*.dmg
-#      - "build/**/*.log"
-#
-#macOS11_Xcode12:
-#  extends: .MacOS
-#  image: macos-11-xcode-12
-#  cache:
-#    key: macOS11_Xcode12.v1
-#  variables:
-#    CCACHE_SIZE: 3G
-#
-#macOS10.15_Xcode11:
-#  extends: .MacOS
-#  image: macos-10.15-xcode-11
-#  allow_failure: true
-#  cache:
-#    key: macOS10.15_Xcode11.v1
-#  variables:
-#    CCACHE_SIZE: 3G
+.MacOS:
+  image: macos-11-xcode-12
+  tags:
+    - shared-macos-amd64
+  stage: build
+  only:
+    variables:
+      - $CI_PROJECT_ID == "7107382" && $CI_PIPELINE_SOURCE == "push"
+  cache:
+    paths:
+    - ccache/
+  script:
+    - rm -fr build  # remove the build directory
+    - CI/before_install.osx.sh
+    - export CCACHE_BASEDIR="$(pwd)"
+    - export CCACHE_DIR="$(pwd)/ccache"
+    - mkdir -pv "${CCACHE_DIR}"
+    - ccache -z -M "${CCACHE_SIZE}"
+    - CI/before_script.osx.sh
+    - cd build; make -j $(sysctl -n hw.logicalcpu) package
+    - for dmg in *.dmg; do mv "$dmg" "${dmg%.dmg}_${CI_COMMIT_REF_NAME##*/}_${CI_JOB_ID}.dmg"; done
+    - ccache -s
+  artifacts:
+    paths:
+      - build/OpenMW-*.dmg
+      - "build/**/*.log"
+
+macOS11_Xcode12:
+  extends: .MacOS
+  image: macos-11-xcode-12
+  cache:
+    key: macOS11_Xcode12.v1
+  variables:
+    CCACHE_SIZE: 3G
+
+macOS12_Xcode13:
+  extends: .MacOS
+  image: macos-12-xcode-13
+  cache:
+    key: macOS12_Xcode13.v1
+  variables:
+    CCACHE_SIZE: 3G
 
 variables: &engine-targets
-  targets: "openmw_vr,openmw-essimporter,openmw-iniimporter,openmw-launcher,openmw-wizard"
+  targets: "openmw,openmw-iniimporter,openmw-launcher,openmw-wizard,openmw-navmeshtool"
   package: "Engine"
 
 variables: &cs-targets
-  targets: "openmw-cs,bsatool,esmtool,niftest"
+  targets: "openmw-cs,bsatool,esmtool,niftest,openmw-essimporter"
   package: "CS"
 
 variables: &tests-targets
@@ -330,6 +415,9 @@ Windows_Ninja_Tests_RelWithDebInfo:
     config: "RelWithDebInfo"
     # Gitlab can't successfully execute following binaries due to unknown reason
     # executables: "openmw_test_suite.exe,openmw_detournavigator_navmeshtilescache_benchmark.exe"
+  artifacts:
+    paths: []
+    expire_in: 1 minute
 
 .Windows_MSBuild_Base:
   tags:
@@ -396,21 +484,16 @@ Windows_Ninja_Tests_RelWithDebInfo:
     - MSVC2019_64/*/*/*/*/*/*/*.log
     - MSVC2019_64/*/*/*/*/*/*/*/*.log
 
-Daily_Windows_MSBuild_Engine_Release:on-schedule:
-  extends:
-    - .Windows_MSBuild_Base
-  variables:
-    <<: *engine-targets
-    config: "Release"
-  rules:
-    - if: $CI_PIPELINE_SOURCE == "schedule"
-
 Windows_MSBuild_Engine_Release:
   extends:
     - .Windows_MSBuild_Base
   variables:
     <<: *engine-targets
     config: "Release"
+  rules:
+    # run this for both pushes and schedules so 'latest successful pipeline for branch' always includes it
+    - if: $CI_PIPELINE_SOURCE == "push"
+    - if: $CI_PIPELINE_SOURCE == "schedule" 
 
 Windows_MSBuild_Engine_Debug:
   extends:
@@ -432,6 +515,10 @@ Windows_MSBuild_CS_Release:
   variables:
     <<: *cs-targets
     config: "Release"
+  rules:
+    # run this for both pushes and schedules so 'latest successful pipeline for branch' always includes it
+    - if: $CI_PIPELINE_SOURCE == "push"
+    - if: $CI_PIPELINE_SOURCE == "schedule" 
 
 Windows_MSBuild_CS_Debug:
   extends:
@@ -455,43 +542,42 @@ Windows_MSBuild_Tests_RelWithDebInfo:
     config: "RelWithDebInfo"
     # Gitlab can't successfully execute following binaries due to unknown reason
     # executables: "openmw_test_suite.exe,openmw_detournavigator_navmeshtilescache_benchmark.exe"
+  artifacts:
+    paths: []
+    expire_in: 1 minute
 
-#Debian_AndroidNDK_arm64-v8a:
-#  tags:
-#    - linux
-#  image: debian:bullseye
-#  rules:
-#    - if: $CI_PIPELINE_SOURCE == "push"  
-#  variables:
-#    CCACHE_SIZE: 3G
-#  cache:
-#    key: Debian_AndroidNDK_arm64-v8a.v3
-#    paths:
-#      - apt-cache/
-#      - ccache/
-#      - build/extern/fetched/
-#  before_script:
-#    - export APT_CACHE_DIR=`pwd`/apt-cache && mkdir -pv $APT_CACHE_DIR
-#    - echo "deb http://deb.debian.org/debian unstable main contrib" > /etc/apt/sources.list
-#    - echo "google-android-ndk-installer google-android-installers/mirror select https://dl.google.com" | debconf-set-selections
-#    - apt-get update -yq
-#    - apt-get -q -o dir::cache::archives="$APT_CACHE_DIR" install -y cmake ccache curl unzip git build-essential google-android-ndk-installer
-#  stage: build
-#  script:
-#    - export CCACHE_BASEDIR="`pwd`"
-#    - export CCACHE_DIR="`pwd`/ccache" && mkdir -pv "$CCACHE_DIR"
-#    - ccache -z -M "${CCACHE_SIZE}"
-#    - CI/before_install.android.sh
-#    - CI/before_script.android.sh
-#    - cd build
-#    - cmake --build . -- -j $(nproc)
-#    - cmake --install .
-#    - ccache -s
-#  artifacts:
-#    paths:
-#      - build/install/
-#  # When CCache doesn't exist (e.g. first build on a fork), build takes more than 1h, which is the default for forks.
-#  timeout: 1h30m
+Ubuntu_AndroidNDK_arm64-v8a:
+  tags:
+    - linux
+  image: psi29a/android-ndk:focal-ndk22
+  rules:
+    - if: $CI_PIPELINE_SOURCE == "push"  
+  variables:
+    CCACHE_SIZE: 3G
+  cache:
+    key: Ubuntu__Focal_AndroidNDK_r22b_arm64-v8a.v2
+    paths:
+      - apt-cache/
+      - ccache/
+      - build/extern/fetched/
+  before_script:
+    - CI/install_debian_deps.sh gcc
+  stage: build
+  script:
+    - export CCACHE_BASEDIR="`pwd`"
+    - export CCACHE_DIR="`pwd`/ccache" && mkdir -pv "$CCACHE_DIR"
+    - ccache -z -M "${CCACHE_SIZE}"
+    - CI/before_install.android.sh
+    - CI/before_script.android.sh
+    - cd build
+    - cmake --build . -- -j $(nproc)
+    - cmake --install .
+    - ccache -s
+  artifacts:
+    paths:
+      - build/install/
+  # When CCache doesn't exist (e.g. first build on a fork), build takes more than 1h, which is the default for forks.
+  timeout: 1h30m
 
 FindMissingMergeRequests:
   image: python:latest

@@ -30,9 +30,9 @@ namespace XR
         int64_t selectColorFormat(int64_t preferredFormat);
         int64_t selectDepthFormat(int64_t preferredFormat);
         int64_t selectFormat(int64_t preferredFormat, const std::vector<int64_t>& requestedFormats);
-        void eraseFormat(int64_t format);
-        bool runtimeSupportsFormat(int64_t format) const;
-        std::vector<int64_t> mSwapchainFormats{};
+        
+        std::vector<GLenum> supportedSwapchainFormatsGL() const;
+        std::vector<int64_t> supportedSwapchainFormatsDX() const;
 
         VR::Swapchain* createSwapchain(uint32_t width, uint32_t height, uint32_t samples, uint32_t arraySize, VR::SwapchainUse use, const std::string& name, int64_t preferredFormat = 0);
 
@@ -40,9 +40,10 @@ namespace XR
         bool selectDirectX();
         bool selectOpenGL();
 
-
         std::unique_ptr< PlatformPrivate > mPrivate;
         std::shared_ptr<VR::DirectXWGLInterop> mDxInterop = nullptr;
+        std::vector<int64_t> mSwapchainFormatsDX;
+        std::vector<GLenum> mSwapchainFormatsGL;
     };
 }
 

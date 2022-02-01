@@ -4,7 +4,7 @@
 
 #include <components/debug/debuglog.hpp>
 #include <components/misc/rng.hpp>
-#include <components/esm/aisequence.hpp>
+#include <components/esm3/aisequence.hpp>
 #include <components/detournavigator/navigatorutils.hpp>
 #include <components/misc/coordinateconverter.hpp>
 
@@ -105,7 +105,7 @@ namespace MWMechanics
     }
 
     AiWander::AiWander(int distance, int duration, int timeOfDay, const std::vector<unsigned char>& idle, bool repeat):
-        TypedAiPackage<AiWander>(makeDefaultOptions().withRepeat(repeat)),
+        TypedAiPackage<AiWander>(repeat),
         mDistance(std::max(0, distance)),
         mDuration(std::max(0, duration)),
         mRemainingDuration(duration), mTimeOfDay(timeOfDay),

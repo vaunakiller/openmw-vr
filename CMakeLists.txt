@@ -3,6 +3,8 @@ cmake_minimum_required(VERSION 3.1.0)
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
+include(GNUInstallDirs)
+
 # for link time optimization, remove if cmake version is >= 3.9
 if(POLICY CMP0069) # LTO
   cmake_policy(SET CMP0069 NEW)
@@ -38,6 +40,7 @@ option(BUILD_OPENMW_VR          "Build VR support using OpenXR" ON)
 option(BUILD_WITH_CODE_COVERAGE "Enable code coverage with gconv" OFF)
 option(BUILD_UNITTESTS          "Enable Unittests with Google C++ Unittest" OFF)
 option(BUILD_BENCHMARKS         "Build benchmarks with Google Benchmark" OFF)
+option(BUILD_NAVMESHTOOL        "Build navmesh tool" ON)
 
 set(OpenGL_GL_PREFERENCE LEGACY)  # Use LEGACY as we use GL2; GLNVD is for GL3 and up.
 
@@ -152,6 +155,8 @@ option(RECASTNAVIGATION_STATIC "Build recastnavigation static libraries" ${_reca
 
 option(OPENMW_USE_SYSTEM_SQLITE3 "Use system provided SQLite3 library" ON)
 
+option(OPENMW_USE_SYSTEM_BENCHMARK "Use system Google Benchmark library." OFF)
+
 option(OPENMW_UNITY_BUILD "Use fewer compilation units to speed up compile time" FALSE)
 option(OPENMW_LTO_BUILD "Build OpenMW with Link-Time Optimization (Needs ~2GB of RAM)" OFF)
 
@@ -167,18 +172,27 @@ option(OPENMW_OSX_DEPLOYMENT OFF)
 
 if (MSVC)
     option(OPENMW_MP_BUILD "Build OpenMW with /MP flag" OFF)
+    if (OPENMW_MP_BUILD)
+        add_compile_options(/MP)
+    endif()
+
+    # \bigobj is required:
+    #  1) for OPENMW_UNITY_BUILD;
+    #  2) to compile lua bindings in components, openmw and tests, because sol3 is heavily templated.
+    # there should be no relevant downsides to having it on:
+    # https://docs.microsoft.com/en-us/cpp/build/reference/bigobj-increase-number-of-sections-in-dot-obj-file
+    add_compile_options(/bigobj)
 endif()
 
 # Set up common paths
 if (APPLE)
-    set(MORROWIND_DATA_FILES "./data" CACHE PATH "location of Morrowind data files")
     set(OPENMW_RESOURCE_FILES "../Resources/resources" CACHE PATH "location of OpenMW resources files")
 elseif(UNIX)
     # Paths
     SET(BINDIR "${CMAKE_INSTALL_PREFIX}/bin" CACHE PATH "Where to install binaries")
     SET(LIBDIR "${CMAKE_INSTALL_PREFIX}/lib${LIB_SUFFIX}" CACHE PATH "Where to install libraries")
-    SET(DATAROOTDIR "${CMAKE_INSTALL_PREFIX}/share" CACHE PATH "Sets the root of data directories to a non-default location")
-    SET(GLOBAL_DATA_PATH "${DATAROOTDIR}/games/" CACHE PATH "Set data path prefix")
+    SET(DATAROOTDIR "${CMAKE_INSTALL_DATAROOTDIR}" CACHE PATH "Sets the root of data directories to a non-default location")
+    SET(GLOBAL_DATA_PATH "${CMAKE_INSTALL_PREFIX}/share/games/" CACHE PATH "Set data path prefix")
     SET(DATADIR "${GLOBAL_DATA_PATH}/openmw" CACHE PATH "Sets the openmw data directories to a non-default location")
     SET(ICONDIR "${DATAROOTDIR}/pixmaps" CACHE PATH "Set icon dir")
     SET(LICDIR "${DATAROOTDIR}/licenses/openmw" CACHE PATH "Sets the openmw license directory to a non-default location.")
@@ -189,10 +203,8 @@ elseif(UNIX)
     ENDIF()
     SET(SYSCONFDIR "${GLOBAL_CONFIG_PATH}/openmw" CACHE PATH "Set config dir")
 
-    set(MORROWIND_DATA_FILES "${DATADIR}/data" CACHE PATH "location of Morrowind data files")
     set(OPENMW_RESOURCE_FILES "${DATADIR}/resources" CACHE PATH "location of OpenMW resources files")
 else()
-    set(MORROWIND_DATA_FILES "data" CACHE PATH "location of Morrowind data files")
     set(OPENMW_RESOURCE_FILES "resources" CACHE PATH "location of OpenMW resources files")
 endif(APPLE)
 
@@ -411,7 +423,7 @@ set(Boost_NO_BOOST_CMAKE ON)
 
 find_package(Boost 1.6.2 REQUIRED COMPONENTS ${BOOST_COMPONENTS} OPTIONAL_COMPONENTS ${BOOST_OPTIONAL_COMPONENTS})
 if(OPENMW_USE_SYSTEM_MYGUI)
-    find_package(MyGUI 3.2.2 REQUIRED)
+    find_package(MyGUI 3.4.1 REQUIRED)
 endif()
 find_package(SDL2 2.0.9 REQUIRED)
 find_package(OpenAL REQUIRED)
@@ -427,7 +439,8 @@ else(USE_LUAJIT)
 endif(USE_LUAJIT)
 
 # C++ library binding to Lua
-set(SOL_INCLUDE_DIRS ${OpenMW_SOURCE_DIR}/extern/sol3.2.2 ${OpenMW_SOURCE_DIR}/extern/sol_config)
+set(SOL_INCLUDE_DIR ${OpenMW_SOURCE_DIR}/extern/sol3.2.2)
+set(SOL_CONFIG_DIR ${OpenMW_SOURCE_DIR}/extern/sol_config)
 
 include_directories(
     BEFORE SYSTEM
@@ -439,7 +452,8 @@ include_directories(
     ${OPENGL_INCLUDE_DIR}
     ${BULLET_INCLUDE_DIRS}
     ${LUA_INCLUDE_DIR}
-    ${SOL_INCLUDE_DIRS}
+    ${SOL_INCLUDE_DIR}
+    ${SOL_CONFIG_DIR}
 )
 
 link_directories(${SDL2_LIBRARY_DIRS} ${Boost_LIBRARY_DIRS})
@@ -456,9 +470,8 @@ if (APPLE)
         "${APP_BUNDLE_DIR}/Contents/Resources/OpenMW.icns" COPYONLY)
 endif (APPLE)
 
-if (NOT APPLE)
-    set(OPENMW_MYGUI_FILES_ROOT ${OpenMW_BINARY_DIR})
-    set(OPENMW_SHADERS_ROOT ${OpenMW_BINARY_DIR})
+if (NOT APPLE)  # this is modified for macOS use later in "apps/open[mw|cs]/CMakeLists.txt"
+    set(OPENMW_RESOURCES_ROOT ${OpenMW_BINARY_DIR})
 endif ()
 
 add_subdirectory(files/)
@@ -618,12 +631,12 @@ if (BUILD_BENCHMARKS)
   add_subdirectory(apps/benchmarks)
 endif()
 
+if (BUILD_NAVMESHTOOL)
+  add_subdirectory(apps/navmeshtool)
+endif()
+
 if (WIN32)
   if (MSVC)
-    if (OPENMW_MP_BUILD)
-        set( MT_BUILD "/MP")
-    endif()
-
     foreach( OUTPUTCONFIG ${CMAKE_CONFIGURATION_TYPES} )
         string( TOUPPER ${OUTPUTCONFIG} OUTPUTCONFIG )
         set( CMAKE_RUNTIME_OUTPUT_DIRECTORY_${OUTPUTCONFIG} "$(SolutionDir)$(Configuration)" )
@@ -689,42 +702,39 @@ if (WIN32)
         set(WARNINGS "${WARNINGS} /wd${d}")
     endforeach(d)
 
-    set_target_properties(components PROPERTIES COMPILE_FLAGS "${WARNINGS} ${MT_BUILD}")
-    set_target_properties(osg-ffmpeg-videoplayer PROPERTIES COMPILE_FLAGS "${WARNINGS} ${MT_BUILD}")
+    set_target_properties(components PROPERTIES COMPILE_FLAGS "${WARNINGS}")
+    set_target_properties(osg-ffmpeg-videoplayer PROPERTIES COMPILE_FLAGS "${WARNINGS}")
     
     if (MSVC_VERSION GREATER_EQUAL 1915 AND MSVC_VERSION LESS 1920)
         target_compile_definitions(components INTERFACE _ENABLE_EXTENDED_ALIGNED_STORAGE)
     endif()
 
     if (BUILD_BSATOOL)
-        set_target_properties(bsatool PROPERTIES COMPILE_FLAGS "${WARNINGS} ${MT_BUILD}")
+        set_target_properties(bsatool PROPERTIES COMPILE_FLAGS "${WARNINGS}")
     endif()
 
     if (BUILD_ESMTOOL)
-        set_target_properties(esmtool PROPERTIES COMPILE_FLAGS "${WARNINGS} ${MT_BUILD}")
+        set_target_properties(esmtool PROPERTIES COMPILE_FLAGS "${WARNINGS}")
     endif()
 
     if (BUILD_ESSIMPORTER)
-        set_target_properties(openmw-essimporter PROPERTIES COMPILE_FLAGS "${WARNINGS} ${MT_BUILD}")
+        set_target_properties(openmw-essimporter PROPERTIES COMPILE_FLAGS "${WARNINGS}")
     endif()
 
     if (BUILD_LAUNCHER)
-        set_target_properties(openmw-launcher PROPERTIES COMPILE_FLAGS "${WARNINGS} ${MT_BUILD}")
+        set_target_properties(openmw-launcher PROPERTIES COMPILE_FLAGS "${WARNINGS}")
     endif()
 
     if (BUILD_MWINIIMPORTER)
-        set_target_properties(openmw-iniimporter PROPERTIES COMPILE_FLAGS "${WARNINGS} ${MT_BUILD}")
+        set_target_properties(openmw-iniimporter PROPERTIES COMPILE_FLAGS "${WARNINGS}")
     endif()
 
     if (BUILD_OPENCS)
-        set_target_properties(openmw-cs PROPERTIES COMPILE_FLAGS "${WARNINGS} ${MT_BUILD}")
+        set_target_properties(openmw-cs PROPERTIES COMPILE_FLAGS "${WARNINGS}")
     endif()
 
     if (BUILD_OPENMW)
-        # \bigobj is required:
-        #  1) for OPENMW_UNITY_BUILD;
-        #  2) to compile lua bindings, because sol3 is heavily templated.
-        set_target_properties(openmw PROPERTIES COMPILE_FLAGS "${WARNINGS} ${MT_BUILD} /bigobj")
+        set_target_properties(openmw PROPERTIES COMPILE_FLAGS "${WARNINGS}")
     endif()
 
     if (BUILD_OPENMW_VR)
@@ -736,11 +746,19 @@ if (WIN32)
     endif()
 
     if (BUILD_WIZARD)
-        set_target_properties(openmw-wizard PROPERTIES COMPILE_FLAGS "${WARNINGS} ${MT_BUILD}")
+        set_target_properties(openmw-wizard PROPERTIES COMPILE_FLAGS "${WARNINGS}")
+    endif()
+
+    if (BUILD_UNITTESTS)
+        set_target_properties(openmw_test_suite PROPERTIES COMPILE_FLAGS "${WARNINGS}")
     endif()
 
     if (BUILD_BENCHMARKS)
-        set_target_properties(openmw_detournavigator_navmeshtilescache_benchmark PROPERTIES COMPILE_FLAGS "${WARNINGS} ${MT_BUILD}")
+        set_target_properties(openmw_detournavigator_navmeshtilescache_benchmark PROPERTIES COMPILE_FLAGS "${WARNINGS}")
+    endif()
+
+    if (BUILD_NAVMESHTOOL)
+        set_target_properties(openmw-navmeshtool PROPERTIES COMPILE_FLAGS "${WARNINGS}")
     endif()
   endif(MSVC)
 
@@ -750,8 +768,10 @@ if (WIN32)
 endif()
 
 if (BUILD_OPENMW AND APPLE)
-    # Without these flags LuaJit crashes on startup on OSX
-    set_target_properties(openmw PROPERTIES LINK_FLAGS "-pagezero_size 10000 -image_base 100000000")
+    if (USE_LUAJIT)
+        # Without these flags LuaJit crashes on startup on OSX
+        set_target_properties(openmw PROPERTIES LINK_FLAGS "-pagezero_size 10000 -image_base 100000000")
+    endif(USE_LUAJIT)
     target_compile_definitions(components PRIVATE GL_SILENCE_DEPRECATION=1)
     target_compile_definitions(openmw PRIVATE GL_SILENCE_DEPRECATION=1)
 endif()
@@ -983,6 +1003,9 @@ elseif(NOT APPLE)
         IF(BUILD_WIZARD)
             INSTALL(PROGRAMS "${INSTALL_SOURCE}/openmw-wizard" DESTINATION "${BINDIR}" )
         ENDIF(BUILD_WIZARD)
+        if(BUILD_NAVMESHTOOL)
+            install(PROGRAMS "${INSTALL_SOURCE}/openmw-navmeshtool" DESTINATION "${BINDIR}" )
+        endif()
 
         # Install licenses
         INSTALL(FILES "files/mygui/DejaVuFontLicense.txt" DESTINATION "${LICDIR}" )

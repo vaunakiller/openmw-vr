@@ -2,8 +2,8 @@
 
 #include <optional>
 
-#include <components/esm/esmreader.hpp>
-#include <components/esm/esmwriter.hpp>
+#include <components/esm3/esmreader.hpp>
+#include <components/esm3/esmwriter.hpp>
 
 #include <components/sceneutil/positionattitudetransform.hpp>
 #include <components/debug/debuglog.hpp>
@@ -440,6 +440,23 @@ namespace MWMechanics
             float deltaAngle = Misc::normalizeAngle(angle - actor.getRefData().getPosition().rot[2]);
             if (!mSmoothMovement || std::abs(deltaAngle) > osg::DegreesToRadians(60.f))
                 actorState.setTurningToPlayer(true);
+        }
+    }
+
+    void Actors::stopCombat(const MWWorld::Ptr& ptr)
+    {
+        auto& ai = ptr.getClass().getCreatureStats(ptr).getAiSequence();
+        std::vector<MWWorld::Ptr> targets;
+        if(ai.getCombatTargets(targets))
+        {
+            std::set<MWWorld::Ptr> allySet;
+            getActorsSidingWith(ptr, allySet);
+            allySet.insert(ptr);
+            std::vector<MWWorld::Ptr> allies(allySet.begin(), allySet.end());
+            for(const auto& ally : allies)
+                ally.getClass().getCreatureStats(ally).getAiSequence().stopCombat(targets);
+            for(const auto& target : targets)
+                target.getClass().getCreatureStats(target).getAiSequence().stopCombat(allies);
         }
     }
 
@@ -979,7 +996,7 @@ namespace MWMechanics
                     // Calm witness down
                     if (ptr.getClass().isClass(ptr, "Guard"))
                         creatureStats.getAiSequence().stopPursuit();
-                    creatureStats.getAiSequence().stopCombat();
+                    stopCombat(ptr);
 
                     // Reset factors to attack
                     creatureStats.setAttacked(false);
@@ -1598,6 +1615,7 @@ namespace MWMechanics
 
             if (playerCharacter)
             {
+                MWBase::Environment::get().getWorld()->applyDeferredPreviewRotationToPlayer(duration);
                 playerCharacter->update(duration);
                 playerCharacter->setVisibility(1.f);
             }
@@ -1966,7 +1984,7 @@ namespace MWMechanics
             if (stats.isDead())
                 continue;
 
-            // An actor counts as siding with this actor if Follow or Escort is the current AI package, or there are only Combat and Wander packages before the Follow/Escort package
+            // An actor counts as siding with this actor if Follow or Escort is the current AI package, or there are only Wander packages before the Follow/Escort package
             // Actors that are targeted by this actor's Follow or Escort packages also side with them
             for (const auto& package : stats.getAiSequence())
             {
@@ -1982,7 +2000,7 @@ namespace MWMechanics
                     }
                     break;
                 }
-                else if (package->getTypeId() != AiPackageTypeId::Combat && package->getTypeId() != AiPackageTypeId::Wander)
+                else if (package->getTypeId() > AiPackageTypeId::Wander && package->getTypeId() <= AiPackageTypeId::Activate) // Don't count "fake" package types
                     break;
             }
         }

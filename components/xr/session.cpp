@@ -8,6 +8,7 @@
 #include <components/vr/layer.hpp>
 
 #include <cassert>
+#include <sstream>
 
 namespace XR
 {
@@ -582,11 +583,6 @@ namespace XR
         }
 
         return configs;
-    }
-
-    bool Session::runtimeSupportsFormat(int64_t format) const
-    {
-        return Instance::instance().platform().runtimeSupportsFormat(format);
     }
 }
 

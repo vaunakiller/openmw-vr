@@ -10,6 +10,7 @@
 #include <stack>
 #include <vector>
 
+#include <osg/Vec4>
 #include <osg/ref_ptr>
 
 #include "../mwbase/windowmanager.hpp"
@@ -194,6 +195,7 @@ namespace MWGui
     MWGui::CountDialog* getCountDialog() override;
     MWGui::ConfirmationDialog* getConfirmationDialog() override;
     MWGui::TradeWindow* getTradeWindow() override;
+    const std::vector<MWGui::MessageBox*> getActiveMessageBoxes() override;
 
     /// Make the player use an item, while updating GUI state accordingly
     void useItem(const MWWorld::Ptr& item, bool bypassBeastRestrictions=false) override;
@@ -396,6 +398,7 @@ namespace MWGui
     const std::string& getVersionDescription() const override;
 
     void onDeleteCustomData(const MWWorld::Ptr& ptr) override;
+    void forceLootMode(const MWWorld::Ptr& ptr) override;
 
     void viewerTraversals(bool updateWindowManager) override;
   private:
@@ -456,6 +459,7 @@ namespace MWGui
     ScreenFader* mScreenFader;
     DebugWindow* mDebugWindow;
     JailScreen* mJailScreen;
+    ContainerWindow* mContainerWindow;
     MWVR::VrMetaMenu* mVrMetaMenu;
 
     Gui::VirtualKeyboardManager* mVirtualKeyboardManager;
@@ -586,6 +590,8 @@ namespace MWGui
     void enableScene(bool enable);
 
     void handleScheduledMessageBoxes();
+
+    void pushGuiMode(GuiMode mode, const MWWorld::Ptr& arg, bool force);
   };
 }
 

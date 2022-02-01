@@ -8,6 +8,7 @@
 #include "niftypes.hpp"
 #include "controller.hpp"
 #include "base.hpp"
+#include "physics.hpp"
 
 #include <components/misc/stringops.hpp>
 
@@ -143,6 +144,9 @@ struct Node : public Named
     bool hasBounds{false};
     NiBoundingVolume bounds;
 
+    // Collision object info
+    NiCollisionObjectPtr collision;
+
     void read(NIFStream *nif) override
     {
         Named::read(nif);
@@ -160,9 +164,9 @@ struct Node : public Named
             bounds.read(nif);
         // Reference to the collision object in Gamebryo files.
         if (nif->getVersion() >= NIFStream::generateVersion(10,0,1,0))
-            nif->skip(4);
+            collision.read(nif);
 
-        parent = nullptr;
+        parents.clear();
 
         isBone = false;
     }
@@ -171,11 +175,12 @@ struct Node : public Named
     {
         Named::post(nif);
         props.post(nif);
+        collision.post(nif);
     }
 
     // Parent node, or nullptr for the root node. As far as I'm aware, only
     // NiNodes (or types derived from NiNodes) can be parents.
-    NiNode *parent;
+    std::vector<NiNode*> parents;
 
     bool isBone{false};
 
@@ -233,7 +238,7 @@ struct NiNode : Node
         {
             // Why would a unique list of children contain empty refs?
             if(!children[i].empty())
-                children[i]->parent = this;
+                children[i]->parents.push_back(this);
         }
     }
 };
@@ -419,6 +424,40 @@ struct NiLODNode : public NiSwitchNode
             r.maxRange = nif->getFloat();
             lodLevels.push_back(r);
         }
+    }
+};
+
+// Abstract
+struct NiAccumulator : Record
+{
+    void read(NIFStream *nif) override {}
+};
+
+// Node children sorters
+struct NiClusterAccumulator : NiAccumulator {};
+struct NiAlphaAccumulator : NiClusterAccumulator {};
+
+struct NiSortAdjustNode : NiNode
+{
+    enum SortingMode
+    {
+        SortingMode_Inherit,
+        SortingMode_Off,
+        SortingMode_Subsort
+    };
+
+    int mMode;
+    NiAccumulatorPtr mSubSorter;
+    void read(NIFStream *nif) override
+    {
+        NiNode::read(nif);
+        mMode = nif->getInt();
+        if (nif->getVersion() <= NIFStream::generateVersion(20,0,0,3))
+            mSubSorter.read(nif);
+    }
+    void post(NIFFile *nif) override
+    {
+        mSubSorter.post(nif);
     }
 };
 

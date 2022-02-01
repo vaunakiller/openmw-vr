@@ -22,7 +22,7 @@
 #include <components/resource/resourcesystem.hpp>
 #include <components/resource/bulletshapemanager.hpp>
 #include <components/debug/debuglog.hpp>
-#include <components/esm/loadgmst.hpp>
+#include <components/esm3/loadgmst.hpp>
 #include <components/sceneutil/positionattitudetransform.hpp>
 #include <components/misc/convert.hpp>
 
@@ -934,7 +934,8 @@ namespace MWPhysics
         , mRotation()
         , mMovement(actor.velocity())
         , mWaterlevel(waterlevel)
-        , mHalfExtentsZ(actor.getHalfExtents().z())
+        // for compatibility with vanilla assets, mesh offset is the actor halfextent for dead actors
+        , mHalfExtentsZ(actor.getPtr().getClass().getCreatureStats(actor.getPtr()).isDead() ? actor.getHalfExtents().z() : actor.getScaledMeshTranslation().z())
         , mOldHeight(0)
         , mStuckFrames(0)
         , mFlying(MWBase::Environment::get().getWorld()->isFlying(actor.getPtr()))

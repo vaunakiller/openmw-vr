@@ -2,7 +2,7 @@
 
 #include <algorithm>
 
-#include <components/esm/loadmgef.hpp>
+#include <components/esm3/loadmgef.hpp>
 #include <components/misc/rng.hpp>
 #include <components/settings/settings.hpp>
 
@@ -46,7 +46,7 @@ namespace
         {
             auto& creatureStats = target.getClass().getCreatureStats(target);
             auto stat = creatureStats.getAiSetting(setting);
-            stat.setModifier(static_cast<int>(stat.getModifier() - magnitude));
+            stat.setModifier(static_cast<int>(stat.getModifier() + magnitude));
             creatureStats.setAiSetting(setting, stat);
         }
     }
@@ -74,6 +74,8 @@ namespace
     {
         auto& creatureStats = target.getClass().getCreatureStats(target);
         auto attr = creatureStats.getAttribute(effect.mArg);
+        if(effect.mEffectId == ESM::MagicEffect::DamageAttribute)
+            magnitude = std::min(attr.getModified(), magnitude);
         attr.damage(magnitude);
         creatureStats.setAttribute(effect.mArg, attr);
     }
@@ -98,6 +100,8 @@ namespace
     {
         auto& npcStats = target.getClass().getNpcStats(target);
         auto& skill = npcStats.getSkill(effect.mArg);
+        if(effect.mEffectId == ESM::MagicEffect::DamageSkill)
+            magnitude = std::min(skill.getModified(), magnitude);
         skill.damage(magnitude);
     }
 
@@ -491,11 +495,11 @@ void applyMagicEffect(const MWWorld::Ptr& target, const MWWorld::Ptr& caster, co
             break;
         case ESM::MagicEffect::FrenzyCreature:
         case ESM::MagicEffect::FrenzyHumanoid:
-            modifyAiSetting(target, effect, ESM::MagicEffect::FrenzyCreature, CreatureStats::AI_Fight, -effect.mMagnitude, invalid);
+            modifyAiSetting(target, effect, ESM::MagicEffect::FrenzyCreature, CreatureStats::AI_Fight, effect.mMagnitude, invalid);
             break;
         case ESM::MagicEffect::CalmCreature:
         case ESM::MagicEffect::CalmHumanoid:
-            modifyAiSetting(target, effect, ESM::MagicEffect::CalmCreature, CreatureStats::AI_Fight, effect.mMagnitude, invalid);
+            modifyAiSetting(target, effect, ESM::MagicEffect::CalmCreature, CreatureStats::AI_Fight, -effect.mMagnitude, invalid);
             if(!invalid && effect.mMagnitude > 0)
             {
                 auto& creatureStats = target.getClass().getCreatureStats(target);
@@ -774,6 +778,45 @@ void applyMagicEffect(const MWWorld::Ptr& target, const MWWorld::Ptr& caster, co
     }
 }
 
+bool shouldRemoveEffect(const MWWorld::Ptr& target, const ESM::ActiveEffect& effect)
+{
+    const auto world = MWBase::Environment::get().getWorld();
+    switch(effect.mEffectId)
+    {
+        case ESM::MagicEffect::Levitate:
+        {
+            if(!world->isLevitationEnabled())
+            {
+                if(target == getPlayer())
+                    MWBase::Environment::get().getWindowManager()->messageBox("#{sLevitateDisabled}");
+                return true;
+            }
+            break;
+        }
+        case ESM::MagicEffect::Recall:
+        case ESM::MagicEffect::DivineIntervention:
+        case ESM::MagicEffect::AlmsiviIntervention:
+        {
+            return effect.mFlags & ESM::ActiveEffect::Flag_Applied;
+        }
+        case ESM::MagicEffect::WaterWalking:
+        {
+            if (target.getClass().isPureWaterCreature(target) && world->isSwimming(target))
+                return true;
+            if (effect.mFlags & ESM::ActiveEffect::Flag_Applied)
+                break;
+            if (!world->isWaterWalkingCastableOnTarget(target))
+            {
+                if(target == getPlayer())
+                    MWBase::Environment::get().getWindowManager()->messageBox("#{sMagicInvalidEffect}");
+                return true;
+            }
+            break;
+        }
+    }
+    return false;
+}
+
 MagicApplicationResult applyMagicEffect(const MWWorld::Ptr& target, const MWWorld::Ptr& caster, ActiveSpells::ActiveSpellParams& spellParams, ESM::ActiveEffect& effect, float dt)
 {
     const auto world = MWBase::Environment::get().getWorld();
@@ -792,10 +835,9 @@ MagicApplicationResult applyMagicEffect(const MWWorld::Ptr& target, const MWWorl
             MWBase::Environment::get().getWindowManager()->messageBox("#{sMagicCorprusWorsens}");
         return MagicApplicationResult::APPLIED;
     }
-    else if(effect.mEffectId == ESM::MagicEffect::Levitate && !world->isLevitationEnabled())
+    else if(shouldRemoveEffect(target, effect))
     {
-        if(target == getPlayer())
-            MWBase::Environment::get().getWindowManager()->messageBox ("#{sLevitateDisabled}");
+        onMagicEffectRemoved(target, spellParams, effect);
         return MagicApplicationResult::REMOVED;
     }
     const auto* magicEffect = world->getStore().get<ESM::MagicEffect>().find(effect.mEffectId);
@@ -874,8 +916,13 @@ MagicApplicationResult applyMagicEffect(const MWWorld::Ptr& target, const MWWorl
         float oldMagnitude = 0.f;
         if(effect.mFlags & ESM::ActiveEffect::Flag_Applied)
             oldMagnitude = effect.mMagnitude;
-        else if(spellParams.getType() == ESM::ActiveSpells::Type_Consumable || spellParams.getType() == ESM::ActiveSpells::Type_Temporary)
-            playEffects(target, *magicEffect);
+        else
+        {
+            if(spellParams.getType() != ESM::ActiveSpells::Type_Enchantment)
+                playEffects(target, *magicEffect, spellParams.getType() == ESM::ActiveSpells::Type_Consumable || spellParams.getType() == ESM::ActiveSpells::Type_Temporary);
+            if(effect.mEffectId == ESM::MagicEffect::Soultrap && !target.getClass().isNpc() && target.getType() == ESM::Creature::sRecordId && target.get<ESM::Creature>()->mBase->mData.mSoul == 0 && caster == getPlayer())
+                MWBase::Environment::get().getWindowManager()->messageBox("#{sMagicInvalidTarget}");
+        }
         float magnitude = roll(effect);
         //Note that there's an early out for Flag_Applied AppliedOnce effects so we don't have to exclude them here
         effect.mMagnitude = magnitude;
@@ -955,11 +1002,11 @@ void removeMagicEffect(const MWWorld::Ptr& target, ActiveSpells::ActiveSpellPara
             break;
         case ESM::MagicEffect::FrenzyCreature:
         case ESM::MagicEffect::FrenzyHumanoid:
-            modifyAiSetting(target, effect, ESM::MagicEffect::FrenzyCreature, CreatureStats::AI_Fight, effect.mMagnitude, invalid);
+            modifyAiSetting(target, effect, ESM::MagicEffect::FrenzyCreature, CreatureStats::AI_Fight, -effect.mMagnitude, invalid);
             break;
         case ESM::MagicEffect::CalmCreature:
         case ESM::MagicEffect::CalmHumanoid:
-            modifyAiSetting(target, effect, ESM::MagicEffect::CalmCreature, CreatureStats::AI_Fight, -effect.mMagnitude, invalid);
+            modifyAiSetting(target, effect, ESM::MagicEffect::CalmCreature, CreatureStats::AI_Fight, effect.mMagnitude, invalid);
             break;
         case ESM::MagicEffect::DemoralizeCreature:
         case ESM::MagicEffect::DemoralizeHumanoid:

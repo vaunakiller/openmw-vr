@@ -7,7 +7,6 @@
 
 #include <components/debug/debuglog.hpp>
 #include <components/sdlutil/sdlgraphicswindow.hpp>
-#include <components/esm/loadrace.hpp>
 #include <components/vr/directx.hpp>
 #include <components/vr/layer.hpp>
 #include <components/vr/trackingmanager.hpp>
@@ -21,6 +20,7 @@
 #include <iostream>
 #include <stdexcept>
 #include <cassert>
+#include <sstream>
 
 
 namespace XR

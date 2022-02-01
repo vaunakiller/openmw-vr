@@ -2,10 +2,10 @@
 
 #include <components/debug/debuglog.hpp>
 
-#include <components/esm/esmwriter.hpp>
-#include <components/esm/esmreader.hpp>
-#include <components/esm/cellid.hpp>
-#include <components/esm/loadcell.hpp>
+#include <components/esm3/esmwriter.hpp>
+#include <components/esm3/esmreader.hpp>
+#include <components/esm3/cellid.hpp>
+#include <components/esm3/loadcell.hpp>
 
 #include <components/loadinglistener/loadinglistener.hpp>
 
@@ -494,7 +494,7 @@ void MWState::StateManager::loadGame (const Character *character, const std::str
                 default:
 
                     // ignore invalid records
-                    Log(Debug::Warning) << "Warning: Ignoring unknown record: " << n.toString();
+                    Log(Debug::Warning) << "Warning: Ignoring unknown record: " << n.toStringView();
                     reader.skipRecord();
             }
             int progressPercent = static_cast<int>(float(reader.getFileOffset())/total*100);

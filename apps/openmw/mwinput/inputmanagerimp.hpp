@@ -39,6 +39,7 @@ namespace MWInput
     class KeyboardManager;
     class MouseManager;
     class SensorManager;
+    class GyroManager;
 
     /**
     * @brief Class that provides a high-level API for game input
@@ -70,8 +71,8 @@ namespace MWInput
         void setGamepadGuiCursorEnabled(bool enabled) override;
         void setAttemptJump(bool jumping) override;
 
-        void toggleControlSwitch (const std::string& sw, bool value) override;
-        bool getControlSwitch (const std::string& sw) override;
+        void toggleControlSwitch(std::string_view sw, bool value) override;
+        bool getControlSwitch(std::string_view sw) override;
 
         std::string getActionDescription (int action) const override;
         std::string getActionKeyBindingName (int action) const override;
@@ -79,8 +80,8 @@ namespace MWInput
         bool actionIsActive(int action) const override;
 
         float getActionValue(int action) const override;
+        bool isControllerButtonPressed(SDL_GameControllerButton button) const override;
         float getControllerAxisValue(SDL_GameControllerAxis axis) const override;
-        uint32_t getMouseButtonsState() const override;
         int getMouseMoveX() const override;
         int getMouseMoveY() const override;
 
@@ -130,6 +131,7 @@ namespace MWInput
         KeyboardManager* mKeyboardManager;
         MouseManager* mMouseManager;
         SensorManager* mSensorManager;
+        GyroManager* mGyroManager;
     };
 }
 #endif

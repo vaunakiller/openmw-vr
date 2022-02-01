@@ -3,9 +3,7 @@
 OpenMW
 ======
 
-[![Coverity Scan Build Status](https://scan.coverity.com/projects/3740/badge.svg)](https://scan.coverity.com/projects/3740) [![pipeline status](https://gitlab.com/OpenMW/openmw/badges/master/pipeline.svg)](https://gitlab.com/OpenMW/openmw/commits/master)
-
-OpenMW is an open-source game engine that supports playing Morrowind by Bethesda Softworks. You need to own the game for OpenMW to play Morrowind.
+OpenMW is an open-source open-world RPG game engine that supports playing Morrowind by Bethesda Softworks. You need to own the game for OpenMW to play Morrowind.
 
 OpenMW also comes with OpenMW-CS, a replacement for Bethesda's Construction Set.
 
@@ -13,6 +11,8 @@ OpenMW also comes with OpenMW-CS, a replacement for Bethesda's Construction Set.
 * License: GPLv3 (see [LICENSE](https://gitlab.com/OpenMW/openmw/-/raw/master/LICENSE) for more information)
 * Website: https://www.openmw.org
 * IRC: #openmw on irc.libera.chat
+* Discord: https://discord.gg/bWuqq2e
+
 
 Font Licenses:
 * DejaVuLGCSansMono.ttf: custom (see [files/mygui/DejaVuFontLicense.txt](https://gitlab.com/OpenMW/openmw/-/raw/master/files/mygui/DejaVuFontLicense.txt) for more information)

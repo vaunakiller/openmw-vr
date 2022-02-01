@@ -11,13 +11,13 @@ namespace DetourNavigator
         const auto navMesh = navigator.getNavMesh(agentHalfExtents);
         if (!navMesh)
             return std::nullopt;
-        const auto settings = navigator.getSettings();
+        const auto& settings = navigator.getSettings();
         const auto result = DetourNavigator::findRandomPointAroundCircle(navMesh->lockConst()->getImpl(),
-            toNavMeshCoordinates(settings, agentHalfExtents), toNavMeshCoordinates(settings, start),
-            toNavMeshCoordinates(settings, maxRadius), includeFlags, settings);
+            toNavMeshCoordinates(settings.mRecast, agentHalfExtents), toNavMeshCoordinates(settings.mRecast, start),
+            toNavMeshCoordinates(settings.mRecast, maxRadius), includeFlags, settings.mDetour);
         if (!result)
             return std::nullopt;
-        return std::optional<osg::Vec3f>(fromNavMeshCoordinates(settings, *result));
+        return std::optional<osg::Vec3f>(fromNavMeshCoordinates(settings.mRecast, *result));
     }
 
     std::optional<osg::Vec3f> raycast(const Navigator& navigator, const osg::Vec3f& agentHalfExtents, const osg::Vec3f& start,
@@ -26,12 +26,12 @@ namespace DetourNavigator
         const auto navMesh = navigator.getNavMesh(agentHalfExtents);
         if (navMesh == nullptr)
             return std::nullopt;
-        const auto settings = navigator.getSettings();
+        const auto& settings = navigator.getSettings();
         const auto result = DetourNavigator::raycast(navMesh->lockConst()->getImpl(),
-            toNavMeshCoordinates(settings, agentHalfExtents), toNavMeshCoordinates(settings, start),
-            toNavMeshCoordinates(settings, end), includeFlags, settings);
+            toNavMeshCoordinates(settings.mRecast, agentHalfExtents), toNavMeshCoordinates(settings.mRecast, start),
+            toNavMeshCoordinates(settings.mRecast, end), includeFlags, settings.mDetour);
         if (!result)
             return std::nullopt;
-        return fromNavMeshCoordinates(settings, *result);
+        return fromNavMeshCoordinates(settings.mRecast, *result);
     }
 }

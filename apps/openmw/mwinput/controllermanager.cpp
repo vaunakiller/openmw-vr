@@ -4,7 +4,10 @@
 #include <MyGUI_InputManager.h>
 #include <MyGUI_Widget.h>
 
+#include <SDL.h>
+
 #include <components/debug/debuglog.hpp>
+#include <components/sdlutil/sdlmappings.hpp>
 
 #include "../mwbase/environment.hpp"
 #include "../mwbase/inputmanager.hpp"
@@ -19,7 +22,6 @@
 #include "actionmanager.hpp"
 #include "bindingsmanager.hpp"
 #include "mousemanager.hpp"
-#include "sdlmappings.hpp"
 
 namespace MWInput
 {
@@ -32,14 +34,13 @@ namespace MWInput
         , mActionManager(actionManager)
         , mMouseManager(mouseManager)
         , mJoystickEnabled (Settings::Manager::getBool("enable controller", "Input"))
+        , mGyroAvailable(false)
         , mGamepadCursorSpeed(Settings::Manager::getFloat("gamepad cursor speed", "Input"))
         , mSneakToggleShortcutTimer(0.f)
-        , mGamepadZoom(0)
         , mGamepadGuiCursorEnabled(true)
         , mGuiCursorEnabled(true)
         , mJoystickLastUsed(false)
         , mSneakGamepadShortcut(false)
-        , mGamepadPreviewMode(false)
     {
         if (!controllerBindingsFile.empty())
         {
@@ -85,8 +86,6 @@ namespace MWInput
 
     bool ControllerManager::update(float dt)
     {
-        mGamepadPreviewMode = mActionManager->isPreviewModeEnabled();
-
         if (mGuiCursorEnabled && !(mJoystickLastUsed && !mGamepadGuiCursorEnabled))
         {
             float xAxis = mBindingsManager->getActionValue(A_MoveLeftRight) * 2.0f - 1.0f;
@@ -115,7 +114,6 @@ namespace MWInput
         if (MWBase::Environment::get().getWindowManager()->isGuiMode()
             || MWBase::Environment::get().getStateManager()->getState() != MWBase::StateManager::State_Running)
         {
-            mGamepadZoom = 0;
             return false;
         }
 
@@ -182,15 +180,6 @@ namespace MWInput
             }
         }
 
-        if (MWBase::Environment::get().getInputManager()->getControlSwitch("playerviewswitch"))
-        {
-            if (!mBindingsManager->actionIsActive(A_TogglePOV))
-                mGamepadZoom = 0;
-
-            if (mGamepadZoom)
-                MWBase::Environment::get().getWorld()->adjustCameraDistance(-mGamepadZoom);
-        }
-
         return triedToMove;
     }
 
@@ -229,7 +218,7 @@ namespace MWInput
             mBindingsManager->setPlayerControlsEnabled(true);
 
         //esc, to leave initial movie screen
-        auto kc = sdlKeyToMyGUI(SDLK_ESCAPE);
+        auto kc = SDLUtil::sdlKeyToMyGUI(SDLK_ESCAPE);
         mBindingsManager->setPlayerControlsEnabled(!MyGUI::InputManager::getInstance().injectKeyPress(kc, 0));
 
         if (!MWBase::Environment::get().getInputManager()->controlsDisabled())
@@ -273,7 +262,7 @@ namespace MWInput
             mBindingsManager->setPlayerControlsEnabled(true);
 
         //esc, to leave initial movie screen
-        auto kc = sdlKeyToMyGUI(SDLK_ESCAPE);
+        auto kc = SDLUtil::sdlKeyToMyGUI(SDLK_ESCAPE);
         mBindingsManager->setPlayerControlsEnabled(!MyGUI::InputManager::getInstance().injectKeyRelease(kc));
 
         mBindingsManager->controllerButtonReleased(deviceID, arg);
@@ -289,21 +278,11 @@ namespace MWInput
         {
             gamepadToGuiControl(arg);
         }
-        else
+        else if (MWBase::Environment::get().getWorld()->isPreviewModeEnabled() &&
+                (arg.axis == SDL_CONTROLLER_AXIS_TRIGGERRIGHT || arg.axis == SDL_CONTROLLER_AXIS_TRIGGERLEFT))
         {
-            if (mGamepadPreviewMode) // Preview Mode Gamepad Zooming
-            {
-                if (arg.axis == SDL_CONTROLLER_AXIS_TRIGGERRIGHT)
-                {
-                    mGamepadZoom = arg.value * 0.85f / 1000.f / 12.f;
-                    return; // Do not propagate event.
-                }
-                else if (arg.axis == SDL_CONTROLLER_AXIS_TRIGGERLEFT)
-                {
-                    mGamepadZoom = -arg.value * 0.85f / 1000.f / 12.f;
-                    return; // Do not propagate event.
-                }
-            }
+            // Preview Mode Gamepad Zooming; do not propagate to mBindingsManager
+            return;
         }
         mBindingsManager->controllerAxisMoved(deviceID, arg);
     }
@@ -311,6 +290,7 @@ namespace MWInput
     void ControllerManager::controllerAdded(int deviceID, const SDL_ControllerDeviceEvent &arg)
     {
         mBindingsManager->controllerAdded(deviceID, arg);
+        enableGyroSensor();
     }
 
     void ControllerManager::controllerRemoved(const SDL_ControllerDeviceEvent &arg)
@@ -402,5 +382,55 @@ namespace MWInput
         }
 
         return true;
+    }
+
+    float ControllerManager::getAxisValue(SDL_GameControllerAxis axis) const
+    {
+        SDL_GameController* cntrl = mBindingsManager->getControllerOrNull();
+        constexpr int AXIS_MAX_ABSOLUTE_VALUE = 32768;
+        if (cntrl)
+            return SDL_GameControllerGetAxis(cntrl, axis) / static_cast<float>(AXIS_MAX_ABSOLUTE_VALUE);
+        else
+            return 0;
+    }
+
+    bool ControllerManager::isButtonPressed(SDL_GameControllerButton button) const
+    {
+        SDL_GameController* cntrl = mBindingsManager->getControllerOrNull();
+        if (cntrl)
+            return SDL_GameControllerGetButton(cntrl, button) > 0;
+        else
+            return false;
+    }
+
+    void ControllerManager::enableGyroSensor()
+    {
+        mGyroAvailable = false;
+        #if SDL_VERSION_ATLEAST(2, 0, 14)
+            SDL_GameController* cntrl = mBindingsManager->getControllerOrNull();
+            if (!cntrl)
+                return;
+            if (!SDL_GameControllerHasSensor(cntrl, SDL_SENSOR_GYRO))
+                return;
+            if (SDL_GameControllerSetSensorEnabled(cntrl, SDL_SENSOR_GYRO, SDL_TRUE) < 0)
+                return;
+            mGyroAvailable = true;
+        #endif
+    }
+
+    bool ControllerManager::isGyroAvailable() const
+    {
+        return mGyroAvailable;
+    }
+
+    std::array<float, 3> ControllerManager::getGyroValues() const
+    {
+        float gyro[3] = { 0.f };
+        #if SDL_VERSION_ATLEAST(2, 0, 14)
+            SDL_GameController* cntrl = mBindingsManager->getControllerOrNull();
+            if (cntrl && mGyroAvailable)
+                SDL_GameControllerGetSensorData(cntrl, SDL_SENSOR_GYRO, gyro, 3);
+        #endif
+        return std::array<float, 3>({gyro[0], gyro[1], gyro[2]});
     }
 }

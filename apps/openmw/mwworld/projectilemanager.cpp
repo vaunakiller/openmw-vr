@@ -8,8 +8,8 @@
 
 #include <components/debug/debuglog.hpp>
 
-#include <components/esm/esmwriter.hpp>
-#include <components/esm/projectilestate.hpp>
+#include <components/esm3/esmwriter.hpp>
+#include <components/esm3/projectilestate.hpp>
 
 #include <components/misc/constants.hpp>
 #include <components/misc/convert.hpp>
@@ -21,6 +21,10 @@
 #include <components/sceneutil/visitor.hpp>
 #include <components/sceneutil/lightmanager.hpp>
 #include <components/sceneutil/nodecallback.hpp>
+
+#include <components/settings/settings.hpp>
+
+#include <components/vr/vr.hpp>
 
 #include "../mwworld/manualref.hpp"
 #include "../mwworld/class.hpp"
@@ -273,7 +277,7 @@ namespace MWWorld
 
         osg::Quat orient;
 #ifdef USE_OPENXR
-        if (caster == MWBase::Environment::get().getWorld()->getPlayerPtr() && MWBase::Environment::get().getVrMode())
+        if (caster == MWBase::Environment::get().getWorld()->getPlayerPtr() && VR::getVR())
         {
             auto weaponPose = MWVR::Util::getWeaponPose();
             pos = weaponPose.position;
@@ -420,6 +424,7 @@ namespace MWWorld
 
     void ProjectileManager::moveMagicBolts(float duration)
     {
+        static const bool normaliseRaceSpeed = Settings::Manager::getBool("normalise race speed", "Game");
         for (auto& magicBoltState : mMagicBolts)
         {
             if (magicBoltState.mToDelete)
@@ -439,10 +444,16 @@ namespace MWWorld
                 }
             }
 
+            const auto& store = MWBase::Environment::get().getWorld()->getStore();
             osg::Quat orient = magicBoltState.mNode->getAttitude();
-            static float fTargetSpellMaxSpeed = MWBase::Environment::get().getWorld()->getStore().get<ESM::GameSetting>()
-                        .find("fTargetSpellMaxSpeed")->mValue.getFloat();
+            static float fTargetSpellMaxSpeed = store.get<ESM::GameSetting>().find("fTargetSpellMaxSpeed")->mValue.getFloat();
             float speed = fTargetSpellMaxSpeed * magicBoltState.mSpeed;
+            if (!normaliseRaceSpeed && !caster.isEmpty() && caster.getClass().isNpc())
+            {
+                const auto npc = caster.get<ESM::NPC>()->mBase;
+                const auto race = store.get<ESM::Race>().find(npc->mRace);
+                speed *= npc->isMale() ? race->mData.mWeight.mMale : race->mData.mWeight.mFemale;
+            }
             osg::Vec3f direction = orient * osg::Vec3f(0,1,0);
             direction.normalize();
             projectile->setVelocity(direction * speed);

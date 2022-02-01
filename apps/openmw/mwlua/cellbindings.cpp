@@ -1,8 +1,16 @@
 #include "luabindings.hpp"
 
-#include <components/esm/loadcell.hpp>
+#include <components/esm3/loadcell.hpp>
 
 #include "../mwworld/cellstore.hpp"
+
+namespace sol
+{
+    template <>
+    struct is_automagical<MWLua::LCell> : std::false_type {};
+    template <>
+    struct is_automagical<MWLua::GCell> : std::false_type {};
+}
 
 namespace MWLua
 {

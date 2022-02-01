@@ -14,9 +14,9 @@
 namespace MWVR {
     namespace RealisticCombat {
 
-        static const char* stateToString(SwingState florida)
+        static const char* stateToString(SwingState state)
         {
-            switch (florida)
+            switch (state)
             {
             case SwingState_Cooldown:
                 return "Cooldown";

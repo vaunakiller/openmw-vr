@@ -1,6 +1,6 @@
 #include "stat.hpp"
 
-#include <components/esm/statstate.hpp>
+#include <components/esm3/statstate.hpp>
 
 namespace MWMechanics
 {
@@ -246,24 +246,30 @@ namespace MWMechanics
         return mModifier;
     }
 
-    void AttributeValue::setBase(float base)
+    void AttributeValue::setBase(float base, bool clearModifier)
     {
         mBase = base;
+        if(clearModifier)
+        {
+            mModifier = 0.f;
+            mDamage = 0.f;
+        }
     }
 
     void AttributeValue::setModifier(float mod)
     {
-        mModifier = mod;
+        if(mod < 0)
+        {
+            mModifier = 0.f;
+            mDamage -= mod;
+        }
+        else
+            mModifier = mod;
     }
 
     void AttributeValue::damage(float damage)
     {
-        float threshold = mBase + mModifier;
-
-        if (mDamage + damage > threshold)
-            mDamage = threshold;
-        else
-            mDamage += damage;
+        mDamage += damage;
     }
     void AttributeValue::restore(float amount)
     {

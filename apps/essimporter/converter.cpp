@@ -2,12 +2,11 @@
 
 #include <stdexcept>
 #include <algorithm>
-#include <climits> // INT_MIN
 
 #include <osgDB/WriteFile>
 
-#include <components/esm/creaturestate.hpp>
-#include <components/esm/containerstate.hpp>
+#include <components/esm3/creaturestate.hpp>
+#include <components/esm3/containerstate.hpp>
 
 #include <components/misc/constants.hpp>
 
@@ -371,7 +370,7 @@ namespace ESSImport
                     if (cellref.mHasACDT)
                         convertACDT(cellref.mACDT, objstate.mCreatureStats);
                     else
-                        objstate.mCreatureStats.mGoldPool = INT_MIN; // HACK: indicates no ACDT
+                        objstate.mCreatureStats.mMissingACDT = true;
                     if (cellref.mHasACSC)
                         convertACSC(cellref.mACSC, objstate.mCreatureStats);
                     convertNpcData(cellref, objstate.mNpcStats);
@@ -414,7 +413,7 @@ namespace ESSImport
                     if (cellref.mHasACDT)
                         convertACDT(cellref.mACDT, objstate.mCreatureStats);
                     else
-                        objstate.mCreatureStats.mGoldPool = INT_MIN; // HACK: indicates no ACDT
+                        objstate.mCreatureStats.mMissingACDT = true;
                     if (cellref.mHasACSC)
                         convertACSC(cellref.mACSC, objstate.mCreatureStats);
                     convertCREC(crecIt->second, objstate);

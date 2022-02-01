@@ -10,7 +10,7 @@ Engine handler is a function defined by a script, that can be called by the engi
 |                                  | | `be assigned to a script in openmw-cs (not yet implemented)`.      |
 |                                  | | ``onInterfaceOverride`` can be called before ``onInit``.           |
 +----------------------------------+----------------------------------------------------------------------+
-| onUpdate(dt)                     | | Called every frame if game not paused. `dt` is the time            |
+| onUpdate(dt)                     | | Called every frame if the game is not paused. `dt` is the time     |
 |                                  | | from the last update in seconds.                                   |
 +----------------------------------+----------------------------------------------------------------------+
 | onSave() -> savedData            | | Called when the game is saving. May be called in inactive          |
@@ -19,6 +19,9 @@ Engine handler is a function defined by a script, that can be called by the engi
 | onLoad(savedData, initData)      | | Called on loading with the data previosly returned by              |
 |                                  | | onSave. During loading the object is always inactive. initData is  |
 |                                  | | the same as in onInit.                                             |
+|                                  | | Note that onLoad means loading a script rather than loading a game.|
+|                                  | | If a script did not exist when a game was saved onLoad will not be |
+|                                  | | called, but onInit will.                                           |
 +----------------------------------+----------------------------------------------------------------------+
 | onInterfaceOverride(base)        | | Called if the current script has an interface and overrides an     |
 |                                  | | interface (``base``) of another script.                            |
@@ -43,6 +46,9 @@ Engine handler is a function defined by a script, that can be called by the engi
 | onConsume(recordId)              | | Called if `recordId` (e.g. a potion) is consumed.                  |
 +----------------------------------+----------------------------------------------------------------------+
 | **Only for local scripts attached to a player**                                                         |
++----------------------------------+----------------------------------------------------------------------+
+| onInputUpdate(dt)                | | Called every frame (if the game is not paused) right after         |
+|                                  | | processing user input. Use it only for latency-critical stuff.     |
 +----------------------------------+----------------------------------------------------------------------+
 | onKeyPress(key)                  | | `Key <openmw_input.html##(KeyboardEvent)>`_ is pressed.            |
 |                                  | | Usage example: ``if key.symbol == 'z' and key.withShift then ...`` |
