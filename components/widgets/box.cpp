@@ -499,7 +499,7 @@ namespace Gui
     }
     void EditBox::registerVirtualKeyboard()
     {
-        auto* vkm = Gui::VirtualKeyboardManager::getInstancePtr();
+        auto* vkm = Gui::VirtualKeyboardManager::instance();
         if (vkm)
         {
             vkm->registerEditBox(this);
@@ -511,7 +511,7 @@ namespace Gui
         if (mVirtualKeyboardRegistered)
         {
             // No need to check here
-            Gui::VirtualKeyboardManager::getInstance().unregisterEditBox(this);
+            Gui::VirtualKeyboardManager::instance()->unregisterEditBox(this);
             mVirtualKeyboardRegistered = false;
         }
     }
