@@ -96,16 +96,16 @@ namespace SceneUtil
                 Log(Debug::Warning) << errPreamble << "'GL_ARB_depth_buffer_float' and 'GL_NV_depth_buffer_float' unsupported.";
             }
         }
-        requestedFormats.push_back(GL_DEPTH_COMPONENT24);
 
         if (mSupportedFormats.empty())
         {
+            requestedFormats.push_back(GL_DEPTH_COMPONENT24);
             SceneUtil::AutoDepth::setDepthFormat(requestedFormats.front());
         }
         else
         {
-            requestedFormats.push_back(GL_DEPTH24_STENCIL8);
             requestedFormats.push_back(GL_DEPTH_COMPONENT32);
+            requestedFormats.push_back(GL_DEPTH24_STENCIL8);
             requestedFormats.push_back(0x81A6); // GL_DEPTH_COMPONENT24
             for (auto requestedFormat : requestedFormats)
             {

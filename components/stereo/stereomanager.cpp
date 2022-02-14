@@ -350,14 +350,14 @@ namespace Stereo
         double near_ = 1.f;
         double far_ = 10000.f;
 
-        auto viewMatrix = mViewer->getCamera()->getViewMatrix();
-        auto projectionMatrix = mViewer->getCamera()->getProjectionMatrix();
         near_ = Settings::Manager::getFloat("near clip", "Camera");
         far_ = Settings::Manager::getFloat("viewing distance", "Camera");
+        auto projectionMatrix = mViewer->getCamera()->getProjectionMatrix();
 
         if (mUpdateViewCallback)
         {
             mUpdateViewCallback->updateView(mView[0], mView[1]);
+            auto viewMatrix = mViewer->getCamera()->getViewMatrix();
             mViewOffsetMatrix[0] = mView[0].pose.viewMatrix(true);
             mViewOffsetMatrix[1] = mView[1].pose.viewMatrix(true);
             mViewMatrix[0] = viewMatrix * mViewOffsetMatrix[0];
@@ -373,6 +373,7 @@ namespace Stereo
         else
         {
             auto* ds = osg::DisplaySettings::instance().get();
+            auto viewMatrix = mViewer->getCamera()->getViewMatrix();
             mViewMatrix[0] = ds->computeLeftEyeViewImplementation(viewMatrix);
             mViewMatrix[1] = ds->computeRightEyeViewImplementation(viewMatrix);
             mViewOffsetMatrix[0] = osg::Matrix::inverse(viewMatrix) * mViewMatrix[0];
