@@ -271,6 +271,14 @@ namespace XR
             requirements.type = XR_TYPE_GRAPHICS_REQUIREMENTS_OPENGL_KHR;
             CHECK_XRCMD(p_getRequirements(instance, systemId, &requirements));
 
+            auto major = XR_VERSION_MAJOR(requirements.minApiVersionSupported);
+            auto minor = XR_VERSION_MINOR(requirements.minApiVersionSupported);
+            auto patch = XR_VERSION_PATCH(requirements.minApiVersionSupported);
+
+            Log(Debug::Verbose) << "Runtime requires OpenGL version " << major << "." << minor << "." << patch;
+            auto versionString = glGetString(GL_VERSION);
+            Log(Debug::Verbose) << "System version: " << versionString;
+
             // TODO: Actually get system version
             const XrVersion systemApiVersion = XR_MAKE_VERSION(4, 6, 0);
             if (requirements.minApiVersionSupported > systemApiVersion) {
@@ -472,15 +480,18 @@ namespace XR
 
             if (Settings::Manager::getBool("Prefer sRGB swapchains", "VR"))
             {
-                requestedColorSwapchainFormats.push_back(0x8C43); // GL_SRGB8_ALPHA8
                 requestedColorSwapchainFormats.push_back(0x8C41); // GL_SRGB8
+                requestedColorSwapchainFormats.push_back(0x8C43); // GL_SRGB8_ALPHA8
             }
+
+            requestedColorSwapchainFormats.push_back(0x881B); // GL_RGB16F
+            requestedColorSwapchainFormats.push_back(0x881A); // GL_RGBA16F
+            requestedColorSwapchainFormats.push_back(0x8054); // GL_RGB16
+            requestedColorSwapchainFormats.push_back(0x805b); // GL_RGBA16
+            requestedColorSwapchainFormats.push_back(0x8C3A); // GL_R11F_G11F_B10F
 
             requestedColorSwapchainFormats.push_back(0x8058); // GL_RGBA8
             requestedColorSwapchainFormats.push_back(0x8F97); // GL_RGBA8_SNORM
-            requestedColorSwapchainFormats.push_back(0x881A); // GL_RGBA16F
-            requestedColorSwapchainFormats.push_back(0x881B); // GL_RGB16F
-            requestedColorSwapchainFormats.push_back(0x8C3A); // GL_R11F_G11F_B10F
 
             return selectFormat(preferredFormat, requestedColorSwapchainFormats);
         }
@@ -494,11 +505,11 @@ namespace XR
                 requestedColorSwapchainFormats.push_back(0x1d); // DXGI_FORMAT_R8G8B8A8_UNORM_SRGB
                 requestedColorSwapchainFormats.push_back(0x5b); // DXGI_FORMAT_B8G8R8A8_UNORM_SRGB
             }
-
+            requestedColorSwapchainFormats.push_back(0xa); // DXGI_FORMAT_R16G16B16A16_FLOAT
+            requestedColorSwapchainFormats.push_back(0xc); // DXGI_FORMAT_R16G16B16A16_UINT
+            requestedColorSwapchainFormats.push_back(0x18); // DXGI_FORMAT_R10G10B10A2_UNORM
             requestedColorSwapchainFormats.push_back(0x1c); // DXGI_FORMAT_R8G8B8A8_UNORM
             requestedColorSwapchainFormats.push_back(0x57); // DXGI_FORMAT_B8G8R8A8_UNORM
-            requestedColorSwapchainFormats.push_back(0xa); // DXGI_FORMAT_R16G16B16A16_FLOAT
-            requestedColorSwapchainFormats.push_back(0x18); // DXGI_FORMAT_R10G10B10A2_UNORM
 
             return selectFormat(preferredFormat, requestedColorSwapchainFormats);
         }
@@ -611,10 +622,11 @@ namespace XR
         swapchainCreateInfo.height = height;
         swapchainCreateInfo.mipCount = 1;
         swapchainCreateInfo.faceCount = 1;
+        swapchainCreateInfo.usageFlags = XR_SWAPCHAIN_USAGE_SAMPLED_BIT;
         if (use == VR::SwapchainUse::Color)
-            swapchainCreateInfo.usageFlags = XR_SWAPCHAIN_USAGE_COLOR_ATTACHMENT_BIT;
+            swapchainCreateInfo.usageFlags |= XR_SWAPCHAIN_USAGE_COLOR_ATTACHMENT_BIT;
         else
-            swapchainCreateInfo.usageFlags = XR_SWAPCHAIN_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT;
+            swapchainCreateInfo.usageFlags |= XR_SWAPCHAIN_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT;
 
         XrSwapchain swapchain = XR_NULL_HANDLE;
         int format = 0;

@@ -25,23 +25,6 @@
 
 namespace XR
 {
-#define ENUM_CASE_STR(name, val) case name: return #name;
-#define MAKE_TO_STRING_FUNC(enumType)                  \
-    const char* to_string(enumType e) {         \
-        switch (e) {                                   \
-            XR_LIST_ENUM_##enumType(ENUM_CASE_STR)     \
-            default: return "Unknown " #enumType;      \
-        }                                              \
-    }
-
-    MAKE_TO_STRING_FUNC(XrReferenceSpaceType)
-    MAKE_TO_STRING_FUNC(XrViewConfigurationType)
-    MAKE_TO_STRING_FUNC(XrEnvironmentBlendMode)
-    MAKE_TO_STRING_FUNC(XrSessionState)
-    MAKE_TO_STRING_FUNC(XrResult)
-    MAKE_TO_STRING_FUNC(XrFormFactor)
-    MAKE_TO_STRING_FUNC(XrStructureType)
-
     Instance* sInstance = nullptr;
 
     Instance& Instance::instance()
@@ -108,6 +91,22 @@ namespace XR
 
     void Instance::enumerateViews()
     {
+        uint32_t configCount = 0;
+        CHECK_XRCMD(xrEnumerateViewConfigurations(mXrInstance, mSystemId, 0, &configCount, nullptr));
+        mViewConfigs.resize(configCount);
+        CHECK_XRCMD(xrEnumerateViewConfigurations(mXrInstance, mSystemId, configCount, &configCount, mViewConfigs.data()));
+        Log(Debug::Verbose) << "Available view configurations:";
+        for (auto config : mViewConfigs)
+        {
+            Log(Debug::Verbose) << "  " << to_string(config);
+            XrViewConfigurationProperties properties{};
+            properties.type = XR_TYPE_VIEW_CONFIGURATION_PROPERTIES;
+            CHECK_XRCMD(xrGetViewConfigurationProperties(mXrInstance, mSystemId, config, &properties));
+            Log(Debug::Verbose) << "    next:" << properties.next;
+            Log(Debug::Verbose) << "    viewConfigurationType:" << to_string(properties.viewConfigurationType);
+            Log(Debug::Verbose) << "    fovMutable:" << properties.fovMutable;
+        }
+
         uint32_t viewCount = 0;
         CHECK_XRCMD(xrEnumerateViewConfigurationViews(mXrInstance, mSystemId, mViewConfigType, 2, &viewCount, mConfigViews.data()));
 
@@ -116,6 +115,16 @@ namespace XR
             std::stringstream ss;
             ss << "xrEnumerateViewConfigurationViews returned " << viewCount << " views";
             Log(Debug::Verbose) << ss.str();
+        }
+
+        uint32_t environmentBlendModeCount = 0;
+        CHECK_XRCMD(xrEnumerateEnvironmentBlendModes(mXrInstance, mSystemId, XR_VIEW_CONFIGURATION_TYPE_PRIMARY_STEREO, 0, &environmentBlendModeCount, nullptr));
+        mBlendModes.resize(environmentBlendModeCount);
+        CHECK_XRCMD(xrEnumerateEnvironmentBlendModes(mXrInstance, mSystemId, XR_VIEW_CONFIGURATION_TYPE_PRIMARY_STEREO, environmentBlendModeCount, &environmentBlendModeCount, mBlendModes.data()));
+        Log(Debug::Verbose) << "Available blend modes:";
+        for (auto blendMode : mBlendModes)
+        {
+            Log(Debug::Verbose) << "  " << to_string(blendMode);
         }
     }
 

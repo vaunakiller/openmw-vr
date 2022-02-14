@@ -180,29 +180,15 @@ namespace VR
         mViewer->setReleaseContextAtEndOfFrameHint(false);
         mViewer->getCamera()->getGraphicsContext()->setSwapCallback(mSwapBuffersCallback);
         mViewer->getCamera()->setViewport(0, 0, mFramebufferWidth, mFramebufferHeight);
-        Stereo::Manager::instance().overrideEyeResolution(mFramebufferWidth, mFramebufferHeight);
+        Stereo::Manager::instance().overrideEyeResolution(osg::Vec2i(mFramebufferWidth, mFramebufferHeight));
 
         setupMirrorTexture();
 
-        if (Stereo::getMultiview())
+        for (int i : {0, 1})
         {
-            mColorSwapchain[0].reset(VR::Session::instance().createSwapchain(mFramebufferWidth, mFramebufferHeight, 1, 2, VR::SwapchainUse::Color, "Multiview"));
-            mColorSwapchain[1] = mColorSwapchain[0];
-
+            mColorSwapchain[i].reset(VR::Session::instance().createSwapchain(mFramebufferWidth, mFramebufferHeight, 1, 1, VR::SwapchainUse::Color, i == 0 ? "LeftEye" : "RightEye"));
             if (mSession->appShouldShareDepthInfo())
-            {
-                mDepthSwapchain[0].reset(VR::Session::instance().createSwapchain(mFramebufferWidth, mFramebufferHeight, 1, 2, VR::SwapchainUse::Depth, "Multiview", SceneUtil::AutoDepth::depthFormat()));
-                mDepthSwapchain[1] = mDepthSwapchain[0];
-            }
-        }
-        else
-        {
-            for (int i : {0, 1})
-            {
-                mColorSwapchain[i].reset(VR::Session::instance().createSwapchain(mFramebufferWidth, mFramebufferHeight, 1, 1, VR::SwapchainUse::Color, i == 0 ? "LeftEye" : "RightEye"));
-                if (mSession->appShouldShareDepthInfo())
-                    mDepthSwapchain[i].reset(VR::Session::instance().createSwapchain(mFramebufferWidth, mFramebufferHeight, 1, 1, VR::SwapchainUse::Depth, i == 0 ? "LeftEye" : "RightEye", SceneUtil::AutoDepth::depthFormat()));
-            }
+                mDepthSwapchain[i].reset(VR::Session::instance().createSwapchain(mFramebufferWidth, mFramebufferHeight, 1, 1, VR::SwapchainUse::Depth, i == 0 ? "LeftEye" : "RightEye", SceneUtil::AutoDepth::depthFormat()));
         }
     }
 
@@ -508,24 +494,18 @@ namespace VR
 
         for (auto i = 0; i < 2; i++)
         {
-            if (i == 0 || !Stereo::getMultiview())
-            {
-                mColorSwapchain[i]->beginFrame(state->getGraphicsContext());
-                if (mSession->appShouldShareDepthInfo())
-                    mDepthSwapchain[i]->beginFrame(state->getGraphicsContext());
-            }
+            mColorSwapchain[i]->beginFrame(state->getGraphicsContext());
+            if (mSession->appShouldShareDepthInfo())
+                mDepthSwapchain[i]->beginFrame(state->getGraphicsContext());
 
             resolveGamma(info, i);
             if (mMirrorTextureEnabled)
                 blitMirrorTexture(state, i);
             blitXrFramebuffer(state, i);
 
-            if (i == 1 || !Stereo::getMultiview())
-            {
-                mColorSwapchain[i]->endFrame(state->getGraphicsContext());
-                if (mSession->appShouldShareDepthInfo())
-                    mDepthSwapchain[i]->endFrame(state->getGraphicsContext());
-            }
+            mColorSwapchain[i]->endFrame(state->getGraphicsContext());
+            if (mSession->appShouldShareDepthInfo())
+                mDepthSwapchain[i]->endFrame(state->getGraphicsContext());
         }
 
         // Undo all framebuffer bindings we have done.
@@ -588,7 +568,7 @@ namespace VR
                     layer->views[i].depthSwapchain = mDepthSwapchain[i];
                 }
 
-                layer->views[i].subImage.index = Stereo::getMultiview() ? i : 0;
+                layer->views[i].subImage.index = 0;
                 layer->views[i].subImage.width = mFramebufferWidth;
                 layer->views[i].subImage.height = mFramebufferHeight;
                 layer->views[i].subImage.x = 0;

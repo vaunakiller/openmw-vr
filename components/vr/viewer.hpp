@@ -94,7 +94,6 @@ namespace VR
         MirrorTextureEye mMirrorTextureEye{ MirrorTextureEye::Both };
 
         osg::ref_ptr<osg::FrameBufferObject> mGammaResolveFramebuffer;
-        osg::ref_ptr<osg::FrameBufferObject> mXrFramebuffer;
         int mFramebufferWidth = 0;
         int mFramebufferHeight = 0;
 

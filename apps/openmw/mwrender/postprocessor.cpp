@@ -149,7 +149,7 @@ namespace MWRender
     {
         bool softParticles = Settings::Manager::getBool("soft particles", "Shaders");
 
-        if (!SceneUtil::AutoDepth::isReversed() && !softParticles)
+        if (!SceneUtil::AutoDepth::isReversed() && !softParticles && !Stereo::getStereo())
             return;
 
         osg::GraphicsContext* gc = viewer->getCamera()->getGraphicsContext();
@@ -183,13 +183,14 @@ namespace MWRender
                 // benefits if no floating point depth formats are supported.
                 Log(Debug::Warning) << errPreamble << "'GL_ARB_depth_buffer_float' and 'GL_NV_depth_buffer_float' unsupported.";
 
-                if (!softParticles)
+                if (!softParticles && !Stereo::getStereo())
                     return;
             }
         }
 
-        int width = viewer->getCamera()->getViewport()->width();
-        int height = viewer->getCamera()->getViewport()->height();
+        auto traits = gc->getTraits();
+        int width = traits->width;
+        int height = traits->height;
 
         createTexturesAndCamera(width, height);
         resize(width, height);
@@ -250,6 +251,7 @@ namespace MWRender
 
         mViewer->getCamera()->resize(width, height);
         mHUDCamera->resize(width, height);
+        Stereo::Manager::instance().screenResolutionChanged();
     }
 
     class HUDCameraStatesetUpdater : public SceneUtil::StateSetUpdater

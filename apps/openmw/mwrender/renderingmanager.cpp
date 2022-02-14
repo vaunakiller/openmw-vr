@@ -106,14 +106,14 @@ namespace MWRender
         {
             auto* uProjectionMatrix = stateset->getUniform("projectionMatrix");
             if (uProjectionMatrix)
-                uProjectionMatrix->set(Stereo::Manager::instance().computeLeftEyeProjection(true));
+                uProjectionMatrix->set(Stereo::Manager::instance().computeEyeProjection(0, true));
         }
 
         void applyRight(osg::StateSet* stateset, osgUtil::CullVisitor* nv) override
         {
             auto* uProjectionMatrix = stateset->getUniform("projectionMatrix");
             if (uProjectionMatrix)
-                uProjectionMatrix->set(Stereo::Manager::instance().computeRightEyeProjection(true));
+                uProjectionMatrix->set(Stereo::Manager::instance().computeEyeProjection(1, true));
         }
 
         void setProjectionMatrix(const osg::Matrixf& projectionMatrix)
@@ -1252,7 +1252,16 @@ namespace MWRender
 
         mSharedUniformStateUpdater->setNear(mNearClip);
         mSharedUniformStateUpdater->setFar(mViewDistance);
-        mSharedUniformStateUpdater->setScreenRes(width, height);
+        if (Stereo::getStereo())
+        {
+            auto res = Stereo::Manager::instance().eyeResolution();
+            mSharedUniformStateUpdater->setScreenRes(res.x(), res.y());
+            Stereo::Manager::instance().updateReverseZProjectionMatrix(SceneUtil::getReversedZProjectionMatrixAsPerspective(fov, aspect, mNearClip, mViewDistance));
+        }
+        else
+        {
+            mSharedUniformStateUpdater->setScreenRes(width, height);
+        }
 
         // Since our fog is not radial yet, we should take FOV in account, otherwise terrain near viewing distance may disappear.
         // Limit FOV here just for sure, otherwise viewing distance can be too high.

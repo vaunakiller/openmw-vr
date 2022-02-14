@@ -101,31 +101,20 @@ namespace XR
     {
         if (extension->shouldEnable())
         {
-            if (extensionDisabledBySettings(extension))
-            {
-                Log(Debug::Verbose) << "  " << extension->name() << ": disabled (by config)";
-            }
-            else
-            {
-                Log(Debug::Verbose) << "  " << extension->name() << ": enabled";
-                mEnabledExtensions.push_back(extension);
-                extension->setEnabled(true);
-            }
+            Log(Debug::Verbose) << "  " << extension->name() << ": enabled";
+            mEnabledExtensions.push_back(extension);
+            extension->setEnabled(true);
         }
         else
         {
-            if (extension->enableMode() == Extension::EnableMode::Auto || (extension->requested() && !extension->supported()))
+            if(extension->disabledByConfig())
+                Log(Debug::Verbose) << "  " << extension->name() << ": disabled (by config)";
+            else if (extension->enableMode() == Extension::EnableMode::Auto || (extension->requested() && !extension->supported()))
                 Log(Debug::Verbose) << "  " << extension->name() << ": disabled (not supported)";
             else
                 Log(Debug::Verbose) << "  " << extension->name() << ": disabled";
         }
         return extension->enabled();
-    }
-
-    bool Extensions::extensionDisabledBySettings(Extension* extension)
-    {
-        std::string setting = std::string() + "disable " + extension->name();
-        return Settings::Manager::getBool(setting, "VR Debug");
     }
 
     void Extensions::selectGraphicsAPIExtension(Extension* extension)
@@ -203,6 +192,7 @@ namespace XR
         , mEnableMode(enableMode)
         , mEnabled(false)
         , mSupported(false)
+        , mRequested(false)
         , mProperties(nullptr)
     {
     }
@@ -212,8 +202,16 @@ namespace XR
         return mName == rhs.mName;
     }
 
+    bool Extension::disabledByConfig() const
+    {
+        return Settings::Manager::getBool(std::string("disable ") + mName, "VR Debug");
+    }
+
     bool Extension::shouldEnable() const
     {
+        if (!supported())
+            return false;
+
         switch (mEnableMode)
         {
         case EnableMode::Auto:

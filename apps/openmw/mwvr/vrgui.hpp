@@ -110,7 +110,7 @@ namespace MWVR
 
     protected:
         friend class VRGUIManager;
-        osg::ref_ptr<osg::Geometry> createLayerGeometry();
+        osg::ref_ptr<osg::Geometry> createLayerGeometry(osg::ref_ptr<osg::StateSet> stateset);
         osg::ref_ptr<osg::Texture> menuTexture();
         void setAngle(float angle);
         void updatePose();
@@ -137,6 +137,7 @@ namespace MWVR
         osg::ref_ptr<osg::Group> mCameraRoot;
         osg::ref_ptr<GUICamera> mGUICamera;
         osg::ref_ptr<osg::Camera> mMyGUICamera{ nullptr };
+        osg::ref_ptr<osg::StateSet> mStateset;
         MyGUI::FloatRect mRealRect{};
         osg::Quat mRotation{ 0,0,0,1 };
     };
@@ -145,9 +146,9 @@ namespace MWVR
     class VRGUILayerUserData : public osg::Referenced
     {
     public:
-        VRGUILayerUserData(std::shared_ptr<VRGUILayer> layer) : mLayer(layer) {};
+        VRGUILayerUserData(VRGUILayer* layer) : mLayer(layer) {};
 
-        std::weak_ptr<VRGUILayer> mLayer;
+        VRGUILayer* mLayer;
     };
 
     /// \brief Manager of VRGUILayer objects.

@@ -7,6 +7,14 @@
 
 namespace XR
 {
+    extern const char* to_string(XrReferenceSpaceType e);
+    extern const char* to_string(XrViewConfigurationType e);
+    extern const char* to_string(XrEnvironmentBlendMode e);
+    extern const char* to_string(XrSessionState e);
+    extern const char* to_string(XrResult e);
+    extern const char* to_string(XrFormFactor e);
+    extern const char* to_string(XrStructureType e);
+
     std::string getInstanceName(XrInstance instance);
     XrVersion getInstanceVersion(XrInstance instance);
     void initFailure(XrResult res, XrInstance instance);

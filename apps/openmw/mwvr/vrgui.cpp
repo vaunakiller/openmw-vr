@@ -123,7 +123,7 @@ namespace MWVR
         osg::Vec4 mClearColor;
     };
 
-    osg::ref_ptr<osg::Geometry> VRGUILayer::createLayerGeometry()
+    osg::ref_ptr<osg::Geometry> VRGUILayer::createLayerGeometry(osg::ref_ptr<osg::StateSet> stateset)
     {
         float left = mConfig.center.x() - 0.5;
         float right = left + 1.f;
@@ -161,6 +161,7 @@ namespace MWVR
         geometry->setDataVariance(osg::Object::STATIC);
         geometry->setSupportsDisplayList(false);
         geometry->setName("VRGUILayer");
+        geometry->setStateSet(stateset);
 
         return geometry;
     }
@@ -187,25 +188,21 @@ namespace MWVR
         mMyGUICamera = renderManager.createGUICamera(osg::Camera::NESTED_RENDER, filter);
         mGUICamera = new GUICamera(config.pixelResolution.x(), config.pixelResolution.y(), config.backgroundColor, mMyGUICamera);
 
-        mGeometries[0] = createLayerGeometry();
-        mGeometries[1] = createLayerGeometry();
+        mStateset = new osg::StateSet;
 
         // Define state set that allows rendering with transparency
-        osg::StateSet* stateSet = mGeometries[0]->getOrCreateStateSet();
         auto texture = menuTexture();
         texture->setName("diffuseMap");
-        stateSet->setTextureAttributeAndModes(0, texture, osg::StateAttribute::ON);
+        mStateset->setTextureAttributeAndModes(0, texture, osg::StateAttribute::ON);
 
         osg::ref_ptr<osg::Material> mat = new osg::Material;
         mat->setColorMode(osg::Material::AMBIENT_AND_DIFFUSE);
-        stateSet->setAttribute(mat);
+        mStateset->setAttribute(mat);
 
-        stateSet->setMode(GL_ALPHA_TEST, osg::StateAttribute::OFF);
-        mGeometries[1]->setStateSet(stateSet);
+        mStateset->setMode(GL_ALPHA_TEST, osg::StateAttribute::OFF);
 
         // Position in the game world
         mTransform->setScale(osg::Vec3(extent_units.x(), 1.f, extent_units.y()));
-        mTransform->addChild(mGeometries[0]);
 
         // Add to scene graph
         mGeometryRoot->addChild(mTransform);
@@ -359,6 +356,8 @@ namespace MWVR
 
         mTransform->removeChild(0, mTransform->getNumChildren());
         std::swap(mGeometries[0], mGeometries[1]);
+        mGeometries[0] = createLayerGeometry(mStateset);
+        mGeometries[0]->setUserData(new VRGUILayerUserData(this));
         osg::ref_ptr<osg::Vec2Array> texCoords{ new osg::Vec2Array(4) };
         (*texCoords)[0].set(mRealRect.left, 1.f - mRealRect.bottom);
         (*texCoords)[1].set(mRealRect.left, 1.f - mRealRect.top);
@@ -677,9 +676,6 @@ namespace MWVR
         ));
         mLayers[name] = layer;
 
-        for (auto& geometry : layer->mGeometries)
-            geometry->setUserData(new VRGUILayerUserData(mLayers[name]));
-
         if (config.sideBySide)
         {
             mSideBySideLayers.push_back(layer);
@@ -693,17 +689,9 @@ namespace MWVR
         osg::ref_ptr<osg::Shader> vertexShader = shaderManager.getShader("3dgui_vertex.glsl", defineMap, osg::Shader::VERTEX);
         osg::ref_ptr<osg::Shader> fragmentShader = shaderManager.getShader("3dgui_fragment.glsl", defineMap, osg::Shader::FRAGMENT);
 
-        for (auto& geometry : layer->mGeometries)
+        if (vertexShader && fragmentShader)
         {
-            if (vertexShader && fragmentShader)
-            {
-                geometry->getOrCreateStateSet()->setAttributeAndModes(shaderManager.getProgram(vertexShader, fragmentShader));
-            }
-            else
-            {
-                // Let the scene manager try
-                mResourceSystem->getSceneManager()->recreateShaders(geometry, "objects", true);
-            }
+            layer->mStateset->setAttributeAndModes(shaderManager.getProgram(vertexShader, fragmentShader));
         }
 
 
@@ -809,17 +797,17 @@ namespace MWVR
 
         if (mUserPointer->getPointerTarget().mHit)
         {
-            std::shared_ptr<VRGUILayer> newFocusLayer = nullptr;
+            VRGUILayer* newFocusLayer = nullptr;
             auto* node = mUserPointer->getPointerTarget().mHitNode;
             if (node->getName() == "VRGUILayer")
             {
                 VRGUILayerUserData* userData = static_cast<VRGUILayerUserData*>(node->getUserData());
-                newFocusLayer = userData->mLayer.lock();
+                newFocusLayer = userData->mLayer;
             }
 
             if (newFocusLayer && newFocusLayer->mLayerName != "Notification")
             {
-                setFocusLayer(newFocusLayer.get());
+                setFocusLayer(newFocusLayer);
                 computeGuiCursor(mUserPointer->getPointerTarget().mHitPointLocal);
                 return true;
             }

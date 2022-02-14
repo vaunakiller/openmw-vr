@@ -28,7 +28,8 @@ namespace XR
         const std::string& name() const { return mName; }
         EnableMode enableMode() const { return mEnableMode; }
         bool enabled() const { return mEnabled; }
-        bool supported() const { return mSupported; }
+        bool disabledByConfig() const;
+        bool supported() const { return mSupported && !disabledByConfig(); }
         bool requested() const { return mRequested; }
         const XrExtensionProperties* properties() const { return mProperties; }
 
@@ -73,7 +74,6 @@ namespace XR
         bool supportsLayer(const std::string& layerName) const;
         bool initExtension(Extension* extension);
         bool enableExtension(Extension* extension);
-        bool extensionDisabledBySettings(Extension* extension);
         void setupExtensions();
 
         ExtensionMap mAvailableExtensions;

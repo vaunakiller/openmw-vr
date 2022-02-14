@@ -11,6 +11,23 @@
 
 namespace XR
 {
+#define ENUM_CASE_STR(name, val) case name: return #name;
+#define MAKE_TO_STRING_FUNC(enumType)                  \
+    const char* to_string(enumType e) {         \
+        switch (e) {                                   \
+            XR_LIST_ENUM_##enumType(ENUM_CASE_STR)     \
+            default: return "Unknown " #enumType;      \
+        }                                              \
+    }
+
+    MAKE_TO_STRING_FUNC(XrReferenceSpaceType)
+    MAKE_TO_STRING_FUNC(XrViewConfigurationType)
+    MAKE_TO_STRING_FUNC(XrEnvironmentBlendMode)
+    MAKE_TO_STRING_FUNC(XrSessionState)
+    MAKE_TO_STRING_FUNC(XrResult)
+    MAKE_TO_STRING_FUNC(XrFormFactor)
+    MAKE_TO_STRING_FUNC(XrStructureType)
+
     XrResult CheckXrResult(XrResult res, const char* originator, const char* sourceLocation) {
         static bool initialized = false;
         static bool sLogAllXrCalls = false;
@@ -71,7 +88,7 @@ namespace XR
     {
         XrInstanceProperties properties{};
         properties.type = XR_TYPE_INSTANCE_PROPERTIES;
-        
+
         if (instance)
             xrGetInstanceProperties(instance, &properties);
         return properties;

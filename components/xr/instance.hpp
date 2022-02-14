@@ -61,6 +61,8 @@ namespace XR
         XrViewConfigurationType mViewConfigType = XR_VIEW_CONFIGURATION_TYPE_PRIMARY_STEREO;
         XrSystemId mSystemId = XR_NULL_SYSTEM_ID;
         XrSystemProperties mSystemProperties{};
+        std::vector<XrViewConfigurationType> mViewConfigs{};
+        std::vector<XrEnvironmentBlendMode> mBlendModes{};
         std::array<XrViewConfigurationView, 2> mConfigViews{};
         XrDebugUtilsMessengerEXT mDebugMessenger{ nullptr };
         std::unique_ptr<Extensions> mExtensions{};
@@ -69,14 +71,6 @@ namespace XR
         // TODO: uint32_t mAcquiredResources = 0;
         std::mutex mMutex{};
     };
-
-    extern const char* to_string(XrReferenceSpaceType e);
-    extern const char* to_string(XrViewConfigurationType e);
-    extern const char* to_string(XrEnvironmentBlendMode e);
-    extern const char* to_string(XrSessionState e);
-    extern const char* to_string(XrResult e);
-    extern const char* to_string(XrFormFactor e);
-    extern const char* to_string(XrStructureType e);
 }
 
 #endif 

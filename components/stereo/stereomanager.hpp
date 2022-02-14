@@ -44,12 +44,6 @@ namespace Stereo
             virtual void updateView(View& left, View& right) = 0;
         };
 
-        //! Default implementation of UpdateViewCallback that just provides some hardcoded values for debugging purposes
-        struct DefaultUpdateViewCallback : public UpdateViewCallback
-        {
-            void updateView(View& left, View& right) override;
-        };
-
         static Manager& instance();
 
         //! Adds two cameras in stereo to the mainCamera.
@@ -73,11 +67,8 @@ namespace Stereo
         //! Set the cull callback on the appropriate camera object
         void setCullCallback(osg::ref_ptr<osg::NodeCallback> cb);
 
-        osg::Matrixd computeLeftEyeProjection(bool allowReverseZ) const;
-        osg::Matrixd computeLeftEyeView() const;
-
-        osg::Matrixd computeRightEyeProjection(bool allowReverseZ) const;
-        osg::Matrixd computeRightEyeView() const;
+        osg::Matrixd computeEyeProjection(int view, bool allowReverseZ) const;
+        osg::Matrixd computeEyeView(int view) const;
 
         void shaderStereoDefines(Shader::ShaderManager::DefineMap& defines) const;
 
@@ -85,9 +76,15 @@ namespace Stereo
 
         const std::shared_ptr<MultiviewFramebuffer>& multiviewFramebuffer() { return mMultiviewFramebuffer; };
 
-        void overrideEyeResolution(int width, int height);
+        void overrideEyeResolution(const osg::Vec2i& eyeResolution);
+
+        void screenResolutionChanged();
+
+        osg::Vec2i eyeResolution();
 
         void updateStereoFramebuffer();
+
+        void updateReverseZProjectionMatrix(const osg::Matrix& projectionMatrix) { mMasterReverseZProjectionMatrix = projectionMatrix; }
 
     private:
         void setupBruteForceTechnique();
@@ -100,15 +97,17 @@ namespace Stereo
         osg::ref_ptr<osg::Group>        mStereoRoot;
         osg::ref_ptr<osg::Callback>     mUpdateCallback;
         std::string                     mError;
+        osg::Matrix                     mMasterReverseZProjectionMatrix;
         std::shared_ptr<MultiviewFramebuffer> mMultiviewFramebuffer;
-        int                             mEyeWidthOverride;
-        int                             mEyeHeightOverride;
         bool                            mEyeResolutionOverriden;
+        osg::Vec2i                      mEyeResolutionOverride;
 
         // Stereo matrices
         std::array<View, 2>         mView;
         std::array<osg::Matrix, 2>  mViewMatrix;
         std::array<osg::Matrix, 2>  mViewOffsetMatrix;
+        std::array<osg::Matrix, 2>  mProjectionMatrix;
+        std::array<osg::Matrix, 2>  mProjectionMatrixReverseZ;
 
         // Keeps state relevant to OVR_MultiView2
         osg::ref_ptr<osg::Group>    mStereoShaderRoot;
