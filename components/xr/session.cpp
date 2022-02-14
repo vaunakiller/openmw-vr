@@ -107,7 +107,7 @@ namespace XR
         frameState.type = XR_TYPE_FRAME_STATE;
 
         CHECK_XRCMD(xrWaitFrame(mXrSession, &frameWaitInfo, &frameState));
-        shouldRender = frameState.shouldRender && mAppShouldRender;
+        shouldRender = frameState.shouldRender;
         predictedDisplayTime = frameState.predictedDisplayTime;
         predictedDisplayPeriod = frameState.predictedDisplayPeriod;
     }
@@ -212,6 +212,7 @@ namespace XR
             frameEndInfo.layers = nullptr;
         }
         CHECK_XRCMD(xrEndFrame(mXrSession, &frameEndInfo));
+        
     }
 
     void Session::handleEvents()
@@ -285,7 +286,6 @@ namespace XR
         case XR_SESSION_STATE_IDLE:
         {
             mAppShouldSyncFrameLoop = false;
-            mAppShouldRender = false;
             mAppShouldReadInput = false;
             mXrSessionShouldStop = false;
             break;
@@ -293,7 +293,6 @@ namespace XR
         case XR_SESSION_STATE_READY:
         {
             mAppShouldSyncFrameLoop = true;
-            mAppShouldRender = false;
             mAppShouldReadInput = false;
             mXrSessionShouldStop = false;
 
@@ -307,7 +306,6 @@ namespace XR
         case XR_SESSION_STATE_STOPPING:
         {
             mAppShouldSyncFrameLoop = false;
-            mAppShouldRender = false;
             mAppShouldReadInput = false;
             mXrSessionShouldStop = true;
             break;
@@ -315,7 +313,6 @@ namespace XR
         case XR_SESSION_STATE_SYNCHRONIZED:
         {
             mAppShouldSyncFrameLoop = true;
-            mAppShouldRender = false;
             mAppShouldReadInput = false;
             mXrSessionShouldStop = false;
             break;
@@ -323,7 +320,6 @@ namespace XR
         case XR_SESSION_STATE_VISIBLE:
         {
             mAppShouldSyncFrameLoop = true;
-            mAppShouldRender = true;
             mAppShouldReadInput = false;
             mXrSessionShouldStop = false;
             break;
@@ -331,7 +327,6 @@ namespace XR
         case XR_SESSION_STATE_FOCUSED:
         {
             mAppShouldSyncFrameLoop = true;
-            mAppShouldRender = true;
             mAppShouldReadInput = true;
             mXrSessionShouldStop = false;
             break;
@@ -364,19 +359,29 @@ namespace XR
 
     void Session::destroyXrReferenceSpaces()
     {
-        for (auto space : { mReferenceSpaceLocal, mReferenceSpaceStage, mReferenceSpaceView })
+        if (mReferenceSpaceLocal)
         {
-            if (space)
-            {
-                CHECK_XRCMD(xrDestroySpace(space));
-            }
+            CHECK_XRCMD(xrDestroySpace(mReferenceSpaceLocal));
+            mReferenceSpaceLocal = XR_NULL_HANDLE;
+        }
+        if (mReferenceSpaceStage)
+        {
+            CHECK_XRCMD(xrDestroySpace(mReferenceSpaceStage));
+            mReferenceSpaceStage = XR_NULL_HANDLE;
+        }
+        if (mReferenceSpaceView)
+        {
+            CHECK_XRCMD(xrDestroySpace(mReferenceSpaceView));
+            mReferenceSpaceView = XR_NULL_HANDLE;
         }
     }
 
     void Session::destroyXrSession()
     {
         if (mXrSession)
+        {
             CHECK_XRCMD(xrDestroySession(mXrSession));
+        }
     }
 
     void Session::createXrTracker()
@@ -486,6 +491,14 @@ namespace XR
 
     void Session::createXrReferenceSpaces()
     {
+        uint32_t typeCount = 0;
+        CHECK_XRCMD(xrEnumerateReferenceSpaces(mXrSession, 0, &typeCount, nullptr));
+        mReferenceSpaceTypes.resize(typeCount);
+        CHECK_XRCMD(xrEnumerateReferenceSpaces(mXrSession, typeCount, &typeCount, mReferenceSpaceTypes.data()));
+        Log(Debug::Verbose) << "Available reference spaces:";
+        for (auto type : mReferenceSpaceTypes)
+            Log(Debug::Verbose) << "  " << to_string(type);
+
         XrReferenceSpaceCreateInfo createInfo{};
         createInfo.type = XR_TYPE_REFERENCE_SPACE_CREATE_INFO;
         createInfo.poseInReferenceSpace.orientation.w = 1.f; // Identity pose

@@ -81,6 +81,7 @@ namespace XR
         XrViewConfigurationType mViewConfigType;
         XrSessionState mState = XR_SESSION_STATE_UNKNOWN;
 
+        std::vector<XrReferenceSpaceType> mReferenceSpaceTypes{};
         XrSpace mReferenceSpaceView = XR_NULL_HANDLE;
         XrSpace mReferenceSpaceStage = XR_NULL_HANDLE;
         XrSpace mReferenceSpaceLocal = XR_NULL_HANDLE;
@@ -93,7 +94,6 @@ namespace XR
 
         bool mXrSessionShouldStop = false;
         bool mAppShouldSyncFrameLoop = false;
-        bool mAppShouldRender = false;
         bool mAppShouldReadInput = false;
 
         bool mMSFTReprojectionModeDepth = false;
