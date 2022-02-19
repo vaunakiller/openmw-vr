@@ -106,7 +106,7 @@ namespace XR
         frameState.type = XR_TYPE_FRAME_STATE;
 
         CHECK_XRCMD(xrWaitFrame(mXrSession, &frameWaitInfo, &frameState));
-        shouldRender = frameState.shouldRender && mAppShouldRender;
+        shouldRender = frameState.shouldRender;
         predictedDisplayTime = frameState.predictedDisplayTime;
         predictedDisplayPeriod = frameState.predictedDisplayPeriod;
     }
@@ -284,7 +284,6 @@ namespace XR
         case XR_SESSION_STATE_IDLE:
         {
             mAppShouldSyncFrameLoop = false;
-            mAppShouldRender = false;
             mAppShouldReadInput = false;
             mXrSessionShouldStop = false;
             break;
@@ -292,7 +291,6 @@ namespace XR
         case XR_SESSION_STATE_READY:
         {
             mAppShouldSyncFrameLoop = true;
-            mAppShouldRender = false;
             mAppShouldReadInput = false;
             mXrSessionShouldStop = false;
 
@@ -306,7 +304,6 @@ namespace XR
         case XR_SESSION_STATE_STOPPING:
         {
             mAppShouldSyncFrameLoop = false;
-            mAppShouldRender = false;
             mAppShouldReadInput = false;
             mXrSessionShouldStop = true;
             break;
@@ -314,7 +311,6 @@ namespace XR
         case XR_SESSION_STATE_SYNCHRONIZED:
         {
             mAppShouldSyncFrameLoop = true;
-            mAppShouldRender = false;
             mAppShouldReadInput = false;
             mXrSessionShouldStop = false;
             break;
@@ -322,7 +318,6 @@ namespace XR
         case XR_SESSION_STATE_VISIBLE:
         {
             mAppShouldSyncFrameLoop = true;
-            mAppShouldRender = true;
             mAppShouldReadInput = false;
             mXrSessionShouldStop = false;
             break;
@@ -330,7 +325,6 @@ namespace XR
         case XR_SESSION_STATE_FOCUSED:
         {
             mAppShouldSyncFrameLoop = true;
-            mAppShouldRender = true;
             mAppShouldReadInput = true;
             mXrSessionShouldStop = false;
             break;

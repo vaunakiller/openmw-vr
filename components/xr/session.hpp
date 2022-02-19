@@ -95,7 +95,6 @@ namespace XR
 
         bool mXrSessionShouldStop = false;
         bool mAppShouldSyncFrameLoop = false;
-        bool mAppShouldRender = false;
         bool mAppShouldReadInput = false;
 
         bool mMSFTReprojectionModeDepth = false;
