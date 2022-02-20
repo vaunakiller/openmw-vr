@@ -6,6 +6,8 @@
 #include <components/vr/trackingsource.hpp>
 #include <components/vr/frame.hpp>
 #include <components/vr/layer.hpp>
+#include <components/misc/constants.hpp>
+#include <components/sceneutil/depth.hpp>
 
 #include <cassert>
 #include <sstream>
@@ -168,7 +170,9 @@ namespace XR
             {
                 // TODO: Cache these values instead?
                 auto nearClip = Settings::Manager::getFloat("near clip", "Camera");
-                auto farClip = Settings::Manager::getFloat("viewing distance", "Camera");
+                auto farClip = Settings::Manager::getFloat("viewing distance", "Camera"); 
+                if (SceneUtil::AutoDepth::isReversed())
+                    std::swap(nearClip, farClip);
                 for (uint32_t i = 0; i < 2; i++)
                 {
 
@@ -179,8 +183,8 @@ namespace XR
                     auto& xrDepth = compositionLayerDepth[i];
                     xrDepth.minDepth = 0.;
                     xrDepth.maxDepth = 1.0;
-                    xrDepth.nearZ = nearClip;
-                    xrDepth.farZ = farClip;
+                    xrDepth.nearZ = nearClip / Constants::UnitsPerMeter;
+                    xrDepth.farZ = farClip / Constants::UnitsPerMeter;
                     xrDepth.subImage.imageArrayIndex = 0;
                     xrDepth.subImage.imageRect.extent.width = view.subImage.width;
                     xrDepth.subImage.imageRect.extent.height = view.subImage.height;
