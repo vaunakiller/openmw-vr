@@ -26,15 +26,11 @@ namespace XR
 
         void selectGraphicsAPIExtension();
         XrSession createXrSession(XrInstance instance, XrSystemId systemId);
-
-        int64_t selectColorFormat(int64_t preferredFormat);
-        int64_t selectDepthFormat(int64_t preferredFormat);
-        int64_t selectFormat(int64_t preferredFormat, const std::vector<int64_t>& requestedFormats);
         
-        std::vector<GLenum> supportedSwapchainFormatsGL() const;
-        std::vector<int64_t> supportedSwapchainFormatsDX() const;
+        const std::vector<GLenum>& supportedColorFormats() const { return mMWColorFormatsGL; };
+        const std::vector<GLenum>& supportedDepthFormats() const { return mMWDepthFormatsGL; };
 
-        VR::Swapchain* createSwapchain(uint32_t width, uint32_t height, uint32_t samples, uint32_t arraySize, VR::SwapchainUse use, const std::string& name, int64_t preferredFormat = 0);
+        VR::Swapchain* createSwapchain(uint32_t width, uint32_t height, uint32_t samples, uint32_t arraySize, VR::SwapchainUse use, const std::string& name, int64_t openGLFormat);
 
     private:
         bool selectDirectX();
@@ -42,8 +38,10 @@ namespace XR
 
         std::unique_ptr< PlatformPrivate > mPrivate;
         std::shared_ptr<VR::DirectXWGLInterop> mDxInterop = nullptr;
-        std::vector<int64_t> mSwapchainFormatsDX;
-        std::vector<GLenum> mSwapchainFormatsGL;
+        std::vector<int64_t> mRuntimeFormatsDX;
+        std::vector<GLenum> mRuntimeFormatsGL;
+        std::vector<GLenum> mMWColorFormatsGL;
+        std::vector<GLenum> mMWDepthFormatsGL;
     };
 }
 

@@ -167,8 +167,6 @@ namespace XR
             if (appShouldShareDepthInfo())
             {
                 // TODO: Cache these values instead?
-                GLfloat depthRange[2] = { 0.f, 1.f };
-                glGetFloatv(GL_DEPTH_RANGE, depthRange);
                 auto nearClip = Settings::Manager::getFloat("near clip", "Camera");
                 auto farClip = Settings::Manager::getFloat("viewing distance", "Camera");
                 for (uint32_t i = 0; i < 2; i++)
@@ -179,8 +177,8 @@ namespace XR
                         continue;
 
                     auto& xrDepth = compositionLayerDepth[i];
-                    xrDepth.minDepth = depthRange[0];
-                    xrDepth.maxDepth = depthRange[1];
+                    xrDepth.minDepth = 0.;
+                    xrDepth.maxDepth = 1.0;
                     xrDepth.nearZ = nearClip;
                     xrDepth.farZ = farClip;
                     xrDepth.subImage.imageArrayIndex = 0;

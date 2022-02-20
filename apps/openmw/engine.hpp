@@ -62,6 +62,11 @@ namespace osgViewer
 namespace SceneUtil
 {
     class SelectDepthFormatOperation;
+
+    namespace ColorFormat
+    {
+        class SelectColorFormatOperation;
+    }
 }
 
 namespace VR
@@ -103,6 +108,7 @@ namespace OMW
             osg::ref_ptr<osgViewer::ScreenCaptureHandler> mScreenCaptureHandler;
             osg::ref_ptr<SceneUtil::AsyncScreenCaptureOperation> mScreenCaptureOperation;
             osg::ref_ptr<SceneUtil::SelectDepthFormatOperation> mSelectDepthFormatOperation;
+            osg::ref_ptr<SceneUtil::ColorFormat::SelectColorFormatOperation> mSelectColorFormatOperation;
             std::string mCellName;
             std::vector<std::string> mContentFiles;
             std::vector<std::string> mGroundcoverFiles;

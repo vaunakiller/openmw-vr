@@ -88,9 +88,15 @@ namespace SceneUtil
         if (SceneUtil::AutoDepth::isReversed())
         {
             if (osg::isGLExtensionSupported(contextID, "GL_ARB_depth_buffer_float"))
+            {
                 requestedFormats.push_back(GL_DEPTH_COMPONENT32F);
+                requestedFormats.push_back(GL_DEPTH32F_STENCIL8);
+            }
             else if (osg::isGLExtensionSupported(contextID, "GL_NV_depth_buffer_float"))
+            {
                 requestedFormats.push_back(GL_DEPTH_COMPONENT32F_NV);
+                requestedFormats.push_back(GL_DEPTH32F_STENCIL8_NV);
+            }
             else
             {
                 Log(Debug::Warning) << errPreamble << "'GL_ARB_depth_buffer_float' and 'GL_NV_depth_buffer_float' unsupported.";
@@ -105,8 +111,8 @@ namespace SceneUtil
         else
         {
             requestedFormats.push_back(GL_DEPTH_COMPONENT32);
+            requestedFormats.push_back(GL_DEPTH_COMPONENT24);
             requestedFormats.push_back(GL_DEPTH24_STENCIL8);
-            requestedFormats.push_back(0x81A6); // GL_DEPTH_COMPONENT24
             for (auto requestedFormat : requestedFormats)
             {
                 if (std::find(mSupportedFormats.cbegin(), mSupportedFormats.cend(), requestedFormat) != mSupportedFormats.cend())

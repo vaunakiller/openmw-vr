@@ -11,6 +11,7 @@
 
 #include <components/settings/settings.hpp>
 #include <components/sceneutil/depth.hpp>
+#include <components/sceneutil/color.hpp>
 #include <components/sceneutil/nodecallback.hpp>
 #include <components/debug/debuglog.hpp>
 
@@ -348,7 +349,7 @@ namespace MWRender
         mSceneTex->setTextureSize(width, height);
         mSceneTex->setSourceFormat(GL_RGB);
         mSceneTex->setSourceType(GL_UNSIGNED_BYTE);
-        mSceneTex->setInternalFormat(GL_RGB);
+        mSceneTex->setInternalFormat(SceneUtil::ColorFormat::colorFormat());
         mSceneTex->setFilter(osg::Texture2D::MIN_FILTER, osg::Texture2D::NEAREST);
         mSceneTex->setFilter(osg::Texture2D::MAG_FILTER, osg::Texture2D::NEAREST);
         mSceneTex->setWrap(osg::Texture::WRAP_S, osg::Texture::CLAMP_TO_EDGE);

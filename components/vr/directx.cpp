@@ -71,14 +71,15 @@ namespace VR
         ID3D11Texture2D* mDxImage;
     };
 
-    DirectXSwapchain::DirectXSwapchain(std::shared_ptr<Swapchain> swapchain, std::shared_ptr<DirectXWGLInterop> wglInterop)
-        : Swapchain(*swapchain)
-        , mSwapchain(swapchain)
+    DirectXSwapchain::DirectXSwapchain(std::shared_ptr<Swapchain> dxSwapchain, std::shared_ptr<DirectXWGLInterop> wglInterop, uint32_t openGLFormat)
+        : Swapchain(*dxSwapchain)
+        , mDXSwapchain(dxSwapchain)
         , mWglInterop(wglInterop)
         , mSharedImages()
         , mCurrentImage(0)
     {
         mMustFlipVertical = true;
+        mFormat = openGLFormat;
     }
 
     DirectXSwapchain::~DirectXSwapchain()
@@ -87,12 +88,12 @@ namespace VR
 
     uint64_t DirectXSwapchain::beginFrame(osg::GraphicsContext* gc)
     {
-        mCurrentImage = mSwapchain->beginFrame(gc);
+        mCurrentImage = mDXSwapchain->beginFrame(gc);
 
         auto it = mSharedImages.find(mCurrentImage);
         if (it == mSharedImages.end())
         {
-            it = mSharedImages.emplace(mCurrentImage, std::make_unique<DirectXSharedImage>(mCurrentImage, textureTarget(), static_cast<DXGI_FORMAT>(mSwapchain->format()), mWglInterop)).first;
+            it = mSharedImages.emplace(mCurrentImage, std::make_unique<DirectXSharedImage>(mCurrentImage, textureTarget(), static_cast<DXGI_FORMAT>(mDXSwapchain->format()), mWglInterop)).first;
         }
 
         return mImage = it->second->beginFrame(gc);
@@ -107,7 +108,7 @@ namespace VR
         }
 
         it->second->endFrame(gc);
-        mSwapchain->endFrame(gc);
+        mDXSwapchain->endFrame(gc);
         mImage = 0;
     }
 
@@ -120,14 +121,14 @@ namespace VR
 
         glGenTextures(1, &mGlTextureName);
 
-        mDxResourceShareHandle = mWglInterop->DXRegisterObject(mDxImage, mGlTextureName, glTextureTarget, true, nullptr);
+        D3D11_TEXTURE2D_DESC desc{};
+        mDxImage->GetDesc(&desc);
+        //mDxResourceShareHandle = mWglInterop->DXRegisterObject(mDxImage, mGlTextureName, glTextureTarget, true, nullptr);
 
         if (!mDxResourceShareHandle)
         {
             // Some OpenXR runtimes return textures that cannot be directly shared.
             // So we need to make a second texture to use as an intermediary.
-            D3D11_TEXTURE2D_DESC desc{};
-            mDxImage->GetDesc(&desc);
             D3D11_TEXTURE2D_DESC sharedTextureDesc{};
             sharedTextureDesc.Width = desc.Width;
             sharedTextureDesc.Height = desc.Height;

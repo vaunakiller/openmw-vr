@@ -45,7 +45,7 @@ namespace VR
     class DirectXSwapchain : public Swapchain
     {
     public:
-        DirectXSwapchain(std::shared_ptr<Swapchain> swapchain, std::shared_ptr<DirectXWGLInterop> wglInterop);
+        DirectXSwapchain(std::shared_ptr<Swapchain> dxSwapchain, std::shared_ptr<DirectXWGLInterop> wglInterop, uint32_t openGLFormat);
         virtual ~DirectXSwapchain();
 
         //! Acquire directx surface from underlying swapchain and share it with opengl, then returns an opengl surface
@@ -55,10 +55,10 @@ namespace VR
         void endFrame(osg::GraphicsContext* gc) override;
 
         //! Fetch handle of underlying swapchain
-        void* handle() const override { return mSwapchain->handle(); };
+        void* handle() const override { return mDXSwapchain->handle(); };
 
     protected:
-        std::shared_ptr<Swapchain> mSwapchain;
+        std::shared_ptr<Swapchain> mDXSwapchain;
         std::shared_ptr<DirectXWGLInterop> mWglInterop;
         std::map<uint64_t, std::unique_ptr<DirectXSharedImage>> mSharedImages;
         uint64_t mCurrentImage;

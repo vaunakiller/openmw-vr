@@ -20,6 +20,7 @@
 #include <components/vr/trackingmanager.hpp>
 
 #include <components/sceneutil/depth.hpp>
+#include <components/sceneutil/color.hpp>
 #include <components/sceneutil/util.hpp>
 #include <components/sdlutil/sdlgraphicswindow.hpp>
 
@@ -175,7 +176,7 @@ namespace VR
 
         // The gamma resolve framebuffer will be used to write the result of gamma post-processing.
         mGammaResolveFramebuffer = new osg::FrameBufferObject();
-        mGammaResolveFramebuffer->setAttachment(osg::Camera::COLOR_BUFFER, osg::FrameBufferAttachment(new osg::RenderBuffer(mFramebufferWidth, mFramebufferHeight, GL_RGB, 0)));
+        mGammaResolveFramebuffer->setAttachment(osg::Camera::COLOR_BUFFER, osg::FrameBufferAttachment(new osg::RenderBuffer(mFramebufferWidth, mFramebufferHeight, SceneUtil::ColorFormat::colorFormat(), 0)));
 
         mViewer->setReleaseContextAtEndOfFrameHint(false);
         mViewer->getCamera()->getGraphicsContext()->setSwapCallback(mSwapBuffersCallback);
@@ -186,7 +187,7 @@ namespace VR
 
         for (int i : {0, 1})
         {
-            mColorSwapchain[i].reset(VR::Session::instance().createSwapchain(mFramebufferWidth, mFramebufferHeight, 1, 1, VR::SwapchainUse::Color, i == 0 ? "LeftEye" : "RightEye"));
+            mColorSwapchain[i].reset(VR::Session::instance().createSwapchain(mFramebufferWidth, mFramebufferHeight, 1, 1, VR::SwapchainUse::Color, i == 0 ? "LeftEye" : "RightEye", SceneUtil::ColorFormat::colorFormat()));
             if (mSession->appShouldShareDepthInfo())
                 mDepthSwapchain[i].reset(VR::Session::instance().createSwapchain(mFramebufferWidth, mFramebufferHeight, 1, 1, VR::SwapchainUse::Depth, i == 0 ? "LeftEye" : "RightEye", SceneUtil::AutoDepth::depthFormat()));
         }
@@ -358,7 +359,7 @@ namespace VR
         if(mSession->appShouldShareDepthInfo())
             depthImage = mDepthSwapchain[view]->image();
 
-        auto it = mSwapchainFramebuffers.find(std::pair{ colorImage, view });
+        auto it = mSwapchainFramebuffers.find(std::pair{ colorImage, depthImage });
         if (it == mSwapchainFramebuffers.end())
         {
             osg::ref_ptr<osg::FrameBufferObject> fbo = new osg::FrameBufferObject();
@@ -411,7 +412,7 @@ namespace VR
                 }
             }
 
-            it = mSwapchainFramebuffers.emplace(std::pair{ colorImage, view }, fbo).first;
+            it = mSwapchainFramebuffers.emplace(std::pair{ colorImage, depthImage }, fbo).first;
         }
         return it->second;
     }
@@ -552,7 +553,7 @@ namespace VR
         auto stageViews = VR::Session::instance().getPredictedViews(frame.predictedDisplayTime, VR::ReferenceSpace::Stage);
         auto views = VR::Session::instance().getPredictedViews(frame.predictedDisplayTime, VR::ReferenceSpace::View);
 
-        if (frame.shouldRender)
+        if (frame.shouldRender && frame.shouldSyncFrameLoop)
         {
             left = views[VR::Side_Left];
             left.pose.position *= Constants::UnitsPerMeter * mSession->playerScale();

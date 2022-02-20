@@ -23,6 +23,7 @@
 #include <components/sceneutil/visitor.hpp>
 #include <components/sceneutil/util.hpp>
 #include <components/sceneutil/depth.hpp>
+#include <components/sceneutil/color.hpp>
 
 #include <components/settings/settings.hpp>
 
@@ -340,7 +341,7 @@ namespace Stereo
         if (mMultiviewFramebuffer)
             mMultiviewFramebuffer->detachFrom(mMainCamera);
         mMultiviewFramebuffer = std::make_shared<MultiviewFramebuffer>(static_cast<int>(eyeRes.x()), static_cast<int>(eyeRes.y()), samples);
-        mMultiviewFramebuffer->attachColorComponent(GL_RGB, GL_UNSIGNED_BYTE, GL_RGB);
+        mMultiviewFramebuffer->attachColorComponent(GL_RGB, GL_UNSIGNED_BYTE, SceneUtil::ColorFormat::colorFormat());
         mMultiviewFramebuffer->attachDepthComponent(GL_DEPTH_COMPONENT, SceneUtil::AutoDepth::depthType(), SceneUtil::AutoDepth::depthFormat());
         mMultiviewFramebuffer->attachTo(mMainCamera);
     }
@@ -424,8 +425,6 @@ namespace Stereo
         // Update stereo uniforms
         auto * viewMatrixMultiViewUniform = stateset->getUniform("viewMatrixMultiView");
         auto * projectionMatrixMultiViewUniform = stateset->getUniform("projectionMatrixMultiView");
-        auto near_ = Settings::Manager::getFloat("near clip", "Camera");
-        auto far_ = Settings::Manager::getFloat("viewing distance", "Camera");
 
         for (int view : {0, 1})
         {
