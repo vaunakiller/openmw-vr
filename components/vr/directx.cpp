@@ -14,6 +14,20 @@
 #include <osg/GraphicsContext>
 
 #include <components/debug/debuglog.hpp>
+#include <components/sceneutil/color.hpp>
+#include <components/sceneutil/depth.hpp>
+
+#ifndef GL_DEPTH32F_STENCIL8
+#define GL_DEPTH32F_STENCIL8 0x8CAD
+#endif
+
+#ifndef GL_DEPTH32F_STENCIL8_NV
+#define GL_DEPTH32F_STENCIL8_NV 0x8DAC
+#endif
+
+#ifndef GL_DEPTH24_STENCIL8
+#define GL_DEPTH24_STENCIL8 0x88F0
+#endif
 
 namespace VR
 {
@@ -249,6 +263,128 @@ namespace VR
     void* DirectXWGLInterop::d3d11DeviceHandle()
     {
         return mPrivate->mD3D11Device;
+    }
+
+    int64_t GLFormatToDXGIFormat(int64_t format)
+    {
+        switch (format)
+        {
+        case GL_RGBA32F: // 
+            return DXGI_FORMAT_R32G32B32A32_FLOAT;
+        case GL_RGBA32UI: // 
+            return DXGI_FORMAT_R32G32B32A32_UINT;
+        case GL_RGBA32I: // 
+            return DXGI_FORMAT_R32G32B32A32_SINT;
+
+        case GL_RGB32F: // 
+            return DXGI_FORMAT_R32G32B32_FLOAT;
+        case GL_RGB32UI: // 
+            return DXGI_FORMAT_R32G32B32_UINT;
+        case GL_RGB32I: // 
+            return DXGI_FORMAT_R32G32B32_SINT;
+
+        case GL_RGBA16F: // 
+            return DXGI_FORMAT_R16G16B16A16_FLOAT;
+        case GL_RGBA16: // 
+            return DXGI_FORMAT_R16G16B16A16_UNORM;
+        case GL_RGBA16UI: // 
+            return DXGI_FORMAT_R16G16B16A16_UINT;
+        case GL_RGBA16_SNORM: // 
+            return DXGI_FORMAT_R16G16B16A16_SNORM;
+        case GL_RGBA16I: // 
+            return DXGI_FORMAT_R16G16B16A16_SINT;
+
+        case GL_RGBA8: // 
+            return DXGI_FORMAT_R8G8B8A8_UNORM;
+        case GL_SRGB8_ALPHA8: // 
+            return DXGI_FORMAT_R8G8B8A8_UNORM_SRGB;
+        case GL_RGBA8UI: // 
+            return DXGI_FORMAT_R8G8B8A8_UINT;
+        case GL_RGBA8_SNORM: // 
+            return DXGI_FORMAT_R8G8B8A8_SNORM;
+        case GL_RGBA8I: // 
+            return DXGI_FORMAT_R8G8B8A8_SINT;
+
+        case GL_RGB10_A2: // 
+            return DXGI_FORMAT_R10G10B10A2_UNORM;
+        case GL_RGB10_A2UI: // 
+            return DXGI_FORMAT_R10G10B10A2_UINT;
+
+        case GL_R11F_G11F_B10F: // 
+            return DXGI_FORMAT_R11G11B10_FLOAT;
+
+        case GL_DEPTH32F_STENCIL8: // 
+            return DXGI_FORMAT_D32_FLOAT_S8X24_UINT;
+        case GL_DEPTH_COMPONENT32F: // 
+            return DXGI_FORMAT_D32_FLOAT;
+        case GL_DEPTH24_STENCIL8: // 
+            return DXGI_FORMAT_D24_UNORM_S8_UINT;
+        case GL_DEPTH_COMPONENT16: // 
+            return DXGI_FORMAT_D16_UNORM;
+        default:
+            return 0;
+        }
+    }
+
+    int64_t DXGIFormatToGLFormat(int64_t format)
+    {
+        switch (format)
+        {
+        case DXGI_FORMAT_R32G32B32A32_FLOAT:
+            return GL_RGBA32F; // 
+        case DXGI_FORMAT_R32G32B32A32_UINT:
+            return GL_RGBA32UI; // 
+        case DXGI_FORMAT_R32G32B32A32_SINT:
+            return GL_RGBA32I; // 
+
+        case DXGI_FORMAT_R32G32B32_FLOAT:
+            return GL_RGB32F; // 
+        case DXGI_FORMAT_R32G32B32_UINT:
+            return GL_RGB32UI; // 
+        case DXGI_FORMAT_R32G32B32_SINT:
+            return GL_RGB32I; // 
+
+        case DXGI_FORMAT_R16G16B16A16_FLOAT:
+            return GL_RGBA16F; // 
+        case DXGI_FORMAT_R16G16B16A16_UNORM:
+            return GL_RGBA16; // 
+        case DXGI_FORMAT_R16G16B16A16_UINT:
+            return GL_RGBA16UI; // 
+        case DXGI_FORMAT_R16G16B16A16_SNORM:
+            return GL_RGBA16_SNORM; // 
+        case DXGI_FORMAT_R16G16B16A16_SINT:
+            return GL_RGBA16I; // 
+
+        case DXGI_FORMAT_R8G8B8A8_UNORM:
+            return GL_RGBA8; // 
+        case DXGI_FORMAT_R8G8B8A8_UNORM_SRGB:
+            return GL_SRGB8_ALPHA8; // 
+        case DXGI_FORMAT_R8G8B8A8_UINT:
+            return GL_RGBA8UI; // 
+        case DXGI_FORMAT_R8G8B8A8_SNORM:
+            return GL_RGBA8_SNORM; // 
+        case DXGI_FORMAT_R8G8B8A8_SINT:
+            return GL_RGBA8I; // 
+
+        case DXGI_FORMAT_R10G10B10A2_UNORM:
+            return GL_RGB10_A2; // 
+        case DXGI_FORMAT_R10G10B10A2_UINT:
+            return GL_RGB10_A2UI; // 
+
+        case DXGI_FORMAT_R11G11B10_FLOAT:
+            return GL_R11F_G11F_B10F; // 
+
+        case DXGI_FORMAT_D32_FLOAT_S8X24_UINT:
+            return GL_DEPTH32F_STENCIL8; // 
+        case DXGI_FORMAT_D32_FLOAT:
+            return GL_DEPTH_COMPONENT32F; // 
+        case DXGI_FORMAT_D24_UNORM_S8_UINT:
+            return GL_DEPTH24_STENCIL8; // 
+        case DXGI_FORMAT_D16_UNORM:
+            return GL_DEPTH_COMPONENT16; // 
+        default:
+            return 0;
+        }
     }
 }
 #endif

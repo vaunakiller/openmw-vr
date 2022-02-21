@@ -450,9 +450,9 @@ namespace XR
         }
     }
 
-    VR::Swapchain* Session::createSwapchain(uint32_t width, uint32_t height, uint32_t samples, uint32_t arraySize, VR::SwapchainUse use, const std::string& name, int64_t preferredFormat)
+    VR::Swapchain* Session::createSwapchain(uint32_t width, uint32_t height, uint32_t samples, uint32_t arraySize, VR::SwapchainUse use, const std::string& name)
     {
-        return Instance::instance().platform().createSwapchain(width, height, samples, arraySize, use, name, preferredFormat);
+        return Instance::instance().platform().createSwapchain(width, height, samples, arraySize, use, name);
     }
 
     bool Session::xrNextEvent(XrEventDataBuffer& eventBuffer)

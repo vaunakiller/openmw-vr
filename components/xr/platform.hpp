@@ -30,7 +30,7 @@ namespace XR
         const std::vector<GLenum>& supportedColorFormats() const { return mMWColorFormatsGL; };
         const std::vector<GLenum>& supportedDepthFormats() const { return mMWDepthFormatsGL; };
 
-        VR::Swapchain* createSwapchain(uint32_t width, uint32_t height, uint32_t samples, uint32_t arraySize, VR::SwapchainUse use, const std::string& name, int64_t openGLFormat);
+        VR::Swapchain* createSwapchain(uint32_t width, uint32_t height, uint32_t samples, uint32_t arraySize, VR::SwapchainUse use, const std::string& name);
 
     private:
         bool selectDirectX();

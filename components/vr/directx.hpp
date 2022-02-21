@@ -21,6 +21,12 @@ namespace VR
     class DirectXSharedImage;
     struct DirectXWGLInteropPrivate;
 
+    //! Translates the given OpenGL format to the equivalent DXGI format. Returns 0 if there is no equivalent.
+    int64_t GLFormatToDXGIFormat(int64_t format);
+
+    //! Translates the given DXGI format to the equivalent OpenGL format. Returns 0 if there is no equivalent.
+    int64_t DXGIFormatToGLFormat(int64_t format);
+
     class DirectXWGLInterop
     {
     public:

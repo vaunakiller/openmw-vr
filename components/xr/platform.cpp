@@ -1,3 +1,4 @@
+#include <components/sceneutil/depth.hpp>
 #include <components/sceneutil/color.hpp>
 
 #include "instance.hpp"
@@ -165,140 +166,6 @@ namespace XR
         throw std::runtime_error("Error: No graphics API supported by OpenMW VR is supported by the OpenXR runtime.");
     }
 
-    int64_t openGLFormatToDirectXFormat(int64_t format)
-    {
-#ifdef XR_USE_GRAPHICS_API_D3D11
-        if (KHR_D3D11_enable.enabled())
-        {
-            switch (format)
-            {
-            case GL_RGBA32F: // 
-                return DXGI_FORMAT_R32G32B32A32_FLOAT;
-            case GL_RGBA32UI: // 
-                return DXGI_FORMAT_R32G32B32A32_UINT;
-            case GL_RGBA32I: // 
-                return DXGI_FORMAT_R32G32B32A32_SINT;
-
-            case GL_RGB32F: // 
-                return DXGI_FORMAT_R32G32B32_FLOAT;
-            case GL_RGB32UI: // 
-                return DXGI_FORMAT_R32G32B32_UINT;
-            case GL_RGB32I: // 
-                return DXGI_FORMAT_R32G32B32_SINT;
-
-            case GL_RGBA16F: // 
-                return DXGI_FORMAT_R16G16B16A16_FLOAT;
-            case GL_RGBA16: // 
-                return DXGI_FORMAT_R16G16B16A16_UNORM;
-            case GL_RGBA16UI: // 
-                return DXGI_FORMAT_R16G16B16A16_UINT;
-            case GL_RGBA16_SNORM: // 
-                return DXGI_FORMAT_R16G16B16A16_SNORM;
-            case GL_RGBA16I: // 
-                return DXGI_FORMAT_R16G16B16A16_SINT;
-
-            case GL_RGBA8: // 
-                return DXGI_FORMAT_R8G8B8A8_UNORM;
-            case GL_SRGB8_ALPHA8: // 
-                return DXGI_FORMAT_R8G8B8A8_UNORM_SRGB;
-            case GL_RGBA8UI: // 
-                return DXGI_FORMAT_R8G8B8A8_UINT;
-            case GL_RGBA8_SNORM: // 
-                return DXGI_FORMAT_R8G8B8A8_SNORM;
-            case GL_RGBA8I: // 
-                return DXGI_FORMAT_R8G8B8A8_SINT;
-
-            case GL_RGB10_A2: // 
-                return DXGI_FORMAT_R10G10B10A2_UNORM;
-            case GL_RGB10_A2UI: // 
-                return DXGI_FORMAT_R10G10B10A2_UINT;
-
-            case GL_R11F_G11F_B10F: // 
-                return DXGI_FORMAT_R11G11B10_FLOAT;
-
-            case GL_DEPTH32F_STENCIL8: // 
-                return DXGI_FORMAT_D32_FLOAT_S8X24_UINT;
-            case GL_DEPTH_COMPONENT32F: // 
-                return DXGI_FORMAT_D32_FLOAT;
-            case GL_DEPTH24_STENCIL8: // 
-                return DXGI_FORMAT_D24_UNORM_S8_UINT;
-            case GL_DEPTH_COMPONENT16: // 
-                return DXGI_FORMAT_D16_UNORM;
-            default:
-                return 0;
-            }
-        }
-#endif
-        return 0;
-    }
-
-    int64_t DXFormatToGLFormat(int64_t format)
-    {
-#ifdef XR_USE_GRAPHICS_API_D3D11
-        if (KHR_D3D11_enable.enabled())
-        {
-            switch (format)
-            {
-            case DXGI_FORMAT_R32G32B32A32_FLOAT:
-                return GL_RGBA32F; // 
-            case DXGI_FORMAT_R32G32B32A32_UINT:
-                return GL_RGBA32UI; // 
-            case DXGI_FORMAT_R32G32B32A32_SINT:
-                return GL_RGBA32I; // 
-
-            case DXGI_FORMAT_R32G32B32_FLOAT:
-                return GL_RGB32F; // 
-            case DXGI_FORMAT_R32G32B32_UINT:
-                return GL_RGB32UI; // 
-            case DXGI_FORMAT_R32G32B32_SINT:
-                return GL_RGB32I; // 
-
-            case DXGI_FORMAT_R16G16B16A16_FLOAT:
-                return GL_RGBA16F; // 
-            case DXGI_FORMAT_R16G16B16A16_UNORM:
-                return GL_RGBA16; // 
-            case DXGI_FORMAT_R16G16B16A16_UINT:
-                return GL_RGBA16UI; // 
-            case DXGI_FORMAT_R16G16B16A16_SNORM:
-                return GL_RGBA16_SNORM; // 
-            case DXGI_FORMAT_R16G16B16A16_SINT:
-                return GL_RGBA16I; // 
-
-            case DXGI_FORMAT_R8G8B8A8_UNORM:
-                return GL_RGBA8; // 
-            case DXGI_FORMAT_R8G8B8A8_UNORM_SRGB:
-                return GL_SRGB8_ALPHA8; // 
-            case DXGI_FORMAT_R8G8B8A8_UINT:
-                return GL_RGBA8UI; // 
-            case DXGI_FORMAT_R8G8B8A8_SNORM:
-                return GL_RGBA8_SNORM; // 
-            case DXGI_FORMAT_R8G8B8A8_SINT:
-                return GL_RGBA8I; // 
-
-            case DXGI_FORMAT_R10G10B10A2_UNORM:
-                return GL_RGB10_A2; // 
-            case DXGI_FORMAT_R10G10B10A2_UINT:
-                return GL_RGB10_A2UI; // 
-
-            case DXGI_FORMAT_R11G11B10_FLOAT:
-                return GL_R11F_G11F_B10F; // 
-
-            case DXGI_FORMAT_D32_FLOAT_S8X24_UINT:
-                return GL_DEPTH32F_STENCIL8; // 
-            case DXGI_FORMAT_D32_FLOAT:
-                return GL_DEPTH_COMPONENT32F; // 
-            case DXGI_FORMAT_D24_UNORM_S8_UINT:
-                return GL_DEPTH24_STENCIL8; // 
-            case DXGI_FORMAT_D16_UNORM:
-                return GL_DEPTH_COMPONENT16; // 
-            default:
-                return 0;
-            }
-        }
-#endif
-        return 0;
-    }
-
     XrSession Platform::createXrSession(XrInstance instance, XrSystemId systemId)
     {
         XrSession session = XR_NULL_HANDLE;
@@ -441,15 +308,15 @@ namespace XR
 
 
 #ifdef XR_USE_GRAPHICS_API_D3D11
-        // Need to translate DX formats to equivalent GL formats for texture sharing to work.
-        // And discard any formats that do not have opengl equivalents.
+        // Need to translate DXGI formats to GL equivalents for texture sharing to work.
+        // This discards any DXGI formats that do not have GL equivalents.
         if (KHR_D3D11_enable.enabled())
         {
             std::stringstream ss;
             ss << "Available GL convertible Swapchain formats: " << std::endl;
             for (auto dxFormat : swapchainFormats)
             {
-                auto glFormat = DXFormatToGLFormat(dxFormat);
+                auto glFormat = VR::DXGIFormatToGLFormat(dxFormat);
                 if (glFormat)
                 {
                     ss << "  glFormat=" << std::dec << glFormat << " (0x=" << std::hex << glFormat << ")" << std::dec;
@@ -532,9 +399,14 @@ namespace XR
     }
 #endif
 
-    VR::Swapchain* Platform::createSwapchain(uint32_t width, uint32_t height, uint32_t samples, uint32_t arraySize, VR::SwapchainUse use, const std::string& name, int64_t openGLFormat)
+    VR::Swapchain* Platform::createSwapchain(uint32_t width, uint32_t height, uint32_t samples, uint32_t arraySize, VR::SwapchainUse use, const std::string& name)
     {
         std::string typeString = use == VR::SwapchainUse::Color ? "color" : "depth";
+        int glFormat = 0;
+        if (use == VR::SwapchainUse::Color)
+            glFormat = SceneUtil::ColorFormat::colorFormat();
+        else
+            glFormat = SceneUtil::AutoDepth::depthFormat();
 
         XrSwapchainCreateInfo swapchainCreateInfo{};
         swapchainCreateInfo.type = XR_TYPE_SWAPCHAIN_CREATE_INFO;
@@ -543,7 +415,7 @@ namespace XR
         swapchainCreateInfo.height = height;
         swapchainCreateInfo.mipCount = 1;
         swapchainCreateInfo.faceCount = 1;
-        swapchainCreateInfo.format = openGLFormat;
+        swapchainCreateInfo.format = glFormat;
         swapchainCreateInfo.usageFlags = 0;
         if (use == VR::SwapchainUse::Color)
             swapchainCreateInfo.usageFlags |= XR_SWAPCHAIN_USAGE_COLOR_ATTACHMENT_BIT;
@@ -557,10 +429,10 @@ namespace XR
             // Select a swapchain format.
             Log(Debug::Verbose) << "Selected " << typeString << " format: " << std::dec << swapchainCreateInfo.format << " (" << std::hex << swapchainCreateInfo.format << ")" << std::dec;
 #ifdef XR_USE_GRAPHICS_API_D3D11
-            // Need to translate GL format to DX
+            // Need to translate GL format to DXGI
             if (KHR_D3D11_enable.enabled())
             {
-                swapchainCreateInfo.format = openGLFormatToDirectXFormat(swapchainCreateInfo.format);
+                swapchainCreateInfo.format = VR::GLFormatToDXGIFormat(swapchainCreateInfo.format);
                 Log(Debug::Verbose) << "Translated format to DXGI format: " << std::dec << swapchainCreateInfo.format << " (" << std::hex << swapchainCreateInfo.format << ")" << std::dec;
             }
 #endif
@@ -576,24 +448,37 @@ namespace XR
                 // User specified a swapchian format not supported by the runtime.
                 throw std::runtime_error(std::string("Swapchain ") + typeString + " format not supported by openxr runtime.");
             }
+            else if (res == XR_ERROR_FEATURE_UNSUPPORTED)
+            {
+                // Swapchain using some unsupported feature.
+                // This means either array textures or depth attachment was used but not supported.
+                // Application will have to do without said feature.
+                Log(Debug::Warning) << "xrCreateSwapchain returned XR_ERROR_FEATURE_UNSUPPORTED.";
+                return nullptr;
+            }
             else if (!XR_SUCCEEDED(res))
             {
+                // If XR runtime doesn't support the number of samples, there is no return code for this, so we try again until we've tried all possibilities down to 1.
                 Log(Debug::Verbose) << "Failed to create swapchain with SampleCount=" << samples << ": " << XrResultString(res);
                 samples /= 2;
                 if (samples == 0)
                 {
+                    // Use CHECK_XRRESULT to pass the failure through the same error checking / logging mechanism as other calls.
                     CHECK_XRRESULT(res, "xrCreateSwapchain");
                     throw std::runtime_error(XrResultString(res));
                 }
                 continue;
             }
 
+            // Pass the return code through CHECK_XRRESULT in case the user is logging all calls.
             CHECK_XRRESULT(res, "xrCreateSwapchain");
+
             if (use == VR::SwapchainUse::Color)
                 Debugging::setName(swapchain, "OpenMW XR Color Swapchain " + name);
             else
                 Debugging::setName(swapchain, "OpenMW XR Depth Swapchain " + name);
 
+            // Enumerate images based on which graphics extension was enabled.
             if (KHR_opengl_enable.enabled())
             {
                 auto images = enumerateSwapchainImagesOpenGL(swapchain);
@@ -603,7 +488,7 @@ namespace XR
             else if (KHR_D3D11_enable.enabled())
             {
                 auto images = enumerateSwapchainImagesDirectX(swapchain);
-                return new VR::DirectXSwapchain(std::make_shared<Swapchain>(swapchain, images, width, height, samples, swapchainCreateInfo.format, arraySize, arraySize > 1 ? GL_TEXTURE_2D_ARRAY : GL_TEXTURE_2D), mDxInterop, openGLFormat);
+                return new VR::DirectXSwapchain(std::make_shared<Swapchain>(swapchain, images, width, height, samples, swapchainCreateInfo.format, arraySize, arraySize > 1 ? GL_TEXTURE_2D_ARRAY : GL_TEXTURE_2D), mDxInterop, glFormat);
             }
 #endif
             else

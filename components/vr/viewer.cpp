@@ -187,9 +187,24 @@ namespace VR
 
         for (int i : {0, 1})
         {
-            mColorSwapchain[i].reset(VR::Session::instance().createSwapchain(mFramebufferWidth, mFramebufferHeight, 1, 1, VR::SwapchainUse::Color, i == 0 ? "LeftEye" : "RightEye", SceneUtil::ColorFormat::colorFormat()));
+            mColorSwapchain[i].reset(VR::Session::instance().createSwapchain(mFramebufferWidth, mFramebufferHeight, 1, 1, VR::SwapchainUse::Color, i == 0 ? "LeftEye" : "RightEye"));
             if (mSession->appShouldShareDepthInfo())
-                mDepthSwapchain[i].reset(VR::Session::instance().createSwapchain(mFramebufferWidth, mFramebufferHeight, 1, 1, VR::SwapchainUse::Depth, i == 0 ? "LeftEye" : "RightEye", SceneUtil::AutoDepth::depthFormat()));
+            {
+                // Depth support is buggy or just not supported on some runtimes and has to be guarded.
+                try {
+                    mDepthSwapchain[i].reset(VR::Session::instance().createSwapchain(mFramebufferWidth, mFramebufferHeight, 1, 1, VR::SwapchainUse::Depth, i == 0 ? "LeftEye" : "RightEye"));
+                }
+                catch (...)
+                {
+
+                }
+                if (!mDepthSwapchain[i])
+                {
+                    Log(Debug::Warning) << "XR_KHR_composition_layer_depth was enabled, but a depth attachment swapchain could not be created. Depth information will not be submitted.";
+                    mSession->setAppShouldShareDepthBuffer(false);
+                    mDepthSwapchain[0] = mDepthSwapchain[1] = nullptr;
+                }
+            }
         }
     }
 
