@@ -46,6 +46,7 @@
 
 #include <components/sceneutil/screencapture.hpp>
 #include <components/sceneutil/depth.hpp>
+#include <components/sceneutil/color.hpp>
 #include <components/sceneutil/util.hpp>
 
 #include <components/vr/session.hpp>
@@ -461,6 +462,7 @@ OMW::Engine::Engine(Files::ConfigurationManager& configurationManager)
   , mEncoder(nullptr)
   , mScreenCaptureOperation(nullptr)
   , mSelectDepthFormatOperation(new SceneUtil::SelectDepthFormatOperation())
+  , mSelectColorFormatOperation(new SceneUtil::ColorFormat::SelectColorFormatOperation())
   , mStereoManager(nullptr)
   , mSkipMenu (false)
   , mUseSound (true)
@@ -737,6 +739,7 @@ void OMW::Engine::createWindow(Settings::Manager& settings)
         realizeOperations->add(new InitializeVrOperation(this));
 
     realizeOperations->add(mSelectDepthFormatOperation);
+    realizeOperations->add(mSelectColorFormatOperation);
 
     if (Stereo::getStereo())
         realizeOperations->add(new InitializeStereoOperation());
@@ -1314,6 +1317,7 @@ void OMW::Engine::configureVR(osg::GraphicsContext* gc)
     mVrTrackingManager = std::make_unique<VR::TrackingManager>();
     mXrInstance = std::make_unique<XR::Instance>(gc);
     mXrSession = mXrInstance->createSession();
-    mSelectDepthFormatOperation->setSupportedFormats(mXrInstance->platform().supportedSwapchainFormatsGL());
+    mSelectDepthFormatOperation->setSupportedFormats(mXrInstance->platform().supportedDepthFormats());
+    mSelectColorFormatOperation->setSupportedFormats(mXrInstance->platform().supportedColorFormats());
 #endif
 }

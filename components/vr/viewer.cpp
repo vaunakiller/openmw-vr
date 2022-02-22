@@ -20,6 +20,7 @@
 #include <components/vr/trackingmanager.hpp>
 
 #include <components/sceneutil/depth.hpp>
+#include <components/sceneutil/color.hpp>
 #include <components/sceneutil/util.hpp>
 #include <components/sdlutil/sdlgraphicswindow.hpp>
 
@@ -175,7 +176,7 @@ namespace VR
 
         // The gamma resolve framebuffer will be used to write the result of gamma post-processing.
         mGammaResolveFramebuffer = new osg::FrameBufferObject();
-        mGammaResolveFramebuffer->setAttachment(osg::Camera::COLOR_BUFFER, osg::FrameBufferAttachment(new osg::RenderBuffer(mFramebufferWidth, mFramebufferHeight, GL_RGB, 0)));
+        mGammaResolveFramebuffer->setAttachment(osg::Camera::COLOR_BUFFER, osg::FrameBufferAttachment(new osg::RenderBuffer(mFramebufferWidth, mFramebufferHeight, SceneUtil::ColorFormat::colorFormat(), 0)));
 
         mViewer->setReleaseContextAtEndOfFrameHint(false);
         mViewer->getCamera()->getGraphicsContext()->setSwapCallback(mSwapBuffersCallback);
@@ -188,7 +189,22 @@ namespace VR
         {
             mColorSwapchain[i].reset(VR::Session::instance().createSwapchain(mFramebufferWidth, mFramebufferHeight, 1, 1, VR::SwapchainUse::Color, i == 0 ? "LeftEye" : "RightEye"));
             if (mSession->appShouldShareDepthInfo())
-                mDepthSwapchain[i].reset(VR::Session::instance().createSwapchain(mFramebufferWidth, mFramebufferHeight, 1, 1, VR::SwapchainUse::Depth, i == 0 ? "LeftEye" : "RightEye", SceneUtil::AutoDepth::depthFormat()));
+            {
+                // Depth support is buggy or just not supported on some runtimes and has to be guarded.
+                try {
+                    mDepthSwapchain[i].reset(VR::Session::instance().createSwapchain(mFramebufferWidth, mFramebufferHeight, 1, 1, VR::SwapchainUse::Depth, i == 0 ? "LeftEye" : "RightEye"));
+                }
+                catch (...)
+                {
+
+                }
+                if (!mDepthSwapchain[i])
+                {
+                    Log(Debug::Warning) << "XR_KHR_composition_layer_depth was enabled, but a depth attachment swapchain could not be created. Depth information will not be submitted.";
+                    mSession->setAppShouldShareDepthBuffer(false);
+                    mDepthSwapchain[0] = mDepthSwapchain[1] = nullptr;
+                }
+            }
         }
     }
 
@@ -358,7 +374,7 @@ namespace VR
         if(mSession->appShouldShareDepthInfo())
             depthImage = mDepthSwapchain[view]->image();
 
-        auto it = mSwapchainFramebuffers.find(std::pair{ colorImage, view });
+        auto it = mSwapchainFramebuffers.find(std::pair{ colorImage, depthImage });
         if (it == mSwapchainFramebuffers.end())
         {
             osg::ref_ptr<osg::FrameBufferObject> fbo = new osg::FrameBufferObject();
@@ -411,7 +427,7 @@ namespace VR
                 }
             }
 
-            it = mSwapchainFramebuffers.emplace(std::pair{ colorImage, view }, fbo).first;
+            it = mSwapchainFramebuffers.emplace(std::pair{ colorImage, depthImage }, fbo).first;
         }
         return it->second;
     }
@@ -552,7 +568,7 @@ namespace VR
         auto stageViews = VR::Session::instance().getPredictedViews(frame.predictedDisplayTime, VR::ReferenceSpace::Stage);
         auto views = VR::Session::instance().getPredictedViews(frame.predictedDisplayTime, VR::ReferenceSpace::View);
 
-        if (frame.shouldRender)
+        if (frame.shouldRender && frame.shouldSyncFrameLoop)
         {
             left = views[VR::Side_Left];
             left.pose.position *= Constants::UnitsPerMeter * mSession->playerScale();
