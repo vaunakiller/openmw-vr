@@ -154,12 +154,7 @@ namespace XR
 
     void Platform::selectGraphicsAPIExtension()
     {
-        bool preferDirectX = Settings::Manager::getBool("Prefer DirectX swapchains", "VR");
-
-        if (preferDirectX)
-            if (selectDirectX() || selectOpenGL())
-                return;
-        if (selectOpenGL() || selectDirectX())
+        if (selectDirectX() || selectOpenGL())
             return;
 
         Log(Debug::Verbose) << "Error: No graphics API supported by OpenMW VR is supported by the OpenXR runtime.";
