@@ -166,6 +166,29 @@ namespace MWVR
         return geometry;
     }
 
+    /// \brief osg user data used to refer back to VRGUILayer objects when intersecting with the scene graph.
+    class VRGUILayerUserData : public osg::Referenced
+    {
+    public:
+        VRGUILayerUserData(VRGUILayer* layer) : mLayer(layer) {};
+
+        VRGUILayer* mLayer;
+    };
+
+    class CullVRGUILayerCallback : public SceneUtil::NodeCallback<CullVRGUILayerCallback, osg::Transform*, osgUtil::CullVisitor*>
+    {
+    public:
+        CullVRGUILayerCallback(VRGUILayer* layer) : mLayer(layer) {}
+
+        void operator()(osg::Transform* node, osgUtil::CullVisitor* cv)
+        {
+            (void)node;
+            mLayer->cull(cv);
+        }
+
+        VRGUILayer* mLayer = nullptr;
+    };
+
     VRGUILayer::VRGUILayer(
         osg::ref_ptr<osg::Group> geometryRoot,
         osg::ref_ptr<osg::Group> cameraRoot,
@@ -201,12 +224,15 @@ namespace MWVR
 
         mStateset->setMode(GL_ALPHA_TEST, osg::StateAttribute::OFF);
 
+        mGeometries[0] = createLayerGeometry(mStateset);
+        mGeometries[0]->setUserData(new VRGUILayerUserData(this));
+        mGeometries[1] = createLayerGeometry(mStateset);
+        mGeometries[1]->setUserData(mGeometries[0]->getUserData());
+
         // Position in the game world
         mTransform->setScale(osg::Vec3(extent_units.x(), 1.f, extent_units.y()));
-
-        // Add to scene graph
-        mGeometryRoot->addChild(mTransform);
-        mCameraRoot->addChild(mGUICamera);
+        mTransform->setCullCallback(new CullVRGUILayerCallback(this));
+        mTransform->setCullingActive(false);
 
         // Edit offset to account for priority
         if (!mConfig.sideBySide)
@@ -219,8 +245,7 @@ namespace MWVR
 
     VRGUILayer::~VRGUILayer()
     {
-        mGeometryRoot->removeChild(mTransform);
-        mCameraRoot->removeChild(mGUICamera);
+        removeFromSceneGraph();
     }
 
     osg::ref_ptr<osg::Texture> VRGUILayer::menuTexture()
@@ -312,8 +337,17 @@ namespace MWVR
         }
     }
 
-    void VRGUILayer::update()
+    void VRGUILayer::update(osg::NodeVisitor* nv)
     {
+        if (mTransform->getNumChildren() > 0)
+            mTransform->removeChild(0, mTransform->getNumChildren());
+
+        auto index = nv->getFrameStamp()->getFrameNumber() % 2;
+        auto* geometry = mGeometries[index].get();
+
+        if (mVisible)
+            mTransform->addChild(geometry);
+
         if (mConfig.sideBySide)
         {
             // The side-by-side windows are also the resizable windows.
@@ -353,18 +387,6 @@ namespace MWVR
             h = (1.f - mRealRect.top) * static_cast<float>(viewSize.height);
             mTransform->setScale(osg::Vec3(w / res, 1.f, h / res));
         }
-
-        mTransform->removeChild(0, mTransform->getNumChildren());
-        std::swap(mGeometries[0], mGeometries[1]);
-        mGeometries[0] = createLayerGeometry(mStateset);
-        mGeometries[0]->setUserData(new VRGUILayerUserData(this));
-        osg::ref_ptr<osg::Vec2Array> texCoords{ new osg::Vec2Array(4) };
-        (*texCoords)[0].set(mRealRect.left, 1.f - mRealRect.bottom);
-        (*texCoords)[1].set(mRealRect.left, 1.f - mRealRect.top);
-        (*texCoords)[2].set(mRealRect.right, 1.f - mRealRect.bottom);
-        (*texCoords)[3].set(mRealRect.right, 1.f - mRealRect.top);
-        mGeometries[0]->setTexCoordArray(0, texCoords);
-        mTransform->addChild(mGeometries[0]);
     }
 
     void
@@ -389,6 +411,50 @@ namespace MWVR
                 return;
             }
         }
+    }
+
+    void VRGUILayer::cull(osgUtil::CullVisitor* cv)
+    {
+        // Nothing to draw
+        // Return without traversing
+        if (!mVisible)
+            return;
+
+        auto index = cv->getFrameStamp()->getFrameNumber() % 2;
+        auto* geometry = mGeometries[index].get();
+
+        osg::Vec2Array* texCoords = static_cast<osg::Vec2Array*>(geometry->getTexCoordArray(0));
+        (*texCoords)[0].set(mRealRect.left, 1.f - mRealRect.bottom);
+        (*texCoords)[1].set(mRealRect.left, 1.f - mRealRect.top);
+        (*texCoords)[2].set(mRealRect.right, 1.f - mRealRect.bottom);
+        (*texCoords)[3].set(mRealRect.right, 1.f - mRealRect.top);
+        texCoords->dirty();
+
+        geometry->accept(*cv);
+    }
+
+    void VRGUILayer::setVisible(bool visible)
+    {
+        if (visible == mVisible)
+            return;
+        mVisible = visible;
+
+        if (mVisible)
+            addToSceneGraph();
+        else
+            removeFromSceneGraph();
+    }
+
+    void VRGUILayer::removeFromSceneGraph()
+    {
+        mGeometryRoot->removeChild(mTransform);
+        mCameraRoot->removeChild(mGUICamera);
+    }
+
+    void VRGUILayer::addToSceneGraph()
+    {
+        mGeometryRoot->addChild(mTransform);
+        mCameraRoot->addChild(mGUICamera);
     }
 
     static const LayerConfig createDefaultConfig(int priority, bool background = true, SizingMode sizingMode = SizingMode::Auto, std::string extraLayers = "Popup")
@@ -464,10 +530,10 @@ namespace MWVR
         {
         }
 
-        void operator()(osg::Node* node, osg::NodeVisitor* cv)
+        void operator()(osg::Node* node, osg::NodeVisitor* nv)
         {
-            mManager->update();
-            traverse(node, cv);
+            mManager->update(nv);
+            traverse(node, nv);
         }
 
     private:
@@ -667,7 +733,7 @@ namespace MWVR
             config = mLayerConfigs["DefaultConfig"];
         }
 
-        auto layer = std::shared_ptr<VRGUILayer>(new VRGUILayer(
+        auto layer = osg::ref_ptr<VRGUILayer>(new VRGUILayer(
             mGeometries,
             mGUICameras,
             name,
@@ -675,12 +741,6 @@ namespace MWVR
             this
         ));
         mLayers[name] = layer;
-
-        if (config.sideBySide)
-        {
-            mSideBySideLayers.push_back(layer);
-            updateSideBySideLayers();
-        }
 
         Shader::ShaderManager::DefineMap defineMap{ {"GLSLVersion", "120"} };
         Stereo::Manager::instance().shaderStereoDefines(defineMap);
@@ -693,44 +753,57 @@ namespace MWVR
         {
             layer->mStateset->setAttributeAndModes(shaderManager.getProgram(vertexShader, fragmentShader));
         }
+    }
 
+    void VRGUIManager::showLayer(const std::string& name)
+    {
+        auto it = mLayers.find(name);
+        if (it == mLayers.end())
+        {
+            insertLayer(name);
+            it = mLayers.find(name);
+        }
 
+        it->second->setVisible(true);
+
+        if (it->second->mConfig.sideBySide)
+        {
+            bool found = false;
+            for (auto layer : mSideBySideLayers)
+                if (layer == it->second)
+                    found = true;
+            if (!found)
+            {
+                mSideBySideLayers.push_back(it->second);
+                updateSideBySideLayers();
+            }
+        }
     }
 
     void VRGUIManager::insertWidget(MWGui::Layout* widget)
     {
         auto* layer = widget->mMainWidget->getLayer();
         auto name = layer->getName();
+        showLayer(name);
 
         auto it = mLayers.find(name);
-        if (it == mLayers.end())
-        {
-            insertLayer(name);
-            it = mLayers.find(name);
-            if (it == mLayers.end())
-            {
-                Log(Debug::Error) << "Failed to insert layer " << name;
-                return;
-            }
-        }
-
         it->second->insertWidget(widget);
 
-        if (it->second.get() != mFocusLayer)
+        if (it->second != mFocusLayer)
             setPick(widget, false);
+
+        it->second->setVisible(true);
     }
 
-    void VRGUIManager::removeLayer(const std::string& name)
+    void VRGUIManager::hideLayer(const std::string& name)
     {
         auto it = mLayers.find(name);
         if (it == mLayers.end())
             return;
 
-        auto &layer = it->second;
-
         for (auto it2 = mSideBySideLayers.begin(); it2 != mSideBySideLayers.end();)
         {
-            if (*it2 == layer)
+            if (*it2 == it->second)
             {
                 it2 = mSideBySideLayers.erase(it2);
                 updateSideBySideLayers();
@@ -741,10 +814,10 @@ namespace MWVR
             }
         }
 
-        if (it->second.get() == mFocusLayer)
+        if (it->second == mFocusLayer)
             setFocusLayer(nullptr);
 
-        mLayers.erase(it);
+        it->second->setVisible(false);
     }
 
     void VRGUIManager::removeWidget(MWGui::Layout* widget)
@@ -761,7 +834,7 @@ namespace MWVR
         it->second->removeWidget(widget);
         if (it->second->widgetCount() == 0)
         {
-            removeLayer(name);
+            hideLayer(name);
         }
     }
 
@@ -797,9 +870,10 @@ namespace MWVR
 
         if (mUserPointer->getPointerRay().mHit)
         {
-            VRGUILayer* newFocusLayer = nullptr;
+            osg::ref_ptr<VRGUILayer> newFocusLayer = nullptr;
             auto* node = mUserPointer->getPointerRay().mHitNode;
-            if (node->getName() == "VRGUILayer")
+
+            if (node && node->getName() == "VRGUILayer")
             {
                 VRGUILayerUserData* userData = static_cast<VRGUILayerUserData*>(node->getUserData());
                 newFocusLayer = userData->mLayer;
@@ -815,13 +889,13 @@ namespace MWVR
         return false;
     }
 
-    void VRGUIManager::update()
+    void VRGUIManager::update(osg::NodeVisitor* nv)
     {
         for (auto& layer : mLayers)
-            layer.second->update();
+            layer.second->update(nv);
     }
 
-    void VRGUIManager::setFocusLayer(VRGUILayer* layer)
+    void VRGUIManager::setFocusLayer(osg::ref_ptr<VRGUILayer> layer)
     {
         if (layer == mFocusLayer)
             return;

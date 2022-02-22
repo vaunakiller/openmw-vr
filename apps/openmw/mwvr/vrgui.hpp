@@ -95,7 +95,7 @@ namespace MWVR
     /// In VR menus are shown as quads within the game world.
     /// The behaviour of that quad is defined by the MWVR::LayerConfig struct
     /// Each instance of VRGUILayer is used to show one MYGUI layer.
-    class VRGUILayer : public VR::TrackingListener
+    class VRGUILayer : public VR::TrackingListener, public osg::Referenced
     {
     public:
         VRGUILayer(
@@ -106,10 +106,9 @@ namespace MWVR
             VRGUIManager* parent);
         ~VRGUILayer();
 
-        void update();
+        void update(osg::NodeVisitor* nv);
 
-    protected:
-        friend class VRGUIManager;
+    public:
         osg::ref_ptr<osg::Geometry> createLayerGeometry(osg::ref_ptr<osg::StateSet> stateset);
         osg::ref_ptr<osg::Texture> menuTexture();
         void setAngle(float angle);
@@ -119,6 +118,10 @@ namespace MWVR
         void removeWidget(MWGui::Layout* widget);
         int  widgetCount() { return mWidgets.size(); }
         bool operator<(const VRGUILayer& rhs) const { return mConfig.priority < rhs.mConfig.priority; }
+        void cull(osgUtil::CullVisitor* cv);
+        void setVisible(bool visible);
+        void removeFromSceneGraph();
+        void addToSceneGraph();
 
         /// Update layer quads based on current tracking information
         void onTrackingUpdated(VR::TrackingManager& manager, VR::DisplayTime predictedDisplayTime) override;
@@ -140,15 +143,7 @@ namespace MWVR
         osg::ref_ptr<osg::StateSet> mStateset;
         MyGUI::FloatRect mRealRect{};
         osg::Quat mRotation{ 0,0,0,1 };
-    };
-
-    /// \brief osg user data used to refer back to VRGUILayer objects when intersecting with the scene graph.
-    class VRGUILayerUserData : public osg::Referenced
-    {
-    public:
-        VRGUILayerUserData(VRGUILayer* layer) : mLayer(layer) {};
-
-        VRGUILayer* mLayer;
+        bool mVisible = false;
     };
 
     /// \brief Manager of VRGUILayer objects.
@@ -171,17 +166,17 @@ namespace MWVR
         /// Set visibility of the layer this layout is on
         void setVisible(MWGui::Layout*, bool visible);
         
-        /// Insert the given layer quad if it isn't already
-        void insertLayer(const std::string& name);
+        /// Show the given layer
+        void showLayer(const std::string& name);
 
-        /// Remove the given layer quad
-        void removeLayer(const std::string& name);
+        /// Hide the given layer
+        void hideLayer(const std::string& name);
 
         /// Check current pointer target and update focus layer
         bool updateFocus();
 
         /// Update traversal
-        void update();
+        void update(osg::NodeVisitor* nv);
 
         /// Update traversal
         void updateTracking();
@@ -205,11 +200,13 @@ namespace MWVR
         void setUserPointer(std::shared_ptr<UserPointer> userPointer);
 
     private:
+        void insertLayer(const std::string& name);
+        // Not used: void removeLayer(const std::string& name);
         void computeGuiCursor(osg::Vec3 hitPoint);
         void updateSideBySideLayers();
         void insertWidget(MWGui::Layout* widget);
         void removeWidget(MWGui::Layout* widget);
-        void setFocusLayer(VRGUILayer* layer);
+        void setFocusLayer(osg::ref_ptr<VRGUILayer> layer);
         void setFocusWidget(MyGUI::Widget* widget);
         void configUpdated(const std::string& layer);
 
@@ -224,11 +221,11 @@ namespace MWVR
 
         std::unique_ptr<VRGUITracking> mUiTracking = nullptr;
 
-        std::map<std::string, std::shared_ptr<VRGUILayer>> mLayers{};
-        std::vector<std::shared_ptr<VRGUILayer> > mSideBySideLayers{};
+        std::map<std::string, osg::ref_ptr<VRGUILayer>> mLayers{};
+        std::vector<osg::ref_ptr<VRGUILayer> > mSideBySideLayers{};
 
         osg::Vec2i  mGuiCursor = osg::Vec2i();
-        VRGUILayer* mFocusLayer = nullptr;
+        osg::ref_ptr<VRGUILayer> mFocusLayer = nullptr;
         MyGUI::Widget* mFocusWidget = nullptr;
         std::map<std::string, LayerConfig> mLayerConfigs{};
     };
