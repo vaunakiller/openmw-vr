@@ -100,9 +100,9 @@ namespace MWVR
         }
     }
 
-    const MWRender::RayResult& UserPointer::getPointerTarget() const
+    const MWRender::RayResult& UserPointer::getPointerRay() const
     {
-        return mPointerTarget;
+        return mPointerRay;
     }
 
     bool UserPointer::canPlaceObject() const
@@ -119,13 +119,15 @@ namespace MWVR
 
             //mDistanceToPointerTarget = world->getTargetObject(mPointerTarget, mPointerTransform);
             //osg::computeLocalToWorld(mPointerTransform->getParentalNodePaths()[0]);
-            mDistanceToPointerTarget = Util::getPoseTarget(mPointerTarget, Util::getNodePose(mPointerTransform), true);
+            mDistanceToPointerTarget = Util::getPoseTarget(mPointerRay, Util::getNodePose(mPointerTransform), true);
+            // Make a ref-counted copy of the target node to ensure the object's lifetime this frame.
+            mPointerTarget = mPointerRay.mHitNode;
 
             mCanPlaceObject = false;
-            if (mPointerTarget.mHit)
+            if (mPointerRay.mHit)
             {
                 // check if the wanted position is on a flat surface, and not e.g. against a vertical wall
-                mCanPlaceObject = !(std::acos((mPointerTarget.mHitNormalWorld / mPointerTarget.mHitNormalWorld.length()) * osg::Vec3f(0, 0, 1)) >= osg::DegreesToRadians(30.f));
+                mCanPlaceObject = !(std::acos((mPointerRay.mHitNormalWorld / mPointerRay.mHitNormalWorld.length()) * osg::Vec3f(0, 0, 1)) >= osg::DegreesToRadians(30.f));
             }
 
             if (mDistanceToPointerTarget > 0.f)

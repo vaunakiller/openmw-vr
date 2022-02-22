@@ -78,7 +78,7 @@ namespace MWVR
 
             MWWorld::Ptr dropped;
             if (pointer->canPlaceObject())
-                dropped = world->placeObject(item.mBase, pointer->getPointerTarget(), count);
+                dropped = world->placeObject(item.mBase, pointer->getPointerRay(), count);
             else
                 dropped = world->dropObjectOnGround(world->getPlayerPtr(), item.mBase, count);
             dropped.getCellRef().setOwner("");
@@ -107,10 +107,10 @@ namespace MWVR
         }
 
         auto pointer = MWVR::VRGUIManager::instance().getUserPointer();
-        if (pointer->getPointerTarget().mHit)
+        if (pointer->getPointerRay().mHit)
         {
-            auto* node = pointer->getPointerTarget().mHitNode;
-            MWWorld::Ptr ptr = pointer->getPointerTarget().mHitObject;
+            auto* node = pointer->getPointerRay().mHitNode;
+            MWWorld::Ptr ptr = pointer->getPointerRay().mHitObject;
             auto wm = MWBase::Environment::get().getWindowManager();
             auto& dnd = wm->getDragAndDrop();
 

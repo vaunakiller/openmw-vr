@@ -11,12 +11,13 @@ namespace MWVR
     //! Controls the beam used to target/select objects.
     class UserPointer : public VR::TrackingListener
     {
+
     public:
         UserPointer(osg::Group* root);
         ~UserPointer();
 
         void updatePointerTarget();
-        const MWRender::RayResult& getPointerTarget() const;
+        const MWRender::RayResult& getPointerRay() const;
         bool canPlaceObject() const;
         void setParent(osg::Group* group);
         void setEnabled(bool enabled);
@@ -29,19 +30,20 @@ namespace MWVR
     private:
         osg::ref_ptr<osg::Geometry> createPointerGeometry();
 
-        osg::ref_ptr<osg::Geometry> mPointerGeometry{ nullptr };
-        osg::ref_ptr<osg::MatrixTransform> mPointerRescale{ nullptr };
-        osg::ref_ptr<osg::MatrixTransform> mPointerTransform{ nullptr };
+        osg::ref_ptr<osg::Geometry> mPointerGeometry = nullptr;
+        osg::ref_ptr<osg::MatrixTransform> mPointerRescale = nullptr;
+        osg::ref_ptr<osg::MatrixTransform> mPointerTransform = nullptr;
 
-        osg::ref_ptr<osg::Group> mParent{ nullptr };
-        osg::ref_ptr<osg::Group> mRoot{ nullptr };
-        VR::VRPath mLeftHandPath;
-        VR::VRPath mRightHandPath;
+        osg::ref_ptr<osg::Group> mParent = nullptr;
+        osg::ref_ptr<osg::Group> mRoot = nullptr;
+        VR::VRPath mLeftHandPath = 0;
+        VR::VRPath mRightHandPath = 0;
 
-        bool mEnabled{ true };
-        MWRender::RayResult mPointerTarget{};
-        float mDistanceToPointerTarget{ -1.f };
-        bool mCanPlaceObject{ false };
+        bool mEnabled = true;
+        MWRender::RayResult mPointerRay = {};
+        osg::ref_ptr<osg::Node> mPointerTarget = nullptr;
+        float mDistanceToPointerTarget = -1.f;
+        bool mCanPlaceObject = false;
         bool mLeftHandEnabled = true;
         bool mRightHandEnabled = true;
     };

@@ -795,10 +795,10 @@ namespace MWVR
         if (!mUserPointer)
             return false;
 
-        if (mUserPointer->getPointerTarget().mHit)
+        if (mUserPointer->getPointerRay().mHit)
         {
             VRGUILayer* newFocusLayer = nullptr;
-            auto* node = mUserPointer->getPointerTarget().mHitNode;
+            auto* node = mUserPointer->getPointerRay().mHitNode;
             if (node->getName() == "VRGUILayer")
             {
                 VRGUILayerUserData* userData = static_cast<VRGUILayerUserData*>(node->getUserData());
@@ -808,7 +808,7 @@ namespace MWVR
             if (newFocusLayer && newFocusLayer->mLayerName != "Notification")
             {
                 setFocusLayer(newFocusLayer);
-                computeGuiCursor(mUserPointer->getPointerTarget().mHitPointLocal);
+                computeGuiCursor(mUserPointer->getPointerRay().mHitPointLocal);
                 return true;
             }
         }
