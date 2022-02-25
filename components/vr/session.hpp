@@ -61,6 +61,8 @@ namespace VR
 
         void setAppShouldShareDepthBuffer(bool arg) { mAppShouldShareDepthBuffer = arg; }
 
+        bool handDirectedMovement() const { return mHandDirectedMovement; };
+
     protected:
         void setSeatedPlay(bool seatedPlay);
 
@@ -83,10 +85,11 @@ namespace VR
     private:
 
         bool mAppShouldShareDepthBuffer = false;
+        bool mHandDirectedMovement = false ;
 
-        bool mSeatedPlay{ false };
-        float mPlayerScale{ 1.f };
-        float mEyeLevel{ 1.f };
+        bool mSeatedPlay = false;
+        float mPlayerScale = 1.f;
+        float mEyeLevel = 1.f;
     };
 
 }

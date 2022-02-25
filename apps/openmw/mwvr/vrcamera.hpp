@@ -60,6 +60,10 @@ namespace MWVR
 
     private:
         Stereo::Pose mHeadPose{};
+        Stereo::Pose mTrackingHandPose{};
+        VR::VRPath mWorldHeadPath;
+        VR::VRPath mWorldLeftHandPath;
+        VR::VRPath mWorldRightHandPath;
         bool mShouldRecenter{ true };
         bool mShouldResetZ{ true };
         bool mHasTrackingData{ false };

@@ -64,6 +64,9 @@ namespace MWVR
     {
         mVanityAllowed = false;
         mFirstPersonView = true;
+        mWorldHeadPath = VR::stringToVRPath("/world/user/head/input/pose");
+        mWorldLeftHandPath = VR::stringToVRPath("/world/user/hand/left/input/aim/pose");
+        mWorldRightHandPath = VR::stringToVRPath("/world/user/hand/right/input/aim/pose");
     }
 
     VRCamera::~VRCamera()
@@ -100,29 +103,49 @@ namespace MWVR
         MWBase::World* world = MWBase::Environment::get().getWorld();
 
         auto& player = world->getPlayer();
-        auto playerPtr = player.getPlayer();
-
-        float yaw = 0.f;
-        float pitch = 0.f;
-        float roll = 0.f;
-        getEulerAngles(mHeadPose.orientation, yaw, pitch, roll);
 
         if (!player.isDisabled() && mTrackingNode)
         {
-            world->rotateObject(playerPtr, osg::Vec3f(pitch, 0.f, yaw), MWBase::RotationFlag_none);
+            auto playerPtr = player.getPlayer();
+
+            float headYaw = 0.f;
+            float headPitch = 0.f;
+            float headRoll = 0.f;
+            getEulerAngles(mHeadPose.orientation, headYaw, headPitch, headRoll);
+
+            world->rotateObject(playerPtr, osg::Vec3f(headPitch, 0.f, headYaw), MWBase::RotationFlag_none);
+
+            if (VR::Session::instance().handDirectedMovement())
+            {
+                float handYaw = 0.f;
+                float handPitch = 0.f;
+                float handRoll = 0.f;
+                const MWWorld::Class& cls = playerPtr.getClass();
+
+                getEulerAngles(mTrackingHandPose.orientation, handYaw, handPitch, handRoll);
+
+                auto& rotation = cls.getMovementSettings(playerPtr).mRotation;
+                rotation[0] += (handPitch - headPitch);
+                rotation[2] += (handYaw - headYaw);
+            }
         }
     }
 
     void VRCamera::onTrackingUpdated(VR::TrackingManager& manager, VR::DisplayTime predictedDisplayTime)
     {
-        auto path = VR::stringToVRPath("/world/user/head/input/pose");
-        auto tp = manager.locate(path, predictedDisplayTime);
-
-        if (!!tp.status)
+        auto headTrackingPose = manager.locate(mWorldHeadPath, predictedDisplayTime);
+        if (!!headTrackingPose.status)
         {
-            mHeadPose = tp.pose;
+            mHeadPose = headTrackingPose.pose;
             mHasTrackingData = true;
         }
+
+        auto handTrackingPose = manager.locate(mWorldLeftHandPath, predictedDisplayTime);
+        if (!!handTrackingPose.status)
+        {
+            mTrackingHandPose = handTrackingPose.pose;
+        }
+
 
         if (mShouldRecenter)
         {

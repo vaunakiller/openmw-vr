@@ -34,6 +34,7 @@ namespace VR
             throw std::logic_error("Duplicated VR::Session singleton");
 
         mSeatedPlay = Settings::Manager::getBool("seated play", "VR");
+        mHandDirectedMovement = Settings::Manager::getBool("hand directed movement", "VR");
     }
 
     Session::~Session()
@@ -43,6 +44,7 @@ namespace VR
     void Session::processChangedSettings(const std::set<std::pair<std::string, std::string>>& changed)
     {
         setSeatedPlay(Settings::Manager::getBool("seated play", "VR"));
+        mHandDirectedMovement = Settings::Manager::getBool("hand directed movement", "VR");
     }
 
     VR::Frame Session::newFrame()
