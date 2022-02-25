@@ -10,12 +10,6 @@ namespace
 {
     using namespace testing;
 
-    template <typename T>
-    T get(sol::state& lua, std::string luaCode)
-    {
-        return lua.safe_script("return " + luaCode).get<T>();
-    }
-
     std::string getAsString(sol::state& lua, std::string luaCode)
     {
         return LuaUtil::toString(lua.safe_script("return " + luaCode));
@@ -76,6 +70,52 @@ namespace
         EXPECT_FLOAT_EQ(get<float>(lua, "len"), 0);
     }
 
+    TEST(LuaUtilPackageTest, Vector4)
+    {
+        sol::state lua;
+        lua.open_libraries(sol::lib::base, sol::lib::math, sol::lib::string);
+        lua["util"] = LuaUtil::initUtilPackage(lua);
+        lua.safe_script("v = util.vector4(5, 12, 13, 15)");
+        EXPECT_FLOAT_EQ(get<float>(lua, "v.x"), 5);
+        EXPECT_FLOAT_EQ(get<float>(lua, "v.y"), 12);
+        EXPECT_FLOAT_EQ(get<float>(lua, "v.z"), 13);
+        EXPECT_FLOAT_EQ(get<float>(lua, "v.w"), 15);
+        EXPECT_EQ(get<std::string>(lua, "tostring(v)"), "(5, 12, 13, 15)");
+        EXPECT_FLOAT_EQ(get<float>(lua, "util.vector4(4, 0, 0, 3):length()"), 5);
+        EXPECT_FLOAT_EQ(get<float>(lua, "util.vector4(4, 0, 0, 3):length2()"), 25);
+        EXPECT_FALSE(get<bool>(lua, "util.vector4(1, 2, 3, 4) == util.vector4(1, 3, 2, 4)"));
+        EXPECT_TRUE(get<bool>(lua, "util.vector4(1, 2, 3, 4) + util.vector4(2, 5, 1, 2) == util.vector4(3, 7, 4, 6)"));
+        EXPECT_TRUE(get<bool>(lua, "util.vector4(1, 2, 3, 4) - util.vector4(2, 5, 1, 7) == -util.vector4(1, 3, -2, 3)"));
+        EXPECT_TRUE(get<bool>(lua, "util.vector4(1, 2, 3, 4) == util.vector4(2, 4, 6, 8) / 2"));
+        EXPECT_TRUE(get<bool>(lua, "util.vector4(1, 2, 3, 4) * 2 == util.vector4(2, 4, 6, 8)"));
+        EXPECT_FLOAT_EQ(get<float>(lua, "util.vector4(3, 2, 1, 4) * v"), 5 * 3 + 12 * 2 + 13 * 1 + 15 * 4);
+        EXPECT_FLOAT_EQ(get<float>(lua, "util.vector4(3, 2, 1, 4):dot(v)"), 5 * 3 + 12 * 2 + 13 * 1 + 15 * 4);
+        lua.safe_script("v2, len = util.vector4(3, 0, 0, 4):normalize()");
+        EXPECT_FLOAT_EQ(get<float>(lua, "len"), 5);
+        EXPECT_TRUE(get<bool>(lua, "v2 == util.vector4(3/5, 0, 0, 4/5)"));
+        lua.safe_script("_, len = util.vector4(0, 0, 0, 0):normalize()");
+        EXPECT_FLOAT_EQ(get<float>(lua, "len"), 0);
+    }
+
+    TEST(LuaUtilPackageTest, Color)
+    {
+        sol::state lua;
+        lua.open_libraries(sol::lib::base, sol::lib::math, sol::lib::string);
+        lua["util"] = LuaUtil::initUtilPackage(lua);
+        lua.safe_script("brown = util.color.rgba(0.75, 0.25, 0, 1)");
+        EXPECT_EQ(get<std::string>(lua, "tostring(brown)"), "(0.75, 0.25, 0, 1)");
+        lua.safe_script("blue = util.color.rgb(0, 1, 0, 1)");
+        EXPECT_EQ(get<std::string>(lua, "tostring(blue)"), "(0, 1, 0, 1)");
+        lua.safe_script("red = util.color.hex('ff0000')");
+        EXPECT_EQ(get<std::string>(lua, "tostring(red)"), "(1, 0, 0, 1)");
+        lua.safe_script("green = util.color.hex('00FF00')");
+        EXPECT_EQ(get<std::string>(lua, "tostring(green)"), "(0, 1, 0, 1)");
+        lua.safe_script("darkRed = util.color.hex('a01112')");
+        EXPECT_EQ(get<std::string>(lua, "darkRed:asHex()"), "a01112");
+        EXPECT_TRUE(get<bool>(lua, "green:asRgba() == util.vector4(0, 1, 0, 1)"));
+        EXPECT_TRUE(get<bool>(lua, "red:asRgb() == util.vector3(1, 0, 0)"));
+    }
+
     TEST(LuaUtilPackageTest, Transform)
     {
         sol::state lua;
@@ -93,13 +133,13 @@ namespace
         EXPECT_EQ(getAsString(lua, "moveAndScale * v(300, 200, 100)"), "(156, 222, 68)");
         EXPECT_THAT(getAsString(lua, "moveAndScale"), AllOf(StartsWith("TransformM{ move(6, 22, 18) scale(0.5, 1, 0.5) "), EndsWith(" }")));
         EXPECT_EQ(getAsString(lua, "T.identity"), "TransformM{ }");
-        lua.safe_script("rx = T.rotateX(math.pi / 2)");
-        lua.safe_script("ry = T.rotateY(math.pi / 2)");
-        lua.safe_script("rz = T.rotateZ(math.pi / 2)");
+        lua.safe_script("rx = T.rotateX(-math.pi / 2)");
+        lua.safe_script("ry = T.rotateY(-math.pi / 2)");
+        lua.safe_script("rz = T.rotateZ(-math.pi / 2)");
         EXPECT_LT(get<float>(lua, "(rx * v(1, 2, 3) - v(1, -3, 2)):length()"), 1e-6);
         EXPECT_LT(get<float>(lua, "(ry * v(1, 2, 3) - v(3, 2, -1)):length()"), 1e-6);
         EXPECT_LT(get<float>(lua, "(rz * v(1, 2, 3) - v(-2, 1, 3)):length()"), 1e-6);
-        lua.safe_script("rot = T.rotate(math.pi / 2, v(-1, -1, 0)) * T.rotateZ(-math.pi / 4)");
+        lua.safe_script("rot = T.rotate(math.pi / 2, v(-1, -1, 0)) * T.rotateZ(math.pi / 4)");
         EXPECT_THAT(getAsString(lua, "rot"), HasSubstr("TransformQ"));
         EXPECT_LT(get<float>(lua, "(rot * v(1, 0, 0) - v(0, 0, 1)):length()"), 1e-6);
         EXPECT_LT(get<float>(lua, "(rot * rot:inverse() * v(1, 0, 0) - v(1, 0, 0)):length()"), 1e-6);
@@ -120,6 +160,9 @@ namespace
         EXPECT_FLOAT_EQ(get<float>(lua, "util.clamp(0.1, 0, 1.5)"), 0.1);
         EXPECT_FLOAT_EQ(get<float>(lua, "util.clamp(-0.1, 0, 1.5)"), 0);
         EXPECT_FLOAT_EQ(get<float>(lua, "util.clamp(2.1, 0, 1.5)"), 1.5);
+        lua.safe_script("t = util.makeReadOnly({x = 1})");
+        EXPECT_FLOAT_EQ(get<float>(lua, "t.x"), 1);
+        EXPECT_ERROR(lua.safe_script("t.y = 2"), "userdata value");
     }
 
 }

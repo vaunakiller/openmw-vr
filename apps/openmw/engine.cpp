@@ -1,8 +1,6 @@
 #include "engine.hpp"
 
-#include <condition_variable>
 #include <iomanip>
-#include <fstream>
 #include <chrono>
 #include <thread>
 
@@ -11,7 +9,6 @@
 #include <osg/Version>
 
 #include <osgViewer/ViewerEventHandlers>
-#include <osgDB/ReadFile>
 #include <osgDB/WriteFile>
 
 #include <SDL.h>
@@ -48,10 +45,14 @@
 #include <components/misc/frameratelimiter.hpp>
 
 #include <components/sceneutil/screencapture.hpp>
+#include <components/sceneutil/depth.hpp>
+#include <components/sceneutil/color.hpp>
+#include <components/sceneutil/util.hpp>
 
 #include <components/vr/session.hpp>
 #include <components/vr/trackingmanager.hpp>
 #include <components/vr/viewer.hpp>
+#include <components/vr/vr.hpp>
 #include <components/xr/instance.hpp>
 #include <components/xr/session.hpp>
 
@@ -91,32 +92,6 @@
 
 namespace
 {
-    // Callback to do construction with a graphics context
-    class MWRealizeOperation : public osg::GraphicsOperation
-    {
-    public:
-        MWRealizeOperation(OMW::Engine* engine, osg::ref_ptr<osg::GraphicsOperation> nestedOp);
-        void operator()(osg::GraphicsContext* gc) override;
-
-    private:
-        OMW::Engine* mEngine;
-        osg::ref_ptr<osg::GraphicsOperation> mNestedOp;
-    };
-
-    MWRealizeOperation::MWRealizeOperation(OMW::Engine* engine, osg::ref_ptr<osg::GraphicsOperation> nestedOp)
-        : osg::GraphicsOperation("MWRealizeOperation", false)
-        , mEngine(engine)
-        , mNestedOp(nestedOp)
-    {
-    }
-
-    void MWRealizeOperation::operator()(osg::GraphicsContext* gc)
-    {
-        mEngine->realize(gc);
-        if (mNestedOp)
-            mNestedOp->operator()(gc);
-    }
-
     void checkSDLError(int ret)
     {
         if (ret != 0)
@@ -283,6 +258,47 @@ namespace
     {
         void operator()(std::string) const {}
     };
+
+    class IdentifyOpenGLOperation : public osg::GraphicsOperation
+    {
+    public:
+        IdentifyOpenGLOperation() : GraphicsOperation("IdentifyOpenGLOperation", false)
+        {}
+
+        void operator()(osg::GraphicsContext* graphicsContext) override
+        {
+            Log(Debug::Info) << "OpenGL Vendor: " << glGetString(GL_VENDOR);
+            Log(Debug::Info) << "OpenGL Renderer: " << glGetString(GL_RENDERER);
+            Log(Debug::Info) << "OpenGL Version: " << glGetString(GL_VERSION);
+        }
+    };
+
+    class InitializeStereoOperation : public osg::GraphicsOperation
+    {
+    public:
+        InitializeStereoOperation() : GraphicsOperation("InitializeStereoOperation", false)
+        {}
+
+        void operator()(osg::GraphicsContext* graphicsContext) override
+        {
+            Stereo::Manager::instance().initializeStereo(graphicsContext);
+        }
+    };
+
+    class InitializeVrOperation : public osg::GraphicsOperation
+    {
+    public:
+        InitializeVrOperation(OMW::Engine* engine) : GraphicsOperation("InitializeVrOperation", false)
+            , mEngine(engine)
+        {}
+
+        void operator()(osg::GraphicsContext* graphicsContext) override
+        {
+            mEngine->configureVR(graphicsContext);
+        }
+
+        OMW::Engine* mEngine;
+    };
 }
 
 void OMW::Engine::executeLocalScripts()
@@ -337,6 +353,10 @@ bool OMW::Engine::frame(float frametime)
 
         // Main menu opened? Then scripts are also paused.
         bool paused = mEnvironment.getWindowManager()->containsMode(MWGui::GM_MainMenu);
+
+        // Should be called after input manager update and before any change to the game world.
+        // It applies to the game world queued changes from the previous frame.
+        mLuaManager->synchronizedUpdate();
 
         // update game state
         {
@@ -441,8 +461,8 @@ OMW::Engine::Engine(Files::ConfigurationManager& configurationManager)
   , mEncoding(ToUTF8::WINDOWS_1252)
   , mEncoder(nullptr)
   , mScreenCaptureOperation(nullptr)
-  , mStereoEnabled(false)
-  , mStereoOverride(false)
+  , mSelectDepthFormatOperation(new SceneUtil::SelectDepthFormatOperation())
+  , mSelectColorFormatOperation(new SceneUtil::ColorFormat::SelectColorFormatOperation())
   , mStereoManager(nullptr)
   , mSkipMenu (false)
   , mUseSound (true)
@@ -599,7 +619,7 @@ void OMW::Engine::createWindow(Settings::Manager& settings)
     bool windowBorder = settings.getBool("window border", "Video");
     bool vsync = settings.getBool("vsync", "Video");
     unsigned int antialiasing = std::max(0, settings.getInt("antialiasing", "Video"));
-    if (mEnvironment.getVrMode())
+    if (VR::getVR())
         // MSAA needs to happen in offscreen buffers.
         antialiasing = 0;
 
@@ -615,6 +635,10 @@ void OMW::Engine::createWindow(Settings::Manager& settings)
     Uint32 flags = SDL_WINDOW_OPENGL|SDL_WINDOW_SHOWN|SDL_WINDOW_RESIZABLE;
     if(fullscreen)
         flags |= SDL_WINDOW_FULLSCREEN;
+
+    // Allows for Windows snapping features to properly work in borderless window
+    SDL_SetHint("SDL_BORDERLESS_WINDOWED_STYLE", "1");
+    SDL_SetHint("SDL_BORDERLESS_RESIZABLE_STYLE", "1");
 
     if (!windowBorder)
         flags |= SDL_WINDOW_BORDERLESS;
@@ -704,9 +728,21 @@ void OMW::Engine::createWindow(Settings::Manager& settings)
     camera->setGraphicsContext(graphicsWindow);
     camera->setViewport(0, 0, graphicsWindow->getTraits()->width, graphicsWindow->getTraits()->height);
 
-    // Set up the realize operation, with nesting of any other realize operations.
-    osg::ref_ptr<osg::GraphicsOperation> op = dynamic_cast<osg::GraphicsOperation*>(mViewer->getRealizeOperation());
-    mViewer->setRealizeOperation(new MWRealizeOperation(this, op));
+    osg::ref_ptr<SceneUtil::OperationSequence> realizeOperations = new SceneUtil::OperationSequence(false);
+    mViewer->setRealizeOperation(realizeOperations);
+    realizeOperations->add(new IdentifyOpenGLOperation());
+
+    if (Debug::shouldDebugOpenGL())
+        realizeOperations->add(new Debug::EnableGLDebugOperation());
+
+    if (VR::getVR())
+        realizeOperations->add(new InitializeVrOperation(this));
+
+    realizeOperations->add(mSelectDepthFormatOperation);
+    realizeOperations->add(mSelectColorFormatOperation);
+
+    if (Stereo::getStereo())
+        realizeOperations->add(new InitializeStereoOperation());
 
     mViewer->realize();
 
@@ -742,7 +778,6 @@ void OMW::Engine::prepareEngine (Settings::Manager & settings)
     mEnvironment.setStateManager (
         new MWState::StateManager (mCfgMgr.getUserDataPath() / "saves", mContentFiles));
 
-    mStereoEnabled = mEnvironment.getVrMode() || Settings::Manager::getBool("stereo enabled", "Stereo");
     mStereoManager = std::make_unique<Stereo::Manager>(mViewer);
 
     osg::ref_ptr<osg::Group> rootNode(new osg::Group);
@@ -786,7 +821,7 @@ void OMW::Engine::prepareEngine (Settings::Manager & settings)
 
     mViewer->addEventHandler(mScreenCaptureHandler);
 
-    mLuaManager = new MWLua::LuaManager(mVFS.get());
+    mLuaManager = new MWLua::LuaManager(mVFS.get(), (mResDir / "lua_libs").string());
     mEnvironment.setLuaManager(mLuaManager);
 
     // Create input and UI first to set up a bootstrapping environment for
@@ -963,6 +998,7 @@ void OMW::Engine::prepareEngine (Settings::Manager & settings)
     }
 
     mLuaManager->init();
+    mLuaManager->loadPermanentStorage(mCfgMgr.getUserConfigPath().string());
 }
 
 class OMW::Engine::LuaWorker
@@ -974,10 +1010,8 @@ public:
             mThread = std::thread([this]{ threadBody(); });
     };
 
-    void allowUpdate(double dt)
+    void allowUpdate()
     {
-        mDt = dt;
-        mIsGuiMode = mEngine->mEnvironment.getWindowManager()->isGuiMode();
         if (!mThread)
             return;
         {
@@ -996,7 +1030,6 @@ public:
         }
         else
             update();
-        mEngine->mLuaManager->applyQueuedChanges();
     };
 
     void join()
@@ -1020,7 +1053,7 @@ private:
         const unsigned int frameNumber = viewer->getFrameStamp()->getFrameNumber();
         ScopedProfile<UserStatsType::Lua> profile(frameStart, frameNumber, *osg::Timer::instance(), *viewer->getViewerStats());
 
-        mEngine->mLuaManager->update(mIsGuiMode, mDt);
+        mEngine->mLuaManager->update();
     }
 
     void threadBody()
@@ -1045,14 +1078,18 @@ private:
     std::condition_variable mCV;
     bool mUpdateRequest = false;
     bool mJoinRequest = false;
-    double mDt = 0;
-    bool mIsGuiMode = false;
     std::optional<std::thread> mThread;
 };
 
 // Initialise and enter main loop.
 void OMW::Engine::go()
 {
+#ifdef USE_OPENXR
+    VR::setVR(true);
+#else
+    VR::setVR(false);
+#endif
+
     assert (!mContentFiles.empty());
 
     Log(Debug::Info) << "OSG version: " << osgGetVersion();
@@ -1071,10 +1108,6 @@ void OMW::Engine::go()
 
     // Create encoder
     mEncoder = new ToUTF8::Utf8Encoder(mEncoding);
-
-#ifdef USE_OPENXR
-    mEnvironment.setVrMode(true);
-#endif
 
     // Setup viewer
     mViewer = new osgViewer::Viewer;
@@ -1112,14 +1145,14 @@ void OMW::Engine::go()
     if (stats.is_open())
         Resource::CollectStatistics(mViewer);
 
-    // TODO: Move this to wherever Mask_GUI is being re-enabled.
-    if (mStereoEnabled)
+    // TODO: Prevent Mask_GUI from being re-enabled instead
+    if (VR::getVR())
     {
-        if (mEnvironment.getVrMode())
-        {
-            mViewer->getCamera()->setCullMask(mViewer->getCamera()->getCullMask() & ~(MWRender::VisMask::Mask_GUI));
-        }
+        mViewer->getCamera()->setCullMask(mViewer->getCamera()->getCullMask() & ~(MWRender::VisMask::Mask_GUI));
+    }
 
+    if (Stereo::getStereo())
+    {
         if (!mStereoManager->error().empty())
         {
             mEnvironment.getWindowManager()->messageBox(mStereoManager->error());
@@ -1177,7 +1210,7 @@ void OMW::Engine::go()
 
             mEnvironment.getWorld()->updateWindowManager();
 
-            luaWorker.allowUpdate(dt);  // if there is a separate Lua thread, it starts the update now
+            luaWorker.allowUpdate();  // if there is a separate Lua thread, it starts the update now
 
             mViewer->renderingTraversals();
 
@@ -1208,8 +1241,7 @@ void OMW::Engine::go()
 
     // Save user settings
     settings.saveUser(settingspath);
-
-    mViewer->stopThreading();
+    mLuaManager->savePermanentStorage(mCfgMgr.getUserConfigPath().string());
 
     Log(Debug::Info) << "Quitting peacefully.";
 }
@@ -1279,26 +1311,13 @@ void OMW::Engine::setRandomSeed(unsigned int seed)
     mRandomSeed = seed;
 }
 
-void OMW::Engine::realize(osg::GraphicsContext* gc)
-{
-
-    if (Debug::shouldDebugOpenGL())
-        Debug::EnableGLDebugOperation()(gc);
-
-    if (mStereoEnabled)
-        mStereoManager->initializeStereo(gc);
-
-#ifdef USE_OPENXR
-    if (mEnvironment.getVrMode())
-        configureVR(gc);
-#endif
-}
-
-#ifdef USE_OPENXR
 void OMW::Engine::configureVR(osg::GraphicsContext* gc)
 {
+#ifdef USE_OPENXR
     mVrTrackingManager = std::make_unique<VR::TrackingManager>();
     mXrInstance = std::make_unique<XR::Instance>(gc);
     mXrSession = mXrInstance->createSession();
-}
+    mSelectDepthFormatOperation->setSupportedFormats(mXrInstance->platform().supportedDepthFormats());
+    mSelectColorFormatOperation->setSupportedFormats(mXrInstance->platform().supportedColorFormats());
 #endif
+}

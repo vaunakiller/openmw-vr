@@ -6,8 +6,11 @@
 #include <components/vr/trackingsource.hpp>
 #include <components/vr/frame.hpp>
 #include <components/vr/layer.hpp>
+#include <components/misc/constants.hpp>
+#include <components/sceneutil/depth.hpp>
 
 #include <cassert>
+#include <sstream>
 
 namespace XR
 {
@@ -166,10 +169,10 @@ namespace XR
             if (appShouldShareDepthInfo())
             {
                 // TODO: Cache these values instead?
-                GLfloat depthRange[2] = { 0.f, 1.f };
-                glGetFloatv(GL_DEPTH_RANGE, depthRange);
                 auto nearClip = Settings::Manager::getFloat("near clip", "Camera");
-                auto farClip = Settings::Manager::getFloat("viewing distance", "Camera");
+                auto farClip = Settings::Manager::getFloat("viewing distance", "Camera"); 
+                if (SceneUtil::AutoDepth::isReversed())
+                    std::swap(nearClip, farClip);
                 for (uint32_t i = 0; i < 2; i++)
                 {
 
@@ -178,10 +181,10 @@ namespace XR
                         continue;
 
                     auto& xrDepth = compositionLayerDepth[i];
-                    xrDepth.minDepth = depthRange[0];
-                    xrDepth.maxDepth = depthRange[1];
-                    xrDepth.nearZ = nearClip;
-                    xrDepth.farZ = farClip;
+                    xrDepth.minDepth = 0.;
+                    xrDepth.maxDepth = 1.0;
+                    xrDepth.nearZ = nearClip / Constants::UnitsPerMeter;
+                    xrDepth.farZ = farClip / Constants::UnitsPerMeter;
                     xrDepth.subImage.imageArrayIndex = 0;
                     xrDepth.subImage.imageRect.extent.width = view.subImage.width;
                     xrDepth.subImage.imageRect.extent.height = view.subImage.height;
@@ -211,6 +214,7 @@ namespace XR
             frameEndInfo.layers = nullptr;
         }
         CHECK_XRCMD(xrEndFrame(mXrSession, &frameEndInfo));
+        
     }
 
     void Session::handleEvents()
@@ -357,19 +361,29 @@ namespace XR
 
     void Session::destroyXrReferenceSpaces()
     {
-        for (auto space : { mReferenceSpaceLocal, mReferenceSpaceStage, mReferenceSpaceView })
+        if (mReferenceSpaceLocal)
         {
-            if (space)
-            {
-                CHECK_XRCMD(xrDestroySpace(space));
-            }
+            CHECK_XRCMD(xrDestroySpace(mReferenceSpaceLocal));
+            mReferenceSpaceLocal = XR_NULL_HANDLE;
+        }
+        if (mReferenceSpaceStage)
+        {
+            CHECK_XRCMD(xrDestroySpace(mReferenceSpaceStage));
+            mReferenceSpaceStage = XR_NULL_HANDLE;
+        }
+        if (mReferenceSpaceView)
+        {
+            CHECK_XRCMD(xrDestroySpace(mReferenceSpaceView));
+            mReferenceSpaceView = XR_NULL_HANDLE;
         }
     }
 
     void Session::destroyXrSession()
     {
         if (mXrSession)
+        {
             CHECK_XRCMD(xrDestroySession(mXrSession));
+        }
     }
 
     void Session::createXrTracker()
@@ -436,9 +450,9 @@ namespace XR
         }
     }
 
-    VR::Swapchain* Session::createSwapchain(uint32_t width, uint32_t height, uint32_t samples, uint32_t arraySize, VR::SwapchainUse use, const std::string& name, int64_t preferredFormat)
+    VR::Swapchain* Session::createSwapchain(uint32_t width, uint32_t height, uint32_t samples, uint32_t arraySize, VR::SwapchainUse use, const std::string& name)
     {
-        return Instance::instance().platform().createSwapchain(width, height, samples, arraySize, use, name, preferredFormat);
+        return Instance::instance().platform().createSwapchain(width, height, samples, arraySize, use, name);
     }
 
     bool Session::xrNextEvent(XrEventDataBuffer& eventBuffer)
@@ -479,6 +493,14 @@ namespace XR
 
     void Session::createXrReferenceSpaces()
     {
+        uint32_t typeCount = 0;
+        CHECK_XRCMD(xrEnumerateReferenceSpaces(mXrSession, 0, &typeCount, nullptr));
+        mReferenceSpaceTypes.resize(typeCount);
+        CHECK_XRCMD(xrEnumerateReferenceSpaces(mXrSession, typeCount, &typeCount, mReferenceSpaceTypes.data()));
+        Log(Debug::Verbose) << "Available reference spaces:";
+        for (auto type : mReferenceSpaceTypes)
+            Log(Debug::Verbose) << "  " << to_string(type);
+
         XrReferenceSpaceCreateInfo createInfo{};
         createInfo.type = XR_TYPE_REFERENCE_SPACE_CREATE_INFO;
         createInfo.poseInReferenceSpace.orientation.w = 1.f; // Identity pose
@@ -576,11 +598,6 @@ namespace XR
         }
 
         return configs;
-    }
-
-    bool Session::runtimeSupportsFormat(int64_t format) const
-    {
-        return Instance::instance().platform().runtimeSupportsFormat(format);
     }
 }
 

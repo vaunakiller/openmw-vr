@@ -1,15 +1,14 @@
 ﻿#include "npc.hpp"
 
 #include <memory>
-#include <climits> // INT_MIN
 
 #include <components/misc/constants.hpp>
 #include <components/misc/rng.hpp>
 
 #include <components/debug/debuglog.hpp>
-#include <components/esm/loadmgef.hpp>
-#include <components/esm/loadnpc.hpp>
-#include <components/esm/npcstate.hpp>
+#include <components/esm3/loadmgef.hpp>
+#include <components/esm3/loadnpc.hpp>
+#include <components/esm3/npcstate.hpp>
 #include <components/settings/settings.hpp>
 
 #include "../mwbase/environment.hpp"
@@ -1331,9 +1330,7 @@ namespace MWClass
         {
             if (!ptr.getRefData().getCustomData())
             {
-                // FIXME: the use of mGoldPool can be replaced with another flag the next time
-                // the save file format is changed
-                if (npcState.mCreatureStats.mGoldPool == INT_MIN)
+                if (npcState.mCreatureStats.mMissingACDT)
                     ensureCustomData(ptr);
                 else
                     // Create a CustomData, but don't fill it from ESM records (not needed)

@@ -1,7 +1,7 @@
 #ifndef MWVR_REALISTICCOMBAT_H
 #define MWVR_REALISTICCOMBAT_H
 
-#include <components/esm/loadweap.hpp>
+//#include <components/esm/loadweap.hpp>
 #include <components/vr/trackinglistener.hpp>
 
 #include "../mwbase/world.hpp"

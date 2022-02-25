@@ -2,7 +2,6 @@
 
 #include "multiview_vertex.glsl"
 
-varying vec3  screenCoordsPassthrough;
 varying vec4  position;
 varying float linearDepth;
 
@@ -12,14 +11,6 @@ varying float linearDepth;
 void main(void)
 {
     gl_Position = mw_stereoAwareProjectionMatrix() * (mw_stereoAwareModelViewMatrix() * gl_Vertex);
-
-    mat4 scalemat = mat4(0.5, 0.0, 0.0, 0.0,
-                         0.0, -0.5, 0.0, 0.0,
-                         0.0, 0.0, 0.5, 0.0,
-                         0.5, 0.5, 0.5, 1.0);
-
-    vec4 texcoordProj = ((scalemat) * ( gl_Position));
-    screenCoordsPassthrough = texcoordProj.xyw;
 
     position = gl_Vertex;
 

@@ -9,6 +9,7 @@
 
 #include <components/settings/settings.hpp>
 #include <components/widgets/box.hpp>
+#include <components/vr/vr.hpp>
 
 #include "../mwbase/world.hpp"
 #include "../mwbase/environment.hpp"
@@ -57,7 +58,7 @@ namespace MWGui
         mMainWidget->setNeedMouseFocus(false);
 
         // Tooltip delay is not useful in vr as a player cannot be perfectly still.
-        if (!MWBase::Environment::get().getVrMode())
+        if (!VR::getVR())
             mDelay = Settings::Manager::getFloat("tooltip delay", "GUI");
         mRemainingDelay = mDelay;
 
@@ -499,6 +500,7 @@ namespace MWGui
             std::vector<MyGUI::Widget*> effectItems;
             int flag = info.isPotion ? Widgets::MWEffectList::EF_NoTarget : 0;
             flag |= info.isIngredient ? Widgets::MWEffectList::EF_NoMagnitude : 0;
+            flag |= info.isIngredient ? Widgets::MWEffectList::EF_Constant : 0;
             effectsWidget->createEffectWidgets(effectItems, effectArea, coord, true, flag);
             totalSize.height += coord.top-6;
             totalSize.width = std::max(totalSize.width, coord.width);
@@ -655,7 +657,7 @@ namespace MWGui
 
     std::string ToolTips::getSoulString(const MWWorld::CellRef& cellref)
     {
-        std::string soul = cellref.getSoul();
+        const std::string& soul = cellref.getSoul();
         if (soul.empty())
             return std::string();
         const MWWorld::ESMStore &store = MWBase::Environment::get().getWorld()->getStore();
@@ -671,7 +673,7 @@ namespace MWGui
     {
         std::string ret;
         ret += getMiscString(cellref.getOwner(), "Owner");
-        const std::string factionId = cellref.getFaction();
+        const std::string& factionId = cellref.getFaction();
         if (!factionId.empty())
         {
             const MWWorld::ESMStore &store = MWBase::Environment::get().getWorld()->getStore();

@@ -49,10 +49,12 @@ namespace
             mInterpreter.run(&script.mByteCode[0], static_cast<int>(script.mByteCode.size()), context);
         }
 
-        void installOpcode(int code, Interpreter::Opcode0* opcode)
+        template<typename T, typename ...TArgs>
+        void installOpcode(int code, TArgs&& ...args)
         {
-            mInterpreter.installSegment5(code, opcode);
+            mInterpreter.installSegment5<T>(code, std::forward<TArgs&&>(args)...);
         }
+		
     protected:
         void SetUp() override
         {
@@ -427,6 +429,16 @@ set 1 to 42
 
 End)mwscript";
 
+    const std::string sIssue6380 = R"mwscript(,Begin,issue6380,
+
+,short,a
+
+,set,a,to,,,,(a,+1)
+
+messagebox,"this is a %g",a
+
+,End,)mwscript";
+
     TEST_F(MWScriptTest, mwscript_test_invalid)
     {
         EXPECT_THROW(compile("this is not a valid script", true), Compiler::SourceException);
@@ -462,7 +474,7 @@ End)mwscript";
                     EXPECT_EQ(topic, "OpenMW Unit Test");
                 }
             };
-            installOpcode(Compiler::Dialogue::opcodeAddTopic, new AddTopic(failed));
+            installOpcode<AddTopic>(Compiler::Dialogue::opcodeAddTopic, failed);
             TestInterpreterContext context;
             run(*script, context);
         }
@@ -705,7 +717,7 @@ End)mwscript";
                     mTopics.erase(mTopics.begin());
                 }
             };
-            installOpcode(Compiler::Dialogue::opcodeAddTopic, new AddTopic(topics));
+            installOpcode<AddTopic>(Compiler::Dialogue::opcodeAddTopic, topics);
             TestInterpreterContext context;
             run(*script, context);
             EXPECT_TRUE(topics.empty());
@@ -816,7 +828,7 @@ End)mwscript";
                 }
             };
             bool ran = false;
-            installOpcode(Compiler::Transformation::opcodePositionCell, new PositionCell(ran));
+            installOpcode<PositionCell>(Compiler::Transformation::opcodePositionCell, ran);
             TestInterpreterContext context;
             context.setLocalShort(0, 0);
             run(*script, context);
@@ -830,5 +842,10 @@ End)mwscript";
         {
             FAIL();
         }
+    }
+
+    TEST_F(MWScriptTest, mwscript_test_6380)
+    {
+        EXPECT_FALSE(!compile(sIssue6380));
     }
 }

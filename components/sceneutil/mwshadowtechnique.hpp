@@ -21,6 +21,7 @@
 
 #include <array>
 #include <mutex>
+#include <string>
 
 #include <osg/Camera>
 #include <osg/Material>
@@ -118,9 +119,14 @@ namespace SceneUtil {
         struct Frustum
         {
             Frustum(osgUtil::CullVisitor* cv, double minZNear, double maxZFar);
+            void setCustomClipSpace(const osg::BoundingBoxd& clipCornersOverride);
+            void init();
 
             osg::Matrixd projectionMatrix;
             osg::Matrixd modelViewMatrix;
+
+            bool useCustomClipSpace;
+            osg::BoundingBoxd customClipSpace;
 
             typedef std::vector<osg::Vec3d> Vertices;
             Vertices corners;
@@ -153,11 +159,9 @@ namespace SceneUtil {
             /// If true, this camera will generate the shadow map
             bool            _master{ false };
 
-            /// If set, will override projection matrix of camera when generating shadow map.
-            osg::ref_ptr<osg::RefMatrix> _projection{ nullptr };
-
-            /// If set, will override model view matrix of camera when generating shadow map.
-            osg::ref_ptr<osg::RefMatrix> _modelView{ nullptr };
+            /// The frustum to draw shadows from.
+            bool _useCustomFrustum{ false };
+            osg::BoundingBoxd _customFrustum;
 
             /// Reference frame of the view matrix
             osg::Transform::ReferenceFrame
@@ -227,6 +231,7 @@ namespace SceneUtil {
             virtual ~ViewDependentData() {}
 
             MWShadowTechnique*          _viewDependentShadowMap;
+            SharedShadowMapConfig*      _sharedShadowMapConfig;
 
             std::array<osg::ref_ptr<osg::StateSet>, 2> _stateset;
 
@@ -258,8 +263,6 @@ namespace SceneUtil {
 
         virtual void createShaders();
 
-        virtual std::array<osg::ref_ptr<osg::Program>, GL_ALWAYS - GL_NEVER + 1> getCastingPrograms() const { return _castingPrograms; }
-
         virtual bool selectActiveLights(osgUtil::CullVisitor* cv, ViewDependentData* vdd) const;
 
         virtual osg::Polytope computeLightViewFrustumPolytope(Frustum& frustum, LightData& positionedLight);
@@ -279,6 +282,8 @@ namespace SceneUtil {
         virtual osg::StateSet* prepareStateSetForRenderingShadow(ViewDependentData& vdd, unsigned int traversalNumber) const;
 
         void setWorldMask(unsigned int worldMask) { _worldMask = worldMask; }
+
+        osg::ref_ptr<osg::StateSet> getOrCreateShadowsBinStateSet();
 
     protected:
         virtual ~MWShadowTechnique();
@@ -342,6 +347,9 @@ namespace SceneUtil {
 
         osg::ref_ptr<DebugHUD>                  _debugHud;
         std::array<osg::ref_ptr<osg::Program>, GL_ALWAYS - GL_NEVER + 1> _castingPrograms;
+        const std::string _shadowsBinName = "ShadowsBin_" + std::to_string(reinterpret_cast<std::uint64_t>(this));
+        osg::ref_ptr<osgUtil::RenderBin> _shadowsBin;
+        osg::ref_ptr<osg::StateSet> _shadowsBinStateSet;
     };
 
 }

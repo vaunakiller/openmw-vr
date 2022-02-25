@@ -14,7 +14,7 @@
 #include "drawstate.hpp"
 
 #include <components/esm/attr.hpp>
-#include <components/esm/magiceffects.hpp>
+#include <components/esm3/magiceffects.hpp>
 
 namespace ESM
 {
@@ -69,8 +69,6 @@ namespace MWMechanics
         MWWorld::TimeStamp mLastRestock;
 
         // The pool of merchant gold (not in inventory)
-        // HACK: value of INT_MIN has a special meaning: indicates a converted .ess file
-        //       (this is a workaround to avoid changing the save file format)
         int mGoldPool;
 
         int mActorId;

@@ -6,18 +6,18 @@
 #include <memory>
 #include <utility>
 
-#include <components/esm/loadalch.hpp>
-#include <components/esm/loadappa.hpp>
-#include <components/esm/loadarmo.hpp>
-#include <components/esm/loadbook.hpp>
-#include <components/esm/loadclot.hpp>
-#include <components/esm/loadingr.hpp>
-#include <components/esm/loadlock.hpp>
-#include <components/esm/loadligh.hpp>
-#include <components/esm/loadmisc.hpp>
-#include <components/esm/loadprob.hpp>
-#include <components/esm/loadrepa.hpp>
-#include <components/esm/loadweap.hpp>
+#include <components/esm3/loadalch.hpp>
+#include <components/esm3/loadappa.hpp>
+#include <components/esm3/loadarmo.hpp>
+#include <components/esm3/loadbook.hpp>
+#include <components/esm3/loadclot.hpp>
+#include <components/esm3/loadingr.hpp>
+#include <components/esm3/loadlock.hpp>
+#include <components/esm3/loadligh.hpp>
+#include <components/esm3/loadmisc.hpp>
+#include <components/esm3/loadprob.hpp>
+#include <components/esm3/loadrepa.hpp>
+#include <components/esm3/loadweap.hpp>
 
 #include <components/misc/rng.hpp>
 
@@ -258,10 +258,8 @@ namespace MWWorld
             friend class MWClass::Container;
     };
 
-    
     template<class PtrType>
     class ContainerStoreIteratorBase
-        : public std::iterator<std::forward_iterator_tag, PtrType, std::ptrdiff_t, PtrType *, PtrType&>
     {
         template<class From, class To, class Dummy>
         struct IsConvertible
@@ -362,6 +360,12 @@ namespace MWWorld
         /// \return reached the end?
 
         public:
+            using iterator_category = std::forward_iterator_tag;
+            using value_type = PtrType;
+            using difference_type = std::ptrdiff_t;
+            using pointer = PtrType*;
+            using reference = PtrType&;
+
             template<class T>
             ContainerStoreIteratorBase (const ContainerStoreIteratorBase<T>& other)
             {

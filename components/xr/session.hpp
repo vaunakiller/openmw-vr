@@ -45,8 +45,6 @@ namespace XR
 
         std::array<VR::SwapchainConfig, 2> getRecommendedSwapchainConfig() const override;
 
-        bool runtimeSupportsFormat(int64_t format) const override;
-
     protected:
         void newFrame(uint64_t frameNo, bool& shouldSyncFrame, bool& shouldSyncInput) override;
         void syncFrameUpdate(uint64_t frameNo, bool& shouldRender, uint64_t& predictedDisplayTime, uint64_t& predictedDisplayPeriod) override;
@@ -75,7 +73,7 @@ namespace XR
 
         void destroyXrSession();
 
-        VR::Swapchain* createSwapchain(uint32_t width, uint32_t height, uint32_t samples, uint32_t arraySize, VR::SwapchainUse use, const std::string& name, int64_t preferredFormat) override;
+        VR::Swapchain* createSwapchain(uint32_t width, uint32_t height, uint32_t samples, uint32_t arraySize, VR::SwapchainUse use, const std::string& name) override;
 
     private:
         XrSession mXrSession;
@@ -83,6 +81,7 @@ namespace XR
         XrViewConfigurationType mViewConfigType;
         XrSessionState mState = XR_SESSION_STATE_UNKNOWN;
 
+        std::vector<XrReferenceSpaceType> mReferenceSpaceTypes{};
         XrSpace mReferenceSpaceView = XR_NULL_HANDLE;
         XrSpace mReferenceSpaceStage = XR_NULL_HANDLE;
         XrSpace mReferenceSpaceLocal = XR_NULL_HANDLE;

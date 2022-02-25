@@ -5,8 +5,8 @@
 #include <osg/Group>
 #include <osg/Vec4f>
 
-#include <components/esm/loadligh.hpp>
-#include <components/esm/loadcell.hpp>
+#include <components/esm3/loadligh.hpp>
+#include <components/esm3/loadcell.hpp>
 
 #include <components/resource/resourcesystem.hpp>
 #include <components/resource/scenemanager.hpp>
@@ -261,9 +261,6 @@ void ActorAnimation::updateHolsteredShield(bool showCarriedLeft)
         if (isEnchanted)
             SceneUtil::addEnchantedGlow(shieldNode, mResourceSystem, glowColor);
     }
-
-    if (mAlpha != 1.f)
-        mResourceSystem->getSceneManager()->recreateShaders(mHolsteredShield->getNode());
 }
 
 bool ActorAnimation::useShieldAnimations() const
@@ -335,7 +332,7 @@ void ActorAnimation::resetControllers(osg::Node* node)
 
     std::shared_ptr<SceneUtil::ControllerSource> src;
     src.reset(new NullAnimationTime);
-    SceneUtil::AssignControllerSourcesVisitor removeVisitor(src);
+    SceneUtil::ForceControllerSourcesVisitor removeVisitor(src);
     node->accept(removeVisitor);
 }
 

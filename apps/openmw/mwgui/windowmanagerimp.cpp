@@ -28,8 +28,8 @@
 #include <components/sdlutil/sdlcursormanager.hpp>
 #include <components/sdlutil/sdlvideowrapper.hpp>
 
-#include <components/esm/esmreader.hpp>
-#include <components/esm/esmwriter.hpp>
+#include <components/esm3/esmreader.hpp>
+#include <components/esm3/esmwriter.hpp>
 
 #include <components/fontloader/fontloader.hpp>
 
@@ -52,6 +52,10 @@
 
 #include <components/misc/resourcehelpers.hpp>
 #include <components/misc/frameratelimiter.hpp>
+
+#include <components/lua_ui/util.hpp>
+
+#include <components/vr/vr.hpp>
 
 #include "../mwbase/inputmanager.hpp"
 #include "../mwbase/statemanager.hpp"
@@ -169,6 +173,7 @@ namespace MWGui
       , mScreenFader(nullptr)
       , mDebugWindow(nullptr)
       , mJailScreen(nullptr)
+      , mContainerWindow(nullptr)
       , mVrMetaMenu(nullptr)
       , mVirtualKeyboardManager(nullptr)
       , mTranslationDataStorage (translationDataStorage)
@@ -234,6 +239,7 @@ namespace MWGui
         ItemWidget::registerComponents();
         SpellView::registerComponents();
         Gui::registerAllWidgets();
+        LuaUi::registerAllWidgets();
 
         MyGUI::FactoryManager::getInstance().registerFactory<MWGui::Controllers::ControllerFollowMouse>("Controller");
 
@@ -241,7 +247,7 @@ namespace MWGui
         MyGUI::FactoryManager::getInstance().registerFactory<AutoSizedResourceSkin>("Resource", "AutoSizedResourceSkin");
 
 #ifdef USE_OPENXR
-        if (MWBase::Environment::get().getVrMode())
+        if (VR::getVR())
             MWVR::VRGUIManager::registerMyGUIFactories();
 #endif
 
@@ -296,7 +302,7 @@ namespace MWGui
 
         mShowOwned = Settings::Manager::getInt("show owned", "Game");
 
-        mVideoWrapper = new SDLUtil::VideoWrapper(window, viewer, MWBase::Environment::get().getVrMode() != true);
+        mVideoWrapper = new SDLUtil::VideoWrapper(window, viewer, VR::getVR() != true);
         mVideoWrapper->setGammaContrast(Settings::Manager::getFloat("gamma", "Video"),
                                         Settings::Manager::getFloat("contrast", "Video"));
 
@@ -389,10 +395,10 @@ namespace MWGui
         mGuiModeStates[GM_Dialogue] = GuiModeState(mDialogueWindow);
         mTradeWindow->eventTradeDone += MyGUI::newDelegate(mDialogueWindow, &DialogueWindow::onTradeComplete);
 
-        ContainerWindow* containerWindow = new ContainerWindow(mDragAndDrop);
-        mWindows.push_back(containerWindow);
-        trackWindow(containerWindow, "container");
-        mGuiModeStates[GM_Container] = GuiModeState({containerWindow, mInventoryWindow});
+        mContainerWindow = new ContainerWindow(mDragAndDrop);
+        mWindows.push_back(mContainerWindow);
+        trackWindow(mContainerWindow, "container");
+        mGuiModeStates[GM_Container] = GuiModeState({mContainerWindow, mInventoryWindow});
 
         mHud = new HUD(mCustomMarkers, mDragAndDrop, mLocalMapRender);
         mWindows.push_back(mHud);
@@ -538,6 +544,8 @@ namespace MWGui
     {
         try
         {
+            LuaUi::clearUserInterface();
+
             mStatsWatcher.reset();
 
             MyGUI::LanguageManager::getInstance().eventRequestTag.clear();
@@ -603,7 +611,7 @@ namespace MWGui
         osg::Vec4 disableClearColor = osg::Vec4(0, 0, 0, 1);
 
         // VR mode needs to render the 3D gui
-        if (MWBase::Environment::get().getVrMode())
+        if (VR::getVR())
         {
             disableCullMask = MWRender::Mask_Pointer | MWRender::Mask_3DGUI | MWRender::Mask_PreCompile;
             disableUpdateMask = disableCullMask | MWRender::Mask_GUI;
@@ -685,6 +693,7 @@ namespace MWGui
             mMap->setVisible(false);
             mStatsWindow->setVisible(false);
             mSpellWindow->setVisible(false);
+            mHud->setDrowningBarVisible(false);
             mInventoryWindow->setVisible(getMode() == GM_Container || getMode() == GM_Barter || getMode() == GM_Companion);
         }
 
@@ -814,6 +823,11 @@ namespace MWGui
     void WindowManager::removeStaticMessageBox()
     {
         mMessageBoxManager->removeStaticMessageBox();
+    }
+
+    const std::vector<MWGui::MessageBox*> WindowManager::getActiveMessageBoxes()
+    {
+        return mMessageBoxManager->getActiveMessageBoxes();
     }
 
     int WindowManager::readPressedButton ()
@@ -1146,12 +1160,21 @@ namespace MWGui
 #ifdef USE_OPENXR
         return;
 #endif
-        // Note: this is a side effect of resolution change or window resize.
-        // There is no need to track these changes.
         Settings::Manager::setInt("resolution x", "Video", x);
         Settings::Manager::setInt("resolution y", "Video", y);
-        Settings::Manager::resetPendingChange("resolution x", "Video");
-        Settings::Manager::resetPendingChange("resolution y", "Video");
+
+        // We only want to process changes to window-size related settings.
+        Settings::CategorySettingVector filter = {{"Video", "resolution x"},
+                                                  {"Video", "resolution y"}};
+
+        // If the HUD has not been initialised, the World singleton will not be available.
+        if (mHud)
+        {
+            MWBase::Environment::get().getWorld()->processChangedSettings(
+                    Settings::Manager::getPendingChanges(filter));
+        }
+
+        Settings::Manager::resetPendingChanges(filter);
 
         mGuiPlatform->getRenderManagerPtr()->setViewSize(x, y);
 
@@ -1215,6 +1238,16 @@ namespace MWGui
 
     void WindowManager::pushGuiMode(GuiMode mode, const MWWorld::Ptr& arg)
     {
+        pushGuiMode(mode, arg, false);
+    }
+
+    void WindowManager::forceLootMode(const MWWorld::Ptr& ptr)
+    {
+        pushGuiMode(MWGui::GM_Container, ptr, true);
+    }
+
+    void WindowManager::pushGuiMode(GuiMode mode, const MWWorld::Ptr& arg, bool force)
+    {
         if (mode==GM_Inventory && mAllowed==GW_None)
             return;
 
@@ -1236,6 +1269,8 @@ namespace MWGui
             mGuiModeStates[mode].update(true);
             playSound(mGuiModeStates[mode].mOpenSound);
         }
+        if(force)
+            mContainerWindow->treatNextOpenAsLoot();
         for (WindowBase* window : mGuiModeStates[mode].mWindows)
             window->setPtr(arg);
 
@@ -1819,7 +1854,7 @@ namespace MWGui
         mVideoBackground->setVisible(true);
 
 #ifdef USE_OPENXR
-        MWVR::VRGUIManager::instance().insertLayer(mVideoBackground->getLayer()->getName());
+        MWVR::VRGUIManager::instance().showLayer(mVideoBackground->getLayer()->getName());
 #endif
 
         bool cursorWasVisible = mCursorVisible;
@@ -1868,7 +1903,7 @@ namespace MWGui
         updateVisible();
 
 #ifdef USE_OPENXR
-        MWVR::VRGUIManager::instance().removeLayer(mVideoBackground->getLayer()->getName());
+        MWVR::VRGUIManager::instance().hideLayer(mVideoBackground->getLayer()->getName());
 #endif
         mVideoBackground->setVisible(false);
         mVideoEnabled = false;

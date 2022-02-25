@@ -5,11 +5,11 @@
 
 #include <QVariant>
 
-#include <components/esm/loadalch.hpp>
-#include <components/esm/loadench.hpp>
-#include <components/esm/loadappa.hpp>
-#include <components/esm/loadnpc.hpp>
-#include <components/esm/loadcrea.hpp>
+#include <components/esm3/loadalch.hpp>
+#include <components/esm3/loadench.hpp>
+#include <components/esm3/loadappa.hpp>
+#include <components/esm3/loadnpc.hpp>
+#include <components/esm3/loadcrea.hpp>
 
 #include "columnbase.hpp"
 #include "record.hpp"
@@ -1678,7 +1678,7 @@ namespace CSMWorld
             newRow.mWander.mTimeOfDay = 0;
             for (int i = 0; i < 8; ++i)
                 newRow.mWander.mIdle[i] = 0;
-            newRow.mWander.mShouldRepeat = 0;
+            newRow.mWander.mShouldRepeat = 1;
             newRow.mCellName = "";
 
             if (position >= (int)list.size())
@@ -1784,9 +1784,15 @@ namespace CSMWorld
                         return static_cast<int>(content.mWander.mIdle[subColIndex-4]);
                     else
                         return QVariant();
-                case 12: // wander repeat
+                case 12: // repeat
                     if (content.mType == ESM::AI_Wander)
                         return content.mWander.mShouldRepeat != 0;
+                    else if (content.mType == ESM::AI_Travel)
+                        return content.mTravel.mShouldRepeat != 0;
+                    else if (content.mType == ESM::AI_Follow || content.mType == ESM::AI_Escort)
+                        return content.mTarget.mShouldRepeat != 0;
+                    else if (content.mType == ESM::AI_Activate)
+                        return content.mActivate.mShouldRepeat != 0;
                     else
                         return QVariant();
                 case 13: // activate name
@@ -1895,20 +1901,32 @@ namespace CSMWorld
                 case 12:
                     if (content.mType == ESM::AI_Wander)
                         content.mWander.mShouldRepeat = static_cast<unsigned char>(value.toInt());
+                    else if (content.mType == ESM::AI_Travel)
+                        content.mTravel.mShouldRepeat = static_cast<unsigned char>(value.toInt());
+                    else if (content.mType == ESM::AI_Follow || content.mType == ESM::AI_Escort)
+                        content.mTarget.mShouldRepeat = static_cast<unsigned char>(value.toInt());
+                    else if (content.mType == ESM::AI_Activate)
+                        content.mActivate.mShouldRepeat = static_cast<unsigned char>(value.toInt());
                     else
                         return; // return without saving
 
                     break; // always save
                 case 13: // NAME32
                     if (content.mType == ESM::AI_Activate)
-                        content.mActivate.mName.assign(value.toString().toUtf8().constData());
+                    {
+                        const QByteArray name = value.toString().toUtf8();
+                        content.mActivate.mName.assign(std::string_view(name.constData(), name.size()));
+                    }
                     else
                         return; // return without saving
 
                     break; // always save
                 case 14: // NAME32
                     if (content.mType == ESM::AI_Follow || content.mType == ESM::AI_Escort)
-                        content.mTarget.mId.assign(value.toString().toUtf8().constData());
+                    {
+                        const QByteArray id = value.toString().toUtf8();
+                        content.mTarget.mId.assign(std::string_view(id.constData(), id.size()));
+                    }
                     else
                         return; // return without saving
 

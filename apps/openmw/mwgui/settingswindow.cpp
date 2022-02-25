@@ -21,6 +21,7 @@
 #include <components/resource/resourcesystem.hpp>
 #include <components/resource/scenemanager.hpp>
 #include <components/sceneutil/lightmanager.hpp>
+#include <components/vr/vr.hpp>
 
 #include "../mwbase/environment.hpp"
 #include "../mwbase/world.hpp"
@@ -244,11 +245,12 @@ namespace MWGui
         getWidget(mControllerSwitch, "ControllerButton");
         getWidget(mWaterTextureSize, "WaterTextureSize");
         getWidget(mWaterReflectionDetail, "WaterReflectionDetail");
+        getWidget(mWaterRainRippleDetail, "WaterRainRippleDetail");
         getWidget(mLightingMethodButton, "LightingMethodButton");
         getWidget(mLightsResetButton, "LightsResetButton");
         getWidget(mMaxLights, "MaxLights");
 
-        if (MWBase::Environment::get().getVrMode())
+        if (VR::getVR())
         {
             getWidget(mVRMirrorTextureEye, "VRMirrorTextureEye");
             getWidget(mVRLeftHudPosition, "VRLeftHudPosition");
@@ -278,6 +280,7 @@ namespace MWGui
 
         mWaterTextureSize->eventComboChangePosition += MyGUI::newDelegate(this, &SettingsWindow::onWaterTextureSizeChanged);
         mWaterReflectionDetail->eventComboChangePosition += MyGUI::newDelegate(this, &SettingsWindow::onWaterReflectionDetailChanged);
+        mWaterRainRippleDetail->eventComboChangePosition += MyGUI::newDelegate(this, &SettingsWindow::onWaterRainRippleDetailChanged);
 
         mLightingMethodButton->eventComboChangePosition += MyGUI::newDelegate(this, &SettingsWindow::onLightingMethodButtonChanged);
         mLightsResetButton->eventMouseButtonClick += MyGUI::newDelegate(this, &SettingsWindow::onLightsResetButtonClicked);
@@ -286,7 +289,7 @@ namespace MWGui
         mKeyboardSwitch->eventMouseButtonClick += MyGUI::newDelegate(this, &SettingsWindow::onKeyboardSwitchClicked);
         mControllerSwitch->eventMouseButtonClick += MyGUI::newDelegate(this, &SettingsWindow::onControllerSwitchClicked);
 
-        if (MWBase::Environment::get().getVrMode())
+        if (VR::getVR())
         {
             mVRMirrorTextureEye->eventComboChangePosition += MyGUI::newDelegate(this, &SettingsWindow::onVRMirrorTextureEyeChanged);
             mVRLeftHudPosition->eventComboChangePosition += MyGUI::newDelegate(this, &SettingsWindow::onVRLeftHudPositionChanged);
@@ -325,7 +328,7 @@ namespace MWGui
         std::string tmip = Settings::Manager::getString("texture mipmap", "General");
         mTextureFilteringButton->setCaption(textureMipmappingToStr(tmip));
 
-        if (MWBase::Environment::get().getVrMode())
+        if (VR::getVR())
         {
             std::string mirrorTextureEye = Settings::Manager::getString("mirror texture eye", "VR");
             for (unsigned i = 0; i < mVRMirrorTextureEye->getItemCount(); i++)
@@ -353,9 +356,11 @@ namespace MWGui
         if (waterTextureSize >= 2048)
             mWaterTextureSize->setIndexSelected(2);
 
-        int waterReflectionDetail = Settings::Manager::getInt("reflection detail", "Water");
-        waterReflectionDetail = std::clamp(waterReflectionDetail, 0, 5);
+        int waterReflectionDetail = std::clamp(Settings::Manager::getInt("reflection detail", "Water"), 0, 5);
         mWaterReflectionDetail->setIndexSelected(waterReflectionDetail);
+
+        int waterRainRippleDetail = std::clamp(Settings::Manager::getInt("rain ripple detail", "Water"), 0, 2);
+        mWaterRainRippleDetail->setIndexSelected(waterRainRippleDetail);
 
         updateMaxLightsComboBox(mMaxLights);
 
@@ -465,8 +470,15 @@ namespace MWGui
 
     void SettingsWindow::onWaterReflectionDetailChanged(MyGUI::ComboBox* _sender, size_t pos)
     {
-        unsigned int level = std::min((unsigned int)5, (unsigned int)pos);
+        unsigned int level = static_cast<unsigned int>(std::min<size_t>(pos, 5));
         Settings::Manager::setInt("reflection detail", "Water", level);
+        apply();
+    }
+
+    void SettingsWindow::onWaterRainRippleDetailChanged(MyGUI::ComboBox* _sender, size_t pos)
+    {
+        unsigned int level = static_cast<unsigned int>(std::min<size_t>(pos, 2));
+        Settings::Manager::setInt("rain ripple detail", "Water", level);
         apply();
     }
 
@@ -649,7 +661,7 @@ namespace MWGui
         MWBase::Environment::get().getInputManager()->processChangedSettings(changed);
         MWBase::Environment::get().getMechanicsManager()->processChangedSettings(changed);
 #ifdef USE_OPENXR
-        if (MWBase::Environment::get().getVrMode())
+        if (VR::getVR())
         {
             VR::Session::instance().processChangedSettings(changed);
             VR::TrackingManager::instance().processChangedSettings(changed);

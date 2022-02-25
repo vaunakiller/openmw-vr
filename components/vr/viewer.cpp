@@ -19,6 +19,8 @@
 #include <components/vr/session.hpp>
 #include <components/vr/trackingmanager.hpp>
 
+#include <components/sceneutil/depth.hpp>
+#include <components/sceneutil/color.hpp>
 #include <components/sceneutil/util.hpp>
 #include <components/sdlutil/sdlgraphicswindow.hpp>
 
@@ -75,24 +77,6 @@ namespace VR
         Viewer* mViewer;
     };
 
-    struct PredrawCallback : public Misc::CallbackManager::MwDrawCallback
-    {
-    public:
-        PredrawCallback(Viewer* viewer)
-            : mViewer(viewer)
-        {}
-
-        bool operator()(osg::RenderInfo& info, Misc::CallbackManager::View view) const override 
-        { 
-            mViewer->preDrawCallback(info, view); 
-            return true;
-        };
-
-    private:
-
-        Viewer* mViewer;
-    };
-
     struct InitialDrawCallback : public Misc::CallbackManager::MwDrawCallback
     {
     public:
@@ -144,7 +128,6 @@ namespace VR
         , mViewer(viewer)
         , mSwapBuffersCallback(new SwapBuffersCallback(this))
         , mInitialDraw(new InitialDrawCallback(this))
-        , mPreDraw(new PredrawCallback(this))
         , mFinalDraw(new FinaldrawCallback(this))
         , mUpdateViewCallback(new UpdateViewCallback(this))
         , mCallbacksConfigured(false)
@@ -153,24 +136,6 @@ namespace VR
             sViewer = this;
         else
             throw std::logic_error("Duplicated VR::Viewer singleton");
-
-        int depthFormat = GL_DEPTH_COMPONENT24;
-        int depthType = GL_FLOAT;
-
-        osg::GraphicsContext* gc = viewer->getCamera()->getGraphicsContext();
-        unsigned int contextID = gc->getState()->getContextID();
-        if (osg::isGLExtensionSupported(contextID, "GL_ARB_depth_buffer_float") && session->runtimeSupportsFormat(GL_DEPTH_COMPONENT32F))
-        {
-            depthFormat = GL_DEPTH_COMPONENT32F;
-        }
-        else if (osg::isGLExtensionSupported(contextID, "GL_NV_depth_buffer_float") && session->runtimeSupportsFormat(GL_DEPTH_COMPONENT32F_NV))
-        {
-            depthFormat = GL_DEPTH_COMPONENT32F_NV;
-        }
-
-        session->setAppShouldShareDepthBuffer(session->runtimeSupportsFormat(depthFormat));
-
-        depthType = SceneUtil::isFloatingPointDepthFormat(depthFormat) ? GL_FLOAT : GL_UNSIGNED_INT;
 
         // Read swapchain configs
         std::array<std::string, 2> xConfString;
@@ -191,20 +156,9 @@ namespace VR
             auto width = parseResolution(xConfString[i], swapchainConfigs[i].recommendedWidth, swapchainConfigs[i].maxWidth);
             auto height = parseResolution(yConfString[i], swapchainConfigs[i].recommendedHeight, swapchainConfigs[i].maxHeight);
 
-            // Note: Multisampling is applied to the OSG framebuffers' renderbuffers, and is resolved during post-processing.
-            // So we request 1 sample to get non-multisampled framebuffers from OpenXR.
-            auto samples = 1;
-
             Log(Debug::Verbose) << viewNames[i] << " resolution: Recommended x=" << swapchainConfigs[i].recommendedWidth << ", y=" << swapchainConfigs[i].recommendedHeight;
             Log(Debug::Verbose) << viewNames[i] << " resolution: Max x=" << swapchainConfigs[i].maxWidth << ", y=" << swapchainConfigs[i].maxHeight;
             Log(Debug::Verbose) << viewNames[i] << " resolution: Selected x=" << width << ", y=" << height;
-
-            mColorSwapchain[i].reset(VR::Session::instance().createSwapchain(width, height, samples, 1, VR::SwapchainUse::Color, viewNames[i]));
-
-            if (mSession->appShouldShareDepthInfo())
-            {
-                mDepthSwapchain[i].reset(VR::Session::instance().createSwapchain(width, height, samples, 1, VR::SwapchainUse::Depth, viewNames[i], depthFormat));
-            }
 
             mSubImages[i].width = width;
             mSubImages[i].height = height;
@@ -212,39 +166,46 @@ namespace VR
         }
 
         // Determine samples and dimensions of framebuffers.
-        mFramebufferSamples = Settings::Manager::getInt("antialiasing", "Video");
         mFramebufferWidth = mSubImages[0].width;
         mFramebufferHeight = mSubImages[0].height;
 
         if (mSubImages[0].width != mSubImages[1].width || mSubImages[0].height != mSubImages[1].height)
-            Log(Debug::Warning) << "Not implemented";
+            Log(Debug::Warning) << "Warning: Eyes have differing resolutions. This case is not implemented";
 
-        mStereoFramebuffer.reset(new Stereo::StereoFramebuffer(mFramebufferWidth, mFramebufferHeight, mFramebufferSamples));
-        mStereoFramebuffer->attachColorComponent(GL_RGB, GL_UNSIGNED_BYTE, GL_RGB);
-        mStereoFramebuffer->attachDepthComponent(GL_DEPTH_COMPONENT, depthType, depthFormat);
-        Stereo::Manager::instance().setStereoFramebuffer(mStereoFramebuffer);
         mViewer->getCamera()->setViewport(0, 0, mFramebufferWidth, mFramebufferHeight);
-
-        // The msaa-resolve framebuffer needs a texture, so we can sample it while applying gamma.
-        mMsaaResolveFramebuffer = new osg::FrameBufferObject();
-        mMsaaResolveTexture = new osg::Texture2D();
-        mMsaaResolveTexture->setTextureSize(mFramebufferWidth, mFramebufferHeight);
-        mMsaaResolveTexture->setInternalFormat(GL_RGB);
-        mMsaaResolveFramebuffer->setAttachment(osg::Camera::COLOR_BUFFER, osg::FrameBufferAttachment(mMsaaResolveTexture));
-        mMsaaResolveFramebuffer->setAttachment(osg::Camera::DEPTH_BUFFER, osg::FrameBufferAttachment(new osg::RenderBuffer(mFramebufferWidth, mFramebufferHeight, depthFormat, 0)));
 
         // The gamma resolve framebuffer will be used to write the result of gamma post-processing.
         mGammaResolveFramebuffer = new osg::FrameBufferObject();
-        mGammaResolveFramebuffer->setAttachment(osg::Camera::COLOR_BUFFER, osg::FrameBufferAttachment(new osg::RenderBuffer(mFramebufferWidth, mFramebufferHeight, GL_RGB, 0)));
-
-        // TODO: Needed?
-        //SceneUtil::attachAlphaToCoverageFriendlyFramebufferToCamera(mViewer->getCamera(), osg::Camera::COLOR_BUFFER, colorBuffer);
+        mGammaResolveFramebuffer->setAttachment(osg::Camera::COLOR_BUFFER, osg::FrameBufferAttachment(new osg::RenderBuffer(mFramebufferWidth, mFramebufferHeight, SceneUtil::ColorFormat::colorFormat(), 0)));
 
         mViewer->setReleaseContextAtEndOfFrameHint(false);
         mViewer->getCamera()->getGraphicsContext()->setSwapCallback(mSwapBuffersCallback);
         mViewer->getCamera()->setViewport(0, 0, mFramebufferWidth, mFramebufferHeight);
+        Stereo::Manager::instance().overrideEyeResolution(osg::Vec2i(mFramebufferWidth, mFramebufferHeight));
 
         setupMirrorTexture();
+
+        for (int i : {0, 1})
+        {
+            mColorSwapchain[i].reset(VR::Session::instance().createSwapchain(mFramebufferWidth, mFramebufferHeight, 1, 1, VR::SwapchainUse::Color, i == 0 ? "LeftEye" : "RightEye"));
+            if (mSession->appShouldShareDepthInfo())
+            {
+                // Depth support is buggy or just not supported on some runtimes and has to be guarded.
+                try {
+                    mDepthSwapchain[i].reset(VR::Session::instance().createSwapchain(mFramebufferWidth, mFramebufferHeight, 1, 1, VR::SwapchainUse::Depth, i == 0 ? "LeftEye" : "RightEye"));
+                }
+                catch (...)
+                {
+
+                }
+                if (!mDepthSwapchain[i])
+                {
+                    Log(Debug::Warning) << "XR_KHR_composition_layer_depth was enabled, but a depth attachment swapchain could not be created. Depth information will not be submitted.";
+                    mSession->setAppShouldShareDepthBuffer(false);
+                    mDepthSwapchain[0] = mDepthSwapchain[1] = nullptr;
+                }
+            }
+        }
     }
 
     Viewer::~Viewer(void)
@@ -271,7 +232,6 @@ namespace VR
         // Give the main camera an initial draw callback that disables camera setup (we don't want it)
         Stereo::Manager::instance().setUpdateViewCallback(mUpdateViewCallback);
         Misc::CallbackManager::instance().addCallback(Misc::CallbackManager::DrawStage::Initial, mInitialDraw);
-        Misc::CallbackManager::instance().addCallback(Misc::CallbackManager::DrawStage::PreDraw, mPreDraw);
         Misc::CallbackManager::instance().addCallback(Misc::CallbackManager::DrawStage::Final, mFinalDraw);
 
         mCallbacksConfigured = true;
@@ -315,7 +275,7 @@ namespace VR
             setupMirrorTexture();
     }
 
-    bool Viewer::applyGamma(osg::RenderInfo& info)
+    bool Viewer::applyGamma(osg::RenderInfo& info, int i)
     {
         osg::State* state = info.getState();
         static const char* vSource = "#version 120\n varying vec2 uv; void main(){ gl_Position = vec4(gl_Vertex.xy*2.0 - 1, 0, 1); uv = gl_Vertex.xy;}";
@@ -364,8 +324,6 @@ namespace VR
             program->addShader(fShader);
             program->compileGLObjects(*state);
             stateset->setAttributeAndModes(program, osg::StateAttribute::ON);
-
-            stateset->setTextureAttributeAndModes(0, mMsaaResolveTexture, osg::StateAttribute::PROTECTED);
             stateset->setTextureMode(0, GL_TEXTURE_2D, osg::StateAttribute::PROTECTED);
 
             gammaUniform = new osg::Uniform("gamma", Settings::Manager::getFloat("gamma", "Video"));
@@ -387,6 +345,8 @@ namespace VR
 
             gammaUniform->set(Settings::Manager::getFloat("gamma", "Video"));
             contrastUniform->set(Settings::Manager::getFloat("contrast", "Video"));
+            stateset->setTextureAttributeAndModes(0, Stereo::Manager::instance().multiviewFramebuffer()->layerColorBuffer(i), osg::StateAttribute::PROTECTED);
+
             state->pushStateSet(stateset);
             state->apply();
 
@@ -406,38 +366,68 @@ namespace VR
 
     osg::ref_ptr<osg::FrameBufferObject> Viewer::getXrFramebuffer(uint32_t view, osg::State* state)
     {
-        uint64_t colorImage = mColorSwapchain[view]->beginFrame(state->getGraphicsContext());
-
+        uint64_t colorImage = mColorSwapchain[view]->image();
         uint64_t depthImage = 0;
-        if(mSession->appShouldShareDepthInfo())
-            depthImage = mDepthSwapchain[view]->beginFrame(state->getGraphicsContext());
+        uint32_t textureTarget = mColorSwapchain[view]->textureTarget();
+        uint32_t arraySize = mColorSwapchain[view]->arraySize();
 
-        auto it = mSwapchainFramebuffers.find(colorImage);
+        if(mSession->appShouldShareDepthInfo())
+            depthImage = mDepthSwapchain[view]->image();
+
+        auto it = mSwapchainFramebuffers.find(std::pair{ colorImage, depthImage });
         if (it == mSwapchainFramebuffers.end())
         {
             osg::ref_ptr<osg::FrameBufferObject> fbo = new osg::FrameBufferObject();
 
-            // Wrap subimage textures in osg framebuffer objects
-            auto colorTexture = new osg::Texture2D();
-            colorTexture->setTextureSize(mFramebufferWidth, mFramebufferHeight);
-            colorTexture->setFilter(osg::Texture::MIN_FILTER, osg::Texture::LINEAR);
-            colorTexture->setFilter(osg::Texture::MAG_FILTER, osg::Texture::LINEAR);
-            auto colorTextureObject = new osg::Texture::TextureObject(colorTexture, colorImage, GL_TEXTURE_2D);
-            colorTexture->setTextureObject(state->getContextID(), colorTextureObject);
-            fbo->setAttachment(osg::FrameBufferObject::BufferComponent::COLOR_BUFFER, osg::FrameBufferAttachment(colorTexture));
-
-            if (mSession->appShouldShareDepthInfo())
+            // Wrap subimage textures in texture objects, and attach them to a framebuffer object
+            if (textureTarget == GL_TEXTURE_2D)
             {
-                auto depthTexture = new osg::Texture2D();
-                depthTexture->setTextureSize(mFramebufferWidth, mFramebufferHeight);
-                depthTexture->setFilter(osg::Texture::MIN_FILTER, osg::Texture::LINEAR);
-                depthTexture->setFilter(osg::Texture::MAG_FILTER, osg::Texture::LINEAR);
-                auto depthTextureObject = new osg::Texture::TextureObject(depthTexture, depthImage, GL_TEXTURE_2D);
-                depthTexture->setTextureObject(state->getContextID(), depthTextureObject);
-                fbo->setAttachment(osg::FrameBufferObject::BufferComponent::DEPTH_BUFFER, osg::FrameBufferAttachment(depthTexture));
+                auto colorTexture = new osg::Texture2D();
+                colorTexture->setTextureSize(mFramebufferWidth, mFramebufferHeight);
+                colorTexture->setFilter(osg::Texture::MIN_FILTER, osg::Texture::LINEAR);
+                colorTexture->setFilter(osg::Texture::MAG_FILTER, osg::Texture::LINEAR);
+
+                auto colorTextureObject = new osg::Texture::TextureObject(colorTexture, colorImage, GL_TEXTURE_2D);
+                colorTexture->setTextureObject(state->getContextID(), colorTextureObject);
+                fbo->setAttachment(osg::FrameBufferObject::BufferComponent::COLOR_BUFFER, osg::FrameBufferAttachment(colorTexture));
+            }
+            else
+            {
+                auto colorTexture = new osg::Texture2DArray();
+                colorTexture->setTextureSize(mFramebufferWidth, mFramebufferHeight, arraySize);
+                colorTexture->setFilter(osg::Texture::MIN_FILTER, osg::Texture::LINEAR);
+                colorTexture->setFilter(osg::Texture::MAG_FILTER, osg::Texture::LINEAR);
+
+                auto colorTextureObject = new osg::Texture::TextureObject(colorTexture, colorImage, GL_TEXTURE_2D_ARRAY);
+                colorTexture->setTextureObject(state->getContextID(), colorTextureObject);
+                fbo->setAttachment(osg::FrameBufferObject::BufferComponent::COLOR_BUFFER, osg::FrameBufferAttachment(colorTexture, view));
             }
 
-            it = mSwapchainFramebuffers.emplace(colorImage, fbo).first;
+            if (depthImage != 0)
+            {
+                if (textureTarget == GL_TEXTURE_2D)
+                {
+                    auto depthTexture = new osg::Texture2D();
+                    depthTexture->setTextureSize(mFramebufferWidth, mFramebufferHeight);
+                    depthTexture->setFilter(osg::Texture::MIN_FILTER, osg::Texture::LINEAR);
+                    depthTexture->setFilter(osg::Texture::MAG_FILTER, osg::Texture::LINEAR);
+                    auto depthTextureObject = new osg::Texture::TextureObject(depthTexture, depthImage, GL_TEXTURE_2D);
+                    depthTexture->setTextureObject(state->getContextID(), depthTextureObject);
+                    fbo->setAttachment(osg::FrameBufferObject::BufferComponent::DEPTH_BUFFER, osg::FrameBufferAttachment(depthTexture));
+                }
+                else
+                {
+                    auto depthTexture = new osg::Texture2DArray();
+                    depthTexture->setTextureSize(mFramebufferWidth, mFramebufferHeight, arraySize);
+                    depthTexture->setFilter(osg::Texture::MIN_FILTER, osg::Texture::LINEAR);
+                    depthTexture->setFilter(osg::Texture::MAG_FILTER, osg::Texture::LINEAR);
+                    auto depthTextureObject = new osg::Texture::TextureObject(depthTexture, depthImage, GL_TEXTURE_2D_ARRAY);
+                    depthTexture->setTextureObject(state->getContextID(), depthTextureObject);
+                    fbo->setAttachment(osg::FrameBufferObject::BufferComponent::DEPTH_BUFFER, osg::FrameBufferAttachment(depthTexture, view));
+                }
+            }
+
+            it = mSwapchainFramebuffers.emplace(std::pair{ colorImage, depthImage }, fbo).first;
         }
         return it->second;
     }
@@ -466,13 +456,9 @@ namespace VR
         gl->glBlitFramebuffer(srcX0, srcY0, srcX1, srcY1, dstX0, dstY0, dstX1, dstY1, GL_COLOR_BUFFER_BIT, GL_NEAREST);
         if (mSession->appShouldShareDepthInfo())
         {
-            mMsaaResolveFramebuffer->apply(*state, osg::FrameBufferObject::READ_FRAMEBUFFER);
+            Stereo::Manager::instance().multiviewFramebuffer()->layerFbo(i)->apply(*state, osg::FrameBufferObject::READ_FRAMEBUFFER);
             gl->glBlitFramebuffer(srcX0, srcY0, srcX1, srcY1, dstX0, dstY0, dstX1, dstY1, GL_DEPTH_BUFFER_BIT, GL_NEAREST);
         }
-
-        mColorSwapchain[i]->endFrame(state->getGraphicsContext());
-        if (mSession->appShouldShareDepthInfo())
-            mDepthSwapchain[i]->endFrame(state->getGraphicsContext());
 
         gl->glBindFramebuffer(GL_FRAMEBUFFER_EXT, 0);
     }
@@ -501,34 +487,18 @@ namespace VR
         }
     }
 
-    void Viewer::resolveMSAA(osg::State* state, osg::FrameBufferObject* fbo)
-    {
-        auto* gl = osg::GLExtensions::Get(state->getContextID(), false);
-            
-        // Resolve MSAA by blitting color to a non-multisampled framebuffer
-        mMsaaResolveFramebuffer->apply(*state, osg::FrameBufferObject::DRAW_FRAMEBUFFER);
-        fbo->apply(*state, osg::FrameBufferObject::READ_FRAMEBUFFER);
-        gl->glBlitFramebuffer(0, 0, mFramebufferWidth, mFramebufferHeight, 0, 0, mFramebufferWidth, mFramebufferHeight, GL_COLOR_BUFFER_BIT, GL_NEAREST);
-        gl->glBlitFramebuffer(0, 0, mFramebufferWidth, mFramebufferHeight, 0, 0, mFramebufferWidth, mFramebufferHeight, GL_DEPTH_BUFFER_BIT, GL_NEAREST);
-    }
-
     void Viewer::resolveGamma(osg::RenderInfo& info, int i)
     {
         auto* state = info.getState();
         auto* gl = osg::GLExtensions::Get(state->getContextID(), false);
 
-        // OSG already resolved MSAA if we're using multiview. But i haven't implemented using a texture view to sample it yet so blit it anyway.
-        // Without multiview we need to resolve MSAA anyway.
-        auto src = mStereoFramebuffer->fbo(i);
-        resolveMSAA(state, src);
-
-        // Apply gamma by running a shader, sampling the colors we just blitted
+        // Apply gamma by running a shader, sampling the colors that were rendered
         mGammaResolveFramebuffer->apply(*state, osg::FrameBufferObject::DRAW_FRAMEBUFFER);
         bool shouldDoGamma = Settings::Manager::getBool("gamma postprocessing", "VR Debug");
-        if (!shouldDoGamma || !applyGamma(info))
+        if (!shouldDoGamma || !applyGamma(info, i))
         {
-            mMsaaResolveFramebuffer->apply(*state, osg::FrameBufferObject::READ_FRAMEBUFFER);
             // Gamma should not / failed to be applied. Blit the colors unmodified
+            Stereo::Manager::instance().multiviewFramebuffer()->layerFbo(i)->apply(*state, osg::FrameBufferObject::READ_FRAMEBUFFER);
             gl->glBlitFramebuffer(0, 0, mFramebufferWidth, mFramebufferHeight, 0, 0, mFramebufferWidth, mFramebufferHeight, GL_COLOR_BUFFER_BIT, GL_NEAREST);
         }
     }
@@ -540,10 +510,18 @@ namespace VR
 
         for (auto i = 0; i < 2; i++)
         {
+            mColorSwapchain[i]->beginFrame(state->getGraphicsContext());
+            if (mSession->appShouldShareDepthInfo())
+                mDepthSwapchain[i]->beginFrame(state->getGraphicsContext());
+
             resolveGamma(info, i);
             if (mMirrorTextureEnabled)
                 blitMirrorTexture(state, i);
             blitXrFramebuffer(state, i);
+
+            mColorSwapchain[i]->endFrame(state->getGraphicsContext());
+            if (mSession->appShouldShareDepthInfo())
+                mDepthSwapchain[i]->endFrame(state->getGraphicsContext());
         }
 
         // Undo all framebuffer bindings we have done.
@@ -561,38 +539,7 @@ namespace VR
             mDrawFrame = mReadyFrames.front();
             mReadyFrames.pop();
         }
-
         VR::Session::instance().frameBeginRender(mDrawFrame);
-
-        if (!Stereo::getMultiview())
-        {
-            osg::GraphicsOperation* graphicsOperation = info.getCurrentCamera()->getRenderer();
-            osgViewer::Renderer* renderer = dynamic_cast<osgViewer::Renderer*>(graphicsOperation);
-            if (renderer != nullptr)
-            {
-                // Disable normal OSG FBO camera setup
-                renderer->setCameraRequiresSetUp(false);
-                // OSG's internal stereo offers no option to let you control the viewport, and recomputes the render stage's viewport every time without exception.
-                // So i have to override it in this callback so so that the viewport of each eye will encompass the entire texture.
-                for (int i = 0; i < 2; i++)
-                {
-                    if (auto* viewport = renderer->getSceneView(i)->getRenderStage()->getViewport())
-                        viewport->setViewport(0, 0, mFramebufferWidth, mFramebufferHeight);
-                    if (auto* viewport = renderer->getSceneView(i)->getRenderStageLeft()->getViewport())
-                        viewport->setViewport(0, 0, mFramebufferWidth, mFramebufferHeight);
-                    if (auto* viewport = renderer->getSceneView(i)->getRenderStageRight()->getViewport())
-                        viewport->setViewport(0, 0, mFramebufferWidth, mFramebufferHeight);
-                }
-            }
-        }
-    }
-
-    void Viewer::preDrawCallback(osg::RenderInfo& info, Misc::CallbackManager::View view)
-    {
-        if (!Stereo::getMultiview())
-        {
-            mStereoFramebuffer->fbo(static_cast<int>(view))->apply(*info.getState());
-        }
     }
 
     void Viewer::finalDrawCallback(osg::RenderInfo& info, Misc::CallbackManager::View view)
@@ -621,7 +568,7 @@ namespace VR
         auto stageViews = VR::Session::instance().getPredictedViews(frame.predictedDisplayTime, VR::ReferenceSpace::Stage);
         auto views = VR::Session::instance().getPredictedViews(frame.predictedDisplayTime, VR::ReferenceSpace::View);
 
-        if (frame.shouldRender)
+        if (frame.shouldRender && frame.shouldSyncFrameLoop)
         {
             left = views[VR::Side_Left];
             left.pose.position *= Constants::UnitsPerMeter * mSession->playerScale();
@@ -636,8 +583,10 @@ namespace VR
                 {
                     layer->views[i].depthSwapchain = mDepthSwapchain[i];
                 }
-                layer->views[i].subImage.width = mColorSwapchain[i]->width();
-                layer->views[i].subImage.height = mColorSwapchain[i]->height();
+
+                layer->views[i].subImage.index = 0;
+                layer->views[i].subImage.width = mFramebufferWidth;
+                layer->views[i].subImage.height = mFramebufferHeight;
                 layer->views[i].subImage.x = 0;
                 layer->views[i].subImage.y = 0;
                 layer->views[i].view = stageViews[i];

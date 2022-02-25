@@ -9,27 +9,23 @@ print_help() {
 }
 
 declare -rA GROUPED_DEPS=(
-  [gcc]="binutils gcc g++ libc-dev"
-  [clang]="binutils clang"
+  [gcc]="binutils gcc build-essential cmake ccache curl unzip git pkg-config"
+  [clang]="binutils clang make cmake ccache curl unzip git pkg-config"
 
   # Common dependencies for building OpenMW.
   [openmw-deps]="
-    make cmake ccache git pkg-config
-
     libboost-filesystem-dev libboost-program-options-dev
     libboost-system-dev libboost-iostreams-dev
 
     libavcodec-dev libavformat-dev libavutil-dev libswscale-dev libswresample-dev
     libsdl2-dev libqt5opengl5-dev libopenal-dev libunshield-dev libtinyxml-dev
     libbullet-dev liblz4-dev libpng-dev libjpeg-dev libluajit-5.1-dev
-    mesa-common-dev
-    ca-certificates
+    librecast-dev libsqlite3-dev ca-certificates 
+    mesa-common-dev libxcb-glx0-dev
   "
-  # TODO: add librecastnavigation-dev when debian is ready
 
   # These dependencies can alternatively be built and linked statically.
   [openmw-deps-dynamic]="libmygui-dev libopenscenegraph-dev libsqlite3-dev"
-  [coverity]="curl"
   [clang-tidy]="clang-tidy"
 
   # Pre-requisites for building MyGUI and OSG for static linking.
@@ -42,8 +38,7 @@ declare -rA GROUPED_DEPS=(
   #   * JPEG: libjpeg-dev
   #   * PNG: libpng-dev
   [openmw-deps-static]="
-    make cmake
-    ccache curl unzip libcollada-dom-dev libfreetype6-dev libjpeg-dev libpng-dev
+    libcollada-dom-dev libfreetype6-dev libjpeg-dev libpng-dev
     libsdl2-dev libboost-system-dev libboost-filesystem-dev libgl-dev
   "
   
@@ -70,5 +65,7 @@ done
 export APT_CACHE_DIR="${PWD}/apt-cache"
 set -x
 mkdir -pv "$APT_CACHE_DIR"
-apt-get update -yq
-apt-get -q -o dir::cache::archives="$APT_CACHE_DIR" install -y --no-install-recommends "${deps[@]}"
+apt-get update -yqq
+apt-get -qq -o dir::cache::archives="$APT_CACHE_DIR" install -y --no-install-recommends software-properties-common >/dev/null
+add-apt-repository -y ppa:openmw/openmw
+apt-get -qq -o dir::cache::archives="$APT_CACHE_DIR" install -y --no-install-recommends "${deps[@]}" >/dev/null

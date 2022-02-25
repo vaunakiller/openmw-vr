@@ -2,11 +2,10 @@
 
 #include <algorithm>
 #include <fstream>
-#include <set>
 
 #include <components/debug/debuglog.hpp>
-#include <components/esm/esmreader.hpp>
-#include <components/esm/esmwriter.hpp>
+#include <components/esm3/esmreader.hpp>
+#include <components/esm3/esmwriter.hpp>
 #include <components/loadinglistener/loadinglistener.hpp>
 #include <components/lua/configuration.hpp>
 #include <components/misc/algorithm.hpp>
@@ -153,7 +152,7 @@ void ESMStore::load(ESM::ESMReader &esm, Loading::Listener* listener)
     // Land texture loading needs to use a separate internal store for each plugin.
     // We set the number of plugins here so we can properly verify if valid plugin
     // indices are being passed to the LandTexture Store retrieval methods.
-    mLandTextures.addPlugin();
+    mLandTextures.resize(esm.getIndex()+1);
 
     // Loop through all records
     while(esm.hasMoreRecs())

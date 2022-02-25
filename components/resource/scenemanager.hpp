@@ -9,6 +9,7 @@
 #include <osg/ref_ptr>
 #include <osg/Node>
 #include <osg/Texture>
+#include <osg/Texture2D>
 
 #include "resourcemanager.hpp"
 
@@ -76,7 +77,7 @@ namespace Resource
         Shader::ShaderManager& getShaderManager();
 
         /// Re-create shaders for this node, need to call this if alpha testing, texture stages or vertex color mode have changed.
-        void recreateShaders(osg::ref_ptr<osg::Node> node, const std::string& shaderPrefix = "objects", bool forceShadersForNode = false, const osg::Program* programTemplate = nullptr);
+        void recreateShaders(osg::ref_ptr<osg::Node> node, const std::string& shaderPrefix = "objects", bool forceShadersForNode = false, const osg::Program* programTemplate = nullptr, bool disableSoftParticles = false);
 
         /// Applying shaders to a node may replace some fixed-function state.
         /// This restores it.
@@ -110,6 +111,8 @@ namespace Resource
 
         void setSupportedLightingMethods(const SceneUtil::LightManager::SupportedMethods& supported);
         bool isSupportedLightingMethod(SceneUtil::LightingMethod method) const;
+
+        void setOpaqueDepthTex(osg::ref_ptr<osg::Texture2D> texture);
 
         enum class UBOBinding
         {
@@ -209,6 +212,7 @@ namespace Resource
         SceneUtil::LightManager::SupportedMethods mSupportedLightingMethods;
         bool mConvertAlphaTestToAlphaToCoverage;
         GLenum mDepthFormat;
+        osg::ref_ptr<osg::Texture2D> mOpaqueDepthTex;
 
         osg::ref_ptr<Resource::SharedStateManager> mSharedStateManager;
         mutable std::mutex mSharedStateMutex;

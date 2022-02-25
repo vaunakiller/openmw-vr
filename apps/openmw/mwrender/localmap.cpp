@@ -1,6 +1,6 @@
 #include "localmap.hpp"
 
-#include <stdint.h>
+#include <cstdint>
 
 #include <osg/Fog>
 #include <osg/LightModel>
@@ -12,14 +12,14 @@
 #include <osgDB/ReadFile>
 
 #include <components/debug/debuglog.hpp>
-#include <components/esm/fogstate.hpp>
-#include <components/esm/loadcell.hpp>
+#include <components/esm3/fogstate.hpp>
+#include <components/esm3/loadcell.hpp>
 #include <components/misc/constants.hpp>
 #include <components/stereo/multiview.hpp>
 #include <components/settings/settings.hpp>
 #include <components/sceneutil/visitor.hpp>
 #include <components/sceneutil/shadow.hpp>
-#include <components/sceneutil/util.hpp>
+#include <components/sceneutil/depth.hpp>
 #include <components/sceneutil/lightmanager.hpp>
 #include <components/sceneutil/nodecallback.hpp>
 #include <components/sceneutil/rtt.hpp>
@@ -33,7 +33,6 @@
 #include "../mwworld/cellstore.hpp"
 
 #include "vismask.hpp"
-#include "util.hpp"
 
 namespace
 {
@@ -187,7 +186,7 @@ void LocalMap::saveFogOfWar(MWWorld::CellStore* cell)
 
 void LocalMap::createOrthographicCamera(osg::Camera* camera, float x, float y, float width, float height, const osg::Vec3d& upVector, float zmin, float zmax)
 {
-    if (SceneUtil::getReverseZ())
+    if (SceneUtil::AutoDepth::isReversed())
         camera->setProjectionMatrix(SceneUtil::getReversedZProjectionMatrixAsOrtho(-width/2, width/2, -height/2, height/2, 5, (zmax-zmin) + 10));
     else
         camera->setProjectionMatrixAsOrtho(-width/2, width/2, -height/2, height/2, 5, (zmax-zmin) + 10);
@@ -209,14 +208,10 @@ void LocalMap::createOrthographicCamera(osg::Camera* camera, float x, float y, f
     osg::Camera::CullingMode cullingMode = (osg::Camera::DEFAULT_CULLING|osg::Camera::FAR_PLANE_CULLING) & ~(osg::Camera::SMALL_FEATURE_CULLING);
     camera->setCullingMode(cullingMode);
 
-    osg::ref_ptr<osg::StateSet> stateset = camera->getOrCreateStateSet();
-    stateset->setAttribute(new osg::PolygonMode(osg::PolygonMode::FRONT_AND_BACK, osg::PolygonMode::FILL), osg::StateAttribute::OVERRIDE);
-
-    if (SceneUtil::getReverseZ())
-        stateset->setAttributeAndModes(SceneUtil::createDepth(), osg::StateAttribute::ON|osg::StateAttribute::OVERRIDE);
-
     SceneUtil::setCameraClearDepth(camera);
 
+    osg::ref_ptr<osg::StateSet> stateset = camera->getOrCreateStateSet();
+    stateset->setAttribute(new osg::PolygonMode(osg::PolygonMode::FRONT_AND_BACK, osg::PolygonMode::FILL), osg::StateAttribute::OVERRIDE);
     stateset->addUniform(new osg::Uniform("projectionMatrix", static_cast<osg::Matrixf>(camera->getProjectionMatrix())), osg::StateAttribute::ON|osg::StateAttribute::OVERRIDE);
 
     if (Stereo::getMultiview())
@@ -669,8 +664,7 @@ void LocalMap::updatePlayer (const osg::Vec3f& position, const osg::Quat& orient
 
                     uint32_t clr = *(uint32_t*)data;
                     uint8_t alpha = (clr >> 24);
-
-                    alpha = std::min(alpha, (uint8_t)(std::clamp(sqrDist / sqrExploreRadius, 0.f, 1.f) * 255));
+                    alpha = std::min(alpha, (uint8_t)(std::clamp(sqrDist/sqrExploreRadius, 0.f, 1.f) * 255));
                     uint32_t val = (uint32_t) (alpha << 24);
                     if ( *data != val)
                     {

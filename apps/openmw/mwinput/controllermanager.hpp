@@ -34,31 +34,38 @@ namespace MWInput
         void processChangedSettings(const Settings::CategorySettingVector& changed);
 
         void setJoystickLastUsed(bool enabled) { mJoystickLastUsed = enabled; }
-        bool joystickLastUsed() { return mJoystickLastUsed; }
+        bool joystickLastUsed() const { return mJoystickLastUsed; }
 
         void setGuiCursorEnabled(bool enabled) { mGuiCursorEnabled = enabled; }
 
         void setGamepadGuiCursorEnabled(bool enabled) { mGamepadGuiCursorEnabled = enabled; }
-        bool gamepadGuiCursorEnabled() { return mGamepadGuiCursorEnabled; }
+        bool gamepadGuiCursorEnabled() const { return mGamepadGuiCursorEnabled; }
+
+        float getAxisValue(SDL_GameControllerAxis axis) const;  // returns value in range [-1, 1]
+        bool isButtonPressed(SDL_GameControllerButton button) const;
+
+        bool isGyroAvailable() const;
+        std::array<float, 3> getGyroValues() const;
 
     private:
         // Return true if GUI consumes input.
         bool gamepadToGuiControl(const SDL_ControllerButtonEvent &arg);
         bool gamepadToGuiControl(const SDL_ControllerAxisEvent &arg);
 
+        void enableGyroSensor();
+
         BindingsManager* mBindingsManager;
         ActionManager* mActionManager;
         MouseManager* mMouseManager;
 
         bool mJoystickEnabled;
+        bool mGyroAvailable;
         float mGamepadCursorSpeed;
         float mSneakToggleShortcutTimer;
-        float mGamepadZoom;
         bool mGamepadGuiCursorEnabled;
         bool mGuiCursorEnabled;
         bool mJoystickLastUsed;
         bool mSneakGamepadShortcut;
-        bool mGamepadPreviewMode;
     };
 }
 #endif

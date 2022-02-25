@@ -1,8 +1,10 @@
 #include "worldview.hpp"
 
-#include <components/esm/esmreader.hpp>
-#include <components/esm/esmwriter.hpp>
-#include <components/esm/loadcell.hpp>
+#include <components/esm3/esmreader.hpp>
+#include <components/esm3/esmwriter.hpp>
+#include <components/esm3/loadcell.hpp>
+
+#include "../mwbase/windowmanager.hpp"
 
 #include "../mwclass/container.hpp"
 
@@ -20,6 +22,7 @@ namespace MWLua
         mContainersInScene.updateList();
         mDoorsInScene.updateList();
         mItemsInScene.updateList();
+        mPaused = MWBase::Environment::get().getWindowManager()->isGuiMode();
     }
 
     void WorldView::clear()
@@ -67,16 +70,16 @@ namespace MWLua
             removeFromGroup(*group, ptr);
     }
 
-    double WorldView::getGameTimeInHours() const
+    double WorldView::getGameTime() const
     {
         MWBase::World* world = MWBase::Environment::get().getWorld();
         MWWorld::TimeStamp timeStamp = world->getTimeStamp();
-        return static_cast<double>(timeStamp.getDay()) * 24 + timeStamp.getHour();
+        return (static_cast<double>(timeStamp.getDay()) * 24 + timeStamp.getHour()) * 3600.0;
     }
 
     void WorldView::load(ESM::ESMReader& esm)
     {
-        esm.getHNT(mGameSeconds, "LUAW");
+        esm.getHNT(mSimulationTime, "LUAW");
         ObjectId lastAssignedId;
         lastAssignedId.load(esm, true);
         mObjectRegistry.setLastAssignedId(lastAssignedId);
@@ -84,7 +87,7 @@ namespace MWLua
 
     void WorldView::save(ESM::ESMWriter& esm) const
     {
-        esm.writeHNT("LUAW", mGameSeconds);
+        esm.writeHNT("LUAW", mSimulationTime);
         mObjectRegistry.getLastAssignedId().save(esm, true);
     }
 

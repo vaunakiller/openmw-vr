@@ -6,8 +6,6 @@
 #include <osg/ref_ptr>
 #include <set>
 
-#include "myguicompat.h"
-
 namespace Resource
 {
     class ImageManager;
@@ -87,7 +85,7 @@ public:
     const MyGUI::IntSize& getViewSize() const override { return mViewSize; }
 
     /** @see RenderManager::getVertexFormat */
-    MyGUI::VertexColourType getVertexFormat() OPENMW_MYGUI_CONST_GETTER_3_4_1 override
+    MyGUI::VertexColourType getVertexFormat() const override
     { return mVertexFormat; }
 
     /** @see RenderManager::isFormatSupported */
@@ -110,17 +108,9 @@ public:
 
     bool checkTexture(MyGUI::ITexture* _texture);
 
-    // setViewSize() is a part of MyGUI::RenderManager interface since 3.4.0 release
-#if MYGUI_VERSION < MYGUI_DEFINE_VERSION(3, 4, 0)
-    void setViewSize(int width, int height);
-#else
     void setViewSize(int width, int height) override;
-#endif
 
-    // registerShader() is a part of MyGUI::RenderManager interface since 3.4.1 release
-#if MYGUI_VERSION > MYGUI_DEFINE_VERSION(3, 4, 0)
     void registerShader(const std::string& _shaderName, const std::string& _vertexProgramFile, const std::string& _fragmentProgramFile) override;
-#endif
 
     osg::ref_ptr<osg::Camera> createGUICamera(int order, std::string layerFilter);
 };

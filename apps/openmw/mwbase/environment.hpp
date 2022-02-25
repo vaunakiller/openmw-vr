@@ -47,7 +47,6 @@ namespace MWBase
             Resource::ResourceSystem *mResourceSystem;
             float mFrameDuration;
             float mFrameRateLimit;
-            bool mVrMode;
 
             Environment (const Environment&);
             ///< not implemented
@@ -88,9 +87,6 @@ namespace MWBase
 
             void setFrameRateLimit(float frameRateLimit);
             float getFrameRateLimit() const;
-
-            void setVrMode(bool vrMode);
-            bool getVrMode(void) const;
 
             World *getWorld() const;
 

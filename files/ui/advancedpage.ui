@@ -281,8 +281,8 @@
            <rect>
             <x>0</x>
             <y>0</y>
-            <width>645</width>
-            <height>413</height>
+            <width>665</width>
+            <height>525</height>
            </rect>
           </property>
           <layout class="QVBoxLayout" name="verticalLayout">
@@ -444,6 +444,26 @@
                 </property>
                </widget>
               </item>
+              <item row="3" column="0">
+               <widget class="QCheckBox" name="softParticlesCheckBox">
+                <property name="toolTip">
+                 <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Enables soft particles for particle effects. This technique softens the intersection between individual particles and other opaque geometry by blending between them.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
+                </property>
+                <property name="text">
+                 <string>Soft Particles</string>
+                </property>
+               </widget>
+              </item>
+              <item row="3" column="1">
+               <widget class="QCheckBox" name="antialiasAlphaTestCheckBox">
+                <property name="toolTip">
+                 <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Allows MSAA to work with alpha-tested meshes, producing better-looking edges without pixelation. Can negatively impact performance.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
+                </property>
+                <property name="text">
+                 <string>Use anti-alias alpha testing</string>
+                </property>
+               </widget>
+              </item>
              </layout>
             </widget>
            </item>
@@ -533,6 +553,25 @@
                  </widget>
                 </item>
                </layout>
+              </item>
+             </layout>
+            </widget>
+           </item>
+           <item>
+            <widget class="QGroupBox" name="miscGroup">
+             <property name="title">
+              <string>Models</string>
+             </property>
+             <layout class="QGridLayout" name="miscLayout">
+              <item row="0" column="0">
+               <widget class="QCheckBox" name="nightDaySwitchesCheckBox">
+                <property name="toolTip">
+                  <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;If this setting is true, supporting models will make use of day night switch nodes.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
+                </property>
+                <property name="text">
+                 <string>Day night switch nodes</string>
+                </property>
+               </widget>
               </item>
              </layout>
             </widget>
@@ -1406,17 +1445,7 @@ True: In non-combat mode camera is positioned behind the character's shoulder. C
 					</property>
 				  </widget>
 				</item>
-				<item row="4" column="0">
-				  <widget class="QCheckBox" name="preferSRGBSwapchains">
-					<property name="toolTip">
-					  <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Makes OpenMW VR use sRGB format for its swapchain textures if available. Needed for some headsets that don't play nice without sRGB. Enable this if the game seems much brighter in your headset than what's shown on the mirror texture.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
-					</property>
-					<property name="text">
-					  <string>Prefer sRGB swapchains.</string>
-					</property>
-				  </widget>
-				</item>
-		  <item row="5" column="0">
+		  <item row="4" column="0">
 		   <widget class="QCheckBox" name="useSharedShadowMaps">
 			<property name="toolTip">
 			 <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Makes OpenMW VR map shadows for both eyes in one pass, instead of once per eye. This is a significant performance benefit, and should only be disabled for debugging or masochism purposes.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
@@ -1426,7 +1455,7 @@ True: In non-combat mode camera is positioned behind the character's shoulder. C
 			</property>
 		   </widget>
 		  </item>
-		  <item row="6" column="0">
+		  <item row="5" column="0">
 		   <widget class="QCheckBox" name="useMultiview">
 			<property name="toolTip">
 			 <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Makes OpenMW VR render stereo using the OVR_MultiView2 extension to OpenGL instead of two render passes. You may need to disable this on older GPUs. &lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
@@ -1436,7 +1465,7 @@ True: In non-combat mode camera is positioned behind the character's shoulder. C
 			</property>
 		   </widget>
 		  </item>
-      <item row="6" column="1">
+      <item row="5" column="1">
         <widget class="QCheckBox" name="disableDisplayList">
           <property name="toolTip">
             <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Makes OpenMW VR disable display lists when multiview is enabled. This is necessary on some platforms to use the multiview feature, but may penalize performance. &lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
@@ -1446,17 +1475,7 @@ True: In non-combat mode camera is positioned behind the character's shoulder. C
           </property>
         </widget>
       </item>
-		  <item row="7" column="0">
-		   <widget class="QCheckBox" name="preferDirectXSwapchains">
-			<property name="toolTip">
-			 <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Makes OpenMW VR use DirectX swapchains even if OpenGL swapchains are available. Note that OpenMW will always fall back to DirectX swapchains if OpenGL swapchains are not available. This option exists to debug/work around runtimes with bad OpenGL implementations.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
-			</property>
-			<property name="text">
-			 <string>Debug: Prefer DirectX Swapchains</string>
-			</property>
-		   </widget>
-		  </item>
-		  <item row="8" column="0">
+		  <item row="6" column="0">
 		   <widget class="QCheckBox" name="logAllXrCalls">
 			<property name="toolTip">
 			 <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Makes OpenMW VR log every single OpenXR call. This degrades performance and creates a massive log. You probably want this disabled.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
@@ -1466,7 +1485,7 @@ True: In non-combat mode camera is positioned behind the character's shoulder. C
 			</property>
 		   </widget>
 		  </item>
-		  <item row="9" column="0">
+		  <item row="7" column="0">
 		   <widget class="QCheckBox" name="ignoreXrErrors">
 			<property name="toolTip">
 			 <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Makes OpenMW VR ignore unsuccessful calls to OpenXR. You probably want this enabled.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>

@@ -6,10 +6,14 @@
 
 namespace Gui
 {
-    class VirtualKeyboardManager :
-        public MyGUI::Singleton<VirtualKeyboardManager>
+    class VirtualKeyboardManager
     {
     public:
+        VirtualKeyboardManager();
+        virtual ~VirtualKeyboardManager() = default;
+
+        static VirtualKeyboardManager* instance();
+
         virtual void registerEditBox(MyGUI::EditBox* editBox) = 0;
         virtual void unregisterEditBox(MyGUI::EditBox* editBox) = 0;
     };

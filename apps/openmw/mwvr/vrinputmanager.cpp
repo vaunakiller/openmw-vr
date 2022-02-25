@@ -7,6 +7,7 @@
 #include "openxrinput.hpp"
 #include "realisticcombat.hpp"
 
+#include <components/sdlutil/sdlmappings.hpp>
 #include <components/debug/debuglog.hpp>
 #include <components/xr/instance.hpp>
 #include <components/xr/action.hpp>
@@ -27,7 +28,6 @@
 #include "../mwinput/actionmanager.hpp"
 #include "../mwinput/bindingsmanager.hpp"
 #include "../mwinput/mousemanager.hpp"
-#include "../mwinput/sdlmappings.hpp"
 
 #include "../mwworld/player.hpp"
 #include "../mwmechanics/actorutil.hpp"
@@ -78,7 +78,7 @@ namespace MWVR
 
             MWWorld::Ptr dropped;
             if (pointer->canPlaceObject())
-                dropped = world->placeObject(item.mBase, pointer->getPointerTarget(), count);
+                dropped = world->placeObject(item.mBase, pointer->getPointerRay(), count);
             else
                 dropped = world->dropObjectOnGround(world->getPlayerPtr(), item.mBase, count);
             dropped.getCellRef().setOwner("");
@@ -107,10 +107,10 @@ namespace MWVR
         }
 
         auto pointer = MWVR::VRGUIManager::instance().getUserPointer();
-        if (pointer->getPointerTarget().mHit)
+        if (pointer->getPointerRay().mHit)
         {
-            auto* node = pointer->getPointerTarget().mHitNode;
-            MWWorld::Ptr ptr = pointer->getPointerTarget().mHitObject;
+            auto* node = pointer->getPointerRay().mHitNode;
+            MWWorld::Ptr ptr = pointer->getPointerRay().mHitObject;
             auto wm = MWBase::Environment::get().getWindowManager();
             auto& dnd = wm->getDragAndDrop();
 
@@ -369,7 +369,7 @@ namespace MWVR
         // and works because mygui only consumes the escape press if a video is currently playing.
         if (wm->isPlayingVideo())
         {
-            auto kc = MWInput::sdlKeyToMyGUI(SDLK_ESCAPE);
+            auto kc = SDLUtil::sdlKeyToMyGUI(SDLK_ESCAPE);
             if (action->onActivate())
             {
                 mBindingsManager->setPlayerControlsEnabled(!MyGUI::InputManager::getInstance().injectKeyPress(kc, 0));

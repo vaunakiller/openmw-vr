@@ -22,14 +22,44 @@
 #include <components/sceneutil/statesetupdater.hpp>
 #include <components/sceneutil/visitor.hpp>
 #include <components/sceneutil/util.hpp>
+#include <components/sceneutil/depth.hpp>
+#include <components/sceneutil/color.hpp>
 
 #include <components/settings/settings.hpp>
 
 #include <components/misc/stringops.hpp>
 #include <components/misc/callbackmanager.hpp>
 
+#include <components/vr/vr.hpp>
+
 namespace Stereo
 {
+#ifdef OSG_HAS_MULTIVIEW
+    struct MultiviewFrustumCallback : public osg::CullSettings::InitialFrustumCallback
+    {
+        MultiviewFrustumCallback()
+        {
+
+        }
+
+        void setInitialFrustum(osg::CullStack& cullStack, osg::Polytope& frustum) const override
+        {
+            auto cm = cullStack.getCullingMode();
+            bool nearCulling = !!(cm & osg::CullSettings::NEAR_PLANE_CULLING);
+            bool farCulling = !!(cm & osg::CullSettings::FAR_PLANE_CULLING);
+            frustum.setToBoundingBox(mBoundingBox, nearCulling, farCulling);
+        }
+
+        osg::BoundingBoxd mBoundingBox;
+    };
+#else
+    // A dummy type to avoid the need to preprocessor switch away inconsequential calls.
+    struct MultiviewFrustumCallback : public osg::Referenced
+    {
+        osg::BoundingBoxd mBoundingBox;
+    };
+#endif
+
     // Update stereo view/projection during update
     class StereoUpdateCallback : public osg::Callback
     {
@@ -70,7 +100,7 @@ namespace Stereo
             osg::Matrix dummy;
             auto* uProjectionMatrix = stateset->getUniform("projectionMatrix");
             if (uProjectionMatrix)
-                uProjectionMatrix->set(mManager->computeLeftEyeProjection(true));
+                uProjectionMatrix->set(mManager->computeEyeProjection(0, true));
         }
 
         void applyRight(osg::StateSet* stateset, osgUtil::CullVisitor* nv) override
@@ -78,7 +108,7 @@ namespace Stereo
             osg::Matrix dummy;
             auto* uProjectionMatrix = stateset->getUniform("projectionMatrix");
             if (uProjectionMatrix)
-                uProjectionMatrix->set(mManager->computeRightEyeProjection(true));
+                uProjectionMatrix->set(mManager->computeEyeProjection(1, true));
         }
 
     private:
@@ -119,13 +149,18 @@ namespace Stereo
 
     Manager::Manager(osgViewer::Viewer* viewer)
         : mViewer(viewer)
+        , mMainCamera(mViewer->getCamera())
         , mStereoRoot(new osg::Group)
         , mUpdateCallback(new StereoUpdateCallback(this))
-        , mMultiview(false)
+        , mMasterReverseZProjectionMatrix(osg::Matrix::identity())
+        , mEyeResolutionOverride(0,0)
+        , mEyeResolutionOverriden(false)
+        , mStereoShaderRoot(new osg::Group)
+        , mMultiviewFrustumCallback(new MultiviewFrustumCallback)
         , mMasterConfig(new SharedShadowMapConfig)
         , mSlaveConfig(new SharedShadowMapConfig)
         , mSharedShadowMaps(Settings::Manager::getBool("shared shadow maps", "Stereo"))
-        , mUpdateViewCallback(new DefaultUpdateViewCallback)
+        , mUpdateViewCallback(nullptr)
     {
         if (sInstance)
             throw std::logic_error("Double instance of Stereo::Manager");
@@ -140,28 +175,31 @@ namespace Stereo
         mStereoRoot->setDataVariance(osg::Object::STATIC);
     }
 
+    Manager::~Manager()
+    {
+    }
+
     void Manager::initializeStereo(osg::GraphicsContext* gc)
     {
-        mMainCamera = mViewer->getCamera();
         mRoot = mViewer->getSceneData()->asGroup();
-
-        auto mainCameraCB = mMainCamera->getUpdateCallback();
-        mMainCamera->removeUpdateCallback(mainCameraCB);
         mMainCamera->addUpdateCallback(mUpdateCallback);
-        mMainCamera->addUpdateCallback(mainCameraCB);
 
         auto ci = gc->getState()->getContextID();
-        mMultiview = Stereo::getMultiview(ci);
+        configureExtensions(ci);
 
-        if(mMultiview)
+        if(getMultiview())
             setupOVRMultiView2Technique();
         else
             setupBruteForceTechnique();
+
+        updateStereoFramebuffer();
+
+        setupSharedShadows();
     }
 
     void Manager::shaderStereoDefines(Shader::ShaderManager::DefineMap& defines) const
     {
-        if (mMultiview)
+        if (getMultiview())
         {
             defines["GLSLVersion"] = "330 compatibility";
             defines["useOVR_multiview"] = "1";
@@ -174,14 +212,33 @@ namespace Stereo
         }
     }
 
-    void Manager::setStereoFramebuffer(std::shared_ptr<StereoFramebuffer> fbo)
-    {
-        fbo->attachTo(mMainCamera);
-    }
-
     const std::string& Manager::error() const
     {
         return mError;
+    }
+
+    void Manager::overrideEyeResolution(const osg::Vec2i& eyeResolution)
+    {
+        mEyeResolutionOverride = eyeResolution;
+        mEyeResolutionOverriden = true;
+
+        if (mMultiviewFramebuffer)
+            updateStereoFramebuffer();
+    }
+
+    void Manager::screenResolutionChanged()
+    {
+        updateStereoFramebuffer();
+    }
+
+    osg::Vec2i Manager::eyeResolution()
+    {
+        if (mEyeResolutionOverriden)
+            return mEyeResolutionOverride;
+        auto width = mMainCamera->getViewport()->width() / 2;
+        auto height = mMainCamera->getViewport()->height();
+
+        return osg::Vec2i(width, height);
     }
 
     void Manager::setupBruteForceTechnique()
@@ -206,25 +263,25 @@ namespace Stereo
             osg::Matrixd computeLeftEyeProjection(const osg::Matrixd& projection) const override
             {
                 (void)projection;
-                return mManager->computeLeftEyeProjection(false);
+                return mManager->computeEyeProjection(0, false);
             }
 
             osg::Matrixd computeLeftEyeView(const osg::Matrixd& view) const override
             {
                 (void)view;
-                return mManager->computeLeftEyeView();
+                return mManager->computeEyeView(0);
             }
 
             osg::Matrixd computeRightEyeProjection(const osg::Matrixd& projection) const override
             {
                 (void)projection;
-                return mManager->computeRightEyeProjection(false);
+                return mManager->computeEyeProjection(1, false);
             }
 
             osg::Matrixd computeRightEyeView(const osg::Matrixd& view) const override
             {
                 (void)view;
-                return mManager->computeRightEyeView();
+                return mManager->computeEyeView(1);
             }
 
             Manager* mManager;
@@ -233,24 +290,28 @@ namespace Stereo
         auto* renderer = static_cast<osgViewer::Renderer*>(mMainCamera->getRenderer());
         for (auto* sceneView : { renderer->getSceneView(0), renderer->getSceneView(1) })
             sceneView->setComputeStereoMatricesCallback(new ComputeStereoMatricesCallback(this));
-
-        setupSharedShadows();
     }
 
     void Manager::setupOVRMultiView2Technique()
     {
+        auto* ds = osg::DisplaySettings::instance().get();
+        ds->setStereo(false);
+
 #ifdef OSG_MADSBUVI_DISPLAY_LIST_PATCH
         if (Settings::Manager::getBool("disable display lists for multiview", "Stereo"))
         {
-            auto* ds = osg::DisplaySettings::instance().get();
             ds->setDisplayListHint(osg::DisplaySettings::DISPLAYLIST_DISABLED);
             Log(Debug::Verbose) << "Disabling display lists";
         }
 #endif
 
-        mStereoShaderRoot->addCullCallback(new OVRMultiViewStereoStatesetUpdateCallback(this));
+        mMainCamera->addCullCallback(new OVRMultiViewStereoStatesetUpdateCallback(this));
         mStereoShaderRoot->addChild(mRoot);
         mStereoRoot->addChild(mStereoShaderRoot);
+
+#ifdef OSG_HAS_MULTIVIEW
+        mMainCamera->setInitialFrustumCallback(mMultiviewFrustumCallback);
+#endif
 
         // Inject self as the root of the scene graph
         mViewer->setSceneData(mStereoRoot);
@@ -265,104 +326,98 @@ namespace Stereo
         {
             if (mSharedShadowMaps)
             {
+                sceneView->getCullVisitor()->setUserData(mMasterConfig);
                 sceneView->getCullVisitorLeft()->setUserData(mMasterConfig);
                 sceneView->getCullVisitorRight()->setUserData(mSlaveConfig);
             }
         }
     }
 
+    void Manager::updateStereoFramebuffer()
+    {
+        auto samples = Settings::Manager::getInt("antialiasing", "Video");
+        auto eyeRes = eyeResolution();
+
+        if (mMultiviewFramebuffer)
+            mMultiviewFramebuffer->detachFrom(mMainCamera);
+        mMultiviewFramebuffer = std::make_shared<MultiviewFramebuffer>(static_cast<int>(eyeRes.x()), static_cast<int>(eyeRes.y()), samples);
+        mMultiviewFramebuffer->attachColorComponent(GL_RGB, GL_UNSIGNED_BYTE, SceneUtil::ColorFormat::colorFormat());
+        mMultiviewFramebuffer->attachDepthComponent(GL_DEPTH_COMPONENT, SceneUtil::AutoDepth::depthType(), SceneUtil::AutoDepth::depthFormat());
+        mMultiviewFramebuffer->attachTo(mMainCamera);
+    }
+
     void Manager::update()
     {
         double near_ = 1.f;
         double far_ = 10000.f;
-        if (!mUpdateViewCallback)
-        {
-            Log(Debug::Error) << "Manager: No update view callback. Stereo rendering will not work.";
-            return;
-        }
-        mUpdateViewCallback->updateView(mLeftView, mRightView);
-        auto viewMatrix = mViewer->getCamera()->getViewMatrix();
-        auto projectionMatrix = mViewer->getCamera()->getProjectionMatrix();
+
         near_ = Settings::Manager::getFloat("near clip", "Camera");
         far_ = Settings::Manager::getFloat("viewing distance", "Camera");
+        auto projectionMatrix = mViewer->getCamera()->getProjectionMatrix();
 
-        osg::Vec3d leftEye = mLeftView.pose.position;
-        osg::Vec3d rightEye = mRightView.pose.position;
-
-        mLeftViewOffsetMatrix = mLeftView.pose.viewMatrix(true);
-        mRightViewOffsetMatrix = mRightView.pose.viewMatrix(true);
-
-        mLeftViewMatrix = viewMatrix * mLeftViewOffsetMatrix;
-        mRightViewMatrix = viewMatrix * mRightViewOffsetMatrix;
-
-
-        // To correctly cull when drawing stereo using the geometry shader, the main camera must
-        // draw a fake view+perspective that includes the full frustums of both the left and right eyes.
-        // This frustum will be computed as a perspective frustum from a position P slightly behind the eyes L and R
-        // where it creates the minimum frustum encompassing both eyes' frustums.
-        // NOTE: I make an assumption that the eyes lie in a horizontal plane relative to the base view,
-        // and lie mirrored around the Y axis (straight ahead).
-        // Re-think this if that turns out to be a bad assumption.
-        View frustumView;
-
-        // Compute Frustum angles. A simple min/max.
-        /* Example values for reference:
-            Left:
-            angleLeft   -0.767549932    float
-            angleRight   0.620896876    float
-            angleDown   -0.837898076    float
-            angleUp	     0.726982594    float
-
-            Right:
-            angleLeft   -0.620896876    float
-            angleRight   0.767549932    float
-            angleDown   -0.837898076    float
-            angleUp	     0.726982594    float
-        */
-        frustumView.fov.angleLeft = std::min(mLeftView.fov.angleLeft, mRightView.fov.angleLeft);
-        frustumView.fov.angleRight = std::max(mLeftView.fov.angleRight, mRightView.fov.angleRight);
-        frustumView.fov.angleDown = std::min(mLeftView.fov.angleDown, mRightView.fov.angleDown);
-        frustumView.fov.angleUp = std::max(mLeftView.fov.angleUp, mRightView.fov.angleUp);
-
-        // Use the law of sines on the triangle spanning PLR to determine P
-        double angleLeft = std::abs(frustumView.fov.angleLeft);
-        double angleRight = std::abs(frustumView.fov.angleRight);
-        double lengthRL = (rightEye - leftEye).length();
-        double ratioRL = lengthRL / std::sin(osg::PI - angleLeft - angleRight);
-        double lengthLP = ratioRL * std::sin(angleRight);
-
-        osg::Vec3d directionLP = osg::Vec3(std::cos(-angleLeft), std::sin(-angleLeft), 0);
-        osg::Vec3d LP = directionLP * lengthLP;
-        frustumView.pose.position = leftEye + LP;
-        //frustumView.pose.position.x() += 1000;
-
-        // Base view position is 0.0, by definition.
-        // The length of the vector P is therefore the required offset to near/far.
-        auto nearFarOffset = frustumView.pose.position.length();
-
-        // Generate the frustum matrices
-        auto frustumViewMatrix = viewMatrix * frustumView.pose.viewMatrix(true);
-        auto frustumProjectionMatrix = frustumView.fov.perspectiveMatrix(near_ + nearFarOffset, far_ + nearFarOffset, false);
-
-        if (mMultiview)
+        if (mUpdateViewCallback)
         {
-            mMainCamera->setViewMatrix(frustumViewMatrix);
-            mMainCamera->setProjectionMatrix(frustumProjectionMatrix);
+            mUpdateViewCallback->updateView(mView[0], mView[1]);
+            auto viewMatrix = mViewer->getCamera()->getViewMatrix();
+            mViewOffsetMatrix[0] = mView[0].pose.viewMatrix(true);
+            mViewOffsetMatrix[1] = mView[1].pose.viewMatrix(true);
+            mViewMatrix[0] = viewMatrix * mViewOffsetMatrix[0];
+            mViewMatrix[1] = viewMatrix * mViewOffsetMatrix[1];
+            mProjectionMatrix[0] = mView[0].fov.perspectiveMatrix(near_, far_, false);
+            mProjectionMatrix[1] = mView[1].fov.perspectiveMatrix(near_, far_, false);
+            if (SceneUtil::AutoDepth::isReversed())
+            {
+                mProjectionMatrixReverseZ[0] = mView[0].fov.perspectiveMatrix(near_, far_, true);
+                mProjectionMatrixReverseZ[1] = mView[1].fov.perspectiveMatrix(near_, far_, true);
+            }
         }
         else
         {
-            if (mMasterConfig->_projection == nullptr)
-                mMasterConfig->_projection = new osg::RefMatrix;
-            if (mMasterConfig->_modelView == nullptr)
-                mMasterConfig->_modelView = new osg::RefMatrix;
-
-            if (mSharedShadowMaps)
+            auto* ds = osg::DisplaySettings::instance().get();
+            auto viewMatrix = mViewer->getCamera()->getViewMatrix();
+            mViewMatrix[0] = ds->computeLeftEyeViewImplementation(viewMatrix);
+            mViewMatrix[1] = ds->computeRightEyeViewImplementation(viewMatrix);
+            mViewOffsetMatrix[0] = osg::Matrix::inverse(viewMatrix) * mViewMatrix[0];
+            mViewOffsetMatrix[1] = osg::Matrix::inverse(viewMatrix) * mViewMatrix[1];
+            mProjectionMatrix[0] = ds->computeLeftEyeProjectionImplementation(projectionMatrix);
+            mProjectionMatrix[1] = ds->computeRightEyeProjectionImplementation(projectionMatrix);
+            if (SceneUtil::AutoDepth::isReversed())
             {
-                mMasterConfig->_referenceFrame = mMainCamera->getReferenceFrame();
-                mMasterConfig->_modelView->set(frustumViewMatrix);
-                mMasterConfig->_projection->set(frustumProjectionMatrix);
+                mProjectionMatrixReverseZ[0] = ds->computeLeftEyeProjectionImplementation(mMasterReverseZProjectionMatrix);
+                mProjectionMatrixReverseZ[1] = ds->computeRightEyeProjectionImplementation(mMasterReverseZProjectionMatrix);
             }
         }
+
+        mMasterConfig->_referenceFrame = mMainCamera->getReferenceFrame();
+        mMasterConfig->_useCustomFrustum = true;
+        mMasterConfig->_customFrustum.init();
+
+        static const std::vector<osg::Vec3d> clipCorners{
+            {-1.0, -1.0, -1.0},
+            { 1.0, -1.0, -1.0},
+            { 1.0, -1.0,  1.0},
+            {-1.0, -1.0,  1.0},
+            {-1.0,  1.0, -1.0},
+            { 1.0,  1.0, -1.0},
+            { 1.0,  1.0,  1.0},
+            {-1.0,  1.0,  1.0}
+        };
+
+        for (int view : {0, 1})
+        {
+
+            osg::Matrix clipToMasterView;
+            clipToMasterView.invert(mViewOffsetMatrix[view] * mProjectionMatrix[view]);
+
+            for (const auto& clipCorner : clipCorners)
+            {
+                auto masterViewVertice = clipCorner * clipToMasterView;
+                auto masterClipVertice = masterViewVertice * projectionMatrix;
+                mMasterConfig->_customFrustum.expandBy(masterClipVertice);
+            }
+        }
+
+        mMultiviewFrustumCallback->mBoundingBox = mMasterConfig->_customFrustum;
     }
 
     void Manager::updateStateset(osg::StateSet* stateset)
@@ -370,13 +425,12 @@ namespace Stereo
         // Update stereo uniforms
         auto * viewMatrixMultiViewUniform = stateset->getUniform("viewMatrixMultiView");
         auto * projectionMatrixMultiViewUniform = stateset->getUniform("projectionMatrixMultiView");
-        auto near_ = Settings::Manager::getFloat("near clip", "Camera");
-        auto far_ = Settings::Manager::getFloat("viewing distance", "Camera");
-        
-        viewMatrixMultiViewUniform->setElement(0, mLeftViewOffsetMatrix);
-        viewMatrixMultiViewUniform->setElement(1, mRightViewOffsetMatrix);
-        projectionMatrixMultiViewUniform->setElement(0, mLeftView.fov.perspectiveMatrix(near_, far_, SceneUtil::getReverseZ()));
-        projectionMatrixMultiViewUniform->setElement(1, mRightView.fov.perspectiveMatrix(near_, far_, SceneUtil::getReverseZ()));
+
+        for (int view : {0, 1})
+        {
+            viewMatrixMultiViewUniform->setElement(view, mViewOffsetMatrix[view]);
+            projectionMatrixMultiViewUniform->setElement(view, computeEyeProjection(view, SceneUtil::AutoDepth::isReversed()));
+        }
     }
 
     void Manager::setUpdateViewCallback(std::shared_ptr<UpdateViewCallback> cb)
@@ -384,190 +438,32 @@ namespace Stereo
         mUpdateViewCallback = cb;
     }
 
-    void Manager::DefaultUpdateViewCallback::updateView(View& left, View& right)
-    {
-        left.pose.position = osg::Vec3(-2.2, 0, 0);
-        right.pose.position = osg::Vec3(2.2, 0, 0);
-        left.fov = { -0.767549932, 0.620896876, 0.726982594, -0.837898076 };
-        right.fov = { -0.620896876, 0.767549932, 0.726982594, -0.837898076 };
-    }
-
     void Manager::setCullCallback(osg::ref_ptr<osg::NodeCallback> cb)
     {
         mMainCamera->setCullCallback(cb);
     }
-    osg::Matrixd Manager::computeLeftEyeProjection(bool allowReverseZ) const
+
+    osg::Matrixd Manager::computeEyeProjection(int view, bool allowReverseZ) const
     {
-        auto near_ = Settings::Manager::getFloat("near clip", "Camera");
-        auto far_ = Settings::Manager::getFloat("viewing distance", "Camera");
-        return mLeftView.fov.perspectiveMatrix(near_, far_, allowReverseZ && SceneUtil::getReverseZ());
-    }
-    osg::Matrixd Manager::computeLeftEyeView() const
-    {
-        return mLeftViewMatrix;
-    }
-    osg::Matrixd Manager::computeRightEyeProjection(bool allowReverseZ) const
-    {
-        auto near_ = Settings::Manager::getFloat("near clip", "Camera");
-        auto far_ = Settings::Manager::getFloat("viewing distance", "Camera");
-        return mRightView.fov.perspectiveMatrix(near_, far_, allowReverseZ && SceneUtil::getReverseZ());
-    }
-    osg::Matrixd Manager::computeRightEyeView() const
-    {
-        return mRightViewMatrix;
+        return allowReverseZ && SceneUtil::AutoDepth::isReversed() ? mProjectionMatrixReverseZ[view] : mProjectionMatrix[view];
     }
 
-    StereoFramebuffer::StereoFramebuffer(int width, int height, int samples)
-        : mWidth(width)
-        , mHeight(height)
-        , mSamples(samples)
-        , mMultiview(getMultiview())
-        , mMultiviewFbo{ new osg::FrameBufferObject }
-        , mFbo{ new osg::FrameBufferObject, new osg::FrameBufferObject }
+    osg::Matrixd Manager::computeEyeView(int view) const
     {
+        return mViewMatrix[view];
     }
 
-    StereoFramebuffer::~StereoFramebuffer()
+    namespace
     {
-    }
-
-    void StereoFramebuffer::attachColorComponent(GLint sourceFormat, GLint sourceType, GLint internalFormat)
-    {
-        if (mMultiview)
+        bool getStereoImpl()
         {
-#ifdef OSG_HAS_MULTIVIEW
-            mMultiviewColorTexture = createTextureArray(sourceFormat, sourceType, internalFormat);
-            mMultiviewFbo->setAttachment(osg::Camera::COLOR_BUFFER, osg::FrameBufferAttachment(mMultiviewColorTexture, osg::Camera::FACE_CONTROLLED_BY_MULTIVIEW_SHADER, 0));
-            mFbo[0]->setAttachment(osg::Camera::COLOR_BUFFER, osg::FrameBufferAttachment(mMultiviewColorTexture, 0, 0));
-            mFbo[1]->setAttachment(osg::Camera::COLOR_BUFFER, osg::FrameBufferAttachment(mMultiviewColorTexture, 1, 0));
-#endif
-        }
-        else
-        {
-            for (unsigned i = 0; i < 2; i++)
-            {
-                if (mSamples > 1)
-                {
-                    auto colorTexture2DMsaa = createTextureMsaa(sourceFormat, sourceType, internalFormat);
-                    mColorTexture[i] = colorTexture2DMsaa;
-                    mFbo[i]->setAttachment(osg::Camera::COLOR_BUFFER, osg::FrameBufferAttachment(colorTexture2DMsaa));
-                }
-                else
-                {
-                    auto colorTexture2D = createTexture(sourceFormat, sourceType, internalFormat);
-                    mColorTexture[i] = colorTexture2D;
-                    mFbo[i]->setAttachment(osg::Camera::COLOR_BUFFER, osg::FrameBufferAttachment(colorTexture2D));
-                }
-            }
+            return VR::getVR() || Settings::Manager::getBool("stereo enabled", "Stereo") || osg::DisplaySettings::instance().get()->getStereo();
         }
     }
 
-    void StereoFramebuffer::attachDepthComponent(GLint sourceFormat, GLint sourceType, GLint internalFormat)
+    bool getStereo()
     {
-        if (mMultiview)
-        {
-#ifdef OSG_HAS_MULTIVIEW
-            mMultiviewDepthTexture = createTextureArray(sourceFormat, sourceType, internalFormat);
-            mMultiviewFbo->setAttachment(osg::Camera::DEPTH_BUFFER, osg::FrameBufferAttachment(mMultiviewDepthTexture, osg::Camera::FACE_CONTROLLED_BY_MULTIVIEW_SHADER, 0));
-            mFbo[0]->setAttachment(osg::Camera::DEPTH_BUFFER, osg::FrameBufferAttachment(mMultiviewDepthTexture, 0, 0));
-            mFbo[1]->setAttachment(osg::Camera::DEPTH_BUFFER, osg::FrameBufferAttachment(mMultiviewDepthTexture, 1, 0));
-#endif
-        }
-        else
-        {
-            for (unsigned i = 0; i < 2; i++)
-            {
-                if (mSamples > 1)
-                {
-                    auto depthTexture2DMsaa = createTextureMsaa(sourceFormat, sourceType, internalFormat);
-                    mDepthTexture[i] = depthTexture2DMsaa;
-                    mFbo[i]->setAttachment(osg::Camera::DEPTH_BUFFER, osg::FrameBufferAttachment(depthTexture2DMsaa));
-                }
-                else
-                {
-                    auto depthTexture2D = createTexture(sourceFormat, sourceType, internalFormat);
-                    mDepthTexture[i] = depthTexture2D;
-                    mFbo[i]->setAttachment(osg::Camera::DEPTH_BUFFER, osg::FrameBufferAttachment(depthTexture2D));
-                }
-            }
-        }
-    }
-
-    osg::FrameBufferObject* StereoFramebuffer::multiviewFbo()
-    {
-        return mMultiviewFbo;
-    }
-
-    osg::FrameBufferObject* StereoFramebuffer::fbo(int i)
-    {
-        return mFbo[i];
-    }
-
-    void StereoFramebuffer::attachTo(osg::Camera* camera)
-    {
-#ifdef OSG_HAS_MULTIVIEW
-        if (mMultiview)
-        {
-            if (mMultiviewColorTexture)
-            {
-                camera->attach(osg::Camera::COLOR_BUFFER, mMultiviewColorTexture, 0, osg::Camera::FACE_CONTROLLED_BY_MULTIVIEW_SHADER, false, mSamples);
-                camera->getBufferAttachmentMap()[osg::Camera::COLOR_BUFFER]._internalFormat = mMultiviewColorTexture->getInternalFormat();
-                camera->getBufferAttachmentMap()[osg::Camera::COLOR_BUFFER]._mipMapGeneration = false;
-            }
-            if (mMultiviewDepthTexture)
-            {
-                camera->attach(osg::Camera::DEPTH_BUFFER, mMultiviewDepthTexture, 0, osg::Camera::FACE_CONTROLLED_BY_MULTIVIEW_SHADER, false, mSamples);
-                camera->getBufferAttachmentMap()[osg::Camera::DEPTH_BUFFER]._internalFormat = mMultiviewDepthTexture->getInternalFormat();
-                camera->getBufferAttachmentMap()[osg::Camera::DEPTH_BUFFER]._mipMapGeneration = false;
-            }
-            camera->setRenderTargetImplementation(osg::Camera::FRAME_BUFFER_OBJECT);
-        }
-#endif
-    }
-
-    osg::Texture2D* StereoFramebuffer::createTexture(GLint sourceFormat, GLint sourceType, GLint internalFormat)
-    {
-        osg::Texture2D* texture = new osg::Texture2D;
-        texture->setTextureSize(mWidth, mHeight);
-        texture->setSourceFormat(sourceFormat);
-        texture->setSourceType(sourceType);
-        texture->setInternalFormat(internalFormat);
-        texture->setFilter(osg::Texture::MIN_FILTER, osg::Texture::LINEAR);
-        texture->setFilter(osg::Texture::MAG_FILTER, osg::Texture::LINEAR);
-        texture->setWrap(osg::Texture::WRAP_S, osg::Texture::CLAMP_TO_EDGE);
-        texture->setWrap(osg::Texture::WRAP_T, osg::Texture::CLAMP_TO_EDGE);
-        texture->setWrap(osg::Texture::WRAP_R, osg::Texture::CLAMP_TO_EDGE);
-        return texture;
-    }
-
-    osg::Texture2DMultisample* StereoFramebuffer::createTextureMsaa(GLint sourceFormat, GLint sourceType, GLint internalFormat)
-    {
-        osg::Texture2DMultisample* texture = new osg::Texture2DMultisample;
-        texture->setTextureSize(mWidth, mHeight);
-        texture->setNumSamples(mSamples);
-        texture->setSourceFormat(sourceFormat);
-        texture->setSourceType(sourceType);
-        texture->setInternalFormat(internalFormat);
-        texture->setFilter(osg::Texture::MIN_FILTER, osg::Texture::LINEAR);
-        texture->setFilter(osg::Texture::MAG_FILTER, osg::Texture::LINEAR);
-        texture->setWrap(osg::Texture::WRAP_S, osg::Texture::CLAMP_TO_EDGE);
-        texture->setWrap(osg::Texture::WRAP_T, osg::Texture::CLAMP_TO_EDGE);
-        texture->setWrap(osg::Texture::WRAP_R, osg::Texture::CLAMP_TO_EDGE);
-        return texture;
-    }
-
-    osg::Texture2DArray* StereoFramebuffer::createTextureArray(GLint sourceFormat, GLint sourceType, GLint internalFormat)
-    {
-        osg::Texture2DArray* textureArray = new osg::Texture2DArray;
-        textureArray->setTextureSize(mWidth, mHeight, 2);
-        textureArray->setSourceFormat(sourceFormat);
-        textureArray->setSourceType(sourceType);
-        textureArray->setInternalFormat(internalFormat);
-        textureArray->setFilter(osg::Texture::MIN_FILTER, osg::Texture::LINEAR);
-        textureArray->setFilter(osg::Texture::MAG_FILTER, osg::Texture::LINEAR);
-        textureArray->setWrap(osg::Texture::WRAP_S, osg::Texture::CLAMP_TO_EDGE);
-        textureArray->setWrap(osg::Texture::WRAP_T, osg::Texture::CLAMP_TO_EDGE);
-        textureArray->setWrap(osg::Texture::WRAP_R, osg::Texture::CLAMP_TO_EDGE);
-        return textureArray;
+        static bool stereo = getStereoImpl();
+        return stereo;
     }
 }
