@@ -242,8 +242,10 @@ namespace MWRender
         if (newMode == Mode::FirstPerson)
             mFirstPersonView = true;
         else if (newMode == Mode::ThirdPerson)
+        {
             mFirstPersonView = false;
             calculateDeferredRotation();
+        }
         if (oldMode == Mode::FirstPerson || newMode == Mode::FirstPerson)
         {
             instantTransition();

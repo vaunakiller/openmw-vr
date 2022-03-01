@@ -1071,7 +1071,9 @@ namespace MWWorld
    {
        if (VR::getVR())
        {
+#ifdef USE_OPENXR
            return MWVR::VRGUIManager::instance().getUserPointer()->distanceToPointerTarget();
+#endif
        }
        else
            return mDistanceToFacedObject;
