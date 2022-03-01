@@ -34,6 +34,7 @@
 #include <components/detournavigator/settings.hpp>
 
 #include <components/loadinglistener/loadinglistener.hpp>
+#include <components/vr/vr.hpp>
 
 #include "../mwbase/environment.hpp"
 #include "../mwbase/soundmanager.hpp"
@@ -1068,7 +1069,12 @@ namespace MWWorld
 
    float World::getDistanceToFacedObject()
    {
-        return mDistanceToFacedObject;
+       if (VR::getVR())
+       {
+           return MWVR::VRGUIManager::instance().getUserPointer()->distanceToPointerTarget();
+       }
+       else
+           return mDistanceToFacedObject;
    }
 
     osg::Matrixf World::getActorHeadTransform(const MWWorld::ConstPtr& actor) const
