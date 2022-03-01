@@ -631,6 +631,7 @@ void MWShadowTechnique::ShadowData::releaseGLObjects(osg::State* state) const
 // Frustum
 //
 MWShadowTechnique::Frustum::Frustum(osgUtil::CullVisitor* cv, double minZNear, double maxZFar):
+    useCustomClipSpace(false),
     corners(8),
     faces(6),
     edges(12)

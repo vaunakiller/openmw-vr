@@ -252,7 +252,9 @@ namespace MWRender
 
         mViewer->getCamera()->resize(width, height);
         mHUDCamera->resize(width, height);
-        Stereo::Manager::instance().screenResolutionChanged();
+
+        if (osg::DisplaySettings::instance()->getStereo())
+            Stereo::Manager::instance().screenResolutionChanged();
     }
 
     class HUDCameraStatesetUpdater : public SceneUtil::StateSetUpdater
