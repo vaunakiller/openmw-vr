@@ -1069,13 +1069,13 @@ namespace MWWorld
 
    float World::getDistanceToFacedObject()
    {
+#ifdef USE_OPENXR
        if (VR::getVR())
        {
-#ifdef USE_OPENXR
            return MWVR::VRGUIManager::instance().getUserPointer()->distanceToPointerTarget();
-#endif
        }
        else
+#endif
            return mDistanceToFacedObject;
    }
 
