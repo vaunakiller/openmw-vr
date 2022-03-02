@@ -1909,7 +1909,7 @@ namespace MWWorld
         if (isWerewolf && isFirstPerson)
         {
             float werewolfFov = Fallback::Map::getFloat("General_Werewolf_FOV");
-            if (werewolfFov != 0)
+            if (werewolfFov != 0 && !VR::getVR())
                 mRendering->overrideFieldOfView(werewolfFov);
             MWBase::Environment::get().getWindowManager()->setWerewolfOverlay(true);
         }

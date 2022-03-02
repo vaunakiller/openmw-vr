@@ -370,6 +370,15 @@ namespace Stereo
                 mProjectionMatrixReverseZ[0] = mView[0].fov.perspectiveMatrix(near_, far_, true);
                 mProjectionMatrixReverseZ[1] = mView[1].fov.perspectiveMatrix(near_, far_, true);
             }
+
+            FieldOfView masterFov;
+            masterFov.angleDown = std::min(mView[0].fov.angleDown, mView[1].fov.angleDown);
+            masterFov.angleUp = std::min(mView[0].fov.angleUp, mView[1].fov.angleUp);
+            masterFov.angleLeft = std::min(mView[0].fov.angleLeft, mView[1].fov.angleLeft);
+            masterFov.angleRight = std::min(mView[0].fov.angleRight, mView[1].fov.angleRight);
+            projectionMatrix = masterFov.perspectiveMatrix(near_, far_, false);
+            mMainCamera->setProjectionMatrix(projectionMatrix);
+
         }
         else
         {
