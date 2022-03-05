@@ -253,7 +253,7 @@ namespace MWRender
         mViewer->getCamera()->resize(width, height);
         mHUDCamera->resize(width, height);
 
-        if (osg::DisplaySettings::instance()->getStereo())
+        if (Stereo::getStereo())
             Stereo::Manager::instance().screenResolutionChanged();
     }
 
