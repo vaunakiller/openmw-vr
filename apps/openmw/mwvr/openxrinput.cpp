@@ -9,6 +9,7 @@
 #include <components/xr/debug.hpp>
 
 #include <iostream>
+#include <sstream>
 
 #include <extern/oics/tinyxml.h>
 
