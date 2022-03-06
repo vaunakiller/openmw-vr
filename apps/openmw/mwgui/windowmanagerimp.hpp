@@ -401,6 +401,8 @@ namespace MWGui
     void forceLootMode(const MWWorld::Ptr& ptr) override;
 
     void viewerTraversals(bool updateWindowManager) override;
+    void asyncPrepareSaveMap() override;
+
   private:
     unsigned int mOldUpdateMask; unsigned int mOldCullMask; osg::Vec4 mOldClearColor;
 

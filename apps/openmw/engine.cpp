@@ -462,7 +462,7 @@ OMW::Engine::Engine(Files::ConfigurationManager& configurationManager)
   , mEncoder(nullptr)
   , mScreenCaptureOperation(nullptr)
   , mSelectDepthFormatOperation(new SceneUtil::SelectDepthFormatOperation())
-  , mSelectColorFormatOperation(new SceneUtil::ColorFormat::SelectColorFormatOperation())
+  , mSelectColorFormatOperation(new SceneUtil::Color::SelectColorFormatOperation())
   , mStereoManager(nullptr)
   , mSkipMenu (false)
   , mUseSound (true)
@@ -574,40 +574,6 @@ void OMW::Engine::setSkipMenu (bool skipMenu, bool newGame)
 {
     mSkipMenu = skipMenu;
     mNewGame = newGame;
-}
-
-std::string OMW::Engine::loadSettings (Settings::Manager & settings)
-{
-    // Create the settings manager and load default settings file
-    const std::string localdefault = (mCfgMgr.getLocalPath() / "defaults.bin").string();
-    const std::string globaldefault = (mCfgMgr.getGlobalPath() / "defaults.bin").string();
-
-    // prefer local
-    if (boost::filesystem::exists(localdefault))
-        settings.loadDefault(localdefault);
-    else if (boost::filesystem::exists(globaldefault))
-        settings.loadDefault(globaldefault);
-    else
-        throw std::runtime_error ("No default settings file found! Make sure the file \"defaults.bin\" was properly installed.");
-
-    // load user settings if they exist
-    std::string settingspath = (mCfgMgr.getUserConfigPath() / "settings.cfg").string();
-    if (boost::filesystem::exists(settingspath))
-        settings.loadUser(settingspath);
-
-
-#ifdef USE_OPENXR
-    const std::string localoverrides = (mCfgMgr.getLocalPath() / "settings-overrides-vr.cfg").string();
-    const std::string globaloverrides = (mCfgMgr.getGlobalPath() / "settings-overrides-vr.cfg").string();
-    if (boost::filesystem::exists(localoverrides))
-        settings.loadOverrides(localoverrides);
-    else if (boost::filesystem::exists(globaloverrides))
-        settings.loadOverrides(globaloverrides);
-    else
-        throw std::runtime_error("No settings overrides file found! Make sure the file \"settings-overrides-vr.cfg\" was properly installed.");
-#endif
-
-    return settingspath;
 }
 
 void OMW::Engine::createWindow(Settings::Manager& settings)
@@ -776,7 +742,7 @@ void OMW::Engine::setWindowIcon()
 void OMW::Engine::prepareEngine (Settings::Manager & settings)
 {
     mEnvironment.setStateManager (
-        new MWState::StateManager (mCfgMgr.getUserDataPath() / "saves", mContentFiles));
+        std::make_unique<MWState::StateManager> (mCfgMgr.getUserDataPath() / "saves", mContentFiles));
 
     mStereoManager = std::make_unique<Stereo::Manager>(mViewer);
 
@@ -787,11 +753,11 @@ void OMW::Engine::prepareEngine (Settings::Manager & settings)
 
     mCallbackManager = std::make_unique<Misc::CallbackManager>(mViewer);
 
-    mVFS.reset(new VFS::Manager(mFSStrict));
+    mVFS = std::make_unique<VFS::Manager>(mFSStrict);
 
     VFS::registerArchives(mVFS.get(), mFileCollections, mArchives, true);
 
-    mResourceSystem.reset(new Resource::ResourceSystem(mVFS.get()));
+    mResourceSystem = std::make_unique<Resource::ResourceSystem>(mVFS.get());
     mResourceSystem->getSceneManager()->setUnRefImageDataAfterApply(false); // keep to Off for now to allow better state sharing
     mResourceSystem->getSceneManager()->setFilterSettings(
         Settings::Manager::getString("texture mag filter", "General"),
@@ -821,8 +787,9 @@ void OMW::Engine::prepareEngine (Settings::Manager & settings)
 
     mViewer->addEventHandler(mScreenCaptureHandler);
 
-    mLuaManager = new MWLua::LuaManager(mVFS.get(), (mResDir / "lua_libs").string());
-    mEnvironment.setLuaManager(mLuaManager);
+    auto luaMgr = std::make_unique<MWLua::LuaManager>(mVFS.get(), (mResDir / "lua_libs").string());
+    mLuaManager = luaMgr.get();
+    mEnvironment.setLuaManager(std::move(luaMgr));
 
     // Create input and UI first to set up a bootstrapping environment for
     // showing a loading screen and keeping the window responsive while doing so
@@ -877,11 +844,13 @@ void OMW::Engine::prepareEngine (Settings::Manager & settings)
     guiRoot->setName("GUI Root");
     guiRoot->setNodeMask(MWRender::Mask_GUI);
     rootNode->addChild(guiRoot);
-    MWGui::WindowManager* window = new MWGui::WindowManager(mWindow, mViewer, guiRoot, mResourceSystem.get(), mWorkQueue.get(),
+
+    auto windowMgr = std::make_unique<MWGui::WindowManager>(mWindow, mViewer, guiRoot, mResourceSystem.get(), mWorkQueue.get(),
                 mCfgMgr.getLogPath().string() + std::string("/"), myguiResources,
                 mScriptConsoleMode, mTranslationDataStorage, mEncoding, mExportFonts,
                 Version::getOpenmwVersionDescription(mResDir.string()), mCfgMgr.getUserConfigPath().string(), shadersSupported);
-    mEnvironment.setWindowManager (window);
+    auto* windowMgrInternal = windowMgr.get();
+    mEnvironment.setWindowManager (std::move(windowMgr));
 
 #ifdef USE_OPENXR
     const std::string xrinputuserdefault = mCfgMgr.getUserConfigPath().string() + "/xrcontrollersuggestions.xml";
@@ -902,16 +871,14 @@ void OMW::Engine::prepareEngine (Settings::Manager & settings)
     Log(Debug::Verbose) << "xrinputlocaldefault: " << xrinputlocaldefault;
     Log(Debug::Verbose) << "xrinputglobaldefault: " << xrinputglobaldefault;
 
-    MWInput::InputManager* input =
-        new MWVR::VRInputManager(mWindow, mViewer, mScreenCaptureHandler, mScreenCaptureOperation, keybinderUser, keybinderUserExists, userGameControllerdb, gameControllerdb, mGrab, xrControllerSuggestions);
+    auto input = std::make_unique<MWVR::VRInputManager>(mWindow, mViewer, mScreenCaptureHandler, mScreenCaptureOperation, keybinderUser, keybinderUserExists, userGameControllerdb, gameControllerdb, mGrab, xrControllerSuggestions);
 #else
-    MWInput::InputManager* input =
-        new MWInput::InputManager (mWindow, mViewer, mScreenCaptureHandler, mScreenCaptureOperation, keybinderUser, keybinderUserExists, userGameControllerdb, gameControllerdb, mGrab);
+    auto input = std::make_unique<MWInput::InputManager>(mWindow, mViewer, mScreenCaptureHandler, mScreenCaptureOperation, keybinderUser, keybinderUserExists, userGameControllerdb, gameControllerdb, mGrab);
 #endif
-    mEnvironment.setInputManager (input);
+    mEnvironment.setInputManager (std::move(input));
 
     // Create sound system
-    mEnvironment.setSoundManager (new MWSound::SoundManager(mVFS.get(), mUseSound));
+    mEnvironment.setSoundManager (std::make_unique<MWSound::SoundManager>(mVFS.get(), mUseSound));
 
 #ifdef USE_OPENXR
     mVrGUIManager = std::make_unique<MWVR::VRGUIManager>(mViewer, mResourceSystem.get(), rootNode);
@@ -927,9 +894,9 @@ void OMW::Engine::prepareEngine (Settings::Manager & settings)
 
     
 #ifdef USE_OPENXR
-    MWVR::VRCamera* camera = new MWVR::VRCamera(mViewer->getCamera());
+    auto camera = std::make_unique<MWVR::VRCamera>(mViewer->getCamera());
 #else
-    MWRender::Camera* camera = new MWRender::Camera(mViewer->getCamera());
+    auto camera = std::make_unique<MWRender::Camera>(mViewer->getCamera());
 #endif
     
 
@@ -941,7 +908,7 @@ void OMW::Engine::prepareEngine (Settings::Manager & settings)
     }
 
     // Create the world
-    mEnvironment.setWorld( new MWWorld::World (mViewer, rootNode, std::unique_ptr<MWRender::Camera>(camera), mResourceSystem.get(), mWorkQueue.get(),
+    mEnvironment.setWorld( std::make_unique<MWWorld::World>(mViewer, rootNode, std::move(camera), mResourceSystem.get(), mWorkQueue.get(),
         mFileCollections, mContentFiles, mGroundcoverFiles, mEncoder, mActivationDistanceOverride, mCellName,
         mStartupScript, mResDir.string(), mCfgMgr.getUserDataPath().string()));
     mEnvironment.getWorld()->setupPlayer();
@@ -952,8 +919,8 @@ void OMW::Engine::prepareEngine (Settings::Manager & settings)
     camera->setShouldTrackPlayerCharacter(true);
 #endif
 
-    window->setStore(mEnvironment.getWorld()->getStore());
-    window->initUI();
+    windowMgrInternal->setStore(mEnvironment.getWorld()->getStore());
+    windowMgrInternal->initUI();
 
     //Load translation data
     mTranslationDataStorage.setEncoder(mEncoder);
@@ -966,16 +933,15 @@ void OMW::Engine::prepareEngine (Settings::Manager & settings)
     mScriptContext = new MWScript::CompilerContext (MWScript::CompilerContext::Type_Full);
     mScriptContext->setExtensions (&mExtensions);
 
-    mEnvironment.setScriptManager (new MWScript::ScriptManager (mEnvironment.getWorld()->getStore(), *mScriptContext, mWarningsMode,
+    mEnvironment.setScriptManager (std::make_unique<MWScript::ScriptManager>(mEnvironment.getWorld()->getStore(), *mScriptContext, mWarningsMode,
         mScriptBlacklistUse ? mScriptBlacklist : std::vector<std::string>()));
 
     // Create game mechanics system
-    MWMechanics::MechanicsManager* mechanics = new MWMechanics::MechanicsManager;
-    mEnvironment.setMechanicsManager (mechanics);
+    mEnvironment.setMechanicsManager (std::make_unique<MWMechanics::MechanicsManager>());
 
     // Create dialog system
-    mEnvironment.setJournal (new MWDialogue::Journal);
-    mEnvironment.setDialogueManager (new MWDialogue::DialogueManager (mExtensions, mTranslationDataStorage));
+    mEnvironment.setJournal (std::make_unique<MWDialogue::Journal>());
+    mEnvironment.setDialogueManager (std::make_unique<MWDialogue::DialogueManager>(mExtensions, mTranslationDataStorage));
 
     // scripts
     if (mCompileAll)
@@ -1101,8 +1067,7 @@ void OMW::Engine::go()
 
     // Load settings
     Settings::Manager settings;
-    std::string settingspath;
-    settingspath = loadSettings (settings);
+    std::string settingspath = settings.load(mCfgMgr);
 
     MWClass::registerClasses();
 

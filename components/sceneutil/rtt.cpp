@@ -10,6 +10,7 @@
 #include <components/sceneutil/nodecallback.hpp>
 #include <components/settings/settings.hpp>
 #include <components/sceneutil/depth.hpp>
+#include <components/sceneutil/color.hpp>
 #include <components/stereo/multiview.hpp>
 #include <components/debug/debuglog.hpp>
 #include <components/misc/callbackmanager.hpp>
@@ -30,7 +31,7 @@ namespace SceneUtil
         : mTextureWidth(textureWidth)
         , mTextureHeight(textureHeight)
         , mColorBufferInternalFormat(GL_RGB)
-        , mDepthBufferInternalFormat(GL_DEPTH_COMPONENT)
+        , mDepthBufferInternalFormat(GL_DEPTH24_STENCIL8_EXT)
         , mRenderOrderNum(renderOrderNum)
         , mStereoAwareness(stereoAwareness)
     {
@@ -123,6 +124,18 @@ namespace SceneUtil
         osg::Texture2D* texture = new osg::Texture2D;
         texture->setTextureSize(mTextureWidth, mTextureHeight);
         texture->setInternalFormat(internalFormat);
+        GLenum sourceFormat = 0;
+        GLenum sourceType = 0;
+        if (SceneUtil::isDepthFormat(internalFormat))
+        {
+            SceneUtil::getDepthFormatSourceFormatAndType(internalFormat, sourceFormat, sourceType);
+        }
+        else
+        {
+            SceneUtil::getColorFormatSourceFormatAndType(internalFormat, sourceFormat, sourceType);
+        }
+        texture->setSourceFormat(sourceFormat);
+        texture->setSourceType(sourceType);
         texture->setFilter(osg::Texture::MIN_FILTER, osg::Texture::LINEAR);
         texture->setFilter(osg::Texture::MAG_FILTER, osg::Texture::LINEAR);
         texture->setWrap(osg::Texture::WRAP_S, osg::Texture::CLAMP_TO_EDGE);
@@ -161,7 +174,7 @@ namespace SceneUtil
             mViewDependentDataMap[cv]->mCamera = camera;
 
             camera->setRenderOrder(osg::Camera::PRE_RENDER, mRenderOrderNum);
-            camera->setClearMask(GL_DEPTH_BUFFER_BIT | GL_COLOR_BUFFER_BIT);
+            camera->setClearMask(GL_DEPTH_BUFFER_BIT | GL_COLOR_BUFFER_BIT | GL_STENCIL_BUFFER_BIT);
             camera->setRenderTargetImplementation(osg::Camera::FRAME_BUFFER_OBJECT);
             camera->setViewport(0, 0, mTextureWidth, mTextureHeight);
             SceneUtil::setCameraClearDepth(camera);
@@ -170,8 +183,8 @@ namespace SceneUtil
 
             if (camera->getBufferAttachmentMap().count(osg::Camera::COLOR_BUFFER))
                 vdd->mColorTexture = camera->getBufferAttachmentMap()[osg::Camera::COLOR_BUFFER]._texture;
-            if (camera->getBufferAttachmentMap().count(osg::Camera::DEPTH_BUFFER))
-                vdd->mDepthTexture = camera->getBufferAttachmentMap()[osg::Camera::DEPTH_BUFFER]._texture;
+            if (camera->getBufferAttachmentMap().count(osg::Camera::PACKED_DEPTH_STENCIL_BUFFER))
+                vdd->mDepthTexture = camera->getBufferAttachmentMap()[osg::Camera::PACKED_DEPTH_STENCIL_BUFFER]._texture;
 
 #ifdef OSG_HAS_MULTIVIEW
             if (shouldDoTextureArray())
@@ -185,11 +198,11 @@ namespace SceneUtil
                     SceneUtil::attachAlphaToCoverageFriendlyFramebufferToCamera(camera, osg::Camera::COLOR_BUFFER, vdd->mColorTexture, 0, osg::Camera::FACE_CONTROLLED_BY_MULTIVIEW_SHADER);
                 }
 
-                if (camera->getBufferAttachmentMap().count(osg::Camera::DEPTH_BUFFER) == 0)
+            if (camera->getBufferAttachmentMap().count(osg::Camera::PACKED_DEPTH_STENCIL_BUFFER) == 0)
                 {
                     vdd->mDepthTexture = createTextureArray(mDepthBufferInternalFormat);
 
-                    camera->attach(osg::Camera::DEPTH_BUFFER, vdd->mDepthTexture, 0, osg::Camera::FACE_CONTROLLED_BY_MULTIVIEW_SHADER);
+                    camera->attach(osg::Camera::PACKED_DEPTH_STENCIL_BUFFER, vdd->mDepthTexture, 0, osg::Camera::FACE_CONTROLLED_BY_MULTIVIEW_SHADER);
                 }
 
                 if (shouldDoTextureView())
@@ -211,10 +224,10 @@ namespace SceneUtil
                     SceneUtil::attachAlphaToCoverageFriendlyFramebufferToCamera(camera, osg::Camera::COLOR_BUFFER, vdd->mColorTexture);
                 }
 
-                if (camera->getBufferAttachmentMap().count(osg::Camera::DEPTH_BUFFER) == 0)
+                if (camera->getBufferAttachmentMap().count(osg::Camera::PACKED_DEPTH_STENCIL_BUFFER) == 0)
                 {
                     vdd->mDepthTexture = createTexture(mDepthBufferInternalFormat);
-                    camera->attach(osg::Camera::DEPTH_BUFFER, vdd->mDepthTexture);
+                    camera->attach(osg::Camera::PACKED_DEPTH_STENCIL_BUFFER, vdd->mDepthTexture);
                 }
             }
         }

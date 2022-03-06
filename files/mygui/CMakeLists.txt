@@ -56,6 +56,7 @@ set(MYGUI_FILES
     openmw_journal.layout
     openmw_journal.skin.xml
     openmw_layers.xml
+    openmw_lua.xml
     openmw_layers_vr.xml
     openmw_levelup_dialog.layout
     openmw_list.skin.xml

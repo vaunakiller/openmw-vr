@@ -105,13 +105,13 @@ namespace XR
         mMWColorFormatsGL.push_back(GL_RGBA8UI);
         mMWColorFormatsGL.push_back(GL_RGBA8_SNORM);
 
-        mMWDepthFormatsGL.push_back(GL_DEPTH_COMPONENT32F);
-        mMWDepthFormatsGL.push_back(GL_DEPTH_COMPONENT32F_NV);
         mMWDepthFormatsGL.push_back(GL_DEPTH32F_STENCIL8); 
         mMWDepthFormatsGL.push_back(GL_DEPTH32F_STENCIL8_NV);
+        mMWDepthFormatsGL.push_back(GL_DEPTH24_STENCIL8); 
+        mMWDepthFormatsGL.push_back(GL_DEPTH_COMPONENT32F);
+        mMWDepthFormatsGL.push_back(GL_DEPTH_COMPONENT32F_NV);
         mMWDepthFormatsGL.push_back(GL_DEPTH_COMPONENT32);
         mMWDepthFormatsGL.push_back(GL_DEPTH_COMPONENT24);
-        mMWDepthFormatsGL.push_back(GL_DEPTH24_STENCIL8); 
         mMWDepthFormatsGL.push_back(GL_DEPTH_COMPONENT16);
     }
 
@@ -399,9 +399,9 @@ namespace XR
         std::string typeString = use == VR::SwapchainUse::Color ? "color" : "depth";
         int glFormat = 0;
         if (use == VR::SwapchainUse::Color)
-            glFormat = SceneUtil::ColorFormat::colorFormat();
+            glFormat = SceneUtil::Color::colorInternalFormat();
         else
-            glFormat = SceneUtil::AutoDepth::depthFormat();
+            glFormat = SceneUtil::AutoDepth::depthInternalFormat();
 
         XrSwapchainCreateInfo swapchainCreateInfo{};
         swapchainCreateInfo.type = XR_TYPE_SWAPCHAIN_CREATE_INFO;

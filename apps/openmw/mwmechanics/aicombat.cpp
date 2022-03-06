@@ -141,7 +141,7 @@ namespace MWMechanics
             if (storage.mReadyToAttack) updateActorsMovement(actor, duration, storage);
             if (storage.mRotateMove)
                 return false;
-            storage.updateAttack(characterController);
+            storage.updateAttack(actor, characterController);
         }
         else
         {
@@ -168,10 +168,10 @@ namespace MWMechanics
         if (!canFight(actor, target))
         {
             storage.stopAttack();
-            characterController.setAttackingOrSpell(false);
+            actor.getClass().getCreatureStats(actor).setAttackingOrSpell(false);
             storage.mActionCooldown = 0.f;
             // Continue combat if target is player or player follower/escorter and an attack has been attempted
-            const std::list<MWWorld::Ptr>& playerFollowersAndEscorters = MWBase::Environment::get().getMechanicsManager()->getActorsSidingWith(MWMechanics::getPlayer());
+            const auto& playerFollowersAndEscorters = MWBase::Environment::get().getMechanicsManager()->getActorsSidingWith(MWMechanics::getPlayer());
             bool targetSidesWithPlayer = (std::find(playerFollowersAndEscorters.begin(), playerFollowersAndEscorters.end(), target) != playerFollowersAndEscorters.end());
             if ((target == MWMechanics::getPlayer() || targetSidesWithPlayer)
                 && ((actor.getClass().getCreatureStats(actor).getHitAttemptActorId() == target.getClass().getCreatureStats(target).getActorId())
@@ -299,7 +299,7 @@ namespace MWMechanics
                 {
                     storage.mUseCustomDestination = false;
                     storage.stopAttack();
-                    characterController.setAttackingOrSpell(false);
+                    actor.getClass().getCreatureStats(actor).setAttackingOrSpell(false);
                     currentAction.reset(new ActionFlee());
                     actionCooldown = currentAction->getActionCooldown();
                     storage.startFleeing();
@@ -460,8 +460,8 @@ namespace MWMechanics
 
         ESM::AiSequence::AiPackageContainer package;
         package.mType = ESM::AiSequence::Ai_Combat;
-        package.mPackage = combat.release();
-        sequence.mPackages.push_back(package);
+        package.mPackage = std::move(combat);
+        sequence.mPackages.push_back(std::move(package));
     }
 
     void AiCombatStorage::startCombatMove(bool isDistantCombat, float distToTarget, float rangeAttack, const MWWorld::Ptr& actor, const MWWorld::Ptr& target)
@@ -575,7 +575,7 @@ namespace MWMechanics
             if (mAttackCooldown <= 0)
             {
                 mAttack = true; // attack starts just now
-                characterController.setAttackingOrSpell(true);
+                actor.getClass().getCreatureStats(actor).setAttackingOrSpell(true);
 
                 if (!distantCombat)
                     characterController.setAIAttackType(chooseBestAttack(weapon));
@@ -603,13 +603,13 @@ namespace MWMechanics
         }
     }
 
-    void AiCombatStorage::updateAttack(CharacterController& characterController)
+    void AiCombatStorage::updateAttack(const MWWorld::Ptr& actor, CharacterController& characterController)
     {
         if (mAttack && (characterController.getAttackStrength() >= mStrength || characterController.readyToPrepareAttack()))
         {
             mAttack = false;
         }
-        characterController.setAttackingOrSpell(mAttack);
+        actor.getClass().getCreatureStats(actor).setAttackingOrSpell(mAttack);
     }
 
     void AiCombatStorage::stopAttack()

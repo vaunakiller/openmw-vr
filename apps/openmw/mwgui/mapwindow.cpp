@@ -763,7 +763,7 @@ namespace MWGui
         , mGlobal(Settings::Manager::getBool("global", "Map"))
         , mEventBoxGlobal(nullptr)
         , mEventBoxLocal(nullptr)
-        , mGlobalMapRender(new MWRender::GlobalMap(localMapRender->getRoot(), workQueue))
+        , mGlobalMapRender(std::make_unique<MWRender::GlobalMap>(localMapRender->getRoot(), workQueue))
         , mEditNoteDialog()
     {
         static bool registered = false;
@@ -1032,7 +1032,6 @@ namespace MWGui
 
     MapWindow::~MapWindow()
     {
-        delete mGlobalMapRender;
     }
 
     void MapWindow::setCellName(const std::string& cellName)
@@ -1359,6 +1358,11 @@ namespace MWGui
         marker->eventMouseDrag += MyGUI::newDelegate(this, &MapWindow::onMouseDrag);
         marker->eventMouseButtonPressed += MyGUI::newDelegate(this, &MapWindow::onDragStart);
         marker->eventMouseWheel += MyGUI::newDelegate(this, &MapWindow::onMapZoomed);
+    }
+
+    void MapWindow::asyncPrepareSaveMap()
+    {
+        mGlobalMapRender->asyncWritePng();
     }
 
     // -------------------------------------------------------------------

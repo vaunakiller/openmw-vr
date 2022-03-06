@@ -176,7 +176,7 @@ namespace VR
 
         // The gamma resolve framebuffer will be used to write the result of gamma post-processing.
         mGammaResolveFramebuffer = new osg::FrameBufferObject();
-        mGammaResolveFramebuffer->setAttachment(osg::Camera::COLOR_BUFFER, osg::FrameBufferAttachment(new osg::RenderBuffer(mFramebufferWidth, mFramebufferHeight, SceneUtil::ColorFormat::colorFormat(), 0)));
+        mGammaResolveFramebuffer->setAttachment(osg::Camera::COLOR_BUFFER, osg::FrameBufferAttachment(new osg::RenderBuffer(mFramebufferWidth, mFramebufferHeight, SceneUtil::Color::colorInternalFormat(), 0)));
 
         mViewer->setReleaseContextAtEndOfFrameHint(false);
         mViewer->getCamera()->getGraphicsContext()->setSwapCallback(mSwapBuffersCallback);

@@ -142,14 +142,15 @@ enum RecordType
   RC_bhkRigidBodyT,
   RC_BSLightingShaderProperty,
   RC_NiClusterAccumulator,
-  RC_NiAlphaAccumulator
+  RC_NiAlphaAccumulator,
+  RC_NiSortAdjustNode
 };
 
 /// Base class for all records
 struct Record
 {
     // Record type and type name
-    int recType{RC_MISSING};
+    RecordType recType{RC_MISSING};
     std::string recName;
     unsigned int recIndex{~0u};
 

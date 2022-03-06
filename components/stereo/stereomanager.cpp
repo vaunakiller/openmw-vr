@@ -341,8 +341,8 @@ namespace Stereo
         if (mMultiviewFramebuffer)
             mMultiviewFramebuffer->detachFrom(mMainCamera);
         mMultiviewFramebuffer = std::make_shared<MultiviewFramebuffer>(static_cast<int>(eyeRes.x()), static_cast<int>(eyeRes.y()), samples);
-        mMultiviewFramebuffer->attachColorComponent(GL_RGB, GL_UNSIGNED_BYTE, SceneUtil::ColorFormat::colorFormat());
-        mMultiviewFramebuffer->attachDepthComponent(GL_DEPTH_COMPONENT, SceneUtil::AutoDepth::depthType(), SceneUtil::AutoDepth::depthFormat());
+        mMultiviewFramebuffer->attachColorComponent(SceneUtil::Color::colorSourceFormat(), SceneUtil::Color::colorSourceType(), SceneUtil::Color::colorInternalFormat());
+        mMultiviewFramebuffer->attachDepthComponent(SceneUtil::AutoDepth::depthSourceFormat(), SceneUtil::AutoDepth::depthSourceType(), SceneUtil::AutoDepth::depthInternalFormat());
         mMultiviewFramebuffer->attachTo(mMainCamera);
     }
 

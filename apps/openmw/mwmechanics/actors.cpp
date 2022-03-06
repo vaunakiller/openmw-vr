@@ -73,23 +73,20 @@ bool isCommanded(const MWWorld::Ptr& actor)
 // Check for command effects having ended and remove package if necessary
 void adjustCommandedActor (const MWWorld::Ptr& actor)
 {
+    if (!isCommanded(actor))
+        return;
+
     MWMechanics::CreatureStats& stats = actor.getClass().getCreatureStats(actor);
 
-    bool hasCommandPackage = false;
-
-    auto it = stats.getAiSequence().begin();
-    for (; it != stats.getAiSequence().end(); ++it)
+    stats.getAiSequence().erasePackageIf([](auto& entry)
     {
-        if ((*it)->getTypeId() == MWMechanics::AiPackageTypeId::Follow &&
-                static_cast<const MWMechanics::AiFollow*>(it->get())->isCommanded())
+        if (entry->getTypeId() == MWMechanics::AiPackageTypeId::Follow &&
+            static_cast<const MWMechanics::AiFollow*>(entry.get())->isCommanded())
         {
-            hasCommandPackage = true;
-            break;
+            return true;
         }
-    }
-
-    if (!isCommanded(actor) && hasCommandPackage)
-        stats.getAiSequence().erase(it);
+        return false;
+    });
 }
 
 void getRestorationPerHourOfSleep (const MWWorld::Ptr& ptr, float& health, float& magicka)
@@ -1401,9 +1398,6 @@ namespace MWMechanics
                 // AI processing is only done within given distance to the player.
                 bool inProcessingRange = distSqr <= mActorsProcessingRange*mActorsProcessingRange;
 
-                if (isPlayer)
-                    ctrl->setAttackingOrSpell(world->getPlayer().getAttackingOrSpell());
-
                 // If dead or no longer in combat, no longer store any actors who attempted to hit us. Also remove for the player.
                 if (iter->first != player && (iter->first.getClass().getCreatureStats(iter->first).isDead()
                     || !iter->first.getClass().getCreatureStats(iter->first).getAiSequence().isInCombat()
@@ -1463,26 +1457,32 @@ namespace MWMechanics
 
                             MWMechanics::CreatureStats& stats = iter->first.getClass().getCreatureStats(iter->first);
                             bool firstPersonPlayer = isPlayer && world->isFirstPerson();
-                            bool inCombatOrPursue = stats.getAiSequence().isInCombat() || stats.getAiSequence().hasPackage(AiPackageTypeId::Pursue);
-                            MWWorld::Ptr activePackageTarget;
-
+  
                             // 1. Unconsious actor can not track target
                             // 2. Actors in combat and pursue mode do not bother to headtrack anyone except their target
                             // 3. Player character does not use headtracking in the 1st-person view
                             if (!stats.getKnockedDown() && !firstPersonPlayer)
                             {
+                                bool inCombatOrPursue = stats.getAiSequence().isInCombat() || stats.getAiSequence().isInPursuit();
                                 if (inCombatOrPursue)
-                                    activePackageTarget = stats.getAiSequence().getActivePackage().getTarget();
-
-                                for (PtrActorMap::iterator it(mActors.begin()); it != mActors.end(); ++it)
                                 {
-                                    if (it->first == iter->first)
-                                        continue;
+                                    auto activePackageTarget = stats.getAiSequence().getActivePackage().getTarget();
+                                    if (!activePackageTarget.isEmpty())
+                                    {
+                                        // Track the specified target of package.
+                                        updateHeadTracking(iter->first, activePackageTarget, headTrackTarget, sqrHeadTrackDistance, inCombatOrPursue);
+                                    }
+                                }
+                                else
+                                {
+                                    // Find something nearby.
+                                    for (auto& [ptr, _] : mActors)
+                                    {
+                                        if (ptr == iter->first)
+                                            continue;
 
-                                    if (inCombatOrPursue && it->first != activePackageTarget)
-                                        continue;
-
-                                    updateHeadTracking(iter->first, it->first, headTrackTarget, sqrHeadTrackDistance, inCombatOrPursue);
+                                        updateHeadTracking(iter->first, ptr, headTrackTarget, sqrHeadTrackDistance, inCombatOrPursue);
+                                    }
                                 }
                             }
 
@@ -1524,25 +1524,31 @@ namespace MWMechanics
                         CreatureStats& stats = iter->first.getClass().getCreatureStats(iter->first);
                         float speedFactor = isPlayer ? 1.f : mov.mSpeedFactor;
                         osg::Vec2f movement = osg::Vec2f(mov.mPosition[0], mov.mPosition[1]) * speedFactor;
+                        float rotationX = mov.mRotation[0];
                         float rotationZ = mov.mRotation[2];
                         bool jump = mov.mPosition[2] == 1;
                         bool runFlag = stats.getMovementFlag(MWMechanics::CreatureStats::Flag_Run);
+                        bool attackingOrSpell = stats.getAttackingOrSpell();
                         if (luaControls->mChanged)
                         {
                             mov.mPosition[0] = luaControls->mSideMovement;
                             mov.mPosition[1] = luaControls->mMovement;
                             mov.mPosition[2] = luaControls->mJump ? 1 : 0;
+                            mov.mRotation[0] = luaControls->mPitchChange;
                             mov.mRotation[1] = 0;
-                            mov.mRotation[2] = luaControls->mTurn;
+                            mov.mRotation[2] = luaControls->mYawChange;
                             mov.mSpeedFactor = osg::Vec2(luaControls->mMovement, luaControls->mSideMovement).length();
                             stats.setMovementFlag(MWMechanics::CreatureStats::Flag_Run, luaControls->mRun);
+                            stats.setAttackingOrSpell(luaControls->mUse == 1);
                             luaControls->mChanged = false;
                         }
                         luaControls->mSideMovement = movement.x();
                         luaControls->mMovement = movement.y();
-                        luaControls->mTurn = rotationZ;
+                        luaControls->mPitchChange = rotationX;
+                        luaControls->mYawChange = rotationZ;
                         luaControls->mJump = jump;
                         luaControls->mRun = runFlag;
+                        luaControls->mUse = attackingOrSpell ? luaControls->mUse | 1 : luaControls->mUse & ~1;
                     }
                 }
             }
@@ -1969,9 +1975,9 @@ namespace MWMechanics
         return false;
     }
 
-    std::list<MWWorld::Ptr> Actors::getActorsSidingWith(const MWWorld::Ptr& actor)
+    std::vector<MWWorld::Ptr> Actors::getActorsSidingWith(const MWWorld::Ptr& actor)
     {
-        std::list<MWWorld::Ptr> list;
+        std::vector<MWWorld::Ptr> list;
         for(PtrActorMap::iterator iter = mActors.begin(); iter != mActors.end(); ++iter)
         {
             const MWWorld::Ptr &iteratedActor = iter->first;
@@ -2007,10 +2013,10 @@ namespace MWMechanics
         return list;
     }
 
-    std::list<MWWorld::Ptr> Actors::getActorsFollowing(const MWWorld::Ptr& actor)
+    std::vector<MWWorld::Ptr> Actors::getActorsFollowing(const MWWorld::Ptr& actor)
     {
-        std::list<MWWorld::Ptr> list;
-        forEachFollowingPackage(mActors, actor, getPlayer(), [&] (auto& iter, const std::unique_ptr<AiPackage>& package)
+        std::vector<MWWorld::Ptr> list;
+        forEachFollowingPackage(mActors, actor, getPlayer(), [&] (auto& iter, const std::shared_ptr<AiPackage>& package)
         {
             if (package->followTargetThroughDoors() && package->getTarget() == actor)
                 list.push_back(iter.first);
@@ -2022,14 +2028,14 @@ namespace MWMechanics
     }
 
     void Actors::getActorsFollowing(const MWWorld::Ptr &actor, std::set<MWWorld::Ptr>& out) {
-        std::list<MWWorld::Ptr> followers = getActorsFollowing(actor);
+        auto followers = getActorsFollowing(actor);
         for(const MWWorld::Ptr &follower : followers)
             if (out.insert(follower).second)
                 getActorsFollowing(follower, out);
     }
 
     void Actors::getActorsSidingWith(const MWWorld::Ptr &actor, std::set<MWWorld::Ptr>& out) {
-        std::list<MWWorld::Ptr> followers = getActorsSidingWith(actor);
+        auto followers = getActorsSidingWith(actor);
         for(const MWWorld::Ptr &follower : followers)
             if (out.insert(follower).second)
                 getActorsSidingWith(follower, out);
@@ -2042,7 +2048,7 @@ namespace MWMechanics
             out.insert(search->second.begin(), search->second.end());
         else
         {
-            std::list<MWWorld::Ptr> followers = getActorsSidingWith(actor);
+            auto followers = getActorsSidingWith(actor);
             for (const MWWorld::Ptr &follower : followers)
                 if (out.insert(follower).second)
                     getActorsSidingWith(follower, out, cachedAllies);
@@ -2058,10 +2064,10 @@ namespace MWMechanics
         }
     }
 
-    std::list<int> Actors::getActorsFollowingIndices(const MWWorld::Ptr &actor)
+    std::vector<int> Actors::getActorsFollowingIndices(const MWWorld::Ptr &actor)
     {
-        std::list<int> list;
-        forEachFollowingPackage(mActors, actor, getPlayer(), [&] (auto& iter, const std::unique_ptr<AiPackage>& package)
+        std::vector<int> list;
+        forEachFollowingPackage(mActors, actor, getPlayer(), [&] (auto& iter, const std::shared_ptr<AiPackage>& package)
         {
             if (package->followTargetThroughDoors() && package->getTarget() == actor)
             {
@@ -2078,7 +2084,7 @@ namespace MWMechanics
     std::map<int, MWWorld::Ptr> Actors::getActorsFollowingByIndex(const MWWorld::Ptr &actor)
     {
         std::map<int, MWWorld::Ptr> map;
-        forEachFollowingPackage(mActors, actor, getPlayer(), [&] (auto& iter, const std::unique_ptr<AiPackage>& package)
+        forEachFollowingPackage(mActors, actor, getPlayer(), [&] (auto& iter, const std::shared_ptr<AiPackage>& package)
         {
             if (package->followTargetThroughDoors() && package->getTarget() == actor)
             {
@@ -2093,8 +2099,8 @@ namespace MWMechanics
         return map;
     }
 
-    std::list<MWWorld::Ptr> Actors::getActorsFighting(const MWWorld::Ptr& actor) {
-        std::list<MWWorld::Ptr> list;
+    std::vector<MWWorld::Ptr> Actors::getActorsFighting(const MWWorld::Ptr& actor) {
+        std::vector<MWWorld::Ptr> list;
         std::vector<MWWorld::Ptr> neighbors;
         osg::Vec3f position (actor.getRefData().getPosition().asVec3());
         getObjectsInRange(position, mActorsProcessingRange, neighbors);
@@ -2108,14 +2114,14 @@ namespace MWMechanics
                 continue;
 
             if (stats.getAiSequence().isInCombat(actor))
-                list.push_front(neighbor);
+                list.push_back(neighbor);
         }
         return list;
     }
 
-    std::list<MWWorld::Ptr> Actors::getEnemiesNearby(const MWWorld::Ptr& actor)
+    std::vector<MWWorld::Ptr> Actors::getEnemiesNearby(const MWWorld::Ptr& actor)
     {
-        std::list<MWWorld::Ptr> list;
+        std::vector<MWWorld::Ptr> list;
         std::vector<MWWorld::Ptr> neighbors;
         osg::Vec3f position (actor.getRefData().getPosition().asVec3());
         getObjectsInRange(position, mActorsProcessingRange, neighbors);

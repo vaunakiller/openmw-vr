@@ -5,9 +5,16 @@
 
 namespace SceneUtil
 {
-    namespace ColorFormat
+    bool isColorFormat(GLenum format);
+    bool isFloatingPointColorFormat(GLenum format);
+    int getColorFormatChannelCount(GLenum format);
+    void getColorFormatSourceFormatAndType(GLenum internalFormat, GLenum& sourceFormat, GLenum& sourceType);
+
+    namespace Color
     {
-        GLenum colorFormat();
+        GLenum colorSourceFormat();
+        GLenum colorSourceType();
+        GLenum colorInternalFormat();
 
         class SelectColorFormatOperation : public osg::GraphicsOperation
         {

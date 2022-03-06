@@ -2,14 +2,8 @@
 
 #include <algorithm>
 
-#include <SDL_opengl_glext.h>
-
 #include <components/debug/debuglog.hpp>
 #include <components/settings/settings.hpp>
-
-#ifndef GL_DEPTH32F_STENCIL8_NV
-#define GL_DEPTH32F_STENCIL8_NV 0x8DAC
-#endif
 
 namespace SceneUtil
 {
@@ -62,6 +56,64 @@ namespace SceneUtil
         return std::find(formats.cbegin(), formats.cend(), format) != formats.cend();
     }
 
+    bool isDepthFormat(GLenum format)
+    {
+        constexpr std::array<GLenum, 8> formats = {
+            GL_DEPTH_COMPONENT32F,
+            GL_DEPTH_COMPONENT32F_NV,
+            GL_DEPTH_COMPONENT16,
+            GL_DEPTH_COMPONENT24,
+            GL_DEPTH_COMPONENT32,
+            GL_DEPTH32F_STENCIL8,
+            GL_DEPTH32F_STENCIL8_NV,
+            GL_DEPTH24_STENCIL8,
+        };
+
+        return std::find(formats.cbegin(), formats.cend(), format) != formats.cend();
+    }
+
+    bool isDepthStencilFormat(GLenum format)
+    {
+        constexpr std::array<GLenum, 8> formats = {
+            GL_DEPTH32F_STENCIL8,
+            GL_DEPTH32F_STENCIL8_NV,
+            GL_DEPTH24_STENCIL8,
+        };
+
+        return std::find(formats.cbegin(), formats.cend(), format) != formats.cend();
+    }
+
+    void getDepthFormatSourceFormatAndType(GLenum internalFormat, GLenum& sourceFormat, GLenum& sourceType)
+    {
+        switch (internalFormat)
+        {
+        case GL_DEPTH_COMPONENT16:
+        case GL_DEPTH_COMPONENT24:
+        case GL_DEPTH_COMPONENT32:
+            sourceType = GL_UNSIGNED_INT;
+            sourceFormat = GL_DEPTH_COMPONENT;
+            break;
+        case GL_DEPTH_COMPONENT32F:
+        case GL_DEPTH_COMPONENT32F_NV:
+            sourceType = GL_FLOAT;
+            sourceFormat = GL_DEPTH_COMPONENT;
+            break;
+        case GL_DEPTH24_STENCIL8:
+            sourceType = GL_UNSIGNED_INT_24_8_EXT;
+            sourceFormat = GL_DEPTH_STENCIL_EXT;
+            break;
+        case GL_DEPTH32F_STENCIL8:
+        case GL_DEPTH32F_STENCIL8_NV:
+            sourceType = GL_FLOAT_32_UNSIGNED_INT_24_8_REV;
+            sourceFormat = GL_DEPTH_STENCIL_EXT;
+            break;
+        default:
+            sourceType = GL_UNSIGNED_INT;
+            sourceFormat = GL_DEPTH_COMPONENT;
+            break;
+        }
+    }
+
     void SelectDepthFormatOperation::operator()(osg::GraphicsContext* graphicsContext)
     {
         bool enableReverseZ = false;
@@ -89,12 +141,10 @@ namespace SceneUtil
         {
             if (osg::isGLExtensionSupported(contextID, "GL_ARB_depth_buffer_float"))
             {
-                requestedFormats.push_back(GL_DEPTH_COMPONENT32F);
                 requestedFormats.push_back(GL_DEPTH32F_STENCIL8);
             }
             else if (osg::isGLExtensionSupported(contextID, "GL_NV_depth_buffer_float"))
             {
-                requestedFormats.push_back(GL_DEPTH_COMPONENT32F_NV);
                 requestedFormats.push_back(GL_DEPTH32F_STENCIL8_NV);
             }
             else
@@ -103,16 +153,13 @@ namespace SceneUtil
             }
         }
 
+        requestedFormats.push_back(GL_DEPTH24_STENCIL8);
         if (mSupportedFormats.empty())
         {
-            requestedFormats.push_back(GL_DEPTH_COMPONENT24);
             SceneUtil::AutoDepth::setDepthFormat(requestedFormats.front());
         }
         else
         {
-            requestedFormats.push_back(GL_DEPTH_COMPONENT32);
-            requestedFormats.push_back(GL_DEPTH_COMPONENT24);
-            requestedFormats.push_back(GL_DEPTH24_STENCIL8);
             for (auto requestedFormat : requestedFormats)
             {
                 if (std::find(mSupportedFormats.cbegin(), mSupportedFormats.cend(), requestedFormat) != mSupportedFormats.cend())
@@ -122,5 +169,11 @@ namespace SceneUtil
                 }
             }
         }
+    }
+
+    void AutoDepth::setDepthFormat(GLenum format)
+    {
+        sDepthInternalFormat = format;
+        getDepthFormatSourceFormatAndType(sDepthInternalFormat, sDepthSourceFormat, sDepthSourceType);
     }
 }

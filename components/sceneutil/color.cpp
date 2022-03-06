@@ -9,81 +9,149 @@
 
 namespace SceneUtil
 {
-    namespace ColorFormat
-    {
-        GLenum sColorFormat;
 
-        GLenum colorFormat()
+    bool isColorFormat(GLenum format)
+    {
+        constexpr std::array<GLenum, 42> formats = {
+            GL_RGB,
+            GL_RGB4,
+            GL_RGB5,
+            GL_RGB8,
+            GL_RGB8_SNORM,
+            GL_RGB10,
+            GL_RGB12,
+            GL_RGB16,
+            GL_RGB16_SNORM,
+            GL_SRGB,
+            GL_SRGB8,
+            GL_RGB16F,
+            GL_RGB32F,
+            GL_R11F_G11F_B10F,
+            GL_RGB9_E5,
+            GL_RGB8I,
+            GL_RGB8UI,
+            GL_RGB16I,
+            GL_RGB16UI,
+            GL_RGB32I,
+            GL_RGB32UI,
+            GL_RGBA,
+            GL_RGBA2,
+            GL_RGBA4,
+            GL_RGB5_A1,
+            GL_RGBA8,
+            GL_RGBA8_SNORM,
+            GL_RGB10_A2,
+            GL_RGB10_A2UI,
+            GL_RGBA12,
+            GL_RGBA16,
+            GL_RGBA16_SNORM,
+            GL_SRGB_ALPHA8,
+            GL_SRGB8_ALPHA8,
+            GL_RGBA16F,
+            GL_RGBA32F,
+            GL_RGBA8I,
+            GL_RGBA8UI,
+            GL_RGBA16I,
+            GL_RGBA16UI,
+            GL_RGBA32I,
+            GL_RGBA32UI,
+        };
+
+        return std::find(formats.cbegin(), formats.cend(), format) != formats.cend();
+    }
+
+    bool isFloatingPointColorFormat(GLenum format)
+    {
+        constexpr std::array<GLenum, 5> formats = {
+            GL_RGB16F,
+            GL_RGB32F,
+            GL_R11F_G11F_B10F,
+            GL_RGBA16F,
+            GL_RGBA32F,
+        };
+
+        return std::find(formats.cbegin(), formats.cend(), format) != formats.cend();
+    }
+
+    int getColorFormatChannelCount(GLenum format)
+    {
+        constexpr std::array<GLenum, 21> formats = {
+            GL_RGBA,
+            GL_RGBA2,
+            GL_RGBA4,
+            GL_RGB5_A1,
+            GL_RGBA8,
+            GL_RGBA8_SNORM,
+            GL_RGB10_A2,
+            GL_RGB10_A2UI,
+            GL_RGBA12,
+            GL_RGBA16,
+            GL_RGBA16_SNORM,
+            GL_SRGB_ALPHA8,
+            GL_SRGB8_ALPHA8,
+            GL_RGBA16F,
+            GL_RGBA32F,
+            GL_RGBA8I,
+            GL_RGBA8UI,
+            GL_RGBA16I,
+            GL_RGBA16UI,
+            GL_RGBA32I,
+            GL_RGBA32UI,
+        };
+        if (std::find(formats.cbegin(), formats.cend(), format) != formats.cend())
+            return 4;
+        return 3;
+    }
+
+    void getColorFormatSourceFormatAndType(GLenum internalFormat, GLenum& sourceFormat, GLenum& sourceType)
+    {
+        if (getColorFormatChannelCount(internalFormat == 4))
+            sourceFormat = GL_RGBA;
+        else
+            sourceFormat = GL_RGB;
+
+        if (isFloatingPointColorFormat(internalFormat))
+            sourceType = GL_FLOAT;
+        else
+            sourceType = GL_UNSIGNED_BYTE;
+    }
+
+    namespace Color
+    {
+        GLenum sColorInternalFormat;
+        GLenum sColorSourceFormat;
+        GLenum sColorSourceType;
+
+        GLenum colorInternalFormat()
         {
-            return sColorFormat;
+            return sColorInternalFormat;
         }
 
-        bool isColorFormat(GLenum format)
+        GLenum colorSourceFormat()
         {
-            switch (format)
-            {
-            case GL_RGB:
-            case GL_RGB4:
-            case GL_RGB5:
-            case GL_RGB8:
-            case GL_RGB8_SNORM:
-            case GL_RGB10:
-            case GL_RGB12:
-            case GL_RGB16:
-            case GL_RGB16_SNORM:
-            case GL_SRGB:
-            case GL_SRGB8:
-            case GL_RGB16F:
-            case GL_RGB32F:
-            case GL_R11F_G11F_B10F:
-            case GL_RGB9_E5:
-            case GL_RGB8I:
-            case GL_RGB8UI:
-            case GL_RGB16I:
-            case GL_RGB16UI:
-            case GL_RGB32I:
-            case GL_RGB32UI:
-            case GL_RGBA:
-            case GL_RGBA2:
-            case GL_RGBA4:
-            case GL_RGB5_A1:
-            case GL_RGBA8:
-            case GL_RGBA8_SNORM:
-            case GL_RGB10_A2:
-            case GL_RGB10_A2UI:
-            case GL_RGBA12:
-            case GL_RGBA16:
-            case GL_RGBA16_SNORM:
-            case GL_SRGB_ALPHA8:
-            case GL_SRGB8_ALPHA8:
-            case GL_RGBA16F:
-            case GL_RGBA32F:
-            case GL_RGBA8I:
-            case GL_RGBA8UI:
-            case GL_RGBA16I:
-            case GL_RGBA16UI:
-            case GL_RGBA32I:
-            case GL_RGBA32UI:
-                return true;
+            return sColorSourceFormat;
+        }
 
-            default:
-                return false;
-            }
+        GLenum colorSourceType()
+        {
+            return sColorSourceType;
         }
 
         void SelectColorFormatOperation::operator()(osg::GraphicsContext* graphicsContext)
         {
             (void)graphicsContext;
-            sColorFormat = GL_RGB;
+            sColorInternalFormat = GL_RGB;
 
             for (auto supportedFormat : mSupportedFormats)
             {
                 if (isColorFormat(supportedFormat))
                 {
-                    sColorFormat = supportedFormat;
+                    sColorInternalFormat = supportedFormat;
                     break;
                 }
             }
+
+            getColorFormatSourceFormatAndType(sColorInternalFormat, sColorSourceFormat, sColorSourceType);
         }
     }
 }

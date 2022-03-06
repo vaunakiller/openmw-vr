@@ -1321,9 +1321,9 @@ namespace MWWorld
         return moveObject(ptr, newpos);
     }
 
-    void World::scaleObject (const Ptr& ptr, float scale)
+    void World::scaleObject (const Ptr& ptr, float scale, bool force)
     {
-        if (scale == ptr.getCellRef().getScale())
+        if (!force && scale == ptr.getCellRef().getScale())
             return;
         if (mPhysics->getActor(ptr))
             mNavigator->removeAgent(getPathfindingHalfExtents(ptr));
@@ -1565,7 +1565,12 @@ namespace MWWorld
 
     void World::updateNavigator()
     {
-        mPhysics->forEachAnimatedObject([&] (const MWPhysics::Object* object) { updateNavigatorObject(*object); });
+        mPhysics->forEachAnimatedObject([&] (const auto& pair)
+        {
+            const auto [object, changed] = pair;
+            if (changed)
+                updateNavigatorObject(*object);
+        });
 
         for (const auto& door : mDoorStates)
             if (const auto object = mPhysics->getObject(door.first))
@@ -2517,7 +2522,7 @@ namespace MWWorld
         player.getClass().getInventoryStore(player).setInvListener(anim, player);
         player.getClass().getInventoryStore(player).setContListener(anim);
 
-        scaleObject(player, player.getCellRef().getScale()); // apply race height
+        scaleObject(player, player.getCellRef().getScale(), true); // apply race height
         rotateObject(player, osg::Vec3f(), MWBase::RotationFlag_inverseOrder | MWBase::RotationFlag_adjust);
 
         MWBase::Environment::get().getMechanicsManager()->add(getPlayerPtr());
@@ -3887,7 +3892,8 @@ namespace MWWorld
 
         if (object.getRefData().activate())
         {
-            std::shared_ptr<MWWorld::Action> action = (object.getClass().activate(object, actor));
+            MWBase::Environment::get().getLuaManager()->objectActivated(object, actor);
+            std::shared_ptr<MWWorld::Action> action = object.getClass().activate(object, actor);
             action->execute (actor);
         }
     }

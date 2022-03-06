@@ -296,7 +296,7 @@ void NpcAnimation::setViewMode(NpcAnimation::ViewMode viewMode)
         return;
 
     mViewMode = viewMode;
-    MWBase::Environment::get().getWorld()->scaleObject(mPtr, mPtr.getCellRef().getScale()); // apply race height after view change
+    MWBase::Environment::get().getWorld()->scaleObject(mPtr, mPtr.getCellRef().getScale(), true); // apply race height after view change
 
     mAmmunition.reset();
     rebuild();
@@ -333,12 +333,12 @@ public:
 
             osg::FrameBufferAttachment(postProcessor->getFirstPersonRBProxy()).attach(*state, GL_FRAMEBUFFER_EXT, GL_DEPTH_ATTACHMENT_EXT, ext);
 
-            glClear(GL_DEPTH_BUFFER_BIT);
+            glClear(GL_DEPTH_BUFFER_BIT | GL_STENCIL_BUFFER_BIT);
             // color accumulation pass
             bin->drawImplementation(renderInfo, previous);
 
             auto primaryFBO = postProcessor->getMsaaFbo() ? postProcessor->getMsaaFbo() : postProcessor->getFbo();
-            primaryFBO->getAttachment(osg::FrameBufferObject::BufferComponent::DEPTH_BUFFER).attach(*state, GL_FRAMEBUFFER_EXT, GL_DEPTH_ATTACHMENT_EXT, ext);
+            primaryFBO->getAttachment(osg::FrameBufferObject::BufferComponent::PACKED_DEPTH_STENCIL_BUFFER).attach(*state, GL_FRAMEBUFFER_EXT, GL_DEPTH_ATTACHMENT_EXT, ext);
 
             state->pushStateSet(mStateSet);
             state->apply();
@@ -349,7 +349,7 @@ public:
         else
         {
             // fallback to standard depth clear when we are not rendering our main scene via an intermediate FBO
-            glClear(GL_DEPTH_BUFFER_BIT);
+            glClear(GL_DEPTH_BUFFER_BIT | GL_STENCIL_BUFFER_BIT);
             bin->drawImplementation(renderInfo, previous);
         }
     }
@@ -957,7 +957,7 @@ void NpcAnimation::showWeapons(bool showWeapon)
         removeIndividualPart(ESM::PRT_Weapon);
         // If we remove/hide weapon from player, we should reset attack animation as well
         if (mPtr == MWMechanics::getPlayer())
-            MWBase::Environment::get().getWorld()->getPlayer().setAttackingOrSpell(false);
+            mPtr.getClass().getCreatureStats(mPtr).setAttackingOrSpell(false);
     }
 
     updateHolsteredWeapon(!mShowWeapons);

@@ -73,7 +73,11 @@ namespace MWRender
 
         void ensureLoaded();
 
+        void asyncWritePng();
+
     private:
+        struct WritePng;
+
         /**
          * Request rendering a 2d quad onto mOverlayTexture.
          * x, y, width and height are the destination coordinates (top-left coordinate origin)
@@ -122,6 +126,7 @@ namespace MWRender
 
         osg::ref_ptr<SceneUtil::WorkQueue> mWorkQueue;
         osg::ref_ptr<CreateMapWorkItem> mWorkItem;
+        osg::ref_ptr<WritePng> mWritePng;
 
         int mWidth;
         int mHeight;

@@ -41,11 +41,8 @@ declare -rA GROUPED_DEPS=(
     libcollada-dom-dev libfreetype6-dev libjpeg-dev libpng-dev
     libsdl2-dev libboost-system-dev libboost-filesystem-dev libgl-dev
   "
-  
-  # Pre-requisites for building OpenXR and OpenMW-VR on debian
-  [openxr-deps]="
-    libxcb-glx0-dev
-  "
+
+  [openmw-coverage]="gcovr"
 )
 
 if [[ $# -eq 0 ]]; then

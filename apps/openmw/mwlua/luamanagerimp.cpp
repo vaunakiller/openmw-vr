@@ -26,7 +26,10 @@
 namespace MWLua
 {
 
-    LuaManager::LuaManager(const VFS::Manager* vfs, const std::string& libsDir) : mLua(vfs, &mConfiguration), mI18n(vfs, &mLua)
+    LuaManager::LuaManager(const VFS::Manager* vfs, const std::string& libsDir)
+        : mLua(vfs, &mConfiguration)
+        , mUiResourceManager(vfs)
+        , mI18n(vfs, &mLua)
     {
         Log(Debug::Info) << "Lua version: " << LuaUtil::getLuaVersion();
         mLua.addInternalLibSearchPath(libsDir);
@@ -114,6 +117,7 @@ namespace MWLua
 
     void LuaManager::update()
     {
+        static const bool luaDebug = Settings::Manager::getBool("lua debug", "Lua");
         if (mPlayer.isEmpty())
             return;  // The game is not started yet.
 
@@ -172,7 +176,8 @@ namespace MWLua
             LObject obj(e.mDest, objectRegistry);
             if (!obj.isValid())
             {
-                Log(Debug::Verbose) << "Can not call engine handlers: object" << idToString(e.mDest) << " is not found";
+                if (luaDebug)
+                    Log(Debug::Verbose) << "Can not call engine handlers: object" << idToString(e.mDest) << " is not found";
                 continue;
             }
             LocalScripts* scripts = obj.ptr().getRefData().getLuaScripts();
@@ -204,7 +209,7 @@ namespace MWLua
             GObject obj(id, objectRegistry);
             if (obj.isValid())
                 mGlobalScripts.actorActive(obj);
-            else
+            else if (luaDebug)
                 Log(Debug::Verbose) << "Can not call onActorActive engine handler: object" << idToString(id) << " is already removed";
         }
         mActorAddedEvents.clear();
@@ -246,6 +251,7 @@ namespace MWLua
     void LuaManager::clear()
     {
         LuaUi::clearUserInterface();
+        mUiResourceManager.clear();
         mActiveLocalScripts.clear();
         mLocalEvents.clear();
         mGlobalEvents.clear();
@@ -350,6 +356,11 @@ namespace MWLua
     void LuaManager::appliedToObject(const MWWorld::Ptr& toPtr, std::string_view recordId, const MWWorld::Ptr& fromPtr)
     {
         mLocalEngineEvents.push_back({getId(toPtr), LocalScripts::OnConsume{std::string(recordId)}});
+    }
+
+    void LuaManager::objectActivated(const MWWorld::Ptr& object, const MWWorld::Ptr& actor)
+    {
+        mLocalEngineEvents.push_back({getId(object), LocalScripts::OnActivated{LObject(getId(actor), mWorldView.getObjectRegistry())}});
     }
 
     MWBase::LuaManager::ActorControls* LuaManager::getActorControls(const MWWorld::Ptr& ptr) const
@@ -463,7 +474,8 @@ namespace MWLua
     {
         Log(Debug::Info) << "Reload Lua";
 
-        LuaUi::clearUserInterface(); 
+        LuaUi::clearUserInterface();
+        mUiResourceManager.clear();
         mLua.dropScriptCache();
         initConfiguration();
 

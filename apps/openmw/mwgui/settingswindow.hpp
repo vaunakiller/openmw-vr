@@ -1,6 +1,8 @@
 #ifndef MWGUI_SETTINGS_H
 #define MWGUI_SETTINGS_H
 
+#include <components/lua_ui/adapter.hpp>
+
 #include "windowbase.hpp"
 
 namespace MWGui
@@ -49,6 +51,14 @@ namespace MWGui
             MyGUI::Button* mControllerSwitch;
             bool mKeyboardMode; //if true, setting up the keyboard. Otherwise, it's controller
 
+            MyGUI::EditBox* mScriptFilter;
+            MyGUI::ListBox* mScriptList;
+            MyGUI::Widget* mScriptBox;
+            MyGUI::ScrollView* mScriptView;
+            LuaUi::LuaAdapter* mScriptAdapter;
+            MyGUI::EditBox* mScriptDisabled;
+            int mCurrentPage;
+
             void onTabChanged(MyGUI::TabControl* _sender, size_t index);
             void onOkButtonClicked(MyGUI::Widget* _sender);
             void onTextureFilteringChanged(MyGUI::ComboBox* _sender, size_t pos);
@@ -80,12 +90,17 @@ namespace MWGui
 
             void onWindowResize(MyGUI::Window* _sender) override;
 
+            void onScriptFilterChange(MyGUI::EditBox*);
+            void onScriptListSelection(MyGUI::ListBox*, size_t index);
+
             void apply();
 
             void configureWidgets(MyGUI::Widget* widget, bool init);
             void updateSliderLabel(MyGUI::ScrollBar* scroller, const std::string& value);
 
             void layoutControlsBox();
+            void resizeScriptSettings();
+            void renderScriptSettings();
 
             void computeMinimumWindowSize();
         

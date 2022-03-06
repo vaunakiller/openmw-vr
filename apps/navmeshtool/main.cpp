@@ -83,26 +83,13 @@ namespace NavMeshTool
 
                 ("process-interior-cells", bpo::value<bool>()->implicit_value(true)
                     ->default_value(false), "build navmesh for interior cells")
+
+                ("remove-unused-tiles", bpo::value<bool>()->implicit_value(true)
+                    ->default_value(false), "remove tiles from cache that will not be used with current content profile")
             ;
+            Files::ConfigurationManager::addCommonOptions(result);
 
             return result;
-        }
-
-        void loadSettings(const Files::ConfigurationManager& config, Settings::Manager& settings)
-        {
-            const std::string localDefault = (config.getLocalPath() / "defaults.bin").string();
-            const std::string globalDefault = (config.getGlobalPath() / "defaults.bin").string();
-
-            if (boost::filesystem::exists(localDefault))
-                settings.loadDefault(localDefault);
-            else if (boost::filesystem::exists(globalDefault))
-                settings.loadDefault(globalDefault);
-            else
-                throw std::runtime_error("No default settings file found! Make sure the file \"defaults.bin\" was properly installed.");
-
-            const std::string settingsPath = (config.getUserConfigPath() / "settings.cfg").string();
-            if (boost::filesystem::exists(settingsPath))
-                settings.loadUser(settingsPath);
         }
 
         int runNavMeshTool(int argc, char *argv[])
@@ -157,6 +144,7 @@ namespace NavMeshTool
             }
 
             const bool processInteriorCells = variables["process-interior-cells"].as<bool>();
+            const bool removeUnusedTiles = variables["remove-unused-tiles"].as<bool>();
 
             Fallback::Map::init(variables["fallback"].as<Fallback::FallbackMap>().mMap);
 
@@ -165,7 +153,7 @@ namespace NavMeshTool
             VFS::registerArchives(&vfs, fileCollections, archives, true);
 
             Settings::Manager settings;
-            loadSettings(config, settings);
+            settings.load(config);
 
             const osg::Vec3f agentHalfExtents = Settings::Manager::getVector3("default actor pathfind half extents", "Game");
 
@@ -193,7 +181,8 @@ namespace NavMeshTool
             WorldspaceData cellsData = gatherWorldspaceData(navigatorSettings, readers, vfs, bulletShapeManager,
                                                             esmData, processInteriorCells);
 
-            generateAllNavMeshTiles(agentHalfExtents, navigatorSettings, threadsNumber, cellsData, std::move(db));
+            generateAllNavMeshTiles(agentHalfExtents, navigatorSettings, threadsNumber, removeUnusedTiles,
+                                    cellsData, std::move(db));
 
             Log(Debug::Info) << "Done";
 

@@ -1,5 +1,7 @@
 #include "postprocessor.hpp"
 
+#include <SDL_opengl_glext.h>
+
 #include <osg/Group>
 #include <osg/Camera>
 #include <osg/Callback>
@@ -146,7 +148,6 @@ namespace MWRender
     PostProcessor::PostProcessor(osgViewer::Viewer* viewer, osg::Group* rootNode)
         : mViewer(viewer)
         , mRootNode(new osg::Group)
-        , mDepthFormat(GL_DEPTH_COMPONENT24)
     {
         bool softParticles = Settings::Manager::getBool("soft particles", "Shaders");
 
@@ -173,17 +174,11 @@ namespace MWRender
 
         if (SceneUtil::AutoDepth::isReversed())
         {
-            if (osg::isGLExtensionSupported(contextID, "GL_ARB_depth_buffer_float"))
-                mDepthFormat = GL_DEPTH_COMPONENT32F;
-            else if (osg::isGLExtensionSupported(contextID, "GL_NV_depth_buffer_float"))
-                mDepthFormat = GL_DEPTH_COMPONENT32F_NV;
-            else
+            if(SceneUtil::AutoDepth::depthSourceType() != GL_FLOAT_32_UNSIGNED_INT_24_8_REV)
             {
                 // TODO: Once we have post-processing implemented we want to skip this return and continue with setup.
                 // Rendering to a FBO to fullscreen geometry has overhead (especially when MSAA is enabled) and there are no
                 // benefits if no floating point depth formats are supported.
-                Log(Debug::Warning) << errPreamble << "'GL_ARB_depth_buffer_float' and 'GL_NV_depth_buffer_float' unsupported.";
-
                 if (!softParticles && !Stereo::getStereo())
                     return;
             }
@@ -207,7 +202,7 @@ namespace MWRender
             mViewer->getCamera()->addCullCallback(new CullCallback(this));
             mViewer->getCamera()->setRenderTargetImplementation(osg::Camera::FRAME_BUFFER_OBJECT);
             mViewer->getCamera()->attach(osg::Camera::COLOR_BUFFER0, mSceneTex);
-            mViewer->getCamera()->attach(osg::Camera::DEPTH_BUFFER, mDepthTex);
+        mViewer->getCamera()->attach(osg::Camera::PACKED_DEPTH_STENCIL_BUFFER, mDepthTex);
         }
 
         mViewer->getCamera()->getGraphicsContext()->setResizedCallback(new ResizedCallback(this));
@@ -230,7 +225,7 @@ namespace MWRender
 
         mFbo = new osg::FrameBufferObject;
         mFbo->setAttachment(osg::Camera::COLOR_BUFFER0, osg::FrameBufferAttachment(mSceneTex));
-        mFbo->setAttachment(osg::Camera::DEPTH_BUFFER, osg::FrameBufferAttachment(mDepthTex));
+        mFbo->setAttachment(osg::Camera::PACKED_DEPTH_STENCIL_BUFFER, osg::FrameBufferAttachment(mDepthTex));
 
         // When MSAA is enabled we must first render to a render buffer, then
         // blit the result to the FBO which is either passed to the main frame
@@ -241,7 +236,7 @@ namespace MWRender
             osg::ref_ptr<osg::RenderBuffer> colorRB = new osg::RenderBuffer(width, height, mSceneTex->getInternalFormat(), samples);
             osg::ref_ptr<osg::RenderBuffer> depthRB = new osg::RenderBuffer(width, height, mDepthTex->getInternalFormat(), samples);
             mMsaaFbo->setAttachment(osg::Camera::COLOR_BUFFER0, osg::FrameBufferAttachment(colorRB));
-            mMsaaFbo->setAttachment(osg::Camera::DEPTH_BUFFER, osg::FrameBufferAttachment(depthRB));
+            mMsaaFbo->setAttachment(osg::Camera::PACKED_DEPTH_STENCIL_BUFFER, osg::FrameBufferAttachment(depthRB));
         }
 
         if (const auto depthProxy = std::getenv("OPENMW_ENABLE_DEPTH_CLEAR_PROXY"))
@@ -332,9 +327,9 @@ namespace MWRender
     {
         mDepthTex = new osg::Texture2D;
         mDepthTex->setTextureSize(width, height);
-        mDepthTex->setSourceFormat(GL_DEPTH_COMPONENT);
-        mDepthTex->setSourceType(SceneUtil::isFloatingPointDepthFormat(getDepthFormat()) ? GL_FLOAT : GL_UNSIGNED_INT);
-        mDepthTex->setInternalFormat(mDepthFormat);
+        mDepthTex->setSourceFormat(SceneUtil::AutoDepth::depthSourceFormat());
+        mDepthTex->setSourceType(SceneUtil::AutoDepth::depthSourceType());
+        mDepthTex->setInternalFormat(SceneUtil::AutoDepth::depthInternalFormat());
         mDepthTex->setFilter(osg::Texture2D::MIN_FILTER, osg::Texture2D::NEAREST);
         mDepthTex->setFilter(osg::Texture2D::MAG_FILTER, osg::Texture2D::NEAREST);
         mDepthTex->setWrap(osg::Texture::WRAP_S, osg::Texture::CLAMP_TO_EDGE);
@@ -349,9 +344,9 @@ namespace MWRender
 
         mSceneTex = new osg::Texture2D;
         mSceneTex->setTextureSize(width, height);
-        mSceneTex->setSourceFormat(GL_RGB);
-        mSceneTex->setSourceType(GL_UNSIGNED_BYTE);
-        mSceneTex->setInternalFormat(SceneUtil::ColorFormat::colorFormat());
+        mSceneTex->setSourceFormat(SceneUtil::Color::colorSourceFormat());
+        mSceneTex->setSourceType(SceneUtil::Color::colorSourceType());
+        mSceneTex->setInternalFormat(SceneUtil::Color::colorInternalFormat());
         mSceneTex->setFilter(osg::Texture2D::MIN_FILTER, osg::Texture2D::NEAREST);
         mSceneTex->setFilter(osg::Texture2D::MAG_FILTER, osg::Texture2D::NEAREST);
         mSceneTex->setWrap(osg::Texture::WRAP_S, osg::Texture::CLAMP_TO_EDGE);

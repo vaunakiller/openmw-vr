@@ -41,6 +41,7 @@ option(BUILD_WITH_CODE_COVERAGE "Enable code coverage with gconv" OFF)
 option(BUILD_UNITTESTS          "Enable Unittests with Google C++ Unittest" OFF)
 option(BUILD_BENCHMARKS         "Build benchmarks with Google Benchmark" OFF)
 option(BUILD_NAVMESHTOOL        "Build navmesh tool" ON)
+option(BUILD_BULLETOBJECTTOOL   "Build Bullet object tool" ON)
 
 set(OpenGL_GL_PREFERENCE LEGACY)  # Use LEGACY as we use GL2; GLNVD is for GL3 and up.
 
@@ -635,6 +636,10 @@ if (BUILD_NAVMESHTOOL)
   add_subdirectory(apps/navmeshtool)
 endif()
 
+if (BUILD_BULLETOBJECTTOOL)
+  add_subdirectory( apps/bulletobjecttool )
+endif()
+
 if (WIN32)
   if (MSVC)
     foreach( OUTPUTCONFIG ${CMAKE_CONFIGURATION_TYPES} )
@@ -759,6 +764,10 @@ if (WIN32)
 
     if (BUILD_NAVMESHTOOL)
         set_target_properties(openmw-navmeshtool PROPERTIES COMPILE_FLAGS "${WARNINGS}")
+    endif()
+
+    if (BUILD_BULLETOBJECTTOOL)
+        set_target_properties(openmw-bulletobjecttool PROPERTIES COMPILE_FLAGS "${WARNINGS} ${MT_BUILD}")
     endif()
   endif(MSVC)
 
@@ -1006,6 +1015,9 @@ elseif(NOT APPLE)
         if(BUILD_NAVMESHTOOL)
             install(PROGRAMS "${INSTALL_SOURCE}/openmw-navmeshtool" DESTINATION "${BINDIR}" )
         endif()
+        IF(BUILD_BULLETOBJECTTOOL)
+            INSTALL(PROGRAMS "${INSTALL_SOURCE}/openmw-bulletobjecttool" DESTINATION "${BINDIR}" )
+        ENDIF(BUILD_BULLETOBJECTTOOL)
 
         # Install licenses
         INSTALL(FILES "files/mygui/DejaVuFontLicense.txt" DESTINATION "${LICDIR}" )

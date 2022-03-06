@@ -46,7 +46,7 @@ add_component_dir (vfs
 
 add_component_dir (resource
     scenemanager keyframemanager imagemanager bulletshapemanager bulletshape niffilemanager objectcache multiobjectcache resourcesystem
-    resourcemanager stats animation
+    resourcemanager stats animation foreachbulletobject
     )
 
 add_component_dir (shader
@@ -76,7 +76,7 @@ add_component_dir (to_utf8
     to_utf8
     )
 
-add_component_dir(esm attr defs esmcommon records util luascripts)
+add_component_dir(esm attr common defs esmcommon reader records util luascripts)
 
 add_component_dir (esm3
     esmreader esmwriter loadacti loadalch loadappa loadarmo loadbody loadbook loadbsgn loadcell
@@ -93,6 +93,99 @@ add_component_dir (esm3
 add_component_dir (esm3terrain
     storage
     )
+
+add_component_dir (esm4
+    acti
+    actor
+    common
+    dialogue
+    effect
+    formid
+    inventory
+    lighting
+    loadachr
+    loadacre
+    loadacti
+    loadalch
+    loadaloc
+    loadammo
+    loadanio
+    loadappa
+    loadarma
+    loadarmo
+    loadaspc
+    loadbook
+    loadbptd
+    loadcell
+    loadclas
+    loadclfm
+    loadclot
+    loadcont
+    loadcrea
+    loaddial
+    loaddobj
+    loaddoor
+    loadeyes
+    loadflor
+    loadflst
+    loadfurn
+    loadglob
+    loadgras
+    loadgrup
+    loadhair
+    loadhdpt
+    loadidle
+    loadidlm
+    loadimod
+    loadinfo
+    loadingr
+    loadkeym
+    loadland
+    loadlgtm
+    loadligh
+    loadltex
+    loadlvlc
+    loadlvli
+    loadlvln
+    loadmato
+    loadmisc
+    loadmset
+    loadmstt
+    loadmusc
+    loadnavi
+    loadnavm
+    loadnote
+    loadnpc
+    loadotft
+    loadpack
+    loadpgrd
+    loadpgre
+    loadpwat
+    loadqust
+    loadrace
+    loadrefr
+    loadregn
+    loadroad
+    loadsbsp
+    loadscol
+    loadscpt
+    loadscrl
+    loadsgst
+    loadslgm
+    loadsndr
+    loadsoun
+    loadstat
+    loadtact
+    loadterm
+    loadtes4
+    loadtree
+    loadtxst
+    loadweap
+    loadwrld
+    reader
+    reference
+    script
+)
 
 add_component_dir (misc
     constants utf8stream stringops resourcehelpers rng messageformatparser weakcache callbackmanager thread
@@ -169,8 +262,9 @@ add_component_dir (queries
     )
 
 add_component_dir (lua_ui
-    properties widget element util layers content
-    text textedit window image
+    registerscriptsettings scriptsettings
+    properties widget element util layers content alignment resources
+    adapter text textedit window image container
     )
 
 

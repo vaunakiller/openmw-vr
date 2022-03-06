@@ -25,11 +25,9 @@ namespace LuaUi
     {
         MYGUI_RTTI_DERIVED(LuaImage)
 
-        public:
-            LuaImage();
-
         protected:
-            virtual void updateProperties() override;
+            void initialize() override;
+            void updateProperties() override;
             LuaTileRect* mTileRect;
     };
 }

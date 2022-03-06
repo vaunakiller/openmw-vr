@@ -30,10 +30,10 @@ namespace MWGui
             for (MyGUI::Widget* widget : mListWindowRoot)
             {
                 if (widget->getName() == main_name)
-                {
                     mMainWidget = widget;
-                    break;
-                }
+
+                // Force the alignment to update immediately
+                widget->_setAlign(widget->getSize(), widget->getParentSize());
             }
             MYGUI_ASSERT(mMainWidget, "root widget name '" << MAIN_WINDOW << "' in layout '" << mLayoutName << "' not found.");
         }

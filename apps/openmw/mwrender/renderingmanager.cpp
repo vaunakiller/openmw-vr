@@ -512,10 +512,10 @@ namespace MWRender
         rootNode->addCullCallback(mPerViewUniformStateUpdater);
 
         mPostProcessor = new PostProcessor(viewer, mRootNode);
-        resourceSystem->getSceneManager()->setDepthFormat(mPostProcessor->getDepthFormat());
+        resourceSystem->getSceneManager()->setDepthFormat(SceneUtil::AutoDepth::depthInternalFormat());
         resourceSystem->getSceneManager()->setOpaqueDepthTex(mPostProcessor->getOpaqueDepthTex());
 
-        if (reverseZ && !SceneUtil::isFloatingPointDepthFormat(mPostProcessor->getDepthFormat()))
+        if (reverseZ && !SceneUtil::isFloatingPointDepthFormat(SceneUtil::AutoDepth::depthInternalFormat()))
             Log(Debug::Warning) << "Floating point depth format not in use but reverse-z buffer is enabled, consider disabling it.";
 
         // water goes after terrain for correct waterculling order
@@ -600,6 +600,8 @@ namespace MWRender
 
 
         updateProjectionMatrix();
+
+        mViewer->getCamera()->setClearMask(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT | GL_STENCIL_BUFFER_BIT);
     }
 
     RenderingManager::~RenderingManager()
@@ -718,11 +720,10 @@ namespace MWRender
             if (relativeLuminance < mMinimumAmbientLuminance)
             {
                 // brighten ambient so it reaches the minimum threshold but no more, we want to mess with content data as least we can
-                float targetBrightnessIncreaseFactor = mMinimumAmbientLuminance / relativeLuminance;
                 if (ambient.r() == 0.f && ambient.g() == 0.f && ambient.b() == 0.f)
                     ambient = osg::Vec4(mMinimumAmbientLuminance, mMinimumAmbientLuminance, mMinimumAmbientLuminance, ambient.a());
                 else
-                    ambient *= targetBrightnessIncreaseFactor;
+                    ambient *= mMinimumAmbientLuminance / relativeLuminance;
             }
         }
 

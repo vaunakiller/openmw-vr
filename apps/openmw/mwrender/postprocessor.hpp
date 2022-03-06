@@ -30,7 +30,6 @@ namespace MWRender
         auto getFbo() { return mFbo; }
         auto getFirstPersonRBProxy() { return mFirstPersonDepthRBProxy; }
 
-        int getDepthFormat() { return mDepthFormat; }
         osg::ref_ptr<osg::Texture2D> getOpaqueDepthTex() { return mOpaqueDepthTex; }
 
         void resize(int width, int height);
@@ -50,8 +49,6 @@ namespace MWRender
         osg::ref_ptr<osg::Texture2D> mSceneTex;
         osg::ref_ptr<osg::Texture2D> mDepthTex;
         osg::ref_ptr<osg::Texture2D> mOpaqueDepthTex;
-
-        int mDepthFormat;
     };
 }
 

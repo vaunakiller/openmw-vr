@@ -211,6 +211,9 @@ struct NiNode : Node
     enum ControllerFlags {
         ControllerFlag_Active = 0x8
     };
+    enum BSPArrayController {
+        BSPArrayController_AtVertex = 0x10
+    };
 
     void read(NIFStream *nif) override
     {
@@ -222,9 +225,10 @@ struct NiNode : Node
         // Discard transformations for the root node, otherwise some meshes
         // occasionally get wrong orientation. Only for NiNode-s for now, but
         // can be expanded if needed.
+        // FIXME: if node 0 is *not* the only root node, this must not happen.
         if (0 == recIndex && !Misc::StringUtils::ciEqual(name, "bip01"))
         {
-            static_cast<Nif::Node*>(this)->trafo = Nif::Transformation::getIdentity();
+            trafo = Nif::Transformation::getIdentity();
         }
     }
 
@@ -457,6 +461,7 @@ struct NiSortAdjustNode : NiNode
     }
     void post(NIFFile *nif) override
     {
+        NiNode::post(nif);
         mSubSorter.post(nif);
     }
 };

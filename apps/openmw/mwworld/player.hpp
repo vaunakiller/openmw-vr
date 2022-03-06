@@ -56,7 +56,6 @@ namespace MWWorld
         float mSaveSkills[ESM::Skill::Length];
         float mSaveAttributes[ESM::Attribute::Length];
 
-        bool mAttackingOrSpell;
         bool mJumping;
 
     public:
@@ -115,7 +114,6 @@ namespace MWWorld
         void setTeleported(bool teleported);
 
         void setAttackingOrSpell(bool attackingOrSpell);
-        bool getAttackingOrSpell() const;
 
         void setJumping(bool jumping);
         bool getJumping() const;
