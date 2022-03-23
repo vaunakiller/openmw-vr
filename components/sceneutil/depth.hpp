@@ -57,6 +57,9 @@ namespace SceneUtil
     // Returns the corresponding source format and type for the given internal format
     void getDepthFormatSourceFormatAndType(GLenum internalFormat, GLenum& sourceFormat, GLenum& sourceType);
 
+    // Converts depth-stencil formats to their corresponding depth formats.
+    GLenum getDepthFormatOfDepthStencilFormat(GLenum internalFormat);
+
     // Brief wrapper around an osg::Depth that applies the reversed depth function when a reversed depth buffer is in use
     class AutoDepth : public osg::Depth
     {

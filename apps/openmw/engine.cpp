@@ -908,6 +908,7 @@ void OMW::Engine::prepareEngine (Settings::Manager & settings)
     }
 
     // Create the world
+    auto* cameraTemp = camera.get();
     mEnvironment.setWorld( std::make_unique<MWWorld::World>(mViewer, rootNode, std::move(camera), mResourceSystem.get(), mWorkQueue.get(),
         mFileCollections, mContentFiles, mGroundcoverFiles, mEncoder, mActivationDistanceOverride, mCellName,
         mStartupScript, mResDir.string(), mCfgMgr.getUserDataPath().string()));
@@ -915,8 +916,7 @@ void OMW::Engine::prepareEngine (Settings::Manager & settings)
 
 #ifdef USE_OPENXR
     // TODO: Workaround. Needed to stop camera from querying the world object before it is created.
-    // This will be prettier when i clean up the tracking logic.
-    camera->setShouldTrackPlayerCharacter(true);
+    cameraTemp->setShouldTrackPlayerCharacter(true);
 #endif
 
     windowMgrInternal->setStore(mEnvironment.getWorld()->getStore());

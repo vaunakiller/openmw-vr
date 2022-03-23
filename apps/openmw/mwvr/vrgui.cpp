@@ -329,7 +329,7 @@ namespace MWVR
             mRealRect.bottom = 1.f;
         }
 
-        if (mLayerName == "InputBlocker")
+        if (mLayerName == "InputBlocker" || mLayerName == "Video")
         {
             // Rotate
             std::swap(mRealRect.bottom, mRealRect.top);
@@ -585,14 +585,15 @@ namespace MWVR
         mGUICamerasRootNode->addChild(mGUICameras);
 
         LayerConfig defaultConfig = createDefaultConfig(1);
-        LayerConfig loadingScreenConfig = createDefaultConfig(1, true, SizingMode::Fixed, "Menu");
-        LayerConfig mainMenuConfig = createDefaultConfig(1, true);
+        LayerConfig loadingScreenConfig = createDefaultConfig(1, true, SizingMode::Fixed, "LoadingScreenBackground");
+        LayerConfig mainMenuConfig = createDefaultConfig(1, true, MWVR::SizingMode::Auto, "MainMenuBackground");
         LayerConfig journalBooksConfig = createDefaultConfig(2, false, SizingMode::Fixed);
         LayerConfig defaultWindowsConfig = createDefaultConfig(3, true);
         LayerConfig videoPlayerConfig = createDefaultConfig(4, true, SizingMode::Fixed);
         LayerConfig messageBoxConfig = createDefaultConfig(6, false, SizingMode::Auto);;
         LayerConfig notificationConfig = createDefaultConfig(7, false, SizingMode::Fixed);
         LayerConfig listBoxConfig = createDefaultConfig(10, true);
+        LayerConfig consoleConfig = createDefaultConfig(11, true);
 
         LayerConfig statsWindowConfig = createSideBySideConfig(0);
         LayerConfig inventoryWindowConfig = createSideBySideConfig(1);
@@ -677,13 +678,14 @@ namespace MWVR
             {"MapWindow", mapWindowConfig},
             {"StatsWindow", statsWindowConfig},
             {"DialogueWindow", dialogueWindowConfig},
-            {"MessageBox", messageBoxConfig},
+            {"Modal", messageBoxConfig},
             {"Windows", defaultWindowsConfig},
             {"ListBox", listBoxConfig},
             {"MainMenu", mainMenuConfig},
             {"Notification", notificationConfig},
             {"InputBlocker", videoPlayerConfig},
-            {"Menu", videoPlayerConfig},
+            {"Video", videoPlayerConfig},
+            {"Console", consoleConfig},
             {"LoadingScreen", loadingScreenConfig},
             {"VirtualKeyboard", virtualKeyboardConfig},
         };
@@ -698,6 +700,8 @@ namespace MWVR
     {
         "Overlay",
         "AdditiveOverlay",
+        "FadeToBlack",
+        "HitOverlay",
     };
 
     void VRGUIManager::updateSideBySideLayers()

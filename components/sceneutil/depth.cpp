@@ -114,6 +114,25 @@ namespace SceneUtil
         }
     }
 
+    GLenum getDepthFormatOfDepthStencilFormat(GLenum internalFormat)
+    {
+        switch (internalFormat)
+        {
+        case GL_DEPTH24_STENCIL8:
+            return GL_DEPTH_COMPONENT24;
+            break;
+        case GL_DEPTH32F_STENCIL8:
+            return GL_DEPTH_COMPONENT32F;
+            break;
+        case GL_DEPTH32F_STENCIL8_NV:
+            return GL_DEPTH_COMPONENT32F_NV;
+            break;
+        default:
+            return internalFormat;
+            break;
+        }
+    }
+
     void SelectDepthFormatOperation::operator()(osg::GraphicsContext* graphicsContext)
     {
         bool enableReverseZ = false;
@@ -175,5 +194,10 @@ namespace SceneUtil
     {
         sDepthInternalFormat = format;
         getDepthFormatSourceFormatAndType(sDepthInternalFormat, sDepthSourceFormat, sDepthSourceType);
+
+        if (sDepthSourceType == GL_DEPTH_STENCIL_EXT)
+        {
+
+        }
     }
 }

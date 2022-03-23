@@ -130,7 +130,6 @@ namespace VR
         , mInitialDraw(new InitialDrawCallback(this))
         , mFinalDraw(new FinaldrawCallback(this))
         , mUpdateViewCallback(new UpdateViewCallback(this))
-        , mCallbacksConfigured(false)
     {
         if (!sViewer)
             sViewer = this;
@@ -195,10 +194,6 @@ namespace VR
                     mDepthSwapchain[i].reset(VR::Session::instance().createSwapchain(mFramebufferWidth, mFramebufferHeight, 1, 1, VR::SwapchainUse::Depth, i == 0 ? "LeftEye" : "RightEye"));
                 }
                 catch (...)
-                {
-
-                }
-                if (!mDepthSwapchain[i])
                 {
                     Log(Debug::Warning) << "XR_KHR_composition_layer_depth was enabled, but a depth attachment swapchain could not be created. Depth information will not be submitted.";
                     mSession->setAppShouldShareDepthBuffer(false);
@@ -355,7 +350,7 @@ namespace VR
             viewport->setViewport(0, 0, mFramebufferWidth, mFramebufferHeight);
             viewport->apply(*state);
 
-            glClear(GL_DEPTH_BUFFER_BIT | GL_COLOR_BUFFER_BIT);
+            glClear(GL_DEPTH_BUFFER_BIT | GL_COLOR_BUFFER_BIT | GL_STENCIL_BUFFER_BIT);
             geometry->draw(info);
 
             state->popStateSet();

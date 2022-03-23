@@ -183,8 +183,8 @@ namespace XR
                     auto& xrDepth = compositionLayerDepth[i];
                     xrDepth.minDepth = 0.;
                     xrDepth.maxDepth = 1.0;
-                    xrDepth.nearZ = nearClip / Constants::UnitsPerMeter;
-                    xrDepth.farZ = farClip / Constants::UnitsPerMeter;
+                    xrDepth.nearZ = nearClip;
+                    xrDepth.farZ = farClip;
                     xrDepth.subImage.imageArrayIndex = 0;
                     xrDepth.subImage.imageRect.extent.width = view.subImage.width;
                     xrDepth.subImage.imageRect.extent.height = view.subImage.height;
@@ -422,7 +422,7 @@ namespace XR
 
     void Session::initMSFTReprojection()
     {
-        if (MSFT_composition_layer_reprojection.enabled())
+        if (MSFT_composition_layer_reprojection.enabled() && KHR_composition_layer_depth.enabled())
         {
             std::vector<XrReprojectionModeMSFT> modes;
             enumerateReprojectionModesMSFT = reinterpret_cast<PFN_xrEnumerateReprojectionModesMSFT>(Instance::instance().xrGetFunction("xrEnumerateReprojectionModesMSFT"));

@@ -105,11 +105,11 @@ namespace XR
         mMWColorFormatsGL.push_back(GL_RGBA8UI);
         mMWColorFormatsGL.push_back(GL_RGBA8_SNORM);
 
+        mMWDepthFormatsGL.push_back(GL_DEPTH_COMPONENT32F);
+        mMWDepthFormatsGL.push_back(GL_DEPTH_COMPONENT32F_NV);
         mMWDepthFormatsGL.push_back(GL_DEPTH32F_STENCIL8); 
         mMWDepthFormatsGL.push_back(GL_DEPTH32F_STENCIL8_NV);
         mMWDepthFormatsGL.push_back(GL_DEPTH24_STENCIL8); 
-        mMWDepthFormatsGL.push_back(GL_DEPTH_COMPONENT32F);
-        mMWDepthFormatsGL.push_back(GL_DEPTH_COMPONENT32F_NV);
         mMWDepthFormatsGL.push_back(GL_DEPTH_COMPONENT32);
         mMWDepthFormatsGL.push_back(GL_DEPTH_COMPONENT24);
         mMWDepthFormatsGL.push_back(GL_DEPTH_COMPONENT16);
@@ -399,9 +399,15 @@ namespace XR
         std::string typeString = use == VR::SwapchainUse::Color ? "color" : "depth";
         int glFormat = 0;
         if (use == VR::SwapchainUse::Color)
+        {
             glFormat = SceneUtil::Color::colorInternalFormat();
+        }
         else
+        {
             glFormat = SceneUtil::AutoDepth::depthInternalFormat();
+            if (!Settings::Manager::getBool("submit stencil formats", "VR Debug"))
+                glFormat = SceneUtil::getDepthFormatOfDepthStencilFormat(glFormat);
+        }
 
         XrSwapchainCreateInfo swapchainCreateInfo{};
         swapchainCreateInfo.type = XR_TYPE_SWAPCHAIN_CREATE_INFO;
@@ -427,7 +433,7 @@ namespace XR
             // Need to translate GL format to DXGI
             if (KHR_D3D11_enable.enabled())
             {
-                swapchainCreateInfo.format = VR::GLFormatToDXGIFormat(swapchainCreateInfo.format);
+                swapchainCreateInfo.format = VR::GLFormatToDXGIFormat(glFormat);
                 Log(Debug::Verbose) << "Translated format to DXGI format: " << std::dec << swapchainCreateInfo.format << " (" << std::hex << swapchainCreateInfo.format << ")" << std::dec;
             }
 #endif
