@@ -111,6 +111,18 @@ namespace SceneUtil
         osg::Texture2DArray* textureArray = new osg::Texture2DArray;
         textureArray->setTextureSize(mTextureWidth, mTextureHeight, 2);
         textureArray->setInternalFormat(internalFormat);
+        GLenum sourceFormat = 0;
+        GLenum sourceType = 0;
+        if (SceneUtil::isDepthFormat(internalFormat))
+        {
+            SceneUtil::getDepthFormatSourceFormatAndType(internalFormat, sourceFormat, sourceType);
+        }
+        else
+        {
+            SceneUtil::getColorFormatSourceFormatAndType(internalFormat, sourceFormat, sourceType);
+        }
+        textureArray->setSourceFormat(sourceFormat);
+        textureArray->setSourceType(sourceType);
         textureArray->setFilter(osg::Texture::MIN_FILTER, osg::Texture::LINEAR);
         textureArray->setFilter(osg::Texture::MAG_FILTER, osg::Texture::LINEAR);
         textureArray->setWrap(osg::Texture::WRAP_S, osg::Texture::CLAMP_TO_EDGE);
