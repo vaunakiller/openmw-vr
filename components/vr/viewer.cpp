@@ -570,6 +570,15 @@ namespace VR
             right = views[VR::Side_Right];
             right.pose.position *= Constants::UnitsPerMeter * mSession->playerScale();
 
+            // Print view once to log, useful for debugging the views of headsets i do not posess.
+            static bool havePrintedView = false;
+            if (!havePrintedView)
+            {
+                havePrintedView = true;
+                Log(Debug::Verbose) << "Left View: " << left;
+                Log(Debug::Verbose) << "Right View: " << right;
+            }
+
             std::shared_ptr<VR::ProjectionLayer> layer = std::make_shared<VR::ProjectionLayer>();
             for (uint32_t i = 0; i < 2; i++)
             {

@@ -50,6 +50,10 @@ namespace Stereo
         FieldOfView fov;
         bool operator==(const View& rhs) const;
     };
+
+    std::ostream& operator <<(std::ostream& os, const Pose& pose);
+    std::ostream& operator <<(std::ostream& os, const FieldOfView& fov);
+    std::ostream& operator <<(std::ostream& os, const View& view);
 }
 
 #endif

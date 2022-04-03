@@ -147,6 +147,18 @@ namespace Stereo
         return *sInstance;
     }
 
+    struct CustomViewCallback : public Manager::UpdateViewCallback
+    {
+    public:
+        CustomViewCallback();
+
+        void updateView(View& left, View& right) override;
+
+    private:
+        View mLeft;
+        View mRight;
+    };
+
     Manager::Manager(osgViewer::Viewer* viewer)
         : mViewer(viewer)
         , mMainCamera(mViewer->getCamera())
@@ -173,6 +185,17 @@ namespace Stereo
 
         mStereoRoot->setName("Stereo Root");
         mStereoRoot->setDataVariance(osg::Object::STATIC);
+
+        if (Settings::Manager::getBool("use custom view", "Stereo"))
+            mUpdateViewCallback = std::make_shared<CustomViewCallback>();
+
+        if (Settings::Manager::getBool("use custom eye resolution", "Stereo"))
+        {
+            osg::Vec2i eyeResolution = osg::Vec2i();
+            eyeResolution.x() = Settings::Manager::getInt("eye resolution x", "Stereo View");
+            eyeResolution.y() = Settings::Manager::getInt("eye resolution y", "Stereo View");
+            overrideEyeResolution(eyeResolution);
+        }
     }
 
     Manager::~Manager()
@@ -373,12 +396,11 @@ namespace Stereo
 
             FieldOfView masterFov;
             masterFov.angleDown = std::min(mView[0].fov.angleDown, mView[1].fov.angleDown);
-            masterFov.angleUp = std::min(mView[0].fov.angleUp, mView[1].fov.angleUp);
+            masterFov.angleUp = std::max(mView[0].fov.angleUp, mView[1].fov.angleUp);
             masterFov.angleLeft = std::min(mView[0].fov.angleLeft, mView[1].fov.angleLeft);
-            masterFov.angleRight = std::min(mView[0].fov.angleRight, mView[1].fov.angleRight);
+            masterFov.angleRight = std::max(mView[0].fov.angleRight, mView[1].fov.angleRight);
             projectionMatrix = masterFov.perspectiveMatrix(near_, far_, false);
             mMainCamera->setProjectionMatrix(projectionMatrix);
-
         }
         else
         {
@@ -474,5 +496,38 @@ namespace Stereo
     {
         static bool stereo = getStereoImpl();
         return stereo;
+    }
+
+    CustomViewCallback::CustomViewCallback()
+    {
+        mLeft.pose.position.x() = Settings::Manager::getDouble("left eye offset x", "Stereo View");
+        mLeft.pose.position.y() = Settings::Manager::getDouble("left eye offset y", "Stereo View");
+        mLeft.pose.position.z() = Settings::Manager::getDouble("left eye offset z", "Stereo View");
+        mLeft.pose.orientation.x() = Settings::Manager::getDouble("left eye orientation x", "Stereo View");
+        mLeft.pose.orientation.y() = Settings::Manager::getDouble("left eye orientation y", "Stereo View");
+        mLeft.pose.orientation.z() = Settings::Manager::getDouble("left eye orientation z", "Stereo View");
+        mLeft.pose.orientation.w() = Settings::Manager::getDouble("left eye orientation w", "Stereo View");
+        mLeft.fov.angleLeft = Settings::Manager::getDouble("left eye fov left", "Stereo View");
+        mLeft.fov.angleRight = Settings::Manager::getDouble("left eye fov right", "Stereo View");
+        mLeft.fov.angleUp = Settings::Manager::getDouble("left eye fov up", "Stereo View");
+        mLeft.fov.angleDown = Settings::Manager::getDouble("left eye fov down", "Stereo View");
+
+        mRight.pose.position.x() = Settings::Manager::getDouble("right eye offset x", "Stereo View");
+        mRight.pose.position.y() = Settings::Manager::getDouble("right eye offset y", "Stereo View");
+        mRight.pose.position.z() = Settings::Manager::getDouble("right eye offset z", "Stereo View");
+        mRight.pose.orientation.x() = Settings::Manager::getDouble("right eye orientation x", "Stereo View");
+        mRight.pose.orientation.y() = Settings::Manager::getDouble("right eye orientation y", "Stereo View");
+        mRight.pose.orientation.z() = Settings::Manager::getDouble("right eye orientation z", "Stereo View");
+        mRight.pose.orientation.w() = Settings::Manager::getDouble("right eye orientation w", "Stereo View");
+        mRight.fov.angleLeft = Settings::Manager::getDouble("right eye fov left", "Stereo View");
+        mRight.fov.angleRight = Settings::Manager::getDouble("right eye fov right", "Stereo View");
+        mRight.fov.angleUp = Settings::Manager::getDouble("right eye fov up", "Stereo View");
+        mRight.fov.angleDown = Settings::Manager::getDouble("right eye fov down", "Stereo View");
+    }
+
+    void CustomViewCallback::updateView(View& left, View& right)
+    {
+        left = mLeft;
+        right = mRight;
     }
 }
