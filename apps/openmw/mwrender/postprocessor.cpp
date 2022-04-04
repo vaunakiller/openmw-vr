@@ -155,7 +155,6 @@ namespace MWRender
             return;
 
         osg::GraphicsContext* gc = viewer->getCamera()->getGraphicsContext();
-        unsigned int contextID = gc->getState()->getContextID();
         osg::GLExtensions* ext = gc->getState()->get<osg::GLExtensions>();
 
         constexpr char errPreamble[] = "Postprocessing and floating point depth buffers disabled: ";
