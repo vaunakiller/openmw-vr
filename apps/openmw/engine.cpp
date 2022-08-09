@@ -908,7 +908,7 @@ void OMW::Engine::prepareEngine (Settings::Manager & settings)
     }
 
     // Create the world
-    auto* cameraTemp = camera.get();
+    [[maybe_unused]] auto* cameraTemp = camera.get();
     mEnvironment.setWorld( std::make_unique<MWWorld::World>(mViewer, rootNode, std::move(camera), mResourceSystem.get(), mWorkQueue.get(),
         mFileCollections, mContentFiles, mGroundcoverFiles, mEncoder, mActivationDistanceOverride, mCellName,
         mStartupScript, mResDir.string(), mCfgMgr.getUserDataPath().string()));
