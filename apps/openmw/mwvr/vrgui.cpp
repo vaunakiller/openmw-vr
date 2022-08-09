@@ -593,7 +593,7 @@ namespace MWVR
         LayerConfig messageBoxConfig = createDefaultConfig(6, false, SizingMode::Auto);;
         LayerConfig notificationConfig = createDefaultConfig(7, false, SizingMode::Fixed);
         LayerConfig listBoxConfig = createDefaultConfig(10, true);
-        LayerConfig consoleConfig = createDefaultConfig(11, true);
+        LayerConfig consoleConfig = createDefaultConfig(2, true);
 
         LayerConfig statsWindowConfig = createSideBySideConfig(0);
         LayerConfig inventoryWindowConfig = createSideBySideConfig(1);

@@ -447,13 +447,11 @@ namespace MWVR
             MWBase::Environment::get().getWorld()->getStore().get<ESM::Race>().find(ref->mBase->mRace);
         bool isMale = ref->mBase->isMale();
         float charHeightFactor = isMale ? race->mData.mHeight.mMale : race->mData.mHeight.mFemale;
-        // Supposedly this is roughly the height of a 1.0 height race in meters.
-        //float charHeightBase = 1.8288f;
         float charHeightBase = Settings::Manager::getFloat("character base height", "VR Debug");
         float charHeight = charHeightBase * charHeightFactor;
         float realHeight = Settings::Manager::getFloat("real height", "VR");
         float sizeFactor = charHeight / realHeight;
-        float eyeLevel = charHeight * 0.8375f; // approximation
+        float eyeLevel = charHeight;
         VR::Session::instance().setPlayerScale(sizeFactor);
         VR::Session::instance().setEyeLevel(eyeLevel);
         Log(Debug::Verbose) << "Calculated character height: " << charHeight;
