@@ -67,6 +67,7 @@ namespace MWVR
         mWorldHeadPath = VR::stringToVRPath("/world/user/head/input/pose");
         mWorldLeftHandPath = VR::stringToVRPath("/world/user/hand/left/input/aim/pose");
         mWorldRightHandPath = VR::stringToVRPath("/world/user/hand/right/input/aim/pose");
+        setMode(Mode::VR);
     }
 
     VRCamera::~VRCamera()

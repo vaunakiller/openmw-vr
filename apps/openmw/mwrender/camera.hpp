@@ -26,7 +26,7 @@ namespace MWRender
     class Camera
     {
     public:
-        enum class Mode : int {Static = 0, FirstPerson = 1, ThirdPerson = 2, Vanity = 3, Preview = 4};
+        enum class Mode : int {Static = 0, FirstPerson = 1, ThirdPerson = 2, Vanity = 3, Preview = 4, VR = 5};
 
         Camera(osg::Camera* camera);
         virtual ~Camera();

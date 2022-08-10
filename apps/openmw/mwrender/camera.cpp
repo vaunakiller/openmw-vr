@@ -6,6 +6,7 @@
 #include <components/sceneutil/positionattitudetransform.hpp>
 #include <components/settings/settings.hpp>
 #include <components/sceneutil/nodecallback.hpp>
+#include <components/vr/vr.hpp>
 
 #include "../mwbase/environment.hpp"
 #include "../mwbase/windowmanager.hpp"
@@ -188,6 +189,12 @@ namespace MWRender
             mCameraDistance = 0;
             return;
         }
+        if (mMode == Mode::VR)
+        {
+            getPosition(mPosition);
+            mCameraDistance = 0;
+            return;
+        }
 
         constexpr float cameraObstacleLimit = 5.0f;
         constexpr float focalObstacleLimit = 10.f;
@@ -229,6 +236,8 @@ namespace MWRender
     {
         if (mMode == newMode)
             return;
+        if (newMode != Mode::VR && VR::getVR())
+            return;
         Mode oldMode = mMode;
         if (!force && (newMode == Mode::FirstPerson || oldMode == Mode::FirstPerson) && !mAnimation->upperBodyReady())
         {
@@ -239,7 +248,7 @@ namespace MWRender
         }
         mMode = newMode;
         mQueuedMode = std::nullopt;
-        if (newMode == Mode::FirstPerson)
+        if (newMode == Mode::FirstPerson || newMode == Mode::VR)
             mFirstPersonView = true;
         else if (newMode == Mode::ThirdPerson)
         {
@@ -303,11 +312,17 @@ namespace MWRender
 
     void Camera::toggleViewMode(bool force)
     {
+        if (mMode == Mode::VR)
+            return;
+
         setMode(mFirstPersonView ? Mode::ThirdPerson : Mode::FirstPerson, force);
-        }
+    }
 
     bool Camera::toggleVanityMode(bool enable)
     {
+        if (mMode == Mode::VR)
+            return false;
+
         if (!enable)
             setMode(mFirstPersonView ? Mode::FirstPerson : Mode::ThirdPerson, false);
         else if (mVanityAllowed)
@@ -411,7 +426,7 @@ namespace MWRender
 
     void Camera::rotateCameraToTrackingPtr()
     {
-        if (mMode == Mode::Static || mTrackingPtr.isEmpty())
+        if (mMode == Mode::Static || mMode == Mode::VR || mTrackingPtr.isEmpty())
             return;
         setPitch(-mTrackingPtr.getRefData().getPosition().rot[0] - mDeferredRotation.x());
         setYaw(-mTrackingPtr.getRefData().getPosition().rot[2] - mDeferredRotation.z());
@@ -435,7 +450,7 @@ namespace MWRender
         MWWorld::Ptr ptr = mTrackingPtr;
         if (mMode == Mode::Preview || mMode == Mode::Vanity || ptr.isEmpty())
             return;
-        if (mFirstPersonView)
+        if (mFirstPersonView || mMode == Mode::VR)
         {
             instantTransition();
             return;
