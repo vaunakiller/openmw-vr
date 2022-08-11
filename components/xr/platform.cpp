@@ -1,5 +1,6 @@
 #include <components/sceneutil/depth.hpp>
 #include <components/sceneutil/color.hpp>
+#include <components/misc/stringops.hpp>
 
 #include "instance.hpp"
 #include "platform.hpp"
@@ -34,6 +35,7 @@
 #include <cassert>
 #include <optional>
 #include <sstream>
+#include <iomanip>
 
 #ifndef GL_DEPTH32F_STENCIL8
 #define GL_DEPTH32F_STENCIL8 0x8CAD
@@ -161,7 +163,53 @@ namespace XR
         throw std::runtime_error("Error: No graphics API supported by OpenMW VR is supported by the OpenXR runtime.");
     }
 
-    XrSession Platform::createXrSession(XrInstance instance, XrSystemId systemId)
+    static std::vector<GLenum>
+        getBlacklistedFormatsForSystem(const std::string& systemName)
+    {
+        // The format blacklist is a list in the format systemName:formatEnum ...
+        // e.g. steamvr:0x8059 steamvr:0x906F steamvr:0x8052
+        // if system name is omitted, assume format should be blacklisted always
+        auto list = Settings::Manager::getString("disable texture format", "VR Debug");
+
+        std::vector<std::string> formats;
+        Misc::StringUtils::split(list, formats, " \t");
+
+        std::vector<GLenum> blacklistedFormats;
+
+        for (auto format : formats)
+        {
+            auto blacklistSystemNameEnd = format.find_first_of(':');
+            if (blacklistSystemNameEnd != std::string::npos && blacklistSystemNameEnd != 0)
+            {
+                // System name was included, split it out and check
+                auto blacklistSystemNameLowerCase = Misc::StringUtils::lowerCase(format.substr(0, blacklistSystemNameEnd));
+                auto systemNameLowerCase = Misc::StringUtils::lowerCase(systemName);
+
+                // Rather than an exact comparison, i check if the system name identified
+                // by the blacklist entry is a substring of the system name. case insensitive
+                if (systemNameLowerCase.find(blacklistSystemNameLowerCase) == std::string::npos)
+                    // It isn't, do not add this to the blacklist
+                    continue;
+
+                format = format.substr(blacklistSystemNameEnd + 1);
+            }
+
+            if (format.empty())
+                continue;
+
+            GLenum formatValue = 0;
+            std::istringstream iss(format);
+            // using std::setbase(0) should let istringstream automatically parse hex vs dec correctly.
+            iss >> std::setbase(0) >> formatValue;
+
+            if (formatValue != 0)
+                blacklistedFormats.push_back(formatValue);
+        }
+
+        return blacklistedFormats;
+    }
+
+    XrSession Platform::createXrSession(XrInstance instance, XrSystemId systemId, [[maybe_unused]] const std::string& systemName)
     {
         XrSession session = XR_NULL_HANDLE;
         XrResult res = XR_SUCCESS;
@@ -326,6 +374,22 @@ namespace XR
         else
 #endif
             mRuntimeFormatsGL.insert(mRuntimeFormatsGL.end(), swapchainFormats.begin(), swapchainFormats.end());
+
+        auto blacklistedFormats = getBlacklistedFormatsForSystem(systemName);
+
+        for (auto it = mRuntimeFormatsGL.begin(); it != mRuntimeFormatsGL.end();)
+        {
+            auto found = std::find(blacklistedFormats.begin(), blacklistedFormats.end(), *it);
+            if (found != blacklistedFormats.end())
+            {
+                std::stringstream ss;
+                ss << "Disabling glFormat=" << std::dec << *it << " (0x=" << std::hex << *it << "), blacklisted by config" << std::dec;
+                Log(Debug::Verbose) << ss.str();
+                it = mRuntimeFormatsGL.erase(it);
+            }
+            else
+                it++;
+        }
 
         // Discard all color formats not supported by the OpenXR runtime
         for (auto it = mMWColorFormatsGL.begin(); it != mMWColorFormatsGL.end();)

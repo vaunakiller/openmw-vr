@@ -261,7 +261,7 @@ namespace XR
 
     std::shared_ptr<Session> Instance::createSession()
     {
-        auto xrSession = mPlatform->createXrSession(mXrInstance, mSystemId);
+        auto xrSession = mPlatform->createXrSession(mXrInstance, mSystemId, mSystemProperties.systemName);
         return std::make_shared<Session>(xrSession, mViewConfigType);
     }
 

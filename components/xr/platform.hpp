@@ -25,7 +25,7 @@ namespace XR
         ~Platform();
 
         void selectGraphicsAPIExtension();
-        XrSession createXrSession(XrInstance instance, XrSystemId systemId);
+        XrSession createXrSession(XrInstance instance, XrSystemId systemId, const std::string& systemName);
         
         const std::vector<GLenum>& supportedColorFormats() const { return mMWColorFormatsGL; };
         const std::vector<GLenum>& supportedDepthFormats() const { return mMWDepthFormatsGL; };
