@@ -3,6 +3,7 @@
 #include <MyGUI_ListBox.h>
 #include <MyGUI_ImageBox.h>
 #include <MyGUI_Gui.h>
+#include <MyGUI_ScrollBar.h>
 
 #include <osg/Texture2D>
 
@@ -54,6 +55,8 @@ namespace MWGui
 
         setText("AppearanceT", MWBase::Environment::get().getWindowManager()->getGameSettingString("sRaceMenu1", "Appearance"));
         getWidget(mPreviewImage, "PreviewImage");
+
+        mPreviewImage->eventMouseWheel += MyGUI::newDelegate(this, &RaceDialog::onPreviewScroll);
 
         getWidget(mHeadRotate, "HeadRotate");
 
@@ -134,11 +137,11 @@ namespace MWGui
         mPreview.reset(nullptr);
         mPreviewTexture.reset(nullptr);
 
-        mPreview.reset(new MWRender::RaceSelectionPreview(mParent, mResourceSystem));
+        mPreview = std::make_unique<MWRender::RaceSelectionPreview>(mParent, mResourceSystem);
         mPreview->rebuild();
         mPreview->setAngle (mCurrentAngle);
 
-        mPreviewTexture.reset(new osgMyGUI::OSGTexture(mPreview->getTexture(), mPreview->getTextureStateSet()));
+        mPreviewTexture = std::make_unique<osgMyGUI::OSGTexture>(mPreview->getTexture(), mPreview->getTextureStateSet());
         mPreviewImage->setRenderItemTexture(mPreviewTexture.get());
         mPreviewImage->getSubWidgetMain()->_setUVSet(MyGUI::FloatRect(0.f, 0.f, 1.f, 1.f));
 
@@ -208,6 +211,19 @@ namespace MWGui
     void RaceDialog::onBackClicked(MyGUI::Widget* _sender)
     {
         eventBack();
+    }
+
+    void RaceDialog::onPreviewScroll(MyGUI::Widget*, int _delta)
+    {
+        size_t oldPos = mHeadRotate->getScrollPosition();
+        size_t maxPos = mHeadRotate->getScrollRange() - 1;
+        size_t scrollPage = mHeadRotate->getScrollWheelPage();
+        if (_delta < 0)
+            mHeadRotate->setScrollPosition(oldPos + std::min(maxPos - oldPos, scrollPage));
+        else
+            mHeadRotate->setScrollPosition(oldPos - std::min(oldPos, scrollPage));
+
+        onHeadRotate(mHeadRotate, mHeadRotate->getScrollPosition());
     }
 
     void RaceDialog::onHeadRotate(MyGUI::ScrollBar* scroll, size_t _position)

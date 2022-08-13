@@ -43,18 +43,24 @@ namespace
 
     void modStat(MWMechanics::AttributeValue& stat, float amount)
     {
-        float base = stat.getBase();
-        float modifier = stat.getModifier() - stat.getDamage();
-        float modified = base + modifier;
-        if(modified <= 0.f && amount < 0.f)
-            amount = 0.f;
-        else if(amount < 0.f && modified + amount < 0.f)
-            amount = -modified;
-        else if((modifier <= 0.f || base >= 100.f) && amount > 0.f)
+        const float base = stat.getBase();
+        const float modifier = stat.getModifier() - stat.getDamage();
+        const float modified = base + modifier;
+        // Clamp to 100 unless base < 100 and we have a fortification going
+        if((modifier <= 0.f || base >= 100.f) && amount > 0.f)
             amount = std::clamp(100.f - modified, 0.f, amount);
-        stat.setBase(std::min(base + amount, 100.f), true);
-        modifier += base - stat.getBase() + amount;
-        stat.setModifier(modifier);
+        // Clamp the modified value in a way that doesn't properly account for negative numbers
+        float newModified = modified + amount;
+        if(newModified < 0.f)
+        {
+            if(modified >= 0.f)
+                newModified = 0.f;
+            else if(newModified < modified)
+                newModified = modified;
+        }
+        // Calculate damage/fortification based on the clamped base value
+        stat.setBase(std::clamp(base + amount, 0.f, 100.f), true);
+        stat.setModifier(newModified - stat.getBase());
     }
 }
 
@@ -447,13 +453,13 @@ namespace MWScript
                 {
                     MWWorld::Ptr ptr = R()(runtime);
 
-                    std::string id = runtime.getStringLiteral (runtime[0].mInteger);
+                    std::string id{runtime.getStringLiteral(runtime[0].mInteger)};
                     runtime.pop();
 
                     const ESM::Spell* spell = MWBase::Environment::get().getWorld()->getStore().get<ESM::Spell>().find (id);
 
                     MWMechanics::CreatureStats& creatureStats = ptr.getClass().getCreatureStats(ptr);
-                    creatureStats.getSpells().add(id);
+                    creatureStats.getSpells().add(spell);
                     ESM::Spell::SpellType type = static_cast<ESM::Spell::SpellType>(spell->mData.mType);
                     if (type != ESM::Spell::ST_Spell && type != ESM::Spell::ST_Power)
                     {
@@ -474,7 +480,7 @@ namespace MWScript
                 {
                     MWWorld::Ptr ptr = R()(runtime);
 
-                    std::string id = runtime.getStringLiteral (runtime[0].mInteger);
+                    std::string id{runtime.getStringLiteral(runtime[0].mInteger)};
                     runtime.pop();
 
                     MWMechanics::CreatureStats& creatureStats = ptr.getClass().getCreatureStats(ptr);
@@ -499,7 +505,7 @@ namespace MWScript
                 {
                     MWWorld::Ptr ptr = R()(runtime);
 
-                    std::string spellid = runtime.getStringLiteral (runtime[0].mInteger);
+                    std::string_view spellid = runtime.getStringLiteral(runtime[0].mInteger);
                     runtime.pop();
 
                     ptr.getClass().getCreatureStats (ptr).getActiveSpells().removeEffects(ptr, spellid);
@@ -532,7 +538,7 @@ namespace MWScript
 
                     MWWorld::Ptr ptr = R()(runtime);
 
-                    std::string id = runtime.getStringLiteral (runtime[0].mInteger);
+                    std::string id{runtime.getStringLiteral(runtime[0].mInteger)};
                     runtime.pop();
 
                     Interpreter::Type_Integer value = 0;
@@ -553,7 +559,7 @@ namespace MWScript
                 {
                     MWWorld::ConstPtr actor = R()(runtime, false);
 
-                    std::string factionID = "";
+                    std::string factionID;
 
                     if(arg0==0)
                     {
@@ -585,7 +591,7 @@ namespace MWScript
                 {
                     MWWorld::ConstPtr actor = R()(runtime, false);
 
-                    std::string factionID = "";
+                    std::string factionID;
 
                     if(arg0==0)
                     {
@@ -624,7 +630,7 @@ namespace MWScript
                 {
                     MWWorld::ConstPtr actor = R()(runtime, false);
 
-                    std::string factionID = "";
+                    std::string factionID;
 
                     if(arg0==0)
                     {
@@ -656,7 +662,7 @@ namespace MWScript
                 {
                     MWWorld::ConstPtr ptr = R()(runtime, false);
 
-                    std::string factionID = "";
+                    std::string factionID;
                     if(arg0 >0)
                     {
                         factionID = runtime.getStringLiteral (runtime[0].mInteger);
@@ -748,7 +754,7 @@ namespace MWScript
 
                 void execute (Interpreter::Runtime& runtime) override
                 {
-                    std::string id = runtime.getStringLiteral (runtime[0].mInteger);
+                    std::string id{runtime.getStringLiteral(runtime[0].mInteger)};
                     runtime[0].mInteger = MWBase::Environment::get().getMechanicsManager()->countDeaths (id);
                 }
         };
@@ -890,14 +896,12 @@ namespace MWScript
                 {
                     MWWorld::ConstPtr ptr = R()(runtime);
 
-                    std::string race = runtime.getStringLiteral(runtime[0].mInteger);
-                    ::Misc::StringUtils::lowerCaseInPlace(race);
+                    std::string_view race = runtime.getStringLiteral(runtime[0].mInteger);
                     runtime.pop();
 
-                    std::string npcRace = ptr.get<ESM::NPC>()->mBase->mRace;
-                    ::Misc::StringUtils::lowerCaseInPlace(npcRace);
+                    const std::string& npcRace = ptr.get<ESM::NPC>()->mBase->mRace;
 
-                    runtime.push (npcRace == race);
+                    runtime.push(::Misc::StringUtils::ciEqual(race, npcRace));
             }
         };
 
@@ -922,7 +926,7 @@ namespace MWScript
                 {
                     MWWorld::ConstPtr ptr = R()(runtime, false);
 
-                    std::string factionID = "";
+                    std::string factionID;
                     if(arg0 >0 )
                     {
                         factionID = runtime.getStringLiteral (runtime[0].mInteger);
@@ -954,7 +958,7 @@ namespace MWScript
                 {
                     MWWorld::ConstPtr ptr = R()(runtime, false);
 
-                    std::string factionID = "";
+                    std::string factionID;
                     if(arg0 >0 )
                     {
                         factionID = runtime.getStringLiteral (runtime[0].mInteger);
@@ -981,7 +985,7 @@ namespace MWScript
                 {
                     MWWorld::ConstPtr ptr = R()(runtime, false);
 
-                    std::string factionID = "";
+                    std::string factionID;
                     if(arg0 >0 )
                     {
                         factionID = runtime.getStringLiteral (runtime[0].mInteger);
@@ -1208,6 +1212,7 @@ namespace MWScript
             void execute (Interpreter::Runtime& runtime) override
             {
                 // dummy
+                runtime.pop();
                 runtime.push(0);
             }
         };

@@ -10,6 +10,13 @@
 -- @field [parent=#ui] #TYPE TYPE
 
 ---
+-- Alignment values (details depend on the specific property). For horizontal alignment the order is left to right, for vertical alignment the order is top to bottom.
+-- @type ALIGNMENT
+-- @field Start
+-- @field Center
+-- @field End
+
+---
 -- Alignment values (left to right, top to bottom)
 -- @field [parent=#ui] #ALIGNMENT ALIGNMENT
 
@@ -26,17 +33,45 @@
 -- @field Window Can be moved and resized by the user
 
 ---
--- Alignment values (details depend on the specific property).
--- For horizontal alignment the order is left to right, for vertical alignment the order is top to bottom.
--- @type ALIGNMENT
--- @field Start
--- @field Center
--- @field End
-
----
 -- Shows given message at the bottom of the screen.
 -- @function [parent=#ui] showMessage
 -- @param #string msg
+
+---
+-- Predefined colors for console output
+-- @field [parent=#ui] #CONSOLE_COLOR CONSOLE_COLOR
+
+---
+-- Predefined colors for console output
+-- @type CONSOLE_COLOR
+-- @field openmw.util#Color Default
+-- @field openmw.util#Color Error
+-- @field openmw.util#Color Success
+-- @field openmw.util#Color Info
+
+---
+-- Print to the in-game console.
+-- @function [parent=#ui] printToConsole
+-- @param #string msg
+-- @param openmw.util#Color color
+
+---
+-- Set mode of the in-game console.
+-- The mode can be any string, by default is empty.
+-- If not empty, then the console doesn't handle mwscript commands and
+-- instead passes user input to Lua scripts via `onConsoleCommand` engine handler.
+-- @function [parent=#ui] setConsoleMode
+-- @param #string mode
+
+---
+-- Set selected object for console.
+-- @function [parent=#ui] setConsoleSelectedObject
+-- @param openmw.core#GameObject obj
+
+---
+-- Returns the size of the OpenMW window in pixels as a 2D vector.
+-- @function [parent=#ui] screenSize
+-- @return openmw.util#Vector2
 
 ---
 -- Converts a given table of tables into an @{openmw.ui#Content}
@@ -62,6 +97,9 @@
 -- @field #string searchHints Additional keywords used in search, not displayed anywhere
 -- @field #Element element The page's UI, which will be attached to the settings tab. The root widget has to have a fixed size. Set the `size` field in `props`, `relativeSize` is ignored.
 
+---
+-- Update all existing UI elements. Potentially extremely slow, so only call this when necessary, e. g. after overriding a template.
+-- @function [parent=#ui] updateAll
 
 ---
 -- Layout
@@ -72,19 +110,24 @@
 -- @field #Content content Optional @{openmw.ui#Content} of children layouts
 
 ---
--- Layers. Implements [iterables#List](iterables.html#List) of #string.
+-- @type Layer
+-- @field #string name Name of the layer
+-- @field openmw.util#vector2 size Size of the layer in pixels
+
+---
+-- Layers. Implements [iterables#List](iterables.html#List) of #Layer.
 -- @type Layers
--- @list <#string>
+-- @list <#Layer>
 -- @usage
 -- ui.layers.insertAfter('HUD', 'NewLayer', { interactive = true })
--- local fourthLayerName = ui.layers[4]
+-- local fourthLayer = ui.layers[4]
 -- local windowsIndex = ui.layers.indexOf('Windows')
--- for i, name in ipairs(ui.layers) do
---   print('layer', i, name)
+-- for i, layer in ipairs(ui.layers) do
+--   print('layer', i, layer.name, layer.size)
 -- end
 
 ---
--- Index of the layer with the givent name. Returns nil if the layer doesn't exist
+-- Index of the layer with the given name. Returns nil if the layer doesn't exist
 -- @function [parent=#Layers] indexOf
 -- @param #string name Name of the layer
 -- @return #number, #nil index
@@ -93,6 +136,13 @@
 -- Creates a layer and inserts it after another layer (shifts indexes of some other layers).
 -- @function [parent=#Layers] insertAfter
 -- @param #string afterName Name of the layer after which the new layer will be inserted
+-- @param #string name Name of the new layer
+-- @param #table options Table with a boolean `interactive` field (default is true). Layers with interactive = false will ignore all mouse interactions.
+
+---
+-- Creates a layer and inserts it before another layer (shifts indexes of some other layers).
+-- @function [parent=#Layers] insertBefore
+-- @param #string beforeName Name of the layer before which the new layer will be inserted
 -- @param #string name Name of the new layer
 -- @param #table options Table with a boolean `interactive` field (default is true). Layers with interactive = false will ignore all mouse interactions.
 
@@ -167,7 +217,8 @@
 -- @type MouseEvent
 -- @field openmw.util#Vector2 position Absolute position of the mouse cursor
 -- @field openmw.util#Vector2 offset Position of the mouse cursor relative to the widget
--- @field #number button Mouse button which triggered the event (could be nil)
+-- @field #number button Mouse button which triggered the event.
+--   Matches the arguments of @{openmw_input#input.isMouseButtonPressed} (`nil` for none, 1 for left, 3 for right).
 
 ---
 -- Register a new texture resource. Can be used to manually atlas UI textures.

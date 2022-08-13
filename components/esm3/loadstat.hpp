@@ -3,7 +3,10 @@
 
 #include <string>
 
-namespace ESM {
+#include "components/esm/defs.hpp"
+
+namespace ESM
+{
 
 class ESMReader;
 class ESMWriter;
@@ -22,7 +25,8 @@ class ESMWriter;
 
 struct Static
 {
-    static unsigned int sRecordId;
+    constexpr static RecNameInts sRecordId = REC_STAT;
+
     /// Return a string descriptor for this record type. Currently used for debugging / error logs only.
     static std::string_view getRecordType() { return "Static"; }
 

@@ -284,10 +284,10 @@ class Optimizer
                 FlattenStaticTransformsVisitor(Optimizer* optimizer=0):
                     BaseOptimizerVisitor(optimizer, FLATTEN_STATIC_TRANSFORMS) {}
 
-                void apply(osg::Node& geode) override;
-                void apply(osg::Geometry& drawable) override;
+                void apply(osg::Node& node) override;
+                void apply(osg::Geometry& geometry) override;
                 void apply(osg::Drawable& drawable) override;
-                void apply(osg::Billboard& geode) override;
+                void apply(osg::Billboard& billboard) override;
                 void apply(osg::Transform& transform) override final;
                 void apply(osg::MatrixTransform& transform) override;
 
@@ -362,6 +362,7 @@ class Optimizer
                 void apply(osg::Transform& transform) override;
                 void apply(osg::LOD& lod) override;
                 void apply(osg::Switch& switchNode) override;
+                void apply(osg::Sequence& sequenceNode) override;
                 void apply(osg::Geometry&) override { }
 
                 bool isOperationPermissible(osg::Node& node);
@@ -385,6 +386,7 @@ class Optimizer
             void apply(osg::Group& group) override;
             void apply(osg::LOD& lod) override;
             void apply(osg::Switch& switchNode) override;
+            void apply(osg::Sequence& sequenceNode) override;
         };
 
         class MergeGeometryVisitor : public BaseOptimizerVisitor

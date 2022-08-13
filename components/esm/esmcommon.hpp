@@ -8,6 +8,7 @@
 #include <cstdint>
 #include <cassert>
 #include <limits>
+#include <type_traits>
 
 namespace ESM
 {
@@ -19,7 +20,10 @@ enum Version
 
 enum RecordFlag
   {
+    // This flag exists, but is not used to determine if a record has been deleted while loading
+    FLAG_Deleted    = 0x00000020,
     FLAG_Persistent = 0x00000400,
+    FLAG_Ignored    = 0x00001000,
     FLAG_Blocked    = 0x00002000
   };
 
@@ -167,6 +171,14 @@ inline bool operator!=(const FixedString<capacity>& lhs, const Rhs& rhs) noexcep
 using NAME = FixedString<4>;
 using NAME32 = FixedString<32>;
 using NAME64 = FixedString<64>;
+
+static_assert(std::is_standard_layout_v<NAME> && std::is_trivial_v<NAME>);
+static_assert(std::is_standard_layout_v<NAME32> && std::is_trivial_v<NAME32>);
+static_assert(std::is_standard_layout_v<NAME64> && std::is_trivial_v<NAME64>);
+
+static_assert(sizeof(NAME) == 4);
+static_assert(sizeof(NAME32) == 32);
+static_assert(sizeof(NAME64) == 64);
 
 /* This struct defines a file 'context' which can be saved and later
    restored by an ESMReader instance. It will save the position within

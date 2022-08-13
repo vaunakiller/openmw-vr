@@ -26,6 +26,69 @@ namespace SceneUtil
     class LightBuffer;
     struct StateSetGenerator;
 
+    class PPLightBuffer
+    {
+    public:
+        inline static constexpr auto sMaxPPLights = 40;
+        inline static constexpr auto sMaxPPLightsArraySize = sMaxPPLights * 3;
+
+        PPLightBuffer()
+        {
+            for (size_t i = 0; i < 2; ++i)
+            {
+                mIndex[i] = 0;
+                mUniformBuffers[i] = new osg::Uniform(osg::Uniform::FLOAT_VEC4, "omw_PointLights", sMaxPPLightsArraySize);
+                mUniformCount[i] = new osg::Uniform("omw_PointLightsCount", static_cast<int>(0));
+            }
+        }
+
+        void applyUniforms(size_t frame, osg::StateSet* stateset)
+        {
+            size_t frameId = frame % 2;
+
+            if (!stateset->getUniform("omw_PointLights"))
+                stateset->addUniform(mUniformBuffers[frameId]);
+            if (!stateset->getUniform("omw_PointLightsCount"))
+                stateset->addUniform(mUniformCount[frameId]);
+
+            mUniformBuffers[frameId]->dirty();
+            mUniformCount[frameId]->dirty();
+        }
+
+        void clear(size_t frame)
+        {
+            mIndex[frame % 2] = 0;
+        }
+
+        void setLight(size_t frame, const osg::Light* light, float radius)
+        {
+            size_t frameId = frame % 2;
+            size_t i = mIndex[frameId];
+
+            if (i >= (sMaxPPLights - 1))
+                return;
+
+            i *= 3;
+
+            mUniformBuffers[frameId]->setElement(i + 0, light->getPosition());
+            mUniformBuffers[frameId]->setElement(i + 1, light->getDiffuse());
+            mUniformBuffers[frameId]->setElement(i + 2, osg::Vec4f(light->getConstantAttenuation(), light->getLinearAttenuation(), light->getQuadraticAttenuation(), radius));
+
+            mIndex[frameId]++;
+        }
+
+        void updateCount(size_t frame)
+        {
+            size_t frameId = frame % 2;
+            mUniformCount[frameId]->set(static_cast<int>(mIndex[frameId]));
+        }
+
+    private:
+        std::array<size_t, 2> mIndex;
+        std::array<osg::ref_ptr<osg::Uniform>, 2> mUniformBuffers;
+        std::array<osg::ref_ptr<osg::Uniform>, 2> mUniformCount;
+    };
+
     enum class LightingMethod
     {
         FFP,
@@ -55,6 +118,8 @@ namespace SceneUtil
 
         unsigned int mLastAppliedFrame;
 
+        bool mEmpty = false;
+
     public:
 
         META_Node(SceneUtil, LightSource)
@@ -82,6 +147,16 @@ namespace SceneUtil
         float getActorFade() const
         {
             return mActorFade;
+        }
+
+        void setEmpty(bool empty)
+        {
+            mEmpty = empty;
+        }
+
+        bool getEmpty() const
+        {
+            return mEmpty;
         }
 
         /// Get the osg::Light safe for modification in the given frame.
@@ -227,6 +302,11 @@ namespace SceneUtil
 
         osg::ref_ptr<osg::Uniform> generateLightBufferUniform(const osg::Matrixf& sun);
 
+        // Whether to collect main scene camera points lights into a buffer to be later sent to postprocessing shaders
+        void setCollectPPLights(bool enabled);
+
+        std::shared_ptr<PPLightBuffer> getPPLightsBuffer() { return mPPLightBuffer; }
+
     private:
         void initFFP(int targetLights);
         void initPerObjectUniform(int targetLights);
@@ -280,11 +360,7 @@ namespace SceneUtil
 
         SupportedMethods mSupported;
 
-        static constexpr auto mMaxLightsLowerLimit = 2;
-        static constexpr auto mMaxLightsUpperLimit = 64;
-        static constexpr auto mFFPMaxLights = 8;
-
-        static const std::unordered_map<std::string, LightingMethod> mLightingMethodSettingMap;
+        std::shared_ptr<PPLightBuffer> mPPLightBuffer;
     };
 
     /// To receive lighting, objects must be decorated by a LightListCallback. Light list callbacks must be added via

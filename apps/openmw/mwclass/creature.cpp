@@ -12,6 +12,13 @@
 #include "../mwmechanics/disease.hpp"
 #include "../mwmechanics/spellcasting.hpp"
 #include "../mwmechanics/difficultyscaling.hpp"
+#include "../mwmechanics/npcstats.hpp"
+#include "../mwmechanics/combat.hpp"
+#include "../mwmechanics/actorutil.hpp"
+#include "../mwmechanics/creaturecustomdataresetter.hpp"
+#include "../mwmechanics/aisetting.hpp"
+#include "../mwmechanics/inventory.hpp"
+#include "../mwmechanics/setbaseaisetting.hpp"
 
 #include "../mwbase/environment.hpp"
 #include "../mwbase/inputmanager.hpp"
@@ -28,17 +35,15 @@
 #include "../mwworld/containerstore.hpp"
 #include "../mwworld/cellstore.hpp"
 #include "../mwworld/localscripts.hpp"
+#include "../mwworld/inventorystore.hpp"
+#include "../mwworld/esmstore.hpp"
 
 #include "../mwrender/renderinginterface.hpp"
 #include "../mwrender/objects.hpp"
 
 #include "../mwgui/tooltips.hpp"
 
-#include "../mwworld/inventorystore.hpp"
-
-#include "../mwmechanics/npcstats.hpp"
-#include "../mwmechanics/combat.hpp"
-#include "../mwmechanics/actorutil.hpp"
+#include "classmodel.hpp"
 
 namespace
 {
@@ -79,6 +84,11 @@ namespace MWClass
     {
     }
 
+    Creature::Creature()
+        : MWWorld::RegisteredClass<Creature, Actor>(ESM::Creature::sRecordId)
+    {
+    }
+
     const Creature::GMST& Creature::getGmst()
     {
         static const GMST staticGmst = []
@@ -113,7 +123,7 @@ namespace MWClass
         {
             auto tempData = std::make_unique<CreatureCustomData>();
             CreatureCustomData* data = tempData.get();
-            MWMechanics::CreatureCustomDataResetter resetter(ptr);
+            MWMechanics::CreatureCustomDataResetter resetter {ptr};
             ptr.getRefData().setCustomData(std::move(tempData));
 
             MWWorld::LiveCellRef<ESM::Creature> *ref = ptr.get<ESM::Creature>();
@@ -135,10 +145,10 @@ namespace MWClass
 
             data->mCreatureStats.getAiSequence().fill(ref->mBase->mAiPackage);
 
-            data->mCreatureStats.setAiSetting (MWMechanics::CreatureStats::AI_Hello, ref->mBase->mAiData.mHello);
-            data->mCreatureStats.setAiSetting (MWMechanics::CreatureStats::AI_Fight, ref->mBase->mAiData.mFight);
-            data->mCreatureStats.setAiSetting (MWMechanics::CreatureStats::AI_Flee, ref->mBase->mAiData.mFlee);
-            data->mCreatureStats.setAiSetting (MWMechanics::CreatureStats::AI_Alarm, ref->mBase->mAiData.mAlarm);
+            data->mCreatureStats.setAiSetting(MWMechanics::AiSetting::Hello, ref->mBase->mAiData.mHello);
+            data->mCreatureStats.setAiSetting(MWMechanics::AiSetting::Fight, ref->mBase->mAiData.mFight);
+            data->mCreatureStats.setAiSetting(MWMechanics::AiSetting::Flee, ref->mBase->mAiData.mFlee);
+            data->mCreatureStats.setAiSetting(MWMechanics::AiSetting::Alarm, ref->mBase->mAiData.mAlarm);
 
             // Persistent actors with 0 health do not play death animation
             if (data->mCreatureStats.isDead())
@@ -160,7 +170,8 @@ namespace MWClass
 
             resetter.mPtr = {};
 
-            getContainerStore(ptr).fill(ref->mBase->mInventory, ptr.getCellRef().getRefId());
+            auto& prng = MWBase::Environment::get().getWorld()->getPrng();
+            getContainerStore(ptr).fill(ref->mBase->mInventory, ptr.getCellRef().getRefId(), prng);
 
             if (hasInventory)
                 getInventoryStore(ptr).autoEquip(ptr);
@@ -175,13 +186,7 @@ namespace MWClass
 
     std::string Creature::getModel(const MWWorld::ConstPtr &ptr) const
     {
-        const MWWorld::LiveCellRef<ESM::Creature> *ref = ptr.get<ESM::Creature>();
-
-        const std::string &model = ref->mBase->mModel;
-        if (!model.empty()) {
-            return "meshes\\" + model;
-        }
-        return "";
+        return getClassModel<ESM::Creature>(ptr);
     }
 
     void Creature::getModelsToPreload(const MWWorld::Ptr &ptr, std::vector<std::string> &models) const
@@ -230,7 +235,7 @@ namespace MWClass
         const MWWorld::Store<ESM::GameSetting> &gmst = MWBase::Environment::get().getWorld()->getStore().get<ESM::GameSetting>();
         MWMechanics::CreatureStats &stats = getCreatureStats(ptr);
 
-        if (stats.getDrawState() != MWMechanics::DrawState_Weapon)
+        if (stats.getDrawState() != MWMechanics::DrawState::Weapon)
             return false;
 
         // Get the weapon used (if hand-to-hand, weapon = inv.end())
@@ -265,8 +270,8 @@ namespace MWClass
         osg::Vec3f hitPosition (result.second);
 
         float hitchance = MWMechanics::getHitChance(ptr, victim, ref->mBase->mData.mCombat);
-
-        if(Misc::Rng::roll0to99() >= hitchance)
+        auto& prng = MWBase::Environment::get().getWorld()->getPrng();
+        if(Misc::Rng::roll0to99(prng) >= hitchance)
         {
             victim.getClass().onHit(victim, 0.0f, false, MWWorld::Ptr(), ptr, osg::Vec3f(), false);
             MWMechanics::reduceWeaponCondition(0.f, false, weapon, ptr);
@@ -396,7 +401,8 @@ namespace MWClass
                 float agilityTerm = stats.getAttribute(ESM::Attribute::Agility).getModified() * getGmst().fKnockDownMult->mValue.getFloat();
                 float knockdownTerm = stats.getAttribute(ESM::Attribute::Agility).getModified()
                         * getGmst().iKnockDownOddsMult->mValue.getInteger() * 0.01f + getGmst().iKnockDownOddsBase->mValue.getInteger();
-                if (ishealth && agilityTerm <= damage && knockdownTerm <= Misc::Rng::roll0to99())
+                auto& prng = MWBase::Environment::get().getWorld()->getPrng();
+                if (ishealth && agilityTerm <= damage && knockdownTerm <= Misc::Rng::roll0to99(prng))
                     stats.setKnockedDown(true);
                 else
                     stats.setHitRecovery(true); // Is this supposed to always occur?
@@ -437,15 +443,16 @@ namespace MWClass
         }
     }
 
-    std::shared_ptr<MWWorld::Action> Creature::activate (const MWWorld::Ptr& ptr,
+    std::unique_ptr<MWWorld::Action> Creature::activate (const MWWorld::Ptr& ptr,
         const MWWorld::Ptr& actor) const
     {
         if(actor.getClass().isNpc() && actor.getClass().getNpcStats(actor).isWerewolf())
         {
             const MWWorld::ESMStore &store = MWBase::Environment::get().getWorld()->getStore();
-            const ESM::Sound *sound = store.get<ESM::Sound>().searchRandom("WolfCreature");
+            auto& prng = MWBase::Environment::get().getWorld()->getPrng();
+            const ESM::Sound *sound = store.get<ESM::Sound>().searchRandom("WolfCreature", prng);
 
-            std::shared_ptr<MWWorld::Action> action(new MWWorld::FailedAction("#{sWerewolfRefusal}"));
+            std::unique_ptr<MWWorld::Action> action = std::make_unique<MWWorld::FailedAction>("#{sWerewolfRefusal}");
             if(sound) action->setSound(sound->mId);
 
             return action;
@@ -459,20 +466,20 @@ namespace MWClass
 
             // by default user can loot friendly actors during death animation
             if (canLoot && !stats.getAiSequence().isInCombat())
-                return std::shared_ptr<MWWorld::Action>(new MWWorld::ActionOpen(ptr));
+                return std::make_unique<MWWorld::ActionOpen>(ptr);
 
             // otherwise wait until death animation
             if(stats.isDeathAnimationFinished())
-                return std::shared_ptr<MWWorld::Action>(new MWWorld::ActionOpen(ptr));
+                return std::make_unique<MWWorld::ActionOpen>(ptr);
         }
         else if (!stats.getAiSequence().isInCombat() && !stats.getKnockedDown())
-            return std::shared_ptr<MWWorld::Action>(new MWWorld::ActionTalk(ptr));
+            return std::make_unique<MWWorld::ActionTalk>(ptr);
 
         // Tribunal and some mod companions oddly enough must use open action as fallback
         if (!getScript(ptr).empty() && ptr.getRefData().getLocals().getIntVar(getScript(ptr), "companion"))
-            return std::shared_ptr<MWWorld::Action>(new MWWorld::ActionOpen(ptr));
+            return std::make_unique<MWWorld::ActionOpen>(ptr);
 
-        return std::shared_ptr<MWWorld::Action>(new MWWorld::FailedAction(""));
+        return std::make_unique<MWWorld::FailedAction>();
     }
 
     MWWorld::ContainerStore& Creature::getContainerStore (const MWWorld::Ptr& ptr) const
@@ -505,13 +512,6 @@ namespace MWClass
     bool Creature::isEssential (const MWWorld::ConstPtr& ptr) const
     {
         return isFlagBitSet(ptr, ESM::Creature::Essential);
-    }
-
-    void Creature::registerSelf()
-    {
-        std::shared_ptr<Class> instance (new Creature);
-
-        registerClass (ESM::Creature::sRecordId, instance);
     }
 
     float Creature::getMaxSpeed(const MWWorld::Ptr &ptr) const
@@ -636,10 +636,12 @@ namespace MWClass
             const std::string model = getModel(ptr);
             if (!model.empty())
             {
+                const VFS::Manager* const vfs = MWBase::Environment::get().getResourceSystem()->getVFS();
                 for (const ESM::Creature &creature : store.get<ESM::Creature>())
                 {
                     if (creature.mId != ourId && creature.mOriginal != ourId && !creature.mModel.empty()
-                     && Misc::StringUtils::ciEqual(model, "meshes\\" + creature.mModel))
+                        && Misc::StringUtils::ciEqual(model,
+                            Misc::ResourceHelpers::correctMeshPath(creature.mModel, vfs)))
                     {
                         const std::string& fallbackId = !creature.mOriginal.empty() ? creature.mOriginal : creature.mId;
                         sound = store.get<ESM::SoundGenerator>().begin();
@@ -656,10 +658,11 @@ namespace MWClass
             }
         }
 
+        auto& prng = MWBase::Environment::get().getWorld()->getPrng();
         if (!sounds.empty())
-            return sounds[Misc::Rng::rollDice(sounds.size())]->mSound;
+            return sounds[Misc::Rng::rollDice(sounds.size(), prng)]->mSound;
         if (!fallbacksounds.empty())
-            return fallbacksounds[Misc::Rng::rollDice(fallbacksounds.size())]->mSound;
+            return fallbacksounds[Misc::Rng::rollDice(fallbacksounds.size(), prng)]->mSound;
 
         return std::string();
     }
@@ -775,7 +778,7 @@ namespace MWClass
                 else
                 {
                     // Create a CustomData, but don't fill it from ESM records (not needed)
-                    std::unique_ptr<CreatureCustomData> data (new CreatureCustomData);
+                    auto data = std::make_unique<CreatureCustomData>();
 
                     if (hasInventoryStore(ptr))
                         data->mContainerStore = std::make_unique<MWWorld::InventoryStore>();
@@ -807,13 +810,13 @@ namespace MWClass
             return;
         }
 
-        if (ptr.getRefData().getCount() <= 0)
+        const CreatureCustomData& customData = ptr.getRefData().getCustomData()->asCreatureCustomData();
+        if (ptr.getRefData().getCount() <= 0 && (!isFlagBitSet(ptr, ESM::Creature::Respawn) || !customData.mCreatureStats.isDead()))
         {
             state.mHasCustomState = false;
             return;
         }
 
-        const CreatureCustomData& customData = ptr.getRefData().getCustomData()->asCreatureCustomData();
         ESM::CreatureState& creatureState = state.asCreatureState();
         customData.mContainerStore->writeState (creatureState.mInventory);
         customData.mCreatureStats.writeState (creatureState.mCreatureStats);
@@ -875,7 +878,7 @@ namespace MWClass
         scale *= ref->mBase->mScale;
     }
 
-    void Creature::setBaseAISetting(const std::string& id, MWMechanics::CreatureStats::AiSetting setting, int value) const
+    void Creature::setBaseAISetting(const std::string& id, MWMechanics::AiSetting setting, int value) const
     {
         MWMechanics::setBaseAISetting<ESM::Creature>(id, setting, value);
     }

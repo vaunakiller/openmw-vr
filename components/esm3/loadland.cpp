@@ -9,8 +9,6 @@
 
 namespace ESM
 {
-    unsigned int Land::sRecordId = REC_LAND;
-
     Land::Land()
         : mFlags(0)
         , mX(0)
@@ -46,7 +44,7 @@ namespace ESM
             esm.getSubName();
             switch (esm.retSubName().toInt())
             {
-                case ESM::FourCC<'I','N','T','V'>::value:
+                case fourCC("INTV"):
                     esm.getSubHeader();
                     if (esm.getSubSize() != 8)
                         esm.fail("Subrecord size is not equal to 8");
@@ -54,10 +52,10 @@ namespace ESM
                     esm.getT<int>(mY);
                     hasLocation = true;
                     break;
-                case ESM::FourCC<'D','A','T','A'>::value:
+                case fourCC("DATA"):
                     esm.getHT(mFlags);
                     break;
-                case ESM::SREC_DELE:
+                case SREC_DELE:
                     esm.skipHSub();
                     isDeleted = true;
                     break;
@@ -82,23 +80,23 @@ namespace ESM
             esm.getSubName();
             switch (esm.retSubName().toInt())
             {
-                case ESM::FourCC<'V','N','M','L'>::value:
+                case fourCC("VNML"):
                     esm.skipHSub();
                     mDataTypes |= DATA_VNML;
                     break;
-                case ESM::FourCC<'V','H','G','T'>::value:
+                case fourCC("VHGT"):
                     esm.skipHSub();
                     mDataTypes |= DATA_VHGT;
                     break;
-                case ESM::FourCC<'W','N','A','M'>::value:
+                case fourCC("WNAM"):
                     esm.getHExact(mWnam, sizeof(mWnam));
                     mDataTypes |= DATA_WNAM;
                     break;
-                case ESM::FourCC<'V','C','L','R'>::value:
+                case fourCC("VCLR"):
                     esm.skipHSub();
                     mDataTypes |= DATA_VCLR;
                     break;
-                case ESM::FourCC<'V','T','E','X'>::value:
+                case fourCC("VTEX"):
                     esm.skipHSub();
                     mDataTypes |= DATA_VTEX;
                     break;
@@ -162,12 +160,12 @@ namespace ESM
                 signed char wnam[LAND_GLOBAL_MAP_LOD_SIZE];
                 constexpr float max = std::numeric_limits<signed char>::max();
                 constexpr float min = std::numeric_limits<signed char>::min();
-                constexpr float vertMult = static_cast<float>(ESM::Land::LAND_SIZE - 1) / LAND_GLOBAL_MAP_LOD_SIZE_SQRT;
+                constexpr float vertMult = static_cast<float>(Land::LAND_SIZE - 1) / LAND_GLOBAL_MAP_LOD_SIZE_SQRT;
                 for (int row = 0; row < LAND_GLOBAL_MAP_LOD_SIZE_SQRT; ++row)
                 {
                     for (int col = 0; col < LAND_GLOBAL_MAP_LOD_SIZE_SQRT; ++col)
                     {
-                        float height = mLandData->mHeights[int(row * vertMult) * ESM::Land::LAND_SIZE + int(col * vertMult)];
+                        float height = mLandData->mHeights[int(row * vertMult) * Land::LAND_SIZE + int(col * vertMult)];
                         height /= height > 0 ? 128.f : 16.f;
                         height = std::clamp(height, min, max);
                         wnam[row * LAND_GLOBAL_MAP_LOD_SIZE_SQRT + col] = static_cast<signed char>(height);
@@ -246,7 +244,7 @@ namespace ESM
             return;
         }
 
-        ESM::ESMReader reader;
+        ESMReader reader;
         reader.restoreContext(mContext);
 
         if (reader.isNextSub("VNML")) {
@@ -306,7 +304,7 @@ namespace ESM
         }
     }
 
-    bool Land::condLoad(ESM::ESMReader& reader, int flags, int& targetFlags, int dataFlag, void *ptr, unsigned int size) const
+    bool Land::condLoad(ESMReader& reader, int flags, int& targetFlags, int dataFlag, void *ptr, unsigned int size) const
     {
         if ((targetFlags & dataFlag) == 0 && (flags & dataFlag) != 0) {
             reader.getHExact(ptr, size);

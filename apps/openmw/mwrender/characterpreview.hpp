@@ -27,8 +27,6 @@ namespace MWRender
     class NpcAnimation;
     class DrawOnceCallback;
     class CharacterPreviewRTTNode;
-    class InventoryPreviewRTTNode;
-    class RaceSelectionPreviewRTTNode;
 
     class CharacterPreview
     {
@@ -44,7 +42,7 @@ namespace MWRender
 
         void rebuild();
 
-        osg::ref_ptr<osg::Texture> getTexture();
+        osg::ref_ptr<osg::Texture2D> getTexture();
         /// Get the osg::StateSet required to render the texture correctly, if any.
         osg::StateSet* getTextureStateSet() { return mTextureStateSet; }
 

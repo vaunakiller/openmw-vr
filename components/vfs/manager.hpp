@@ -1,10 +1,12 @@
 #ifndef OPENMW_COMPONENTS_RESOURCEMANAGER_H
 #define OPENMW_COMPONENTS_RESOURCEMANAGER_H
 
-#include <components/files/constrainedfilestream.hpp>
+#include <components/files/istreamptr.hpp>
 
 #include <vector>
 #include <map>
+#include <memory>
+#include <string>
 
 namespace VFS
 {
@@ -58,42 +60,46 @@ namespace VFS
         void reset();
 
         /// Register the given archive. All files contained in it will be added to the index on the next buildIndex() call.
-        /// @note Takes ownership of the given pointer.
-        void addArchive(Archive* archive);
+        void addArchive(std::unique_ptr<Archive>&& archive);
 
         /// Build the file index. Should be called when all archives have been registered.
         void buildIndex();
 
         /// Does a file with this name exist?
         /// @note May be called from any thread once the index has been built.
-        bool exists(const std::string& name) const;
+        bool exists(std::string_view name) const;
 
         /// Normalize the given filename, making slashes/backslashes consistent, and lower-casing if mStrict is false.
         /// @note May be called from any thread once the index has been built.
-        [[nodiscard]] std::string normalizeFilename(const std::string& name) const;
+        [[nodiscard]] std::string normalizeFilename(std::string_view name) const;
 
         /// Retrieve a file by name.
         /// @note Throws an exception if the file can not be found.
         /// @note May be called from any thread once the index has been built.
-        Files::IStreamPtr get(const std::string& name) const;
+        Files::IStreamPtr get(std::string_view name) const;
 
         /// Retrieve a file by name (name is already normalized).
         /// @note Throws an exception if the file can not be found.
         /// @note May be called from any thread once the index has been built.
         Files::IStreamPtr getNormalized(const std::string& normalizedName) const;
 
-        std::string getArchive(const std::string& name) const;
+        std::string getArchive(std::string_view name) const;
 
         /// Recursivly iterate over the elements of the given path
         /// In practice it return all files of the VFS starting with the given path
         /// @note the path is normalized
         /// @note May be called from any thread once the index has been built.
-        RecursiveDirectoryRange getRecursiveDirectoryIterator(const std::string& path) const;
+        RecursiveDirectoryRange getRecursiveDirectoryIterator(std::string_view path) const;
+
+        /// Retrieve the absolute path to the file
+        /// @note Throws an exception if the file can not be found.
+        /// @note May be called from any thread once the index has been built.
+        std::string getAbsoluteFileName(std::string_view name) const;
 
     private:
         bool mStrict;
 
-        std::vector<Archive*> mArchives;
+        std::vector<std::unique_ptr<Archive>> mArchives;
 
         std::map<std::string, File*> mIndex;
     };

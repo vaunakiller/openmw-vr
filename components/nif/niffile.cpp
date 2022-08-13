@@ -1,21 +1,31 @@
 #include "niffile.hpp"
-#include "effect.hpp"
 
+#include <components/debug/debuglog.hpp>
 #include <components/files/hash.hpp>
 
+#include <algorithm>
 #include <array>
+#include <limits>
 #include <map>
 #include <sstream>
-#include <algorithm>
+#include <stdexcept>
+
+#include "controlled.hpp"
+#include "controller.hpp"
+#include "data.hpp"
+#include "effect.hpp"
+#include "extra.hpp"
+#include "physics.hpp"
+#include "property.hpp"
 
 namespace Nif
 {
 
 /// Open a NIF stream. The name is used for error messages.
-NIFFile::NIFFile(Files::IStreamPtr stream, const std::string &name)
+NIFFile::NIFFile(Files::IStreamPtr&& stream, const std::string &name)
     : filename(name)
 {
-    parse(stream);
+    parse(std::move(stream));
 }
 
 template <typename NodeType, RecordType recordType>
@@ -36,6 +46,7 @@ static std::map<std::string, CreateRecord> makeFactory()
         {"NiNode"                       , &construct <NiNode                      , RC_NiNode                     >},
         {"NiSwitchNode"                 , &construct <NiSwitchNode                , RC_NiSwitchNode               >},
         {"NiLODNode"                    , &construct <NiLODNode                   , RC_NiLODNode                  >},
+        {"NiFltAnimationNode"           , &construct <NiFltAnimationNode          , RC_NiFltAnimationNode         >},
         {"AvoidNode"                    , &construct <NiNode                      , RC_AvoidNode                  >},
         {"NiCollisionSwitch"            , &construct <NiNode                      , RC_NiCollisionSwitch          >},
         {"NiBSParticleNode"             , &construct <NiNode                      , RC_NiBSParticleNode           >},
@@ -169,12 +180,12 @@ std::string NIFFile::printVersion(unsigned int version)
     return stream.str();
 }
 
-void NIFFile::parse(Files::IStreamPtr stream)
+void NIFFile::parse(Files::IStreamPtr&& stream)
 {
     const std::array<std::uint64_t, 2> fileHash = Files::getHash(filename, *stream);
     hash.append(reinterpret_cast<const char*>(fileHash.data()), fileHash.size() * sizeof(std::uint64_t));
 
-    NIFStream nif (this, stream);
+    NIFStream nif (this, std::move(stream));
 
     // Check the header string
     std::string head = nif.getVersionString();
@@ -350,6 +361,23 @@ std::atomic_bool NIFFile::sLoadUnsupportedFiles = false;
 void NIFFile::setLoadUnsupportedFiles(bool load)
 {
     sLoadUnsupportedFiles = load;
+}
+
+void NIFFile::warn(const std::string &msg) const
+{
+    Log(Debug::Warning) << " NIFFile Warning: " << msg << "\nFile: " << filename;
+}
+
+[[noreturn]] void NIFFile::fail(const std::string &msg) const
+{
+    throw std::runtime_error(" NIFFile Error: " + msg + "\nFile: " + filename);
+}
+
+std::string NIFFile::getString(uint32_t index) const
+{
+    if (index == std::numeric_limits<uint32_t>::max())
+        return std::string();
+    return strings.at(index);
 }
 
 }

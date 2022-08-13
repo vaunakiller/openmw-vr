@@ -21,6 +21,7 @@ void CSMDoc::Document::addGmsts()
         ESM::GameSetting gmst;
         gmst.mId = CSMWorld::DefaultGmsts::Floats[i];
         gmst.mValue.setType (ESM::VT_Float);
+        gmst.mRecordFlags = 0;
         gmst.mValue.setFloat (CSMWorld::DefaultGmsts::FloatsDefaultValues[i]);
         getData().getGmsts().add (gmst);
     }
@@ -30,6 +31,7 @@ void CSMDoc::Document::addGmsts()
         ESM::GameSetting gmst;
         gmst.mId = CSMWorld::DefaultGmsts::Ints[i];
         gmst.mValue.setType (ESM::VT_Int);
+        gmst.mRecordFlags = 0;
         gmst.mValue.setInteger (CSMWorld::DefaultGmsts::IntsDefaultValues[i]);
         getData().getGmsts().add (gmst);
     }
@@ -39,6 +41,7 @@ void CSMDoc::Document::addGmsts()
         ESM::GameSetting gmst;
         gmst.mId = CSMWorld::DefaultGmsts::Strings[i];
         gmst.mValue.setType (ESM::VT_String);
+        gmst.mRecordFlags = 0;
         gmst.mValue.setString ("");
         getData().getGmsts().add (gmst);
     }
@@ -116,7 +119,7 @@ void CSMDoc::Document::addOptionalGmst (const ESM::GameSetting& gmst)
 {
     if (getData().getGmsts().searchId (gmst.mId)==-1)
     {
-        std::unique_ptr<CSMWorld::Record<ESM::GameSetting> > record(new CSMWorld::Record<ESM::GameSetting>);
+        auto record = std::make_unique<CSMWorld::Record<ESM::GameSetting>>();
         record->mBase = gmst;
         record->mState = CSMWorld::RecordBase::State_BaseOnly;
         getData().getGmsts().appendRecord (std::move(record));
@@ -127,7 +130,7 @@ void CSMDoc::Document::addOptionalGlobal (const ESM::Global& global)
 {
     if (getData().getGlobals().searchId (global.mId)==-1)
     {
-        std::unique_ptr<CSMWorld::Record<ESM::Global> > record(new CSMWorld::Record<ESM::Global>);
+        auto record = std::make_unique<CSMWorld::Record<ESM::Global>>();
         record->mBase = global;
         record->mState = CSMWorld::RecordBase::State_BaseOnly;
         getData().getGlobals().appendRecord (std::move(record));
@@ -138,7 +141,7 @@ void CSMDoc::Document::addOptionalMagicEffect (const ESM::MagicEffect& magicEffe
 {
     if (getData().getMagicEffects().searchId (magicEffect.mId)==-1)
     {
-        std::unique_ptr<CSMWorld::Record<ESM::MagicEffect> > record(new CSMWorld::Record<ESM::MagicEffect>);
+        auto record = std::make_unique<CSMWorld::Record<ESM::MagicEffect>>();
         record->mBase = magicEffect;
         record->mState = CSMWorld::RecordBase::State_BaseOnly;
         getData().getMagicEffects().appendRecord (std::move(record));
@@ -164,6 +167,7 @@ void CSMDoc::Document::createBase()
     {
         ESM::Global record;
         record.mId = sGlobals[i];
+        record.mRecordFlags = 0;
         record.mValue.setType (i==2 ? ESM::VT_Float : ESM::VT_Long);
 
         if (i==0 || i==1)

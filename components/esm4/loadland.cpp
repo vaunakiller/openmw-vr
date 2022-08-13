@@ -38,10 +38,6 @@
 #include "reader.hpp"
 //#include "writer.hpp"
 
-ESM4::Land::~Land()
-{
-}
-
 //             overlap north
 //
 //         32
@@ -62,6 +58,7 @@ void ESM4::Land::load(ESM4::Reader& reader)
     mFormId = reader.hdr().record.id;
     reader.adjustFormId(mFormId);
     mFlags  = reader.hdr().record.flags;
+    mDataTypes = 0;
 
     TxtLayer layer;
     std::int8_t currentAddQuad = -1; // for VTXT following ATXT
@@ -107,7 +104,7 @@ void ESM4::Land::load(ESM4::Reader& reader)
                 BTXT base;
                 if (reader.getExact(base))
                 {
-                    assert(base.quadrant < 4 && base.quadrant >= 0 && "base texture quadrant index error");
+                    assert(base.quadrant < 4 && "base texture quadrant index error");
 
                     reader.adjustFormId(base.formId);
                     mTextures[base.quadrant].base = std::move(base);
@@ -129,8 +126,7 @@ void ESM4::Land::load(ESM4::Reader& reader)
                 }
                 reader.get(layer.texture);
                 reader.adjustFormId(layer.texture.formId);
-                assert(layer.texture.quadrant < 4 && layer.texture.quadrant >= 0
-                       && "additional texture quadrant index error");
+                assert(layer.texture.quadrant < 4 && "additional texture quadrant index error");
 #if 0
                 FormId txt = layer.texture.formId;
                 std::map<FormId, int>::iterator lb = uniqueTextures.lower_bound(txt);

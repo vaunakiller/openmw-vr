@@ -15,12 +15,12 @@ namespace MWLua
     class PlayerScripts : public LocalScripts
     {
     public:
-        PlayerScripts(LuaUtil::LuaState* lua, const LObject& obj) : LocalScripts(lua, obj, ESM::LuaScriptCfg::sPlayer)
+        PlayerScripts(LuaUtil::LuaState* lua, const LObject& obj) : LocalScripts(lua, obj)
         {
             registerEngineHandlers({
-                &mKeyPressHandlers, &mKeyReleaseHandlers,
+                &mConsoleCommandHandlers, &mKeyPressHandlers, &mKeyReleaseHandlers,
                 &mControllerButtonPressHandlers, &mControllerButtonReleaseHandlers,
-                &mActionHandlers, &mInputUpdateHandlers,
+                &mActionHandlers, &mOnFrameHandlers,
                 &mTouchpadPressed, &mTouchpadReleased, &mTouchpadMoved
             });
         }
@@ -57,15 +57,22 @@ namespace MWLua
             }
         }
 
-        void inputUpdate(float dt) { callEngineHandlers(mInputUpdateHandlers, dt); }
+        void onFrame(float dt) { callEngineHandlers(mOnFrameHandlers, dt); }
+
+        bool consoleCommand(const std::string& consoleMode, const std::string& command, const sol::object& selectedObject)
+        {
+            callEngineHandlers(mConsoleCommandHandlers, consoleMode, command, selectedObject);
+            return !mConsoleCommandHandlers.mList.empty();
+        }
 
     private:
+        EngineHandlerList mConsoleCommandHandlers{"onConsoleCommand"};
         EngineHandlerList mKeyPressHandlers{"onKeyPress"};
         EngineHandlerList mKeyReleaseHandlers{"onKeyRelease"};
         EngineHandlerList mControllerButtonPressHandlers{"onControllerButtonPress"};
         EngineHandlerList mControllerButtonReleaseHandlers{"onControllerButtonRelease"};
         EngineHandlerList mActionHandlers{"onInputAction"};
-        EngineHandlerList mInputUpdateHandlers{"onInputUpdate"};
+        EngineHandlerList mOnFrameHandlers{"onFrame"};
         EngineHandlerList mTouchpadPressed{ "onTouchPress" };
         EngineHandlerList mTouchpadReleased{ "onTouchRelease" };
         EngineHandlerList mTouchpadMoved{ "onTouchMove" };

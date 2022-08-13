@@ -130,6 +130,7 @@ namespace MWGui
   class WindowModal;
   class ScreenFader;
   class DebugWindow;
+  class PostProcessorHud;
   class JailScreen;
   class KeyboardNavigation;
 
@@ -141,21 +142,20 @@ namespace MWGui
     typedef std::vector<Faction> FactionList;
 
     WindowManager(SDL_Window* window, osgViewer::Viewer* viewer, osg::Group* guiRoot, Resource::ResourceSystem* resourceSystem, SceneUtil::WorkQueue* workQueue,
-                  const std::string& logpath, const std::string& cacheDir, bool consoleOnlyScripts, Translation::Storage& translationDataStorage,
-                  ToUTF8::FromType encoding, bool exportFonts, const std::string& versionDescription, const std::string& localPath, bool useShaders);
+                  const std::string& logpath, bool consoleOnlyScripts, Translation::Storage& translationDataStorage,
+                  ToUTF8::FromType encoding, const std::string& versionDescription, bool useShaders);
     virtual ~WindowManager();
 
     /// Set the ESMStore to use for retrieving of GUI-related strings.
     void setStore (const MWWorld::ESMStore& store);
 
     void initUI();
-    void loadUserFonts() override;
 
     Loading::Listener* getLoadingScreen() override;
 
     /// @note This method will block until the video finishes playing
     /// (and will continually update the window while doing so)
-    void playVideo(const std::string& name, bool allowSkipping) override;
+    void playVideo(const std::string& name, bool allowSkipping, bool overrideSounds = true) override;
     bool isPlayingVideo(void) const override;
 
     /// Warning: do not use MyGUI::InputManager::setKeyFocusWidget directly. Instead use this.
@@ -196,6 +196,7 @@ namespace MWGui
     MWGui::ConfirmationDialog* getConfirmationDialog() override;
     MWGui::TradeWindow* getTradeWindow() override;
     const std::vector<MWGui::MessageBox*> getActiveMessageBoxes() override;
+    MWGui::PostProcessorHud* getPostProcessorHud() override;
 
     /// Make the player use an item, while updating GUI state accordingly
     void useItem(const MWWorld::Ptr& item, bool bypassBeastRestrictions=false) override;
@@ -203,6 +204,8 @@ namespace MWGui
     void updateSpellWindow() override;
 
     void setConsoleSelectedObject(const MWWorld::Ptr& object) override;
+    void printToConsole(const std::string& msg, std::string_view color) override;
+    void setConsoleMode(const std::string& mode) override;
 
     /// Set time left for the player to start drowning (update the drowning bar)
     /// @param time time left to start drowning
@@ -283,7 +286,7 @@ namespace MWGui
 
     int readPressedButton () override; ///< returns the index of the pressed button or -1 if no button was pressed (->MessageBoxmanager->InteractiveMessageBox)
 
-    void update (float duration) override;
+    void update (float duration);
 
     /**
      * Fetches a GMST string from the store, if there is no setting with the given
@@ -372,6 +375,7 @@ namespace MWGui
 
     void toggleConsole() override;
     void toggleDebugWindow() override;
+    void togglePostProcessorHud() override;
 
     /// Cycle to next or previous spell
     void cycleSpell(bool next) override;
@@ -379,12 +383,6 @@ namespace MWGui
     void cycleWeapon(bool next) override;
 
     void playSound(const std::string& soundId, float volume = 1.f, float pitch = 1.f) override;
-
-    // In WindowManager for now since there isn't a VFS singleton
-    std::string correctIconPath(const std::string& path) override;
-    std::string correctBookartPath(const std::string& path, int width, int height, bool* exists = nullptr) override;
-    std::string correctTexturePath(const std::string& path) override;
-    bool textureExists(const std::string& path) override;
 
     void addCell(MWWorld::CellStore* cell) override;
     void removeCell(MWWorld::CellStore* cell) override;
@@ -460,6 +458,7 @@ namespace MWGui
     ScreenFader* mHitFader;
     ScreenFader* mScreenFader;
     DebugWindow* mDebugWindow;
+    PostProcessorHud* mPostProcessorHud;
     JailScreen* mJailScreen;
     ContainerWindow* mContainerWindow;
     MWVR::VrMetaMenu* mVrMetaMenu;
@@ -594,6 +593,9 @@ namespace MWGui
     void handleScheduledMessageBoxes();
 
     void pushGuiMode(GuiMode mode, const MWWorld::Ptr& arg, bool force);
+
+    void setCullMask(uint32_t mask) override;
+    uint32_t getCullMask() override;
   };
 }
 

@@ -7,10 +7,10 @@
 #include <stdint.h>
 #include <stdexcept>
 #include <vector>
-#include <typeinfo>
 #include <type_traits>
+#include <istream>
 
-#include <components/files/constrainedfilestream.hpp>
+#include <components/files/istreamptr.hpp>
 #include <components/misc/endianness.hpp>
 
 #include <osg/Vec3f>
@@ -62,7 +62,7 @@ public:
 
     NIFFile * const file;
 
-    NIFStream (NIFFile * file, Files::IStreamPtr inp): inp (inp), file (file) {}
+    NIFStream (NIFFile * file, Files::IStreamPtr&& inp): inp (std::move(inp)), file (file) {}
 
     void skip(size_t size) { inp->ignore(size); }
 

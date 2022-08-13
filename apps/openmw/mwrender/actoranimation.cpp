@@ -17,6 +17,7 @@
 #include <components/sceneutil/visitor.hpp>
 
 #include <components/misc/stringops.hpp>
+#include <components/misc/resourcehelpers.hpp>
 
 #include <components/settings/settings.hpp>
 
@@ -30,6 +31,8 @@
 #include "../mwworld/esmstore.hpp"
 #include "../mwmechanics/actorutil.hpp"
 #include "../mwmechanics/weapontype.hpp"
+#include "../mwmechanics/drawstate.hpp"
+#include "../mwmechanics/creaturestats.hpp"
 
 #include "vismask.hpp"
 
@@ -55,16 +58,7 @@ ActorAnimation::ActorAnimation(const MWWorld::Ptr& ptr, osg::ref_ptr<osg::Group>
     removeEffects();
 }
 
-ActorAnimation::~ActorAnimation()
-{
-    for (ItemLightMap::iterator iter = mItemLights.begin(); iter != mItemLights.end(); ++iter)
-    {
-        mInsert->removeChild(iter->second);
-    }
-
-    mScabbard.reset();
-    mHolsteredShield.reset();
-}
+ActorAnimation::~ActorAnimation() = default;
 
 PartHolderPtr ActorAnimation::attachMesh(const std::string& model, const std::string& bonename, bool enchantedGlow, osg::Vec4f* glowColor)
 {
@@ -127,7 +121,8 @@ std::string ActorAnimation::getShieldMesh(const MWWorld::ConstPtr& shield, bool 
                 if (bodypart == nullptr || bodypart->mData.mType != ESM::BodyPart::MT_Armor)
                     return std::string();
                 if (!bodypart->mModel.empty())
-                    return "meshes\\" + bodypart->mModel;
+                    return Misc::ResourceHelpers::correctMeshPath(bodypart->mModel,
+                        MWBase::Environment::get().getResourceSystem()->getVFS());
             }
         }
     }
@@ -163,33 +158,16 @@ bool ActorAnimation::updateCarriedLeftVisible(const int weaptype) const
     {
         const MWWorld::Class &cls = mPtr.getClass();
         MWMechanics::CreatureStats &stats = cls.getCreatureStats(mPtr);
-        if (cls.hasInventoryStore(mPtr) && weaptype != ESM::Weapon::Spell)
+        if (cls.hasInventoryStore(mPtr) && stats.getDrawState() == MWMechanics::DrawState::Nothing)
         {
             SceneUtil::FindByNameVisitor findVisitor ("Bip01 AttachShield");
             mObjectRoot->accept(findVisitor);
-            if (findVisitor.mFoundNode || (mPtr == MWMechanics::getPlayer() && mPtr.isInCell() && MWBase::Environment::get().getWorld()->isFirstPerson()))
+            if (findVisitor.mFoundNode)
             {
                 const MWWorld::InventoryStore& inv = cls.getInventoryStore(mPtr);
-                const MWWorld::ConstContainerStoreIterator weapon = inv.getSlot(MWWorld::InventoryStore::Slot_CarriedRight);
                 const MWWorld::ConstContainerStoreIterator shield = inv.getSlot(MWWorld::InventoryStore::Slot_CarriedLeft);
                 if (shield != inv.end() && shield->getType() == ESM::Armor::sRecordId && !getSheathedShieldMesh(*shield).empty())
-                {
-                    if(stats.getDrawState() != MWMechanics::DrawState_Weapon)
-                        return false;
-
-                    if (weapon != inv.end())
-                    {
-                        auto type = weapon->getType();
-                        if(type == ESM::Weapon::sRecordId)
-                        {
-                            const MWWorld::LiveCellRef<ESM::Weapon> *ref = weapon->get<ESM::Weapon>();
-                            ESM::Weapon::Type weaponType = (ESM::Weapon::Type)ref->mBase->mData.mType;
-                            return !(MWMechanics::getWeaponType(weaponType)->mFlags & ESM::WeaponType::TwoHanded);
-                        }
-                        else if (type == ESM::Lockpick::sRecordId || type == ESM::Probe::sRecordId)
-                            return true;
-                    }
-                }
+                    return false;
             }
         }
     }
@@ -330,9 +308,7 @@ void ActorAnimation::resetControllers(osg::Node* node)
     if (node == nullptr)
         return;
 
-    std::shared_ptr<SceneUtil::ControllerSource> src;
-    src.reset(new NullAnimationTime);
-    SceneUtil::ForceControllerSourcesVisitor removeVisitor(src);
+    SceneUtil::ForceControllerSourcesVisitor removeVisitor(std::make_shared<NullAnimationTime>());
     node->accept(removeVisitor);
 }
 
@@ -593,6 +569,13 @@ void ActorAnimation::removeHiddenItemLight(const MWWorld::ConstPtr& item)
 
     mInsert->removeChild(iter->second);
     mItemLights.erase(iter);
+}
+
+void ActorAnimation::removeFromScene()
+{
+    for (const auto& [k, v] : mItemLights)
+        mInsert->removeChild(v);
+    Animation::removeFromScene();
 }
 
 }

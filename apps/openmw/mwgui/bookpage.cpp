@@ -1047,7 +1047,7 @@ public:
 
             for (ActiveTextFormats::iterator i = mActiveTextFormats.begin (); i != mActiveTextFormats.end (); ++i)
             {
-                if (mNode != nullptr)
+                if (mNode != nullptr && i->second != nullptr)
                     i->second->destroyDrawItem (mNode);
                 i->second.reset();
             }
@@ -1116,7 +1116,7 @@ public:
 
             if (j == this_->mActiveTextFormats.end ())
             {
-                std::unique_ptr<TextFormat> textFormat(new TextFormat (Font, this_));
+                auto textFormat = std::make_unique<TextFormat>(Font, this_);
 
                 textFormat->mTexture = Font->getTextureFont ();
 

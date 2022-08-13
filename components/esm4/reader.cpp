@@ -31,6 +31,7 @@
 #include <cassert>
 #include <stdexcept>
 #include <unordered_map>
+#include <filesystem>
 #include <iostream> // for debugging
 #include <sstream>  // for debugging
 #include <iomanip>  // for debugging
@@ -45,11 +46,10 @@
 #endif
 #include <boost/iostreams/filtering_streambuf.hpp>
 #include <boost/iostreams/copy.hpp>
-#include <boost/algorithm/string.hpp>
-#include <boost/filesystem/path.hpp>
-#include <boost/filesystem/operations.hpp>
 
 #include <components/bsa/memorystream.hpp>
+#include <components/misc/stringops.hpp>
+#include <components/files/constrainedfilestream.hpp>
 
 #include "formid.hpp"
 
@@ -57,15 +57,17 @@ namespace ESM4
 {
 
 ReaderContext::ReaderContext() : modIndex(0), recHeaderSize(sizeof(RecordHeader)),
-    filePos(0), recordRead(0), currWorld(0), currCell(0), cellGridValid(false)
+    filePos(0), fileRead(0), recordRead(0), currWorld(0), currCell(0), cellGridValid(false)
 {
     currCellGrid.cellId = 0;
     currCellGrid.grid.x = 0;
     currCellGrid.grid.y = 0;
+    subRecordHeader.typeId = 0;
+    subRecordHeader.dataSize = 0;
 }
 
-Reader::Reader(Files::IStreamPtr esmStream, const std::string& filename)
-    : mEncoder(nullptr), mFileSize(0), mStream(esmStream)
+Reader::Reader(Files::IStreamPtr&& esmStream, const std::string& filename)
+    : mEncoder(nullptr), mFileSize(0), mStream(std::move(esmStream))
 {
     // used by ESMReader only?
     mCtx.filename = filename;
@@ -130,8 +132,7 @@ bool Reader::restoreContext(const ReaderContext& ctx)
 {
     if (mSavedStream) // TODO: doesn't seem to ever happen
     {
-        mStream = mSavedStream;
-        mSavedStream.reset();
+        mStream = std::move(mSavedStream);
     }
 
     mCtx.groupStack.clear(); // probably not necessary since it will be overwritten
@@ -148,11 +149,11 @@ void Reader::close()
     //mHeader.blank();
 }
 
-void Reader::openRaw(Files::IStreamPtr esmStream, const std::string& filename)
+void Reader::openRaw(Files::IStreamPtr&& stream, const std::string& filename)
 {
     close();
 
-    mStream = esmStream;
+    mStream = std::move(stream);
     mCtx.filename = filename;
     mCtx.fileRead = 0;
     mStream->seekg(0, mStream->end);
@@ -161,9 +162,9 @@ void Reader::openRaw(Files::IStreamPtr esmStream, const std::string& filename)
 
 }
 
-void Reader::open(Files::IStreamPtr esmStream, const std::string &filename)
+void Reader::open(Files::IStreamPtr&& stream, const std::string &filename)
 {
-    openRaw(esmStream, filename);
+    openRaw(std::move(stream), filename);
 
     // should at least have the size of ESM3 record header (20 or 24 bytes for ESM4)
     assert (mFileSize >= 16);
@@ -182,6 +183,16 @@ void Reader::open(Files::IStreamPtr esmStream, const std::string &filename)
     throw std::runtime_error("Unknown file format"); // can't yet use fail() as mCtx is not setup
 }
 
+void Reader::openRaw(const std::string& filename)
+{
+    openRaw(Files::openConstrainedFileStream(filename), filename);
+}
+
+void Reader::open(const std::string& filename)
+{
+    open(Files::openConstrainedFileStream(filename), filename);
+}
+
 void Reader::setRecHeaderSize(const std::size_t size)
 {
     mCtx.recHeaderSize = size;
@@ -193,7 +204,7 @@ void Reader::buildLStringIndex()
     if ((mHeader.mFlags & Rec_ESM) == 0 || (mHeader.mFlags & Rec_Localized) == 0)
         return;
 
-    boost::filesystem::path p(mCtx.filename);
+    std::filesystem::path p(mCtx.filename);
     std::string filename = p.stem().filename().string();
 
     buildLStringIndex("Strings/" + filename + "_English.STRINGS",   Type_Strings);
@@ -210,32 +221,33 @@ void Reader::buildLStringIndex(const std::string& stringFile, LocalizedStringTyp
     sp.type = stringType;
 
     // TODO: possibly check if the resource exists?
-    Files::IStreamPtr filestream = Files::IStreamPtr(Files::openConstrainedFileStream(stringFile.c_str()));
+    Files::IStreamPtr filestream = Files::openConstrainedFileStream(stringFile);
 
     filestream->seekg(0, std::ios::end);
     std::size_t fileSize = filestream->tellg();
     filestream->seekg(0, std::ios::beg);
 
+    std::istream* stream = filestream.get();
     switch (stringType)
     {
-        case Type_Strings:   mStrings =   filestream; break;
-        case Type_ILStrings: mILStrings = filestream; break;
-        case Type_DLStrings: mDLStrings = filestream; break;
+        case Type_Strings:   mStrings =   std::move(filestream); break;
+        case Type_ILStrings: mILStrings = std::move(filestream); break;
+        case Type_DLStrings: mDLStrings = std::move(filestream); break;
         default:
             throw std::runtime_error("ESM4::Reader::unknown localised string type");
     }
 
-    filestream->read((char*)&numEntries, sizeof(numEntries));
-    filestream->read((char*)&dataSize, sizeof(dataSize));
+    stream->read((char*)&numEntries, sizeof(numEntries));
+    stream->read((char*)&dataSize, sizeof(dataSize));
     std::size_t dataStart = fileSize - dataSize;
     for (unsigned int i = 0; i < numEntries; ++i)
     {
-        filestream->read((char*)&stringId, sizeof(stringId));
-        filestream->read((char*)&sp.offset, sizeof(sp.offset));
+        stream->read((char*)&stringId, sizeof(stringId));
+        stream->read((char*)&sp.offset, sizeof(sp.offset));
         sp.offset += (std::uint32_t)dataStart;
         mLStringIndex[stringId] = sp;
     }
-    //assert (dataStart - filestream->tell() == 0 && "String file start of data section mismatch");
+    //assert (dataStart - stream->tell() == 0 && "String file start of data section mismatch");
 }
 
 void Reader::getLocalizedString(std::string& str)
@@ -256,13 +268,13 @@ void Reader::getLocalizedStringImpl(const FormId stringId, std::string& str)
 
     if (it != mLStringIndex.end())
     {
-        Files::IStreamPtr filestream;
+        std::istream* filestream = nullptr;
 
         switch (it->second.type)
         {
             case Type_Strings: // no string size provided
             {
-                filestream = mStrings;
+                filestream = mStrings.get();
                 filestream->seekg(it->second.offset);
 
                 char ch;
@@ -275,8 +287,8 @@ void Reader::getLocalizedStringImpl(const FormId stringId, std::string& str)
                 str = std::string(data.data());
                 return;
             }
-            case Type_ILStrings: filestream = mILStrings; break;
-            case Type_DLStrings: filestream = mDLStrings; break;
+            case Type_ILStrings: filestream = mILStrings.get(); break;
+            case Type_DLStrings: filestream = mDLStrings.get(); break;
             default:
                 throw std::runtime_error("ESM4::Reader::getLocalizedString unknown string type");
         }
@@ -285,7 +297,7 @@ void Reader::getLocalizedStringImpl(const FormId stringId, std::string& str)
         filestream->seekg(it->second.offset);
         std::uint32_t size = 0;
         filestream->read((char*)&size, sizeof(size));
-        getStringImpl(str, size, filestream, mEncoder, true); // expect null terminated string
+        getStringImpl(str, size, *filestream, mEncoder, true); // expect null terminated string
     }
     else
         throw std::runtime_error("ESM4::Reader::getLocalizedString localized string not found");
@@ -296,8 +308,7 @@ bool Reader::getRecordHeader()
     // FIXME: this seems very hacky but we may have skipped subrecords from within an inflated data block
     if (/*mStream->eof() && */mSavedStream)
     {
-        mStream = mSavedStream;
-        mSavedStream.reset();
+        mStream = std::move(mSavedStream);
     }
 
     mStream->read((char*)&mCtx.recordHeader, mCtx.recHeaderSize);
@@ -336,12 +347,11 @@ void Reader::getRecordData(bool dump)
         Bsa::MemoryInputStream compressedRecord(recordSize);
         mStream->read(compressedRecord.getRawData(), recordSize);
         std::istream *fileStream = (std::istream*)&compressedRecord;
-        mSavedStream = mStream;
+        mSavedStream = std::move(mStream);
 
         mCtx.recordHeader.record.dataSize = uncompressedSize - sizeof(uncompressedSize);
 
-        std::shared_ptr<Bsa::MemoryInputStream> memoryStreamPtr
-            = std::make_shared<Bsa::MemoryInputStream>(uncompressedSize);
+        auto memoryStreamPtr = std::make_unique<Bsa::MemoryInputStream>(uncompressedSize);
 
         boost::iostreams::filtering_streambuf<boost::iostreams::input> inputStreamBuf;
         inputStreamBuf.push(boost::iostreams::zlib_decompressor());
@@ -370,7 +380,7 @@ if (dump)
         std::cout << ss.str() << std::endl;
 }
 //#endif
-        mStream = std::shared_ptr<std::istream>(memoryStreamPtr, (std::istream*)memoryStreamPtr.get());
+        mStream = std::make_unique<Files::StreamWithBuffer<Bsa::MemoryInputStream>>(std::move(memoryStreamPtr));
     }
 }
 
@@ -425,7 +435,7 @@ void Reader::skipSubRecordData(std::uint32_t size)
 void Reader::enterGroup()
 {
 #ifdef DEBUG_GROUPSTACK
-    std::string padding = ""; // FIXME: debugging only
+    std::string padding; // FIXME: debugging only
     padding.insert(0, mCtx.groupStack.size()*2, ' ');
     std::cout << padding << "Starting record group "
               << printLabel(mCtx.recordHeader.group.label, mCtx.recordHeader.group.type) << std::endl;
@@ -475,7 +485,7 @@ void Reader::exitGroupCheck()
 
         mCtx.groupStack.pop_back();
 #ifdef DEBUG_GROUPSTACK
-        std::string padding = ""; // FIXME: debugging only
+        std::string padding; // FIXME: debugging only
         padding.insert(0, mCtx.groupStack.size()*2, ' ');
         std::cout << padding << "Finished record group " << printLabel(grp.label, grp.type) << std::endl;
 #endif
@@ -523,7 +533,7 @@ void Reader::skipGroupData()
 void Reader::skipGroup()
 {
 #ifdef DEBUG_GROUPSTACK
-    std::string padding = ""; // FIXME: debugging only
+    std::string padding; // FIXME: debugging only
     padding.insert(0, mCtx.groupStack.size()*2, ' ');
     std::cout << padding << "Skipping record group "
               << printLabel(mCtx.recordHeader.group.label, mCtx.recordHeader.group.type) << std::endl;
@@ -562,14 +572,14 @@ void Reader::updateModIndices(const std::vector<std::string>& files)
     std::unordered_map<std::string, size_t> fileIndex;
 
     for (size_t i = 0; i < files.size(); ++i) // ATTENTION: assumes current file is not included
-        fileIndex[boost::to_lower_copy<std::string>(files[i])] = i;
+        fileIndex[Misc::StringUtils::lowerCase(files[i])] = i;
 
     mCtx.parentFileIndices.resize(mHeader.mMaster.size());
     for (unsigned int i = 0; i < mHeader.mMaster.size(); ++i)
     {
         // locate the position of the dependency in already loaded files
         std::unordered_map<std::string, size_t>::const_iterator it
-            = fileIndex.find(boost::to_lower_copy<std::string>(mHeader.mMaster[i].name));
+            = fileIndex.find(Misc::StringUtils::lowerCase(mHeader.mMaster[i].name));
 
         if (it != fileIndex.end())
             mCtx.parentFileIndices[i] = (std::uint32_t)((it->second << 24) & 0xff000000);

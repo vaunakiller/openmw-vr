@@ -18,6 +18,7 @@
 #include "chunkmanager.hpp"
 #include "compositemaprenderer.hpp"
 #include "terraindrawable.hpp"
+#include "heightcull.hpp"
 
 namespace
 {
@@ -287,7 +288,7 @@ QuadTreeWorld::QuadTreeWorld(osg::Group *parent, osg::Group *compileRoot, Resour
 
     if (mDebugTerrainChunks)
     {
-        mDebugChunkManager = std::unique_ptr<DebugChunkManager>(new DebugChunkManager(mResourceSystem->getSceneManager(), mStorage, borderMask));
+        mDebugChunkManager = std::make_unique<DebugChunkManager>(mResourceSystem->getSceneManager(), mStorage, borderMask);
         addChunkManager(mDebugChunkManager.get());
     }
 }

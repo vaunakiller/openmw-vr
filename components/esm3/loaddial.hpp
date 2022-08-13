@@ -5,6 +5,7 @@
 #include <list>
 #include <map>
 
+#include "components/esm/defs.hpp"
 #include "loadinfo.hpp"
 
 namespace ESM
@@ -20,7 +21,7 @@ class ESMWriter;
 
 struct Dialogue
 {
-    static unsigned int sRecordId;
+    constexpr static RecNameInts sRecordId = REC_DIAL;
     /// Return a string descriptor for this record type. Currently used for debugging / error logs only.
     static std::string_view getRecordType() { return "Dialogue"; }
 
@@ -61,7 +62,7 @@ struct Dialogue
 
     /// Read the next info record
     /// @param merge Merge with existing list, or just push each record to the end of the list?
-    void readInfo (ESM::ESMReader& esm, bool merge);
+    void readInfo (ESMReader& esm, bool merge);
 
     void blank();
     ///< Set record to default state (does not touch the ID and does not change the type).

@@ -50,7 +50,7 @@ if(NOT OPENMW_USE_SYSTEM_BULLET)
     include(FetchContent)
     FetchContent_Declare(bullet
         URL https://github.com/bulletphysics/bullet3/archive/refs/tags/3.17.tar.gz
-        URL_HASH MD5=7711bce9a49c289a08ecda34eaa0f32e
+        URL_HASH SHA512=a5105bf5f1dd365a64a350755c7d2c97942f74897a18dcdb3651e6732fd55cc1030a096f5808cf50575281f05e3ac09aa50a48d271a47b94cd61f5167a72b7cc
         SOURCE_DIR fetched/bullet
     )
     FetchContent_MakeAvailableExcludeFromAll(bullet)
@@ -85,7 +85,7 @@ if(NOT OPENMW_USE_SYSTEM_MYGUI)
     include(FetchContent)
     FetchContent_Declare(mygui
         URL https://github.com/MyGUI/mygui/archive/59c1388b942721887d18743ada15f1906ff11a1f.zip
-        URL_HASH MD5=0a64c9cccc8f96dc8c08172175e68e1c
+        URL_HASH SHA512=56b112b261fdc4c9b782de8ef8a9d239af3a75b8cfaa617daecc77c38ecd6521624cf5c17e6ac839b0870be5c31608d4f2a1574165d9d049f14f9e6ae03a8f98
         SOURCE_DIR fetched/mygui
     )
     FetchContent_MakeAvailableExcludeFromAll(mygui)
@@ -151,7 +151,7 @@ if(NOT OPENMW_USE_SYSTEM_OSG)
     include(FetchContent)
     FetchContent_Declare(osg
         URL https://github.com/OpenMW/osg/archive/01cc2b585c8456a4ff843066b7e1a8715558289f.zip
-        URL_HASH MD5=f1496c5ce32f733581e84568cf2712af
+        URL_HASH SHA512=9b0a94c1c1d99c767f1857629d43c7a53bfcb74ef760993a121567831e168a1ebbfc10b0c67d7f2241c7b6c6dab2d0e6b876d9f17aca0fabe1a8c86b2279f956
         SOURCE_DIR fetched/osg
     )
     FetchContent_MakeAvailableExcludeFromAll(osg)
@@ -183,7 +183,7 @@ if(NOT OPENMW_USE_SYSTEM_RECASTNAVIGATION)
     include(FetchContent)
     FetchContent_Declare(recastnavigation
         URL https://github.com/recastnavigation/recastnavigation/archive/e75adf86f91eb3082220085e42dda62679f9a3ea.zip
-        URL_HASH MD5=af905d121ef9d1cdfa979b0495cba059
+        URL_HASH SHA512=93a19490cdfa55e98a6af9cc050e94af88fdb95fae2059ceeff28b62f3b48515f5fdd2c806c910550933b6861a4f6a91173ee0ed1b61c1396f7b34d4c78f0793
         SOURCE_DIR fetched/recastnavigation
     )
     FetchContent_MakeAvailableExcludeFromAll(recastnavigation)
@@ -193,7 +193,7 @@ if (NOT OPENMW_USE_SYSTEM_SQLITE3)
     include(FetchContent)
     FetchContent_Declare(sqlite3
         URL https://www.sqlite.org/2021/sqlite-amalgamation-3360000.zip
-        URL_HASH MD5=c5d360c74111bafae1b704721ff18fe6
+        URL_HASH SHA512=5c18f158a599b1e91d95c91de3aa5c5de52f986845ad0cb49dfd56b650587e55e24d469571b5b864229b870d0eaf85d78893f61ef950b95389cb41692be37f58
         SOURCE_DIR fetched/sqlite3
     )
     FetchContent_MakeAvailableExcludeFromAll(sqlite3)
@@ -221,10 +221,103 @@ if (BUILD_BENCHMARKS AND NOT OPENMW_USE_SYSTEM_BENCHMARK)
     include(FetchContent)
     FetchContent_Declare(benchmark
         URL https://github.com/google/benchmark/archive/refs/tags/v1.5.2.zip
-        URL_HASH MD5=49395b757a7c4656d70f1328d93efd00
+        URL_HASH SHA512=1146deca3b424703800933012ef75805d4657309d58b3484498bb51a99025bd405a69855a75af59c23fc3684bfa027224513999b8d7beaab3320c96fb6d6c540
         SOURCE_DIR fetched/benchmark
     )
     FetchContent_MakeAvailableExcludeFromAll(benchmark)
+endif()
+
+if (NOT OPENMW_USE_SYSTEM_YAML_CPP)
+    if(YAML_CPP_STATIC)
+        set(YAML_BUILD_SHARED_LIBS OFF)
+    else()
+        set(YAML_BUILD_SHARED_LIBS ON)
+    endif()
+
+    include(FetchContent)
+    FetchContent_Declare(yaml-cpp
+        URL https://github.com/jbeder/yaml-cpp/archive/refs/tags/yaml-cpp-0.7.0.zip
+        URL_HASH MD5=1e8ca0d6ccf99f3ed9506c1f6937d0ec
+        SOURCE_DIR fetched/yaml-cpp
+    )
+    FetchContent_MakeAvailableExcludeFromAll(yaml-cpp)
+
+    if (CMAKE_VERSION VERSION_GREATER_EQUAL 3.16 AND MSVC)
+        target_precompile_headers(yaml-cpp PRIVATE <algorithm>)
+    endif()
+endif()
+
+if (NOT OPENMW_USE_SYSTEM_ICU)
+    set(ICU_ENV "ICU_DATA_FILTER_FILE=${CMAKE_CURRENT_SOURCE_DIR}/icufilters.json")
+    if (ANDROID)
+        # Note: Must be a build directory, not an install root, since the configure script
+        # looks for a configuration file which does not get installed.
+        set(OPENMW_ICU_HOST_BUILD_DIR "" CACHE STRING "A pre-built ICU build directory for the host system if cross-compiling")
+        if (OPENMW_ICU_HOST_BUILD_DIR STREQUAL "")
+            message(FATAL_ERROR "If cross-compiling on android you must set the \
+            OPENMW_ICU_HOST_BUILD_DIR to the path of a pre-compiled build of \
+            ICU 70.1 for the system doing the build, as ICU needs to be able \
+            to run its own executables as part of the build process.")
+        endif()
+        # We need a host version of ICU so that the tools can be run when building the data library.
+        set(NDK_STANDARD_ROOT ${CMAKE_ANDROID_NDK}/toolchains/llvm/prebuilt/linux-x86_64)
+        string(REPLACE "android-" "" ANDROIDVER ${ANDROID_PLATFORM})
+        # Wants a triple such as aarch64-linux-android, excluding a trailing
+        # -clang etc.
+        string(REGEX MATCH "^[^-]\+-[^-]+-[^-]+" ICU_TOOLCHAIN_NAME ${ANDROID_TOOLCHAIN_NAME})
+        set(ICU_ENV
+            ${ICU_ENV}
+            "CC=${CMAKE_C_COMPILER_LAUNCHER} ${NDK_STANDARD_ROOT}/bin/${ICU_TOOLCHAIN_NAME}${ANDROIDVER}-clang"
+            "CXX=${CMAKE_CXX_COMPILER_LAUNCHER} ${NDK_STANDARD_ROOT}/bin/${ICU_TOOLCHAIN_NAME}${ANDROIDVER}-clang"
+            "RANLIB=${NDK_STANDARD_ROOT}/bin/${ICU_TOOLCHAIN_NAME}-ranlib"
+            "AR=${NDK_STANDARD_ROOT}/bin/${ICU_TOOLCHAIN_NAME}-ar"
+            "CPPFLAGS=${ANDROID_COMPILER_FLAGS}"
+            "LDFLAGS=${ANDROID_LINKER_FLAGS} -lc -lstdc++"
+            )
+        set(ICU_ADDITIONAL_OPTS --disable-tools --host=${ICU_TOOLCHAIN_NAME}${ANDROIDVER} --with-cross-build=${OPENMW_ICU_HOST_BUILD_DIR})
+    endif()
+    include(ExternalProject)
+    ExternalProject_Add(icu
+        URL https://github.com/unicode-org/icu/archive/refs/tags/release-70-1.zip
+        URL_HASH MD5=49d5e2e5bab93ae1a4b56e916150544c
+        SOURCE_DIR fetched/icu
+        CONFIGURE_COMMAND ${CMAKE_COMMAND} -E env ${ICU_ENV}
+            <SOURCE_DIR>/icu4c/source/configure --enable-static --disable-shared
+            --disable-tests --disable-samples --disable-icuio --disable-extras ${ICU_ADDITIONAL_OPTS}
+        BUILD_COMMAND make
+        INSTALL_COMMAND ""
+    )
+    ExternalProject_Get_Property(icu SOURCE_DIR BINARY_DIR)
+    set(ICU_INCLUDE_DIRS
+        ${SOURCE_DIR}/icu4c/source/common
+        ${SOURCE_DIR}/icu4c/source/i18n
+        PARENT_SCOPE
+    )
+    foreach(ICULIB data uc i18n)
+        add_library(ICU::${ICULIB} STATIC IMPORTED GLOBAL)
+        set_target_properties(ICU::${ICULIB} PROPERTIES IMPORTED_LOCATION
+            ${BINARY_DIR}/lib/${CMAKE_STATIC_LIBRARY_PREFIX}icu${ICULIB}${CMAKE_STATIC_LIBRARY_SUFFIX})
+        add_dependencies(ICU::${ICULIB} icu)
+    endforeach()
+    set(ICU_LIBRARIES ICU::i18n ICU::uc ICU::data PARENT_SCOPE)
+endif()
+
+if (BUILD_UNITTESTS AND NOT OPENMW_USE_SYSTEM_GOOGLETEST)
+    cmake_minimum_required(VERSION 3.11)
+
+    include(FetchContent)
+    FetchContent_Declare(googletest
+        URL https://github.com/google/googletest/archive/refs/tags/release-1.12.1.zip
+        URL_HASH SHA512=1479ea2f3172c622c0ca305f5b2bc45a42941221ec0ac7865e6d6d020ec4d008d952fc64e01a4c5138d7bed4148cf75596f25bb9e9044a98bbbf5662053ea11c
+        SOURCE_DIR fetched/googletest
+    )
+    if (MSVC)
+        set(gtest_force_shared_crt ON CACHE BOOL "" FORCE)
+    endif()
+    FetchContent_MakeAvailableExcludeFromAll(googletest)
+
+    add_library(GTest::GTest ALIAS gtest)
+    add_library(GMock::GMock ALIAS gmock)
 endif()
 
 # Note: This must be placed after OpenSceneGraph to avoid a target name collision on "uninstall", 

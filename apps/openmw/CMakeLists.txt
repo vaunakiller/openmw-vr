@@ -21,8 +21,9 @@ source_group(game FILES ${GAME} ${GAME_HEADER})
 add_openmw_dir (mwrender
     actors objects renderingmanager animation rotatecontroller sky skyutil npcanimation vismask
     creatureanimation effectmanager util renderinginterface pathgrid rendermode weaponanimation screenshotmanager
-    bulletdebugdraw globalmap characterpreview camera viewovershoulder localmap water terrainstorage ripplesimulation
-    renderbin actoranimation landmanager navmesh actorspaths recastmesh fogmanager objectpaging groundcover postprocessor
+    bulletdebugdraw globalmap characterpreview camera localmap water terrainstorage ripplesimulation
+    renderbin actoranimation landmanager navmesh actorspaths recastmesh fogmanager objectpaging groundcover
+    postprocessor pingpongcull luminancecalculator pingpongcanvas transparentpass navmeshmode
     )
 
 add_openmw_dir (mwinput
@@ -43,6 +44,7 @@ add_openmw_dir (mwgui
     tradeitemmodel companionitemmodel pickpocketitemmodel controllers savegamedialog
     recharge mode videowidget backgroundimage itemwidget screenfader debugwindow spellmodel spellview
     draganddrop timeadvancer jailscreen itemchargeview keyboardnavigation textcolours statswatcher
+    postprocessorhud
     )
 
 add_openmw_dir (mwdialogue
@@ -57,9 +59,10 @@ add_openmw_dir (mwscript
     )
 
 add_openmw_dir (mwlua
-    luamanagerimp actions object worldview userdataserializer eventqueue query
-    luabindings localscripts playerscripts objectbindings cellbindings asyncbindings settingsbindings
-    camerabindings uibindings inputbindings nearbybindings
+    luamanagerimp object worldview userdataserializer eventqueue
+    luabindings localscripts playerscripts objectbindings cellbindings asyncbindings
+    camerabindings uibindings inputbindings nearbybindings postprocessingbindings stats debugbindings
+    types/types types/door types/actor types/container types/weapon types/npc types/creature types/activator types/book types/lockpick types/probe types/apparatus types/potion types/ingredient types/misc types/repair
     )
 
 add_openmw_dir (mwsound
@@ -92,7 +95,7 @@ add_openmw_dir (mwmechanics
     mechanicsmanagerimp stat creaturestats magiceffects movement actorutil spelllist
     drawstate spells activespells npcstats aipackage aisequence aipursue alchemy aiwander aitravel aifollow aiavoiddoor aibreathe
     aicast aiescort aiface aiactivate aicombat recharge repair enchanting pathfinding pathgrid security spellcasting spellresistance
-    disease pickpocket levelledlist combat steering obstacle autocalcspell difficultyscaling aicombataction actor summoning
+    disease pickpocket levelledlist combat steering obstacle autocalcspell difficultyscaling aicombataction summoning
     character actors objects aistate trading weaponpriority spellpriority weapontype spellutil
     spelleffects
     )
@@ -122,7 +125,6 @@ set(OPENMW_LINK_TARGETS
     ${OSG_LIBRARIES}
 
     ${Boost_SYSTEM_LIBRARY}
-    ${Boost_THREAD_LIBRARY}
     ${Boost_FILESYSTEM_LIBRARY}
     ${Boost_PROGRAM_OPTIONS_LIBRARY}
     ${OPENAL_LIBRARY}
@@ -135,6 +137,32 @@ set(OPENMW_LINK_TARGETS
     components
 )
 
+if (CMAKE_VERSION VERSION_GREATER_EQUAL 3.16 AND MSVC)
+    target_precompile_headers(openmw PRIVATE
+        <boost/filesystem.hpp>
+        <boost/program_options/options_description.hpp>
+
+        <sol/sol.hpp>
+
+        <osg/StateSet>
+        <osg/Node>
+        <osg/Drawable>
+        <osg/Camera>
+
+        <osgViewer/Viewer>
+
+        <MyGUI_Widget.h>
+
+        <algorithm>
+        <filesystem>
+        <fstream>
+        <functional>
+        <memory>
+        <string>
+        <string_view>
+        <vector>
+    )
+endif()
 if (USE_SYSTEM_TINYXML)
     set(OPENMW_LINK_TARGETS ${OPENMW_LINK_TARGETS}
         ${TinyXML_LIBRARIES})

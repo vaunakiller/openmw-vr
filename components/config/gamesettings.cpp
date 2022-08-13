@@ -7,7 +7,9 @@
 
 #include <components/files/configurationmanager.hpp>
 
+const char Config::GameSettings::sArchiveKey[] = "fallback-archive";
 const char Config::GameSettings::sContentKey[] = "content";
+const char Config::GameSettings::sDirectoryKey[] = "data";
 
 Config::GameSettings::GameSettings(Files::ConfigurationManager &cfg)
     : mCfgMgr(cfg)
@@ -26,7 +28,7 @@ void Config::GameSettings::validatePaths()
     }
 
     // Parse the data dirs to convert the tokenized paths
-    mCfgMgr.processPaths(dataDirs);
+    mCfgMgr.processPaths(dataDirs, /*basePath=*/"");
     mDataDirs.clear();
 
     for (auto & dataDir : dataDirs) {
@@ -52,7 +54,7 @@ void Config::GameSettings::validatePaths()
     QByteArray bytes = local.toUtf8();
     dataDirs.push_back(Files::PathContainer::value_type(std::string(bytes.constData(), bytes.length())));
 
-    mCfgMgr.processPaths(dataDirs);
+    mCfgMgr.processPaths(dataDirs, /*basePath=*/"");
 
     if (!dataDirs.empty()) {
         QString path = QString::fromUtf8(dataDirs.front().string().c_str());
@@ -63,6 +65,14 @@ void Config::GameSettings::validatePaths()
     }
 }
 
+std::string Config::GameSettings::getGlobalDataDir() const
+{
+    // global data dir may not exists if OpenMW is not installed (ie if run from build directory)
+    if (boost::filesystem::exists(mCfgMgr.getGlobalDataPath()))
+        return boost::filesystem::canonical(mCfgMgr.getGlobalDataPath()).string();
+    return {};
+}
+
 QStringList Config::GameSettings::values(const QString &key, const QStringList &defaultValues) const
 {
     if (!mSettings.values(key).isEmpty())
@@ -70,17 +80,17 @@ QStringList Config::GameSettings::values(const QString &key, const QStringList &
     return defaultValues;
 }
 
-bool Config::GameSettings::readFile(QTextStream &stream)
+bool Config::GameSettings::readFile(QTextStream &stream, bool ignoreContent)
 {
-    return readFile(stream, mSettings);
+    return readFile(stream, mSettings, ignoreContent);
 }
 
-bool Config::GameSettings::readUserFile(QTextStream &stream)
+bool Config::GameSettings::readUserFile(QTextStream &stream, bool ignoreContent)
 {
-    return readFile(stream, mUserSettings);
+    return readFile(stream, mUserSettings, ignoreContent);
 }
 
-bool Config::GameSettings::readFile(QTextStream &stream, QMultiMap<QString, QString> &settings)
+bool Config::GameSettings::readFile(QTextStream &stream, QMultiMap<QString, QString> &settings, bool ignoreContent)
 {
     QMultiMap<QString, QString> cache;
     QRegExp keyRe("^([^=]+)\\s*=\\s*(.+)$");
@@ -129,6 +139,8 @@ bool Config::GameSettings::readFile(QTextStream &stream, QMultiMap<QString, QStr
                     }
                 }
             }
+            else if(ignoreContent && key == QLatin1String("content"))
+                continue;
 
             QStringList values = cache.values(key);
             values.append(settings.values(key));
@@ -475,13 +487,29 @@ bool Config::GameSettings::hasMaster()
     return result;
 }
 
-void Config::GameSettings::setContentList(const QStringList& fileNames)
+void Config::GameSettings::setContentList(const QStringList& dirNames, const QStringList& archiveNames, const QStringList& fileNames)
 {
-    remove(sContentKey);
-    for (const QString& fileName : fileNames)
+    auto const reset = [this](const char* key, const QStringList& list)
     {
-        setMultiValue(sContentKey, fileName);
-    }
+        remove(key);
+        for (auto const& item : list)
+            setMultiValue(key, item);
+    };
+
+    reset(sDirectoryKey, dirNames);
+    reset(sArchiveKey, archiveNames);
+    reset(sContentKey, fileNames);
+}
+
+QStringList Config::GameSettings::getDataDirs() const
+{
+    return Config::LauncherSettings::reverse(mDataDirs);
+}
+
+QStringList Config::GameSettings::getArchiveList() const
+{
+    // QMap returns multiple rows in LIFO order, so need to reverse
+    return Config::LauncherSettings::reverse(values(sArchiveKey));
 }
 
 QStringList Config::GameSettings::getContentList() const

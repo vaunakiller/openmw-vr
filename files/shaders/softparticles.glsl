@@ -1,8 +1,7 @@
 uniform float near;
-uniform float far;
 uniform sampler2D opaqueDepthTex;
-uniform vec2 screenRes;
 uniform float particleSize;
+uniform bool particleFade;
 
 float viewDepth(float depth)
 {
@@ -12,21 +11,30 @@ float viewDepth(float depth)
     return (near * far) / ((far - near) * depth - far);
 }
 
-float calcSoftParticleFade()
+float calcSoftParticleFade(in vec3 viewDir, in vec3 viewNormal, in vec3 viewPos)
 {
+    float euclidianDepth = length(viewPos);
+
     const float falloffMultiplier = 0.33;
     const float contrast = 1.30;
 
     vec2 screenCoords = gl_FragCoord.xy / screenRes;
-    float sceneDepth = viewDepth(texture2D(opaqueDepthTex, screenCoords).x);
-    float particleDepth = viewDepth(gl_FragCoord.z);
+
+    float depth = texture2D(opaqueDepthTex, screenCoords).x;
+
+    float sceneDepth = viewDepth(depth);
+    float particleDepth = passViewPos.z;
     float falloff = particleSize * falloffMultiplier;
     float delta = particleDepth - sceneDepth;
 
-    if (delta < 0.0)
-        discard;
+    const float nearMult = 300.0;
+    float viewBias = 1.0;
+
+    if (particleFade) {
+        float VdotN = dot(viewDir, viewNormal);
+        viewBias = abs(VdotN) * quickstep(euclidianDepth / nearMult) * (1.0 - pow(1.0 + VdotN, 1.3));
+    }
 
     const float shift = 0.845;
-
-    return shift * pow(clamp(delta/falloff, 0.0, 1.0), contrast);
+    return shift * pow(clamp(delta/falloff, 0.0, 1.0), contrast) * viewBias;
 }

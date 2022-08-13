@@ -5,17 +5,6 @@
 namespace ESSImport
 {
 
-    void REFR::load(ESM::ESMReader &esm)
-    {
-        esm.getHNT(mRefNum.mIndex, "FRMR");
-
-        mRefID = esm.getHNString("NAME");
-
-        mActorData.load(esm);
-
-        esm.getHNOT(mPos, "DATA", 24);
-    }
-
     void PCDT::load(ESM::ESMReader &esm)
     {
         while (esm.isNextSub("DNAM"))

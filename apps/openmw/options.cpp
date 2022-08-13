@@ -16,18 +16,16 @@ namespace OpenMW
     bpo::options_description makeOptionsDescription()
     {
         bpo::options_description desc("Syntax: openmw <options>\nAllowed options");
+        Files::ConfigurationManager::addCommonOptions(desc);
 
         desc.add_options()
             ("help", "print help message")
             ("version", "print version information and quit")
 
-            ("replace", bpo::value<StringsVector>()->default_value(StringsVector(), "")
-                ->multitoken()->composing(), "settings where the values from the current source should replace those from lower-priority sources instead of being appended")
-
             ("data", bpo::value<Files::MaybeQuotedPathContainer>()->default_value(Files::MaybeQuotedPathContainer(), "data")
                 ->multitoken()->composing(), "set data directories (later directories have higher priority)")
 
-            ("data-local", bpo::value<Files::MaybeQuotedPathContainer::value_type>()->default_value(Files::MaybeQuotedPathContainer::value_type(), ""),
+            ("data-local", bpo::value<Files::MaybeQuotedPath>()->default_value(Files::MaybeQuotedPath(), ""),
                 "set local data directory (highest priority)")
 
             ("fallback-archive", bpo::value<StringsVector>()->default_value(StringsVector(), "fallback-archive")

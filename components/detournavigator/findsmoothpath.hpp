@@ -1,12 +1,10 @@
 #ifndef OPENMW_COMPONENTS_DETOURNAVIGATOR_FINDSMOOTHPATH_H
 #define OPENMW_COMPONENTS_DETOURNAVIGATOR_FINDSMOOTHPATH_H
 
-#include "dtstatus.hpp"
 #include "exceptions.hpp"
 #include "flags.hpp"
 #include "settings.hpp"
 #include "settingsutils.hpp"
-#include "debug.hpp"
 #include "status.hpp"
 #include "areatype.hpp"
 
@@ -258,7 +256,7 @@ namespace DetourNavigator
     template <class OutputIterator>
     Status findSmoothPath(const dtNavMesh& navMesh, const osg::Vec3f& halfExtents, const float stepSize,
             const osg::Vec3f& start, const osg::Vec3f& end, const Flags includeFlags, const AreaCosts& areaCosts,
-            const Settings& settings, float endTolerance, OutputIterator& out)
+            const Settings& settings, float endTolerance, OutputIterator out)
     {
         dtNavMeshQuery navMeshQuery;
         if (!initNavMeshQuery(navMeshQuery, navMesh, settings.mDetour.mMaxNavMeshQueryNodes))

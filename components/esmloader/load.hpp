@@ -16,9 +16,16 @@ namespace Files
     class Collections;
 }
 
+namespace Loading
+{
+    class Listener;
+}
+
 namespace EsmLoader
 {
     struct EsmData;
+
+    inline constexpr std::size_t fileProgress = 1000;
 
     struct Query
     {
@@ -32,8 +39,8 @@ namespace EsmLoader
     };
 
     EsmData loadEsmData(const Query& query, const std::vector<std::string>& contentFiles,
-        const Files::Collections& fileCollections, std::vector<ESM::ESMReader>& readers,
-        ToUTF8::Utf8Encoder* encoder);
+        const Files::Collections& fileCollections, ESM::ReadersCache& readers,
+        ToUTF8::Utf8Encoder* encoder, Loading::Listener* listener = nullptr);
 }
 
 #endif

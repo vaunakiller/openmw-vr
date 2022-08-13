@@ -28,6 +28,7 @@
 #include "../mwworld/actionequip.hpp"
 
 #include "../mwmechanics/npcstats.hpp"
+#include "../mwmechanics/actorutil.hpp"
 
 #include "itemview.hpp"
 #include "inventoryitemmodel.hpp"
@@ -67,11 +68,11 @@ namespace MWGui
         , mGuiMode(GM_Inventory)
         , mLastXSize(0)
         , mLastYSize(0)
-        , mPreview(new MWRender::InventoryPreview(parent, resourceSystem, MWMechanics::getPlayer()))
+        , mPreview(std::make_unique<MWRender::InventoryPreview>(parent, resourceSystem, MWMechanics::getPlayer()))
         , mTrading(false)
         , mUpdateTimer(0.f)
     {
-        mPreviewTexture.reset(new osgMyGUI::OSGTexture(mPreview->getTexture(), mPreview->getTextureStateSet()));
+        mPreviewTexture = std::make_unique<osgMyGUI::OSGTexture>(mPreview->getTexture(), mPreview->getTextureStateSet());
         mPreview->rebuild();
 
         mMainWidget->castType<MyGUI::Window>()->eventWindowChangeCoord += MyGUI::newDelegate(this, &InventoryWindow::onWindowResize);
@@ -565,7 +566,7 @@ namespace MWGui
                 ptr.getRefData().getLocals().setVarByInt(script, "pcskipequip", 1);
         }
 
-        std::shared_ptr<MWWorld::Action> action = ptr.getClass().use(ptr, force);
+        std::unique_ptr<MWWorld::Action> action = ptr.getClass().use(ptr, force);
         action->execute(player);
 
         if (isVisible())

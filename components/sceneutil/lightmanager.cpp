@@ -18,11 +18,16 @@
 
 #include <components/misc/hash.hpp>
 #include <components/misc/stringops.hpp>
+#include <components/misc/constants.hpp>
 
 #include <components/debug/debuglog.hpp>
 
 namespace
 {
+    constexpr int maxLightsLowerLimit = 2;
+    constexpr int maxLightsUpperLimit = 64;
+    constexpr int ffpMaxLights = 8;
+
     bool sortLights(const SceneUtil::LightManager::LightSourceViewBound* left, const SceneUtil::LightManager::LightSourceViewBound* right)
     {
         static auto constexpr illuminationBias = 81.f;
@@ -69,6 +74,15 @@ namespace
 
 namespace SceneUtil
 {
+    namespace
+    {
+        const std::unordered_map<std::string, LightingMethod> lightingMethodSettingMap = {
+            {"legacy", LightingMethod::FFP},
+            {"shaders compatibility", LightingMethod::PerObjectUniform},
+            {"shaders", LightingMethod::SingleUBO},
+        };
+    }
+
     static int sLightId = 0;
 
     // Handles a GLSL shared layout by using configured offsets and strides to fill a continuous buffer, making the data upload to GPU simpler.
@@ -634,6 +648,9 @@ namespace SceneUtil
             cv->pushStateSet(stateset);
             traverse(node, cv);
             cv->popStateSet();
+
+            if (node->getPPLightsBuffer() && cv->getCurrentCamera()->getName() == Constants::SceneCamera)
+                node->getPPLightsBuffer()->updateCount(cv->getTraversalNumber());
         }
     };
 
@@ -752,16 +769,10 @@ namespace SceneUtil
         mTemplate->configureLayout(offsets[0], offsets[1], offsets[2], totalBlockSize, stride);
     }
 
-    const std::unordered_map<std::string, LightingMethod> LightManager::mLightingMethodSettingMap = {
-         {"legacy", LightingMethod::FFP}
-        ,{"shaders compatibility", LightingMethod::PerObjectUniform}
-        ,{"shaders", LightingMethod::SingleUBO}
-    };
-
     LightingMethod LightManager::getLightingMethodFromString(const std::string& value)
     {
-        auto it = LightManager::mLightingMethodSettingMap.find(value);
-        if (it != LightManager::mLightingMethodSettingMap.end())
+        auto it = lightingMethodSettingMap.find(value);
+        if (it != lightingMethodSettingMap.end())
             return it->second;
 
         constexpr const char* fallback = "shaders compatibility";
@@ -771,7 +782,7 @@ namespace SceneUtil
 
     std::string LightManager::getLightingMethodString(LightingMethod method)
     {
-        for (const auto& p : LightManager::mLightingMethodSettingMap)
+        for (const auto& p : lightingMethodSettingMap)
             if (p.second == method)
                 return p.first;
         return "";
@@ -797,7 +808,7 @@ namespace SceneUtil
 
         if (ffp)
         {
-            initFFP(mFFPMaxLights);
+            initFFP(ffpMaxLights);
             return;
         }
 
@@ -815,7 +826,8 @@ namespace SceneUtil
             hasLoggedWarnings = true;
         }
 
-        int targetLights = std::clamp(Settings::Manager::getInt("max lights", "Shaders"), mMaxLightsLowerLimit, mMaxLightsUpperLimit);
+        const int targetLights = std::clamp(Settings::Manager::getInt("max lights", "Shaders"),
+                                            maxLightsLowerLimit, maxLightsUpperLimit);
 
         if (!supportsUBO || !supportsGPU4 || lightingMethod == LightingMethod::PerObjectUniform)
             initPerObjectUniform(targetLights);
@@ -839,6 +851,7 @@ namespace SceneUtil
         , mPointLightFadeEnd(copy.mPointLightFadeEnd)
         , mPointLightFadeStart(copy.mPointLightFadeStart)
         , mMaxLights(copy.mMaxLights)
+        , mPPLightBuffer(copy.mPPLightBuffer)
     {
     }
 
@@ -897,7 +910,7 @@ namespace SceneUtil
         if (usingFFP())
             return;
 
-        setMaxLights(std::clamp(Settings::Manager::getInt("max lights", "Shaders"), mMaxLightsLowerLimit, mMaxLightsUpperLimit));
+        setMaxLights(std::clamp(Settings::Manager::getInt("max lights", "Shaders"), maxLightsLowerLimit, maxLightsUpperLimit));
 
         if (getLightingMethod() == LightingMethod::PerObjectUniform)
         {
@@ -1001,6 +1014,9 @@ namespace SceneUtil
 
     void LightManager::update(size_t frameNum)
     {
+        if (mPPLightBuffer)
+            mPPLightBuffer->clear(frameNum);
+
         getLightIndexMap(frameNum).clear();
         mLights.clear();
         mLightsInViewSpace.clear();
@@ -1133,17 +1149,31 @@ namespace SceneUtil
                 l.mViewBound = viewBound;
                 it->second.push_back(l);
             }
-        }
 
-        if (getLightingMethod() == LightingMethod::SingleUBO)
-        {
-            if (it->second.size() > static_cast<size_t>(getMaxLightsInScene() - 1))
+            const bool fillPPLights = mPPLightBuffer && it->first->getName() == Constants::SceneCamera;
+
+            if (fillPPLights || getLightingMethod() == LightingMethod::SingleUBO)
             {
                 auto sorter = [] (const LightSourceViewBound& left, const LightSourceViewBound& right) {
                     return left.mViewBound.center().length2() - left.mViewBound.radius2() < right.mViewBound.center().length2() - right.mViewBound.radius2();
                 };
-                std::sort(it->second.begin() + 1, it->second.end(), sorter);
-                it->second.erase((it->second.begin() + 1) + (getMaxLightsInScene() - 2), it->second.end());
+
+                std::sort(it->second.begin(), it->second.end(), sorter);
+
+                if (fillPPLights)
+                {
+                    for (const auto& bound : it->second)
+                    {
+                        if (bound.mLightSource->getEmpty())
+                            continue;
+                        const auto* light = bound.mLightSource->getLight(frameNum);
+                        if (light->getDiffuse().x() >= 0.f)
+                            mPPLightBuffer->setLight(frameNum, light, bound.mLightSource->getRadius());
+                    }
+                }
+
+                if (it->second.size() > static_cast<size_t>(getMaxLightsInScene() - 1))
+                    it->second.resize(getMaxLightsInScene() - 1);
             }
         }
 
@@ -1166,6 +1196,14 @@ namespace SceneUtil
         uniform->setElement(0, sun);
 
         return uniform;
+    }
+
+    void LightManager::setCollectPPLights(bool enabled)
+    {
+        if (enabled)
+            mPPLightBuffer = std::make_shared<PPLightBuffer>();
+        else
+            mPPLightBuffer = nullptr;
     }
 
     LightSource::LightSource()

@@ -16,7 +16,7 @@ namespace SceneUtil
         GLenum colorSourceType();
         GLenum colorInternalFormat();
 
-        class SelectColorFormatOperation : public osg::GraphicsOperation
+        class SelectColorFormatOperation final : public osg::GraphicsOperation
         {
         public:
             SelectColorFormatOperation() : GraphicsOperation("SelectColorFormatOperation", false)
@@ -200,5 +200,8 @@ namespace SceneUtil
 #define GL_RGBA32UI 0x8D70
 #endif
 
+#ifndef GL_RGB9_E5
+#define GL_RGB9_E5 0x8C3D
+#endif
 
 #endif

@@ -43,7 +43,7 @@
            </property>
           </widget>
          </item>
-         <item row="6" column="0">
+         <item row="5" column="1">
           <widget class="QCheckBox" name="avoidCollisionsCheckBox">
            <property name="toolTip">
             <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;If enabled NPCs apply evasion maneuver to avoid collisions with others.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
@@ -143,27 +143,27 @@
            </property>
           </widget>
          </item>
-         <item row="5" column="1">
-          <widget class="QCheckBox" name="stealingFromKnockedOutCheckBox">
-           <property name="toolTip">
-            <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Make stealing items from NPCs that were knocked down possible during combat.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
-           </property>
-           <property name="text">
-            <string>Always allow stealing from knocked out actors</string>
-           </property>
-          </widget>
-         </item>
-         <item row="6" column="1">
-          <widget class="QCheckBox" name="allowNPCToFollowOverWaterSurfaceCheckBox">
-           <property name="toolTip">
-            <string>Give NPC an ability to swim over the water surface when they follow other actor independently from their ability to swim. Has effect only when nav mesh building is enabled.</string>
-           </property>
-           <property name="text">
-            <string>Always allow NPC to follow over water surface</string>
-           </property>
-          </widget>
-         </item>
         </layout>
+       </item>
+       <item>
+        <widget class="QCheckBox" name="stealingFromKnockedOutCheckBox">
+         <property name="toolTip">
+          <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Make stealing items from NPCs that were knocked down possible during combat.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
+         </property>
+         <property name="text">
+          <string>Always allow stealing from knocked out actors</string>
+         </property>
+        </widget>
+       </item>
+       <item>
+        <widget class="QCheckBox" name="allowNPCToFollowOverWaterSurfaceCheckBox">
+         <property name="toolTip">
+          <string>Give NPC an ability to swim over the water surface when they follow other actor independently from their ability to swim. Has effect only when nav mesh building is enabled.</string>
+         </property>
+         <property name="text">
+          <string>Always allow NPC to follow over water surface</string>
+         </property>
+        </widget>
        </item>
        <item>
         <widget class="QCheckBox" name="requireAppropriateAmmunitionCheckBox">
@@ -176,15 +176,25 @@
         </widget>
        </item>
        <item>
-        <layout class="QHBoxLayout" name="horizontalUnarmedStrengthLayout">
-         <item>
+        <widget class="QCheckBox" name="unarmedCreatureAttacksDamageArmorCheckBox">
+         <property name="toolTip">
+          <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Makes unarmed creature attacks able to reduce armor condition, just as attacks from NPCs and armed creatures.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
+         </property>
+         <property name="text">
+          <string>Unarmed creature attacks damage armor</string>
+         </property>
+        </widget>
+       </item>
+       <item>
+        <layout class="QGridLayout" name="gridLayoutGameMechanics2">
+         <item row="0" column="0">
           <widget class="QLabel" name="unarmedFactorsStrengthLabel">
            <property name="text">
             <string>Factor strength into hand-to-hand combat:</string>
            </property>
           </widget>
          </item>
-         <item>
+         <item row="0" column="1">
           <widget class="QComboBox" name="unarmedFactorsStrengthComboBox">
            <property name="currentIndex">
             <number>0</number>
@@ -206,53 +216,55 @@
            </item>
           </widget>
          </item>
-         <item>
-          <spacer name="horizontalSpacer_2">
-           <property name="orientation">
-            <enum>Qt::Horizontal</enum>
-           </property>
-           <property name="sizeHint" stdset="0">
-            <size>
-             <width>40</width>
-             <height>20</height>
-            </size>
-           </property>
-          </spacer>
-         </item>
-        </layout>
-       </item>
-       <item>
-        <layout class="QHBoxLayout" name="horizontalPhysicsThreadsLayout">
-         <item>
+         <item row="1" column="0">
           <widget class="QLabel" name="physicsThreadsLabel">
            <property name="toolTip">
             <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;How many threads will be spawned to compute physics update in the background. A value of 0 means that the update will be performed in the main thread.&lt;/p&gt;&lt;p&gt;A value greater than 1 requires the Bullet library be compiled with multithreading support.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
            </property>
            <property name="text">
-            <string>Background physics threads</string>
+            <string>Background physics threads:</string>
            </property>
           </widget>
          </item>
-         <item>
+         <item row="1" column="1">
           <widget class="QSpinBox" name="physicsThreadsSpinBox"/>
          </item>
-         <item>
-          <spacer name="horizontalSpacer_4">
-           <property name="orientation">
-            <enum>Qt::Horizontal</enum>
+         <item row="2" column="0">
+          <widget class="QLabel" name="labelActorCollisionShapeType">
+           <property name="text">
+            <string>Actor collision shape type:</string>
            </property>
-           <property name="sizeHint" stdset="0">
-            <size>
-             <width>40</width>
-             <height>20</height>
-            </size>
+          </widget>
+         </item>
+         <item row="2" column="1">
+          <widget class="QComboBox" name="actorCollisonShapeTypeComboBox">
+           <property name="toolTip">
+            <string>Collision is used for both physics simulation and navigation mesh generation for pathfinding. Cylinder gives the best consistency bewtween available navigation paths and ability to move by them. Changing this value affects navigation mesh generation therefore navigation mesh disk cache generated for one value will not be useful with another.</string>
            </property>
-          </spacer>
+           <property name="currentText">
+            <string>Axis-aligned bounding box</string>
+           </property>
+           <item>
+            <property name="text">
+             <string>Axis-aligned bounding box</string>
+            </property>
+           </item>
+           <item>
+            <property name="text">
+             <string>Rotating box</string>
+            </property>
+           </item>
+           <item>
+            <property name="text">
+             <string>Cylinder</string>
+            </property>
+           </item>
+          </widget>
          </item>
         </layout>
        </item>
        <item>
-        <spacer name="verticalSpacer_3">
+        <spacer name="verticalSpacerGameMechanics">
          <property name="orientation">
           <enum>Qt::Vertical</enum>
          </property>
@@ -434,17 +446,16 @@
                </widget>
               </item>
               <item row="2" column="1">
-               <widget class="QCheckBox" name="radialFogCheckBox">
-                <property name="toolTip">
-                 <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;By default, the fog becomes thicker proportionally to your distance from the clipping plane set at the clipping distance, which causes distortion at the edges of the screen.
-                  This setting makes the fog use the actual eye point distance (or so called Euclidean distance) to calculate the fog, which makes the fog look less artificial, especially if you have a wide FOV.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
-                </property>
-                <property name="text">
-                 <string>Radial fog</string>
-                </property>
-               </widget>
-              </item>
-              <item row="3" column="0">
+                <widget class="QCheckBox" name="antialiasAlphaTestCheckBox">
+                 <property name="toolTip">
+                  <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Allows MSAA to work with alpha-tested meshes, producing better-looking edges without pixelation. Can negatively impact performance.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
+                 </property>
+                 <property name="text">
+                  <string>Use anti-alias alpha testing</string>
+                 </property>
+                </widget>
+               </item>
+               <item row="3" column="0">
                <widget class="QCheckBox" name="softParticlesCheckBox">
                 <property name="toolTip">
                  <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Enables soft particles for particle effects. This technique softens the intersection between individual particles and other opaque geometry by blending between them.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
@@ -454,17 +465,79 @@
                 </property>
                </widget>
               </item>
-              <item row="3" column="1">
-               <widget class="QCheckBox" name="antialiasAlphaTestCheckBox">
-                <property name="toolTip">
-                 <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Allows MSAA to work with alpha-tested meshes, producing better-looking edges without pixelation. Can negatively impact performance.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
-                </property>
-                <property name="text">
-                 <string>Use anti-alias alpha testing</string>
-                </property>
-               </widget>
-              </item>
              </layout>
+            </widget>
+           </item>
+           <item>
+            <widget class="QGroupBox" name="fogGroup">
+             <property name="title">
+              <string>Fog</string>
+             </property>
+             <layout class="QGridLayout" name="fogLayout">
+                <item row="0" column="0">
+                  <widget class="QCheckBox" name="radialFogCheckBox">
+                  <property name="toolTip">
+                    <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;By default, the fog becomes thicker proportionally to your distance from the clipping plane set at the clipping distance, which causes distortion at the edges of the screen.
+                    This setting makes the fog use the actual eye point distance (or so called Euclidean distance) to calculate the fog, which makes the fog look less artificial, especially if you have a wide FOV.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
+                  </property>
+                  <property name="text">
+                    <string>Radial fog</string>
+                  </property>
+                  </widget>
+                </item>
+                <item row="0" column="1">
+                  <widget class="QCheckBox" name="exponentialFogCheckBox">
+                  <property name="toolTip">
+                    <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Use exponential fog formula. By default, linear fog is used.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
+                  </property>
+                  <property name="text">
+                    <string>Exponential fog</string>
+                  </property>
+                  </widget>
+                </item>
+                <item row="1" column="0">
+                  <widget class="QCheckBox" name="skyBlendingCheckBox">
+                    <property name="toolTip">
+                      <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Reduce visibility of clipping plane by blending objects with the sky.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
+                    </property>
+                    <property name="text">
+                    <string>Sky blending</string>
+                    </property>
+                  </widget>
+                </item>
+                <item row="2" column="0">
+                  <widget class="QLabel" name="skyBlendingStartLabel">
+                    <property name="enabled">
+                      <bool>false</bool>
+                    </property>
+                    <property name="text">
+                      <string>Sky blending start</string>
+                    </property>
+                    <property name="toolTip">
+                      <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;The fraction of the maximum distance at which blending with the sky starts.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
+                    </property>
+                  </widget>
+                </item>
+                <item row="2" column="1">
+                  <widget class="QDoubleSpinBox" name="skyBlendingStartComboBox">
+                    <property name="enabled">
+                      <bool>false</bool>
+                    </property>
+                    <property name="decimals">
+                      <number>3</number>
+                    </property>
+                    <property name="minimum">
+                      <double>0.000000000000000</double>
+                    </property>
+                    <property name="maximum">
+                      <double>1.000000000000000</double>
+                    </property>
+                    <property name="singleStep">
+                      <double>0.005000000000000</double>
+                    </property>
+                  </widget>
+                </item>
+              </layout>
             </widget>
            </item>
            <item>
@@ -572,6 +645,94 @@
                  <string>Day night switch nodes</string>
                 </property>
                </widget>
+              </item>
+             </layout>
+            </widget>
+           </item>
+           <item>
+            <widget class="QGroupBox" name="postprocessGroup">
+             <property name="title">
+              <string>Post Processing</string>
+             </property>
+             <layout class="QGridLayout" name="postprocessLayout">
+              <item row="0" column="0">
+               <widget class="QCheckBox" name="postprocessEnabledCheckBox">
+                <property name="toolTip">
+                  <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;If this setting is true, post processing will be enabled.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
+                </property>
+                <property name="text">
+                 <string>Enable post processing</string>
+                </property>
+               </widget>
+              </item>
+              <item row="1" column="0">
+                <layout class="QVBoxLayout">
+                  <property name="leftMargin">
+                    <number>20</number>
+                  </property>
+                  <item>
+                    <widget class="QCheckBox" name="postprocessLiveReloadCheckBox">
+                      <property name="enabled">
+                        <bool>false</bool>
+                      </property>
+                      <property name="toolTip">
+                        <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Debug Mode. Automatically reload active shaders when they are modified on filesystem.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
+                      </property>
+                      <property name="text">
+                        <string>Live reload</string>
+                      </property>
+                    </widget>
+                  </item>
+                  <item>
+                    <widget class="QCheckBox" name="postprocessTransparentPostpassCheckBox">
+                      <property name="enabled">
+                        <bool>false</bool>
+                      </property>
+                      <property name="toolTip">
+                      <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Re-render transparent objects with forced alpha clipping.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
+                      </property>
+                      <property name="text">
+                        <string>Transparent postpass</string>
+                      </property>
+                    </widget>
+                  </item>
+                  <item row="1" column="0">
+                    <layout class="QHBoxLayout">
+                      <item>
+                        <widget class="QLabel" name="postprocessHDRTimeLabel">
+                          <property name="enabled">
+                            <bool>false</bool>
+                          </property>
+                          <property name="toolTip">
+                            <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Controls how much eye adaptation can change from frame to frame. Smaller values makes for slower transitions.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
+                          </property>
+                          <property name="text">
+                            <string>Auto exposure speed</string>
+                          </property>
+                        </widget>
+                      </item>
+                      <item>
+                        <widget class="QDoubleSpinBox" name="postprocessHDRTimeComboBox">
+                          <property name="enabled">
+                            <bool>false</bool>
+                          </property>
+                          <property name="decimals">
+                            <number>3</number>
+                          </property>
+                          <property name="minimum">
+                            <double>0.010000000000000</double>
+                          </property>
+                          <property name="maximum">
+                            <double>10.000000000000000</double>
+                          </property>
+                          <property name="singleStep">
+                            <double>0.001000000000000</double>
+                          </property>
+                        </widget>
+                      </item>
+                    </layout>
+                  </item>
+                </layout>
               </item>
              </layout>
             </widget>
@@ -723,147 +884,6 @@
           </widget>
          </item>
         </layout>
-       </item>
-       <item>
-        <spacer>
-         <property name="orientation">
-          <enum>Qt::Vertical</enum>
-         </property>
-         <property name="sizeHint" stdset="0">
-          <size>
-           <width>0</width>
-           <height>0</height>
-          </size>
-         </property>
-        </spacer>
-       </item>
-      </layout>
-     </widget>
-     <widget class="QWidget" name="cameraSettings">
-      <attribute name="title">
-       <string>Camera</string>
-      </attribute>
-      <layout class="QVBoxLayout">
-       <item>
-        <widget class="QCheckBox" name="viewOverShoulderCheckBox">
-         <property name="toolTip">
-          <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;This setting controls third person view mode.&lt;/p&gt;&lt;p&gt;False: View is centered on the character's head. Crosshair is hidden.
-True: In non-combat mode camera is positioned behind the character's shoulder. Crosshair is visible in third person mode as well.
-&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
-         </property>
-         <property name="text">
-          <string>View over the shoulder</string>
-         </property>
-        </widget>
-       </item>
-       <item>
-        <widget class="QCheckBox" name="autoSwitchShoulderCheckBox">
-         <property name="toolTip">
-          <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;When player is close to an obstacle, automatically switches camera to the shoulder that is farther away from the obstacle.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
-         </property>
-         <property name="text">
-          <string>Auto switch shoulder</string>
-         </property>
-        </widget>
-       </item>
-       <item>
-        <layout class="QVBoxLayout" name="viewOverShoulderVerticalLayout">
-         <property name="leftMargin">
-          <number>20</number>
-         </property>
-         <property name="topMargin">
-          <number>0</number>
-         </property>
-         <property name="rightMargin">
-          <number>0</number>
-         </property>
-         <property name="bottomMargin">
-          <number>0</number>
-         </property>
-         <item>
-          <layout class="QHBoxLayout" name="defaultShoulderHorizontalLayout">
-           <property name="leftMargin">
-            <number>0</number>
-           </property>
-           <property name="topMargin">
-            <number>0</number>
-           </property>
-           <property name="rightMargin">
-            <number>0</number>
-           </property>
-           <property name="bottomMargin">
-            <number>0</number>
-           </property>
-           <item>
-            <widget class="QLabel" name="defaultShoulderLabel">
-             <property name="text">
-              <string>Default shoulder:</string>
-             </property>
-            </widget>
-           </item>
-           <item>
-            <widget class="QComboBox" name="defaultShoulderComboBox">
-             <property name="currentIndex">
-              <number>0</number>
-             </property>
-             <item>
-              <property name="text">
-               <string>Right</string>
-              </property>
-             </item>
-             <item>
-              <property name="text">
-               <string>Left</string>
-              </property>
-             </item>
-            </widget>
-           </item>
-           <item>
-            <spacer name="horizontalSpacer_3">
-             <property name="orientation">
-              <enum>Qt::Horizontal</enum>
-             </property>
-             <property name="sizeHint" stdset="0">
-              <size>
-               <width>40</width>
-               <height>20</height>
-              </size>
-             </property>
-            </spacer>
-           </item>
-          </layout>
-         </item>
-        </layout>
-       </item>
-       <item>
-        <widget class="QCheckBox" name="previewIfStandStillCheckBox">
-         <property name="toolTip">
-          <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;If enabled then the character rotation is not synchonized with the camera rotation while the character doesn't move and not in combat mode.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
-         </property>
-         <property name="text">
-          <string>Preview if stand still</string>
-         </property>
-        </widget>
-       </item>
-       <item>
-        <widget class="QCheckBox" name="deferredPreviewRotationCheckBox">
-         <property name="toolTip">
-          <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;If enabled then the character smoothly rotates to the view direction after exiting preview or vanity mode. If disabled then the camera rotates rather than the character.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
-         </property>
-         <property name="text">
-          <string>Deferred preview rotation</string>
-         </property>
-        </widget>
-       </item>
-       <item>
-        <widget class="QCheckBox" name="headBobbingCheckBox">
-         <property name="toolTip">
-          <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Enables head bobbing when move in first person mode.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
-         </property>
-         <property name="text">
-          <string>Head bobbing in 1st person mode</string>
-         </property>
-        </widget>
        </item>
        <item>
         <spacer>

@@ -17,7 +17,8 @@ class ESMWriter;
 
 struct Weapon
 {
-    static unsigned int sRecordId;
+    constexpr static RecNameInts sRecordId = REC_WEAP;
+
     /// Return a string descriptor for this record type. Currently used for debugging / error logs only.
     static std::string_view getRecordType() { return "Weapon"; }
 
@@ -105,7 +106,7 @@ struct WeaponType
     std::string mSoundId;
     std::string mAttachBone;
     std::string mSheathingBone;
-    ESM::Skill::SkillEnum mSkill;
+    Skill::SkillEnum mSkill;
     Class mWeaponClass;
     int mAmmoType;
     int mFlags;

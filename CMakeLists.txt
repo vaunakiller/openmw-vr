@@ -1,24 +1,31 @@
-project(OpenMW)
 cmake_minimum_required(VERSION 3.1.0)
-set(CMAKE_CXX_STANDARD 17)
-set(CMAKE_CXX_STANDARD_REQUIRED ON)
-
-include(GNUInstallDirs)
 
 # for link time optimization, remove if cmake version is >= 3.9
 if(POLICY CMP0069) # LTO
-  cmake_policy(SET CMP0069 NEW)
+    cmake_policy(SET CMP0069 NEW)
 endif()
 
 # for position-independent executable, remove if cmake version is >= 3.14
 if(POLICY CMP0083)
-  cmake_policy(SET CMP0083 NEW)
+    cmake_policy(SET CMP0083 NEW)
 endif()
 
 # to link with freetype library
 if(POLICY CMP0079)
-  cmake_policy(SET CMP0079 NEW)
+    cmake_policy(SET CMP0079 NEW)
 endif()
+
+# don't add /W3 flag by default for MSVC
+if(POLICY CMP0092)
+    cmake_policy(SET CMP0092 NEW)
+endif()
+
+project(OpenMW)
+
+set(CMAKE_CXX_STANDARD 20)
+set(CMAKE_CXX_STANDARD_REQUIRED ON)
+
+include(GNUInstallDirs)
 
 option(OPENMW_GL4ES_MANUAL_INIT "Manually initialize gl4es. This is more reliable on platforms without a windowing system. Requires gl4es to be configured with -DNOEGL=ON -DNO_LOADER=ON -DNO_INIT_CONSTRUCTOR=ON." OFF)
 if(OPENMW_GL4ES_MANUAL_INIT)
@@ -157,6 +164,7 @@ option(RECASTNAVIGATION_STATIC "Build recastnavigation static libraries" ${_reca
 option(OPENMW_USE_SYSTEM_SQLITE3 "Use system provided SQLite3 library" ON)
 
 option(OPENMW_USE_SYSTEM_BENCHMARK "Use system Google Benchmark library." OFF)
+option(OPENMW_USE_SYSTEM_GOOGLETEST "Use system Google Test library." OFF)
 
 option(OPENMW_UNITY_BUILD "Use fewer compilation units to speed up compile time" FALSE)
 option(OPENMW_LTO_BUILD "Build OpenMW with Link-Time Optimization (Needs ~2GB of RAM)" OFF)
@@ -249,6 +257,23 @@ set(USED_OSG_PLUGINS
     osgdb_serializers_osg
     osgdb_tga)
 
+
+option(OPENMW_USE_SYSTEM_ICU "Use system ICU library instead of internal. If disabled, requires autotools" ON)
+if(OPENMW_USE_SYSTEM_ICU)
+    find_package(ICU REQUIRED COMPONENTS uc i18n data)
+endif()
+
+option(OPENMW_USE_SYSTEM_YAML_CPP "Use system yaml-cpp library instead of internal." ON)
+if(OPENMW_USE_SYSTEM_YAML_CPP)
+    set(_yaml_cpp_static_default OFF)
+else()
+    set(_yaml_cpp_static_default ON)
+endif()
+option(YAML_CPP_STATIC "Link static build of yaml-cpp into the binaries" ${_yaml_cpp_static_default})
+if (OPENMW_USE_SYSTEM_YAML_CPP)
+    find_package(yaml-cpp REQUIRED)
+endif()
+
 add_subdirectory(extern)
 
 # Sound setup
@@ -323,7 +348,12 @@ if (WIN32)
     add_definitions(-DSDL_MAIN_HANDLED)
 
     # Get rid of useless crud from windows.h
-    add_definitions(-DNOMINMAX -DWIN32_LEAN_AND_MEAN)
+    add_definitions(
+        -DNOMINMAX # name conflict with std::min, std::max
+        -DWIN32_LEAN_AND_MEAN
+        -DNOMB # name conflict with MWGui::MessageBox
+        -DNOGDI # name conflict with osgAnimation::MorphGeometry::RELATIVE
+    )
 endif()
 
 if(OPENMW_USE_SYSTEM_BULLET)
@@ -423,6 +453,11 @@ endif()
 set(Boost_NO_BOOST_CMAKE ON)
 
 find_package(Boost 1.6.2 REQUIRED COMPONENTS ${BOOST_COMPONENTS} OPTIONAL_COMPONENTS ${BOOST_OPTIONAL_COMPONENTS})
+
+if(Boost_VERSION_STRING VERSION_GREATER_EQUAL 1.77.0)
+    find_package(Boost 1.77.0 REQUIRED COMPONENTS atomic)
+endif()
+
 if(OPENMW_USE_SYSTEM_MYGUI)
     find_package(MyGUI 3.4.1 REQUIRED)
 endif()
@@ -440,7 +475,7 @@ else(USE_LUAJIT)
 endif(USE_LUAJIT)
 
 # C++ library binding to Lua
-set(SOL_INCLUDE_DIR ${OpenMW_SOURCE_DIR}/extern/sol3.2.2)
+set(SOL_INCLUDE_DIR ${OpenMW_SOURCE_DIR}/extern/sol3)
 set(SOL_CONFIG_DIR ${OpenMW_SOURCE_DIR}/extern/sol_config)
 
 include_directories(
@@ -455,6 +490,7 @@ include_directories(
     ${LUA_INCLUDE_DIR}
     ${SOL_INCLUDE_DIR}
     ${SOL_CONFIG_DIR}
+    ${ICU_INCLUDE_DIRS}
 )
 
 link_directories(${SDL2_LIBRARY_DIRS} ${Boost_LIBRARY_DIRS})
@@ -689,6 +725,7 @@ if (WIN32)
         4100 # Unreferenced formal parameter (-Wunused-parameter)
         4127 # Conditional expression is constant
         4996 # Function was declared deprecated
+        5054 # Deprecated operations between enumerations of different types caused by Qt headers
         )
     
     if( "${MyGUI_VERSION}" VERSION_LESS_EQUAL "3.4.0" )
@@ -706,6 +743,10 @@ if (WIN32)
     foreach(d ${WARNINGS_DISABLE})
         set(WARNINGS "${WARNINGS} /wd${d}")
     endforeach(d)
+
+    if(OPENMW_MSVC_WERROR)
+        set(WARNINGS "${WARNINGS} /WX")
+    endif()
 
     set_target_properties(components PROPERTIES COMPILE_FLAGS "${WARNINGS}")
     set_target_properties(osg-ffmpeg-videoplayer PROPERTIES COMPILE_FLAGS "${WARNINGS}")
@@ -767,7 +808,8 @@ if (WIN32)
     endif()
 
     if (BUILD_BULLETOBJECTTOOL)
-        set_target_properties(openmw-bulletobjecttool PROPERTIES COMPILE_FLAGS "${WARNINGS} ${MT_BUILD}")
+        set(WARNINGS "${WARNINGS} ${MT_BUILD}")
+        set_target_properties(openmw-bulletobjecttool PROPERTIES COMPILE_FLAGS "${WARNINGS}")
     endif()
   endif(MSVC)
 
@@ -916,7 +958,6 @@ elseif(NOT APPLE)
         INSTALL(FILES "${OpenMW_SOURCE_DIR}/CHANGELOG.md" DESTINATION "." RENAME "CHANGELOG.txt")
         INSTALL(FILES "${OpenMW_SOURCE_DIR}/README.md" DESTINATION "." RENAME "README.txt")
         INSTALL(FILES "${OpenMW_SOURCE_DIR}/LICENSE" DESTINATION "." RENAME "LICENSE.txt")
-        INSTALL(FILES "${OpenMW_SOURCE_DIR}/files/mygui/DejaVuFontLicense.txt" DESTINATION ".")
         INSTALL(FILES "${INSTALL_SOURCE}/defaults.bin" DESTINATION ".")
         INSTALL(FILES "${INSTALL_SOURCE}/gamecontrollerdb.txt" DESTINATION ".")
         INSTALL(FILES "${INSTALL_SOURCE}/xrcontrollersuggestions.xml" DESTINATION ".")
@@ -1018,9 +1059,6 @@ elseif(NOT APPLE)
         IF(BUILD_BULLETOBJECTTOOL)
             INSTALL(PROGRAMS "${INSTALL_SOURCE}/openmw-bulletobjecttool" DESTINATION "${BINDIR}" )
         ENDIF(BUILD_BULLETOBJECTTOOL)
-
-        # Install licenses
-        INSTALL(FILES "files/mygui/DejaVuFontLicense.txt" DESTINATION "${LICDIR}" )
 
         # Install icon and desktop file
         INSTALL(FILES "${OpenMW_BINARY_DIR}/org.openmw.launcher.desktop" DESTINATION "${DATAROOTDIR}/applications" COMPONENT "openmw")

@@ -15,6 +15,7 @@
 #include <components/sceneutil/shadow.hpp>
 #include <components/sceneutil/visitor.hpp>
 #include <components/sceneutil/depth.hpp>
+#include <components/sceneutil/rtt.hpp>
 
 #include <components/resource/scenemanager.hpp>
 #include <components/resource/imagemanager.hpp>
@@ -215,11 +216,36 @@ namespace
     private:
         const float &mAlpha;
     };
+
+    class SkyRTT : public SceneUtil::RTTNode
+    {
+    public:
+        SkyRTT(osg::Vec2f size, osg::Group* earlyRenderBinRoot) :
+            RTTNode(static_cast<int>(size.x()), static_cast<int>(size.y()), 0, false, 1, StereoAwareness::Aware),
+            mEarlyRenderBinRoot(earlyRenderBinRoot)
+        {
+            setDepthBufferInternalFormat(GL_DEPTH24_STENCIL8);
+        }
+
+        void setDefaults(osg::Camera* camera) override
+        {
+            camera->setReferenceFrame(osg::Camera::RELATIVE_RF);
+            camera->setName("SkyCamera");
+            camera->setNodeMask(MWRender::Mask_RenderToTexture);
+            camera->setCullMask(MWRender::Mask_Sky);
+            camera->addChild(mEarlyRenderBinRoot);
+            SceneUtil::ShadowManager::disableShadowsForStateSet(camera->getOrCreateStateSet());
+        }
+
+    private:
+        osg::ref_ptr<osg::Group> mEarlyRenderBinRoot;
+    };
+
 }
 
 namespace MWRender
 {
-    SkyManager::SkyManager(osg::Group* parentNode, Resource::SceneManager* sceneManager)
+    SkyManager::SkyManager(osg::Group* parentNode, Resource::SceneManager* sceneManager, bool enableSkyRTT)
         : mSceneManager(sceneManager)
         , mCamera(nullptr)
         , mAtmosphereNightRoll(0.f)
@@ -248,6 +274,7 @@ namespace MWRender
         , mBaseWindSpeed(0.f)
         , mEnabled(true)
         , mSunEnabled(true)
+        , mSunglareEnabled(true)
         , mPrecipitationAlpha(0.f)
         , mDirtyParticlesEffect(false)
     {
@@ -257,19 +284,26 @@ namespace MWRender
         if (!mSceneManager->getForceShaders())
             skyroot->getOrCreateStateSet()->setAttributeAndModes(new osg::Program(), osg::StateAttribute::OVERRIDE|osg::StateAttribute::PROTECTED|osg::StateAttribute::ON);
         SceneUtil::ShadowManager::disableShadowsForStateSet(skyroot->getOrCreateStateSet());
-
-        skyroot->setNodeMask(Mask_Sky);
         parentNode->addChild(skyroot);
-
-        mRootNode = skyroot;
 
         mEarlyRenderBinRoot = new osg::Group;
         // render before the world is rendered
         mEarlyRenderBinRoot->getOrCreateStateSet()->setRenderBinDetails(RenderBin_Sky, "RenderBin");
         // Prevent unwanted clipping by water reflection camera's clipping plane
         mEarlyRenderBinRoot->getOrCreateStateSet()->setMode(GL_CLIP_PLANE0, osg::StateAttribute::OFF);
-        mRootNode->addChild(mEarlyRenderBinRoot);
 
+        if (enableSkyRTT)
+        {
+            mSkyRTT = new SkyRTT(Settings::Manager::getVector2("sky rtt resolution", "Fog"), mEarlyRenderBinRoot);
+            skyroot->addChild(mSkyRTT);
+            mRootNode = new osg::Group;
+            skyroot->addChild(mRootNode);
+        }
+        else
+            mRootNode = skyroot;
+
+        mRootNode->setNodeMask(Mask_Sky);
+        mRootNode->addChild(mEarlyRenderBinRoot);
         mUnderwaterSwitch = new UnderwaterSwitchCallback(skyroot);
     }
 
@@ -302,9 +336,10 @@ namespace MWRender
         mAtmosphereNightUpdater = new AtmosphereNightUpdater(mSceneManager->getImageManager(), forceShaders);
         atmosphereNight->addUpdateCallback(mAtmosphereNightUpdater);
 
-        mSun.reset(new Sun(mEarlyRenderBinRoot, *mSceneManager));
-        mMasser.reset(new Moon(mEarlyRenderBinRoot, *mSceneManager, Fallback::Map::getFloat("Moons_Masser_Size")/125, Moon::Type_Masser));
-        mSecunda.reset(new Moon(mEarlyRenderBinRoot, *mSceneManager, Fallback::Map::getFloat("Moons_Secunda_Size")/125, Moon::Type_Secunda));
+        mSun = std::make_unique<Sun>(mEarlyRenderBinRoot, *mSceneManager);
+        mSun->setSunglare(mSunglareEnabled);
+        mMasser = std::make_unique<Moon>(mEarlyRenderBinRoot, *mSceneManager, Fallback::Map::getFloat("Moons_Masser_Size")/125, Moon::Type_Masser);
+        mSecunda = std::make_unique<Moon>(mEarlyRenderBinRoot, *mSceneManager, Fallback::Map::getFloat("Moons_Secunda_Size")/125, Moon::Type_Secunda);
 
         mCloudNode = new osg::Group;
         mEarlyRenderBinRoot->addChild(mCloudNode);
@@ -536,7 +571,10 @@ namespace MWRender
         if (enabled && !mCreated)
             create();
 
-        mRootNode->setNodeMask(enabled ? Mask_Sky : 0u);
+        const osg::Node::NodeMask mask = enabled ? Mask_Sky : 0u;
+
+        mEarlyRenderBinRoot->setNodeMask(mask);
+        mRootNode->setNodeMask(mask);
 
         if (!enabled && mParticleNode && mParticleEffect)
         {
@@ -645,7 +683,7 @@ namespace MWRender
 
                 mParticleEffect = mSceneManager->getInstance(mCurrentParticleEffect, mParticleNode);
 
-                SceneUtil::AssignControllerSourcesVisitor assignVisitor = std::shared_ptr<SceneUtil::ControllerSource>(new SceneUtil::FrameTimeSource);
+                SceneUtil::AssignControllerSourcesVisitor assignVisitor(std::make_shared<SceneUtil::FrameTimeSource>());
                 mParticleEffect->accept(assignVisitor);
 
                 SetupVisitor alphaFaderSetupVisitor(mPrecipitationAlpha);
@@ -774,6 +812,14 @@ namespace MWRender
         if (!mCreated) return 0.f;
 
         return mBaseWindSpeed;
+    }
+
+    void SkyManager::setSunglare(bool enabled)
+    {
+        mSunglareEnabled = enabled;
+
+        if (mSun)
+            mSun->setSunglare(mSunglareEnabled);
     }
 
     void SkyManager::sunEnable()

@@ -1,6 +1,4 @@
-#version @GLSLVersion
-
-#include "multiview_vertex.glsl"
+#version 120
 
 #if @useUBO
     #extension GL_ARB_uniform_buffer_object : require
@@ -10,6 +8,7 @@
     #extension GL_EXT_gpu_shader4: require
 #endif
 
+#include "openmw_vertex.h.glsl"
 #if @diffuseMap
 varying vec2 diffuseMapUV;
 #endif
@@ -47,8 +46,9 @@ varying vec2 bumpMapUV;
 varying vec2 specularMapUV;
 #endif
 
-varying float euclideanDepth;
-varying float linearDepth;
+#if @glossMap
+varying vec2 glossMapUV;
+#endif
 
 #define PER_PIXEL_LIGHTING (@normalMap || @forcePPL)
 
@@ -68,13 +68,10 @@ varying vec3 passNormal;
 
 void main(void)
 {
-    gl_Position = mw_stereoAwareProjectionMatrix() * (mw_stereoAwareModelViewMatrix() * gl_Vertex);
+    gl_Position = mw_modelToClip(gl_Vertex);
 
-    vec4 viewPos = (gl_ModelViewMatrix * gl_Vertex);
-
+    vec4 viewPos = mw_modelToView(gl_Vertex);
     gl_ClipVertex = viewPos;
-    euclideanDepth = length(viewPos.xyz);
-    linearDepth = getLinearDepth(gl_Position.z, viewPos.z);
 
 #if (@envMap || !PER_PIXEL_LIGHTING || @shadows_enabled)
     vec3 viewNormal = normalize((gl_NormalMatrix * gl_Normal).xyz);
@@ -118,6 +115,10 @@ void main(void)
 
 #if @specularMap
     specularMapUV = (gl_TextureMatrix[@specularMapUV] * gl_MultiTexCoord@specularMapUV).xy;
+#endif
+
+#if @glossMap
+    glossMapUV = (gl_TextureMatrix[@glossMapUV] * gl_MultiTexCoord@glossMapUV).xy;
 #endif
 
     passColor = gl_Color;

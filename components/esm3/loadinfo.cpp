@@ -2,12 +2,9 @@
 
 #include "esmreader.hpp"
 #include "esmwriter.hpp"
-#include "components/esm/defs.hpp"
 
 namespace ESM
 {
-    unsigned int DialInfo::sRecordId = REC_INFO;
-
     void DialInfo::load(ESMReader &esm, bool &isDeleted)
     {
         mId = esm.getHNString("INAM");
@@ -25,19 +22,19 @@ namespace ESM
             esm.getSubName();
             switch (esm.retSubName().toInt())
             {
-                case ESM::FourCC<'D','A','T','A'>::value:
-                    esm.getHT(mData, 12);
+                case fourCC("DATA"):
+                    esm.getHTSized<12>(mData);
                     break;
-                case ESM::FourCC<'O','N','A','M'>::value:
+                case fourCC("ONAM"):
                     mActor = esm.getHString();
                     break;
-                case ESM::FourCC<'R','N','A','M'>::value:
+                case fourCC("RNAM"):
                     mRace = esm.getHString();
                     break;
-                case ESM::FourCC<'C','N','A','M'>::value:
+                case fourCC("CNAM"):
                     mClass = esm.getHString();
                     break;
-                case ESM::FourCC<'F','N','A','M'>::value:
+                case fourCC("FNAM"):
                 {
                     mFaction = esm.getHString();
                     if (mFaction == "FFFF")
@@ -46,19 +43,19 @@ namespace ESM
                     }
                     break;
                 }
-                case ESM::FourCC<'A','N','A','M'>::value:
+                case fourCC("ANAM"):
                     mCell = esm.getHString();
                     break;
-                case ESM::FourCC<'D','N','A','M'>::value:
+                case fourCC("DNAM"):
                     mPcFaction = esm.getHString();
                     break;
-                case ESM::FourCC<'S','N','A','M'>::value:
+                case fourCC("SNAM"):
                     mSound = esm.getHString();
                     break;
-                case ESM::SREC_NAME:
+                case SREC_NAME:
                     mResponse = esm.getHString();
                     break;
-                case ESM::FourCC<'S','C','V','R'>::value:
+                case fourCC("SCVR"):
                 {
                     SelectStruct ss;
                     ss.mSelectRule = esm.getHString();
@@ -66,22 +63,22 @@ namespace ESM
                     mSelects.push_back(ss);
                     break;
                 }
-                case ESM::FourCC<'B','N','A','M'>::value:
+                case fourCC("BNAM"):
                     mResultScript = esm.getHString();
                     break;
-                case ESM::FourCC<'Q','S','T','N'>::value:
+                case fourCC("QSTN"):
                     mQuestStatus = QS_Name;
                     esm.skipRecord();
                     break;
-                case ESM::FourCC<'Q','S','T','F'>::value:
+                case fourCC("QSTF"):
                     mQuestStatus = QS_Finished;
                     esm.skipRecord();
                     break;
-                case ESM::FourCC<'Q','S','T','R'>::value:
+                case fourCC("QSTR"):
                     mQuestStatus = QS_Restart;
                     esm.skipRecord();
                     break;
-                case ESM::SREC_DELE:
+                case SREC_DELE:
                     esm.skipHSub();
                     isDeleted = true;
                     break;
@@ -133,12 +130,7 @@ namespace ESM
 
     void DialInfo::blank()
     {
-        mData.mUnknown1 = 0;
-        mData.mDisposition = 0;
-        mData.mRank = 0;
-        mData.mGender = 0;
-        mData.mPCrank = 0;
-        mData.mUnknown2 = 0;
+        mData = {};
 
         mSelects.clear();
         mPrev.clear();

@@ -7,7 +7,13 @@
 
 #include "../mwworld/cellstore.hpp"
 #include "../mwworld/customdata.hpp"
+#include "../mwworld/esmstore.hpp"
+#include "../mwworld/manualref.hpp"
+
 #include "../mwmechanics/creaturestats.hpp"
+
+#include "../mwbase/environment.hpp"
+#include "../mwbase/world.hpp"
 
 namespace MWClass
 {
@@ -27,6 +33,11 @@ namespace MWClass
             return *this;
         }
     };
+
+    CreatureLevList::CreatureLevList()
+        : MWWorld::RegisteredClass<CreatureLevList>(ESM::CreatureLevList::sRecordId)
+    {
+    }
 
     MWWorld::Ptr CreatureLevList::copyToCellImpl(const MWWorld::ConstPtr &ptr, MWWorld::CellStore &cell) const
     {
@@ -91,13 +102,6 @@ namespace MWClass
             customData.mSpawn = true;
     }
 
-    void CreatureLevList::registerSelf()
-    {
-        std::shared_ptr<Class> instance (new CreatureLevList);
-
-        registerClass (ESM::CreatureLevList::sRecordId, instance);
-    }
-
     void CreatureLevList::getModelsToPreload(const MWWorld::Ptr &ptr, std::vector<std::string> &models) const
     {
         // disable for now, too many false positives
@@ -127,7 +131,8 @@ namespace MWClass
         MWWorld::LiveCellRef<ESM::CreatureLevList> *ref =
             ptr.get<ESM::CreatureLevList>();
 
-        std::string id = MWMechanics::getLevelledItem(ref->mBase, true);
+        auto& prng = MWBase::Environment::get().getWorld()->getPrng();
+        std::string id = MWMechanics::getLevelledItem(ref->mBase, true, prng);
 
         if (!id.empty())
         {

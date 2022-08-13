@@ -3,7 +3,6 @@
 
 #include <vector>
 
-#include <components/files/constrainedfilestream.hpp>
 #include <components/to_utf8/to_utf8.hpp>
 
 #include "common.hpp" // MasterData
@@ -31,7 +30,7 @@ namespace ESM
 
         virtual inline bool hasMoreRecs() const = 0;
 
-        virtual inline void setEncoder(ToUTF8::StatelessUtf8Encoder* encoder) = 0;
+        virtual inline void setEncoder(const ToUTF8::StatelessUtf8Encoder* encoder) = 0;
 
         // used to check for dependencies e.g. CS::Editor::run()
         virtual inline const std::vector<ESM::MasterData>& getGameFiles() const = 0;
@@ -53,7 +52,7 @@ namespace ESM
 
     protected:
         bool getStringImpl(std::string& str, std::size_t size,
-                Files::IStreamPtr filestream, ToUTF8::StatelessUtf8Encoder* encoder, bool hasNull = false);
+                std::istream& stream, const ToUTF8::StatelessUtf8Encoder* encoder, bool hasNull = false);
     };
 }
 

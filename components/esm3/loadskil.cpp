@@ -125,8 +125,6 @@ namespace ESM
         HandToHand
     }};
 
-    unsigned int Skill::sRecordId = REC_SKIL;
-
     void Skill::load(ESMReader &esm, bool &isDeleted)
     {
         isDeleted = false; // Skill record can't be deleted now (may be changed in the future)
@@ -139,15 +137,15 @@ namespace ESM
             esm.getSubName();
             switch (esm.retSubName().toInt())
             {
-                case ESM::FourCC<'I','N','D','X'>::value:
+                case fourCC("INDX"):
                     esm.getHT(mIndex);
                     hasIndex = true;
                     break;
-                case ESM::FourCC<'S','K','D','T'>::value:
-                    esm.getHT(mData, 24);
+                case fourCC("SKDT"):
+                    esm.getHTSized<24>(mData);
                     hasData = true;
                     break;
-                case ESM::FourCC<'D','E','S','C'>::value:
+                case fourCC("DESC"):
                     mDescription = esm.getHString();
                     break;
                 default:
@@ -173,6 +171,7 @@ namespace ESM
 
     void Skill::blank()
     {
+        mRecordFlags = 0;
         mData.mAttribute = 0;
         mData.mSpecialization = 0;
         mData.mUseValue[0] = mData.mUseValue[1] = mData.mUseValue[2] = mData.mUseValue[3] = 1.0;

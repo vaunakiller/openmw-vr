@@ -10,12 +10,10 @@
 #include <osg/PositionAttitudeTransform>
 #include <osg/ClipNode>
 #include <osg/FrontFace>
-#include <osg/ViewportIndexed>
 
 #include <osgDB/ReadFile>
 
-#include <boost/filesystem/path.hpp>
-#include <boost/filesystem/fstream.hpp>
+#include <fstream>
 
 #include <osgUtil/IncrementalCompileOperation>
 #include <osgUtil/CullVisitor>
@@ -242,8 +240,7 @@ private:
 
 osg::ref_ptr<osg::Image> readPngImage (const std::string& file)
 {
-    // use boost in favor of osgDB::readImage, to handle utf-8 path issues on Windows
-    boost::filesystem::ifstream inStream;
+    std::ifstream inStream;
     inStream.open(file, std::ios_base::in | std::ios_base::binary);
     if (inStream.fail())
         Log(Debug::Error) << "Error: Failed to open " << file;
@@ -264,9 +261,10 @@ class Refraction : public SceneUtil::RTTNode
 {
 public:
     Refraction(uint32_t rttSize)
-        : RTTNode(rttSize, rttSize, 1, StereoAwareness::Aware)
+        : RTTNode(rttSize, rttSize, 0, false, 1, StereoAwareness::Aware)
         , mNodeMask(Refraction::sDefaultCullMask)
     {
+        setDepthBufferInternalFormat(GL_DEPTH24_STENCIL8);
         mClipCullNode = new ClipCullNode;
     }
 
@@ -339,9 +337,10 @@ class Reflection : public SceneUtil::RTTNode
 {
 public:
     Reflection(uint32_t rttSize, bool isInterior)
-        : RTTNode(rttSize, rttSize, 0, StereoAwareness::Aware)
+        : RTTNode(rttSize, rttSize, 0, false, 0, StereoAwareness::Aware)
     {
         setInterior(isInterior);
+        setDepthBufferInternalFormat(GL_DEPTH24_STENCIL8);
         mClipCullNode = new ClipCullNode;
     }
 
@@ -456,7 +455,7 @@ Water::Water(osg::Group *parent, osg::Group* sceneRoot, Resource::ResourceSystem
     , mCullCallback(nullptr)
     , mShaderWaterStateSetUpdater(nullptr)
 {
-    mSimulation.reset(new RippleSimulation(mSceneRoot, resourceSystem));
+    mSimulation = std::make_unique<RippleSimulation>(mSceneRoot, resourceSystem);
 
     mWaterGeom = SceneUtil::createWaterGeometry(Constants::CellSizeInUnits*150, 40, 900);
     mWaterGeom->setDrawCallback(new DepthClampCallback);
@@ -596,6 +595,7 @@ void Water::createSimpleWaterStateSet(osg::Node* node, float alpha)
         osg::ref_ptr<osg::Texture2D> tex (new osg::Texture2D(mResourceSystem->getImageManager()->getImage(texname.str())));
         tex->setWrap(osg::Texture::WRAP_S, osg::Texture::REPEAT);
         tex->setWrap(osg::Texture::WRAP_T, osg::Texture::REPEAT);
+        mResourceSystem->getSceneManager()->applyFilterSettings(tex);
         textures.push_back(tex);
     }
 
@@ -605,7 +605,7 @@ void Water::createSimpleWaterStateSet(osg::Node* node, float alpha)
     float fps = Fallback::Map::getFloat("Water_SurfaceFPS");
 
     osg::ref_ptr<NifOsg::FlipController> controller (new NifOsg::FlipController(0, 1.f/fps, textures));
-    controller->setSource(std::shared_ptr<SceneUtil::ControllerSource>(new SceneUtil::FrameTimeSource));
+    controller->setSource(std::make_shared<SceneUtil::FrameTimeSource>());
     node->setUpdateCallback(controller);
 
     stateset->setTextureAttributeAndModes(0, textures[0], osg::StateAttribute::ON);

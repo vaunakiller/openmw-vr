@@ -35,11 +35,11 @@ namespace
         objstate.mRef.mRefNum = cellref.mRefNum;
         if (cellref.mDeleted)
             objstate.mCount = 0;
-        convertSCRI(cellref.mSCRI, objstate.mLocals);
+        convertSCRI(cellref.mActorData.mSCRI, objstate.mLocals);
         objstate.mHasLocals = !objstate.mLocals.mVariables.empty();
 
-        if (cellref.mHasANIS)
-            convertANIS(cellref.mANIS, objstate.mAnimationState);
+        if (cellref.mActorData.mHasANIS)
+            convertANIS(cellref.mActorData.mANIS, objstate.mAnimationState);
     }
 
     bool isIndexedRefId(const std::string& indexedRefId)
@@ -68,7 +68,7 @@ namespace
     {
         if (isIndexedRefId(indexedRefId))
         {
-            int refIndex;
+            int refIndex = 0;
             std::string refId;
             splitIndexedRefId(indexedRefId, refIndex, refId);
 
@@ -268,7 +268,7 @@ namespace ESSImport
         }
 
         std::vector<CellRef> cellrefs;
-        while (esm.hasMoreSubs() && esm.isNextSub("FRMR"))
+        while (esm.hasMoreSubs() && esm.peekNextSub("FRMR"))
         {
             CellRef ref;
             ref.load (esm);
@@ -278,7 +278,7 @@ namespace ESSImport
         while (esm.isNextSub("MPCD"))
         {
             float notepos[3];
-            esm.getHT(notepos, 3*sizeof(float));
+            esm.getHTSized<3 * sizeof(float)>(notepos);
 
             // Markers seem to be arranged in a 32*32 grid, notepos has grid-indices.
             // This seems to be the reason markers can't be placed everywhere in interior cells,
@@ -320,6 +320,8 @@ namespace ESSImport
         esm.startRecord(ESM::REC_CSTA);
         ESM::CellState csta;
         csta.mHasFogOfWar = 0;
+        csta.mLastRespawn.mDay = 0;
+        csta.mLastRespawn.mHour = 0;
         csta.mId = esmcell.getCellId();
         csta.mId.save(esm);
         // TODO csta.mLastRespawn;
@@ -352,7 +354,7 @@ namespace ESSImport
             }
             else
             {
-                int refIndex;
+                int refIndex = 0;
                 splitIndexedRefId(cellref.mIndexedRefId, refIndex, out.mRefID);
 
                 std::string idLower = Misc::StringUtils::lowerCase(out.mRefID);
@@ -367,13 +369,13 @@ namespace ESSImport
                     objstate.mRef.mRefID = idLower;
                     // TODO: need more micromanagement here so we don't overwrite values
                     // from the ESM with default values
-                    if (cellref.mHasACDT)
-                        convertACDT(cellref.mACDT, objstate.mCreatureStats);
+                    if (cellref.mActorData.mHasACDT)
+                        convertACDT(cellref.mActorData.mACDT, objstate.mCreatureStats);
                     else
                         objstate.mCreatureStats.mMissingACDT = true;
-                    if (cellref.mHasACSC)
-                        convertACSC(cellref.mACSC, objstate.mCreatureStats);
-                    convertNpcData(cellref, objstate.mNpcStats);
+                    if (cellref.mActorData.mHasACSC)
+                        convertACSC(cellref.mActorData.mACSC, objstate.mCreatureStats);
+                    convertNpcData(cellref.mActorData, objstate.mNpcStats);
                     convertNPCC(npccIt->second, objstate);
                     convertCellRef(cellref, objstate);
 
@@ -410,12 +412,12 @@ namespace ESSImport
                     objstate.mRef.mRefID = idLower;
                     // TODO: need more micromanagement here so we don't overwrite values
                     // from the ESM with default values
-                    if (cellref.mHasACDT)
-                        convertACDT(cellref.mACDT, objstate.mCreatureStats);
+                    if (cellref.mActorData.mHasACDT)
+                        convertACDT(cellref.mActorData.mACDT, objstate.mCreatureStats);
                     else
                         objstate.mCreatureStats.mMissingACDT = true;
-                    if (cellref.mHasACSC)
-                        convertACSC(cellref.mACSC, objstate.mCreatureStats);
+                    if (cellref.mActorData.mHasACSC)
+                        convertACSC(cellref.mActorData.mACSC, objstate.mCreatureStats);
                     convertCREC(crecIt->second, objstate);
                     convertCellRef(cellref, objstate);
 
@@ -490,6 +492,7 @@ namespace ESSImport
 
                 out.mSpellId = it->mSPDT.mId.toString();
                 out.mSpeed = pnam.mSpeed * 0.001f; // not sure where this factor comes from
+                out.mSlot = 0;
 
                 esm.startRecord(ESM::REC_MPRJ);
                 out.save(esm);

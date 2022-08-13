@@ -5,8 +5,14 @@
 
 #include "../mwworld/cellstore.hpp"
 
+#include "classmodel.hpp"
+
 namespace MWClass
 {
+    BodyPart::BodyPart()
+        : MWWorld::RegisteredClass<BodyPart>(ESM::BodyPart::sRecordId)
+    {
+    }
 
     MWWorld::Ptr BodyPart::copyToCellImpl(const MWWorld::ConstPtr &ptr, MWWorld::CellStore &cell) const
     {
@@ -32,22 +38,9 @@ namespace MWClass
         return false;
     }
 
-    void BodyPart::registerSelf()
-    {
-        std::shared_ptr<MWWorld::Class> instance (new BodyPart);
-
-        registerClass (ESM::BodyPart::sRecordId, instance);
-    }
-
     std::string BodyPart::getModel(const MWWorld::ConstPtr &ptr) const
     {
-        const MWWorld::LiveCellRef<ESM::BodyPart> *ref = ptr.get<ESM::BodyPart>();
-
-        const std::string &model = ref->mBase->mModel;
-        if (!model.empty()) {
-            return "meshes\\" + model;
-        }
-        return "";
+        return getClassModel<ESM::BodyPart>(ptr);
     }
 
 }

@@ -18,6 +18,8 @@ namespace MWGui
 
             void updateLightSettings();
 
+            void updateWindowModeSettings();
+
             void onResChange(int, int) override { center(); }
 
     protected:
@@ -31,10 +33,9 @@ namespace MWGui
 
             // graphics
             MyGUI::ListBox* mResolutionList;
-            MyGUI::Button* mFullscreenButton;
+            MyGUI::ComboBox* mWindowModeList;
             MyGUI::Button* mWindowBorderButton;
             MyGUI::ComboBox* mTextureFilteringButton;
-            MyGUI::Widget* mAnisotropyBox;
 
             MyGUI::ComboBox* mWaterTextureSize;
             MyGUI::ComboBox* mWaterReflectionDetail;
@@ -43,6 +44,9 @@ namespace MWGui
             MyGUI::ComboBox* mMaxLights;
             MyGUI::ComboBox* mLightingMethodButton;
             MyGUI::Button* mLightsResetButton;
+
+            MyGUI::ComboBox* mPrimaryLanguage;
+            MyGUI::ComboBox* mSecondaryLanguage;
 
             // controls
             MyGUI::ScrollView* mControlsBox;
@@ -54,9 +58,9 @@ namespace MWGui
             MyGUI::EditBox* mScriptFilter;
             MyGUI::ListBox* mScriptList;
             MyGUI::Widget* mScriptBox;
+            MyGUI::Widget* mScriptDisabled;
             MyGUI::ScrollView* mScriptView;
             LuaUi::LuaAdapter* mScriptAdapter;
-            MyGUI::EditBox* mScriptDisabled;
             int mCurrentPage;
 
             void onTabChanged(MyGUI::TabControl* _sender, size_t index);
@@ -81,6 +85,12 @@ namespace MWGui
             void onLightsResetButtonClicked(MyGUI::Widget* _sender);
             void onMaxLightsChanged(MyGUI::ComboBox* _sender, size_t pos);
 
+            void onPrimaryLanguageChanged(MyGUI::ComboBox* _sender, size_t pos) { onLanguageChanged(0, _sender, pos); }
+            void onSecondaryLanguageChanged(MyGUI::ComboBox* _sender, size_t pos) { onLanguageChanged(1, _sender, pos); }
+            void onLanguageChanged(size_t langPriority, MyGUI::ComboBox* _sender, size_t pos);
+
+            void onWindowModeChanged(MyGUI::ComboBox* _sender, size_t pos);
+
             void onRebindAction(MyGUI::Widget* _sender);
             void onInputTabMouseWheel(MyGUI::Widget* _sender, int _rel);
             void onResetDefaultBindings(MyGUI::Widget* _sender);
@@ -99,11 +109,10 @@ namespace MWGui
             void updateSliderLabel(MyGUI::ScrollBar* scroller, const std::string& value);
 
             void layoutControlsBox();
-            void resizeScriptSettings();
             void renderScriptSettings();
 
             void computeMinimumWindowSize();
-        
+
         private:
             void resetScrollbars();
     };

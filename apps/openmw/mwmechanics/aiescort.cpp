@@ -64,7 +64,7 @@ namespace MWMechanics
         if (!mCellId.empty() && mCellId != actor.getCell()->getCell()->getCellId().mWorldspace)
             return false; // Not in the correct cell, pause and rely on the player to go back through a teleport door
 
-        actor.getClass().getCreatureStats(actor).setDrawState(DrawState_Nothing);
+        actor.getClass().getCreatureStats(actor).setDrawState(DrawState::Nothing);
         actor.getClass().getCreatureStats(actor).setMovementFlag(CreatureStats::Flag_Run, false);
 
         const MWWorld::Ptr follower = MWBase::Environment::get().getWorld()->getPtr(mTargetActorRefId, false);
@@ -96,7 +96,7 @@ namespace MWMechanics
 
     void AiEscort::writeState(ESM::AiSequence::AiSequence &sequence) const
     {
-        std::unique_ptr<ESM::AiSequence::AiEscort> escort(new ESM::AiSequence::AiEscort());
+        auto escort = std::make_unique<ESM::AiSequence::AiEscort>();
         escort->mData.mX = mX;
         escort->mData.mY = mY;
         escort->mData.mZ = mZ;

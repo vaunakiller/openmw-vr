@@ -104,7 +104,7 @@ namespace NifOsg
     {
     public:
         PlanarCollider(const Nif::NiPlanarCollider* collider);
-        PlanarCollider();
+        PlanarCollider() = default;
         PlanarCollider(const PlanarCollider& copy, const osg::CopyOp& copyop);
 
         META_Object(NifOsg, PlanarCollider)
@@ -113,9 +113,12 @@ namespace NifOsg
         void operate(osgParticle::Particle* particle, double dt) override;
 
     private:
-        float mBounceFactor;
-        osg::Plane mPlane;
-        osg::Plane mPlaneInParticleSpace;
+        float mBounceFactor{0.f};
+        osg::Vec2f mExtents;
+        osg::Vec3f mPosition, mPositionInParticleSpace;
+        osg::Vec3f mXVector, mXVectorInParticleSpace;
+        osg::Vec3f mYVector, mYVectorInParticleSpace;
+        osg::Plane mPlane, mPlaneInParticleSpace;
     };
 
     class SphericalCollider : public osgParticle::Operator
@@ -238,9 +241,8 @@ namespace NifOsg
         void setShooter(osgParticle::Shooter* shooter) { mShooter = shooter; }
         void setPlacer(osgParticle::Placer* placer) { mPlacer = placer; }
         void setCounter(osgParticle::Counter* counter) { mCounter = counter;}
-
-        void setUseGeometryEmitter(bool useGeometryEmitter) { mUseGeometryEmitter = useGeometryEmitter; }
         void setGeometryEmitterTarget(std::optional<int> recIndex) { mGeometryEmitterTarget = recIndex; }
+        void setFlags(int flags) { mFlags = flags; }
 
     private:
         // NIF Record indices
@@ -250,7 +252,8 @@ namespace NifOsg
         osg::ref_ptr<osgParticle::Shooter> mShooter;
         osg::ref_ptr<osgParticle::Counter> mCounter;
 
-        bool mUseGeometryEmitter;
+        int mFlags;
+
         std::optional<int> mGeometryEmitterTarget;
         osg::observer_ptr<osg::Vec3Array> mCachedGeometryEmitter;
     };

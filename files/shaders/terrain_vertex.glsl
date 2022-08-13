@@ -1,6 +1,4 @@
-#version @GLSLVersion
-
-#include "multiview_vertex.glsl"
+#version 120
 
 #if @useUBO
     #extension GL_ARB_uniform_buffer_object : require
@@ -10,6 +8,7 @@
     #extension GL_EXT_gpu_shader4: require
 #endif
 
+#include "openmw_vertex.h.glsl"
 varying vec2 uv;
 varying float euclideanDepth;
 varying float linearDepth;
@@ -31,9 +30,9 @@ varying vec3 passNormal;
 
 void main(void)
 {
-    gl_Position = mw_stereoAwareProjectionMatrix() * (mw_stereoAwareModelViewMatrix() * gl_Vertex);
+    gl_Position = mw_modelToClip(gl_Vertex);
 
-    vec4 viewPos = (gl_ModelViewMatrix * gl_Vertex);
+    vec4 viewPos = mw_modelToView(gl_Vertex);
     gl_ClipVertex = viewPos;
     euclideanDepth = length(viewPos.xyz);
     linearDepth = getLinearDepth(gl_Position.z, viewPos.z);

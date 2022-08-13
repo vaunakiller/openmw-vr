@@ -76,15 +76,16 @@ namespace LuaUtil
         using TimerType = ESM::LuaTimer::Type;
 
         // `namePrefix` is a common prefix for all scripts in the container. Used in logs for error messages and `print` output.
-        // `autoStartMode` specifies the list of scripts that should be autostarted in this container; the list itself is
-        //     stored in ScriptsConfiguration: lua->getConfiguration().getListByFlag(autoStartMode).
-        ScriptsContainer(LuaState* lua, std::string_view namePrefix, ESM::LuaScriptCfg::Flags autoStartMode = 0);
+        // `autoStartScripts` specifies the list of scripts that should be autostarted in this container;
+        //     the script names themselves are stored in ScriptsConfiguration.
+        ScriptsContainer(LuaState* lua, std::string_view namePrefix);
 
         ScriptsContainer(const ScriptsContainer&) = delete;
         ScriptsContainer(ScriptsContainer&&) = delete;
         virtual ~ScriptsContainer();
 
-        ESM::LuaScriptCfg::Flags getAutoStartMode() const { return mAutoStartMode; }
+        void setAutoStartConf(ScriptIdsWithInitializationData conf) { mAutoStartScripts = std::move(conf); }
+        const ScriptIdsWithInitializationData& getAutoStartConf() const { return mAutoStartScripts; }
 
         // Adds package that will be available (via `require`) for all scripts in the container.
         // Automatically applies LuaUtil::makeReadOnly to the package.
@@ -114,6 +115,9 @@ namespace LuaUtil
         // Serializer defines how to serialize/deserialize userdata. If serializer is not provided,
         // only built-in types and types from util package can be serialized.
         void setSerializer(const UserdataSerializer* serializer) { mSerializer = serializer; }
+
+        // Special deserializer to use when load data from saves. Can be used to remap content files in Refnums.
+        void setSavedDataDeserializer(const UserdataSerializer* serializer) { mSavedDataDeserializer = serializer; }
 
         // Starts scripts according to `autoStartMode` and calls `onInit` for them. Not needed if `load` is used.
         void addAutoStartedScripts();
@@ -216,7 +220,7 @@ namespace LuaUtil
 
         void printError(int scriptId, std::string_view msg, const std::exception& e);
         const std::string& scriptPath(int scriptId) const { return mLua.getConfiguration()[scriptId].mScriptPath; }
-        void callOnInit(int scriptId, const sol::function& onInit);
+        void callOnInit(int scriptId, const sol::function& onInit, std::string_view data);
         void callTimer(const Timer& t);
         void updateTimerQueue(std::vector<Timer>& timerQueue, double time);
         static void insertTimer(std::vector<Timer>& timerQueue, Timer&& t);
@@ -225,8 +229,9 @@ namespace LuaUtil
         void insertInterface(int scriptId, const Script& script);
         void removeInterface(int scriptId, const Script& script);
 
-        ESM::LuaScriptCfg::Flags mAutoStartMode;
+        ScriptIdsWithInitializationData mAutoStartScripts;
         const UserdataSerializer* mSerializer = nullptr;
+        const UserdataSerializer* mSavedDataDeserializer = nullptr;
         std::map<std::string, sol::object> mAPI;
 
         std::map<int, Script> mScripts;
@@ -249,14 +254,27 @@ namespace LuaUtil
         sol::function mFunc;
         sol::table mHiddenData;  // same object as Script::mHiddenData in ScriptsContainer
 
+        bool isValid() const { return mHiddenData[ScriptsContainer::sScriptIdKey] != sol::nil; }
+
         template <typename... Args>
-        void operator()(Args&&... args) const
+        sol::object call(Args&&... args) const
         {
-            if (mHiddenData[ScriptsContainer::sScriptIdKey] != sol::nil)
-                LuaUtil::call(mFunc, std::forward<Args>(args)...);
+            if (isValid())
+                return LuaUtil::call(mFunc, std::forward<Args>(args)...);
             else
                 Log(Debug::Debug) << "Ignored callback to the removed script "
                                   << mHiddenData.get<std::string>(ScriptsContainer::sScriptDebugNameKey);
+            return sol::nil;
+        }
+
+        template <typename... Args>
+        void tryCall(Args&&... args) const
+        {
+            try { this->call(std::forward<Args>(args)...); }
+            catch (std::exception& e)
+            {
+                Log(Debug::Error) << "Error in callback: " << e.what();
+            }
         }
     };
 

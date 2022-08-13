@@ -9,6 +9,8 @@
 #include <components/loadinglistener/loadinglistener.hpp>
 #include <components/lua/configuration.hpp>
 #include <components/misc/algorithm.hpp>
+#include <components/esm3/readerscache.hpp>
+#include <components/esmloader/load.hpp>
 
 #include "../mwmechanics/spelllist.hpp"
 
@@ -24,19 +26,18 @@ namespace
 
     constexpr std::size_t deletedRefID = std::numeric_limits<std::size_t>::max();
 
-    void readRefs(const ESM::Cell& cell, std::vector<Ref>& refs, std::vector<std::string>& refIDs, std::vector<ESM::ESMReader>& readers)
+    void readRefs(const ESM::Cell& cell, std::vector<Ref>& refs, std::vector<std::string>& refIDs, ESM::ReadersCache& readers)
     {
         // TODO: we have many similar copies of this code.
         for (size_t i = 0; i < cell.mContextList.size(); i++)
         {
-            size_t index = cell.mContextList[i].index;
-            if (readers.size() <= index)
-                readers.resize(index + 1);
-            cell.restore(readers[index], i);
+            const std::size_t index = static_cast<std::size_t>(cell.mContextList[i].index);
+            const ESM::ReadersCache::BusyItem reader = readers.get(index);
+            cell.restore(*reader, i);
             ESM::CellRef ref;
             ref.mRefNum.unset();
             bool deleted = false;
-            while(cell.getNextRef(readers[index], ref, deleted))
+            while (cell.getNextRef(*reader, ref, deleted))
             {
                 if(deleted)
                     refs.emplace_back(ref.mRefNum, deletedRefID);
@@ -59,15 +60,18 @@ namespace
         }
     }
 
+    const std::string& getDefaultClass(const MWWorld::Store<ESM::Class>& classes)
+    {
+        auto it = classes.begin();
+        if (it != classes.end())
+            return it->mId;
+        throw std::runtime_error("List of NPC classes is empty!");
+    }
+
     std::vector<ESM::NPC> getNPCsToReplace(const MWWorld::Store<ESM::Faction>& factions, const MWWorld::Store<ESM::Class>& classes, const std::unordered_map<std::string, ESM::NPC, Misc::StringUtils::CiHash, Misc::StringUtils::CiEqual>& npcs)
     {
         // Cache first class from store - we will use it if current class is not found
-        std::string defaultCls;
-        auto it = classes.begin();
-        if (it != classes.end())
-            defaultCls = it->mId;
-        else
-            throw std::runtime_error("List of NPC classes is empty!");
+        const std::string& defaultCls = getDefaultClass(classes);
 
         // Validate NPCs for non-existing class and faction.
         // We will replace invalid entries by fixed ones
@@ -78,7 +82,7 @@ namespace
             ESM::NPC npc = npcIter.second;
             bool changed = false;
 
-            const std::string npcFaction = npc.mFaction;
+            const std::string& npcFaction = npc.mFaction;
             if (!npcFaction.empty())
             {
                 const ESM::Faction *fact = factions.search(npcFaction);
@@ -91,16 +95,13 @@ namespace
                 }
             }
 
-            std::string npcClass = npc.mClass;
-            if (!npcClass.empty())
+            const std::string& npcClass = npc.mClass;
+            const ESM::Class *cls = classes.search(npcClass);
+            if (!cls)
             {
-                const ESM::Class *cls = classes.search(npcClass);
-                if (!cls)
-                {
-                    Log(Debug::Verbose) << "NPC '" << npc.mId << "' (" << npc.mName << ") has nonexistent class '" << npc.mClass << "', using '" << defaultCls << "' class as replacement.";
-                    npc.mClass = defaultCls;
-                    changed = true;
-                }
+                Log(Debug::Verbose) << "NPC '" << npc.mId << "' (" << npc.mName << ") has nonexistent class '" << npc.mClass << "', using '" << defaultCls << "' class as replacement.";
+                npc.mClass = defaultCls;
+                changed = true;
             }
 
             if (changed)
@@ -143,11 +144,10 @@ static bool isCacheableRecord(int id)
     return false;
 }
 
-void ESMStore::load(ESM::ESMReader &esm, Loading::Listener* listener)
+void ESMStore::load(ESM::ESMReader &esm, Loading::Listener* listener, ESM::Dialogue*& dialogue)
 {
-    listener->setProgressRange(1000);
-
-    ESM::Dialogue *dialogue = nullptr;
+    if (listener != nullptr)
+        listener->setProgressRange(::EsmLoader::fileProgress);
 
     // Land texture loading needs to use a separate internal store for each plugin.
     // We set the number of plugins here so we can properly verify if valid plugin
@@ -159,6 +159,11 @@ void ESMStore::load(ESM::ESMReader &esm, Loading::Listener* listener)
     {
         ESM::NAME n = esm.getRecName();
         esm.getRecHeader();
+        if (esm.getRecordFlags() & ESM::FLAG_Ignored)
+        {
+            esm.skipRecord();
+            continue;
+        }
 
         // Look up the record type.
         std::map<int, StoreBase *>::iterator it = mStores.find(n.toInt());
@@ -188,7 +193,7 @@ void ESMStore::load(ESM::ESMReader &esm, Loading::Listener* listener)
             {
                 ESM::LuaScriptsCfg cfg;
                 cfg.load(esm);
-                // TODO: update refnums in cfg.mScripts[].mInitializationData according to load order
+                cfg.adjustRefNums(esm);
                 mLuaContent.push_back(std::move(cfg));
             }
             else {
@@ -208,7 +213,8 @@ void ESMStore::load(ESM::ESMReader &esm, Loading::Listener* listener)
                 dialogue = nullptr;
             }
         }
-        listener->setProgress(static_cast<size_t>(esm.getFileOffset() / (float)esm.getFileSize() * 1000));
+        if (listener != nullptr)
+            listener->setProgress(::EsmLoader::fileProgress * esm.getFileOffset() / esm.getFileSize());
     }
 }
 
@@ -238,7 +244,7 @@ ESM::LuaScriptsCfg ESMStore::getLuaScriptsCfg() const
     return cfg;
 }
 
-void ESMStore::setUp(bool validateRecords)
+void ESMStore::setUp()
 {
     mIds.clear();
 
@@ -257,21 +263,22 @@ void ESMStore::setUp(bool validateRecords)
     }
 
     if (mStaticIds.empty())
-        mStaticIds = mIds;
+        for (const auto& [k, v] : mIds)
+            mStaticIds.emplace(Misc::StringUtils::lowerCase(k), v);
 
     mSkills.setUp();
     mMagicEffects.setUp();
     mAttributes.setUp();
     mDialogs.setUp();
-
-    if (validateRecords)
-    {
-        validate();
-        countAllCellRefs();
-    }
 }
 
-void ESMStore::countAllCellRefs()
+void ESMStore::validateRecords(ESM::ReadersCache& readers)
+{
+    validate();
+    countAllCellRefs(readers);
+}
+
+void ESMStore::countAllCellRefs(ESM::ReadersCache& readers)
 {
     // TODO: We currently need to read entire files here again.
     // We should consider consolidating or deferring this reading.
@@ -279,7 +286,6 @@ void ESMStore::countAllCellRefs()
         return;
     std::vector<Ref> refs;
     std::vector<std::string> refIDs;
-    std::vector<ESM::ESMReader> readers;
     for(auto it = mCells.intBegin(); it != mCells.intEnd(); ++it)
         readRefs(*it, refs, refIDs, readers);
     for(auto it = mCells.extBegin(); it != mCells.extEnd(); ++it)

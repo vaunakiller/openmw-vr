@@ -3,6 +3,11 @@
 
 #include "object.hpp"
 
+#include "../mwbase/environment.hpp"
+#include "../mwbase/world.hpp"
+
+#include <set>
+
 namespace ESM
 {
     class ESMWriter;
@@ -25,7 +30,6 @@ namespace MWLua
         // The number of seconds passed from the beginning of the game.
         double getSimulationTime() const { return mSimulationTime; }
         void setSimulationTime(double t) { mSimulationTime = t; }
-        double getSimulationTimeScale() const { return 1.0; }
 
         // The game time (in game seconds) passed from the beginning of the game.
         // Note that game time generally goes faster than the simulation time.
@@ -56,6 +60,9 @@ namespace MWLua
 
         void load(ESM::ESMReader& esm);
         void save(ESM::ESMWriter& esm) const;
+
+        // TODO: move this functionality to MWClass
+        bool isItem(const MWWorld::Ptr& ptr) { return chooseGroup(ptr) == &mItemsInScene; }
 
     private:
         struct ObjectGroup

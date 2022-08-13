@@ -77,7 +77,7 @@ namespace Resource
         Shader::ShaderManager& getShaderManager();
 
         /// Re-create shaders for this node, need to call this if alpha testing, texture stages or vertex color mode have changed.
-        void recreateShaders(osg::ref_ptr<osg::Node> node, const std::string& shaderPrefix = "objects", bool forceShadersForNode = false, const osg::Program* programTemplate = nullptr, bool disableSoftParticles = false);
+        void recreateShaders(osg::ref_ptr<osg::Node> node, const std::string& shaderPrefix = "objects", bool forceShadersForNode = false, const osg::Program* programTemplate = nullptr);
 
         /// Applying shaders to a node may replace some fixed-function state.
         /// This restores it.
@@ -90,9 +90,6 @@ namespace Resource
 
         void setClampLighting(bool clamp);
         bool getClampLighting() const;
-
-        void setDepthFormat(GLenum format);
-        GLenum getDepthFormat() const;
 
         /// @see ShaderVisitor::setAutoUseNormalMaps
         void setAutoUseNormalMaps(bool use);
@@ -112,12 +109,15 @@ namespace Resource
         void setSupportedLightingMethods(const SceneUtil::LightManager::SupportedMethods& supported);
         bool isSupportedLightingMethod(SceneUtil::LightingMethod method) const;
 
-        void setOpaqueDepthTex(osg::ref_ptr<osg::Texture2D> texture);
+        void setOpaqueDepthTex(osg::ref_ptr<osg::Texture> texturePing, osg::ref_ptr<osg::Texture> texturePong);
+
+        osg::ref_ptr<osg::Texture> getOpaqueDepthTex(size_t frame);
 
         enum class UBOBinding
         {
             // If we add more UBO's, we should probably assign their bindings dynamically according to the current count of UBO's in the programTemplate
-            LightBuffer
+            LightBuffer,
+            PostProcessor
         };
         void setLightingMethod(SceneUtil::LightingMethod method);
         SceneUtil::LightingMethod getLightingMethod() const;
@@ -195,6 +195,12 @@ namespace Resource
 
         void reportStats(unsigned int frameNumber, osg::Stats* stats) const override;
 
+        void setSupportsNormalsRT(bool supports) { mSupportsNormalsRT = supports; }
+        bool getSupportsNormalsRT() const { return mSupportsNormalsRT; }
+
+        void setSoftParticles(bool enabled) { mSoftParticles = enabled; }
+        bool getSoftParticles() const { return mSoftParticles; }
+
     private:
 
         Shader::ShaderVisitor* createShaderVisitor(const std::string& shaderPrefix = "objects");
@@ -211,8 +217,9 @@ namespace Resource
         SceneUtil::LightingMethod mLightingMethod;
         SceneUtil::LightManager::SupportedMethods mSupportedLightingMethods;
         bool mConvertAlphaTestToAlphaToCoverage;
-        GLenum mDepthFormat;
-        osg::ref_ptr<osg::Texture2D> mOpaqueDepthTex;
+        bool mSupportsNormalsRT;
+        std::array<osg::ref_ptr<osg::Texture>, 2> mOpaqueDepthTex;
+        bool mSoftParticles = false;
 
         osg::ref_ptr<Resource::SharedStateManager> mSharedStateManager;
         mutable std::mutex mSharedStateMutex;

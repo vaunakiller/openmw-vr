@@ -1,15 +1,14 @@
 #include "loadscpt.hpp"
 
+#include <sstream>
+
 #include <components/debug/debuglog.hpp>
 
 #include "esmreader.hpp"
 #include "esmwriter.hpp"
-#include "components/esm/defs.hpp"
 
 namespace ESM
 {
-    unsigned int Script::sRecordId = REC_SCPT;
-
     void Script::loadSCVR(ESMReader &esm)
     {
         int s = mData.mStringTableSize;
@@ -93,7 +92,7 @@ namespace ESM
             esm.getSubName();
             switch (esm.retSubName().toInt())
             {
-                case ESM::FourCC<'S','C','H','D'>::value:
+                case fourCC("SCHD"):
                 {
                     esm.getSubHeader();
                     mId = esm.getString(32);
@@ -102,11 +101,11 @@ namespace ESM
                     hasHeader = true;
                     break;
                 }
-                case ESM::FourCC<'S','C','V','R'>::value:
+                case fourCC("SCVR"):
                     // list of local variables
                     loadSCVR(esm);
                     break;
-                case ESM::FourCC<'S','C','D','T'>::value:
+                case fourCC("SCDT"):
                 {
                     // compiled script
                     esm.getSubHeader();
@@ -125,10 +124,10 @@ namespace ESM
                     esm.getExact(mScriptData.data(), mScriptData.size());
                     break;
                 }
-                case ESM::FourCC<'S','C','T','X'>::value:
+                case fourCC("SCTX"):
                     mScriptText = esm.getHString();
                     break;
-                case ESM::SREC_DELE:
+                case SREC_DELE:
                     esm.skipHSub();
                     isDeleted = true;
                     break;
@@ -179,6 +178,7 @@ namespace ESM
 
     void Script::blank()
     {
+        mRecordFlags = 0;
         mData.mNumShorts = mData.mNumLongs = mData.mNumFloats = 0;
         mData.mScriptDataSize = 0;
         mData.mStringTableSize = 0;

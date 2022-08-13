@@ -10,6 +10,8 @@
 #include <MyGUI_InputManager.h>
 #include <MyGUI_RotatingSkin.h>
 #include <MyGUI_FactoryManager.h>
+#include <MyGUI_TextIterator.h>
+#include <MyGUI_Button.h>
 
 #include <components/esm3/globalmap.hpp>
 #include <components/esm3/esmwriter.hpp>
@@ -23,6 +25,7 @@
 #include "../mwworld/player.hpp"
 #include "../mwworld/cellstore.hpp"
 #include "../mwworld/esmstore.hpp"
+#include "../mwworld/cellutils.hpp"
 
 #include "../mwrender/globalmap.hpp"
 #include "../mwrender/localmap.hpp"
@@ -101,7 +104,7 @@ namespace
             return Constants::CellGridRadius;
         const int maxLocalViewingDistance = std::max(Settings::Manager::getInt("max local viewing distance", "Map"), Constants::CellGridRadius);
         const int viewingDistanceInCells = Settings::Manager::getFloat("viewing distance", "Camera") / Constants::CellSizeInUnits;
-        return std::min(maxLocalViewingDistance, viewingDistanceInCells);
+        return std::clamp(viewingDistanceInCells, Constants::CellGridRadius, maxLocalViewingDistance);
     }
 }
 
@@ -277,22 +280,22 @@ namespace MWGui
 
     MyGUI::IntPoint LocalMapBase::getMarkerPosition(float worldX, float worldY, MarkerUserData& markerPos) const
     {
-        int cellX, cellY;
+        osg::Vec2i cellIndex;
         // normalized cell coordinates
         float nX,nY;
 
         if (!mInterior)
         {
-            MWBase::Environment::get().getWorld()->positionToIndex(worldX, worldY, cellX, cellY);
-            nX = (worldX - cellSize * cellX) / cellSize;
+            cellIndex = MWWorld::positionToCellIndex(worldX, worldY);
+            nX = (worldX - cellSize * cellIndex.x()) / cellSize;
             // Image space is -Y up, cells are Y up
-            nY = 1 - (worldY - cellSize * cellY) / cellSize;
+            nY = 1 - (worldY - cellSize * cellIndex.y()) / cellSize;
         }
         else
-            mLocalMapRender->worldToInteriorMapPosition({ worldX, worldY }, nX, nY, cellX, cellY);
+            mLocalMapRender->worldToInteriorMapPosition({ worldX, worldY }, nX, nY, cellIndex.x(), cellIndex.y());
 
-        markerPos.cellX = cellX;
-        markerPos.cellY = cellY;
+        markerPos.cellX = cellIndex.x();
+        markerPos.cellY = cellIndex.y();
         markerPos.nX = nX;
         markerPos.nY = nY;
         return getPosition(markerPos.cellX, markerPos.cellY, markerPos.nX, markerPos.nY);
@@ -530,12 +533,10 @@ namespace MWGui
             markerTexture = "textures\\detect_enchantment_icon.dds";
         }
 
-        int counter = 0;
         for (const MWWorld::Ptr& ptr : markers)
         {
             const ESM::Position& worldPos = ptr.getRefData().getPosition();
             MarkerUserData markerPos (mLocalMapRender);
-            ++counter;
             MyGUI::ImageBox* markerWidget = mLocalMap->createWidget<MyGUI::ImageBox>("ImageBox",
                 getMarkerCoordinates(worldPos.pos[0], worldPos.pos[1], markerPos, 8), MyGUI::Align::Default);
             markerWidget->setDepth(Local_MarkerAboveFogLayer);
@@ -597,27 +598,27 @@ namespace MWGui
                 osg::ref_ptr<osg::Texture> texture = mLocalMapRender->getMapTexture(entry.mCellX, entry.mCellY);
                 if (texture)
                 {
-                    entry.mMapTexture.reset(new osgMyGUI::OSGTexture(texture));
+                    entry.mMapTexture = std::make_unique<osgMyGUI::OSGTexture>(texture);
                     entry.mMapWidget->setRenderItemTexture(entry.mMapTexture.get());
                     entry.mMapWidget->getSubWidgetMain()->_setUVSet(MyGUI::FloatRect(0.f, 0.f, 1.f, 1.f));
                     needRedraw = true;
                 }
                 else
-                    entry.mMapTexture.reset(new osgMyGUI::OSGTexture("", nullptr));
+                    entry.mMapTexture = std::make_unique<osgMyGUI::OSGTexture>(std::string(), nullptr);
             }
             if (!entry.mFogTexture && mFogOfWarToggled && mFogOfWarEnabled)
             {
                 osg::ref_ptr<osg::Texture> tex = mLocalMapRender->getFogOfWarTexture(entry.mCellX, entry.mCellY);
                 if (tex)
                 {
-                    entry.mFogTexture.reset(new osgMyGUI::OSGTexture(tex));
+                    entry.mFogTexture = std::make_unique<osgMyGUI::OSGTexture>(tex);
                     entry.mFogWidget->setRenderItemTexture(entry.mFogTexture.get());
                     entry.mFogWidget->getSubWidgetMain()->_setUVSet(MyGUI::FloatRect(0.f, 1.f, 1.f, 0.f));
                 }
                 else
                 {
                     entry.mFogWidget->setImageTexture("black");
-                    entry.mFogTexture.reset(new osgMyGUI::OSGTexture("", nullptr));
+                    entry.mFogTexture = std::make_unique<osgMyGUI::OSGTexture>(std::string(), nullptr);
                 }
                 needRedraw = true;
             }
@@ -1280,11 +1281,11 @@ namespace MWGui
     {
         if (!mGlobalMapTexture.get())
         {
-            mGlobalMapTexture.reset(new osgMyGUI::OSGTexture(mGlobalMapRender->getBaseTexture()));
+            mGlobalMapTexture = std::make_unique<osgMyGUI::OSGTexture>(mGlobalMapRender->getBaseTexture());
             mGlobalMapImage->setRenderItemTexture(mGlobalMapTexture.get());
             mGlobalMapImage->getSubWidgetMain()->_setUVSet(MyGUI::FloatRect(0.f, 0.f, 1.f, 1.f));
 
-            mGlobalMapOverlayTexture.reset(new osgMyGUI::OSGTexture(mGlobalMapRender->getOverlayTexture()));
+            mGlobalMapOverlayTexture = std::make_unique<osgMyGUI::OSGTexture>(mGlobalMapRender->getOverlayTexture());
             mGlobalMapOverlay->setRenderItemTexture(mGlobalMapOverlayTexture.get());
             mGlobalMapOverlay->getSubWidgetMain()->_setUVSet(MyGUI::FloatRect(0.f, 0.f, 1.f, 1.f));
 

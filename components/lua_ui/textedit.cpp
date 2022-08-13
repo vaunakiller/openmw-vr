@@ -6,38 +6,71 @@ namespace LuaUi
 {
     void LuaTextEdit::initialize()
     {
-        changeWidgetSkin("LuaTextEdit");
-
-        eventEditTextChange += MyGUI::newDelegate(this, &LuaTextEdit::textChange);
-
+        mEditBox = createWidget<MyGUI::EditBox>("LuaTextEdit", MyGUI::IntCoord(0, 0, 0, 0), MyGUI::Align::Default);
+        mEditBox->eventEditTextChange += MyGUI::newDelegate(this, &LuaTextEdit::textChange);
+        registerEvents(mEditBox);
         WidgetExtension::initialize();
     }
 
     void LuaTextEdit::deinitialize()
     {
-        eventEditTextChange -= MyGUI::newDelegate(this, &LuaTextEdit::textChange);
+        mEditBox->eventEditTextChange -= MyGUI::newDelegate(this, &LuaTextEdit::textChange);
+        clearEvents(mEditBox);
         WidgetExtension::deinitialize();
     }
 
     void LuaTextEdit::updateProperties()
     {
-        setCaption(propertyValue("text", std::string()));
-        setFontHeight(propertyValue("textSize", 10));
-        setTextColour(propertyValue("textColor", MyGUI::Colour(0, 0, 0, 1)));
-        setEditMultiLine(propertyValue("multiline", false));
-        setEditWordWrap(propertyValue("wordWrap", false));
+        mEditBox->setFontHeight(propertyValue("textSize", 10));
+        mEditBox->setTextColour(propertyValue("textColor", MyGUI::Colour(0, 0, 0, 1)));
+        mEditBox->setEditWordWrap(propertyValue("wordWrap", false));
 
         Alignment horizontal(propertyValue("textAlignH", Alignment::Start));
         Alignment vertical(propertyValue("textAlignV", Alignment::Start));
-        setTextAlign(alignmentToMyGui(horizontal, vertical));
+        mEditBox->setTextAlign(alignmentToMyGui(horizontal, vertical));
 
-        setEditStatic(propertyValue("readOnly", false));
+        mMultiline = propertyValue("multiline", false);
+        mEditBox->setEditMultiLine(mMultiline);
+
+        bool readOnly = propertyValue("readOnly", false);
+        mEditBox->setEditStatic(readOnly);
+
+        mAutoSize = (readOnly || !mMultiline) && propertyValue("autoSize", false);
+
+        // change caption last, for multiline and wordwrap to apply
+        mEditBox->setCaption(propertyValue("text", std::string()));
 
         WidgetExtension::updateProperties();
     }
 
     void LuaTextEdit::textChange(MyGUI::EditBox*)
     {
-        triggerEvent("textChanged", sol::make_object(lua(), getCaption().asUTF8()));
+        triggerEvent("textChanged", sol::make_object(lua(), mEditBox->getCaption().asUTF8()));
+    }
+
+    void LuaTextEdit::updateCoord()
+    {
+        WidgetExtension::updateCoord();
+        mEditBox->setSize(widget()->getSize());
+    }
+
+    void LuaTextEdit::updateChildren()
+    {
+        WidgetExtension::updateChildren();
+        // otherwise it won't be focusable
+        mEditBox->detachFromWidget();
+        mEditBox->attachToWidget(this);
+    }
+    
+    MyGUI::IntSize LuaTextEdit::calculateSize()
+    {
+        MyGUI::IntSize normalSize = WidgetExtension::calculateSize();
+        if (mAutoSize)
+        {
+            mEditBox->setSize(normalSize);
+            int targetHeight = mMultiline ? mEditBox->getTextSize().height : mEditBox->getFontHeight();
+            normalSize.height = std::max(normalSize.height, targetHeight);
+        }
+        return normalSize;
     }
 }

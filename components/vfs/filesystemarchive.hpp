@@ -3,6 +3,8 @@
 
 #include "archive.hpp"
 
+#include <string>
+
 namespace VFS
 {
 
@@ -12,6 +14,8 @@ namespace VFS
         FileSystemArchiveFile(const std::string& path);
 
         Files::IStreamPtr open() override;
+
+        std::string getPath() override { return mPath; }
 
     private:
         std::string mPath;

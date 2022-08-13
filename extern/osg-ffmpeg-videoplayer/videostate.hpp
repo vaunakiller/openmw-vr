@@ -128,7 +128,7 @@ struct VideoState {
 
     void setAudioFactory(MovieAudioFactory* factory);
 
-    void init(std::shared_ptr<std::istream> inputstream, const std::string& name);
+    void init(std::unique_ptr<std::istream>&& inputstream, const std::string& name);
     void deinit();
 
     void setPaused(bool isPaused);
@@ -161,11 +161,11 @@ struct VideoState {
     osg::ref_ptr<osg::Texture2D> mTexture;
 
     MovieAudioFactory* mAudioFactory;
-    std::shared_ptr<MovieAudioDecoder> mAudioDecoder;
+    std::unique_ptr<MovieAudioDecoder> mAudioDecoder;
 
     ExternalClock mExternalClock;
 
-    std::shared_ptr<std::istream> stream;
+    std::unique_ptr<std::istream> stream;
     AVFormatContext* format_ctx;
     AVCodecContext* video_ctx;
     AVCodecContext* audio_ctx;

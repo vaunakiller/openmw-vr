@@ -19,9 +19,9 @@ namespace ESM
         unsigned int mIndex;
         int mContentFile;
 
-        void load(ESMReader& esm, bool wide = false, ESM::NAME tag = "FRMR");
+        void load(ESMReader& esm, bool wide = false, NAME tag = "FRMR");
 
-        void save(ESMWriter &esm, bool wide = false, ESM::NAME tag = "FRMR") const;
+        void save(ESMWriter &esm, bool wide = false, NAME tag = "FRMR") const;
 
         inline bool hasContentFile() const { return mContentFile >= 0; }
 
@@ -115,6 +115,8 @@ namespace ESM
 
             void blank();
     };
+
+    void skipLoadCellRef(ESMReader& esm, bool wideRefNum = false);
 
     inline bool operator== (const RefNum& left, const RefNum& right)
     {

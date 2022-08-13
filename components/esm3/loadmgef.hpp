@@ -2,7 +2,10 @@
 #define OPENMW_ESM_MGEF_H
 
 #include <string>
+#include <string_view>
 #include <map>
+
+#include "components/esm/defs.hpp"
 
 namespace ESM
 {
@@ -12,7 +15,8 @@ class ESMWriter;
 
 struct MagicEffect
 {
-    static unsigned int sRecordId;
+    constexpr static RecNameInts sRecordId = REC_MGEF;
+
     /// Return a string descriptor for this record type. Currently used for debugging / error logs only.
     static std::string_view getRecordType() { return "MagicEffect"; }
 
@@ -70,7 +74,7 @@ struct MagicEffect
     static const std::map<short,std::string> sNames;
 
     static const std::string &effectIdToString(short effectID);
-    static short effectStringToId(const std::string &effect);
+    static short effectStringToId(std::string_view effect);
 
     /// Returns the effect that provides resistance against \a effect (or -1 if there's none)
     static short getResistanceEffect(short effect);
@@ -83,8 +87,8 @@ struct MagicEffect
     MEDTstruct mData;
 
     std::string mIcon, mParticle; // Textures
-    std::string mCasting, mHit, mArea; // ESM::Static
-    std::string mBolt; // ESM::Weapon
+    std::string mCasting, mHit, mArea; // Static
+    std::string mBolt; // Weapon
     std::string mCastSound, mBoltSound, mHitSound, mAreaSound; // Sounds
     std::string mDescription;
 

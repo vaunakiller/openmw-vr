@@ -18,7 +18,7 @@ and run the install package once downloaded. It's now installed!
 The (bleeding edge) Source Way
 ==============================
 
-Visit the `Development Environment Setup <https://gitlab.com/OpenMW/openmw/-/wikis/development/development_environment_setup>`_
+Visit the `Development Environment Setup <https://wiki.openmw.org/index.php?title=Development_Environment_Setup>`_
 section of the Wiki for detailed instructions on how to build the engine.
 
 The Ubuntu Way
@@ -61,3 +61,10 @@ However, it depends on several packages which are not in stable,
 so it is not possible to install OpenMW in Wheezy without creating a FrankenDebian.
 This is not recommended or supported.
 
+The Flatpak Way
+===============
+
+OpenMW is available as a flatpak. With flatpak installed, run the command below. It should show up on your desktop.
+::
+
+	# flatpak install openmw

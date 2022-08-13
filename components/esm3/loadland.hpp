@@ -5,6 +5,7 @@
 
 #include <components/misc/constants.hpp>
 
+#include "components/esm/defs.hpp"
 #include "components/esm/esmcommon.hpp"
 
 namespace ESM
@@ -19,7 +20,8 @@ class ESMWriter;
 
 struct Land
 {
-    static unsigned int sRecordId;
+    constexpr static RecNameInts sRecordId = REC_LAND;
+
     /// Return a string descriptor for this record type. Currently used for debugging / error logs only.
     static std::string_view getRecordType() { return "Land"; }
 
@@ -109,7 +111,7 @@ struct Land
         // 24-bit normals, these aren't always correct though. Edge and corner normals may be garbage.
         VNML mNormals[LAND_NUM_VERTS * 3];
 
-        // 2D array of texture indices. An index can be used to look up an ESM::LandTexture,
+        // 2D array of texture indices. An index can be used to look up an LandTexture,
         // but to do so you must subtract 1 from the index first!
         // An index of 0 indicates the default texture.
         uint16_t mTextures[LAND_NUM_TEXTURES];
@@ -179,7 +181,7 @@ struct Land
         /// Loads data and marks it as loaded
         /// \return true if data is actually loaded from file, false otherwise
         /// including the case when data is already loaded
-        bool condLoad(ESM::ESMReader& reader, int flags, int& targetFlags, int dataFlag, void *ptr, unsigned int size) const;
+        bool condLoad(ESMReader& reader, int flags, int& targetFlags, int dataFlag, void *ptr, unsigned int size) const;
 
         mutable LandData *mLandData;
 };

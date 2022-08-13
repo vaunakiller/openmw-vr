@@ -54,6 +54,7 @@ namespace MWRender
 
     Camera::Camera (osg::Camera* camera)
     : mHeightScale(1.f),
+      mCollisionType((MWPhysics::CollisionType::CollisionType_Default & ~MWPhysics::CollisionType::CollisionType_Actor) | MWPhysics::CollisionType_CameraOnly),
       mCamera(camera),
       mAnimation(nullptr),
       mFirstPersonView(true),
@@ -115,7 +116,7 @@ namespace MWRender
 
     void Camera::getOrientation(osg::Quat& orientation) const
     {
-        orientation = osg::Quat(mRoll, osg::Vec3d(0, 1, 0)) *
+        orientation = osg::Quat(mRoll + mExtraRoll, osg::Vec3d(0, 1, 0)) *
             osg::Quat(mPitch + mExtraPitch, osg::Vec3d(1, 0, 0)) *
             osg::Quat(mYaw + mExtraYaw, osg::Vec3d(0, 0, 1));;
     }
@@ -147,6 +148,7 @@ namespace MWRender
         osg::Vec3d forward = orient * osg::Vec3d(0,1,0);
         osg::Vec3d up = orient * osg::Vec3d(0,0,1);
         cam->setViewMatrixAsLookAt(pos, pos + forward, up);
+        mViewMatrix = cam->getViewMatrix();
         }
 
     void Camera::update(float duration, bool paused)
@@ -200,7 +202,6 @@ namespace MWRender
         constexpr float focalObstacleLimit = 10.f;
 
         const auto* rayCasting = MWBase::Environment::get().getWorld()->getRayCasting();
-        constexpr int collisionType = (MWPhysics::CollisionType::CollisionType_Default & ~MWPhysics::CollisionType::CollisionType_Actor);
 
         // Adjust focal point to prevent clipping.
         osg::Vec3d focalOffset = getFocalPointOffset();
@@ -210,7 +211,7 @@ namespace MWRender
         float offsetLen = focalOffset.length();
         if (offsetLen > 0)
         {
-            MWPhysics::RayCastingResult result = rayCasting->castSphere(focal - focalOffset, focal, focalObstacleLimit, collisionType);
+            MWPhysics::RayCastingResult result = rayCasting->castSphere(focal - focalOffset, focal, focalObstacleLimit, mCollisionType);
             if (result.mHit)
             {
                 double adjustmentCoef = -(result.mHitPos + result.mHitNormal * focalObstacleLimit - focal).length() / offsetLen;
@@ -222,7 +223,7 @@ namespace MWRender
         mCameraDistance = mPreferredCameraDistance;
         osg::Quat orient =  osg::Quat(mPitch + mExtraPitch, osg::Vec3d(1,0,0)) * osg::Quat(mYaw + mExtraYaw, osg::Vec3d(0,0,1));
         osg::Vec3d offset = orient * osg::Vec3d(0.f, -mCameraDistance, 0.f);
-        MWPhysics::RayCastingResult result = rayCasting->castSphere(focal, focal + offset, cameraObstacleLimit, collisionType);
+        MWPhysics::RayCastingResult result = rayCasting->castSphere(focal, focal + offset, cameraObstacleLimit, mCollisionType);
         if (result.mHit)
         {
             mCameraDistance = (result.mHitPos + result.mHitNormal * cameraObstacleLimit - focal).length();
@@ -239,7 +240,7 @@ namespace MWRender
         if (newMode != Mode::VR && VR::getVR())
             return;
         Mode oldMode = mMode;
-        if (!force && (newMode == Mode::FirstPerson || oldMode == Mode::FirstPerson) && !mAnimation->upperBodyReady())
+        if (!force && (newMode == Mode::FirstPerson || oldMode == Mode::FirstPerson) && mAnimation && !mAnimation->upperBodyReady())
         {
             // Changing the view will stop all playing animations, so if we are playing
             // anything important, queue the view change for later

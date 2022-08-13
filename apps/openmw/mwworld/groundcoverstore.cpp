@@ -1,29 +1,50 @@
 #include "groundcoverstore.hpp"
 
 #include <components/esmloader/load.hpp>
+#include <components/esmloader/esmdata.hpp>
 #include <components/misc/stringops.hpp>
+#include <components/esm3/readerscache.hpp>
+#include <components/misc/resourcehelpers.hpp>
+#include <components/resource/resourcesystem.hpp>
+
+#include <apps/openmw/mwbase/environment.hpp>
+
+#include "store.hpp"
 
 namespace MWWorld
 {
-    void GroundcoverStore::init(const Store<ESM::Static>& statics, const Files::Collections& fileCollections, const std::vector<std::string>& groundcoverFiles, ToUTF8::Utf8Encoder* encoder)
+    void GroundcoverStore::init(const Store<ESM::Static>& statics, const Files::Collections& fileCollections,
+        const std::vector<std::string>& groundcoverFiles, ToUTF8::Utf8Encoder* encoder, Loading::Listener* listener)
     {
-        EsmLoader::Query query;
+        ::EsmLoader::Query query;
         query.mLoadStatics = true;
         query.mLoadCells = true;
 
-        std::vector<ESM::ESMReader> readers(groundcoverFiles.size());
-        const EsmLoader::EsmData content = EsmLoader::loadEsmData(query, groundcoverFiles, fileCollections, readers, encoder);
+        ESM::ReadersCache readers;
+        const ::EsmLoader::EsmData content = ::EsmLoader::loadEsmData(query, groundcoverFiles, fileCollections,
+                                                                      readers, encoder, listener);
 
+        const VFS::Manager* const vfs = MWBase::Environment::get().getResourceSystem()->getVFS();
+
+        static constexpr std::string_view prefix = "grass\\";
         for (const ESM::Static& stat : statics)
         {
             std::string id = Misc::StringUtils::lowerCase(stat.mId);
-            mMeshCache[id] = "meshes\\" + Misc::StringUtils::lowerCase(stat.mModel);
+            std::string model = Misc::StringUtils::lowerCase(stat.mModel);
+            std::replace(model.begin(), model.end(), '/', '\\');
+            if (model.compare(0, prefix.size(), prefix) != 0)
+                continue;
+            mMeshCache[id] = Misc::ResourceHelpers::correctMeshPath(model, vfs);
         }
 
         for (const ESM::Static& stat : content.mStatics)
         {
             std::string id = Misc::StringUtils::lowerCase(stat.mId);
-            mMeshCache[id] = "meshes\\" + Misc::StringUtils::lowerCase(stat.mModel);
+            std::string model = Misc::StringUtils::lowerCase(stat.mModel);
+            std::replace(model.begin(), model.end(), '/', '\\');
+            if (model.compare(0, prefix.size(), prefix) != 0)
+                continue;
+            mMeshCache[id] = Misc::ResourceHelpers::correctMeshPath(model, vfs);
         }
 
         for (const ESM::Cell& cell : content.mCells)

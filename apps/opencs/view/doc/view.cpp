@@ -6,13 +6,9 @@
 #include <QCloseEvent>
 #include <QMenuBar>
 #include <QMessageBox>
-#include <QMdiArea>
-#include <QDockWidget>
 #include <QApplication>
 #include <QDesktopWidget>
 #include <QScrollArea>
-#include <QHBoxLayout>
-#include <QDesktopWidget>
 #include <QScrollBar>
 #include <QScreen>
 
@@ -25,6 +21,8 @@
 #include "../world/subviews.hpp"
 #include "../world/scenesubview.hpp"
 #include "../world/tablesubview.hpp"
+#include "../world/dialoguesubview.hpp"
+#include "../world/scriptsubview.hpp"
 
 #include "../tools/subviews.hpp"
 
@@ -659,6 +657,17 @@ void CSVDoc::View::addSubView (const CSMWorld::UniversalId& id, const std::strin
     {
         connect(sceneView, SIGNAL(requestFocus(const std::string&)),
                 this, SLOT(onRequestFocus(const std::string&)));
+    }
+
+    if (CSMPrefs::State::get()["ID Tables"]["subview-new-window"].isTrue())
+    {
+        CSVWorld::DialogueSubView* dialogueView = dynamic_cast<CSVWorld::DialogueSubView*>(view);
+        if (dialogueView)
+            dialogueView->setFloating(true);
+
+        CSVWorld::ScriptSubView* scriptView = dynamic_cast<CSVWorld::ScriptSubView*>(view);
+        if (scriptView)
+            scriptView->setFloating(true);
     }
 
     view->show();

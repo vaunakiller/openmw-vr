@@ -70,9 +70,18 @@ write to navmeshdb
 
 :Type:		boolean
 :Range:		True/False
-:Default:	False
+:Default:	True
 
 If true generated navmesh tiles will be stored into disk cache while game is running.
+
+max navmeshdb file size
+-----------------------
+
+:Type:		integer
+:Range:		> 0
+:Default:	2147483648
+
+Approximate maximum file size of navigation mesh cache stored on disk in bytes (value > 0).
 
 Advanced settings
 *****************
@@ -195,10 +204,21 @@ enable nav mesh render
 :Range:		True/False
 :Default:	False
 
-Render nav mesh.
+Render navigation mesh.
 Allows to do in-game debug.
 Every nav mesh is visible and every update is noticable.
 Potentially decreases performance.
+
+nav mesh render mode
+--------------------
+
+:Type:		string
+:Range:		"area type", "update frequency"
+:Default:	"area type"
+
+Render navigation mesh in specific mode.
+"area type" - show area types using different colours.
+"update frequency" - show tiles update frequency as a heatmap.
 
 enable agents paths render
 --------------------------

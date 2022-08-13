@@ -1,4 +1,8 @@
 #include <functional>
+#include <variant>
+#include <optional>
+#include <shared_mutex>
+#include <mutex>
 
 #include <BulletCollision/BroadphaseCollision/btDbvtBroadphase.h>
 #include <BulletCollision/CollisionShapes/btCollisionShape.h>
@@ -9,10 +13,17 @@
 #include <components/misc/barrier.hpp>
 #include "components/misc/convert.hpp"
 #include "components/settings/settings.hpp"
+
 #include "../mwmechanics/actorutil.hpp"
 #include "../mwmechanics/movement.hpp"
+#include "../mwmechanics/creaturestats.hpp"
+
 #include "../mwrender/bulletdebugdraw.hpp"
+
 #include "../mwworld/class.hpp"
+
+#include "../mwbase/environment.hpp"
+#include "../mwbase/world.hpp"
 
 #include "actor.hpp"
 #include "contacttestwrapper.h"
@@ -24,6 +35,14 @@
 
 namespace
 {
+    template <class Mutex>
+    std::optional<std::unique_lock<Mutex>> makeExclusiveLock(Mutex& mutex, unsigned threadCount)
+    {
+        if (threadCount > 0)
+            return std::unique_lock(mutex);
+        return {};
+    }
+
     /// @brief A scoped lock that is either exclusive or inexistent depending on configuration
     template<class Mutex>
     class MaybeExclusiveLock
@@ -31,23 +50,21 @@ namespace
         public:
             /// @param mutex a mutex
             /// @param threadCount decide wether the excluse lock will be taken
-            MaybeExclusiveLock(Mutex& mutex, int threadCount) : mMutex(mutex), mThreadCount(threadCount)
-            {
-                assert(threadCount >= 0);
-                if (mThreadCount > 0)
-                    mMutex.lock();
-            }
-
-            ~MaybeExclusiveLock()
-            {
-                if (mThreadCount > 0)
-                    mMutex.unlock();
-            }
+            explicit MaybeExclusiveLock(Mutex& mutex, unsigned threadCount)
+                : mImpl(makeExclusiveLock(mutex, threadCount))
+            {}
 
         private:
-            Mutex& mMutex;
-            unsigned int mThreadCount;
+            std::optional<std::unique_lock<Mutex>> mImpl;
     };
+
+    template <class Mutex>
+    std::optional<std::shared_lock<Mutex>> makeSharedLock(Mutex& mutex, unsigned threadCount)
+    {
+        if (threadCount > 0)
+            return std::shared_lock(mutex);
+        return {};
+    }
 
     /// @brief A scoped lock that is either shared or inexistent depending on configuration
     template<class Mutex>
@@ -56,23 +73,23 @@ namespace
         public:
             /// @param mutex a shared mutex
             /// @param threadCount decide wether the shared lock will be taken
-            MaybeSharedLock(Mutex& mutex, int threadCount) : mMutex(mutex), mThreadCount(threadCount)
-            {
-                assert(threadCount >= 0);
-                if (mThreadCount > 0)
-                    mMutex.lock_shared();
-            }
-
-            ~MaybeSharedLock()
-            {
-                if (mThreadCount > 0)
-                    mMutex.unlock_shared();
-            }
+            explicit MaybeSharedLock(Mutex& mutex, unsigned threadCount)
+                : mImpl(makeSharedLock(mutex, threadCount))
+            {}
 
         private:
-            Mutex& mMutex;
-            unsigned int mThreadCount;
+            std::optional<std::shared_lock<Mutex>> mImpl;
     };
+
+    template <class Mutex>
+    std::variant<std::monostate, std::unique_lock<Mutex>, std::shared_lock<Mutex>> makeLock(Mutex& mutex, unsigned threadCount)
+    {
+        if (threadCount > 1)
+            return std::shared_lock(mutex);
+        if (threadCount == 1)
+            return std::unique_lock(mutex);
+        return std::monostate {};
+    }
 
     /// @brief A scoped lock that is either shared, exclusive or inexistent depending on configuration
     template<class Mutex>
@@ -81,25 +98,11 @@ namespace
         public:
             /// @param mutex a shared mutex
             /// @param threadCount decide wether the lock will be shared, exclusive or inexistent
-            MaybeLock(Mutex& mutex, int threadCount) : mMutex(mutex), mThreadCount(threadCount)
-            {
-                assert(threadCount >= 0);
-                if (mThreadCount > 1)
-                    mMutex.lock_shared();
-                else if(mThreadCount == 1)
-                    mMutex.lock();
-            }
+            explicit MaybeLock(Mutex& mutex, unsigned threadCount)
+                : mImpl(makeLock(mutex, threadCount)) {}
 
-            ~MaybeLock()
-            {
-                if (mThreadCount > 1)
-                    mMutex.unlock_shared();
-                else if(mThreadCount == 1)
-                    mMutex.unlock();
-            }
         private:
-            Mutex& mMutex;
-            unsigned int mThreadCount;
+            std::variant<std::monostate, std::unique_lock<Mutex>, std::shared_lock<Mutex>> mImpl;
     };
 
     bool isUnderWater(const MWPhysics::ActorFrameData& actorData)
@@ -129,7 +132,7 @@ namespace
         {
             const Impl& mImpl;
             std::shared_mutex& mCollisionWorldMutex;
-            const int mNumJobs;
+            const unsigned mNumThreads;
 
             template <class Ptr, class FrameData>
             void operator()(MWPhysics::SimulationImpl<Ptr, FrameData>& sim) const
@@ -141,7 +144,7 @@ namespace
                 // Locked shared_ptr has to be destructed after releasing mCollisionWorldMutex to avoid
                 // possible deadlock. Ptr destructor also acquires mCollisionWorldMutex.
                 const std::pair arg(std::move(ptr), frameData);
-                const Lock<std::shared_mutex> lock(mCollisionWorldMutex, mNumJobs);
+                const Lock<std::shared_mutex> lock(mCollisionWorldMutex, mNumThreads);
                 mImpl(arg);
             }
         };
@@ -285,7 +288,7 @@ namespace
     namespace Config
     {
         /// @return either the number of thread as configured by the user, or 1 if Bullet doesn't support multithreading and user requested more than 1 background threads
-        int computeNumThreads()
+        unsigned computeNumThreads()
         {
             int wantedThread = Settings::Manager::getInt("async num threads", "Physics");
 
@@ -297,7 +300,7 @@ namespace
                 Log(Debug::Warning) << "Bullet was not compiled with multithreading support, 1 async thread will be used";
                 return 1;
             }
-            return std::max(0, wantedThread);
+            return static_cast<unsigned>(std::max(0, wantedThread));
         }
     }
 }
@@ -332,7 +335,7 @@ namespace MWPhysics
     {
         if (mNumThreads >= 1)
         {
-            for (int i = 0; i < mNumThreads; ++i)
+            for (unsigned i = 0; i < mNumThreads; ++i)
                 mThreads.emplace_back([&] { worker(); } );
         }
         else
@@ -661,7 +664,7 @@ namespace MWPhysics
         btVector3 pos2  = Misc::Convert::toBullet(actor2->getCollisionObjectPosition() + osg::Vec3f(0,0,actor2->getHalfExtents().z() * 0.9));
 
         btCollisionWorld::ClosestRayResultCallback resultCallback(pos1, pos2);
-        resultCallback.m_collisionFilterGroup = 0xFF;
+        resultCallback.m_collisionFilterGroup = CollisionType_AnyPhysical;
         resultCallback.m_collisionFilterMask = CollisionType_World|CollisionType_HeightMap|CollisionType_Door;
 
         MaybeLock lockColWorld(mCollisionWorldMutex, mNumThreads);

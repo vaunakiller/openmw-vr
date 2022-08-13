@@ -12,6 +12,7 @@
 #include "../mwmechanics/aitravel.hpp"
 #include "../mwmechanics/aiwander.hpp"
 #include "../mwmechanics/aipackage.hpp"
+#include "../mwmechanics/creaturestats.hpp"
 
 #include "luamanagerimp.hpp"
 
@@ -43,31 +44,12 @@ namespace MWLua
 #undef CONTROL
 
         sol::usertype<SelfObject> selfAPI =
-            context.mLua->sol().new_usertype<SelfObject>("SelfObject", sol::base_classes, sol::bases<LObject>());
+            context.mLua->sol().new_usertype<SelfObject>("SelfObject", sol::base_classes, sol::bases<LObject, Object>());
         selfAPI[sol::meta_function::to_string] = [](SelfObject& self) { return "openmw.self[" + self.toString() + "]"; };
         selfAPI["object"] = sol::readonly_property([](SelfObject& self) -> LObject { return LObject(self); });
         selfAPI["controls"] = sol::readonly_property([](SelfObject& self) { return &self.mControls; });
         selfAPI["isActive"] = [](SelfObject& self) { return &self.mIsActive; };
         selfAPI["enableAI"] = [](SelfObject& self, bool v) { self.mControls.mDisableAI = !v; };
-        selfAPI["setEquipment"] = [context](const SelfObject& obj, sol::table equipment)
-        {
-            if (!obj.ptr().getClass().hasInventoryStore(obj.ptr()))
-            {
-                if (!equipment.empty())
-                    throw std::runtime_error(ptrToString(obj.ptr()) + " has no equipment slots");
-                return;
-            }
-            SetEquipmentAction::Equipment eqp;
-            for (auto& [key, value] : equipment)
-            {
-                int slot = key.as<int>();
-                if (value.is<LObject>())
-                    eqp[slot] = value.as<LObject>().id();
-                else
-                    eqp[slot] = value.as<std::string>();
-            }
-            context.mLuaManager->addAction(std::make_unique<SetEquipmentAction>(context.mLua, obj.id(), std::move(eqp)));
-        };
 
         using AiPackage = MWMechanics::AiPackage;
         sol::usertype<AiPackage> aiPackage = context.mLua->sol().new_usertype<AiPackage>("AiPackage");
@@ -98,7 +80,7 @@ namespace MWLua
                 return LObject(getId(target), worldView->getObjectRegistry());
         });
         aiPackage["sideWithTarget"] = sol::readonly_property([](const AiPackage& p) { return p.sideWithTarget(); });
-        aiPackage["destination"] = sol::readonly_property([](const AiPackage& p) { return p.getDestination(); });
+        aiPackage["destPosition"] = sol::readonly_property([](const AiPackage& p) { return p.getDestination(); });
 
         selfAPI["_getActiveAiPackage"] = [](SelfObject& self) -> sol::optional<std::shared_ptr<AiPackage>>
         {
@@ -167,8 +149,8 @@ namespace MWLua
         };
     }
 
-    LocalScripts::LocalScripts(LuaUtil::LuaState* lua, const LObject& obj, ESM::LuaScriptCfg::Flags autoStartMode)
-        : LuaUtil::ScriptsContainer(lua, "L" + idToString(obj.id()), autoStartMode), mData(obj)
+    LocalScripts::LocalScripts(LuaUtil::LuaState* lua, const LObject& obj)
+        : LuaUtil::ScriptsContainer(lua, "L" + idToString(obj.id())), mData(obj)
     {
         this->addPackage("openmw.self", sol::make_object(lua->sol(), &mData));
         registerEngineHandlers({&mOnActiveHandlers, &mOnInactiveHandlers, &mOnConsumeHandlers, &mOnActivatedHandlers});
@@ -196,9 +178,16 @@ namespace MWLua
             else
             {
                 static_assert(std::is_same_v<EventT, OnConsume>);
-                callEngineHandlers(mOnConsumeHandlers, arg.mRecordId);
+                callEngineHandlers(mOnConsumeHandlers, arg.mConsumable);
             }
         }, event);
     }
 
+    void LocalScripts::applyStatsCache()
+    {
+        const auto& ptr = mData.ptr();
+        for (auto& [stat, value] : mData.mStatsCache)
+            stat(ptr, value);
+        mData.mStatsCache.clear();
+    }
 }

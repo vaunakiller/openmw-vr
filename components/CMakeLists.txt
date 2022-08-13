@@ -29,7 +29,11 @@ endif (GIT_CHECKOUT)
 # source files
 
 add_component_dir (lua
-    luastate scriptscontainer utilpackage serialization configuration i18n storage
+    luastate scriptscontainer utilpackage serialization configuration l10n storage
+    )
+
+add_component_dir (l10n
+    messagebundles
     )
 
 add_component_dir (settings
@@ -57,7 +61,7 @@ add_component_dir (sceneutil
     clone attach visitor util statesetupdater controller skeleton riggeometry morphgeometry lightcontroller
     lightmanager lightutil positionattitudetransform workqueue pathgridutil waterutil writescene serialize optimizer
     actorutil detourdebugdraw navmesh agentpath shadow mwshadowtechnique recastmesh shadowsbin osgacontroller rtt
-    screencapture depth color
+    screencapture depth color riggeometryosgaextension extradata unrefqueue
     )
 
 add_component_dir (nif
@@ -76,7 +80,11 @@ add_component_dir (to_utf8
     to_utf8
     )
 
-add_component_dir(esm attr common defs esmcommon reader records util luascripts)
+add_component_dir(esm attr common defs esmcommon reader records util luascripts format)
+
+add_component_dir(fx pass technique lexer widgets stateupdater)
+
+add_component_dir(std140 ubo)
 
 add_component_dir (esm3
     esmreader esmwriter loadacti loadalch loadappa loadarmo loadbody loadbook loadbsgn loadcell
@@ -87,7 +95,7 @@ add_component_dir (esm3
     savedgame journalentry queststate locals globalscript player objectstate cellid cellstate globalmap
     inventorystate containerstate npcstate creaturestate dialoguestate statstate npcstats creaturestats
     weatherstate quickkeys fogstate spellstate activespells creaturelevliststate doorstate projectilestate debugprofile
-    aisequence magiceffects custommarkerstate stolenitems transport animationstate controlsstate mappings
+    aisequence magiceffects custommarkerstate stolenitems transport animationstate controlsstate mappings readerscache
     )
 
 add_component_dir (esm3terrain
@@ -193,7 +201,7 @@ add_component_dir (misc
     )
 
 add_component_dir (stereo
-    multiview stereomanager types
+    frustum multiview stereomanager types
     )
 
 add_component_dir (debug
@@ -206,7 +214,7 @@ IF(NOT WIN32 AND NOT APPLE)
 ENDIF()
 add_component_dir (files
     linuxpath androidpath windowspath macospath fixedpath multidircollection collections configurationmanager
-    lowlevelfile constrainedfilestream memorystream hash configfileparser
+    constrainedfilestream memorystream hash configfileparser openfile constrainedfilestreambuf
     )
 
 add_component_dir (compiler
@@ -226,7 +234,8 @@ add_component_dir (translation
     )
 
 add_component_dir (terrain
-    storage world buffercache defs terraingrid material terraindrawable texturemanager chunkmanager compositemaprenderer quadtreeworld quadtreenode viewdata cellborder
+    storage world buffercache defs terraingrid material terraindrawable texturemanager chunkmanager compositemaprenderer
+    quadtreeworld quadtreenode viewdata cellborder view heightcull
     )
 
 add_component_dir (loadinglistener
@@ -257,14 +266,10 @@ add_component_dir (fallback
     fallback validate
     )
 
-add_component_dir (queries
-    query luabindings
-    )
-
 add_component_dir (lua_ui
     registerscriptsettings scriptsettings
     properties widget element util layers content alignment resources
-    adapter text textedit window image container
+    adapter text textedit window image container flex
     )
 
 
@@ -310,6 +315,7 @@ add_component_dir(detournavigator
     navmeshdbutils
     recast
     gettilespositions
+    collisionshapetype
     )
 
 add_component_dir(loadinglistener
@@ -326,6 +332,29 @@ add_component_dir(esmloader
     load
     esmdata
 )
+
+add_component_dir(navmeshtool
+    protocol
+    )
+
+add_component_dir(platform
+    platform
+    file
+    )
+
+if (WIN32)
+    add_component_dir(platform
+        file.win32
+        )
+elseif (UNIX)
+    add_component_dir(platform
+        file.posix
+        )
+else ()
+    add_component_dir(platform
+        file.stdio
+        )
+endif()
 
 if(BUILD_OPENMW_VR)
     add_component_dir(vr
@@ -432,7 +461,13 @@ target_link_libraries(components
     Base64
     SQLite::SQLite3
     smhasher
+    ${ICU_LIBRARIES}
+    yaml-cpp
     )
+
+if(Boost_VERSION_STRING VERSION_GREATER_EQUAL 1.77.0)
+    target_link_libraries(components ${Boost_ATOMIC_LIBRARY})
+endif()
 
 target_link_libraries(components ${BULLET_LIBRARIES})
 
@@ -513,9 +548,36 @@ if(USE_QT)
     set_property(TARGET components_qt PROPERTY AUTOMOC ON)
 endif(USE_QT)
 
-if (MSVC AND CMAKE_VERSION VERSION_GREATER_EQUAL 3.16)
-    target_precompile_headers(components PRIVATE ${SOL_INCLUDE_DIR}/sol/sol.hpp)
-endif ()
+if (CMAKE_VERSION VERSION_GREATER_EQUAL 3.16 AND MSVC)
+    target_precompile_headers(components PUBLIC
+        <sol/sol.hpp>
+
+        <osg/State>
+        <osg/StateSet>
+        <osg/Node>
+        <osg/Drawable>
+        <osg/Camera>
+
+        <MyGUI_Widget.h>
+
+        <boost/filesystem.hpp>
+
+        <algorithm>
+        <filesystem>
+        <fstream>
+        <functional>
+        <memory>
+        <ostream>
+        <string>
+        <vector>
+    )
+
+    target_precompile_headers(components PRIVATE
+        <osgViewer/Viewer>
+
+        <boost/program_options/options_description.hpp>
+    )
+endif()
   
 if(BUILD_OPENMW_VR)
     target_link_libraries(components openxr_loader)

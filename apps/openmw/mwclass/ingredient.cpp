@@ -1,5 +1,7 @@
 #include "ingredient.hpp"
 
+#include <MyGUI_TextIterator.h>
+
 #include <components/esm3/loadingr.hpp>
 
 #include "../mwbase/environment.hpp"
@@ -18,8 +20,14 @@
 #include "../mwrender/objects.hpp"
 #include "../mwrender/renderinginterface.hpp"
 
+#include "classmodel.hpp"
+
 namespace MWClass
 {
+    Ingredient::Ingredient()
+        : MWWorld::RegisteredClass<Ingredient>(ESM::Ingredient::sRecordId)
+    {
+    }
 
     void Ingredient::insertObjectRendering (const MWWorld::Ptr& ptr, const std::string& model, MWRender::RenderingInterface& renderingInterface) const
     {
@@ -30,13 +38,7 @@ namespace MWClass
 
     std::string Ingredient::getModel(const MWWorld::ConstPtr &ptr) const
     {
-        const MWWorld::LiveCellRef<ESM::Ingredient> *ref = ptr.get<ESM::Ingredient>();
-
-        const std::string &model = ref->mBase->mModel;
-        if (!model.empty()) {
-            return "meshes\\" + model;
-        }
-        return "";
+        return getClassModel<ESM::Ingredient>(ptr);
     }
 
     std::string Ingredient::getName (const MWWorld::ConstPtr& ptr) const
@@ -47,7 +49,7 @@ namespace MWClass
         return !name.empty() ? name : ref->mBase->mId;
     }
 
-    std::shared_ptr<MWWorld::Action> Ingredient::activate (const MWWorld::Ptr& ptr,
+    std::unique_ptr<MWWorld::Action> Ingredient::activate (const MWWorld::Ptr& ptr,
         const MWWorld::Ptr& actor) const
     {
         return defaultItemActivate(ptr, actor);
@@ -68,20 +70,13 @@ namespace MWClass
     }
 
 
-    std::shared_ptr<MWWorld::Action> Ingredient::use (const MWWorld::Ptr& ptr, bool force) const
+    std::unique_ptr<MWWorld::Action> Ingredient::use (const MWWorld::Ptr& ptr, bool force) const
     {
-        std::shared_ptr<MWWorld::Action> action (new MWWorld::ActionEat (ptr));
+        std::unique_ptr<MWWorld::Action> action = std::make_unique<MWWorld::ActionEat>(ptr);
 
         action->setSound ("Swallow");
 
         return action;
-    }
-
-    void Ingredient::registerSelf()
-    {
-        std::shared_ptr<Class> instance (new Ingredient);
-
-        registerClass (ESM::Ingredient::sRecordId, instance);
     }
 
     std::string Ingredient::getUpSoundId (const MWWorld::ConstPtr& ptr) const

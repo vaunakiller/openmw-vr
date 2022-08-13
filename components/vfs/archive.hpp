@@ -3,7 +3,7 @@
 
 #include <map>
 
-#include <components/files/constrainedfilestream.hpp>
+#include <components/files/istreamptr.hpp>
 
 namespace VFS
 {
@@ -14,6 +14,8 @@ namespace VFS
         virtual ~File() {}
 
         virtual Files::IStreamPtr open() = 0;
+
+        virtual std::string getPath() = 0;
     };
 
     class Archive

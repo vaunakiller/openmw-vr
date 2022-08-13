@@ -4,18 +4,24 @@
 #include <components/fallback/validate.hpp>
 #include <components/debug/debugging.hpp>
 #include <components/misc/rng.hpp>
+#include <components/platform/platform.hpp>
+
+#include "mwgui/debugwindow.hpp"
 
 #include "engine.hpp"
 #include "options.hpp"
 
+#include <boost/program_options/variables_map.hpp>
+
 #if defined(_WIN32)
-#ifndef WIN32_LEAN_AND_MEAN
-#define WIN32_LEAN_AND_MEAN
-#endif
-#include <windows.h>
+#include <components/windows.hpp>
 // makes __argc and __argv available on windows
 #include <cstdlib>
+
+extern "C" __declspec(dllexport) DWORD AmdPowerXpressRequestHighPerformance = 0x00000001;
 #endif
+
+#include <filesystem>
 
 #if (defined(__APPLE__) || defined(__linux) || defined(__unix) || defined(__posix))
 #include <unistd.h>
@@ -40,8 +46,6 @@ bool parseOptions (int argc, char** argv, OMW::Engine& engine, Files::Configurat
     typedef std::vector<std::string> StringsVector;
 
     bpo::options_description desc = OpenMW::makeOptionsDescription();
-    Files::ConfigurationManager::addCommonOptions(desc);
-
     bpo::variables_map variables;
 
     Files::parseArgs(argc, argv, variables, desc);
@@ -63,8 +67,10 @@ bool parseOptions (int argc, char** argv, OMW::Engine& engine, Files::Configurat
     }
 
     cfgMgr.readConfiguration(variables, desc);
+    Settings::Manager::load(cfgMgr);
 
     setupLogging(cfgMgr.getLogPath().string(), "OpenMW");
+    MWGui::DebugWindow::startLogRecording();
 
     Version::Version v = Version::getOpenmwVersion(variables["resources"].as<Files::MaybeQuotedPath>().string());
     Log(Debug::Info) << v.describe();
@@ -85,7 +91,7 @@ bool parseOptions (int argc, char** argv, OMW::Engine& engine, Files::Configurat
     if (!local.empty())
         dataDirs.push_back(local);
 
-    cfgMgr.processPaths(dataDirs);
+    cfgMgr.filterOutNonExistingPaths(dataDirs);
 
     engine.setResourceDir(variables["resources"].as<Files::MaybeQuotedPath>());
     engine.setDataDirs(dataDirs);
@@ -150,7 +156,6 @@ bool parseOptions (int argc, char** argv, OMW::Engine& engine, Files::Configurat
     Fallback::Map::init(variables["fallback"].as<FallbackMap>().mMap);
     engine.setSoundUsage(!variables["no-sound"].as<bool>());
     engine.setActivationDistanceOverride (variables["activate-dist"].as<int>());
-    engine.enableFontExport(variables["export-fonts"].as<bool>());
     engine.setRandomSeed(variables["random-seed"].as<unsigned int>());
 
     return true;
@@ -206,16 +211,17 @@ namespace
 
 int runApplication(int argc, char *argv[])
 {
+    Platform::init();
+
 #ifdef __APPLE__
-    boost::filesystem::path binary_path = boost::filesystem::system_complete(boost::filesystem::path(argv[0]));
-    boost::filesystem::current_path(binary_path.parent_path());
+    std::filesystem::path binary_path = std::filesystem::absolute(std::filesystem::path(argv[0]));
+    std::filesystem::current_path(binary_path.parent_path());
     setenv("OSG_GL_TEXTURE_STORAGE", "OFF", 0);
 #endif
 
     osg::setNotifyHandler(new OSGLogHandler());
     Files::ConfigurationManager cfgMgr;
-    std::unique_ptr<OMW::Engine> engine;
-    engine.reset(new OMW::Engine(cfgMgr));
+    std::unique_ptr<OMW::Engine> engine = std::make_unique<OMW::Engine>(cfgMgr);
 
     if (parseOptions(argc, argv, *engine, cfgMgr))
     {

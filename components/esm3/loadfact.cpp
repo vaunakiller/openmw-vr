@@ -4,12 +4,9 @@
 
 #include "esmreader.hpp"
 #include "esmwriter.hpp"
-#include "components/esm/defs.hpp"
 
 namespace ESM
 {
-    unsigned int Faction::sRecordId = REC_FACT;
-
     int& Faction::FADTstruct::getSkill (int index, bool ignored)
     {
         if (index<0 || index>=7)
@@ -43,25 +40,25 @@ namespace ESM
             esm.getSubName();
             switch (esm.retSubName().toInt())
             {
-                case ESM::SREC_NAME:
+                case SREC_NAME:
                     mId = esm.getHString();
                     hasName = true;
                     break;
-                case ESM::FourCC<'F','N','A','M'>::value:
+                case fourCC("FNAM"):
                     mName = esm.getHString();
                     break;
-                case ESM::FourCC<'R','N','A','M'>::value:
+                case fourCC("RNAM"):
                     if (rankCounter >= 10)
                         esm.fail("Rank out of range");
                     mRanks[rankCounter++] = esm.getHString();
                     break;
-                case ESM::FourCC<'F','A','D','T'>::value:
-                    esm.getHT(mData, 240);
+                case fourCC("FADT"):
+                    esm.getHTSized<240>(mData);
                     if (mData.mIsHidden > 1)
                         esm.fail("Unknown flag!");
                     hasData = true;
                     break;
-                case ESM::FourCC<'A','N','A','M'>::value:
+                case fourCC("ANAM"):
                 {
                     std::string faction = esm.getHString();
                     int reaction;
@@ -69,7 +66,7 @@ namespace ESM
                     mReactions[faction] = reaction;
                     break;
                 }
-                case ESM::SREC_DELE:
+                case SREC_DELE:
                     esm.skipHSub();
                     isDeleted = true;
                     break;
@@ -116,6 +113,7 @@ namespace ESM
 
     void Faction::blank()
     {
+        mRecordFlags = 0;
         mName.clear();
         mData.mAttribute[0] = mData.mAttribute[1] = 0;
         mData.mIsHidden = 0;

@@ -63,7 +63,9 @@ rm -f $OUTPUT_DIR/*.html
 cd $FILES_DIR/lua_api
 $DOCUMENTOR_PATH -f doc -d $OUTPUT_DIR openmw/*lua
 
-cd $FILES_DIR/builtin_scripts
+cd $FILES_DIR/data
 $DOCUMENTOR_PATH -f doc -d $OUTPUT_DIR openmw_aux/*lua
 $DOCUMENTOR_PATH -f doc -d $OUTPUT_DIR scripts/omw/ai.lua
-$DOCUMENTOR_PATH -f doc -d $OUTPUT_DIR scripts/omw/camera.lua
+$DOCUMENTOR_PATH -f doc -d $OUTPUT_DIR scripts/omw/camera/camera.lua
+$DOCUMENTOR_PATH -f doc -d $OUTPUT_DIR scripts/omw/mwui/init.lua
+$DOCUMENTOR_PATH -f doc -d $OUTPUT_DIR scripts/omw/settings/player.lua

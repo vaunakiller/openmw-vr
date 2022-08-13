@@ -10,6 +10,7 @@
 
 #include <iterator>
 #include <stdexcept>
+#include <sstream>
 
 namespace MWWorld
 {
@@ -125,7 +126,7 @@ namespace MWWorld
         return (dit != mDynamic.end());
     }
     template<typename T>
-    const T *Store<T>::searchRandom(const std::string &id) const
+    const T *Store<T>::searchRandom(const std::string &id, Misc::Rng::Generator& prng) const
     {
         std::vector<const T*> results;
         std::copy_if(mShared.begin(), mShared.end(), std::back_inserter(results),
@@ -134,7 +135,7 @@ namespace MWWorld
                     return Misc::StringUtils::ciCompareLen(id, item->mId, id.size()) == 0;
                 });
         if(!results.empty())
-            return results[Misc::Rng::rollDice(results.size())];
+            return results[Misc::Rng::rollDice(results.size(), prng)];
         return nullptr;
     }
     template<typename T>
@@ -403,12 +404,15 @@ namespace MWWorld
         land.load(esm, isDeleted);
 
         // Same area defined in multiple plugins? -> last plugin wins
-        auto [it, inserted] = mStatic.insert(std::move(land));
-        if (!inserted) {
+        auto it = mStatic.lower_bound(land);
+        if (it != mStatic.end() && (std::tie(it->mX, it->mY) == std::tie(land.mX, land.mY)))
+        {
             auto nh = mStatic.extract(it);
             nh.value() = std::move(land);
             mStatic.insert(std::move(nh));
         }
+        else
+            mStatic.insert(it, std::move(land));
 
         return RecordId("", isDeleted);
     }
@@ -448,7 +452,7 @@ namespace MWWorld
         //
         // Get regular moved reference data. Adapted from CellStore::loadRefs. Maybe we can optimize the following
         //  implementation when the oher implementation works as well.
-        while (cell->getNextRef(esm, ref, deleted, cMRef, moved))
+        while (ESM::Cell::getNextRef(esm, ref, deleted, cMRef, moved, ESM::Cell::GetNextRefMode::LoadOnlyMoved))
         {
             if (!moved)
                 continue;
@@ -524,6 +528,10 @@ namespace MWWorld
         newCell.mAmbi.mSunlight = 0;
         newCell.mAmbi.mFog = 0;
         newCell.mAmbi.mFogDensity = 0;
+        newCell.mCellId.mPaged = true;
+        newCell.mCellId.mIndex.mX = x;
+        newCell.mCellId.mIndex.mY = y;
+
         return &mExt.insert(std::make_pair(key, newCell)).first->second;
     }
     const ESM::Cell *Store<ESM::Cell>::find(const std::string &id) const
@@ -1070,6 +1078,13 @@ namespace MWWorld
             mKeywordSearchModFlag = true;
 
         return true;
+    }
+
+    void Store<ESM::Dialogue>::listIdentifier(std::vector<std::string>& list) const
+    {
+        list.reserve(list.size() + getSize());
+        for (const auto& dialogue : mShared)
+            list.push_back(dialogue->mId);
     }
 
     const MWDialogue::KeywordSearch<std::string, int>& Store<ESM::Dialogue>::getDialogIdKeywordSearch() const

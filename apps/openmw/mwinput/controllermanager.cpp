@@ -2,7 +2,6 @@
 
 #include <MyGUI_Button.h>
 #include <MyGUI_InputManager.h>
-#include <MyGUI_Widget.h>
 
 #include <SDL.h>
 
@@ -61,7 +60,7 @@ namespace MWInput
                 SDL_ControllerDeviceEvent evt;
                 evt.which = i;
                 static const int fakeDeviceID = 1;
-                controllerAdded(fakeDeviceID, evt);
+                ControllerManager::controllerAdded(fakeDeviceID, evt);
                 Log(Debug::Info) << "Detected game controller: " << SDL_GameControllerNameForIndex(i);
             }
             else
@@ -278,7 +277,7 @@ namespace MWInput
         {
             gamepadToGuiControl(arg);
         }
-        else if (MWBase::Environment::get().getWorld()->isPreviewModeEnabled() &&
+        else if (mBindingsManager->actionIsActive(A_TogglePOV) &&
                 (arg.axis == SDL_CONTROLLER_AXIS_TRIGGERRIGHT || arg.axis == SDL_CONTROLLER_AXIS_TRIGGERLEFT))
         {
             // Preview Mode Gamepad Zooming; do not propagate to mBindingsManager

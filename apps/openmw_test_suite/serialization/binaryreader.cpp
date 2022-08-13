@@ -24,7 +24,7 @@ namespace
         std::uint32_t result = 0;
         const TestFormat<Mode::Read> format;
         binaryReader(format, result);
-        EXPECT_EQ(result, 42);
+        EXPECT_EQ(result, 42u);
     }
 
     TEST(DetourNavigatorSerializationBinaryReaderTest, shouldReadArithmeticTypeRangeValue)
@@ -63,5 +63,28 @@ namespace
         std::vector<std::uint32_t> values(2);
         const TestFormat<Mode::Read> format;
         EXPECT_THROW(binaryReader(format, values.data(), values.size()), std::runtime_error);
+    }
+
+    TEST(DetourNavigatorSerializationBinaryReaderTest, shouldSetPointerToCurrentBufferPosition)
+    {
+        std::vector<std::byte> data(8);
+        BinaryReader binaryReader(data.data(), data.data() + data.size());
+        const std::byte* ptr = nullptr;
+        const TestFormat<Mode::Read> format;
+        binaryReader(format, ptr);
+        EXPECT_EQ(ptr, data.data());
+    }
+
+    TEST(DetourNavigatorSerializationBinaryReaderTest, shouldNotAdvanceAfterPointer)
+    {
+        std::vector<std::byte> data(8);
+        BinaryReader binaryReader(data.data(), data.data() + data.size());
+        const std::byte* ptr1 = nullptr;
+        const std::byte* ptr2 = nullptr;
+        const TestFormat<Mode::Read> format;
+        binaryReader(format, ptr1);
+        binaryReader(format, ptr2);
+        EXPECT_EQ(ptr1, data.data());
+        EXPECT_EQ(ptr2, data.data());
     }
 }

@@ -7,7 +7,7 @@
 
 #include "pathfinding.hpp"
 #include "obstacle.hpp"
-#include "aistate.hpp"
+#include "aitemporarybase.hpp"
 #include "aitimer.hpp"
 
 namespace ESM
@@ -55,18 +55,7 @@ namespace MWMechanics
         float mCheckIdlePositionTimer;
         int mStuckCount;
 
-        AiWanderStorage():
-            mState(Wander_ChooseAction),
-            mIsWanderingManually(false),
-            mCanWanderAlongPathGrid(true),
-            mIdleAnimation(0),
-            mBadIdles(),
-            mPopulateAvailableNodes(true),
-            mAllowedNodes(),
-            mTrimCurrentNode(false),
-            mCheckIdlePositionTimer(0),
-            mStuckCount(0)
-            {};
+        AiWanderStorage();
 
         void setState(const WanderState wanderState, const bool isManualWander = false)
         {
@@ -123,7 +112,7 @@ namespace MWMechanics
             /// @return Success or error
             bool playIdle(const MWWorld::Ptr& actor, unsigned short idleSelect);
             bool checkIdle(const MWWorld::Ptr& actor, unsigned short idleSelect);
-            short unsigned getRandomIdle();
+            int getRandomIdle() const;
             void setPathToAnAllowedNode(const MWWorld::Ptr& actor, AiWanderStorage& storage, const ESM::Position& actorPos);
             void evadeObstacles(const MWWorld::Ptr& actor, AiWanderStorage& storage);
             void doPerFrameActionsForState(const MWWorld::Ptr& actor, float duration, AiWanderStorage& storage);

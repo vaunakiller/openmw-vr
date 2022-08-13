@@ -39,10 +39,10 @@ namespace SceneUtil
         {
             Unaware, //! RTT does not vary by view. A single RTT context is created
             Aware, //! RTT varies by view. One RTT context per view is created. Textures are automatically created as arrays if multiview is enabled.
-            StereoUnawareMultiViewAware, //! RTT does not vary by view, but needs to be aware of MultiView and make texture arrays if multiview is enabled.
+            Unaware_MultiViewShaders, //! RTT does not vary by view, but renders with multiview shaders and needs to create texture arrays if multiview is enabled.
         };
 
-        RTTNode(uint32_t textureWidth, uint32_t textureHeight, int renderOrderNum, StereoAwareness stereoAwareness);
+        RTTNode(uint32_t textureWidth, uint32_t textureHeight, uint32_t samples, bool generateMipmaps, int renderOrderNum, StereoAwareness stereoAwareness);
         ~RTTNode();
 
         osg::Texture* getColorTexture(osgUtil::CullVisitor* cv);
@@ -65,8 +65,10 @@ namespace SceneUtil
 
         void cull(osgUtil::CullVisitor* cv);
 
-        uint32_t width() { return mTextureWidth; }
-        uint32_t height() { return mTextureHeight; }
+        uint32_t width() const { return mTextureWidth; }
+        uint32_t height() const { return mTextureHeight; }
+        uint32_t samples() const { return mSamples; }
+        bool generatesMipmaps() const { return mGenerateMipmaps; }
 
         void setColorBufferInternalFormat(GLint internalFormat);
         void setDepthBufferInternalFormat(GLint internalFormat);
@@ -94,6 +96,8 @@ namespace SceneUtil
         ViewDependentDataMap mViewDependentDataMap;
         uint32_t mTextureWidth;
         uint32_t mTextureHeight;
+        uint32_t mSamples;
+        bool mGenerateMipmaps;
         GLint mColorBufferInternalFormat;
         GLint mDepthBufferInternalFormat;
         int mRenderOrderNum;

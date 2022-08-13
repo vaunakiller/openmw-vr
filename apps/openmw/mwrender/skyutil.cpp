@@ -21,6 +21,8 @@
 #include <osgParticle/Particle>
 
 #include <components/misc/rng.hpp>
+#include <components/stereo/stereomanager.hpp>
+#include <components/stereo/multiview.hpp>
 
 #include <components/resource/scenemanager.hpp>
 #include <components/resource/imagemanager.hpp>
@@ -602,6 +604,68 @@ namespace MWRender
         }
     }
 
+
+    class SkyStereoStatesetUpdater : public SceneUtil::StateSetUpdater
+    {
+    public:
+        SkyStereoStatesetUpdater()
+        {
+        }
+
+    protected:
+        void setDefaults(osg::StateSet* stateset) override
+        {
+            if (!Stereo::getMultiview())
+                stateset->addUniform(new osg::Uniform(osg::Uniform::FLOAT_MAT4, "projectionMatrix"), osg::StateAttribute::OVERRIDE);
+
+        }
+
+        void apply(osg::StateSet* stateset, osg::NodeVisitor* /*nv*/) override
+        {
+            if (Stereo::getMultiview())
+            {
+                std::array<osg::Matrix, 2> projectionMatrices;
+                auto& sm = Stereo::Manager::instance();
+
+                for (int view : {0, 1})
+                {
+                    auto projectionMatrix = sm.computeEyeProjection(view, true);
+                    auto viewOffsetMatrix = sm.computeEyeViewOffset(view);
+                    for (int col : {0, 1, 2})
+                        viewOffsetMatrix(3, col) = 0;
+
+                    projectionMatrices[view] = viewOffsetMatrix * projectionMatrix;
+                }
+
+                Stereo::setMultiviewMatrices(stateset, projectionMatrices);
+            }
+        }
+        void applyLeft(osg::StateSet* stateset, osgUtil::CullVisitor* /*cv*/) override
+        {
+            auto& sm = Stereo::Manager::instance();
+            auto* projectionMatrixUniform = stateset->getUniform("projectionMatrix");
+            auto projectionMatrix = sm.computeEyeProjection(0, true);
+            auto viewOffsetMatrix = sm.computeEyeViewOffset(0);
+            for (int col : {0, 1, 2})
+                viewOffsetMatrix(3, col) = 0;
+
+            projectionMatrixUniform->set(viewOffsetMatrix * projectionMatrix);
+        }
+        void applyRight(osg::StateSet* stateset, osgUtil::CullVisitor* /*cv*/) override
+        {
+            auto& sm = Stereo::Manager::instance();
+            auto* projectionMatrixUniform = stateset->getUniform("projectionMatrix");
+            auto projectionMatrix = sm.computeEyeProjection(1, true);
+            auto viewOffsetMatrix = sm.computeEyeViewOffset(1);
+            for (int col : {0, 1, 2})
+                viewOffsetMatrix(3, col) = 0;
+
+            projectionMatrixUniform->set(viewOffsetMatrix * projectionMatrix);
+        }
+
+    private:
+    };
+
     CameraRelativeTransform::CameraRelativeTransform()
     {
         // Culling works in node-local space, not in camera space, so we can't cull this node correctly
@@ -610,6 +674,8 @@ namespace MWRender
         setCullingActive(false);
 
         addCullCallback(new CameraRelativeTransformCullCallback);
+        if (Stereo::getStereo())
+            addCullCallback(new SkyStereoStatesetUpdater);
     }
 
     CameraRelativeTransform::CameraRelativeTransform(const CameraRelativeTransform& copy, const osg::CopyOp& copyop)
@@ -776,6 +842,12 @@ namespace MWRender
     {
         if (mSunGlareCallback)
             mSunGlareCallback->setTimeOfDayFade(val);
+    }
+
+    void Sun::setSunglare(bool enabled)
+    {
+        mSunGlareNode->setNodeMask(enabled ? ~0u : 0);
+        mSunFlashNode->setNodeMask(enabled ? ~0u : 0);
     }
 
     osg::ref_ptr<osg::OcclusionQueryNode> Sun::createOcclusionQueryNode(osg::Group* parent, bool queryVisible)

@@ -70,6 +70,7 @@ namespace MWGui
     class WindowModal;
     class JailScreen;
     class MessageBox;
+    class PostProcessorHud;
 
     enum ShowInDialogueMode {
         ShowInDialogueMode_IfPossible,
@@ -106,7 +107,7 @@ namespace MWBase
 
             /// @note This method will block until the video finishes playing
             /// (and will continually update the window while doing so)
-            virtual void playVideo(const std::string& name, bool allowSkipping) = 0;
+            virtual void playVideo(const std::string& name, bool allowSkipping, bool overrideSounds = true) = 0;
             virtual bool isPlayingVideo(void) const = 0;
 
             virtual void setNewGame(bool newgame) = 0;
@@ -148,6 +149,7 @@ namespace MWBase
             virtual MWGui::ConfirmationDialog* getConfirmationDialog() = 0;
             virtual MWGui::TradeWindow* getTradeWindow() = 0;
             virtual const std::vector<MWGui::MessageBox*> getActiveMessageBoxes() = 0;
+            virtual MWGui::PostProcessorHud* getPostProcessorHud() = 0;
 
             /// Make the player use an item, while updating GUI state accordingly
             virtual void useItem(const MWWorld::Ptr& item, bool force=false) = 0;
@@ -155,6 +157,13 @@ namespace MWBase
             virtual void updateSpellWindow() = 0;
 
             virtual void setConsoleSelectedObject(const MWWorld::Ptr& object) = 0;
+            virtual void setConsoleMode(const std::string& mode) = 0;
+
+            static constexpr std::string_view sConsoleColor_Default = "#FFFFFF";
+            static constexpr std::string_view sConsoleColor_Error = "#FF2222";
+            static constexpr std::string_view sConsoleColor_Success = "#FF00FF";
+            static constexpr std::string_view sConsoleColor_Info = "#AAAAAA";
+            virtual void printToConsole(const std::string& msg, std::string_view color) = 0;
 
             /// Set time left for the player to start drowning (update the drowning bar)
             /// @param time time left to start drowning
@@ -242,8 +251,6 @@ namespace MWBase
             /// returns the index of the pressed button or -1 if no button was pressed (->MessageBoxmanager->InteractiveMessageBox)
             virtual int readPressedButton() = 0;
 
-            virtual void update (float duration) = 0;
-
             virtual void updateConsoleObjectPtr(const MWWorld::Ptr& currentPtr, const MWWorld::Ptr& newPtr) = 0;
 
             /**
@@ -278,8 +285,6 @@ namespace MWBase
 
             /// Warning: do not use MyGUI::InputManager::setKeyFocusWidget directly. Instead use this.
             virtual void setKeyFocusWidget (MyGUI::Widget* widget) = 0;
-
-            virtual void loadUserFonts() = 0;
 
             virtual Loading::Listener* getLoadingScreen() = 0;
 
@@ -325,6 +330,7 @@ namespace MWBase
 
             virtual void toggleConsole() = 0;
             virtual void toggleDebugWindow() = 0;
+            virtual void togglePostProcessorHud() = 0;
 
             /// Cycle to next or previous spell
             virtual void cycleSpell(bool next) = 0;
@@ -332,12 +338,6 @@ namespace MWBase
             virtual void cycleWeapon(bool next) = 0;
 
             virtual void playSound(const std::string& soundId, float volume = 1.f, float pitch = 1.f) = 0;
-
-            // In WindowManager for now since there isn't a VFS singleton
-            virtual std::string correctIconPath(const std::string& path) = 0;
-            virtual std::string correctBookartPath(const std::string& path, int width, int height, bool* exists = nullptr) = 0;
-            virtual std::string correctTexturePath(const std::string& path) = 0;
-            virtual bool textureExists(const std::string& path) = 0;
 
             virtual void addCell(MWWorld::CellStore* cell) = 0;
             virtual void removeCell(MWWorld::CellStore* cell) = 0;
@@ -364,6 +364,12 @@ namespace MWBase
             virtual void asyncPrepareSaveMap() = 0;
 
             virtual void viewerTraversals(bool updateWindowManager) = 0;
+            
+            /// Sets the cull masks for all applicable views
+            virtual void setCullMask(uint32_t mask) = 0;
+
+            /// Same as viewer->getCamera()->getCullMask(), provided for consistency.
+            virtual uint32_t getCullMask() = 0;
     };
 }
 

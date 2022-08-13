@@ -2,12 +2,9 @@
 
 #include "esmreader.hpp"
 #include "esmwriter.hpp"
-#include "components/esm/defs.hpp"
 
 namespace ESM
 {
-    unsigned int Race::sRecordId = REC_RACE;
-
     int Race::MaleFemale::getValue (bool male) const
     {
         return male ? mMale : mFemale;
@@ -32,24 +29,24 @@ namespace ESM
             esm.getSubName();
             switch (esm.retSubName().toInt())
             {
-                case ESM::SREC_NAME:
+                case SREC_NAME:
                     mId = esm.getHString();
                     hasName = true;
                     break;
-                case ESM::FourCC<'F','N','A','M'>::value:
+                case fourCC("FNAM"):
                     mName = esm.getHString();
                     break;
-                case ESM::FourCC<'R','A','D','T'>::value:
-                    esm.getHT(mData, 140);
+                case fourCC("RADT"):
+                    esm.getHTSized<140>(mData);
                     hasData = true;
                     break;
-                case ESM::FourCC<'D','E','S','C'>::value:
+                case fourCC("DESC"):
                     mDescription = esm.getHString();
                     break;
-                case ESM::FourCC<'N','P','C','S'>::value:
+                case fourCC("NPCS"):
                     mPowers.add(esm);
                     break;
-                case ESM::SREC_DELE:
+                case SREC_DELE:
                     esm.skipHSub();
                     isDeleted = true;
                     break;
@@ -81,6 +78,7 @@ namespace ESM
 
     void Race::blank()
     {
+        mRecordFlags = 0;
         mName.clear();
         mDescription.clear();
 

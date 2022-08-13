@@ -157,8 +157,8 @@ namespace MWInput
     void ActionManager::executeAction(int action)
     {
         MWBase::Environment::get().getLuaManager()->inputEvent({MWBase::LuaManager::InputEvent::Action, action});
-        auto* inputManager = MWBase::Environment::get().getInputManager();
-        auto* windowManager = MWBase::Environment::get().getWindowManager();
+        const auto inputManager = MWBase::Environment::get().getInputManager();
+        const auto windowManager = MWBase::Environment::get().getWindowManager();
         // trigger action activated
         switch (action)
         {
@@ -240,6 +240,9 @@ namespace MWInput
             break;
         case A_ToggleDebug:
             windowManager->toggleDebugWindow();
+            break;
+        case A_TogglePostProcessorHUD:
+            windowManager->togglePostProcessorHud();
             break;
         case A_QuickSave:
             quickSave();
@@ -352,11 +355,11 @@ namespace MWInput
         if (MWBase::Environment::get().getMechanicsManager()->isAttackingOrSpell(player.getPlayer()))
             return;
 
-        MWMechanics::DrawState_ state = player.getDrawState();
-        if (state == MWMechanics::DrawState_Weapon || state == MWMechanics::DrawState_Nothing)
-            player.setDrawState(MWMechanics::DrawState_Spell);
+        MWMechanics::DrawState state = player.getDrawState();
+        if (state == MWMechanics::DrawState::Weapon || state == MWMechanics::DrawState::Nothing)
+            player.setDrawState(MWMechanics::DrawState::Spell);
         else
-            player.setDrawState(MWMechanics::DrawState_Nothing);
+            player.setDrawState(MWMechanics::DrawState::Nothing);
     }
 
     void ActionManager::quickLoad()
@@ -387,11 +390,11 @@ namespace MWInput
         else if (MWBase::Environment::get().getMechanicsManager()->isAttackingOrSpell(player.getPlayer()))
             return;
 
-        MWMechanics::DrawState_ state = player.getDrawState();
-        if (state == MWMechanics::DrawState_Spell || state == MWMechanics::DrawState_Nothing)
-            player.setDrawState(MWMechanics::DrawState_Weapon);
+        MWMechanics::DrawState state = player.getDrawState();
+        if (state == MWMechanics::DrawState::Spell || state == MWMechanics::DrawState::Nothing)
+            player.setDrawState(MWMechanics::DrawState::Weapon);
         else
-            player.setDrawState(MWMechanics::DrawState_Nothing);
+            player.setDrawState(MWMechanics::DrawState::Nothing);
     }
 
     void ActionManager::rest()
@@ -474,22 +477,19 @@ namespace MWInput
 
     void ActionManager::showQuickKeysMenu()
     {
-        if (!MWBase::Environment::get().getWindowManager()->isGuiMode ()
-                && MWBase::Environment::get().getWorld()->getGlobalFloat ("chargenstate")==-1)
+        if (MWBase::Environment::get().getWindowManager()->getMode () == MWGui::GM_QuickKeysMenu)
         {
-            if (!checkAllowedToUseItems())
-                return;
+            MWBase::Environment::get().getWindowManager()->exitCurrentGuiMode();
+            return;
+        }
 
-            MWBase::Environment::get().getWindowManager()->pushGuiMode (MWGui::GM_QuickKeysMenu);
-        }
-        else if (MWBase::Environment::get().getWindowManager()->getMode () == MWGui::GM_QuickKeysMenu)
-        {
-            while (MyGUI::InputManager::getInstance().isModalAny())
-            { //Handle any open Modal windows
-                MWBase::Environment::get().getWindowManager()->exitCurrentModal();
-            }
-            MWBase::Environment::get().getWindowManager()->exitCurrentGuiMode(); //And handle the actual main window
-        }
+        if (MWBase::Environment::get().getWorld()->getGlobalFloat ("chargenstate") != -1)
+            return;
+
+        if (!checkAllowedToUseItems())
+            return;
+
+        MWBase::Environment::get().getWindowManager()->pushGuiMode (MWGui::GM_QuickKeysMenu);
     }
 
     void ActionManager::activate()

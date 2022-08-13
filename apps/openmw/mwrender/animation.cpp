@@ -8,6 +8,7 @@
 #include <osg/Material>
 #include <osg/Switch>
 #include <osg/LightModel>
+#include <osg/ColorMaski>
 
 #include <osgParticle/ParticleSystem>
 #include <osgParticle/ParticleProcessor>
@@ -51,6 +52,22 @@
 
 namespace
 {
+    class MarkDrawablesVisitor : public osg::NodeVisitor
+    {
+    public:
+        MarkDrawablesVisitor(osg::Node::NodeMask mask)
+            : osg::NodeVisitor(TRAVERSE_ALL_CHILDREN)
+            , mMask(mask)
+        { }
+
+        void apply(osg::Drawable& drawable) override
+        {
+            drawable.setNodeMask(mMask);
+        }
+
+    private:
+        osg::Node::NodeMask mMask = 0;
+    };
 
     /// Removes all particle systems and related nodes in a subgraph.
     class RemoveParticlesVisitor : public osg::NodeVisitor
@@ -522,28 +539,12 @@ namespace MWRender
         , mAlpha(1.f)
     {
         for(size_t i = 0;i < sNumBlendMasks;i++)
-            mAnimationTimePtr[i].reset(new AnimationTime);
+            mAnimationTimePtr[i] = std::make_shared<AnimationTime>();
 
         mLightListCallback = new SceneUtil::LightListCallback;
     }
 
-    Animation::~Animation()
-    {
-        Animation::setLightEffect(0.f);
-
-        if (mObjectRoot)
-            mInsert->removeChild(mObjectRoot);
-    }
-
-    MWWorld::ConstPtr Animation::getPtr() const
-    {
-        return mPtr;
-    }
-
-    MWWorld::Ptr Animation::getPtr()
-    {
-        return mPtr;
-    }
+    Animation::~Animation() = default;
 
     void Animation::setActive(int active)
     {
@@ -631,8 +632,7 @@ namespace MWRender
         if(!mResourceSystem->getVFS()->exists(kfname))
             return;
 
-        std::shared_ptr<AnimSource> animsrc;
-        animsrc.reset(new AnimSource);
+        auto animsrc = std::make_shared<AnimSource>();
         animsrc->mKeyframes = mResourceSystem->getKeyframeManager()->get(kfname);
 
         if (!animsrc->mKeyframes || animsrc->mKeyframes->mTextKeys.empty() || animsrc->mKeyframes->mKeyframeControllers.empty())
@@ -661,7 +661,7 @@ namespace MWRender
             animsrc->mControllerMap[blendMask].insert(std::make_pair(bonename, cloned));
         }
 
-        mAnimSources.push_back(animsrc);
+        mAnimSources.push_back(std::move(animsrc));
 
         SceneUtil::AssignControllerSourcesVisitor assignVisitor(mAnimationTimePtr[0]);
         mObjectRoot->accept(assignVisitor);
@@ -709,7 +709,7 @@ namespace MWRender
         mAnimVelocities.clear();
     }
 
-    bool Animation::hasAnimation(const std::string &anim) const
+    bool Animation::hasAnimation(std::string_view anim) const
     {
         AnimSourceList::const_iterator iter(mAnimSources.begin());
         for(;iter != mAnimSources.end();++iter)
@@ -1561,7 +1561,7 @@ namespace MWRender
     {
         bool exterior = mPtr.isInCell() && mPtr.getCell()->getCell()->isExterior();
 
-        mExtraLightSource = SceneUtil::addLight(parent, esmLight, Mask_ParticleSystem, Mask_Lighting, exterior);
+        mExtraLightSource = SceneUtil::addLight(parent, esmLight, Mask_Lighting, exterior);
         mExtraLightSource->setActorFade(mAlpha);
     }
 
@@ -1618,17 +1618,21 @@ namespace MWRender
 
         // Morrowind has a white ambient light attached to the root VFX node of the scenegraph
         node->getOrCreateStateSet()->setAttributeAndModes(getVFXLightModelInstance(), osg::StateAttribute::ON | osg::StateAttribute::OVERRIDE);
-
+        if (mResourceSystem->getSceneManager()->getSupportsNormalsRT())
+            node->getOrCreateStateSet()->setAttribute(new osg::ColorMaski(1, false, false, false, false));
         SceneUtil::FindMaxControllerLengthVisitor findMaxLengthVisitor;
         node->accept(findMaxLengthVisitor);
 
         node->setNodeMask(Mask_Effect);
 
+        MarkDrawablesVisitor markVisitor(Mask_Effect);
+        node->accept(markVisitor);
+
         params.mMaxControllerLength = findMaxLengthVisitor.getMaxLength();
         params.mLoop = loop;
         params.mEffectId = effectId;
         params.mBoneName = bonename;
-        params.mAnimTime = std::shared_ptr<EffectAnimationTime>(new EffectAnimationTime);
+        params.mAnimTime = std::make_shared<EffectAnimationTime>();
         trans->addUpdateCallback(new UpdateVfxCallback(params));
 
         SceneUtil::AssignControllerSourcesVisitor assignVisitor(std::shared_ptr<SceneUtil::ControllerSource>(params.mAnimTime));
@@ -1832,6 +1836,15 @@ namespace MWRender
         return mHeadYawRadians;
     }
 
+    void Animation::removeFromScene()
+    {
+        if (mGlowLight != nullptr)
+            mInsert->removeChild(mGlowLight);
+
+        if (mObjectRoot != nullptr)
+            mInsert->removeChild(mObjectRoot);
+    }
+
     // ------------------------------------------------------
 
     float Animation::AnimationTime::getValue(osg::NodeVisitor*)
@@ -1891,7 +1904,7 @@ namespace MWRender
             mObjectRoot->accept(visitor);
         }
 
-        if (ptr.getRefData().getCustomData() != nullptr && canBeHarvested())
+        if (ptr.getRefData().getCustomData() != nullptr && ObjectAnimation::canBeHarvested())
         {
             const MWWorld::ContainerStore& store = ptr.getClass().getContainerStore(ptr);
             if (!store.hasVisibleItems())

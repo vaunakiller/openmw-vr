@@ -21,7 +21,11 @@
 
 namespace MWWorld
 {
-    std::map<unsigned int, std::shared_ptr<Class> > Class::sClasses;
+    std::map<unsigned, Class*>& Class::getClasses()
+    {
+        static std::map<unsigned, Class*> values;
+        return values;
+    }
 
     void Class::insertObjectRendering (const Ptr& ptr, const std::string& mesh, MWRender::RenderingInterface& renderingInterface) const
     {
@@ -36,7 +40,7 @@ namespace MWWorld
     void Class::insertObjectPhysics(const Ptr& ptr, const std::string& mesh, const osg::Quat& rotation, MWPhysics::PhysicsSystem& physics) const
     {}
 
-    bool Class::apply (const MWWorld::Ptr& ptr, const std::string& id,  const MWWorld::Ptr& actor) const
+    bool Class::consume(const MWWorld::Ptr& consumable, const MWWorld::Ptr& actor) const
     {
         return false;
     }
@@ -111,14 +115,14 @@ namespace MWWorld
         throw std::runtime_error("class cannot be hit");
     }
 
-    std::shared_ptr<Action> Class::activate (const Ptr& ptr, const Ptr& actor) const
+    std::unique_ptr<Action> Class::activate (const Ptr& ptr, const Ptr& actor) const
     {
-        return std::shared_ptr<Action> (new NullAction);
+        return std::make_unique<NullAction>();
     }
 
-    std::shared_ptr<Action> Class::use (const Ptr& ptr, bool force) const
+    std::unique_ptr<Action> Class::use (const Ptr& ptr, bool force) const
     {
-        return std::shared_ptr<Action> (new NullAction);
+        return std::make_unique<NullAction>();
     }
 
     ContainerStore& Class::getContainerStore (const Ptr& ptr) const
@@ -228,9 +232,10 @@ namespace MWWorld
 
     const Class& Class::get (unsigned int key)
     {
-        auto iter = sClasses.find (key);
+        const auto& classes = getClasses();
+        auto iter = classes.find(key);
 
-        if (iter==sClasses.end())
+        if (iter == classes.end())
             throw std::logic_error ("Class::get(): unknown class key: " + std::to_string(key));
 
         return *iter->second;
@@ -241,10 +246,9 @@ namespace MWWorld
         throw std::runtime_error ("class does not support persistence");
     }
 
-    void Class::registerClass(unsigned int key, std::shared_ptr<Class> instance)
+    void Class::registerClass(Class& instance)
     {
-        instance->mType = key;
-        sClasses.insert(std::make_pair(key, instance));
+        getClasses().emplace(instance.getType(), &instance);
     }
 
     std::string Class::getUpSoundId (const ConstPtr& ptr) const
@@ -325,23 +329,24 @@ namespace MWWorld
     {
     }
 
-    std::shared_ptr<Action> Class::defaultItemActivate(const Ptr &ptr, const Ptr &actor) const
+    std::unique_ptr<Action> Class::defaultItemActivate(const Ptr &ptr, const Ptr &actor) const
     {
         if(!MWBase::Environment::get().getWindowManager()->isAllowed(MWGui::GW_Inventory))
-            return std::shared_ptr<Action>(new NullAction());
+            return std::make_unique<NullAction>();
 
         if(actor.getClass().isNpc() && actor.getClass().getNpcStats(actor).isWerewolf())
         {
             const MWWorld::ESMStore &store = MWBase::Environment::get().getWorld()->getStore();
-            const ESM::Sound *sound = store.get<ESM::Sound>().searchRandom("WolfItem");
+            auto& prng = MWBase::Environment::get().getWorld()->getPrng();
+            const ESM::Sound *sound = store.get<ESM::Sound>().searchRandom("WolfItem", prng);
 
-            std::shared_ptr<MWWorld::Action> action(new MWWorld::FailedAction("#{sWerewolfRefusal}"));
+            std::unique_ptr<MWWorld::Action> action = std::make_unique<MWWorld::FailedAction>("#{sWerewolfRefusal}");
             if(sound) action->setSound(sound->mId);
 
             return action;
         }
 
-        std::shared_ptr<MWWorld::Action> action(new ActionTake(ptr));
+        std::unique_ptr<MWWorld::Action> action = std::make_unique<ActionTake>(ptr);
         action->setSound(getUpSoundId(ptr));
 
         return action;
@@ -516,7 +521,7 @@ namespace MWWorld
         return result;
     }
 
-    void Class::setBaseAISetting(const std::string& id, MWMechanics::CreatureStats::AiSetting setting, int value) const
+    void Class::setBaseAISetting(const std::string& id, MWMechanics::AiSetting setting, int value) const
     {
         throw std::runtime_error ("class does not have creature stats");
     }

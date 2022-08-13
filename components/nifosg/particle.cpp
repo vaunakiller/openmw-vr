@@ -1,6 +1,7 @@
 #include "particle.hpp"
 
 #include <limits>
+#include <optional>
 
 #include <osg/Version>
 #include <osg/MatrixTransform>
@@ -11,6 +12,7 @@
 #include <components/misc/rng.hpp>
 #include <components/nif/controlled.hpp>
 #include <components/nif/data.hpp>
+#include <components/nif/node.hpp>
 #include <components/sceneutil/morphgeometry.hpp>
 #include <components/sceneutil/riggeometry.hpp>
 
@@ -55,6 +57,44 @@ namespace
         }
 
         osg::Geometry* mGeometry;
+    };
+
+    class LocalToWorldAccumulator : public osg::NodeVisitor
+    {
+    public:
+        LocalToWorldAccumulator(osg::Matrix& matrix) : osg::NodeVisitor(), mMatrix(matrix) {}
+
+        virtual void apply(osg::Transform& transform)
+        {
+            if (&transform != mLastAppliedTransform)
+            {
+                mLastAppliedTransform = &transform;
+                mLastMatrix = mMatrix;
+            }
+            transform.computeLocalToWorldMatrix(mMatrix, this);
+        }
+
+        void accumulate(const osg::NodePath& path)
+        {
+            if (path.empty())
+                return;
+
+            size_t i = path.size();
+
+            for (auto rit = path.rbegin(); rit != path.rend(); rit++, --i)
+            {
+                const osg::Camera* camera = (*rit)->asCamera();
+                if (camera && (camera->getReferenceFrame() != osg::Transform::RELATIVE_RF || camera->getParents().empty()))
+                    break;
+            }
+
+            for(; i < path.size(); ++i)
+                path[i]->accept(*this);
+        }
+
+        osg::Matrix& mMatrix;
+        std::optional<osg::Matrix> mLastMatrix;
+        osg::Transform* mLastAppliedTransform = nullptr;
     };
 }
 
@@ -310,7 +350,7 @@ void GravityAffector::operate(osgParticle::Particle *particle, double dt)
 
 Emitter::Emitter()
     : osgParticle::Emitter()
-    , mUseGeometryEmitter(false)
+    , mFlags(0)
     , mGeometryEmitterTarget(std::nullopt)
 {
 }
@@ -322,7 +362,7 @@ Emitter::Emitter(const Emitter &copy, const osg::CopyOp &copyop)
     , mShooter(copy.mShooter)
     // need a deep copy because the remainder is stored in the object
     , mCounter(static_cast<osgParticle::Counter*>(copy.mCounter->clone(osg::CopyOp::DEEP_COPY_ALL)))
-    , mUseGeometryEmitter(copy.mUseGeometryEmitter)
+    , mFlags(copy.mFlags)
     , mGeometryEmitterTarget(copy.mGeometryEmitterTarget)
     , mCachedGeometryEmitter(copy.mCachedGeometryEmitter)
 {
@@ -330,7 +370,7 @@ Emitter::Emitter(const Emitter &copy, const osg::CopyOp &copyop)
 
 Emitter::Emitter(const std::vector<int> &targets)
     : mTargets(targets)
-    , mUseGeometryEmitter(false)
+    , mFlags(0)
     , mGeometryEmitterTarget(std::nullopt)
 {
 }
@@ -356,11 +396,13 @@ void Emitter::emitParticles(double dt)
 
     osg::ref_ptr<osg::Vec3Array> geometryVertices = nullptr;
 
-    if (mUseGeometryEmitter || !mTargets.empty())
+    const bool useGeometryEmitter = mFlags & Nif::NiParticleSystemController::BSPArrayController_AtVertex;
+
+    if (useGeometryEmitter || !mTargets.empty())
     {
         int recIndex;
 
-        if (mUseGeometryEmitter)
+        if (useGeometryEmitter)
         {
             if (!mGeometryEmitterTarget.has_value())
                 return;
@@ -383,7 +425,7 @@ void Emitter::emitParticles(double dt)
             return;
         }
 
-        if (mUseGeometryEmitter)
+        if (useGeometryEmitter)
         {
             if (!mCachedGeometryEmitter.lock(geometryVertices))
             {
@@ -403,12 +445,30 @@ void Emitter::emitParticles(double dt)
 
         osg::NodePath path = visitor.mFoundPath;
         path.erase(path.begin());
-        emitterToPs = osg::computeLocalToWorld(path) * emitterToPs;
+        if (!useGeometryEmitter && (mFlags & Nif::NiParticleSystemController::BSPArrayController_AtNode) && path.size())
+        {
+            osg::Matrix current;
+
+            LocalToWorldAccumulator accum(current);
+            accum.accumulate(path);
+
+            osg::Matrix parent = accum.mLastMatrix.value_or(current);
+
+            auto p1 = parent.getTrans();
+            auto p2 = current.getTrans();
+            current.setTrans((p2 - p1) * Misc::Rng::rollClosedProbability() + p1);
+
+            emitterToPs = current * emitterToPs;
+        }
+        else
+        {
+            emitterToPs = osg::computeLocalToWorld(path) * emitterToPs;
+        }
     }
 
     emitterToPs.orthoNormalize(emitterToPs);
 
-    if (mUseGeometryEmitter && (!geometryVertices.valid() || geometryVertices->empty()))
+    if (useGeometryEmitter && (!geometryVertices.valid() || geometryVertices->empty()))
         return;
 
     for (int i=0; i<n; ++i)
@@ -416,7 +476,7 @@ void Emitter::emitParticles(double dt)
         osgParticle::Particle* P = getParticleSystem()->createParticle(nullptr);
         if (P)
         {
-            if (mUseGeometryEmitter)
+            if (useGeometryEmitter)
                 P->setPosition((*geometryVertices)[Misc::Rng::rollDice(geometryVertices->getNumElements())]);
             else if (mPlacer)
                 mPlacer->place(P);
@@ -468,18 +528,24 @@ void FindGroupByRecIndex::applyNode(osg::Node &searchNode)
 
 PlanarCollider::PlanarCollider(const Nif::NiPlanarCollider *collider)
     : mBounceFactor(collider->mBounceFactor)
+    , mExtents(collider->mExtents)
+    , mPosition(collider->mPosition)
+    , mXVector(collider->mXVector)
+    , mYVector(collider->mYVector)
     , mPlane(-collider->mPlaneNormal, collider->mPlaneDistance)
-{
-}
-
-PlanarCollider::PlanarCollider()
-    : mBounceFactor(0.f)
 {
 }
 
 PlanarCollider::PlanarCollider(const PlanarCollider &copy, const osg::CopyOp &copyop)
     : osgParticle::Operator(copy, copyop)
     , mBounceFactor(copy.mBounceFactor)
+    , mExtents(copy.mExtents)
+    , mPosition(copy.mPosition)
+    , mPositionInParticleSpace(copy.mPositionInParticleSpace)
+    , mXVector(copy.mXVector)
+    , mXVectorInParticleSpace(copy.mXVectorInParticleSpace)
+    , mYVector(copy.mYVector)
+    , mYVectorInParticleSpace(copy.mYVectorInParticleSpace)
     , mPlane(copy.mPlane)
     , mPlaneInParticleSpace(copy.mPlaneInParticleSpace)
 {
@@ -487,25 +553,44 @@ PlanarCollider::PlanarCollider(const PlanarCollider &copy, const osg::CopyOp &co
 
 void PlanarCollider::beginOperate(osgParticle::Program *program)
 {
+    mPositionInParticleSpace = mPosition;
     mPlaneInParticleSpace = mPlane;
+    mXVectorInParticleSpace = mXVector;
+    mYVectorInParticleSpace = mYVector;
     if (program->getReferenceFrame() == osgParticle::ParticleProcessor::ABSOLUTE_RF)
+    {
+        mPositionInParticleSpace = program->transformLocalToWorld(mPosition);
         mPlaneInParticleSpace.transform(program->getLocalToWorldMatrix());
+        mXVectorInParticleSpace = program->rotateLocalToWorld(mXVector);
+        mYVectorInParticleSpace = program->rotateLocalToWorld(mYVector);
+    }
 }
 
 void PlanarCollider::operate(osgParticle::Particle *particle, double dt)
 {
-    float dotproduct = particle->getVelocity() * mPlaneInParticleSpace.getNormal();
+    // Does the particle in question move towards the collider?
+    float velDotProduct = particle->getVelocity() * mPlaneInParticleSpace.getNormal();
+    if (velDotProduct <= 0)
+        return;
 
-    if (dotproduct > 0)
-    {
-        osg::BoundingSphere bs(particle->getPosition(), 0.f);
-        if (mPlaneInParticleSpace.intersect(bs) == 1)
-        {
-            osg::Vec3 reflectedVelocity = particle->getVelocity() - mPlaneInParticleSpace.getNormal() * (2 * dotproduct);
-            reflectedVelocity *= mBounceFactor;
-            particle->setVelocity(reflectedVelocity);
-        }
-    }
+    // Does it intersect the collider's plane?
+    osg::BoundingSphere bs(particle->getPosition(), 0.f);
+    if (mPlaneInParticleSpace.intersect(bs) != 1)
+        return;
+
+    // Is it inside the collider's bounds?
+    osg::Vec3f relativePos = particle->getPosition() - mPositionInParticleSpace;
+    float xDotProduct = relativePos * mXVectorInParticleSpace;
+    float yDotProduct = relativePos * mYVectorInParticleSpace;
+    if (-mExtents.x() * 0.5f > xDotProduct || mExtents.x() * 0.5f < xDotProduct)
+        return;
+    if (-mExtents.y() * 0.5f > yDotProduct || mExtents.y() * 0.5f < yDotProduct)
+        return;
+
+    // Deflect the particle
+    osg::Vec3 reflectedVelocity = particle->getVelocity() - mPlaneInParticleSpace.getNormal() * (2 * velDotProduct);
+    reflectedVelocity *= mBounceFactor;
+    particle->setVelocity(reflectedVelocity);
 }
 
 SphericalCollider::SphericalCollider(const Nif::NiSphericalCollider* collider)

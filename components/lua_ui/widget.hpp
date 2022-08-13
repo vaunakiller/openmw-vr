@@ -47,9 +47,12 @@ namespace LuaUi
         void setExternal(sol::object external) { mExternal = external; }
 
         MyGUI::IntCoord forcedCoord();
-        void setForcedCoord(const MyGUI::IntCoord& offset);
-        void setForcedSize(const MyGUI::IntSize& size);
-        void updateCoord();
+        void forceCoord(const MyGUI::IntCoord& offset);
+        void forceSize(const MyGUI::IntSize& size);
+        void forcePosition(const MyGUI::IntPoint& pos);
+        void clearForced();
+
+        virtual void updateCoord();
 
         const sol::table& getLayout() { return mLayout; }
         void setLayout(const sol::table& layout) { mLayout = layout; }
@@ -65,17 +68,22 @@ namespace LuaUi
             mOnCoordChange = callback;
         }
 
+        virtual MyGUI::IntSize calculateSize();
+        virtual MyGUI::IntPoint calculatePosition(const MyGUI::IntSize& size);
+        MyGUI::IntCoord calculateCoord();
+
     protected:
         virtual void initialize();
+        void registerEvents(MyGUI::Widget* w);
+        void clearEvents(MyGUI::Widget* w);
+
         sol::table makeTable() const;
         sol::object keyEvent(MyGUI::KeyCode) const;
         sol::object mouseEvent(int left, int top, MyGUI::MouseButton button) const;
 
         MyGUI::IntSize parentSize();
-        virtual MyGUI::IntSize calculateSize();
-        virtual MyGUI::IntPoint calculatePosition(const MyGUI::IntSize& size);
-        MyGUI::IntCoord calculateCoord();
         virtual MyGUI::IntSize childScalingSize();
+        virtual MyGUI::IntSize templateScalingSize();
 
         template<typename T>
         T propertyValue(std::string_view name, const T& defaultValue)
@@ -90,9 +98,31 @@ namespace LuaUi
         virtual void updateProperties();
         virtual void updateChildren() {};
 
-        lua_State* lua() { return mLua; }
-        void triggerEvent(std::string_view name, const sol::object& argument) const;
+        lua_State* lua() const { return mLua; }
 
+        void triggerEvent(std::string_view name, sol::object argument) const;
+        template<class ArgFactory>
+        void propagateEvent(std::string_view name, const ArgFactory& argumentFactory) const
+        {
+            const WidgetExtension* w = this;
+            while (w)
+            {
+                bool shouldPropagate = true;
+                auto it = w->mCallbacks.find(name);
+                if (it != w->mCallbacks.end())
+                {
+                    sol::object res = it->second.call(argumentFactory(w), w->mLayout);
+                    shouldPropagate = res.is<bool>() && res.as<bool>();
+                }
+                if (w->mParent && w->mPropagateEvents && shouldPropagate)
+                    w = w->mParent;
+                else
+                    w = nullptr;
+            }
+        }
+
+        bool mForcePosition;
+        bool mForceSize;
         // offsets the position and size, used only in C++ widget code
         MyGUI::IntCoord mForcedCoord;
         // position and size in pixels
@@ -102,6 +132,8 @@ namespace LuaUi
         // negative position offset as a ratio of this widget's size
         // used in combination with relative coord to align the widget, e. g. center it
         MyGUI::FloatSize mAnchor;
+
+        bool mPropagateEvents;
 
     private:
         // use lua_State* instead of sol::state_view because MyGUI requires a default constructor
@@ -116,6 +148,7 @@ namespace LuaUi
         sol::object mTemplateProperties;
         sol::object mExternal;
         WidgetExtension* mParent;
+        bool mTemplateChild;
 
         void attach(WidgetExtension* ext);
         void attachTemplate(WidgetExtension* ext);

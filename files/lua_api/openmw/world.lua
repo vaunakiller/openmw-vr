@@ -11,12 +11,6 @@
 -- @field [parent=#world] openmw.core#ObjectList activeActors
 
 ---
--- Evaluates a Query.
--- @function [parent=#world] selectObjects
--- @param openmw.query#Query query
--- @return openmw.core#ObjectList
-
----
 -- Loads a named cell
 -- @function [parent=#world] getCellByName
 -- @param #string cellName
@@ -32,22 +26,27 @@
 ---
 -- Simulation time in seconds.
 -- The number of simulation seconds passed in the game world since starting a new game.
--- @function [parent=#core] getSimulationTime
+-- @function [parent=#world] getSimulationTime
 -- @return #number
 
 ---
 -- The scale of simulation time relative to real time.
--- @function [parent=#core] getSimulationTimeScale
+-- @function [parent=#world] getSimulationTimeScale
 -- @return #number
 
 ---
+-- Set the simulation time scale.
+-- @function [parent=#world] setSimulationTimeScale
+-- @param #number scale
+
+---
 -- Game time in seconds.
--- @function [parent=#core] getGameTime
+-- @function [parent=#world] getGameTime
 -- @return #number
 
 ---
 -- The scale of game time relative to simulation time.
--- @function [parent=#core] getGameTimeScale
+-- @function [parent=#world] getGameTimeScale
 -- @return #number
 
 ---

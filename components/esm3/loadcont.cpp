@@ -27,8 +27,6 @@ namespace ESM
         }
     }
 
-    unsigned int Container::sRecordId = REC_CONT;
-
     void Container::load(ESMReader &esm, bool &isDeleted)
     {
         isDeleted = false;
@@ -44,35 +42,35 @@ namespace ESM
             esm.getSubName();
             switch (esm.retSubName().toInt())
             {
-                case ESM::SREC_NAME:
+                case SREC_NAME:
                     mId = esm.getHString();
                     hasName = true;
                     break;
-                case ESM::FourCC<'M','O','D','L'>::value:
+                case fourCC("MODL"):
                     mModel = esm.getHString();
                     break;
-                case ESM::FourCC<'F','N','A','M'>::value:
+                case fourCC("FNAM"):
                     mName = esm.getHString();
                     break;
-                case ESM::FourCC<'C','N','D','T'>::value:
-                    esm.getHT(mWeight, 4);
+                case fourCC("CNDT"):
+                    esm.getHTSized<4>(mWeight);
                     hasWeight = true;
                     break;
-                case ESM::FourCC<'F','L','A','G'>::value:
-                    esm.getHT(mFlags, 4);
+                case fourCC("FLAG"):
+                    esm.getHTSized<4>(mFlags);
                     if (mFlags & 0xf4)
                         esm.fail("Unknown flags");
                     if (!(mFlags & 0x8))
                         esm.fail("Flag 8 not set");
                     hasFlags = true;
                     break;
-                case ESM::FourCC<'S','C','R','I'>::value:
+                case fourCC("SCRI"):
                     mScript = esm.getHString();
                     break;
-                case ESM::FourCC<'N','P','C','O'>::value:
+                case fourCC("NPCO"):
                     mInventory.add(esm);
                     break;
-                case ESM::SREC_DELE:
+                case SREC_DELE:
                     esm.skipHSub();
                     isDeleted = true;
                     break;
@@ -112,6 +110,7 @@ namespace ESM
 
     void Container::blank()
     {
+        mRecordFlags = 0;
         mName.clear();
         mModel.clear();
         mScript.clear();

@@ -1,9 +1,9 @@
 #include "runner.hpp"
 
-#include <QApplication>
 #include <QDir>
 #include <QTemporaryFile>
 #include <QTextStream>
+#include <QCoreApplication>
 
 #include "operationholder.hpp"
 

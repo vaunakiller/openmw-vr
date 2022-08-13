@@ -2,12 +2,9 @@
 
 #include "esmreader.hpp"
 #include "esmwriter.hpp"
-#include "components/esm/defs.hpp"
 
 namespace ESM
 {
-    unsigned int Pathgrid::sRecordId = REC_PGRD;
-
     Pathgrid::Point& Pathgrid::Point::operator=(const float rhs[3])
     {
         mX = static_cast<int>(rhs[0]);
@@ -48,14 +45,14 @@ namespace ESM
             esm.getSubName();
             switch (esm.retSubName().toInt())
             {
-                case ESM::SREC_NAME:
+                case SREC_NAME:
                     mCell = esm.getHString();
                     break;
-                case ESM::FourCC<'D','A','T','A'>::value:
-                    esm.getHT(mData, 12);
+                case fourCC("DATA"):
+                    esm.getHTSized<12>(mData);
                     hasData = true;
                     break;
-                case ESM::FourCC<'P','G','R','P'>::value:
+                case fourCC("PGRP"):
                 {
                     esm.getSubHeader();
                     int size = esm.getSubSize();
@@ -76,7 +73,7 @@ namespace ESM
                     }
                     break;
                 }
-                case ESM::FourCC<'P','G','R','C'>::value:
+                case fourCC("PGRC"):
                 {
                     esm.getSubHeader();
                     int size = esm.getSubSize();
@@ -113,7 +110,7 @@ namespace ESM
                     }
                     break;
                 }
-                case ESM::SREC_DELE:
+                case SREC_DELE:
                     esm.skipHSub();
                     isDeleted = true;
                     break;

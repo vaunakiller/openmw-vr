@@ -5,14 +5,16 @@
 #include <MyGUI_EditBox.h>
 #include <MyGUI_ImageBox.h>
 
-// correctBookartPath
-#include "../mwbase/environment.hpp"
-#include "../mwbase/windowmanager.hpp"
-
 #include <components/debug/debuglog.hpp>
 #include <components/interpreter/defines.hpp>
+#include <components/resource/resourcesystem.hpp>
+#include <components/vfs/manager.hpp>
 #include <components/misc/stringops.hpp>
+#include <components/misc/resourcehelpers.hpp>
+#include <components/fontloader/fontloader.hpp>
 
+#include "../mwbase/environment.hpp"
+#include "../mwbase/windowmanager.hpp"
 #include "../mwscript/interpretercontext.hpp"
 
 namespace MWGui::Formatting
@@ -285,8 +287,9 @@ namespace MWGui::Formatting
                         int width = MyGUI::utility::parseInt(attr.at("width"));
                         int height = MyGUI::utility::parseInt(attr.at("height"));
 
-                        bool exists;
-                        std::string correctedSrc = MWBase::Environment::get().getWindowManager()->correctBookartPath(src, width, height, &exists);
+                        auto vfs = MWBase::Environment::get().getResourceSystem()->getVFS();
+                        std::string correctedSrc = Misc::ResourceHelpers::correctBookartPath(src, width, height, vfs);
+                        bool exists = vfs->exists(correctedSrc);
 
                         if (!exists)
                         {
@@ -296,8 +299,7 @@ namespace MWGui::Formatting
 
                         pag.setIgnoreLeadingEmptyLines(false);
 
-                        ImageElement elem(paper, pag, mBlockStyle,
-                                          correctedSrc, width, height);
+                        ImageElement elem(paper, pag, mBlockStyle, correctedSrc, width, height);
                         elem.paginate();
                         break;
                     }
@@ -366,7 +368,9 @@ namespace MWGui::Formatting
             if (attr.find("face") != attr.end())
             {
                 std::string face = attr.at("face");
-                mTextStyle.mFont = "Journalbook "+face;
+                std::string name = Gui::FontLoader::getFontForFace(face);
+
+                mTextStyle.mFont = "Journalbook "+name;
             }
             if (attr.find("size") != attr.end())
             {

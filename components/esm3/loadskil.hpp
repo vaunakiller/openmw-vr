@@ -6,7 +6,8 @@
 
 #include "components/esm/defs.hpp"
 
-namespace ESM {
+namespace ESM
+{
 
 class ESMReader;
 class ESMWriter;
@@ -18,7 +19,8 @@ class ESMWriter;
 
 struct Skill
 {
-    static unsigned int sRecordId;
+
+    constexpr static RecNameInts sRecordId = REC_SKIL;
     /// Return a string descriptor for this record type. Currently used for debugging / error logs only.
     static std::string_view getRecordType() { return "Skill"; }
 

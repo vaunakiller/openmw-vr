@@ -13,7 +13,7 @@
 #include <components/sceneutil/color.hpp>
 #include <components/stereo/multiview.hpp>
 #include <components/debug/debuglog.hpp>
-#include <components/misc/callbackmanager.hpp>
+#include <components/stereo/stereomanager.hpp>
 
 namespace SceneUtil
 {
@@ -27,11 +27,13 @@ namespace SceneUtil
         }
     };
 
-    RTTNode::RTTNode(uint32_t textureWidth, uint32_t textureHeight, int renderOrderNum, StereoAwareness stereoAwareness)
+    RTTNode::RTTNode(uint32_t textureWidth, uint32_t textureHeight, uint32_t samples, bool generateMipmaps, int renderOrderNum, StereoAwareness stereoAwareness)
         : mTextureWidth(textureWidth)
         , mTextureHeight(textureHeight)
-        , mColorBufferInternalFormat(GL_RGB)
-        , mDepthBufferInternalFormat(GL_DEPTH24_STENCIL8_EXT)
+        , mSamples(samples)
+        , mGenerateMipmaps(generateMipmaps)
+        , mColorBufferInternalFormat(Color::colorInternalFormat())
+        , mDepthBufferInternalFormat(SceneUtil::AutoDepth::depthInternalFormat())
         , mRenderOrderNum(renderOrderNum)
         , mStereoAwareness(stereoAwareness)
     {
@@ -43,7 +45,7 @@ namespace SceneUtil
     {
         for (auto& vdd : mViewDependentDataMap)
         {
-            auto camera = vdd.second->mCamera;
+            auto* camera = vdd.second->mCamera.get();
             if (camera)
             {
                 camera->removeChildren(0, camera->getNumChildren());
@@ -59,10 +61,10 @@ namespace SceneUtil
         if (frameNumber > vdd->mFrameNumber)
         {
             apply(vdd->mCamera);
-            auto& cm = Misc::CallbackManager::instance();
-            if (cm.getView(cv) == Misc::CallbackManager::View::Left)
+            auto& sm = Stereo::Manager::instance();
+            if (sm.getEye(cv) == Stereo::Eye::Left)
                 applyLeft(vdd->mCamera);
-            if (cm.getView(cv) == Misc::CallbackManager::View::Right)
+            if (sm.getEye(cv) == Stereo::Eye::Right)
                 applyRight(vdd->mCamera);
             vdd->mCamera->accept(*cv);
         }
@@ -99,7 +101,7 @@ namespace SceneUtil
 
     bool RTTNode::shouldDoTextureView()
     {
-        if (mStereoAwareness != StereoAwareness::StereoUnawareMultiViewAware)
+        if (mStereoAwareness != StereoAwareness::Unaware_MultiViewShaders)
             return false;
         if (Stereo::getMultiview())
             return true;
@@ -198,23 +200,20 @@ namespace SceneUtil
             if (camera->getBufferAttachmentMap().count(osg::Camera::PACKED_DEPTH_STENCIL_BUFFER))
                 vdd->mDepthTexture = camera->getBufferAttachmentMap()[osg::Camera::PACKED_DEPTH_STENCIL_BUFFER]._texture;
 
-#ifdef OSG_HAS_MULTIVIEW
             if (shouldDoTextureArray())
             {
                 // Create any buffer attachments not added in setDefaults
                 if (camera->getBufferAttachmentMap().count(osg::Camera::COLOR_BUFFER) == 0)
                 {
                     vdd->mColorTexture = createTextureArray(mColorBufferInternalFormat);
-                    
-                    camera->attach(osg::Camera::COLOR_BUFFER, vdd->mColorTexture, 0, osg::Camera::FACE_CONTROLLED_BY_MULTIVIEW_SHADER);
-                    SceneUtil::attachAlphaToCoverageFriendlyFramebufferToCamera(camera, osg::Camera::COLOR_BUFFER, vdd->mColorTexture, 0, osg::Camera::FACE_CONTROLLED_BY_MULTIVIEW_SHADER);
+                    camera->attach(osg::Camera::COLOR_BUFFER, vdd->mColorTexture, 0, Stereo::osgFaceControlledByMultiviewShader(), mGenerateMipmaps, mSamples);
+                    SceneUtil::attachAlphaToCoverageFriendlyFramebufferToCamera(camera, osg::Camera::COLOR_BUFFER, vdd->mColorTexture, 0, Stereo::osgFaceControlledByMultiviewShader(), mGenerateMipmaps);
                 }
 
-            if (camera->getBufferAttachmentMap().count(osg::Camera::PACKED_DEPTH_STENCIL_BUFFER) == 0)
+                if (camera->getBufferAttachmentMap().count(osg::Camera::PACKED_DEPTH_STENCIL_BUFFER) == 0)
                 {
                     vdd->mDepthTexture = createTextureArray(mDepthBufferInternalFormat);
-
-                    camera->attach(osg::Camera::PACKED_DEPTH_STENCIL_BUFFER, vdd->mDepthTexture, 0, osg::Camera::FACE_CONTROLLED_BY_MULTIVIEW_SHADER);
+                    camera->attach(osg::Camera::PACKED_DEPTH_STENCIL_BUFFER, vdd->mDepthTexture, 0, Stereo::osgFaceControlledByMultiviewShader(), false, mSamples);
                 }
 
                 if (shouldDoTextureView())
@@ -226,21 +225,29 @@ namespace SceneUtil
                 }
             }
             else
-#endif
             {
                 // Create any buffer attachments not added in setDefaults
                 if (camera->getBufferAttachmentMap().count(osg::Camera::COLOR_BUFFER) == 0)
                 {
                     vdd->mColorTexture = createTexture(mColorBufferInternalFormat);
-                    camera->attach(osg::Camera::COLOR_BUFFER, vdd->mColorTexture);
-                    SceneUtil::attachAlphaToCoverageFriendlyFramebufferToCamera(camera, osg::Camera::COLOR_BUFFER, vdd->mColorTexture);
+                    camera->attach(osg::Camera::COLOR_BUFFER, vdd->mColorTexture, 0, 0, mGenerateMipmaps, mSamples);
+                    SceneUtil::attachAlphaToCoverageFriendlyFramebufferToCamera(camera, osg::Camera::COLOR_BUFFER, vdd->mColorTexture, 0, 0, mGenerateMipmaps);
                 }
 
                 if (camera->getBufferAttachmentMap().count(osg::Camera::PACKED_DEPTH_STENCIL_BUFFER) == 0)
                 {
                     vdd->mDepthTexture = createTexture(mDepthBufferInternalFormat);
-                    camera->attach(osg::Camera::PACKED_DEPTH_STENCIL_BUFFER, vdd->mDepthTexture);
+                    camera->attach(osg::Camera::PACKED_DEPTH_STENCIL_BUFFER, vdd->mDepthTexture, 0, 0, false, mSamples);
                 }
+            }
+
+            // OSG appears not to properly initialize this metadata. So when multisampling is enabled, OSG will use incorrect formats for the resolve buffers.
+            if (mSamples > 1)
+            {
+                camera->getBufferAttachmentMap()[osg::Camera::COLOR_BUFFER]._internalFormat = mColorBufferInternalFormat;
+                camera->getBufferAttachmentMap()[osg::Camera::COLOR_BUFFER]._mipMapGeneration = mGenerateMipmaps;
+                camera->getBufferAttachmentMap()[osg::Camera::PACKED_DEPTH_STENCIL_BUFFER]._internalFormat = mDepthBufferInternalFormat;
+                camera->getBufferAttachmentMap()[osg::Camera::PACKED_DEPTH_STENCIL_BUFFER]._mipMapGeneration = mGenerateMipmaps;
             }
         }
 

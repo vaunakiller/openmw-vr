@@ -6,8 +6,6 @@
 
 namespace ESM
 {
-    unsigned int SoundGenerator::sRecordId = REC_SNDG;
-
     void SoundGenerator::load(ESMReader &esm, bool &isDeleted)
     {
         isDeleted = false;
@@ -20,21 +18,21 @@ namespace ESM
             esm.getSubName();
             switch (esm.retSubName().toInt())
             {
-                case ESM::SREC_NAME:
+                case SREC_NAME:
                     mId = esm.getHString();
                     hasName = true;
                     break;
-                case ESM::FourCC<'D','A','T','A'>::value:
-                    esm.getHT(mType, 4);
+                case fourCC("DATA"):
+                    esm.getHTSized<4>(mType);
                     hasData = true;
                     break;
-                case ESM::FourCC<'C','N','A','M'>::value:
+                case fourCC("CNAM"):
                     mCreature = esm.getHString();
                     break;
-                case ESM::FourCC<'S','N','A','M'>::value:
+                case fourCC("SNAM"):
                     mSound = esm.getHString();
                     break;
-                case ESM::SREC_DELE:
+                case SREC_DELE:
                     esm.skipHSub();
                     isDeleted = true;
                     break;
@@ -67,6 +65,7 @@ namespace ESM
 
     void SoundGenerator::blank()
     {
+        mRecordFlags = 0;
         mType = LeftFoot;
         mCreature.clear();
         mSound.clear();

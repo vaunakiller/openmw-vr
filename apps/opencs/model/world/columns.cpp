@@ -267,9 +267,9 @@ namespace CSMWorld
 
             { ColumnId_LevelledList,"Levelled List" },
             { ColumnId_LevelledItemId,"Levelled Item" },
-            { ColumnId_LevelledItemLevel,"Item Level" },
+            { ColumnId_LevelledItemLevel,"PC Level" },
             { ColumnId_LevelledItemType, "Calculate all levels <= player" },
-            { ColumnId_LevelledItemTypeEach, "Select a new item each instance" },
+            { ColumnId_LevelledItemTypeEach, "Select a new item for each instance" },
             { ColumnId_LevelledItemChanceNone, "Chance None" },
 
             { ColumnId_PowerList, "Powers" },
@@ -372,6 +372,8 @@ namespace CSMWorld
 
             { ColumnId_Persistent, "Persistent" },
             { ColumnId_Blocked, "Blocked" },
+
+            { ColumnId_LevelledCreatureId,"Levelled Creature" },
 
             { -1, 0 } // end marker
         };

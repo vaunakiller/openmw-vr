@@ -214,7 +214,52 @@ namespace LuaUtil
         util["clamp"] = [](float value, float from, float to) { return std::clamp(value, from, to); };
         // NOTE: `util["clamp"] = std::clamp<float>` causes error 'AddressSanitizer: stack-use-after-scope'
         util["normalizeAngle"] = &Misc::normalizeAngle;
-        util["makeReadOnly"] = &makeReadOnly;
+        util["makeReadOnly"] = [](const sol::table& tbl) { return makeReadOnly(tbl, /*strictIndex=*/false); };
+        util["makeStrictReadOnly"] = [](const sol::table& tbl) { return makeReadOnly(tbl, /*strictIndex=*/true); };
+
+        if (lua["bit32"] != sol::nil)
+        {
+            sol::table bit = lua["bit32"];
+            util["bitOr"] = bit["bor"];
+            util["bitAnd"] = bit["band"];
+            util["bitXor"] = bit["bxor"];
+            util["bitNot"] = bit["bnot"];
+        }
+        else
+        {
+            util["bitOr"] = [](unsigned a, sol::variadic_args va)
+            {
+                for (auto v : va)
+                    a |= v.as<unsigned>();
+                return a;
+            };
+            util["bitAnd"] = [](unsigned a, sol::variadic_args va)
+            {
+                for (auto v : va)
+                    a &= v.as<unsigned>();
+                return a;
+            };
+            util["bitXor"] = [](unsigned a, sol::variadic_args va)
+            {
+                for (auto v : va)
+                    a ^= v.as<unsigned>();
+                return a;
+            };
+            util["bitNot"] = [](unsigned a) { return ~a; };
+        }
+
+        util["loadCode"] = [](const std::string& code, const sol::table& env, sol::this_state s)
+        {
+            sol::state_view lua(s);
+            sol::load_result res = lua.load(code, "", sol::load_mode::text);
+            if (!res.valid())
+                throw std::runtime_error("Lua error: " + res.get<std::string>());
+            sol::function fn = res;
+            sol::environment newEnv(lua, sol::create, env);
+            newEnv[sol::metatable_key][sol::meta_function::new_index] = env;
+            sol::set_environment(newEnv, fn);
+            return fn;
+        };
 
         return util;
     }

@@ -8,6 +8,8 @@
 
 #include <components/esm3/esmwriter.hpp>
 #include <components/esm3/quickkeys.hpp>
+#include <components/resource/resourcesystem.hpp>
+#include <components/misc/resourcehelpers.hpp>
 
 #include "../mwworld/inventorystore.hpp"
 #include "../mwworld/class.hpp"
@@ -121,6 +123,18 @@ namespace MWGui
         }
     }
 
+    void QuickKeysMenu::onClose()
+    {
+        WindowBase::onClose();
+
+        if (mAssignDialog)
+            mAssignDialog->setVisible(false);
+        if (mItemSelectionDialog)
+            mItemSelectionDialog->setVisible(false);
+        if (mMagicSelectionDialog)
+            mMagicSelectionDialog->setVisible(false);
+    }
+
     void QuickKeysMenu::unassign(keyData* key)
     {
         key->button->clearUserStrings();
@@ -142,8 +156,8 @@ namespace MWGui
         else
         {
             key->type = Type_Unassigned;
-            key->id = "";
-            key->name = "";
+            key->id.clear();
+            key->name.clear();
 
             MyGUI::TextBox* textBox = key->button->createWidgetReal<MyGUI::TextBox>("SandText",
                 MyGUI::FloatCoord(0,0,1,1), MyGUI::Align::Default);
@@ -300,7 +314,7 @@ namespace MWGui
         std::string path = effect->mIcon;
         int slashPos = path.rfind('\\');
         path.insert(slashPos+1, "b_");
-        path = MWBase::Environment::get().getWindowManager()->correctIconPath(path);
+        path = Misc::ResourceHelpers::correctIconPath(path, MWBase::Environment::get().getResourceSystem()->getVFS());
 
         float scale = 1.f;
         MyGUI::ITexture* texture = MyGUI::RenderManager::getInstance().getTexture("textures\\menu_icon_select_magic.dds");
@@ -349,11 +363,11 @@ namespace MWGui
         bool godmode = MWBase::Environment::get().getWorld()->getGodModeState();
         bool isReturnNeeded = (!godmode && playerStats.isParalyzed()) || playerStats.isDead();
 
-        if (isReturnNeeded && key->type != Type_Item)
+        if (isReturnNeeded)
         {
             return;
         }
-        else if (isDelayNeeded && key->type != Type_Item)
+        else if (isDelayNeeded)
         {
             mActivated = key;
             return;
@@ -393,28 +407,13 @@ namespace MWGui
 
             if (key->type == Type_Item)
             {
-                bool isWeapon = item.getType() == ESM::Weapon::sRecordId;
-                bool isTool = item.getType() == ESM::Probe::sRecordId ||
-                    item.getType() == ESM::Lockpick::sRecordId;
-
-                // delay weapon switching if player is busy
-                if (isDelayNeeded && (isWeapon || isTool))
-                {
-                    mActivated = key;
-                    return;
-                }
-                else if (isReturnNeeded && (isWeapon || isTool))
-                {
-                    return;
-                }
-
                 if (!store.isEquipped(item))
                     MWBase::Environment::get().getWindowManager()->useItem(item);
                 MWWorld::ConstContainerStoreIterator rightHand = store.getSlot(MWWorld::InventoryStore::Slot_CarriedRight);
                 // change draw state only if the item is in player's right hand
                 if (rightHand != store.end() && item == *rightHand)
                 {
-                    MWBase::Environment::get().getWorld()->getPlayer().setDrawState(MWMechanics::DrawState_Weapon);
+                    MWBase::Environment::get().getWorld()->getPlayer().setDrawState(MWMechanics::DrawState::Weapon);
                 }
             }
             else if (key->type == Type_MagicItem)
@@ -430,7 +429,7 @@ namespace MWGui
                 }
 
                 store.setSelectedEnchantItem(it);
-                MWBase::Environment::get().getWorld()->getPlayer().setDrawState(MWMechanics::DrawState_Spell);
+                MWBase::Environment::get().getWorld()->getPlayer().setDrawState(MWMechanics::DrawState::Spell);
             }
         }
         else if (key->type == Type_Magic)
@@ -450,12 +449,12 @@ namespace MWGui
             store.setSelectedEnchantItem(store.end());
             MWBase::Environment::get().getWindowManager()
                 ->setSelectedSpell(spellId, int(MWMechanics::getSpellSuccessChance(spellId, player)));
-            MWBase::Environment::get().getWorld()->getPlayer().setDrawState(MWMechanics::DrawState_Spell);
+            MWBase::Environment::get().getWorld()->getPlayer().setDrawState(MWMechanics::DrawState::Spell);
         }
         else if (key->type == Type_HandToHand)
         {
             store.unequipSlot(MWWorld::InventoryStore::Slot_CarriedRight, player);
-            MWBase::Environment::get().getWorld()->getPlayer().setDrawState(MWMechanics::DrawState_Weapon);
+            MWBase::Environment::get().getWorld()->getPlayer().setDrawState(MWMechanics::DrawState::Weapon);
         }
     }
 

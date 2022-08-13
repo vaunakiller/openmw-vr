@@ -2,12 +2,9 @@
 
 #include "esmreader.hpp"
 #include "esmwriter.hpp"
-#include "components/esm/defs.hpp"
 
 namespace ESM
 {
-    unsigned int Spell::sRecordId = REC_SPEL;
-
     void Spell::load(ESMReader &esm, bool &isDeleted)
     {
         isDeleted = false;
@@ -22,23 +19,23 @@ namespace ESM
             esm.getSubName();
             switch (esm.retSubName().toInt())
             {
-                case ESM::SREC_NAME:
+                case SREC_NAME:
                     mId = esm.getHString();
                     hasName = true;
                     break;
-                case ESM::FourCC<'F','N','A','M'>::value:
+                case fourCC("FNAM"):
                     mName = esm.getHString();
                     break;
-                case ESM::FourCC<'S','P','D','T'>::value:
-                    esm.getHT(mData, 12);
+                case fourCC("SPDT"):
+                    esm.getHTSized<12>(mData);
                     hasData = true;
                     break;
-                case ESM::FourCC<'E','N','A','M'>::value:
+                case fourCC("ENAM"):
                     ENAMstruct s;
-                    esm.getHT(s, 24);
+                    esm.getHTSized<24>(s);
                     mEffects.mList.push_back(s);
                     break;
-                case ESM::SREC_DELE:
+                case SREC_DELE:
                     esm.skipHSub();
                     isDeleted = true;
                     break;
@@ -71,6 +68,7 @@ namespace ESM
 
     void Spell::blank()
     {
+        mRecordFlags = 0;
         mData.mType = 0;
         mData.mCost = 0;
         mData.mFlags = 0;

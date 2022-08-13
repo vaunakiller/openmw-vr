@@ -2,7 +2,6 @@
 #define OPENMW_MWWORLD_ESMSTORE_H
 
 #include <memory>
-#include <sstream>
 #include <stdexcept>
 #include <unordered_map>
 
@@ -18,6 +17,11 @@ namespace Loading
 namespace MWMechanics
 {
     class SpellList;
+}
+
+namespace ESM
+{
+    class ReadersCache;
 }
 
 namespace MWWorld
@@ -77,7 +81,7 @@ namespace MWWorld
         // maps the id name to the record type.
         using IDMap = std::unordered_map<std::string, int, Misc::StringUtils::CiHash, Misc::StringUtils::CiEqual>;
         IDMap mIds;
-        IDMap mStaticIds;
+        std::unordered_map<std::string, int> mStaticIds;
 
         std::unordered_map<std::string, int> mRefCount;
 
@@ -90,7 +94,7 @@ namespace MWWorld
         /// Validate entries in store after setup
         void validate();
 
-        void countAllCellRefs();
+        void countAllCellRefs(ESM::ReadersCache& readers);
 
         template<class T>
         void removeMissingObjects(Store<T>& store);
@@ -196,7 +200,7 @@ namespace MWWorld
         /// Validate entries in store after loading a save
         void validateDynamic();
 
-        void load(ESM::ESMReader &esm, Loading::Listener* listener);
+        void load(ESM::ESMReader &esm, Loading::Listener* listener, ESM::Dialogue*& dialogue);
 
         template <class T>
         const Store<T> &get() const {
@@ -266,7 +270,8 @@ namespace MWWorld
 
         // This method must be called once, after loading all master/plugin files. This can only be done
         //  from the outside, so it must be public.
-        void setUp(bool validateRecords = false);
+        void setUp();
+        void validateRecords(ESM::ReadersCache& readers);
 
         int countSavedGameRecords() const;
 

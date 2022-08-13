@@ -11,8 +11,14 @@
 #include "../mwrender/renderinginterface.hpp"
 #include "../mwrender/vismask.hpp"
 
+#include "classmodel.hpp"
+
 namespace MWClass
 {
+    Static::Static()
+        : MWWorld::RegisteredClass<Static>(ESM::Static::sRecordId)
+    {
+    }
 
     void Static::insertObjectRendering (const MWWorld::Ptr& ptr, const std::string& model, MWRender::RenderingInterface& renderingInterface) const
     {
@@ -30,19 +36,12 @@ namespace MWClass
 
     void Static::insertObjectPhysics(const MWWorld::Ptr& ptr, const std::string& model, const osg::Quat& rotation, MWPhysics::PhysicsSystem& physics) const
     {
-        if(!model.empty())
-            physics.addObject(ptr, model, rotation, MWPhysics::CollisionType_World);
+        physics.addObject(ptr, model, rotation, MWPhysics::CollisionType_World);
     }
 
     std::string Static::getModel(const MWWorld::ConstPtr &ptr) const
     {
-        const MWWorld::LiveCellRef<ESM::Static> *ref = ptr.get<ESM::Static>();
-
-        const std::string &model = ref->mBase->mModel;
-        if (!model.empty()) {
-            return "meshes\\" + model;
-        }
-        return "";
+        return getClassModel<ESM::Static>(ptr);
     }
 
     std::string Static::getName (const MWWorld::ConstPtr& ptr) const
@@ -53,13 +52,6 @@ namespace MWClass
     bool Static::hasToolTip(const MWWorld::ConstPtr& ptr) const
     {
         return false;
-    }
-
-    void Static::registerSelf()
-    {
-        std::shared_ptr<Class> instance (new Static);
-
-        registerClass (ESM::Static::sRecordId, instance);
     }
 
     MWWorld::Ptr Static::copyToCellImpl(const MWWorld::ConstPtr &ptr, MWWorld::CellStore &cell) const

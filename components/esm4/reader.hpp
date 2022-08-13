@@ -26,10 +26,13 @@
 #include <map>
 #include <cstddef>
 #include <memory>
+#include <istream>
 
 #include "common.hpp"
 #include "loadtes4.hpp"
 #include "../esm/reader.hpp"
+
+#include <components/files/istreamptr.hpp>
 
 namespace ESM4 {
     //                                                   bytes read from group, updated by
@@ -38,7 +41,8 @@ namespace ESM4 {
     //                                                     v
     typedef std::vector<std::pair<ESM4::GroupTypeHeader, std::uint32_t> > GroupStack;
 
-    struct ReaderContext {
+    struct ReaderContext
+    {
         std::string filename;         // in case we need to reopen to restore the context
         std::uint32_t modIndex;         // the sequential position of this file in the load order:
         //  0x00 reserved, 0xFF in-game (see notes below)
@@ -77,7 +81,7 @@ namespace ESM4 {
 
         ReaderContext        mCtx;
 
-        ToUTF8::StatelessUtf8Encoder* mEncoder;
+        const ToUTF8::StatelessUtf8Encoder* mEncoder;
 
         std::size_t          mFileSize;
 
@@ -114,33 +118,29 @@ namespace ESM4 {
         //void close();
 
         // Raw opening. Opens the file and sets everything up but doesn't parse the header.
-        void openRaw(Files::IStreamPtr esmStream, const std::string& filename);
+        void openRaw(Files::IStreamPtr&& stream, const std::string& filename);
 
         // Load ES file from a new stream, parses the header.
         // Closes the currently open file first, if any.
-        void open(Files::IStreamPtr esmStream, const std::string& filename);
+        void open(Files::IStreamPtr&& stream, const std::string& filename);
 
         Reader() = default;
 
     public:
 
-        Reader(Files::IStreamPtr esmStream, const std::string& filename);
+        Reader(Files::IStreamPtr&& esmStream, const std::string& filename);
         ~Reader();
 
         // FIXME: should be private but ESMTool uses it
-        void openRaw(const std::string& filename) {
-            openRaw(Files::openConstrainedFileStream(filename.c_str()), filename);
-        }
+        void openRaw(const std::string& filename);
 
-        void open(const std::string& filename) {
-            open(Files::openConstrainedFileStream (filename.c_str ()), filename);
-        }
+        void open(const std::string& filename);
 
         void close() final;
 
         inline bool isEsm4() const final { return true; }
 
-        inline void setEncoder(ToUTF8::StatelessUtf8Encoder* encoder) final { mEncoder = encoder; };
+        inline void setEncoder(const ToUTF8::StatelessUtf8Encoder* encoder) final { mEncoder = encoder; };
 
         const std::vector<ESM::MasterData>& getGameFiles() const final { return mHeader.mMaster; }
 
@@ -278,10 +278,10 @@ namespace ESM4 {
 
         // Note: uses the string size from the subrecord header rather than checking null termination
         bool getZString(std::string& str) {
-            return getStringImpl(str, mCtx.subRecordHeader.dataSize, mStream, mEncoder, true);
+            return getStringImpl(str, mCtx.subRecordHeader.dataSize, *mStream, mEncoder, true);
         }
         bool getString(std::string& str) {
-            return getStringImpl(str, mCtx.subRecordHeader.dataSize, mStream, mEncoder);
+            return getStringImpl(str, mCtx.subRecordHeader.dataSize, *mStream, mEncoder);
         }
 
         void enterGroup();

@@ -1,8 +1,10 @@
 #include <iostream>
 
 #include <QTranslator>
-#include <QTextCodec>
 #include <QDir>
+
+#include <components/debug/debugging.hpp>
+#include <components/platform/platform.hpp>
 
 #ifdef MAC_OS_X_VERSION_MIN_REQUIRED
 #undef MAC_OS_X_VERSION_MIN_REQUIRED
@@ -12,8 +14,10 @@
 
 #include "maindialog.hpp"
 
-int main(int argc, char *argv[])
+int runLauncher(int argc, char *argv[])
 {
+    Platform::init();
+
     try
     {
         QApplication app(argc, argv);
@@ -48,4 +52,9 @@ int main(int argc, char *argv[])
         std::cerr << "ERROR: " << e.what() << std::endl;
         return 0;
     }
+}
+
+int main(int argc, char *argv[])
+{
+    return wrapApplication(runLauncher, argc, argv, "Launcher");
 }

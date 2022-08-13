@@ -5,6 +5,7 @@
 #include <MyGUI_Gui.h>
 
 #include <components/settings/settings.hpp>
+#include <components/esm3/loadgmst.hpp>
 
 #include "../mwbase/environment.hpp"
 #include "../mwbase/world.hpp"
@@ -15,7 +16,12 @@
 #include "../mwworld/containerstore.hpp"
 #include "../mwworld/actionteleport.hpp"
 #include "../mwworld/cellstore.hpp"
+#include "../mwworld/cellutils.hpp"
+#include "../mwworld/store.hpp"
+#include "../mwworld/esmstore.hpp"
 
+#include "../mwmechanics/actorutil.hpp"
+#include "../mwmechanics/creaturestats.hpp"
 
 namespace MWGui
 {
@@ -119,12 +125,10 @@ namespace MWGui
         {
             std::string cellname = transport[i].mCellName;
             bool interior = true;
-            int x,y;
-            MWBase::Environment::get().getWorld()->positionToIndex(transport[i].mPos.pos[0],
-                                                                   transport[i].mPos.pos[1],x,y);
+            const osg::Vec2i cellIndex = MWWorld::positionToCellIndex(transport[i].mPos.pos[0], transport[i].mPos.pos[1]);
             if (cellname == "")
             {
-                MWWorld::CellStore* cell = MWBase::Environment::get().getWorld()->getExterior(x,y);
+                MWWorld::CellStore* cell = MWBase::Environment::get().getWorld()->getExterior(cellIndex.x(), cellIndex.y());
                 cellname = MWBase::Environment::get().getWorld()->getCellName(cell);
                 interior = false;
             }

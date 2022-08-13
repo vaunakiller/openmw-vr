@@ -4,11 +4,9 @@
 
 #include "esmreader.hpp"
 #include "esmwriter.hpp"
-#include "components/esm/defs.hpp"
 
 namespace ESM
 {
-    unsigned int Dialogue::sRecordId = REC_DIAL;
 
     void Dialogue::load(ESMReader &esm, bool &isDeleted)
     {
@@ -30,7 +28,7 @@ namespace ESM
             esm.getSubName();
             switch (esm.retSubName().toInt())
             {
-                case ESM::FourCC<'D','A','T','A'>::value:
+                case fourCC("DATA"):
                 {
                     esm.getSubHeader();
                     int size = esm.getSubSize();
@@ -44,7 +42,7 @@ namespace ESM
                     }
                     break;
                 }
-                case ESM::SREC_DELE:
+                case SREC_DELE:
                     esm.skipHSub();
                     mType = Unknown;
                     isDeleted = true;
@@ -76,7 +74,7 @@ namespace ESM
 
     void Dialogue::readInfo(ESMReader &esm, bool merge)
     {
-        ESM::DialInfo info;
+        DialInfo info;
         bool isDeleted = false;
         info.load(esm, isDeleted);
 
@@ -86,49 +84,30 @@ namespace ESM
             return;
         }
 
-        InfoContainer::iterator it = mInfo.end();
-
-        LookupMap::iterator lookup;
-        lookup = mLookup.find(info.mId);
+        LookupMap::iterator lookup = mLookup.find(info.mId);
 
         if (lookup != mLookup.end())
         {
-            it = lookup->second.first;
+            auto it = lookup->second.first;
             // Since the new version of this record may have changed the next/prev linked list connection, we need to re-insert the record
             mInfo.erase(it);
             mLookup.erase(lookup);
         }
 
-        if (info.mNext.empty())
+        if (!info.mPrev.empty())
         {
-            mLookup[info.mId] = std::make_pair(mInfo.insert(mInfo.end(), info), isDeleted);
-            return;
+            lookup = mLookup.find(info.mPrev);
+            if (lookup != mLookup.end())
+            {
+                auto it = lookup->second.first;
+
+                mLookup[info.mId] = std::make_pair(mInfo.insert(++it, info), isDeleted);
+            }
+            else
+                mLookup[info.mId] = std::make_pair(mInfo.insert(mInfo.end(), info), isDeleted);
         }
-        if (info.mPrev.empty())
-        {
+        else
             mLookup[info.mId] = std::make_pair(mInfo.insert(mInfo.begin(), info), isDeleted);
-            return;
-        }
-
-        lookup = mLookup.find(info.mPrev);
-        if (lookup != mLookup.end())
-        {
-            it = lookup->second.first;
-
-            mLookup[info.mId] = std::make_pair(mInfo.insert(++it, info), isDeleted);
-            return;
-        }
-
-        lookup = mLookup.find(info.mNext);
-        if (lookup != mLookup.end())
-        {
-            it = lookup->second.first;
-
-            mLookup[info.mId] = std::make_pair(mInfo.insert(it, info), isDeleted);
-            return;
-        }
-
-        Log(Debug::Warning) << "Warning: Failed to insert info " << info.mId;
     }
 
     void Dialogue::clearDeletedInfos()

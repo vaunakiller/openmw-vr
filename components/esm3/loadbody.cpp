@@ -2,12 +2,9 @@
 
 #include "esmreader.hpp"
 #include "esmwriter.hpp"
-#include "components/esm/defs.hpp"
 
 namespace ESM
 {
-    unsigned int BodyPart::sRecordId = REC_BODY;
-
     void BodyPart::load(ESMReader &esm, bool &isDeleted)
     {
         isDeleted = false;
@@ -20,21 +17,21 @@ namespace ESM
             esm.getSubName();
             switch (esm.retSubName().toInt())
             {
-                case ESM::SREC_NAME:
+                case SREC_NAME:
                     mId = esm.getHString();
                     hasName = true;
                     break;
-                case ESM::FourCC<'M','O','D','L'>::value:
+                case fourCC("MODL"):
                     mModel = esm.getHString();
                     break;
-                case ESM::FourCC<'F','N','A','M'>::value:
+                case fourCC("FNAM"):
                     mRace = esm.getHString();
                     break;
-                case ESM::FourCC<'B','Y','D','T'>::value:
-                    esm.getHT(mData, 4);
+                case fourCC("BYDT"):
+                    esm.getHTSized<4>(mData);
                     hasData = true;
                     break;
-                case ESM::SREC_DELE:
+                case SREC_DELE:
                     esm.skipHSub();
                     isDeleted = true;
                     break;
@@ -67,6 +64,7 @@ namespace ESM
 
     void BodyPart::blank()
     {
+        mRecordFlags = 0;
         mData.mPart = 0;
         mData.mVampire = 0;
         mData.mFlags = 0;

@@ -11,7 +11,8 @@
 
 #include "ptr.hpp"
 #include "doorstate.hpp"
-#include "../mwmechanics/creaturestats.hpp"
+
+#include "../mwmechanics/aisetting.hpp"
 
 namespace ESM
 {
@@ -32,6 +33,7 @@ namespace MWMechanics
 {
     class NpcStats;
     struct Movement;
+    class CreatureStats;
 }
 
 namespace MWGui
@@ -54,14 +56,15 @@ namespace MWWorld
     /// \brief Base class for referenceable esm records
     class Class
     {
-            static std::map<unsigned int, std::shared_ptr<Class> > sClasses;
-            unsigned int mType;
+            const unsigned mType;
+
+            static std::map<unsigned, Class*>& getClasses();
 
         protected:
 
-            Class() = default;
+            explicit Class(unsigned type) : mType(type) {}
 
-            std::shared_ptr<Action> defaultItemActivate(const Ptr &ptr, const Ptr &actor) const;
+            std::unique_ptr<Action> defaultItemActivate(const Ptr &ptr, const Ptr &actor) const;
             ///< Generate default action for activating inventory items
 
             virtual Ptr copyToCellImpl(const ConstPtr &ptr, CellStore &cell) const;
@@ -141,10 +144,10 @@ namespace MWWorld
             ///< Play the appropriate sound for a blocked attack, depending on the currently equipped shield
             /// (default implementation: throw an exception)
 
-            virtual std::shared_ptr<Action> activate (const Ptr& ptr, const Ptr& actor) const;
+            virtual std::unique_ptr<Action> activate (const Ptr& ptr, const Ptr& actor) const;
             ///< Generate action for activation (default implementation: return a null action).
 
-            virtual std::shared_ptr<Action> use (const Ptr& ptr, bool force=false)
+            virtual std::unique_ptr<Action> use (const Ptr& ptr, bool force=false)
                 const;
             ///< Generate action for using via inventory menu (default implementation: return a
             /// null action).
@@ -222,13 +225,8 @@ namespace MWWorld
             virtual float getNormalizedEncumbrance (const MWWorld::Ptr& ptr) const;
             ///< Returns encumbrance re-scaled to capacity
 
-            virtual bool apply (const MWWorld::Ptr& ptr, const std::string& id,
-                const MWWorld::Ptr& actor) const;
-            ///< Apply \a id on \a ptr.
-            /// \param actor Actor that is resposible for the ID being applied to \a ptr.
-            /// \return Any effect?
-            ///
-            /// (default implementation: ignore and return false)
+            virtual bool consume(const MWWorld::Ptr& consumable, const MWWorld::Ptr& actor) const;
+            ///< Consume an item, e. g. a potion.
 
             virtual void skillUsageSucceeded (const MWWorld::Ptr& ptr, int skill, int usageType, float extraFactor=1.f) const;
             ///< Inform actor \a ptr that a skill use has succeeded.
@@ -343,7 +341,7 @@ namespace MWWorld
             static const Class& get (unsigned int key);
             ///< If there is no class for this \a key, an exception is thrown.
 
-            static void registerClass (unsigned int key,  std::shared_ptr<Class> instance);
+            static void registerClass(Class& instance);
 
             virtual int getBaseGold(const MWWorld::ConstPtr& ptr) const;
 
@@ -368,7 +366,7 @@ namespace MWWorld
 
             virtual osg::Vec4f getEnchantmentColor(const MWWorld::ConstPtr& item) const;
 
-            virtual void setBaseAISetting(const std::string& id, MWMechanics::CreatureStats::AiSetting setting, int value) const;
+            virtual void setBaseAISetting(const std::string& id, MWMechanics::AiSetting setting, int value) const;
 
             virtual void modifyBaseInventory(const std::string& actorId, const std::string& itemId, int amount) const;
     };

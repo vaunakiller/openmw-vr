@@ -22,6 +22,7 @@ namespace SceneUtil
 {
     class WorkQueue;
     class AsyncScreenCaptureOperation;
+    class UnrefQueue;
 }
 
 namespace VFS
@@ -87,6 +88,51 @@ namespace MWVR
     class VRGUIManager;
 }
 
+namespace MWState
+{
+    class StateManager;
+}
+
+namespace MWGui
+{
+    class WindowManager;
+}
+
+namespace MWInput
+{
+    class InputManager;
+}
+
+namespace MWSound
+{
+    class SoundManager;
+}
+
+namespace MWWorld
+{
+    class World;
+}
+
+namespace MWScript
+{
+    class ScriptManager;
+}
+
+namespace MWMechanics
+{
+    class MechanicsManager;
+}
+
+namespace MWDialogue
+{
+    class DialogueManager;
+}
+
+namespace MWDialogue
+{
+    class Journal;
+}
+
 struct SDL_Window;
 
 namespace OMW
@@ -98,9 +144,20 @@ namespace OMW
             std::unique_ptr<VFS::Manager> mVFS;
             std::unique_ptr<Resource::ResourceSystem> mResourceSystem;
             osg::ref_ptr<SceneUtil::WorkQueue> mWorkQueue;
+            std::unique_ptr<SceneUtil::UnrefQueue> mUnrefQueue;
+            std::unique_ptr<MWWorld::World> mWorld;
+            std::unique_ptr<MWSound::SoundManager> mSoundManager;
+            std::unique_ptr<MWScript::ScriptManager> mScriptManager;
+            std::unique_ptr<MWGui::WindowManager> mWindowManager;
+            std::unique_ptr<MWMechanics::MechanicsManager> mMechanicsManager;
+            std::unique_ptr<MWDialogue::DialogueManager> mDialogueManager;
+            std::unique_ptr<MWDialogue::Journal> mJournal;
+            std::unique_ptr<MWInput::InputManager> mInputManager;
+            std::unique_ptr<MWState::StateManager> mStateManager;
+            std::unique_ptr<MWLua::LuaManager> mLuaManager;
             MWBase::Environment mEnvironment;
             ToUTF8::FromType mEncoding;
-            ToUTF8::Utf8Encoder* mEncoder;
+            std::unique_ptr<ToUTF8::Utf8Encoder> mEncoder;
             Files::PathContainer mDataDirs;
             std::vector<std::string> mArchives;
             boost::filesystem::path mResDir;
@@ -129,13 +186,10 @@ namespace OMW
             // Grab mouse?
             bool mGrab;
 
-            bool mExportFonts;
             unsigned int mRandomSeed;
 
             Compiler::Extensions mExtensions;
-            Compiler::Context *mScriptContext;
-
-            MWLua::LuaManager* mLuaManager;
+            std::unique_ptr<Compiler::Context> mScriptContext;
 
             Files::Collections mFileCollections;
             bool mFSStrict;
@@ -152,13 +206,10 @@ namespace OMW
 
             bool frame (float dt);
 
-            /// Load settings from various files, returns the path to the user settings file
-            std::string loadSettings (Settings::Manager & settings);
-
             /// Prepare engine for game play
-            void prepareEngine (Settings::Manager & settings);
+            void prepareEngine();
 
-            void createWindow(Settings::Manager& settings);
+            void createWindow();
             void setWindowIcon();
 
         public:
@@ -228,8 +279,6 @@ namespace OMW
 
             void setScriptBlacklistUse (bool use);
 
-            void enableFontExport(bool exportFonts);
-
             /// Set the save game file to load after initialising the engine.
             void setSaveGameFile(const std::string& savegame);
 
@@ -240,6 +289,7 @@ namespace OMW
         private:
             Files::ConfigurationManager& mCfgMgr;
             class LuaWorker;
+            int mGlMaxTextureImageUnits;
 
 #ifdef USE_OPENXR
             std::unique_ptr<VR::TrackingManager> mVrTrackingManager;

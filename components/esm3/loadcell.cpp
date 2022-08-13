@@ -4,20 +4,19 @@
 #include <limits>
 #include <list>
 
-#include <boost/concept_check.hpp>
-
 #include <components/debug/debuglog.hpp>
 #include <components/misc/stringops.hpp>
 
 #include "esmreader.hpp"
 #include "esmwriter.hpp"
-#include "components/esm/defs.hpp"
 #include "cellid.hpp"
 
+namespace ESM
+{
 namespace
 {
     ///< Translate 8bit/24bit code (stored in refNum.mIndex) into a proper refNum
-    void adjustRefNum (ESM::RefNum& refNum, ESM::ESMReader& reader)
+    void adjustRefNum (RefNum& refNum, const ESMReader& reader)
     {
         unsigned int local = (refNum.mIndex & 0xff000000) >> 24;
 
@@ -37,11 +36,10 @@ namespace
         }
     }
 }
+}
 
 namespace ESM
 {
-    unsigned int Cell::sRecordId = REC_CELL;
-
     // Some overloaded compare operators.
     bool operator== (const MovedCellRef& ref, const RefNum& refNum)
     {
@@ -72,14 +70,14 @@ namespace ESM
             esm.getSubName();
             switch (esm.retSubName().toInt())
             {
-                case ESM::SREC_NAME:
+                case SREC_NAME:
                     mName = esm.getHString();
                     break;
-                case ESM::FourCC<'D','A','T','A'>::value:
-                    esm.getHT(mData, 12);
+                case fourCC("DATA"):
+                    esm.getHTSized<12>(mData);
                     hasData = true;
                     break;
-                case ESM::SREC_DELE:
+                case SREC_DELE:
                     esm.skipHSub();
                     isDeleted = true;
                     break;
@@ -97,7 +95,7 @@ namespace ESM
 
         if (mCellId.mPaged)
         {
-            mCellId.mWorldspace = ESM::CellId::sDefaultWorldspace;
+            mCellId.mWorldspace = CellId::sDefaultWorldspace;
             mCellId.mIndex.mX = mData.mX;
             mCellId.mIndex.mY = mData.mY;
         }
@@ -119,13 +117,13 @@ namespace ESM
             esm.getSubName();
             switch (esm.retSubName().toInt())
             {
-                case ESM::FourCC<'I','N','T','V'>::value:
+                case fourCC("INTV"):
                     int waterl;
                     esm.getHT(waterl);
                     mWater = static_cast<float>(waterl);
                     mWaterInt = true;
                     break;
-                case ESM::FourCC<'W','H','G','T'>::value:
+                case fourCC("WHGT"):
                     float waterLevel;
                     esm.getHT(waterLevel);
                     mWaterInt = false;
@@ -138,17 +136,17 @@ namespace ESM
                     else
                         mWater = waterLevel;
                     break;
-                case ESM::FourCC<'A','M','B','I'>::value:
+                case fourCC("AMBI"):
                     esm.getHT(mAmbi);
                     mHasAmbi = true;
                     break;
-                case ESM::FourCC<'R','G','N','N'>::value:
+                case fourCC("RGNN"):
                     mRegion = esm.getHString();
                     break;
-                case ESM::FourCC<'N','A','M','5'>::value:
+                case fourCC("NAM5"):
                     esm.getHT(mMapColor);
                     break;
-                case ESM::FourCC<'N','A','M','0'>::value:
+                case fourCC("NAM0"):
                     esm.getHT(mRefNumCounter);
                     break;
                 default:
@@ -271,7 +269,8 @@ namespace ESM
         return false;
     }
 
-    bool Cell::getNextRef(ESMReader& esm, CellRef& cellRef, bool& deleted, MovedCellRef& movedCellRef, bool& moved)
+    bool Cell::getNextRef(ESMReader& esm, CellRef& cellRef, bool& deleted, MovedCellRef& movedCellRef, bool& moved,
+        GetNextRefMode mode)
     {
         deleted = false;
         moved = false;
@@ -287,6 +286,13 @@ namespace ESM
 
         if (!esm.peekNextSub("FRMR"))
             return false;
+
+        if ((!moved && mode == GetNextRefMode::LoadOnlyMoved)
+                || (moved && mode == GetNextRefMode::LoadOnlyNotMoved))
+        {
+            skipLoadCellRef(esm);
+            return true;
+        }
 
         cellRef.load(esm, deleted);
         adjustRefNum(cellRef.mRefNum, esm);

@@ -1,5 +1,7 @@
 #include "charactercreation.hpp"
 
+#include <MyGUI_ITexture.h>
+
 #include <components/debug/debuglog.hpp>
 #include <components/fallback/fallback.hpp>
 #include <components/misc/rng.hpp>
@@ -249,7 +251,7 @@ namespace MWGui
                     break;
                 case GM_ClassGenerate:
                     mGenerateClassStep = 0;
-                    mGenerateClass = "";
+                    mGenerateClass.clear();
                     mGenerateClassSpecializations[0] = 0;
                     mGenerateClassSpecializations[1] = 0;
                     mGenerateClassSpecializations[2] = 0;
@@ -492,6 +494,7 @@ namespace MWGui
             klass.mDescription = mCreateClassDialog->getDescription();
             klass.mData.mSpecialization = mCreateClassDialog->getSpecializationId();
             klass.mData.mIsPlayable = 0x1;
+            klass.mRecordFlags = 0;
 
             std::vector<int> attributes = mCreateClassDialog->getFavoriteAttributes();
             assert(attributes.size() == 2);

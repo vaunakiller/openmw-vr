@@ -22,13 +22,13 @@ namespace ESM
 
     enum AiPackages
     {
-        Ai_Wander = ESM::FourCC<'W','A','N','D'>::value,
-        Ai_Travel = ESM::FourCC<'T','R','A','V'>::value,
-        Ai_Escort = ESM::FourCC<'E','S','C','O'>::value,
-        Ai_Follow = ESM::FourCC<'F','O','L','L'>::value,
-        Ai_Activate = ESM::FourCC<'A','C','T','I'>::value,
-        Ai_Combat = ESM::FourCC<'C','O','M','B'>::value,
-        Ai_Pursue = ESM::FourCC<'P','U','R','S'>::value
+        Ai_Wander = fourCC("WAND"),
+        Ai_Travel = fourCC("TRAV"),
+        Ai_Escort = fourCC("ESCO"),
+        Ai_Follow = fourCC("FOLL"),
+        Ai_Activate = fourCC("ACTI"),
+        Ai_Combat = fourCC("COMB"),
+        Ai_Pursue = fourCC("PURS")
     };
 
 
@@ -67,10 +67,10 @@ namespace ESM
     struct AiWander : AiPackage
     {
         AiWanderData mData;
-        AiWanderDuration mDurationData; // was ESM::TimeStamp mStartTime
+        AiWanderDuration mDurationData; // was TimeStamp mStartTime
 
         bool mStoredInitialActorPosition;
-        ESM::Vector3 mInitialActorPosition;
+        Vector3 mInitialActorPosition;
 
         /// \todo add more AiWander state
 

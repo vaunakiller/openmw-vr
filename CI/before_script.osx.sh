@@ -3,6 +3,9 @@
 export CXX=clang++
 export CC=clang
 
+# Silence a git warning
+git config --global advice.detachedHead false
+
 DEPENDENCIES_ROOT="/private/tmp/openmw-deps/openmw-deps"
 QT_PATH=$(brew --prefix qt@5)
 CCACHE_EXECUTABLE=$(brew --prefix ccache)/bin/ccache
@@ -26,5 +29,6 @@ cmake \
 -D BUILD_BSATOOL=TRUE \
 -D BUILD_ESSIMPORTER=TRUE \
 -D BUILD_NIFTEST=TRUE \
+-D ICU_ROOT="/usr/local/opt/icu4c" \
 -G"Unix Makefiles" \
 ..

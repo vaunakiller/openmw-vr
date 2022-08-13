@@ -5,6 +5,7 @@
 #include <components/esm3/loadmgef.hpp>
 #include <components/misc/rng.hpp>
 #include <components/settings/settings.hpp>
+#include <components/misc/resourcehelpers.hpp>
 
 #include "../mwbase/environment.hpp"
 #include "../mwbase/mechanicsmanager.hpp"
@@ -35,10 +36,11 @@ namespace
     {
         if(effect.mMinMagnitude == effect.mMaxMagnitude)
             return effect.mMinMagnitude;
-        return effect.mMinMagnitude + Misc::Rng::rollDice(effect.mMaxMagnitude - effect.mMinMagnitude + 1);
+        auto& prng = MWBase::Environment::get().getWorld()->getPrng();
+        return effect.mMinMagnitude + Misc::Rng::rollDice(effect.mMaxMagnitude - effect.mMinMagnitude + 1, prng);
     }
 
-    void modifyAiSetting(const MWWorld::Ptr& target, const ESM::ActiveEffect& effect, ESM::MagicEffect::Effects creatureEffect, MWMechanics::CreatureStats::AiSetting setting, float magnitude, bool& invalid)
+    void modifyAiSetting(const MWWorld::Ptr& target, const ESM::ActiveEffect& effect, ESM::MagicEffect::Effects creatureEffect, MWMechanics::AiSetting setting, float magnitude, bool& invalid)
     {
         if(target == MWMechanics::getPlayer() || (effect.mEffectId == creatureEffect) == target.getClass().isNpc())
             invalid = true;
@@ -188,7 +190,7 @@ namespace
 
         // change draw state only if the item is in player's right hand
         if (slot == MWWorld::InventoryStore::Slot_CarriedRight)
-            player.setDrawState(MWMechanics::DrawState_Weapon);
+            player.setDrawState(MWMechanics::DrawState::Weapon);
 
         if (prevItem != store.end())
             player.setPreviousItem(itemId, prevItem->getCellRef().getRefId());
@@ -271,7 +273,12 @@ namespace
         const ESM::Static* absorbStatic = esmStore.get<ESM::Static>().find("VFX_Absorb");
         MWRender::Animation* animation = MWBase::Environment::get().getWorld()->getAnimation(target);
         if (animation && !absorbStatic->mModel.empty())
-            animation->addEffect( "meshes\\" + absorbStatic->mModel, ESM::MagicEffect::SpellAbsorption, false, std::string());
+        {
+            const VFS::Manager* const vfs = MWBase::Environment::get().getResourceSystem()->getVFS();
+            animation->addEffect(
+                Misc::ResourceHelpers::correctMeshPath(absorbStatic->mModel, vfs),
+                ESM::MagicEffect::SpellAbsorption, false, std::string());
+        }
         const ESM::Spell* spell = esmStore.get<ESM::Spell>().search(spellId);
         int spellCost = 0;
         if (spell)
@@ -305,6 +312,7 @@ namespace
             bool canAbsorb = !(effect.mFlags & ESM::ActiveEffect::Flag_Ignore_SpellAbsorption) && magnitudes.get(ESM::MagicEffect::SpellAbsorption).getMagnitude() > 0.f;
             if(canReflect || canAbsorb)
             {
+                auto& prng = MWBase::Environment::get().getWorld()->getPrng();
                 for(const auto& activeParam : stats.getActiveSpells())
                 {
                     for(const auto& activeEffect : activeParam.getEffects())
@@ -313,14 +321,14 @@ namespace
                             continue;
                         if(activeEffect.mEffectId == ESM::MagicEffect::Reflect)
                         {
-                            if(canReflect && Misc::Rng::roll0to99() < activeEffect.mMagnitude)
+                            if(canReflect && Misc::Rng::roll0to99(prng) < activeEffect.mMagnitude)
                             {
                                 return MWMechanics::MagicApplicationResult::REFLECTED;
                             }
                         }
                         else if(activeEffect.mEffectId == ESM::MagicEffect::SpellAbsorption)
                         {
-                            if(canAbsorb && Misc::Rng::roll0to99() < activeEffect.mMagnitude)
+                            if(canAbsorb && Misc::Rng::roll0to99(prng) < activeEffect.mMagnitude)
                             {
                                 absorbSpell(spellParams.getId(), caster, target);
                                 return MWMechanics::MagicApplicationResult::REMOVED;
@@ -405,8 +413,11 @@ void applyMagicEffect(const MWWorld::Ptr& target, const MWWorld::Ptr& caster, co
                 if(params.getType() == ESM::ActiveSpells::Type_Temporary)
                 {
                     const ESM::Spell* spell = MWBase::Environment::get().getWorld()->getStore().get<ESM::Spell>().search(params.getId());
-                    if(spell && spell->mData.mType == ESM::Spell::ST_Spell)
-                        return Misc::Rng::roll0to99() < magnitude;
+                    if (spell && spell->mData.mType == ESM::Spell::ST_Spell)
+                    {
+                        auto& prng = MWBase::Environment::get().getWorld()->getPrng();
+                        return Misc::Rng::roll0to99(prng) < magnitude;
+                    }
                 }
                 return false;
             }, target);
@@ -425,7 +436,10 @@ void applyMagicEffect(const MWWorld::Ptr& target, const MWWorld::Ptr& caster, co
                     anim->removeEffect(effect.mEffectId);
                     const ESM::Static* fx = world->getStore().get<ESM::Static>().search("VFX_Summon_end");
                     if (fx)
-                        anim->addEffect("meshes\\" + fx->mModel, -1);
+                    {
+                        const VFS::Manager* const vfs = MWBase::Environment::get().getResourceSystem()->getVFS();
+                        anim->addEffect(Misc::ResourceHelpers::correctMeshPath(fx->mModel, vfs), -1);
+                    }
                 }
             }
             else if (caster == getPlayer())
@@ -487,18 +501,18 @@ void applyMagicEffect(const MWWorld::Ptr& target, const MWWorld::Ptr& caster, co
             else
             {
                 auto& creatureStats = target.getClass().getCreatureStats(target);
-                Stat<int> stat = creatureStats.getAiSetting(CreatureStats::AI_Flee);
+                Stat<int> stat = creatureStats.getAiSetting(AiSetting::Flee);
                 stat.setModifier(static_cast<int>(stat.getModifier() + effect.mMagnitude));
-                creatureStats.setAiSetting(CreatureStats::AI_Flee, stat);
+                creatureStats.setAiSetting(AiSetting::Flee, stat);
             }
             break;
         case ESM::MagicEffect::FrenzyCreature:
         case ESM::MagicEffect::FrenzyHumanoid:
-            modifyAiSetting(target, effect, ESM::MagicEffect::FrenzyCreature, CreatureStats::AI_Fight, effect.mMagnitude, invalid);
+            modifyAiSetting(target, effect, ESM::MagicEffect::FrenzyCreature, AiSetting::Fight, effect.mMagnitude, invalid);
             break;
         case ESM::MagicEffect::CalmCreature:
         case ESM::MagicEffect::CalmHumanoid:
-            modifyAiSetting(target, effect, ESM::MagicEffect::CalmCreature, CreatureStats::AI_Fight, -effect.mMagnitude, invalid);
+            modifyAiSetting(target, effect, ESM::MagicEffect::CalmCreature, AiSetting::Fight, -effect.mMagnitude, invalid);
             if(!invalid && effect.mMagnitude > 0)
             {
                 auto& creatureStats = target.getClass().getCreatureStats(target);
@@ -507,11 +521,11 @@ void applyMagicEffect(const MWWorld::Ptr& target, const MWWorld::Ptr& caster, co
             break;
         case ESM::MagicEffect::DemoralizeCreature:
         case ESM::MagicEffect::DemoralizeHumanoid:
-            modifyAiSetting(target, effect, ESM::MagicEffect::DemoralizeCreature, CreatureStats::AI_Flee, effect.mMagnitude, invalid);
+            modifyAiSetting(target, effect, ESM::MagicEffect::DemoralizeCreature, AiSetting::Flee, effect.mMagnitude, invalid);
             break;
         case ESM::MagicEffect::RallyCreature:
         case ESM::MagicEffect::RallyHumanoid:
-            modifyAiSetting(target, effect, ESM::MagicEffect::RallyCreature, CreatureStats::AI_Flee, -effect.mMagnitude, invalid);
+            modifyAiSetting(target, effect, ESM::MagicEffect::RallyCreature, AiSetting::Flee, -effect.mMagnitude, invalid);
             break;
         case ESM::MagicEffect::SummonScamp:
         case ESM::MagicEffect::SummonClannfear:
@@ -992,26 +1006,26 @@ void removeMagicEffect(const MWWorld::Ptr& target, ActiveSpells::ActiveSpellPara
         case ESM::MagicEffect::TurnUndead:
             {
                 auto& creatureStats = target.getClass().getCreatureStats(target);
-                Stat<int> stat = creatureStats.getAiSetting(CreatureStats::AI_Flee);
+                Stat<int> stat = creatureStats.getAiSetting(AiSetting::Flee);
                 stat.setModifier(static_cast<int>(stat.getModifier() - effect.mMagnitude));
-                creatureStats.setAiSetting(CreatureStats::AI_Flee, stat);
+                creatureStats.setAiSetting(AiSetting::Flee, stat);
             }
             break;
         case ESM::MagicEffect::FrenzyCreature:
         case ESM::MagicEffect::FrenzyHumanoid:
-            modifyAiSetting(target, effect, ESM::MagicEffect::FrenzyCreature, CreatureStats::AI_Fight, -effect.mMagnitude, invalid);
+            modifyAiSetting(target, effect, ESM::MagicEffect::FrenzyCreature, AiSetting::Fight, -effect.mMagnitude, invalid);
             break;
         case ESM::MagicEffect::CalmCreature:
         case ESM::MagicEffect::CalmHumanoid:
-            modifyAiSetting(target, effect, ESM::MagicEffect::CalmCreature, CreatureStats::AI_Fight, effect.mMagnitude, invalid);
+            modifyAiSetting(target, effect, ESM::MagicEffect::CalmCreature, AiSetting::Fight, effect.mMagnitude, invalid);
             break;
         case ESM::MagicEffect::DemoralizeCreature:
         case ESM::MagicEffect::DemoralizeHumanoid:
-            modifyAiSetting(target, effect, ESM::MagicEffect::DemoralizeCreature, CreatureStats::AI_Flee, -effect.mMagnitude, invalid);
+            modifyAiSetting(target, effect, ESM::MagicEffect::DemoralizeCreature, AiSetting::Flee, -effect.mMagnitude, invalid);
             break;
         case ESM::MagicEffect::RallyCreature:
         case ESM::MagicEffect::RallyHumanoid:
-            modifyAiSetting(target, effect, ESM::MagicEffect::RallyCreature, CreatureStats::AI_Flee, effect.mMagnitude, invalid);
+            modifyAiSetting(target, effect, ESM::MagicEffect::RallyCreature, AiSetting::Flee, effect.mMagnitude, invalid);
             break;
         case ESM::MagicEffect::SummonScamp:
         case ESM::MagicEffect::SummonClannfear:

@@ -39,10 +39,6 @@
 #include "reader.hpp"
 //#include "writer.hpp"
 
-ESM4::Region::~Region()
-{
-}
-
 void ESM4::Region::load(ESM4::Reader& reader)
 {
     mFormId = reader.hdr().record.id;
@@ -66,7 +62,7 @@ void ESM4::Region::load(ESM4::Reader& reader)
                 {
                     reader.get(*it);
 #if 0
-                    std::string padding = "";
+                    std::string padding;
                     padding.insert(0, reader.stackSize()*2, ' ');
                     std::cout << padding  << "RPLD: 0x" << std::hex << *it << std::endl;
 #endif

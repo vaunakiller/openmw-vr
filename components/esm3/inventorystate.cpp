@@ -5,7 +5,10 @@
 
 #include <components/misc/stringops.hpp>
 
-void ESM::InventoryState::load (ESMReader &esm)
+namespace ESM
+{
+
+void InventoryState::load (ESMReader &esm)
 {
     // obsolete
     int index = 0;
@@ -56,7 +59,7 @@ void ESM::InventoryState::load (ESMReader &esm)
         //Get its name
         std::string id = esm.getHString();
         int count;
-        std::string parentGroup = "";
+        std::string parentGroup;
         //Then get its count
         esm.getHNT (count, "COUN");
         //Old save formats don't have information about parent group; check for that
@@ -123,7 +126,7 @@ void ESM::InventoryState::load (ESMReader &esm)
     }
 }
 
-void ESM::InventoryState::save (ESMWriter &esm) const
+void InventoryState::save (ESMWriter &esm) const
 {
     int itemsCount = static_cast<int>(mItems.size());
     if (itemsCount > 0)
@@ -169,4 +172,6 @@ void ESM::InventoryState::save (ESMWriter &esm) const
 
     if (mSelectedEnchantItem != -1)
         esm.writeHNT ("SELE", mSelectedEnchantItem);
+}
+
 }

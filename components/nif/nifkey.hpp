@@ -3,11 +3,9 @@
 #ifndef OPENMW_COMPONENTS_NIF_NIFKEY_HPP
 #define OPENMW_COMPONENTS_NIF_NIFKEY_HPP
 
-#include "nifstream.hpp"
-
-#include <sstream>
 #include <map>
 
+#include "nifstream.hpp"
 #include "niffile.hpp"
 
 namespace Nif
@@ -103,9 +101,7 @@ struct KeyMapT {
         }
         else if (count != 0)
         {
-            std::stringstream error;
-            error << "Unhandled interpolation type: " << mInterpolationType;
-            nif->file->fail(error.str());
+            nif->file->fail("Unhandled interpolation type: " + std::to_string(mInterpolationType));
         }
 
         if (morph && nif->getVersion() > NIFStream::generateVersion(10,1,0,0))

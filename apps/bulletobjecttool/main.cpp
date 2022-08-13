@@ -1,7 +1,6 @@
 #include <components/debug/debugging.hpp>
 #include <components/esm3/esmreader.hpp>
 #include <components/esm3/loadcell.hpp>
-#include <components/esm3/variant.hpp>
 #include <components/esmloader/esmdata.hpp>
 #include <components/esmloader/load.hpp>
 #include <components/fallback/fallback.hpp>
@@ -13,14 +12,12 @@
 #include <components/resource/niffilemanager.hpp>
 #include <components/resource/scenemanager.hpp>
 #include <components/settings/settings.hpp>
-#include <components/to_utf8/to_utf8.hpp>
 #include <components/version/version.hpp>
 #include <components/vfs/manager.hpp>
 #include <components/vfs/registerarchives.hpp>
+#include <components/esm3/readerscache.hpp>
+#include <components/platform/platform.hpp>
 
-#include <osg/Vec3f>
-
-#include <boost/filesystem.hpp>
 #include <boost/program_options.hpp>
 
 #include <charconv>
@@ -29,6 +26,7 @@
 #include <stdexcept>
 #include <string>
 #include <vector>
+
 
 namespace
 {
@@ -110,6 +108,8 @@ namespace
 
     int runBulletObjectTool(int argc, char *argv[])
     {
+        Platform::init();
+
         bpo::options_description desc = makeOptionsDescription();
 
         bpo::parsed_options options = bpo::command_line_parser(argc, argv)
@@ -141,7 +141,7 @@ namespace
         if (!local.empty())
             dataDirs.push_back(std::move(local));
 
-        config.processPaths(dataDirs);
+        config.filterOutNonExistingPaths(dataDirs);
 
         const auto fsStrict = variables["fs-strict"].as<bool>();
         const auto resDir = variables["resources"].as<Files::MaybeQuotedPath>();
@@ -161,7 +161,7 @@ namespace
         Settings::Manager settings;
         settings.load(config);
 
-        std::vector<ESM::ESMReader> readers(contentFiles.size());
+        ESM::ReadersCache readers;
         EsmLoader::Query query;
         query.mLoadActivators = true;
         query.mLoadCells = true;

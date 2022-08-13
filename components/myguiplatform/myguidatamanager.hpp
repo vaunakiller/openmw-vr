@@ -3,14 +3,20 @@
 
 #include <MyGUI_DataManager.h>
 
+#include <string>
+
+namespace VFS
+{
+    class Manager;
+}
+
 namespace osgMyGUI
 {
 
 class DataManager : public MyGUI::DataManager
 {
 public:
-    void initialise() {}
-    void shutdown() {}
+    explicit DataManager(const std::string& path, const VFS::Manager* vfs);
 
     void setResourcePath(const std::string& path);
 
@@ -42,6 +48,8 @@ public:
 
 private:
     std::string mResourcePath;
+
+    const VFS::Manager* mVfs;
 };
 
 }

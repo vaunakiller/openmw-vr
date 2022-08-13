@@ -53,9 +53,8 @@ void ESM4::Header::load(ESM4::Reader& reader)
             {
                 if (!reader.getExact(mData.version) || !reader.getExact(mData.records) || !reader.getExact(mData.nextObjectId))
                     throw std::runtime_error("TES4 HEDR data read error");
-
-                assert((size_t)subHdr.dataSize == sizeof(mData.version)+sizeof(mData.records)+sizeof(mData.nextObjectId)
-                        && "TES4 HEDR data size mismatch");
+                if ((size_t)subHdr.dataSize != sizeof(mData.version)+sizeof(mData.records)+sizeof(mData.nextObjectId))
+                    throw std::runtime_error("TES4 HEDR data size mismatch");
                 break;
             }
             case ESM4::SUB_CNAM: reader.getZString(mAuthor); break;
@@ -67,7 +66,7 @@ void ESM4::Header::load(ESM4::Reader& reader)
                     throw std::runtime_error("TES4 MAST data read error");
 
                 // NOTE: some mods do not have DATA following MAST so can't read DATA here
-
+                m.size = 0;
                 mMaster.push_back (m);
                 break;
             }
@@ -86,7 +85,7 @@ void ESM4::Header::load(ESM4::Reader& reader)
                     if (!reader.getExact(mOverride))
                         throw std::runtime_error("TES4 ONAM data read error");
 #if 0
-                    std::string padding = "";
+                    std::string padding;
                     padding.insert(0, reader.stackSize()*2, ' ');
                     std::cout << padding  << "ESM4::Header::ONAM overrides: " << formIdToString(mOverride) << std::endl;
 #endif

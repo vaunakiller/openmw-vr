@@ -1,6 +1,8 @@
 #include "window.hpp"
 
-#include <MyGUI_InputManager.h>
+#include <MyGUI_Delegate.h>
+#include <MyGUI_MouseButton.h>
+#include <MyGUI_Types.h>
 
 namespace LuaUi
 {
@@ -39,8 +41,7 @@ namespace LuaUi
         if (mCaption)
             mCaption->setCaption(propertyValue("caption", std::string()));
         mMoveResize = MyGUI::IntCoord();
-        setForcedCoord(mMoveResize);
-
+        clearForced();
         WidgetExtension::updateProperties();
     }
 
@@ -70,11 +71,8 @@ namespace LuaUi
         change.width *= (left - mPreviousMouse.left);
         change.height *= (top - mPreviousMouse.top);
 
-        mMoveResize = mMoveResize + change.size();
-        setForcedCoord(mMoveResize);
-        // position can change based on size changes
-        mMoveResize = mMoveResize + change.point() + getPosition() - calculateCoord().point();
-        setForcedCoord(mMoveResize);
+        mMoveResize = mMoveResize + change;
+        forceCoord(mMoveResize);
         updateCoord();
 
         mPreviousMouse.left = left;

@@ -5,12 +5,14 @@
 #include <set>
 
 #include <osg/AlphaFunc>
+#include <osg/BlendFunc>
 #include <osg/Geometry>
 #include <osg/GLExtensions>
 #include <osg/Material>
 #include <osg/Multisample>
 #include <osg/Texture>
 #include <osg/ValueObject>
+#include <osg/ColorMaski>
 
 #include <osgParticle/ParticleSystem>
 
@@ -18,12 +20,14 @@
 
 #include <components/debug/debuglog.hpp>
 #include <components/misc/stringops.hpp>
+#include <components/misc/osguservalues.hpp>
 #include <components/stereo/stereomanager.hpp>
 #include <components/resource/imagemanager.hpp>
 #include <components/vfs/manager.hpp>
 #include <components/sceneutil/riggeometry.hpp>
 #include <components/sceneutil/morphgeometry.hpp>
 #include <components/sceneutil/depth.hpp>
+#include <components/sceneutil/riggeometryosgaextension.hpp>
 
 #include "removedalphafunc.hpp"
 #include "shadermanager.hpp"
@@ -149,10 +153,11 @@ namespace Shader
         , mAlphaFunc(GL_ALWAYS)
         , mAlphaRef(1.0)
         , mAlphaBlend(false)
+        , mBlendFuncOverridden(false)
+        , mAdditiveBlending(false)
         , mNormalHeight(false)
         , mTexStageRequiringTangents(-1)
         , mSoftParticles(false)
-        , mSoftParticleSize(0.f)
         , mNode(nullptr)
     {
     }
@@ -165,6 +170,7 @@ namespace Shader
         , mAutoUseSpecularMaps(false)
         , mApplyLightingToEnvMaps(false)
         , mConvertAlphaTestToAlphaToCoverage(false)
+        , mSupportsNormalsRT(false)
         , mShaderManager(shaderManager)
         , mImageManager(imageManager)
         , mDefaultShaderPrefix(defaultShaderPrefix)
@@ -245,13 +251,10 @@ namespace Shader
         addedState->setName("addedState");
     }
 
-    const char* defaultTextures[] = { "diffuseMap", "normalMap", "emissiveMap", "darkMap", "detailMap", "envMap", "specularMap", "decalMap", "bumpMap" };
-    bool isTextureNameRecognized(const std::string& name)
+    const char* defaultTextures[] = { "diffuseMap", "normalMap", "emissiveMap", "darkMap", "detailMap", "envMap", "specularMap", "decalMap", "bumpMap", "glossMap" };
+    bool isTextureNameRecognized(std::string_view name)
     {
-        for (unsigned int i=0; i<sizeof(defaultTextures)/sizeof(defaultTextures[0]); ++i)
-            if (name == defaultTextures[i])
-                return true;
-        return false;
+        return std::find(std::begin(defaultTextures), std::end(defaultTextures), name) != std::end(defaultTextures);
     }
 
     void ShaderVisitor::applyStateSet(osg::ref_ptr<osg::StateSet> stateset, osg::Node& node)
@@ -263,6 +266,10 @@ namespace Shader
         bool shaderRequired = false;
         if (node.getUserValue("shaderRequired", shaderRequired) && shaderRequired)
             mRequirements.back().mShaderRequired = true;
+
+        bool softEffect = false;
+        if (node.getUserValue(Misc::OsgUserValues::sXSoftEffect, softEffect) && softEffect)
+            mRequirements.back().mSoftParticles = true;
 
         // Make sure to disregard any state that came from a previous call to createProgram
         osg::ref_ptr<AddedState> addedState = getAddedState(*stateset);
@@ -326,9 +333,17 @@ namespace Shader
                             {
                                 mRequirements.back().mShaderRequired = true;
                             }
+                            else if (texName == "glossMap")
+                            {
+                                mRequirements.back().mShaderRequired = true;
+                                if (!writableStateSet)
+                                    writableStateSet = getWritableStateSet(node);
+                                // As well as gloss maps
+                                writableStateSet->setTextureMode(unit, GL_TEXTURE_2D, osg::StateAttribute::ON);
+                            }
                         }
-                        //else
-                        //    Log(Debug::Error) << "ShaderVisitor encountered unknown texture " << texture;
+                        else
+                            Log(Debug::Error) << "ShaderVisitor encountered unknown texture " << texture;
                     }
                 }
             }
@@ -407,12 +422,10 @@ namespace Shader
 
         const osg::StateSet::AttributeList& attributes = stateset->getAttributeList();
         osg::StateSet::AttributeList removedAttributes;
-        osg::ref_ptr<osg::StateSet> removedState = getRemovedState(*stateset);
-        if (removedState)
+        if (osg::ref_ptr<osg::StateSet> removedState = getRemovedState(*stateset))
             removedAttributes = removedState->getAttributeList();
-        std::initializer_list<const osg::StateSet::AttributeList*> list{ &attributes, &removedAttributes };
 
-        for (const auto* attributeMap : list)
+        for (const auto* attributeMap : std::initializer_list<const osg::StateSet::AttributeList*>{ &attributes, &removedAttributes })
         {
             for (osg::StateSet::AttributeList::const_iterator it = attributeMap->begin(); it != attributeMap->end(); ++it)
             {
@@ -467,6 +480,18 @@ namespace Shader
                         mRequirements.back().mAlphaRef = alpha->getReferenceValue();
                     }
                 }
+                else if (it->first.first == osg::StateAttribute::BLENDFUNC)
+                {
+                    if (!mRequirements.back().mBlendFuncOverridden || it->second.second & osg::StateAttribute::PROTECTED)
+                    {
+                        if (it->second.second & osg::StateAttribute::OVERRIDE)
+                            mRequirements.back().mBlendFuncOverridden = true;
+
+                        const osg::BlendFunc* blend = static_cast<const osg::BlendFunc*>(it->second.first.get());
+                        mRequirements.back().mAdditiveBlending =
+                            blend->getSource() == osg::BlendFunc::SRC_ALPHA && blend->getDestination() == osg::BlendFunc::ONE;
+                    }
+                }
             }
         }
 
@@ -485,7 +510,7 @@ namespace Shader
         if (mRequirements.empty())
             mRequirements.emplace_back();
         else
-        mRequirements.push_back(mRequirements.back());
+            mRequirements.push_back(mRequirements.back());
         mRequirements.back().mNode = &node;
     }
 
@@ -554,6 +579,8 @@ namespace Shader
 
         defineMap["alphaFunc"] = std::to_string(reqs.mAlphaFunc);
 
+        defineMap["additiveBlending"] = reqs.mAdditiveBlending ? "1" : "0";
+
         osg::ref_ptr<osg::StateSet> removedState;
         if ((removedState = getRemovedState(*writableStateSet)) && !mAllowedToModifyStateSets)
             removedState = new osg::StateSet(*removedState, osg::CopyOp::SHALLOW_COPY);
@@ -600,9 +627,16 @@ namespace Shader
         bool simpleLighting = false;
         node.getUserValue("simpleLighting", simpleLighting);
         if (simpleLighting)
-        {
-            defineMap["forcePPL"] = "1";
             defineMap["endLight"] = "0";
+
+        if (simpleLighting || dynamic_cast<osgParticle::ParticleSystem*>(&node))
+            defineMap["forcePPL"] = "0";
+
+        if (reqs.mAlphaBlend && mSupportsNormalsRT)
+        {
+            if (reqs.mSoftParticles)
+                defineMap["disableNormals"] = "1";
+            writableStateSet->setAttribute(new osg::ColorMaski(1, false, false, false, false));
         }
 
         if (writableStateSet->getMode(GL_ALPHA_TEST) != osg::StateAttribute::INHERIT && !previousAddedState->hasMode(GL_ALPHA_TEST))
@@ -622,23 +656,6 @@ namespace Shader
 
             updateRemovedState(*writableUserData, removedState);
         }
-
-        if (reqs.mSoftParticles)
-        {
-            osg::ref_ptr<osg::Depth> depth = new SceneUtil::AutoDepth;
-            depth->setWriteMask(false);
-            writableStateSet->setAttributeAndModes(depth, osg::StateAttribute::ON|osg::StateAttribute::OVERRIDE);
-            addedState->setAttributeAndModes(depth);
-
-            writableStateSet->addUniform(new osg::Uniform("particleSize", reqs.mSoftParticleSize));
-            addedState->addUniform("particleSize");
-
-            writableStateSet->addUniform(new osg::Uniform("opaqueDepthTex", 2));
-            addedState->addUniform("opaqueDepthTex");
-
-                writableStateSet->setTextureAttributeAndModes(2, mOpaqueDepthTex, osg::StateAttribute::ON);
-            addedState->setTextureAttributeAndModes(2, mOpaqueDepthTex);
-            }
 
         defineMap["softParticles"] = reqs.mSoftParticles ? "1" : "0";
 
@@ -674,7 +691,7 @@ namespace Shader
                 writableUserData = getWritableUserDataContainer(*writableStateSet);
 
             updateAddedState(*writableUserData, addedState);
-    }
+        }
     }
 
     void ShaderVisitor::ensureFFP(osg::Node& node)
@@ -742,7 +759,7 @@ namespace Shader
                         writableStateSet->getTextureModeList()[unit].erase(itr++);
                     else
                         ++itr;
-        }
+                }
             }
 
             for (const auto& [unit, attributeList] : addedState->getTextureAttributes())
@@ -826,22 +843,14 @@ namespace Shader
 
     void ShaderVisitor::apply(osg::Drawable& drawable)
     {
-        auto partsys = dynamic_cast<osgParticle::ParticleSystem*>(&drawable);
-
-        bool needPop = drawable.getStateSet() || partsys;
+        bool needPop = drawable.getStateSet();
 
         if (needPop)
         {
             pushRequirements(drawable);
 
-            if (partsys && mOpaqueDepthTex)
-            {
-                mRequirements.back().mSoftParticles = true;
-                mRequirements.back().mSoftParticleSize = partsys->getDefaultParticleTemplate().getSizeRange().maximum;
-            }
-
             if (drawable.getStateSet())
-            applyStateSet(drawable.getStateSet(), drawable);
+                applyStateSet(drawable.getStateSet(), drawable);
         }
 
         if (!mRequirements.empty())
@@ -861,6 +870,17 @@ namespace Shader
                 if (sourceGeometry && adjustGeometry(*sourceGeometry, reqs))
                     morph->setSourceGeometry(sourceGeometry);
             }
+            else if (auto osgaRig = dynamic_cast<SceneUtil::RigGeometryHolder*>(&drawable))
+            {
+                osg::ref_ptr<SceneUtil::OsgaRigGeometry> sourceOsgaRigGeometry = osgaRig->getSourceRigGeometry();
+                osg::ref_ptr<osg::Geometry> sourceGeometry = sourceOsgaRigGeometry->getSourceGeometry();
+                if (sourceGeometry && adjustGeometry(*sourceGeometry, reqs))
+                {
+                    sourceOsgaRigGeometry->setSourceGeometry(sourceGeometry);
+                    osgaRig->setSourceRigGeometry(sourceOsgaRigGeometry);
+                }
+            }
+
         }
         else
             ensureFFP(drawable);
@@ -909,11 +929,6 @@ namespace Shader
         mConvertAlphaTestToAlphaToCoverage = convert;
     }
 
-    void ShaderVisitor::setOpaqueDepthTex(osg::ref_ptr<osg::Texture2D> texture)
-    {
-        mOpaqueDepthTex = texture;
-    }
-
     ReinstateRemovedStateVisitor::ReinstateRemovedStateVisitor(bool allowedToModifyStateSets)
         : osg::NodeVisitor(TRAVERSE_ALL_CHILDREN)
         , mAllowedToModifyStateSets(allowedToModifyStateSets)
@@ -956,8 +971,8 @@ namespace Shader
                 {
                     for (const auto&[mode, value] : removedState->getTextureModeList()[unit])
                         writableStateSet->setTextureMode(unit, mode, value);
+                }
             }
-        }
         }
 
         traverse(node);

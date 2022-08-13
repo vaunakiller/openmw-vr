@@ -30,6 +30,7 @@
 #include "npcstats.hpp"
 #include "actorutil.hpp"
 #include "combat.hpp"
+#include "actor.hpp"
 
 namespace
 {
@@ -570,7 +571,7 @@ namespace MWMechanics
             x += fDispDiseaseMod;
 
         static const float fDispWeaponDrawn = gmst.find("fDispWeaponDrawn")->mValue.getFloat();
-        if (playerStats.getDrawState() == MWMechanics::DrawState_Weapon)
+        if (playerStats.getDrawState() == MWMechanics::DrawState::Weapon)
             x += fDispWeaponDrawn;
 
         x += ptr.getClass().getCreatureStats(ptr).getMagicEffects().get(ESM::MagicEffect::Charm).getMagnitude();
@@ -651,7 +652,8 @@ namespace MWMechanics
         float x = 0;
         float y = 0;
 
-        int roll = Misc::Rng::roll0to99();
+        auto& prng = MWBase::Environment::get().getWorld()->getPrng();
+        int roll = Misc::Rng::roll0to99(prng);
 
         if (type == PT_Admire)
         {
@@ -676,11 +678,11 @@ namespace MWMechanics
             {
                 float s = floor(r * fPerDieRollMult * fPerTempMult);
 
-                int flee = npcStats.getAiSetting(MWMechanics::CreatureStats::AI_Flee).getBase();
-                int fight = npcStats.getAiSetting(MWMechanics::CreatureStats::AI_Fight).getBase();
-                npcStats.setAiSetting (MWMechanics::CreatureStats::AI_Flee,
+                const int flee = npcStats.getAiSetting(MWMechanics::AiSetting::Flee).getBase();
+                const int fight = npcStats.getAiSetting(MWMechanics::AiSetting::Fight).getBase();
+                npcStats.setAiSetting (MWMechanics::AiSetting::Flee,
                                        std::clamp(flee + int(std::max(iPerMinChange, s)), 0, 100));
-                npcStats.setAiSetting (MWMechanics::CreatureStats::AI_Fight,
+                npcStats.setAiSetting (MWMechanics::AiSetting::Fight,
                                        std::clamp(fight + int(std::min(-iPerMinChange, -s)), 0, 100));
             }
 
@@ -717,11 +719,11 @@ namespace MWMechanics
             if (success)
             {
                 float s = c * fPerDieRollMult * fPerTempMult;
-                int flee = npcStats.getAiSetting (CreatureStats::AI_Flee).getBase();
-                int fight = npcStats.getAiSetting (CreatureStats::AI_Fight).getBase();
-                npcStats.setAiSetting(CreatureStats::AI_Flee,
+                const int flee = npcStats.getAiSetting(AiSetting::Flee).getBase();
+                const int fight = npcStats.getAiSetting(AiSetting::Fight).getBase();
+                npcStats.setAiSetting(AiSetting::Flee,
                                        std::clamp(flee + std::min(-int(iPerMinChange), int(-s)), 0, 100));
-                npcStats.setAiSetting(CreatureStats::AI_Fight,
+                npcStats.setAiSetting(AiSetting::Fight,
                                        std::clamp(fight + std::max(int(iPerMinChange), int(s)), 0, 100));
             }
             x = floor(-c * fPerDieRollMult);
@@ -1295,7 +1297,7 @@ namespace MWMechanics
                 continue;
 
             // Will the witness report the crime?
-            if (actor.getClass().getCreatureStats(actor).getAiSetting(CreatureStats::AI_Alarm).getBase() >= 100)
+            if (actor.getClass().getCreatureStats(actor).getAiSetting(AiSetting::Alarm).getBase() >= 100)
             {
                 reported = true;
 
@@ -1327,7 +1329,7 @@ namespace MWMechanics
             {
                 float dispTerm = (actor == victim) ? dispVictim : disp;
 
-                float alarmTerm = 0.01f * actor.getClass().getCreatureStats(actor).getAiSetting(CreatureStats::AI_Alarm).getBase();
+                float alarmTerm = 0.01f * actor.getClass().getCreatureStats(actor).getAiSetting(AiSetting::Alarm).getBase();
                 if (type == OT_Pickpocket && alarmTerm <= 0)
                     alarmTerm = 1.0;
 
@@ -1339,7 +1341,7 @@ namespace MWMechanics
                 fightTerm += getFightDistanceBias(actor, player);
                 fightTerm *= alarmTerm;
 
-                int observerFightRating = actor.getClass().getCreatureStats(actor).getAiSetting(CreatureStats::AI_Fight).getBase();
+                const int observerFightRating = actor.getClass().getCreatureStats(actor).getAiSetting(AiSetting::Fight).getBase();
                 if (observerFightRating + fightTerm > 100)
                     fightTerm = static_cast<float>(100 - observerFightRating);
                 fightTerm = std::max(0.f, fightTerm);
@@ -1351,7 +1353,7 @@ namespace MWMechanics
                     NpcStats& observerStats = actor.getClass().getNpcStats(actor);
                     // Apply aggression value to the base Fight rating, so that the actor can continue fighting
                     // after a Calm spell wears off
-                    observerStats.setAiSetting(CreatureStats::AI_Fight, observerFightRating + static_cast<int>(fightTerm));
+                    observerStats.setAiSetting(AiSetting::Fight, observerFightRating + static_cast<int>(fightTerm));
 
                     observerStats.setBaseDisposition(observerStats.getBaseDisposition() + static_cast<int>(dispTerm));
 
@@ -1450,12 +1452,22 @@ namespace MWMechanics
                 std::string script = target.getClass().getScript(target);
                 if (!script.empty() && target.getRefData().getLocals().hasVar(script, "onpchitme") && attacker == player)
                 {
-                    int fight = target.getClass().getCreatureStats(target).getAiSetting(CreatureStats::AI_Fight).getModified();
+                    const int fight = target.getClass().getCreatureStats(target).getAiSetting(AiSetting::Fight).getModified();
                     peaceful = (fight == 0);
                 }
 
                 if (!peaceful)
+                {
                     startCombat(target, attacker);
+                    // Force friendly actors into combat to prevent infighting between followers
+                    std::set<MWWorld::Ptr> followersTarget;
+                    getActorsSidingWith(target, followersTarget);
+                    for(const auto& follower : followersTarget)
+                    {
+                        if(follower != attacker && follower != player)
+                            startCombat(follower, attacker);
+                    }
+                }
             }
         }
 
@@ -1512,10 +1524,6 @@ namespace MWMechanics
 
         CreatureStats& stats = ptr.getClass().getCreatureStats(ptr);
 
-        float invisibility = stats.getMagicEffects().get(ESM::MagicEffect::Invisibility).getMagnitude();
-        if (invisibility > 0)
-            return false;
-
         float sneakTerm = 0;
         if (isSneaking(ptr))
         {
@@ -1543,7 +1551,10 @@ namespace MWMechanics
         float distTerm = fSneakDistBase + fSneakDistMult * (pos1 - pos2).length();
 
         float chameleon = stats.getMagicEffects().get(ESM::MagicEffect::Chameleon).getMagnitude();
-        float x = sneakTerm * distTerm * stats.getFatigueTerm() + chameleon + invisibility;
+        float invisibility = stats.getMagicEffects().get(ESM::MagicEffect::Invisibility).getMagnitude();
+        float x = sneakTerm * distTerm * stats.getFatigueTerm() + chameleon;
+        if (invisibility > 0.f)
+            x += 100.f;
 
         CreatureStats& observerStats = observer.getClass().getCreatureStats(observer);
         float obsAgility = observerStats.getAttribute(ESM::Attribute::Agility).getModified();
@@ -1570,8 +1581,8 @@ namespace MWMechanics
         }
 
         float target = x - y;
-
-        return (Misc::Rng::roll0to99() >= target);
+        auto& prng = MWBase::Environment::get().getWorld()->getPrng();
+        return (Misc::Rng::roll0to99(prng) >= target);
     }
 
     void MechanicsManager::startCombat(const MWWorld::Ptr &ptr, const MWWorld::Ptr &target)
@@ -1598,16 +1609,16 @@ namespace MWMechanics
             if (ptr.getClass().isClass(ptr, "Guard"))
             {
                 stats.setHitAttemptActorId(target.getClass().getCreatureStats(target).getActorId()); // Stops guard from ending combat if player is unreachable
-                for (Actors::PtrActorMap::const_iterator iter = mActors.begin(); iter != mActors.end(); ++iter)
+                for (const Actor& actor : mActors)
                 {
-                    if (iter->first.getClass().isClass(iter->first, "Guard"))
+                    if (actor.getPtr().getClass().isClass(actor.getPtr(), "Guard"))
                     {
-                        MWMechanics::AiSequence& aiSeq = iter->first.getClass().getCreatureStats(iter->first).getAiSequence();
+                        MWMechanics::AiSequence& aiSeq = actor.getPtr().getClass().getCreatureStats(actor.getPtr()).getAiSequence();
                         if (aiSeq.getTypeId() == MWMechanics::AiPackageTypeId::Pursue)
                         {
                             aiSeq.stopPursuit();
                             aiSeq.stack(MWMechanics::AiCombat(target), ptr);
-                            iter->first.getClass().getCreatureStats(iter->first).setHitAttemptActorId(target.getClass().getCreatureStats(target).getActorId()); // Stops guard from ending combat if player is unreachable
+                            actor.getPtr().getClass().getCreatureStats(actor.getPtr()).setHitAttemptActorId(target.getClass().getCreatureStats(target).getActorId()); // Stops guard from ending combat if player is unreachable
                         }
                     }
                 }
@@ -1724,7 +1735,7 @@ namespace MWMechanics
         if (ptr.getClass().isNpc())
             disposition = getDerivedDisposition(ptr);
 
-        int fight = ptr.getClass().getCreatureStats(ptr).getAiSetting(CreatureStats::AI_Fight).getModified()
+        int fight = ptr.getClass().getCreatureStats(ptr).getAiSetting(AiSetting::Fight).getModified()
                 + static_cast<int>(getFightDistanceBias(ptr, target) + getFightDispositionBias(static_cast<float>(disposition)));
 
         if (ptr.getClass().isNpc() && target.getClass().isNpc())
@@ -1777,8 +1788,8 @@ namespace MWMechanics
         MWWorld::Player* player = &MWBase::Environment::get().getWorld()->getPlayer();
 
         // Werewolfs can not cast spells, so we need to unset the prepared spell if there is one.
-        if (npcStats.getDrawState() == MWMechanics::DrawState_Spell)
-            npcStats.setDrawState(MWMechanics::DrawState_Nothing);
+        if (npcStats.getDrawState() == MWMechanics::DrawState::Spell)
+            npcStats.setDrawState(MWMechanics::DrawState::Nothing);
 
         npcStats.setWerewolf(werewolf);
 
@@ -1839,7 +1850,7 @@ namespace MWMechanics
                 if (MWBase::Environment::get().getWorld()->getLOS(neighbor, actor) && awarenessCheck(actor, neighbor))
                 {
                     detected = true;
-                    if (neighbor.getClass().getCreatureStats(neighbor).getAiSetting(MWMechanics::CreatureStats::AI_Alarm).getModified() > 0)
+                    if (neighbor.getClass().getCreatureStats(neighbor).getAiSetting(MWMechanics::AiSetting::Alarm).getModified() > 0)
                     {
                         reported = true;
                         break;

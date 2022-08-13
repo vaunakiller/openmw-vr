@@ -1,6 +1,6 @@
 #include "actor.hpp"
 
-#include <BulletCollision/CollisionShapes/btBoxShape.h>
+#include <BulletCollision/CollisionShapes/btCylinderShape.h>
 #include <BulletCollision/CollisionDispatch/btCollisionWorld.h>
 
 #include <components/sceneutil/positionattitudetransform.hpp>
@@ -20,13 +20,15 @@ namespace MWPhysics
 {
 
 
-Actor::Actor(const MWWorld::Ptr& ptr, const Resource::BulletShape* shape, PhysicsTaskScheduler* scheduler, bool canWaterWalk)
+Actor::Actor(const MWWorld::Ptr& ptr, const Resource::BulletShape* shape, PhysicsTaskScheduler* scheduler,
+    bool canWaterWalk, DetourNavigator::CollisionShapeType collisionShapeType)
   : mStandingOnPtr(nullptr), mCanWaterWalk(canWaterWalk), mWalkingOnWater(false)
   , mMeshTranslation(shape->mCollisionBox.mCenter), mOriginalHalfExtents(shape->mCollisionBox.mExtents)
   , mStuckFrames(0), mLastStuckPosition{0, 0, 0}
   , mForce(0.f, 0.f, 0.f), mOnGround(true), mOnSlope(false)
   , mInternalCollisionMode(true)
   , mExternalCollisionMode(true)
+  , mActive(false)
   , mTaskScheduler(scheduler)
 {
     mPtr = ptr;
@@ -55,8 +57,33 @@ Actor::Actor(const MWWorld::Ptr& ptr, const Resource::BulletShape* shape, Physic
             Log(Debug::Error) << "Error: Failed to calculate bounding box for actor \"" << ptr.getCellRef().getRefId() << "\".";
     }
 
-    mShape.reset(new btBoxShape(Misc::Convert::toBullet(mOriginalHalfExtents)));
-    mRotationallyInvariant = (mMeshTranslation.x() == 0.0 && mMeshTranslation.y() == 0.0) && std::fabs(mOriginalHalfExtents.x() - mOriginalHalfExtents.y()) < 2.2;
+    const btVector3 halfExtents = Misc::Convert::toBullet(mOriginalHalfExtents);
+    if ((mMeshTranslation.x() == 0.0 && mMeshTranslation.y() == 0.0)
+            && std::fabs(mOriginalHalfExtents.x() - mOriginalHalfExtents.y()) < 2.2)
+    {
+        switch (collisionShapeType)
+        {
+            case DetourNavigator::CollisionShapeType::Aabb:
+                mShape = std::make_unique<btBoxShape>(halfExtents);
+                mRotationallyInvariant = true;
+                break;
+            case DetourNavigator::CollisionShapeType::RotatingBox:
+                mShape = std::make_unique<btBoxShape>(halfExtents);
+                mRotationallyInvariant = false;
+                break;
+            case DetourNavigator::CollisionShapeType::Cylinder:
+                mShape = std::make_unique<btCylinderShapeZ>(halfExtents);
+                mRotationallyInvariant = true;
+                break;
+        }
+        mCollisionShapeType = collisionShapeType;
+    }
+    else
+    {
+        mShape = std::make_unique<btBoxShape>(halfExtents);
+        mRotationallyInvariant = false;
+        mCollisionShapeType = DetourNavigator::CollisionShapeType::RotatingBox;
+    }
 
     mConvexShape = static_cast<btConvexShape*>(mShape.get());
     mConvexShape->setMargin(0.001); // make sure bullet isn't using the huge default convex shape margin of 0.04

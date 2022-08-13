@@ -46,7 +46,7 @@ namespace MWState
             ///
             /// \param bypass Skip new game mechanics.
 
-            void endGame() override;
+            void endGame();
 
             void resumeGame() override;
 
@@ -84,7 +84,7 @@ namespace MWState
 
             CharacterIterator characterEnd() override;
 
-            void update (float duration) override;
+            void update(float duration);
     };
 }
 

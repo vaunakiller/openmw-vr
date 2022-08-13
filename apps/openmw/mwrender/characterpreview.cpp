@@ -7,7 +7,6 @@
 #include <osg/BlendFunc>
 #include <osg/TexEnvCombine>
 #include <osg/Texture2D>
-#include <osg/Texture2DArray>
 #include <osg/Camera>
 #include <osg/PositionAttitudeTransform>
 #include <osg/LightModel>
@@ -26,6 +25,7 @@
 #include <components/settings/settings.hpp>
 #include <components/sceneutil/nodecallback.hpp>
 #include <components/sceneutil/depth.hpp>
+#include <components/stereo/multiview.hpp>
 
 #include "../mwbase/world.hpp"
 #include "../mwworld/class.hpp"
@@ -39,6 +39,59 @@
 
 namespace MWRender
 {
+
+    class DrawOnceCallback : public SceneUtil::NodeCallback<DrawOnceCallback>
+    {
+    public:
+        DrawOnceCallback(osg::Node* subgraph)
+            : mRendered(false)
+            , mLastRenderedFrame(0)
+            , mSubgraph(subgraph)
+        {
+        }
+
+        void operator () (osg::Node* node, osg::NodeVisitor* nv)
+        {
+            if (!mRendered)
+            {
+                mRendered = true;
+
+                mLastRenderedFrame = nv->getTraversalNumber();
+
+                osg::ref_ptr<osg::FrameStamp> previousFramestamp = const_cast<osg::FrameStamp*>(nv->getFrameStamp());
+                osg::FrameStamp* fs = new osg::FrameStamp(*previousFramestamp);
+                fs->setSimulationTime(0.0);
+
+                nv->setFrameStamp(fs);
+
+                // Update keyframe controllers in the scene graph first...
+                // RTTNode does not continue update traversal, so manually continue the update traversal since we need it.
+                mSubgraph->accept(*nv);
+                traverse(node, nv);
+
+                nv->setFrameStamp(previousFramestamp);
+            }
+            else
+            {
+                node->setNodeMask(0);
+            }
+        }
+
+        void redrawNextFrame()
+        {
+            mRendered = false;
+        }
+
+        unsigned int getLastRenderedFrame() const
+        {
+            return mLastRenderedFrame;
+        }
+
+    private:
+        bool mRendered;
+        unsigned int mLastRenderedFrame;
+        osg::ref_ptr<osg::Node> mSubgraph;
+    };
 
 
     // Set up alpha blending mode to avoid issues caused by transparent objects writing onto the alpha value of the FBO
@@ -87,73 +140,45 @@ namespace MWRender
                     newStateSet->setTextureMode(7, GL_TEXTURE_2D, osg::StateAttribute::OFF);
                     newStateSet->setDefine("FORCE_OPAQUE", "0", osg::StateAttribute::ON);
                 }
-                        }
+            }
             traverse(node);
         }
     };
 
     class CharacterPreviewRTTNode : public SceneUtil::RTTNode
     {
+        static constexpr float fovYDegrees = 12.3f;
+        static constexpr float znear = 4.0f;
+        static constexpr float zfar = 10000.f;
+
     public:
         CharacterPreviewRTTNode(uint32_t sizeX, uint32_t sizeY)
-            : RTTNode(sizeX, sizeY, 0, StereoAwareness::StereoUnawareMultiViewAware)
+            : RTTNode(sizeX, sizeY, Settings::Manager::getInt("antialiasing", "Video"), false, 0, StereoAwareness::Unaware_MultiViewShaders)
+            , mAspectRatio(static_cast<float>(sizeX) / static_cast<float>(sizeY))
         {
-            const float fovYDegrees = 12.3f;
-            const float aspectRatio = static_cast<float>(sizeX) / static_cast<float>(sizeY);
-            const float znear = 0.1f;
-            const float zfar = 10000.f;
             if (SceneUtil::AutoDepth::isReversed())
-                mPerspectiveMatrix = static_cast<osg::Matrixf>(SceneUtil::getReversedZProjectionMatrixAsPerspective(fovYDegrees, aspectRatio, znear, zfar));
+                mPerspectiveMatrix = static_cast<osg::Matrixf>(SceneUtil::getReversedZProjectionMatrixAsPerspective(fovYDegrees, mAspectRatio, znear, zfar));
             else
-                mPerspectiveMatrix = osg::Matrixf::perspective(fovYDegrees, aspectRatio, znear, zfar);
+                mPerspectiveMatrix = osg::Matrixf::perspective(fovYDegrees, mAspectRatio, znear, zfar);
             mGroup->getOrCreateStateSet()->addUniform(new osg::Uniform("projectionMatrix", mPerspectiveMatrix));
             mViewMatrix = osg::Matrixf::identity();
             setColorBufferInternalFormat(GL_RGBA);
+            setDepthBufferInternalFormat(GL_DEPTH24_STENCIL8);
         } 
 
         void setDefaults(osg::Camera* camera) override 
         {
-
-            // hints that the camera is not relative to the master camera
-            camera->setReferenceFrame(osg::Camera::ABSOLUTE_RF);
-            camera->setRenderTargetImplementation(osg::Camera::FRAME_BUFFER_OBJECT, osg::Camera::PIXEL_BUFFER_RTT);
-            camera->setClearColor(osg::Vec4(0.f, 0.f, 0.f, 0.f));
-            camera->setClearMask(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
-            camera->setViewport(0, 0, width(), height());
-            camera->setRenderOrder(osg::Camera::PRE_RENDER);
             camera->setName("CharacterPreview");
-            camera->setComputeNearFarMode(osg::Camera::COMPUTE_NEAR_FAR_USING_BOUNDING_VOLUMES);
-            camera->setCullMask(~(Mask_UpdateVisitor));
-            SceneUtil::setCameraClearDepth(camera);
-
-            // hints that the camera is not relative to the master camera
             camera->setReferenceFrame(osg::Camera::ABSOLUTE_RF);
             camera->setRenderTargetImplementation(osg::Camera::FRAME_BUFFER_OBJECT, osg::Camera::PIXEL_BUFFER_RTT);
             camera->setClearColor(osg::Vec4(0.f, 0.f, 0.f, 0.f));
-            camera->setClearMask(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
-            camera->setProjectionMatrix(mPerspectiveMatrix);
+            camera->setClearMask(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT | GL_STENCIL_BUFFER_BIT);
+            camera->setProjectionMatrixAsPerspective(fovYDegrees, mAspectRatio, znear, zfar);
             camera->setViewport(0, 0, width(), height());
             camera->setRenderOrder(osg::Camera::PRE_RENDER);
-#ifdef OSG_HAS_MULTIVIEW
-            // This all could probably be added to RTTNode, rather been done outside.
-            // Would need to add mipmap and multisample control to RTTNode.
-            if (shouldDoTextureArray())
-            {
-                camera->attach(osg::Camera::COLOR_BUFFER, createTextureArray(GL_RGBA), 0, osg::Camera::FACE_CONTROLLED_BY_MULTIVIEW_SHADER, false, Settings::Manager::getInt("antialiasing", "Video"));
-                auto* viewUniform = new osg::Uniform(osg::Uniform::FLOAT_MAT4, "viewMatrixMultiView", 2);
-                auto* projUniform = new osg::Uniform(osg::Uniform::FLOAT_MAT4, "projectionMatrixMultiView", 2);
-                viewUniform->setElement(0, osg::Matrix::identity());
-                viewUniform->setElement(1, osg::Matrix::identity());
-                projUniform->setElement(0, camera->getProjectionMatrix());
-                projUniform->setElement(1, camera->getProjectionMatrix());
-                mGroup->getOrCreateStateSet()->addUniform(viewUniform, osg::StateAttribute::ON | osg::StateAttribute::OVERRIDE);
-                mGroup->getOrCreateStateSet()->addUniform(projUniform, osg::StateAttribute::ON | osg::StateAttribute::OVERRIDE);
-            }
-            else
-#endif
-            {
-                camera->attach(osg::Camera::COLOR_BUFFER, createTexture(GL_RGBA), 0, 0, false, Settings::Manager::getInt("antialiasing", "Video"));
-            }
+            camera->setCullMask(~(Mask_UpdateVisitor));
+            camera->setComputeNearFarMode(osg::Camera::DO_NOT_COMPUTE_NEAR_FAR);
+            SceneUtil::setCameraClearDepth(camera);
 
             camera->setNodeMask(Mask_RenderToTexture);
             camera->addChild(mGroup);
@@ -164,6 +189,9 @@ namespace MWRender
             if(mCameraStateset)
                 camera->setStateSet(mCameraStateset);
             camera->setViewMatrix(mViewMatrix);
+
+            if (shouldDoTextureArray())
+                Stereo::setMultiviewMatrices(mGroup->getOrCreateStateSet(), { mPerspectiveMatrix, mPerspectiveMatrix });
         };
 
         void addChild(osg::Node* node)
@@ -181,63 +209,11 @@ namespace MWRender
             mViewMatrix = viewMatrix;
         }
 
-        const float fovYDegrees = 12.3f;
         osg::ref_ptr<osg::Group> mGroup = new osg::Group;
         osg::Matrixf mPerspectiveMatrix;
         osg::Matrixf mViewMatrix;
         osg::ref_ptr<osg::StateSet> mCameraStateset;
-    };
-
-    class DrawOnceCallback : public SceneUtil::NodeCallback<DrawOnceCallback, CharacterPreviewRTTNode*>
-    {
-    public:
-        DrawOnceCallback()
-            : mRendered(false)
-            , mLastRenderedFrame(0)
-        {
-        }
-
-        void operator () (CharacterPreviewRTTNode* node, osg::NodeVisitor* nv)
-        {
-            if (!mRendered)
-            {
-                mRendered = true;
-
-                mLastRenderedFrame = nv->getTraversalNumber();
-
-                osg::ref_ptr<osg::FrameStamp> previousFramestamp = const_cast<osg::FrameStamp*>(nv->getFrameStamp());
-                osg::FrameStamp* fs = new osg::FrameStamp(*previousFramestamp);
-                fs->setSimulationTime(0.0);
-
-                nv->setFrameStamp(fs);
-
-                // Update keyframe controllers in the scene graph first...
-                // RTTNode does not continue update traversal except to nested update callbacks,
-                // so manually continue the update traversal since we need it.
-                node->mGroup->accept(*nv);
-                traverse(node, nv);
-
-                nv->setFrameStamp(previousFramestamp);
-            }
-            else
-            {
-                node->setNodeMask(0);
-            }
-        }
-
-        void redrawNextFrame()
-        {
-            mRendered = false;
-        }
-
-        unsigned int getLastRenderedFrame() const
-        {
-            return mLastRenderedFrame;
-        }
-
-    private:
-        bool mRendered;
-        unsigned int mLastRenderedFrame;
+        float mAspectRatio;
     };
 
     CharacterPreview::CharacterPreview(osg::Group* parent, Resource::ResourceSystem* resourceSystem,
@@ -281,6 +257,15 @@ namespace MWRender
         fog->setStart(10000000);
         fog->setEnd(10000000);
         stateset->setAttributeAndModes(fog, osg::StateAttribute::OFF|osg::StateAttribute::OVERRIDE);
+
+        // TODO: Clean up this mess of loose uniforms that shaders depend on.
+        // turn off sky blending
+        stateset->addUniform(new osg::Uniform("far", 10000000.0f));
+        stateset->addUniform(new osg::Uniform("skyBlendingStart", 8000000.0f));
+        stateset->addUniform(new osg::Uniform("sky", 0));
+        stateset->addUniform(new osg::Uniform("screenRes", osg::Vec2f{1, 1}));
+
+        stateset->addUniform(new osg::Uniform("emissiveMult", 1.f));
 
         // Opaque stuff must have 1 as its fragment alpha as the FBO is translucent, so having blending off isn't enough
         osg::ref_ptr<osg::TexEnvCombine> noBlendAlphaEnv = new osg::TexEnvCombine();
@@ -345,7 +330,7 @@ namespace MWRender
         mNode = new osg::PositionAttitudeTransform;
         lightManager->addChild(mNode);
 
-        mDrawOnceCallback = new DrawOnceCallback;
+        mDrawOnceCallback = new DrawOnceCallback(mRTTNode->mGroup);
         mRTTNode->addUpdateCallback(mDrawOnceCallback);
 
         mParent->addChild(mRTTNode);
@@ -379,9 +364,9 @@ namespace MWRender
         setBlendMode();
     }
 
-    osg::ref_ptr<osg::Texture> CharacterPreview::getTexture()
+    osg::ref_ptr<osg::Texture2D> CharacterPreview::getTexture()
     {
-        return mRTTNode->getColorTexture(nullptr);
+        return static_cast<osg::Texture2D*>(mRTTNode->getColorTexture(nullptr));
     }
 
     void CharacterPreview::rebuild()

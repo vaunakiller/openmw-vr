@@ -145,28 +145,20 @@ namespace SceneUtil {
             osg::Vec3d frustumCenterLine;
         };
 
+        /** Custom frustum callback allowing the application to request shadow maps covering a
+        * different furstum than the camera normally would cover, by customizing the corners of the clip space. */
+        struct CustomFrustumCallback : osg::Referenced
+        {
+            /** The callback operator.
+            * Output the custum frustum to the boundingBox variable.
+            * If sharedFrustumHint is set to a valid cull visitor, the shadow maps of that cull visitor will be re-used instead of recomputing new shadow maps 
+            * Note that the customClipSpace bounding box will be uninitialized when this operator is called. If it is not initalized, or a valid shared frustum hint set,
+            * the resulting shadow map may be invalid. */
+            virtual void operator()(osgUtil::CullVisitor& cv, osg::BoundingBoxd& customClipSpace, osgUtil::CullVisitor*& sharedFrustumHint) = 0;
+        };
+
         // forward declare
         class ViewDependentData;
-
-        /// Configuration of shadow maps shared by multiple views
-        struct SharedShadowMapConfig : public osg::Referenced
-        {
-            virtual ~SharedShadowMapConfig() {}
-
-            /// String identifier of the shared shadow map
-            std::string     _id{ "" };
-
-            /// If true, this camera will generate the shadow map
-            bool            _master{ false };
-
-            /// The frustum to draw shadows from.
-            bool _useCustomFrustum{ false };
-            osg::BoundingBoxd _customFrustum;
-
-            /// Reference frame of the view matrix
-            osg::Transform::ReferenceFrame
-                            _referenceFrame{ osg::Transform::ABSOLUTE_RF };
-        };
 
         struct LightData : public osg::Referenced
         {
@@ -231,7 +223,6 @@ namespace SceneUtil {
             virtual ~ViewDependentData() {}
 
             MWShadowTechnique*          _viewDependentShadowMap;
-            SharedShadowMapConfig*      _sharedShadowMapConfig;
 
             std::array<osg::ref_ptr<osg::StateSet>, 2> _stateset;
 
@@ -245,21 +236,11 @@ namespace SceneUtil {
 
         ViewDependentData* getViewDependentData(osgUtil::CullVisitor* cv);
 
-        ViewDependentData* getSharedVdd(const SharedShadowMapConfig& config);
+        void copyShadowMap(osgUtil::CullVisitor& cv, ViewDependentData* lhs, ViewDependentData* rhs);
 
-        void addSharedVdd(const SharedShadowMapConfig& config, ViewDependentData* vdd);
-
-        void shareShadowMap(osgUtil::CullVisitor& cv, ViewDependentData* lhs, ViewDependentData* rhs);
-
-        bool trySharedShadowMap(osgUtil::CullVisitor& cv, ViewDependentData* vdd);
-
-        void endSharedShadowMap(osgUtil::CullVisitor& cv);
-
-        void castShadows(osgUtil::CullVisitor& cv, ViewDependentData* vdd);
+        void setCustomFrustumCallback(CustomFrustumCallback* cfc);
 
         void assignTexGenSettings(osgUtil::CullVisitor& cv, ViewDependentData* vdd);
-
-        void computeProjectionNearFar(osgUtil::CullVisitor& cv, bool orthographicViewFrustum, double& znear, double& zfar);
 
         virtual void createShaders();
 
@@ -292,9 +273,9 @@ namespace SceneUtil {
 
         typedef std::map< osgUtil::CullVisitor*, osg::ref_ptr<ViewDependentData> >  ViewDependentDataMap;
         mutable std::mutex                      _viewDependentDataMapMutex;
-        typedef std::map< std::string, osg::ref_ptr<ViewDependentData> >            ViewDependentDataShareMap;
         ViewDependentDataMap                    _viewDependentDataMap;
-        ViewDependentDataShareMap               _viewDependentDataShareMap;
+        osg::ref_ptr<CustomFrustumCallback>     _customFrustumCallback;
+        osg::BoundingBoxd                       _customClipSpace;
 
         osg::ref_ptr<osg::StateSet>             _shadowRecievingPlaceholderStateSet;
 

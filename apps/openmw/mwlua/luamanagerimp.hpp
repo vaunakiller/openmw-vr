@@ -4,15 +4,16 @@
 #include <map>
 #include <set>
 
-#include <components/lua/i18n.hpp>
+#include <components/lua/l10n.hpp>
 #include <components/lua/luastate.hpp>
 #include <components/lua/storage.hpp>
 
 #include <components/lua_ui/resources.hpp>
 
+#include <components/misc/color.hpp>
+
 #include "../mwbase/luamanager.hpp"
 
-#include "actions.hpp"
 #include "object.hpp"
 #include "eventqueue.hpp"
 #include "globalscripts.hpp"
@@ -28,6 +29,9 @@ namespace MWLua
     public:
         LuaManager(const VFS::Manager* vfs, const std::string& libsDir);
 
+        // Called by engine.cpp before UI setup.
+        void initL10n();
+
         // Called by engine.cpp when the environment is fully initialized.
         void init();
 
@@ -37,6 +41,8 @@ namespace MWLua
         // Called by engine.cpp every frame. For performance reasons it works in a separate
         // thread (in parallel with osg Cull). Can not use scene graph.
         void update();
+
+        std::string translate(const std::string& contextName, const std::string& key) override;
 
         // Called by engine.cpp from the main thread. Can use scene graph.
         void synchronizedUpdate();
@@ -50,7 +56,7 @@ namespace MWLua
         void registerObject(const MWWorld::Ptr& ptr) override;
         void deregisterObject(const MWWorld::Ptr& ptr) override;
         void inputEvent(const InputEvent& event) override { mInputEvents.push_back(event); }
-        void appliedToObject(const MWWorld::Ptr& toPtr, std::string_view recordId, const MWWorld::Ptr& fromPtr) override;
+        void itemConsumed(const MWWorld::Ptr& consumable, const MWWorld::Ptr& actor) override;
         void objectActivated(const MWWorld::Ptr& object, const MWWorld::Ptr& actor) override;
 
         MWBase::LuaManager::ActorControls* getActorControls(const MWWorld::Ptr&) const override;
@@ -60,9 +66,32 @@ namespace MWLua
 
         // Used only in Lua bindings
         void addCustomLocalScript(const MWWorld::Ptr&, int scriptId);
-        void addAction(std::unique_ptr<Action>&& action) { mActionQueue.push_back(std::move(action)); }
-        void addTeleportPlayerAction(std::unique_ptr<TeleportAction>&& action) { mTeleportPlayerAction = std::move(action); }
         void addUIMessage(std::string_view message) { mUIMessages.emplace_back(message); }
+        void addInGameConsoleMessage(const std::string& msg, const Misc::Color& color)
+        {
+            mInGameConsoleMessages.push_back({msg, color});
+        }
+        
+        // Some changes to the game world can not be done from the scripting thread (because it runs in parallel with OSG Cull),
+        // so we need to queue it and apply from the main thread. All such changes should be implemented as classes inherited
+        // from MWLua::Action.
+        class Action
+        {
+        public:
+            Action(LuaUtil::LuaState* state);
+            virtual ~Action() {}
+
+            void safeApply(WorldView&) const;
+            virtual void apply(WorldView&) const = 0;
+            virtual std::string toString() const = 0;
+
+        private:
+            std::string mCallerTraceback;
+        };
+
+        void addAction(std::function<void()> action, std::string_view name = "");
+        void addAction(std::unique_ptr<Action>&& action) { mActionQueue.push_back(std::move(action)); }
+        void addTeleportPlayerAction(std::unique_ptr<Action>&& action) { mTeleportPlayerAction = std::move(action); }
 
         // Saving
         void write(ESM::ESMWriter& writer, Loading::Listener& progress) override;
@@ -75,6 +104,8 @@ namespace MWLua
 
         // Drops script cache and reloads all scripts. Calls `onSave` and `onLoad` for every script.
         void reloadAllScripts() override;
+
+        void handleConsoleCommand(const std::string& consoleMode, const std::string& command, const MWWorld::Ptr& selectedPtr) override;
 
         // Used to call Lua callbacks from C++
         void queueCallback(LuaUtil::Callback callback, sol::object arg)
@@ -93,24 +124,28 @@ namespace MWLua
 
         LuaUi::ResourceManager* uiResourceManager() { return &mUiResourceManager; }
 
+        bool isProcessingInputEvents() const { return mProcessingInputEvents; }
+
     private:
         void initConfiguration();
-        LocalScripts* createLocalScripts(const MWWorld::Ptr& ptr, ESM::LuaScriptCfg::Flags);
+        LocalScripts* createLocalScripts(const MWWorld::Ptr& ptr,
+                                         std::optional<LuaUtil::ScriptIdsWithInitializationData> autoStartConf = std::nullopt);
 
         bool mInitialized = false;
         bool mGlobalScriptsStarted = false;
+        bool mProcessingInputEvents = false;
         LuaUtil::ScriptsConfiguration mConfiguration;
         LuaUtil::LuaState mLua;
         LuaUi::ResourceManager mUiResourceManager;
-        LuaUtil::I18nManager mI18n;
+        LuaUtil::L10nManager mL10n;
         sol::table mNearbyPackage;
         sol::table mUserInterfacePackage;
         sol::table mCameraPackage;
         sol::table mInputPackage;
-        sol::table mLocalSettingsPackage;
-        sol::table mPlayerSettingsPackage;
         sol::table mLocalStoragePackage;
         sol::table mPlayerStoragePackage;
+        sol::table mPostprocessingPackage;
+        sol::table mDebugPackage;
 
         GlobalScripts mGlobalScripts{&mLua};
         std::set<LocalScripts*> mActiveLocalScripts;
@@ -131,7 +166,7 @@ namespace MWLua
         std::unique_ptr<LuaUtil::UserdataSerializer> mLocalLoader;
 
         std::vector<MWBase::LuaManager::InputEvent> mInputEvents;
-        std::vector<ObjectId> mActorAddedEvents;
+        std::vector<ObjectId> mObjectAddedEvents;
 
         struct CallbackWithData
         {
@@ -149,8 +184,9 @@ namespace MWLua
 
         // Queued actions that should be done in main thread. Processed by applyQueuedChanges().
         std::vector<std::unique_ptr<Action>> mActionQueue;
-        std::unique_ptr<TeleportAction> mTeleportPlayerAction;
+        std::unique_ptr<Action> mTeleportPlayerAction;
         std::vector<std::string> mUIMessages;
+        std::vector<std::pair<std::string, Misc::Color>> mInGameConsoleMessages;
 
         LuaUtil::LuaStorage mGlobalStorage{mLua.sol()};
         LuaUtil::LuaStorage mPlayerStorage{mLua.sol()};

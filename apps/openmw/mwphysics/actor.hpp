@@ -6,6 +6,8 @@
 
 #include "ptrholder.hpp"
 
+#include <components/detournavigator/collisionshapetype.hpp>
+
 #include <LinearMath/btTransform.h>
 #include <osg/Vec3f>
 #include <osg/Quat>
@@ -27,7 +29,8 @@ namespace MWPhysics
     class Actor final : public PtrHolder
     {
     public:
-        Actor(const MWWorld::Ptr& ptr, const Resource::BulletShape* shape, PhysicsTaskScheduler* scheduler, bool canWaterWalk);
+        Actor(const MWWorld::Ptr& ptr, const Resource::BulletShape* shape, PhysicsTaskScheduler* scheduler,
+            bool canWaterWalk, DetourNavigator::CollisionShapeType collisionShapeType);
         ~Actor() override;
 
         /**
@@ -116,17 +119,11 @@ namespace MWPhysics
 
         void setOnGround(bool grounded);
 
-        bool getOnGround() const
-        {
-            return mInternalCollisionMode && mOnGround;
-        }
+        bool getOnGround() const { return mOnGround; }
 
         void setOnSlope(bool slope);
 
-        bool getOnSlope() const
-        {
-            return mInternalCollisionMode && mOnSlope;
-        }
+        bool getOnSlope() const { return mOnSlope; }
 
         /// Sets whether this actor should be able to collide with the water surface
         void setCanWaterWalk(bool waterWalk);
@@ -158,6 +155,12 @@ namespace MWPhysics
 
         bool canMoveToWaterSurface(float waterlevel, const btCollisionWorld* world) const;
 
+        bool isActive() const { return mActive; }
+
+        void setActive(bool value) { mActive = value; }
+
+        DetourNavigator::CollisionShapeType getCollisionShapeType() const { return mCollisionShapeType; }
+
     private:
         MWWorld::Ptr mStandingOnPtr;
         /// Removes then re-adds the collision object to the dynamics world
@@ -172,6 +175,8 @@ namespace MWPhysics
         bool mWalkingOnWater;
 
         bool mRotationallyInvariant;
+
+        DetourNavigator::CollisionShapeType mCollisionShapeType;
 
         std::unique_ptr<btCollisionShape> mShape;
         btConvexShape* mConvexShape;
@@ -196,6 +201,7 @@ namespace MWPhysics
         bool mOnSlope;
         bool mInternalCollisionMode;
         bool mExternalCollisionMode;
+        bool mActive;
 
         PhysicsTaskScheduler* mTaskScheduler;
 

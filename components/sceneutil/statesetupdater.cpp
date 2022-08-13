@@ -1,6 +1,6 @@
 #include "statesetupdater.hpp"
 
-#include <components/misc/callbackmanager.hpp>
+#include <components/stereo/stereomanager.hpp>
 
 #include <osg/Node>
 #include <osg/NodeVisitor>
@@ -40,10 +40,10 @@ namespace SceneUtil
     {
         auto stateset = getCvDependentStateset(cv);
         apply(stateset, cv);
-        auto& cm = Misc::CallbackManager::instance();
-        if (cm.getView(cv) == Misc::CallbackManager::View::Left)
+        auto& sm = Stereo::Manager::instance();
+        if (sm.getEye(cv) == Stereo::Eye::Left)
             applyLeft(stateset, cv);
-        if (cm.getView(cv) == Misc::CallbackManager::View::Right)
+        if (sm.getEye(cv) == Stereo::Eye::Right)
             applyRight(stateset, cv);
 
         cv->pushStateSet(stateset);

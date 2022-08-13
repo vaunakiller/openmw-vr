@@ -1,9 +1,14 @@
 #include "esmreader.hpp"
 
-#include <boost/filesystem/path.hpp>
+#include "readerscache.hpp"
+
 #include <components/misc/stringops.hpp>
+#include <components/files/openfile.hpp>
 
 #include <stdexcept>
+#include <sstream>
+#include <filesystem>
+#include <fstream>
 
 namespace ESM
 {
@@ -58,21 +63,22 @@ void ESMReader::clearCtx()
    mCtx.subName.clear();
 }
 
-void ESMReader::resolveParentFileIndices(const std::vector<ESMReader>& allPlugins)
+void ESMReader::resolveParentFileIndices(ReadersCache& readers)
 {
     mCtx.parentFileIndices.clear();
-    const std::vector<Header::MasterData> &masters = getGameFiles();
-    for (size_t j = 0; j < masters.size(); j++) {
-        const Header::MasterData &mast = masters[j];
-        std::string fname = mast.name;
+    for (const Header::MasterData &mast : getGameFiles())
+    {
+        const std::string& fname = mast.name;
         int index = getIndex(); 
-        for (int i = 0; i < getIndex(); i++) {
-            const ESMReader& reader = allPlugins.at(i);
-            if (reader.getFileSize() == 0)
+        for (int i = 0; i < getIndex(); i++)
+        {
+            const ESM::ReadersCache::BusyItem reader = readers.get(static_cast<std::size_t>(i));
+            if (reader->getFileSize() == 0)
                 continue;  // Content file in non-ESM format
-            const std::string& candidate = reader.getName();
-            std::string fnamecandidate = boost::filesystem::path(candidate).filename().string();
-            if (Misc::StringUtils::ciEqual(fname, fnamecandidate)) {
+            const std::string& candidate = reader->getName();
+            std::string fnamecandidate = std::filesystem::path(candidate).filename().string();
+            if (Misc::StringUtils::ciEqual(fname, fnamecandidate))
+            {
                 index = i;
                 break;
             }
@@ -81,24 +87,24 @@ void ESMReader::resolveParentFileIndices(const std::vector<ESMReader>& allPlugin
     }
 }
 
-void ESMReader::openRaw(Files::IStreamPtr _esm, const std::string& name)
+void ESMReader::openRaw(std::unique_ptr<std::istream>&& stream, std::string_view name)
 {
     close();
-    mEsm = _esm;
+    mEsm = std::move(stream);
     mCtx.filename = name;
     mEsm->seekg(0, mEsm->end);
     mCtx.leftFile = mFileSize = mEsm->tellg();
     mEsm->seekg(0, mEsm->beg);
 }
 
-void ESMReader::openRaw(const std::string& filename)
+void ESMReader::openRaw(std::string_view filename)
 {
-    openRaw(Files::openConstrainedFileStream(filename.c_str()), filename);
+    openRaw(Files::openBinaryInputFileStream(std::string(filename)), filename);
 }
 
-void ESMReader::open(Files::IStreamPtr _esm, const std::string &name)
+void ESMReader::open(std::unique_ptr<std::istream>&& stream, const std::string &name)
 {
-    openRaw(_esm, name);
+    openRaw(std::move(stream), name);
 
     if (getRecName() != "TES3")
         fail("Not a valid Morrowind file");
@@ -110,7 +116,7 @@ void ESMReader::open(Files::IStreamPtr _esm, const std::string &name)
 
 void ESMReader::open(const std::string &file)
 {
-    open (Files::openConstrainedFileStream (file.c_str ()), file);
+    open(Files::openBinaryInputFileStream(file), file);
 }
 
 std::string ESMReader::getHNOString(NAME name)
@@ -118,6 +124,12 @@ std::string ESMReader::getHNOString(NAME name)
     if (isNextSub(name))
         return getHString();
     return "";
+}
+
+void ESMReader::skipHNOString(NAME name)
+{
+    if (isNextSub(name))
+        skipHString();
 }
 
 std::string ESMReader::getHNString(NAME name)
@@ -145,6 +157,26 @@ std::string ESMReader::getHString()
     }
 
     return getString(mCtx.leftSub);
+}
+
+void ESMReader::skipHString()
+{
+    getSubHeader();
+
+    // Hack to make MultiMark.esp load. Zero-length strings do not
+    // occur in any of the official mods, but MultiMark makes use of
+    // them. For some reason, they break the rules, and contain a byte
+    // (value 0) even if the header says there is no data. If
+    // Morrowind accepts it, so should we.
+    if (mCtx.leftSub == 0 && hasMoreSubs() && !mEsm->peek())
+    {
+        // Skip the following zero byte
+        mCtx.leftRec--;
+        skipT<char>();
+        return;
+    }
+
+    skip(mCtx.leftSub);
 }
 
 void ESMReader::getHExact(void*p, int size)

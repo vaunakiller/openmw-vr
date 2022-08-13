@@ -6,6 +6,7 @@
 
 #include <components/misc/rng.hpp>
 #include <components/misc/stringops.hpp>
+#include <components/misc/resourcehelpers.hpp>
 
 #include <components/esm3/loadmgef.hpp>
 
@@ -218,6 +219,9 @@ namespace MWMechanics
                         return params.mSlot == slotIndex && params.mType == ESM::ActiveSpells::Type_Enchantment && params.mId == slot->getCellRef().getRefId();
                     }) != mSpells.end())
                         continue;
+                    // world->breakInvisibility leads to a stack overflow as it calls this method so just break invisibility manually
+                    purgeEffect(ptr, ESM::MagicEffect::Invisibility);
+                    applyPurges(ptr);
                     const ActiveSpellParams& params = mSpells.emplace_back(ActiveSpellParams{*slot, enchantment, slotIndex, ptr});
                     for(const auto& effect : params.mEffects)
                         MWMechanics::playEffects(ptr, *world->getStore().get<ESM::MagicEffect>().find(effect.mEffectId), playNonLooping);
@@ -261,7 +265,12 @@ namespace MWMechanics
                 const ESM::Static* reflectStatic = MWBase::Environment::get().getWorld()->getStore().get<ESM::Static>().find("VFX_Reflect");
                 MWRender::Animation* animation = MWBase::Environment::get().getWorld()->getAnimation(ptr);
                 if(animation && !reflectStatic->mModel.empty())
-                    animation->addEffect("meshes\\" + reflectStatic->mModel, ESM::MagicEffect::Reflect, false, std::string());
+                {
+                    const VFS::Manager* const vfs = MWBase::Environment::get().getResourceSystem()->getVFS();
+                    animation->addEffect(
+                        Misc::ResourceHelpers::correctMeshPath(reflectStatic->mModel, vfs),
+                        ESM::MagicEffect::Reflect, false, std::string());
+                }
                 caster.getClass().getCreatureStats(caster).getActiveSpells().addSpell(*reflected);
             }
             if(removedSpell)
@@ -333,7 +342,7 @@ namespace MWMechanics
         return mSpells.end();
     }
 
-    bool ActiveSpells::isSpellActive(const std::string& id) const
+    bool ActiveSpells::isSpellActive(std::string_view id) const
     {
         return std::find_if(mSpells.begin(), mSpells.end(), [&] (const auto& spell)
         {
@@ -434,7 +443,7 @@ namespace MWMechanics
         return removedCurrentSpell;
     }
 
-    void ActiveSpells::removeEffects(const MWWorld::Ptr& ptr, const std::string &id)
+    void ActiveSpells::removeEffects(const MWWorld::Ptr& ptr, std::string_view id)
     {
         purge([=] (const ActiveSpellParams& params)
         {

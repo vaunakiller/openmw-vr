@@ -1,12 +1,12 @@
-#version @GLSLVersion
+#version 120
 
-#include "multiview_vertex.glsl"
+#include "openmw_vertex.h.glsl"
 
 centroid varying vec4 passColor;
 
 void main()
 {
-    gl_Position = mw_stereoAwareProjectionMatrix() * (mw_stereoAwareModelViewMatrix() * gl_Vertex);
+    gl_Position = mw_modelToClip(gl_Vertex);
 
     passColor = gl_Color;
 }

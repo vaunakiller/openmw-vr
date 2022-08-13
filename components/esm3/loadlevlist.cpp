@@ -6,7 +6,7 @@
 
 namespace ESM
 {
-    void LevelledListBase::load(ESMReader& esm, ESM::NAME recName, bool& isDeleted)
+    void LevelledListBase::load(ESMReader& esm, NAME recName, bool& isDeleted)
     {
         isDeleted = false;
         mRecordFlags = esm.getRecordFlags();
@@ -18,17 +18,17 @@ namespace ESM
             esm.getSubName();
             switch (esm.retSubName().toInt())
             {
-                case ESM::SREC_NAME:
+                case SREC_NAME:
                     mId = esm.getHString();
                     hasName = true;
                     break;
-                case ESM::FourCC<'D','A','T','A'>::value:
+                case fourCC("DATA"):
                     esm.getHT(mFlags);
                     break;
-                case ESM::FourCC<'N','N','A','M'>::value:
+                case fourCC("NNAM"):
                     esm.getHT(mChanceNone);
                     break;
-                case ESM::FourCC<'I','N','D','X'>::value:
+                case fourCC("INDX"):
                 {
                     int length = 0;
                     esm.getHT(length);
@@ -50,7 +50,7 @@ namespace ESM
                     hasList = true;
                     break;
                 }
-                case ESM::SREC_DELE:
+                case SREC_DELE:
                     esm.skipHSub();
                     isDeleted = true;
                     break;
@@ -75,7 +75,7 @@ namespace ESM
             esm.fail("Missing NAME subrecord");
     }
 
-    void LevelledListBase::save(ESMWriter& esm, ESM::NAME recName, bool isDeleted) const
+    void LevelledListBase::save(ESMWriter& esm, NAME recName, bool isDeleted) const
     {
         esm.writeHNCString("NAME", mId);
 
@@ -98,6 +98,7 @@ namespace ESM
 
     void LevelledListBase::blank()
     {
+        mRecordFlags = 0;
         mFlags = 0;
         mChanceNone = 0;
         mList.clear();

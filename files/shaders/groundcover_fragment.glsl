@@ -27,30 +27,36 @@ varying vec4 passTangent;
 
 varying float euclideanDepth;
 varying float linearDepth;
+uniform vec2 screenRes;
 
 #if PER_PIXEL_LIGHTING
 varying vec3 passViewPos;
-varying vec3 passNormal;
 #else
 centroid varying vec3 passLighting;
 centroid varying vec3 shadowDiffuseLighting;
 #endif
 
+varying vec3 passNormal;
+
 #include "shadows_fragment.glsl"
 #include "lighting.glsl"
 #include "alpha.glsl"
+#include "fog.glsl"
 
 void main()
 {
+    vec3 worldNormal = normalize(passNormal);
+
 #if @normalMap
     vec4 normalTex = texture2D(normalMap, normalMapUV);
 
-    vec3 normalizedNormal = normalize(passNormal);
+    vec3 normalizedNormal = worldNormal;
     vec3 normalizedTangent = normalize(passTangent.xyz);
     vec3 binormal = cross(normalizedTangent, normalizedNormal) * passTangent.w;
     mat3 tbnTranspose = mat3(normalizedTangent, binormal, normalizedNormal);
 
-    vec3 viewNormal = gl_NormalMatrix * normalize(tbnTranspose * (normalTex.xyz * 2.0 - 1.0));
+    worldNormal = normalize(tbnTranspose * (normalTex.xyz * 2.0 - 1.0));
+    vec3 viewNormal = gl_NormalMatrix * worldNormal;
 #endif
 
 #if @diffuseMap
@@ -73,17 +79,16 @@ void main()
     vec3 diffuseLight, ambientLight;
     doLighting(passViewPos, normalize(viewNormal), shadowing, diffuseLight, ambientLight);
     lighting = diffuseLight + ambientLight;
-    clampLightingResult(lighting);
 #endif
+
+    clampLightingResult(lighting);
 
     gl_FragData[0].xyz *= lighting;
+    gl_FragData[0] = applyFogAtDist(gl_FragData[0], euclideanDepth, linearDepth);
 
-#if @radialFog
-    float fogValue = clamp((euclideanDepth - gl_Fog.start) * gl_Fog.scale, 0.0, 1.0);
-#else
-    float fogValue = clamp((linearDepth - gl_Fog.start) * gl_Fog.scale, 0.0, 1.0);
+#if !@disableNormals
+    gl_FragData[1].xyz = worldNormal * 0.5 + 0.5;
 #endif
-    gl_FragData[0].xyz = mix(gl_FragData[0].xyz, gl_Fog.color.xyz, fogValue);
 
     applyShadowDebugOverlay();
 }

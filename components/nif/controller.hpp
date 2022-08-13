@@ -31,6 +31,11 @@ namespace Nif
 
 struct NiParticleSystemController : public Controller
 {
+    enum BSPArrayController {
+        BSPArrayController_AtNode = 0x8,
+        BSPArrayController_AtVertex = 0x10
+    };
+
     struct Particle {
         osg::Vec3f velocity;
         float lifetime;
@@ -47,6 +52,7 @@ struct NiParticleSystemController : public Controller
     float horizontalDir;
     float horizontalAngle;
 
+    osg::Vec4f color;
     float size;
     float startTime;
     float stopTime;
@@ -57,9 +63,9 @@ struct NiParticleSystemController : public Controller
 
     enum EmitFlags
     {
-        NoAutoAdjust = 0x1 // If this flag is set, we use the emitRate value. Otherwise,
-                           // we calculate an emit rate so that the maximum number of particles
-                           // in the system (numParticles) is never exceeded.
+        EmitFlag_NoAutoAdjust = 0x1 // If this flag is set, we use the emitRate value. Otherwise,
+                                    // we calculate an emit rate so that the maximum number of particles
+                                    // in the system (numParticles) is never exceeded.
     };
     int emitFlags;
 
@@ -76,6 +82,9 @@ struct NiParticleSystemController : public Controller
 
     void read(NIFStream *nif) override;
     void post(NIFFile *nif) override;
+
+    bool noAutoAdjust() const { return emitFlags & EmitFlag_NoAutoAdjust; }
+    bool emitAtVertex() const { return flags & BSPArrayController_AtVertex; }
 };
 using NiBSPArrayController = NiParticleSystemController;
 

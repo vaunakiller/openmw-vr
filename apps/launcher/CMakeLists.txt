@@ -44,6 +44,7 @@ set(LAUNCHER_UI
     ${CMAKE_SOURCE_DIR}/files/ui/contentselector.ui
     ${CMAKE_SOURCE_DIR}/files/ui/settingspage.ui
     ${CMAKE_SOURCE_DIR}/files/ui/advancedpage.ui
+    ${CMAKE_SOURCE_DIR}/files/ui/directorypicker.ui
 )
 
 source_group(launcher FILES ${LAUNCHER} ${LAUNCHER_HEADER})
@@ -95,3 +96,12 @@ if(USE_QT)
     set_property(TARGET openmw-launcher PROPERTY AUTOMOC ON)
 endif(USE_QT)
 
+if (CMAKE_VERSION VERSION_GREATER_EQUAL 3.16 AND MSVC)
+    target_precompile_headers(openmw-launcher PRIVATE
+        <boost/program_options/options_description.hpp>
+
+        <algorithm>
+        <string>
+        <vector>
+    )
+endif()

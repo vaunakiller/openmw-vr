@@ -1,6 +1,8 @@
 #ifndef MWINPUT_MWINPUTMANAGERIMP_H
 #define MWINPUT_MWINPUTMANAGERIMP_H
 
+#include <memory>
+
 #include <osg/ref_ptr>
 #include <osgViewer/ViewerEventHandlers>
 
@@ -44,7 +46,7 @@ namespace MWInput
     /**
     * @brief Class that provides a high-level API for game input
     */
-    class InputManager : public MWBase::InputManager
+    class InputManager final : public MWBase::InputManager
     {
     public:
         InputManager(
@@ -56,12 +58,12 @@ namespace MWInput
             const std::string& userControllerBindingsFile,
             const std::string& controllerBindingsFile, bool grab);
 
-        virtual ~InputManager();
+        ~InputManager() final;
 
         /// Clear all savegame-specific data
         void clear() override;
 
-        void update(float dt, bool disableControls=false, bool disableEvents=false) override;
+        void update(float dt, bool disableControls, bool disableEvents=false) override;
 
         void changeInputMode(bool guiMode) override;
 
@@ -119,19 +121,17 @@ namespace MWInput
         void loadKeyDefaults(bool force = false);
         void loadControllerDefaults(bool force = false);
 
-        SDLUtil::InputWrapper* mInputWrapper;
-
         bool mControlsDisabled;
 
-        ControlSwitch* mControlSwitch;
-
-        ActionManager* mActionManager;
-        BindingsManager* mBindingsManager;
-        ControllerManager* mControllerManager;
-        KeyboardManager* mKeyboardManager;
-        MouseManager* mMouseManager;
-        SensorManager* mSensorManager;
-        GyroManager* mGyroManager;
+        std::unique_ptr<SDLUtil::InputWrapper> mInputWrapper;
+        std::unique_ptr<BindingsManager> mBindingsManager;
+        std::unique_ptr<ControlSwitch> mControlSwitch;
+        std::unique_ptr<ActionManager> mActionManager;
+        std::unique_ptr<KeyboardManager> mKeyboardManager;
+        std::unique_ptr<MouseManager> mMouseManager;
+        std::unique_ptr<ControllerManager> mControllerManager;
+        std::unique_ptr<SensorManager> mSensorManager;
+        std::unique_ptr<GyroManager> mGyroManager;
     };
 }
 #endif

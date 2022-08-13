@@ -1,5 +1,7 @@
 #include "savingstages.hpp"
 
+#include <sstream>
+
 #include <boost/filesystem.hpp>
 
 #include <components/esm3/loaddial.hpp>
@@ -51,7 +53,10 @@ void CSMDoc::WriteHeaderStage::perform (int stage, Messages& messages)
         mState.getWriter().setAuthor ("");
         mState.getWriter().setDescription ("");
         mState.getWriter().setRecordCount (0);
-        mState.getWriter().setFormat (ESM::Header::CurrentFormat);
+
+        // ESM::Header::CurrentFormat is `1` but since new records are not yet used in opencs
+        // we use the format `0` for compatibility with old versions.
+        mState.getWriter().setFormat(0);
     }
     else
     {
@@ -143,7 +148,7 @@ void CSMDoc::WriteDialogueCollectionStage::perform (int stage, Messages& message
                 ESM::DialInfo info = (*iter)->get();
                 info.mId = info.mId.substr (info.mId.find_last_of ('#')+1);
 
-                info.mPrev = "";
+                info.mPrev.clear();
                 if (iter!=range.first)
                 {
                     CSMWorld::InfoCollection::RecordConstIterator prev = iter;
@@ -155,7 +160,7 @@ void CSMDoc::WriteDialogueCollectionStage::perform (int stage, Messages& message
                 CSMWorld::InfoCollection::RecordConstIterator next = iter;
                 ++next;
 
-                info.mNext = "";
+                info.mNext.clear();
                 if (next!=range.second)
                 {
                     info.mNext = (*next)->get().mId.substr ((*next)->get().mId.find_last_of ('#')+1);

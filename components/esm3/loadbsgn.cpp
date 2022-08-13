@@ -2,12 +2,9 @@
 
 #include "esmreader.hpp"
 #include "esmwriter.hpp"
-#include "components/esm/defs.hpp"
 
 namespace ESM
 {
-    unsigned int BirthSign::sRecordId = REC_BSGN;
-
     void BirthSign::load(ESMReader &esm, bool &isDeleted)
     {
         isDeleted = false;
@@ -21,23 +18,23 @@ namespace ESM
             esm.getSubName();
             switch (esm.retSubName().toInt())
             {
-                case ESM::SREC_NAME:
+                case SREC_NAME:
                     mId = esm.getHString();
                     hasName = true;
                     break;
-                case ESM::FourCC<'F','N','A','M'>::value:
+                case fourCC("FNAM"):
                     mName = esm.getHString();
                     break;
-                case ESM::FourCC<'T','N','A','M'>::value:
+                case fourCC("TNAM"):
                     mTexture = esm.getHString();
                     break;
-                case ESM::FourCC<'D','E','S','C'>::value:
+                case fourCC("DESC"):
                     mDescription = esm.getHString();
                     break;
-                case ESM::FourCC<'N','P','C','S'>::value:
+                case fourCC("NPCS"):
                     mPowers.add(esm);
                     break;
-                case ESM::SREC_DELE:
+                case SREC_DELE:
                     esm.skipHSub();
                     isDeleted = true;
                     break;
@@ -69,6 +66,7 @@ namespace ESM
 
     void BirthSign::blank()
     {
+        mRecordFlags = 0;
         mName.clear();
         mDescription.clear();
         mTexture.clear();

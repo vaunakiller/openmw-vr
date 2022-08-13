@@ -1,15 +1,21 @@
 ﻿#include "npc.hpp"
 
+#include <MyGUI_TextIterator.h>
+
 #include <memory>
 
 #include <components/misc/constants.hpp>
 #include <components/misc/rng.hpp>
+#include <components/misc/resourcehelpers.hpp>
 
 #include <components/debug/debuglog.hpp>
 #include <components/esm3/loadmgef.hpp>
 #include <components/esm3/loadnpc.hpp>
 #include <components/esm3/npcstate.hpp>
 #include <components/settings/settings.hpp>
+#include <components/esm3/loadrace.hpp>
+#include <components/esm3/loadclas.hpp>
+#include <components/esm3/loadnpc.hpp>
 
 #include "../mwbase/environment.hpp"
 #include "../mwbase/inputmanager.hpp"
@@ -30,6 +36,10 @@
 #include "../mwmechanics/difficultyscaling.hpp"
 #include "../mwmechanics/weapontype.hpp"
 #include "../mwmechanics/actorutil.hpp"
+#include "../mwmechanics/creaturecustomdataresetter.hpp"
+#include "../mwmechanics/inventory.hpp"
+#include "../mwmechanics/aisetting.hpp"
+#include "../mwmechanics/setbaseaisetting.hpp"
 
 #include "../mwworld/ptr.hpp"
 #include "../mwworld/actiontalk.hpp"
@@ -39,6 +49,7 @@
 #include "../mwworld/customdata.hpp"
 #include "../mwworld/cellstore.hpp"
 #include "../mwworld/localscripts.hpp"
+#include "../mwworld/esmstore.hpp"
 
 #include "../mwrender/objects.hpp"
 #include "../mwrender/renderinginterface.hpp"
@@ -246,6 +257,10 @@ namespace
 
 namespace MWClass
 {
+    Npc::Npc()
+        : MWWorld::RegisteredClass<Npc, Actor>(ESM::NPC::sRecordId)
+    {
+    }
 
     class NpcCustomData : public MWWorld::TypedCustomData<NpcCustomData>
     {
@@ -306,7 +321,7 @@ namespace MWClass
             bool recalculate = false;
             auto tempData = std::make_unique<NpcCustomData>();
             NpcCustomData* data = tempData.get();
-            MWMechanics::CreatureCustomDataResetter resetter(ptr);
+            MWMechanics::CreatureCustomDataResetter resetter {ptr};
             ptr.getRefData().setCustomData(std::move(tempData));
 
             MWWorld::LiveCellRef<ESM::NPC> *ref = ptr.get<ESM::NPC>();
@@ -377,10 +392,10 @@ namespace MWClass
 
             data->mNpcStats.getAiSequence().fill(ref->mBase->mAiPackage);
 
-            data->mNpcStats.setAiSetting (MWMechanics::CreatureStats::AI_Hello, ref->mBase->mAiData.mHello);
-            data->mNpcStats.setAiSetting (MWMechanics::CreatureStats::AI_Fight, ref->mBase->mAiData.mFight);
-            data->mNpcStats.setAiSetting (MWMechanics::CreatureStats::AI_Flee, ref->mBase->mAiData.mFlee);
-            data->mNpcStats.setAiSetting (MWMechanics::CreatureStats::AI_Alarm, ref->mBase->mAiData.mAlarm);
+            data->mNpcStats.setAiSetting(MWMechanics::AiSetting::Hello, ref->mBase->mAiData.mHello);
+            data->mNpcStats.setAiSetting(MWMechanics::AiSetting::Fight, ref->mBase->mAiData.mFight);
+            data->mNpcStats.setAiSetting(MWMechanics::AiSetting::Flee, ref->mBase->mAiData.mFlee);
+            data->mNpcStats.setAiSetting(MWMechanics::AiSetting::Alarm, ref->mBase->mAiData.mAlarm);
 
             // spells
             if (!spellsInitialised)
@@ -395,7 +410,8 @@ namespace MWClass
 
             // inventory
             // setting ownership is used to make the NPC auto-equip his initial equipment only, and not bartered items
-            getInventoryStore(ptr).fill(ref->mBase->mInventory, ptr.getCellRef().getRefId());
+            auto& prng = MWBase::Environment::get().getWorld()->getPrng();
+            getInventoryStore(ptr).fill(ref->mBase->mInventory, ptr.getCellRef().getRefId(), prng);
 
             getInventoryStore(ptr).autoEquip(ptr);
         }
@@ -436,20 +452,22 @@ namespace MWClass
         models.emplace_back(Settings::Manager::getString("xbaseanimfemale", "Models"));
         models.emplace_back(Settings::Manager::getString("xbaseanim", "Models"));
 
+        const VFS::Manager* const vfs = MWBase::Environment::get().getResourceSystem()->getVFS();
+
         if (!npc->mBase->mModel.empty())
-            models.push_back("meshes/"+npc->mBase->mModel);
+            models.push_back(Misc::ResourceHelpers::correctMeshPath(npc->mBase->mModel, vfs));
 
         if (!npc->mBase->mHead.empty())
         {
             const ESM::BodyPart* head = MWBase::Environment::get().getWorld()->getStore().get<ESM::BodyPart>().search(npc->mBase->mHead);
             if (head)
-                models.push_back("meshes/"+head->mModel);
+                models.push_back(Misc::ResourceHelpers::correctMeshPath(head->mModel, vfs));
         }
         if (!npc->mBase->mHair.empty())
         {
             const ESM::BodyPart* hair = MWBase::Environment::get().getWorld()->getStore().get<ESM::BodyPart>().search(npc->mBase->mHair);
             if (hair)
-                models.push_back("meshes/"+hair->mModel);
+                models.push_back(Misc::ResourceHelpers::correctMeshPath(hair->mModel, vfs));
         }
 
         bool female = (npc->mBase->mFlags & ESM::NPC::Female);
@@ -487,7 +505,7 @@ namespace MWClass
                         partname = female ? it->mMale : it->mFemale;
                     const ESM::BodyPart* part = MWBase::Environment::get().getWorld()->getStore().get<ESM::BodyPart>().search(partname);
                     if (part && !part->mModel.empty())
-                        models.push_back("meshes/"+part->mModel);
+                        models.push_back(Misc::ResourceHelpers::correctMeshPath(part->mModel, vfs));
                 }
             }
         }
@@ -500,7 +518,7 @@ namespace MWClass
             {
                 const ESM::BodyPart* part = *it;
                 if (part && !part->mModel.empty())
-                    models.push_back("meshes/"+part->mModel);
+                    models.push_back(Misc::ResourceHelpers::correctMeshPath(part->mModel, vfs));
             }
         }
 
@@ -592,7 +610,7 @@ namespace MWClass
 
         float hitchance = MWMechanics::getHitChance(ptr, victim, getSkill(ptr, weapskill));
 
-        if (Misc::Rng::roll0to99() >= hitchance)
+        if (Misc::Rng::roll0to99(world->getPrng()) >= hitchance)
         {
             othercls.onHit(victim, 0.0f, false, weapon, ptr, osg::Vec3f(), false);
             MWMechanics::reduceWeaponCondition(0.f, false, weapon, ptr);
@@ -738,15 +756,16 @@ namespace MWClass
             const MWWorld::ESMStore &store = MWBase::Environment::get().getWorld()->getStore();
             const GMST& gmst = getGmst();
 
-            int chance = store.get<ESM::GameSetting>().find("iVoiceHitOdds")->mValue.getInteger();
-            if (Misc::Rng::roll0to99() < chance)
+            int chance = store.get<ESM::GameSetting>().find("iVoiceHitOdds")->mValue.getInteger(); 
+            auto& prng = MWBase::Environment::get().getWorld()->getPrng();
+            if (Misc::Rng::roll0to99(prng) < chance)
                 MWBase::Environment::get().getDialogueManager()->say(ptr, "hit");
 
             // Check for knockdown
             float agilityTerm = stats.getAttribute(ESM::Attribute::Agility).getModified() * gmst.fKnockDownMult->mValue.getFloat();
             float knockdownTerm = stats.getAttribute(ESM::Attribute::Agility).getModified()
                     * gmst.iKnockDownOddsMult->mValue.getInteger() * 0.01f + gmst.iKnockDownOddsBase->mValue.getInteger();
-            if (ishealth && agilityTerm <= damage && knockdownTerm <= Misc::Rng::roll0to99())
+            if (ishealth && agilityTerm <= damage && knockdownTerm <= Misc::Rng::roll0to99(prng))
                 stats.setKnockedDown(true);
             else
                 stats.setHitRecovery(true); // Is this supposed to always occur?
@@ -769,7 +788,7 @@ namespace MWClass
                     MWWorld::InventoryStore::Slot_RightPauldron, MWWorld::InventoryStore::Slot_RightPauldron,
                     MWWorld::InventoryStore::Slot_LeftGauntlet, MWWorld::InventoryStore::Slot_RightGauntlet
                 };
-                int hitslot = hitslots[Misc::Rng::rollDice(20)];
+                int hitslot = hitslots[Misc::Rng::rollDice(20, prng)];
 
                 float unmitigatedDamage = damage;
                 float x = damage / (damage + getArmorRating(ptr));
@@ -785,7 +804,7 @@ namespace MWClass
                 // If there's no item in the carried left slot or if it is not a shield redistribute the hit.
                 if (!hasArmor && hitslot == MWWorld::InventoryStore::Slot_CarriedLeft)
                 {
-                    if (Misc::Rng::rollDice(2) == 0)
+                    if (Misc::Rng::rollDice(2, prng) == 0)
                         hitslot = MWWorld::InventoryStore::Slot_Cuirass;
                     else
                         hitslot = MWWorld::InventoryStore::Slot_LeftPauldron;
@@ -798,7 +817,12 @@ namespace MWClass
                 }
                 if (hasArmor)
                 {
-                    if (!object.isEmpty() || attacker.isEmpty() || attacker.getClass().isNpc()) // Unarmed creature attacks don't affect armor condition
+                    static const bool creatureDamage = Settings::Manager::getBool("unarmed creature attacks damage armor", "Game");
+
+                    if (!object.isEmpty() ||
+                        attacker.isEmpty() ||
+                        attacker.getClass().isNpc() ||
+                        creatureDamage) // Unarmed creature attacks don't affect armor condition unless it was explicitly requested.
                     {
                         int armorhealth = armor.getClass().getItemHealth(armor);
                         armorhealth -= std::min(damageDiff, armorhealth);
@@ -883,20 +907,21 @@ namespace MWClass
         }
     }
 
-    std::shared_ptr<MWWorld::Action> Npc::activate (const MWWorld::Ptr& ptr,
+    std::unique_ptr<MWWorld::Action> Npc::activate (const MWWorld::Ptr& ptr,
         const MWWorld::Ptr& actor) const
     {
         // player got activated by another NPC
         if(ptr == MWMechanics::getPlayer())
-            return std::shared_ptr<MWWorld::Action>(new MWWorld::ActionTalk(actor));
+            return std::make_unique<MWWorld::ActionTalk>(actor);
 
         // Werewolfs can't activate NPCs
         if(actor.getClass().isNpc() && actor.getClass().getNpcStats(actor).isWerewolf())
         {
             const MWWorld::ESMStore &store = MWBase::Environment::get().getWorld()->getStore();
-            const ESM::Sound *sound = store.get<ESM::Sound>().searchRandom("WolfNPC");
+            auto& prng = MWBase::Environment::get().getWorld()->getPrng();
+            const ESM::Sound *sound = store.get<ESM::Sound>().searchRandom("WolfNPC", prng);
 
-            std::shared_ptr<MWWorld::Action> action(new MWWorld::FailedAction("#{sWerewolfRefusal}"));
+            std::unique_ptr<MWWorld::Action> action = std::make_unique<MWWorld::FailedAction>("#{sWerewolfRefusal}");
             if(sound) action->setSound(sound->mId);
 
             return action;
@@ -910,33 +935,33 @@ namespace MWClass
 
             // by default user can loot friendly actors during death animation
             if (canLoot && !stats.getAiSequence().isInCombat())
-                return std::shared_ptr<MWWorld::Action>(new MWWorld::ActionOpen(ptr));
+                return std::make_unique<MWWorld::ActionOpen>(ptr);
 
             // otherwise wait until death animation
             if(stats.isDeathAnimationFinished())
-                return std::shared_ptr<MWWorld::Action>(new MWWorld::ActionOpen(ptr));
+                return std::make_unique<MWWorld::ActionOpen>(ptr);
         }
         else if (!stats.getAiSequence().isInCombat())
         {
             if (stats.getKnockedDown() || MWBase::Environment::get().getMechanicsManager()->isSneaking(actor))
-                return std::shared_ptr<MWWorld::Action>(new MWWorld::ActionOpen(ptr)); // stealing
+                return std::make_unique<MWWorld::ActionOpen>(ptr); // stealing
 
             // Can't talk to werewolves
             if (!getNpcStats(ptr).isWerewolf())
-                return std::shared_ptr<MWWorld::Action>(new MWWorld::ActionTalk(ptr));
+                return std::make_unique<MWWorld::ActionTalk>(ptr);
         }
         else // In combat
         {
             const bool stealingInCombat = Settings::Manager::getBool ("always allow stealing from knocked out actors", "Game");
             if (stealingInCombat && stats.getKnockedDown())
-                return std::shared_ptr<MWWorld::Action>(new MWWorld::ActionOpen(ptr)); // stealing
+                return std::make_unique<MWWorld::ActionOpen>(ptr); // stealing
         }
 
         // Tribunal and some mod companions oddly enough must use open action as fallback
         if (!getScript(ptr).empty() && ptr.getRefData().getLocals().getIntVar(getScript(ptr), "companion"))
-            return std::shared_ptr<MWWorld::Action>(new MWWorld::ActionOpen(ptr));
+            return std::make_unique<MWWorld::ActionOpen>(ptr);
 
-        return std::shared_ptr<MWWorld::Action> (new MWWorld::FailedAction(""));
+        return std::make_unique<MWWorld::FailedAction>();
     }
 
     MWWorld::ContainerStore& Npc::getContainerStore (const MWWorld::Ptr& ptr)
@@ -966,7 +991,7 @@ namespace MWClass
     {
         // TODO: This function is called several times per frame for each NPC.
         // It would be better to calculate it only once per frame for each NPC and save the result in CreatureStats.
-        const MWMechanics::CreatureStats& stats = getCreatureStats(ptr);
+        const MWMechanics::NpcStats& stats = getNpcStats(ptr);
         bool godmode = ptr == MWMechanics::getPlayer() && MWBase::Environment::get().getWorld()->getGodModeState();
         if ((!godmode && stats.isParalyzed()) || stats.getKnockedDown() || stats.isDead())
             return 0.f;
@@ -974,8 +999,7 @@ namespace MWClass
         const MWBase::World *world = MWBase::Environment::get().getWorld();
         const GMST& gmst = getGmst();
 
-        const NpcCustomData *npcdata = static_cast<const NpcCustomData*>(ptr.getRefData().getCustomData());
-        const MWMechanics::MagicEffects &mageffects = npcdata->mNpcStats.getMagicEffects();
+        const MWMechanics::MagicEffects &mageffects = stats.getMagicEffects();
 
         const float normalizedEncumbrance = getNormalizedEncumbrance(ptr);
 
@@ -991,7 +1015,7 @@ namespace MWClass
         else if(mageffects.get(ESM::MagicEffect::Levitate).getMagnitude() > 0 &&
                 world->isLevitationEnabled())
         {
-            float flySpeed = 0.01f*(npcdata->mNpcStats.getAttribute(ESM::Attribute::Speed).getModified() +
+            float flySpeed = 0.01f*(stats.getAttribute(ESM::Attribute::Speed).getModified() +
                                     mageffects.get(ESM::MagicEffect::Levitate).getMagnitude());
             flySpeed = gmst.fMinFlySpeed->mValue.getFloat() + flySpeed*(gmst.fMaxFlySpeed->mValue.getFloat() - gmst.fMinFlySpeed->mValue.getFloat());
             flySpeed *= 1.0f - gmst.fEncumberedMoveEffect->mValue.getFloat() * normalizedEncumbrance;
@@ -1005,7 +1029,7 @@ namespace MWClass
         else
             moveSpeed = getWalkSpeed(ptr);
 
-        if(npcdata->mNpcStats.isWerewolf() && running && npcdata->mNpcStats.getDrawState() == MWMechanics::DrawState_Nothing)
+        if(stats.isWerewolf() && running && stats.getDrawState() == MWMechanics::DrawState::Nothing)
             moveSpeed *= gmst.fWereWolfRunMult->mValue.getFloat();
 
         return moveSpeed;
@@ -1016,14 +1040,13 @@ namespace MWClass
         if(getEncumbrance(ptr) > getCapacity(ptr))
             return 0.f;
 
-        const MWMechanics::CreatureStats& stats = getCreatureStats(ptr);
+        const MWMechanics::NpcStats& stats = getNpcStats(ptr);
         bool godmode = ptr == MWMechanics::getPlayer() && MWBase::Environment::get().getWorld()->getGodModeState();
         if ((!godmode && stats.isParalyzed()) || stats.getKnockedDown() || stats.isDead())
             return 0.f;
 
-        const NpcCustomData *npcdata = static_cast<const NpcCustomData*>(ptr.getRefData().getCustomData());
         const GMST& gmst = getGmst();
-        const MWMechanics::MagicEffects &mageffects = npcdata->mNpcStats.getMagicEffects();
+        const MWMechanics::MagicEffects& mageffects = stats.getMagicEffects();
         const float encumbranceTerm = gmst.fJumpEncumbranceBase->mValue.getFloat() +
                                           gmst.fJumpEncumbranceMultiplier->mValue.getFloat() *
                                           (1.0f - Npc::getNormalizedEncumbrance(ptr));
@@ -1044,7 +1067,7 @@ namespace MWClass
 
         if(stats.getStance(MWMechanics::CreatureStats::Stance_Run))
             x *= gmst.fJumpRunMultiplier->mValue.getFloat();
-        x *= npcdata->mNpcStats.getFatigueTerm();
+        x *= stats.getFatigueTerm();
         x -= -Constants::GravityConst * Constants::UnitsPerMeter;
         x /= 3.0f;
 
@@ -1063,12 +1086,6 @@ namespace MWClass
         const MWWorld::LiveCellRef<ESM::NPC> *ref = ptr.get<ESM::NPC>();
 
         return (ref->mBase->mFlags & ESM::NPC::Essential) != 0;
-    }
-
-    void Npc::registerSelf()
-    {
-        std::shared_ptr<Class> instance (new Npc);
-        registerClass (ESM::NPC::sRecordId, instance);
     }
 
     bool Npc::hasToolTip(const MWWorld::ConstPtr& ptr) const
@@ -1126,12 +1143,14 @@ namespace MWClass
         return getNpcStats(ptr).isWerewolf() ? 0.0f : Actor::getEncumbrance(ptr);
     }
 
-    bool Npc::apply (const MWWorld::Ptr& ptr, const std::string& id,
-        const MWWorld::Ptr& actor) const
+    bool Npc::consume(const MWWorld::Ptr& consumable, const MWWorld::Ptr& actor) const
     {
-        MWBase::Environment::get().getLuaManager()->appliedToObject(ptr, id, actor);
-        MWMechanics::CastSpell cast(ptr, ptr);
-        return cast.cast(id);
+        MWBase::Environment::get().getWorld()->breakInvisibility(actor);
+        MWMechanics::CastSpell cast(actor, actor);
+        std::string recordId = consumable.getCellRef().getRefId();
+        MWBase::Environment::get().getLuaManager()->itemConsumed(consumable, actor);
+        actor.getClass().getContainerStore(actor).remove(consumable, 1, actor);
+        return cast.cast(recordId);
     }
 
     void Npc::skillUsageSucceeded (const MWWorld::Ptr& ptr, int skill, int usageType, float extraFactor) const
@@ -1359,13 +1378,13 @@ namespace MWClass
             return;
         }
 
-        if (ptr.getRefData().getCount() <= 0)
+        const NpcCustomData& customData = ptr.getRefData().getCustomData()->asNpcCustomData();
+        if (ptr.getRefData().getCount() <= 0 && (!(ptr.get<ESM::NPC>()->mBase->mFlags & ESM::NPC::Respawn) || !customData.mNpcStats.isDead()))
         {
             state.mHasCustomState = false;
             return;
         }
 
-        const NpcCustomData& customData = ptr.getRefData().getCustomData()->asNpcCustomData();
         ESM::NpcState& npcState = state.asNpcState();
         customData.mInventoryStore.writeState (npcState.mInventory);
         customData.mNpcStats.writeState (npcState.mNpcStats);
@@ -1468,7 +1487,7 @@ namespace MWClass
         return ref->mBase->getFactionRank();
     }
 
-    void Npc::setBaseAISetting(const std::string& id, MWMechanics::CreatureStats::AiSetting setting, int value) const
+    void Npc::setBaseAISetting(const std::string& id, MWMechanics::AiSetting setting, int value) const
     {
         MWMechanics::setBaseAISetting<ESM::NPC>(id, setting, value);
     }
@@ -1481,12 +1500,12 @@ namespace MWClass
     float Npc::getWalkSpeed(const MWWorld::Ptr& ptr) const
     {
         const GMST& gmst = getGmst();
-        const NpcCustomData* npcdata = static_cast<const NpcCustomData*>(ptr.getRefData().getCustomData());
+        const MWMechanics::NpcStats& stats = getNpcStats(ptr);
         const float normalizedEncumbrance = getNormalizedEncumbrance(ptr);
         const bool sneaking = MWBase::Environment::get().getMechanicsManager()->isSneaking(ptr);
 
         float walkSpeed = gmst.fMinWalkSpeed->mValue.getFloat()
-                + 0.01f * npcdata->mNpcStats.getAttribute(ESM::Attribute::Speed).getModified()
+                + 0.01f * stats.getAttribute(ESM::Attribute::Speed).getModified()
                 * (gmst.fMaxWalkSpeed->mValue.getFloat() - gmst.fMinWalkSpeed->mValue.getFloat());
         walkSpeed *= 1.0f - gmst.fEncumberedMoveEffect->mValue.getFloat()*normalizedEncumbrance;
         walkSpeed = std::max(0.0f, walkSpeed);
@@ -1507,9 +1526,8 @@ namespace MWClass
     float Npc::getSwimSpeed(const MWWorld::Ptr& ptr) const
     {
         const MWBase::World* world = MWBase::Environment::get().getWorld();
-        const MWMechanics::CreatureStats& stats = getCreatureStats(ptr);
-        const NpcCustomData* npcdata = static_cast<const NpcCustomData*>(ptr.getRefData().getCustomData());
-        const MWMechanics::MagicEffects& mageffects = npcdata->mNpcStats.getMagicEffects();
+        const MWMechanics::NpcStats& stats = getNpcStats(ptr);
+        const MWMechanics::MagicEffects& mageffects = stats.getMagicEffects();
         const bool swimming = world->isSwimming(ptr);
         const bool inair = !world->isOnGround(ptr) && !swimming && !world->isFlying(ptr);
         const bool running = stats.getStance(MWMechanics::CreatureStats::Stance_Run)

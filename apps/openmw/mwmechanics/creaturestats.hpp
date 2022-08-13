@@ -12,6 +12,7 @@
 #include "activespells.hpp"
 #include "aisequence.hpp"
 #include "drawstate.hpp"
+#include "aisetting.hpp"
 
 #include <components/esm/attr.hpp>
 #include <components/esm3/magiceffects.hpp>
@@ -37,7 +38,7 @@ namespace MWMechanics
     class CreatureStats
     {
         static int sActorId;
-        DrawState_ mDrawState;
+        DrawState mDrawState;
         AttributeValue mAttributes[ESM::Attribute::Length];
         DynamicStat<float> mDynamic[3]; // health, magicka, fatigue
         Spells mSpells;
@@ -97,8 +98,8 @@ namespace MWMechanics
     public:
         CreatureStats();
 
-        DrawState_ getDrawState() const;
-        void setDrawState(DrawState_ state);
+        DrawState getDrawState() const;
+        void setDrawState(DrawState state);
 
         void recalculateMagicka();
 
@@ -154,13 +155,6 @@ namespace MWMechanics
 
         void setLevel(int level);
 
-        enum AiSetting
-        {
-            AI_Hello = 0,
-            AI_Fight = 1,
-            AI_Flee = 2,
-            AI_Alarm = 3
-        };
         void setAiSetting (AiSetting index, Stat<int> value);
         void setAiSetting (AiSetting index, int base);
         Stat<int> getAiSetting (AiSetting index) const;
@@ -255,15 +249,13 @@ namespace MWMechanics
         bool getStance (Stance flag) const;
 
         void setLastHitObject(const std::string &objectid);
+        void clearLastHitObject();
         const std::string &getLastHitObject() const;
         void setLastHitAttemptObject(const std::string &objectid);
+        void clearLastHitAttemptObject();
         const std::string &getLastHitAttemptObject() const;
         void setHitAttemptActorId(const int actorId);
         int getHitAttemptActorId() const;
-
-        // Note, this is just a cache to avoid checking the whole container store every frame. We don't need to store it in saves.
-        // TODO: Put it somewhere else?
-        std::set<int> mBoundItems;
 
         void writeState (ESM::CreatureStats& state) const;
 

@@ -8,8 +8,6 @@
 
 namespace ESM
 {
-    unsigned int Class::sRecordId = REC_CLAS;
-
     const Class::Specialization Class::sSpecializationIds[3] = {
       Class::Combat,
       Class::Magic,
@@ -50,23 +48,23 @@ namespace ESM
             esm.getSubName();
             switch (esm.retSubName().toInt())
             {
-                case ESM::SREC_NAME:
+                case SREC_NAME:
                     mId = esm.getHString();
                     hasName = true;
                     break;
-                case ESM::FourCC<'F','N','A','M'>::value:
+                case fourCC("FNAM"):
                     mName = esm.getHString();
                     break;
-                case ESM::FourCC<'C','L','D','T'>::value:
-                    esm.getHT(mData, 60);
+                case fourCC("CLDT"):
+                    esm.getHTSized<60>(mData);
                     if (mData.mIsPlayable > 1)
                         esm.fail("Unknown bool value");
                     hasData = true;
                     break;
-                case ESM::FourCC<'D','E','S','C'>::value:
+                case fourCC("DESC"):
                     mDescription = esm.getHString();
                     break;
-                case ESM::SREC_DELE:
+                case SREC_DELE:
                     esm.skipHSub();
                     isDeleted = true;
                     break;
@@ -98,6 +96,7 @@ namespace ESM
 
     void Class::blank()
     {
+        mRecordFlags = 0;
         mName.clear();
         mDescription.clear();
 

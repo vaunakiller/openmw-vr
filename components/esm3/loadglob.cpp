@@ -2,12 +2,9 @@
 
 #include "esmreader.hpp"
 #include "esmwriter.hpp"
-#include "components/esm/defs.hpp"
 
 namespace ESM
 {
-    unsigned int Global::sRecordId = REC_GLOB;
-
     void Global::load (ESMReader &esm, bool &isDeleted)
     {
         isDeleted = false;
@@ -22,7 +19,7 @@ namespace ESM
         }
         else
         {
-            mValue.read (esm, ESM::Variant::Format_Global);
+            mValue.read (esm, Variant::Format_Global);
         }
     }
 
@@ -36,13 +33,14 @@ namespace ESM
         }
         else
         {
-            mValue.write (esm, ESM::Variant::Format_Global);
+            mValue.write (esm, Variant::Format_Global);
         }
     }
 
     void Global::blank()
     {
-        mValue.setType (ESM::VT_None);
+        mRecordFlags = 0;
+        mValue.setType (VT_None);
     }
 
     bool operator== (const Global& left, const Global& right)

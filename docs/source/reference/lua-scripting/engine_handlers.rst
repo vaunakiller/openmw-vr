@@ -15,8 +15,8 @@ Engine handler is a function defined by a script, that can be called by the engi
       | `assigned to a script in openmw-cs (not yet implemented).`
       | ``onInterfaceOverride`` can be called before ``onInit``.
   * - onUpdate(dt)
-    - | Called every frame if the game is not paused. `dt` is the time
-      | from the last update in seconds.
+    - | Called every frame if the game is not paused. `dt` is
+      | the simulation time from the last update in seconds.
   * - onSave() -> savedData
     - | Called when the game is saving. May be called in inactive state,
       | so it shouldn't use `openmw.nearby`.
@@ -40,8 +40,13 @@ Engine handler is a function defined by a script, that can be called by the engi
     - New game is started
   * - onPlayerAdded(player)
     - Player added to the game world. The argument is a `Game object`.
+  * - onObjectActive(object)
+    - Object becomes active.
   * - onActorActive(actor)
     - Actor (NPC or Creature) becomes active.
+  * - onItemActive(item)
+    - | Item (Weapon, Potion, ...) becomes active in a cell.
+      | Does not apply to items in inventories or containers.
 
 **Only for local scripts**
 
@@ -61,32 +66,41 @@ Engine handler is a function defined by a script, that can be called by the engi
       | the item is placed to the actor's inventory, (2) count of
       | the original item is set to zero, (3) and only then onActivated is
       | called on the original item, so self.count is already zero.
-  * - onConsume(recordId)
-    - Called if `recordId` (e.g. a potion) is consumed.
+  * - onConsume(item)
+    - | Called on an actor when they consume an item (e.g. a potion).
+      | Similarly to onActivated, the item has already been removed
+      | from the actor's inventory, and the count was set to zero.
 
 **Only for local scripts attached to a player**
 
 .. list-table::
   :widths: 20 80
 
-  * - onInputUpdate(dt)
-    - | Called every frame (if the game is not paused) right after processing
-      | user input. Use it only for latency-critical stuff.
+  * - onFrame(dt)
+    - | Called every frame (even if the game is paused) right after
+      | processing user input. Use it only for latency-critical stuff
+      | and for UI that should work on pause.
+      | `dt` is simulation time delta (0 when on pause).
   * - onKeyPress(key)
     - | `Key <openmw_input.html##(KeyboardEvent)>`_ is pressed.
-      | Usage example: ``if key.symbol == 'z' and key.withShift then ...``
+      | Usage example:
+      | ``if key.symbol == 'z' and key.withShift then ...``
   * - onKeyRelease(key)
     - | `Key <openmw_input.html##(KeyboardEvent)>`_ is released.
-      | Usage example: ``if key.symbol == 'z' and key.withShift then ...``
+      | Usage example:
+      | ``if key.symbol == 'z' and key.withShift then ...``
   * - onControllerButtonPress(id)
     - | A `button <openmw_input.html##(CONTROLLER_BUTTON)>`_ on a game controller is pressed.
-      | Usage example: ``if id == input.CONTROLLER_BUTTON.LeftStick then ...``
+      | Usage example:
+      | ``if id == input.CONTROLLER_BUTTON.LeftStick then ...``
   * - onControllerButtonRelease(id)
     - | A `button <openmw_input.html##(CONTROLLER_BUTTON)>`_ on a game controller is released.
-      | Usage example: ``if id == input.CONTROLLER_BUTTON.LeftStick then ...``
+      | Usage example:
+      | ``if id == input.CONTROLLER_BUTTON.LeftStick then ...``
   * - onInputAction(id)
     - | `Game control <openmw_input.html##(ACTION)>`_ is pressed.
-      | Usage example: ``if id == input.ACTION.ToggleWeapon then ...``
+      | Usage example:
+      | ``if id == input.ACTION.ToggleWeapon then ...``
   * - onTouchPress(touchEvent)
     - | A finger pressed on a touch device.
       | `Touch event <openmw_input.html##(TouchEvent)>`_.
@@ -96,3 +110,8 @@ Engine handler is a function defined by a script, that can be called by the engi
   * - onTouchMove(touchEvent)
     - | A finger moved on a touch device.
       | `Touch event <openmw_input.html##(TouchEvent)>`_.
+  * - | onConsoleCommand(
+      |     mode, command, selectedObject)
+    - | User entered `command` in in-game console. Called if either
+      | `mode` is not default or `command` starts with prefix `lua`.
+

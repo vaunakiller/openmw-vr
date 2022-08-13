@@ -45,8 +45,17 @@ namespace SceneUtil
     // Returns an orthographic projection matrix for use with a reversed z-buffer.
     osg::Matrix getReversedZProjectionMatrixAsOrtho(double left, double right, double bottom, double top, double near, double far);
 
-    // Returns true if the GL format is a floating point depth format.
-    bool isFloatingPointDepthFormat(GLenum format);
+    // Returns true if the GL format is a depth format
+    bool isDepthFormat(GLenum format);
+
+    // Returns true if the GL format is a depth+stencil format
+    bool isDepthStencilFormat(GLenum format);
+
+    // Returns the corresponding source format and type for the given internal format
+    void getDepthFormatSourceFormatAndType(GLenum internalFormat, GLenum& sourceFormat, GLenum& sourceType);
+
+    // Converts depth-stencil formats to their corresponding depth formats.
+    GLenum getDepthFormatOfDepthStencilFormat(GLenum internalFormat);
 
     // Returns true if the GL format is a depth format
     bool isDepthFormat(GLenum format);

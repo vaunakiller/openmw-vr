@@ -1,7 +1,8 @@
 #include "registerarchives.hpp"
 
 #include <set>
-#include <sstream>
+#include <filesystem>
+#include <stdexcept>
 
 #include <components/debug/debuglog.hpp>
 
@@ -26,28 +27,27 @@ namespace VFS
                 Bsa::BsaVersion bsaVersion = Bsa::CompressedBSAFile::detectVersion(archivePath);
 
                 if (bsaVersion == Bsa::BSAVER_COMPRESSED)
-                    vfs->addArchive(new CompressedBsaArchive(archivePath));
+                    vfs->addArchive(std::make_unique<CompressedBsaArchive>(archivePath));
                 else
-                    vfs->addArchive(new BsaArchive(archivePath));
+                    vfs->addArchive(std::make_unique<BsaArchive>(archivePath));
             }
             else
             {
-                std::stringstream message;
-                message << "Archive '" << *archive << "' not found";
-                throw std::runtime_error(message.str());
+                throw std::runtime_error("Archive '" + *archive + "' not found");
             }
         }
 
         if (useLooseFiles)
         {
-            std::set<boost::filesystem::path> seen;
+            std::set<std::filesystem::path> seen;
             for (Files::PathContainer::const_iterator iter = dataDirs.begin(); iter != dataDirs.end(); ++iter)
             {
-                if (seen.insert(*iter).second)
+                // TODO(jvoisin) Get rid of `->native()` when we move PathContainer from boost::filesystem to std::filesystem.
+                if (seen.insert(iter->native()).second)
                 {
                     Log(Debug::Info) << "Adding data directory " << iter->string();
                     // Last data dir has the highest priority
-                    vfs->addArchive(new FileSystemArchive(iter->string()));
+                    vfs->addArchive(std::make_unique<FileSystemArchive>(iter->string()));
                 }
                 else
                     Log(Debug::Info) << "Ignoring duplicate data directory " << iter->string();

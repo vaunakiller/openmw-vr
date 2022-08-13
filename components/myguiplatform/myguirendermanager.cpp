@@ -1,6 +1,5 @@
 #include "myguirendermanager.hpp"
 
-#include <MyGUI_Gui.h>
 #include <MyGUI_Timer.h>
 #include <MyGUI_LayerManager.h>
 #include <MyGUI_LayerNode.h>
@@ -147,9 +146,9 @@ public:
             }
             else
             {
-                glVertexPointer(3, GL_FLOAT, sizeof(MyGUI::Vertex), (char*)vbo->getArray(0)->getDataPointer());
-                glColorPointer(4, GL_UNSIGNED_BYTE, sizeof(MyGUI::Vertex), (char*)vbo->getArray(0)->getDataPointer() + 12);
-                glTexCoordPointer(2, GL_FLOAT, sizeof(MyGUI::Vertex), (char*)vbo->getArray(0)->getDataPointer() + 16);
+                glVertexPointer(3, GL_FLOAT, sizeof(MyGUI::Vertex), reinterpret_cast<const char*>(vbo->getArray(0)->getDataPointer()));
+                glColorPointer(4, GL_UNSIGNED_BYTE, sizeof(MyGUI::Vertex), reinterpret_cast<const char*>(vbo->getArray(0)->getDataPointer()) + 12);
+                glTexCoordPointer(2, GL_FLOAT, sizeof(MyGUI::Vertex), reinterpret_cast<const char*>(vbo->getArray(0)->getDataPointer()) + 16);
             }
 
             glDrawArrays(GL_TRIANGLES, 0, batch.mVertexCount);
@@ -640,16 +639,8 @@ bool RenderManager::isFormatSupported(MyGUI::PixelFormat /*format*/, MyGUI::Text
 
 MyGUI::ITexture* RenderManager::createTexture(const std::string &name)
 {
-    MapTexture::iterator item = mTextures.find(name);
-    if (item != mTextures.end())
-    {
-        delete item->second;
-        mTextures.erase(item);
-    }
-
-    OSGTexture* texture = new OSGTexture(name, mImageManager);
-    mTextures.insert(std::make_pair(name, texture));
-    return texture;
+    const auto it = mTextures.insert_or_assign(name, OSGTexture(name, mImageManager)).first;
+    return &it->second;
 }
 
 void RenderManager::destroyTexture(MyGUI::ITexture *texture)
@@ -657,11 +648,10 @@ void RenderManager::destroyTexture(MyGUI::ITexture *texture)
     if(texture == nullptr)
         return;
 
-    MapTexture::iterator item = mTextures.find(texture->getName());
+    const auto item = mTextures.find(texture->getName());
     MYGUI_PLATFORM_ASSERT(item != mTextures.end(), "Texture '"<<texture->getName()<<"' not found");
 
     mTextures.erase(item);
-    delete texture;
 }
 
 MyGUI::ITexture* RenderManager::getTexture(const std::string &name)
@@ -669,21 +659,14 @@ MyGUI::ITexture* RenderManager::getTexture(const std::string &name)
     if (name.empty())
         return nullptr;
 
-    MapTexture::const_iterator item = mTextures.find(name);
+    const auto item = mTextures.find(name);
     if(item == mTextures.end())
     {
         MyGUI::ITexture* tex = createTexture(name);
         tex->loadFromFile(name);
         return tex;
     }
-    return item->second;
-}
-
-void RenderManager::destroyAllResources()
-{
-    for (MapTexture::iterator it = mTextures.begin(); it != mTextures.end(); ++it)
-        delete it->second;
-    mTextures.clear();
+    return &item->second;
 }
 
 bool RenderManager::checkTexture(MyGUI::ITexture* _texture)

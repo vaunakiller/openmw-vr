@@ -16,6 +16,9 @@
 #include <osg/ref_ptr>
 #include <osg/Timer>
 
+#include <components/misc/span.hpp>
+#include <components/detournavigator/collisionshapetype.hpp>
+
 #include "../mwworld/ptr.hpp"
 
 #include "collisiontype.hpp"
@@ -277,7 +280,7 @@ namespace MWPhysics
             }
 
             bool isAreaOccupiedByOtherActor(const osg::Vec3f& position, const float radius,
-                const MWWorld::ConstPtr& ignore, std::vector<MWWorld::Ptr>* occupyingActors) const;
+                const Misc::Span<const MWWorld::ConstPtr>& ignore, std::vector<MWWorld::Ptr>* occupyingActors) const;
 
             void reportStats(unsigned int frameNumber, osg::Stats& stats) const;
             void reportCollision(const btVector3& position, const btVector3& normal);
@@ -327,6 +330,8 @@ namespace MWPhysics
             osg::ref_ptr<osg::Group> mParentNode;
 
             float mPhysicsDt;
+
+            DetourNavigator::CollisionShapeType mActorCollisionShapeType;
 
             PhysicsSystem (const PhysicsSystem&);
             PhysicsSystem& operator= (const PhysicsSystem&);

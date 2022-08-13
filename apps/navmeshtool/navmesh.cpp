@@ -15,6 +15,8 @@
 #include <components/misc/progressreporter.hpp>
 #include <components/sceneutil/workqueue.hpp>
 #include <components/sqlite3/transaction.hpp>
+#include <components/debug/debugging.hpp>
+#include <components/navmeshtool/protocol.hpp>
 
 #include <osg/Vec3f>
 
@@ -30,6 +32,7 @@ namespace NavMeshTool
 {
     namespace
     {
+        using DetourNavigator::AgentBounds;
         using DetourNavigator::GenerateNavMeshTile;
         using DetourNavigator::NavMeshDb;
         using DetourNavigator::NavMeshTileInfo;
@@ -51,6 +54,18 @@ namespace NavMeshTool
                 << "%) navmesh tiles are generated";
         }
 
+        template <class T>
+        void serializeToStderr(const T& value)
+        {
+            const std::vector<std::byte> data = serialize(value);
+            getLockedRawStderr()->write(reinterpret_cast<const char*>(data.data()), static_cast<std::streamsize>(data.size()));
+        }
+
+        void logGeneratedTilesMessage(std::size_t number)
+        {
+            serializeToStderr(GeneratedTiles {static_cast<std::uint64_t>(number)});
+        }
+
         struct LogGeneratedTiles
         {
             void operator()(std::size_t provided, std::size_t expected) const
@@ -64,10 +79,11 @@ namespace NavMeshTool
         public:
             std::atomic_size_t mExpected {0};
 
-            explicit NavMeshTileConsumer(NavMeshDb&& db, bool removeUnusedTiles)
+            explicit NavMeshTileConsumer(NavMeshDb&& db, bool removeUnusedTiles, bool writeBinaryLog)
                 : mDb(std::move(db))
                 , mRemoveUnusedTiles(removeUnusedTiles)
-                , mTransaction(mDb.startTransaction())
+                , mWriteBinaryLog(writeBinaryLog)
+                , mTransaction(mDb.startTransaction(Sqlite3::TransactionMode::Immediate))
                 , mNextTileId(mDb.getMaxTileId() + 1)
                 , mNextShapeId(mDb.getMaxShapeId() + 1)
             {}
@@ -128,14 +144,11 @@ namespace NavMeshTool
             void insert(std::string_view worldspace, const TilePosition& tilePosition,
                 std::int64_t version, const std::vector<std::byte>& input, PreparedNavMeshData& data) override
             {
-                if (mRemoveUnusedTiles)
                 {
                     std::lock_guard lock(mMutex);
-                    mDeleted += static_cast<std::size_t>(mDb.deleteTilesAt(worldspace, tilePosition));
-                }
-                data.mUserId = static_cast<unsigned>(mNextTileId);
-                {
-                    std::lock_guard lock(mMutex);
+                    if (mRemoveUnusedTiles)
+                        mDeleted += static_cast<std::size_t>(mDb.deleteTilesAt(worldspace, tilePosition));
+                    data.mUserId = static_cast<unsigned>(mNextTileId);
                     mDb.insertTile(mNextTileId, worldspace, tilePosition, TileVersion {version}, input, serialize(data));
                     ++mNextTileId;
                 }
@@ -157,25 +170,49 @@ namespace NavMeshTool
                 report();
             }
 
-            void wait()
+            void cancel(std::string_view reason) override
             {
-                constexpr std::size_t tilesPerTransaction = 3000;
                 std::unique_lock lock(mMutex);
-                while (mProvided < mExpected)
+                if (reason.find("database or disk is full") != std::string_view::npos)
+                    mStatus = Status::NotEnoughSpace;
+                else
+                    mStatus = Status::Cancelled;
+                mHasTile.notify_one();
+            }
+
+            Status wait()
+            {
+                constexpr std::chrono::seconds transactionInterval(1);
+                std::unique_lock lock(mMutex);
+                auto start = std::chrono::steady_clock::now();
+                while (mProvided < mExpected && mStatus == Status::Ok)
                 {
                     mHasTile.wait(lock);
-                    if (mProvided % tilesPerTransaction == 0)
+                    const auto now = std::chrono::steady_clock::now();
+                    if (now - start > transactionInterval)
                     {
                         mTransaction.commit();
-                        mTransaction = mDb.startTransaction();
+                        mTransaction = mDb.startTransaction(Sqlite3::TransactionMode::Immediate);
+                        start = now;
                     }
                 }
                 logGeneratedTiles(mProvided, mExpected);
+                if (mWriteBinaryLog)
+                    logGeneratedTilesMessage(mProvided);
+                return mStatus;
             }
 
-            void commit() { mTransaction.commit(); }
+            void commit()
+            {
+                const std::lock_guard lock(mMutex);
+                mTransaction.commit();
+            }
 
-            void vacuum() { mDb.vacuum(); }
+            void vacuum()
+            {
+                const std::lock_guard lock(mMutex);
+                mDb.vacuum();
+            }
 
             void removeTilesOutsideRange(std::string_view worldspace, const TilesPositionsRange& range)
             {
@@ -183,7 +220,7 @@ namespace NavMeshTool
                 mTransaction.commit();
                 Log(Debug::Info) << "Removing tiles outside processed range for worldspace \"" << worldspace << "\"...";
                 mDeleted += static_cast<std::size_t>(mDb.deleteTilesOutsideRange(worldspace, range));
-                mTransaction = mDb.startTransaction();
+                mTransaction = mDb.startTransaction(Sqlite3::TransactionMode::Immediate);
             }
 
         private:
@@ -191,9 +228,11 @@ namespace NavMeshTool
             std::atomic_size_t mInserted {0};
             std::atomic_size_t mUpdated {0};
             std::size_t mDeleted = 0;
+            Status mStatus = Status::Ok;
             mutable std::mutex mMutex;
             NavMeshDb mDb;
             const bool mRemoveUnusedTiles;
+            const bool mWriteBinaryLog;
             Transaction mTransaction;
             TileId mNextTileId;
             std::condition_variable mHasTile;
@@ -206,17 +245,20 @@ namespace NavMeshTool
                 const std::size_t provided = mProvided.fetch_add(1, std::memory_order_relaxed) + 1;
                 mReporter(provided, mExpected);
                 mHasTile.notify_one();
+                if (mWriteBinaryLog)
+                    logGeneratedTilesMessage(provided);
             }
         };
     }
 
-    void generateAllNavMeshTiles(const osg::Vec3f& agentHalfExtents, const Settings& settings,
-        std::size_t threadsNumber, bool removeUnusedTiles, WorldspaceData& data, NavMeshDb&& db)
+    Status generateAllNavMeshTiles(const AgentBounds& agentBounds, const Settings& settings,
+        std::size_t threadsNumber, bool removeUnusedTiles, bool writeBinaryLog, WorldspaceData& data,
+        NavMeshDb&& db)
     {
         Log(Debug::Info) << "Generating navmesh tiles by " << threadsNumber << " parallel workers...";
 
         SceneUtil::WorkQueue workQueue(threadsNumber);
-        auto navMeshTileConsumer = std::make_shared<NavMeshTileConsumer>(std::move(db), removeUnusedTiles);
+        auto navMeshTileConsumer = std::make_shared<NavMeshTileConsumer>(std::move(db), removeUnusedTiles, writeBinaryLog);
         std::size_t tiles = 0;
         std::mt19937_64 random;
 
@@ -238,6 +280,9 @@ namespace NavMeshTool
 
             tiles += worldspaceTiles.size();
 
+            if (writeBinaryLog)
+                serializeToStderr(ExpectedTiles {static_cast<std::uint64_t>(tiles)});
+
             navMeshTileConsumer->mExpected = tiles;
 
             std::shuffle(worldspaceTiles.begin(), worldspaceTiles.end(), random);
@@ -247,14 +292,15 @@ namespace NavMeshTool
                     input->mWorldspace,
                     tilePosition,
                     RecastMeshProvider(input->mTileCachedRecastMeshManager),
-                    agentHalfExtents,
+                    agentBounds,
                     settings,
                     navMeshTileConsumer
                 ));
         }
 
-        navMeshTileConsumer->wait();
-        navMeshTileConsumer->commit();
+        const Status status = navMeshTileConsumer->wait();
+        if (status == Status::Ok)
+            navMeshTileConsumer->commit();
 
         const auto inserted = navMeshTileConsumer->getInserted();
         const auto updated = navMeshTileConsumer->getUpdated();
@@ -270,5 +316,7 @@ namespace NavMeshTool
             Log(Debug::Info) << "Vacuuming the database...";
             navMeshTileConsumer->vacuum();
         }
+
+        return status;
     }
 }

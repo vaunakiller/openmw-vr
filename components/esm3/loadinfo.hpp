@@ -20,7 +20,8 @@ class ESMWriter;
 
 struct DialInfo
 {
-    static unsigned int sRecordId;
+    constexpr static RecNameInts sRecordId = REC_INFO;
+
     /// Return a string descriptor for this record type. Currently used for debugging / error logs only.
     static std::string_view getRecordType() { return "DialInfo"; }
 
@@ -33,16 +34,16 @@ struct DialInfo
 
     struct DATAstruct
     {
-        int mUnknown1;
+        int mUnknown1 = 0;
         union
         {
-            int mDisposition; // Used for dialogue responses
+            int mDisposition = 0; // Used for dialogue responses
             int mJournalIndex;  // Used for journal entries
         };
-        signed char mRank; // Rank of NPC
-        signed char mGender; // See Gender enum
-        signed char mPCrank; // Player rank
-        signed char mUnknown2;
+        signed char mRank = -1; // Rank of NPC
+        signed char mGender = Gender::NA; // See Gender enum
+        signed char mPCrank = -1; // Player rank
+        signed char mUnknown2 = 0;
     }; // 12 bytes
     DATAstruct mData;
 

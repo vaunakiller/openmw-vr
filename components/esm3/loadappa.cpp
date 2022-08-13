@@ -2,12 +2,9 @@
 
 #include "esmreader.hpp"
 #include "esmwriter.hpp"
-#include "components/esm/defs.hpp"
 
 namespace ESM
 {
-    unsigned int Apparatus::sRecordId = REC_APPA;
-
     void Apparatus::load(ESMReader &esm, bool &isDeleted)
     {
         isDeleted = false;
@@ -20,27 +17,27 @@ namespace ESM
             esm.getSubName();
             switch (esm.retSubName().toInt())
             {
-                case ESM::SREC_NAME:
+                case SREC_NAME:
                     mId = esm.getHString();
                     hasName = true;
                     break;
-                case ESM::FourCC<'M','O','D','L'>::value:
+                case fourCC("MODL"):
                     mModel = esm.getHString();
                     break;
-                case ESM::FourCC<'F','N','A','M'>::value:
+                case fourCC("FNAM"):
                     mName = esm.getHString();
                     break;
-                case ESM::FourCC<'A','A','D','T'>::value:
+                case fourCC("AADT"):
                     esm.getHT(mData);
                     hasData = true;
                     break;
-                case ESM::FourCC<'S','C','R','I'>::value:
+                case fourCC("SCRI"):
                     mScript = esm.getHString();
                     break;
-                case ESM::FourCC<'I','T','E','X'>::value:
+                case fourCC("ITEX"):
                     mIcon = esm.getHString();
                     break;
-                case ESM::SREC_DELE:
+                case SREC_DELE:
                     esm.skipHSub();
                     isDeleted = true;
                     break;
@@ -75,6 +72,7 @@ namespace ESM
 
     void Apparatus::blank()
     {
+        mRecordFlags = 0;
         mData.mType = 0;
         mData.mQuality = 0;
         mData.mWeight = 0;

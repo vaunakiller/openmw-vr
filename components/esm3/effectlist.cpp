@@ -3,7 +3,8 @@
 #include "esmreader.hpp"
 #include "esmwriter.hpp"
 
-namespace ESM {
+namespace ESM
+{
 
 void EffectList::load(ESMReader &esm)
 {
@@ -16,7 +17,7 @@ void EffectList::load(ESMReader &esm)
 void EffectList::add(ESMReader &esm)
 {
     ENAMstruct s;
-    esm.getHT(s, 24);
+    esm.getHTSized<24>(s);
     mList.push_back(s);
 }
 

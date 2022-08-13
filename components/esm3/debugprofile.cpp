@@ -2,11 +2,11 @@
 
 #include "esmreader.hpp"
 #include "esmwriter.hpp"
-#include "components/esm/defs.hpp"
 
-unsigned int ESM::DebugProfile::sRecordId = REC_DBGP;
+namespace ESM
+{
 
-void ESM::DebugProfile::load (ESMReader& esm, bool &isDeleted)
+void DebugProfile::load (ESMReader& esm, bool &isDeleted)
 {
     isDeleted = false;
     mRecordFlags = esm.getRecordFlags();
@@ -16,19 +16,19 @@ void ESM::DebugProfile::load (ESMReader& esm, bool &isDeleted)
         esm.getSubName();
         switch (esm.retSubName().toInt())
         {
-            case ESM::SREC_NAME:
+            case SREC_NAME:
                 mId = esm.getHString();
                 break;
-            case ESM::FourCC<'D','E','S','C'>::value:
+            case fourCC("DESC"):
                 mDescription = esm.getHString();
                 break;
-            case ESM::FourCC<'S','C','R','P'>::value:
+            case fourCC("SCRP"):
                 mScriptText = esm.getHString();
                 break;
-            case ESM::FourCC<'F','L','A','G'>::value:
+            case fourCC("FLAG"):
                 esm.getHT(mFlags);
                 break;
-            case ESM::SREC_DELE:
+            case SREC_DELE:
                 esm.skipHSub();
                 isDeleted = true;
                 break;
@@ -39,7 +39,7 @@ void ESM::DebugProfile::load (ESMReader& esm, bool &isDeleted)
     }
 }
 
-void ESM::DebugProfile::save (ESMWriter& esm, bool isDeleted) const
+void DebugProfile::save (ESMWriter& esm, bool isDeleted) const
 {
     esm.writeHNCString ("NAME", mId);
 
@@ -54,9 +54,11 @@ void ESM::DebugProfile::save (ESMWriter& esm, bool isDeleted) const
     esm.writeHNT ("FLAG", mFlags);
 }
 
-void ESM::DebugProfile::blank()
+void DebugProfile::blank()
 {
     mDescription.clear();
     mScriptText.clear();
     mFlags = 0;
+}
+
 }

@@ -31,10 +31,12 @@ namespace LuaUi
     {
         changeWidgetSkin("LuaImage");
         mTileRect = dynamic_cast<LuaTileRect*>(getSubWidgetMain());
+        WidgetExtension::initialize();
     }
 
     void LuaImage::updateProperties()
     {
+        deleteAllItems();
         TextureResource* resource = propertyValue<TextureResource*>("resource", nullptr);
         MyGUI::IntCoord atlasCoord;
         if (resource)
@@ -59,12 +61,15 @@ namespace LuaUi
             tileH ? textureSize.width : 0,
             tileV ? textureSize.height : 0
         ));
+        setImageTile(textureSize);
 
         if (atlasCoord.width == 0)
             atlasCoord.width = textureSize.width;
         if (atlasCoord.height == 0)
             atlasCoord.height = textureSize.height;
         setImageCoord(atlasCoord);
+
+        setColour(propertyValue("color", MyGUI::Colour(1,1,1,1)));
 
         WidgetExtension::updateProperties();
     }

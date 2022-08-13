@@ -126,8 +126,8 @@ namespace MWWorld
             std::weak_ptr<ResolutionListener> mResolutionListener;
 
             ContainerStoreIterator addImp (const Ptr& ptr, int count, bool markModified = true);
-            void addInitialItem (const std::string& id, const std::string& owner, int count, Misc::Rng::Seed* seed, bool topLevel=true);
-            void addInitialItemImp (const MWWorld::Ptr& ptr, const std::string& owner, int count, Misc::Rng::Seed* seed, bool topLevel=true);
+            void addInitialItem (const std::string& id, const std::string& owner, int count, Misc::Rng::Generator* prng, bool topLevel=true);
+            void addInitialItemImp (const MWWorld::Ptr& ptr, const std::string& owner, int count, Misc::Rng::Generator* prng, bool topLevel=true);
 
             template<typename T>
             ContainerStoreIterator getState (CellRefList<T>& collection,
@@ -175,10 +175,10 @@ namespace MWWorld
             ///
             /// @return if stacking happened, return iterator to the item that was stacked against, otherwise iterator to the newly inserted item.
 
-            ContainerStoreIterator add(const std::string& id, int count, const Ptr& actorPtr);
+            ContainerStoreIterator add(std::string_view id, int count, const Ptr& actorPtr);
             ///< Utility to construct a ManualRef and call add(ptr, count, actorPtr, true)
 
-            int remove(const std::string& itemId, int count, const Ptr& actor, bool equipReplacement = 0, bool resolve = true);
+            int remove(std::string_view itemId, int count, const Ptr& actor, bool equipReplacement = 0, bool resolve = true);
             ///< Remove \a count item(s) designated by \a itemId from this container.
             ///
             /// @return the number of items actually removed
@@ -201,7 +201,7 @@ namespace MWWorld
             /// If a compatible stack is found, the item's count is added to that stack, then the original is deleted.
             /// @return If the item was stacked, return the stack, otherwise return the old (untouched) item.
 
-            int count (const std::string& id) const;
+            int count(std::string_view id) const;
             ///< @return How many items with refID \a id are in this container?
 
             ContainerStoreListener* getContListener() const;
@@ -221,7 +221,7 @@ namespace MWWorld
             virtual bool stacks (const ConstPtr& ptr1, const ConstPtr& ptr2) const;
             ///< @return true if the two specified objects can stack with each other
 
-            void fill (const ESM::InventoryList& items, const std::string& owner, Misc::Rng::Seed& seed = Misc::Rng::getSeed());
+            void fill (const ESM::InventoryList& items, const std::string& owner, Misc::Rng::Generator& seed);
             ///< Insert items into *this.
 
             void fillNonRandom (const ESM::InventoryList& items, const std::string& owner, unsigned int seed);

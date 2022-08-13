@@ -1,5 +1,7 @@
 #include "potion.hpp"
 
+#include <MyGUI_TextIterator.h>
+
 #include <components/esm3/loadalch.hpp>
 
 #include "../mwbase/environment.hpp"
@@ -20,8 +22,14 @@
 
 #include "../mwmechanics/alchemy.hpp"
 
+#include "classmodel.hpp"
+
 namespace MWClass
 {
+    Potion::Potion()
+        : MWWorld::RegisteredClass<Potion>(ESM::Potion::sRecordId)
+    {
+    }
 
     void Potion::insertObjectRendering (const MWWorld::Ptr& ptr, const std::string& model, MWRender::RenderingInterface& renderingInterface) const
     {
@@ -32,13 +40,7 @@ namespace MWClass
 
     std::string Potion::getModel(const MWWorld::ConstPtr &ptr) const
     {
-        const MWWorld::LiveCellRef<ESM::Potion> *ref = ptr.get<ESM::Potion>();
-
-        const std::string &model = ref->mBase->mModel;
-        if (!model.empty()) {
-            return "meshes\\" + model;
-        }
-        return "";
+        return getClassModel<ESM::Potion>(ptr);
     }
 
     std::string Potion::getName (const MWWorld::ConstPtr& ptr) const
@@ -49,7 +51,7 @@ namespace MWClass
         return !name.empty() ? name : ref->mBase->mId;
     }
 
-    std::shared_ptr<MWWorld::Action> Potion::activate (const MWWorld::Ptr& ptr,
+    std::unique_ptr<MWWorld::Action> Potion::activate (const MWWorld::Ptr& ptr,
         const MWWorld::Ptr& actor) const
     {
         return defaultItemActivate(ptr, actor);
@@ -68,13 +70,6 @@ namespace MWClass
         const MWWorld::LiveCellRef<ESM::Potion> *ref = ptr.get<ESM::Potion>();
 
         return ref->mBase->mData.mValue;
-    }
-
-    void Potion::registerSelf()
-    {
-        std::shared_ptr<Class> instance (new Potion);
-
-        registerClass (ESM::Potion::sRecordId, instance);
     }
 
     std::string Potion::getUpSoundId (const MWWorld::ConstPtr& ptr) const
@@ -126,12 +121,12 @@ namespace MWClass
         return info;
     }
 
-    std::shared_ptr<MWWorld::Action> Potion::use (const MWWorld::Ptr& ptr, bool force) const
+    std::unique_ptr<MWWorld::Action> Potion::use (const MWWorld::Ptr& ptr, bool force) const
     {
         MWWorld::LiveCellRef<ESM::Potion> *ref =
             ptr.get<ESM::Potion>();
 
-        std::shared_ptr<MWWorld::Action> action (
+        std::unique_ptr<MWWorld::Action> action (
             new MWWorld::ActionApply (ptr, ref->mBase->mId));
 
         action->setSound ("Drink");

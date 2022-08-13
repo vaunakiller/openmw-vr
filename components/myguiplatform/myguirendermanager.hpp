@@ -35,6 +35,7 @@ namespace osgMyGUI
 
 class Drawable;
 class GUICamera;
+class OSGTexture;
 
 class StateInjectableRenderTarget : public MyGUI::IRenderTarget
 {
@@ -59,14 +60,12 @@ class RenderManager : public MyGUI::RenderManager
 
     MyGUI::VertexColourType mVertexFormat;
 
-    typedef std::map<std::string, MyGUI::ITexture*> MapTexture;
-    MapTexture mTextures;
+    std::map<std::string, OSGTexture> mTextures;
 
     bool mIsInitialise;
 
     float mInvScalingFactor;
 
-    void destroyAllResources();
 
 public:
     RenderManager(osgViewer::Viewer *viewer, osg::Group *sceneroot, Resource::ImageManager* imageManager, float scalingFactor);

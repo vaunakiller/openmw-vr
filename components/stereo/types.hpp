@@ -7,7 +7,13 @@
 
 namespace Stereo
 {
-    //! Represents the relative pose in space of some object
+    enum class Eye
+    {
+        Left = 0, 
+        Right = 1, 
+        Center = 2
+    };
+
     struct Pose
     {
         //! Position in space
@@ -26,11 +32,8 @@ namespace Stereo
         const Pose& operator/=(float scalar);
 
         bool operator==(const Pose& rhs) const;
-
-        osg::Matrix viewMatrix(bool useGLConventions);
     };
 
-    //! Fov that defines all 4 angles from center
     struct FieldOfView {
         float    angleLeft{ 0.f };
         float    angleRight{ 0.f };
@@ -38,17 +41,16 @@ namespace Stereo
         float    angleDown{ 0.f };
 
         bool operator==(const FieldOfView& rhs) const;
-
-        //! Generate a perspective matrix from this fov
-        osg::Matrix perspectiveMatrix(float near, float far, bool reverseZ) const;
     };
 
-    //! Represents an eye including both pose and fov.
     struct View
     {
         Pose pose;
         FieldOfView fov;
         bool operator==(const View& rhs) const;
+
+        osg::Matrix viewMatrix(bool useGLConventions);
+        osg::Matrix perspectiveMatrix(float near, float far, bool reverseZ);
     };
 
     std::ostream& operator <<(std::ostream& os, const Pose& pose);

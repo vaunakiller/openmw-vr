@@ -42,7 +42,7 @@ either expressed or implied, of the FreeBSD Project.
 namespace Debug
 {
 
-    void debugCallback(GLenum source, GLenum type, GLuint id, GLenum severity, GLsizei length, const GLchar *message, const void *userParam)
+    void GL_APIENTRY debugCallback(GLenum source, GLenum type, GLuint id, GLenum severity, GLsizei length, const GLchar *message, const void *userParam)
     {
 #ifdef GL_DEBUG_OUTPUT
         std::string srcStr;
@@ -82,7 +82,7 @@ namespace Debug
             break;
         case GL_DEBUG_TYPE_DEPRECATED_BEHAVIOR:
             typeStr = "DEPRECATED_BEHAVIOR";
-            logSeverity = Info;
+            logSeverity = Warning;
             break;
         case GL_DEBUG_TYPE_UNDEFINED_BEHAVIOR:
             typeStr = "UNDEFINED_BEHAVIOR";
@@ -90,15 +90,15 @@ namespace Debug
             break;
         case GL_DEBUG_TYPE_PORTABILITY:
             typeStr = "PORTABILITY";
-            logSeverity = Warning;
+            logSeverity = Debug;
             break;
         case GL_DEBUG_TYPE_PERFORMANCE:
             typeStr = "PERFORMANCE";
-            logSeverity = Info;
+            logSeverity = Debug;
             break;
         case GL_DEBUG_TYPE_OTHER:
             typeStr = "OTHER";
-            logSeverity = Verbose;
+            logSeverity = Debug;
             break;
         default:
             typeStr = "UNDEFINED";

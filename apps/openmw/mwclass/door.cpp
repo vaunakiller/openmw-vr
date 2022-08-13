@@ -1,5 +1,7 @@
 #include "door.hpp"
 
+#include <MyGUI_TextIterator.h>
+
 #include <components/esm3/loaddoor.hpp>
 #include <components/esm3/doorstate.hpp>
 #include <components/sceneutil/positionattitudetransform.hpp>
@@ -19,6 +21,7 @@
 #include "../mwworld/inventorystore.hpp"
 #include "../mwworld/actiontrap.hpp"
 #include "../mwworld/customdata.hpp"
+#include "../mwworld/cellutils.hpp"
 
 #include "../mwgui/tooltips.hpp"
 
@@ -28,6 +31,8 @@
 #include "../mwrender/vismask.hpp"
 
 #include "../mwmechanics/actorutil.hpp"
+
+#include "classmodel.hpp"
 
 namespace MWClass
 {
@@ -45,6 +50,11 @@ namespace MWClass
             return *this;
         }
     };
+
+    Door::Door()
+        : MWWorld::RegisteredClass<Door>(ESM::Door::sRecordId)
+    {
+    }
 
     void Door::insertObjectRendering (const MWWorld::Ptr& ptr, const std::string& model, MWRender::RenderingInterface& renderingInterface) const
     {
@@ -72,8 +82,7 @@ namespace MWClass
 
     void Door::insertObjectPhysics(const MWWorld::Ptr& ptr, const std::string& model, const osg::Quat& rotation, MWPhysics::PhysicsSystem& physics) const
     {
-        if(!model.empty())
-            physics.addObject(ptr, model, rotation, MWPhysics::CollisionType_Door);
+        physics.addObject(ptr, model, rotation, MWPhysics::CollisionType_Door);
     }
 
     bool Door::isDoor() const
@@ -88,13 +97,7 @@ namespace MWClass
 
     std::string Door::getModel(const MWWorld::ConstPtr &ptr) const
     {
-        const MWWorld::LiveCellRef<ESM::Door> *ref = ptr.get<ESM::Door>();
-
-        const std::string &model = ref->mBase->mModel;
-        if (!model.empty()) {
-            return "meshes\\" + model;
-        }
-        return "";
+        return getClassModel<ESM::Door>(ptr);
     }
 
     std::string Door::getName (const MWWorld::ConstPtr& ptr) const
@@ -105,7 +108,7 @@ namespace MWClass
         return !name.empty() ? name : ref->mBase->mId;
     }
 
-    std::shared_ptr<MWWorld::Action> Door::activate (const MWWorld::Ptr& ptr,
+    std::unique_ptr<MWWorld::Action> Door::activate (const MWWorld::Ptr& ptr,
         const MWWorld::Ptr& actor) const
     {
         MWWorld::LiveCellRef<ESM::Door> *ref = ptr.get<ESM::Door>();
@@ -126,7 +129,7 @@ namespace MWClass
         // Make such activation a no-op for now, like how it is in the vanilla game.
         if (actor != MWMechanics::getPlayer() && ptr.getCellRef().getTeleport())
         {
-            std::shared_ptr<MWWorld::Action> action(new MWWorld::FailedAction(std::string(), ptr));
+            std::unique_ptr<MWWorld::Action> action = std::make_unique<MWWorld::FailedAction>(std::string(), ptr);
             action->setSound(lockedSound);
             return action;
         }
@@ -177,7 +180,7 @@ namespace MWClass
             if(isTrapped)
             {
                 // Trap activation
-                std::shared_ptr<MWWorld::Action> action(new MWWorld::ActionTrap(ptr.getCellRef().getTrap(), ptr));
+                std::unique_ptr<MWWorld::Action> action = std::make_unique<MWWorld::ActionTrap>(ptr.getCellRef().getTrap(), ptr);
                 action->setSound(trapActivationSound);
                 return action;
             }
@@ -187,12 +190,11 @@ namespace MWClass
                 if (actor == MWMechanics::getPlayer() && MWBase::Environment::get().getWorld()->getDistanceToFacedObject() > MWBase::Environment::get().getWorld()->getMaxActivationDistance())
                 {
                     // player activated teleport door with telekinesis
-                    std::shared_ptr<MWWorld::Action> action(new MWWorld::FailedAction);
-                    return action;
+                    return std::make_unique<MWWorld::FailedAction>();
                 }
                 else
                 {
-                    std::shared_ptr<MWWorld::Action> action(new MWWorld::ActionTeleport (ptr.getCellRef().getDestCell(), ptr.getCellRef().getDoorDest(), true));
+                    std::unique_ptr<MWWorld::Action> action = std::make_unique<MWWorld::ActionTeleport>(ptr.getCellRef().getDestCell(), ptr.getCellRef().getDoorDest(), true);
                     action->setSound(openSound);
                     return action;
                 }
@@ -200,7 +202,7 @@ namespace MWClass
             else
             {
                 // animated door
-                std::shared_ptr<MWWorld::Action> action(new MWWorld::ActionDoor(ptr));
+                std::unique_ptr<MWWorld::Action> action = std::make_unique<MWWorld::ActionDoor>(ptr);
                 const auto doorState = getDoorState(ptr);
                 bool opening = true;
                 float doorRot = ptr.getRefData().getPosition().rot[2] - ptr.getCellRef().getPosition().rot[2];
@@ -234,7 +236,7 @@ namespace MWClass
         else
         {
             // locked, and we can't open.
-            std::shared_ptr<MWWorld::Action> action(new MWWorld::FailedAction(std::string(), ptr));
+            std::unique_ptr<MWWorld::Action> action = std::make_unique<MWWorld::FailedAction>(std::string(), ptr);
             action->setSound(lockedSound);
             return action;
         }
@@ -258,13 +260,6 @@ namespace MWClass
         const MWWorld::LiveCellRef<ESM::Door> *ref = ptr.get<ESM::Door>();
 
         return ref->mBase->mScript;
-    }
-
-    void Door::registerSelf()
-    {
-        std::shared_ptr<Class> instance (new Door);
-
-        registerClass (ESM::Door::sRecordId, instance);
     }
 
     MWGui::ToolTipInfo Door::getToolTipInfo (const MWWorld::ConstPtr& ptr, int count) const
@@ -306,10 +301,10 @@ namespace MWClass
         if (dest.empty())
         {
             // door leads to exterior, use cell name (if any), otherwise translated region name
-            int x,y;
             auto world = MWBase::Environment::get().getWorld();
-            world->positionToIndex (door.mRef.getDoorDest().pos[0], door.mRef.getDoorDest().pos[1], x, y);
-            const ESM::Cell* cell = world->getStore().get<ESM::Cell>().search(x,y);
+            const osg::Vec2i index = MWWorld::positionToCellIndex(door.mRef.getDoorDest().pos[0],
+                door.mRef.getDoorDest().pos[1]);
+            const ESM::Cell* cell = world->getStore().get<ESM::Cell>().search(index.x(), index.y());
             dest = world->getCellName(cell);
         }
 

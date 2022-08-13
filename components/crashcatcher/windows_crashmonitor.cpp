@@ -1,15 +1,12 @@
 #include "windows_crashmonitor.hpp"
 
-#undef WIN32_LEAN_AND_MEAN
-#define WIN32_LEAN_AND_MEAN
-#include <Windows.h>
+#include <components/windows.hpp>
 #include <Psapi.h>
 
 #include <DbgHelp.h>
 
-#include <iostream>
 #include <memory>
-#include <sstream>
+#include <thread>
 
 #include <SDL_messagebox.h>
 
@@ -20,7 +17,22 @@
 namespace Crash
 {
     std::unordered_map<HWINEVENTHOOK, CrashMonitor*> CrashMonitor::smEventHookOwners{};
+    
+    using IsHungAppWindowFn = BOOL(WINAPI*)(HWND hwnd);
 
+    // Obtains the pointer to user32.IsHungAppWindow, this function may be removed in the future.
+    // See: https://docs.microsoft.com/en-us/windows/win32/api/winuser/nf-winuser-ishungappwindow
+    static IsHungAppWindowFn getIsHungAppWindow() noexcept
+    {
+        auto user32Handle = LoadLibraryA("user32.dll");
+        if (user32Handle == nullptr)
+            return nullptr;
+
+        return reinterpret_cast<IsHungAppWindowFn>(GetProcAddress(user32Handle, "IsHungAppWindow"));
+    }
+
+    static const IsHungAppWindowFn sIsHungAppWindow = getIsHungAppWindow();
+    
     CrashMonitor::CrashMonitor(HANDLE shmHandle)
         : mShmHandle(shmHandle)
     {
@@ -126,8 +138,8 @@ namespace Crash
             else
                 return false;
         }
-        if (IsHungAppWindow)
-            return IsHungAppWindow(mAppWindowHandle);
+        if (sIsHungAppWindow != nullptr)
+            return sIsHungAppWindow(mAppWindowHandle);
         else
         {
             BOOL debuggerPresent;
@@ -206,7 +218,7 @@ namespace Crash
         signalApp();
     }
 
-    std::wstring utf8ToUtf16(const std::string& utf8)
+    static std::wstring utf8ToUtf16(const std::string& utf8)
     {
         const int nLenWide = MultiByteToWideChar(CP_UTF8, 0, utf8.c_str(), utf8.size(), nullptr, 0);
 

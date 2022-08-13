@@ -1,6 +1,7 @@
 #include "ripplesimulation.hpp"
 
 #include <iomanip>
+#include <sstream>
 
 #include <osg/PolygonOffset>
 #include <osg/Texture2D>
@@ -48,7 +49,7 @@ namespace
         }
 
         osg::ref_ptr<NifOsg::FlipController> controller (new NifOsg::FlipController(0, 0.3f/rippleFrameCount, textures));
-        controller->setSource(std::shared_ptr<SceneUtil::ControllerSource>(new SceneUtil::FrameTimeSource));
+        controller->setSource(std::make_shared<SceneUtil::FrameTimeSource>());
         node->addUpdateCallback(controller);
 
         osg::ref_ptr<osg::StateSet> stateset (new osg::StateSet);
@@ -109,7 +110,7 @@ RippleSimulation::RippleSimulation(osg::Group *parent, Resource::ResourceSystem*
 
     createWaterRippleStateSet(resourceSystem, mParticleNode);
 
-    resourceSystem->getSceneManager()->recreateShaders(mParticleNode, "objects", false, nullptr, true);
+    resourceSystem->getSceneManager()->recreateShaders(mParticleNode);
 
     mParent->addChild(mParticleNode);
 }

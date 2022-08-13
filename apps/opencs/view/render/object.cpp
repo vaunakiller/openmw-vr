@@ -2,7 +2,6 @@
 
 #include <stdexcept>
 #include <string>
-#include <iostream>
 
 #include <osg/Depth>
 #include <osg/Group>
@@ -10,17 +9,13 @@
 
 #include <osg/ShapeDrawable>
 #include <osg/Shape>
-#include <osg/Geode>
 #include <osg/Geometry>
 #include <osg/PrimitiveSet>
 
 #include <osgFX/Scribe>
 
 #include "../../model/world/data.hpp"
-#include "../../model/world/ref.hpp"
-#include "../../model/world/refidcollection.hpp"
 #include "../../model/world/commands.hpp"
-#include "../../model/world/universalid.hpp"
 #include "../../model/world/commandmacro.hpp"
 #include "../../model/world/cellcoordinates.hpp"
 #include "../../model/prefs/state.hpp"
@@ -43,15 +38,15 @@ const float CSVRender::Object::MarkerHeadLength = 50;
 namespace
 {
 
-    osg::ref_ptr<osg::Geode> createErrorCube()
+    osg::ref_ptr<osg::Group> createErrorCube()
     {
         osg::ref_ptr<osg::Box> shape(new osg::Box(osg::Vec3f(0,0,0), 50.f));
         osg::ref_ptr<osg::ShapeDrawable> shapedrawable(new osg::ShapeDrawable);
         shapedrawable->setShape(shape);
 
-        osg::ref_ptr<osg::Geode> geode (new osg::Geode);
-        geode->addDrawable(shapedrawable);
-        return geode;
+        osg::ref_ptr<osg::Group> group (new osg::Group);
+        group->addChild(shapedrawable);
+        return group;
     }
 
 }
@@ -117,7 +112,7 @@ void CSVRender::Object::update()
     {
         if (recordType == CSMWorld::UniversalId::Type_Npc || recordType == CSMWorld::UniversalId::Type_Creature)
         {
-            if (!mActor) mActor.reset(new Actor(mReferenceableId, mData));
+            if (!mActor) mActor = std::make_unique<Actor>(mReferenceableId, mData);
             mActor->update();
             mBaseNode->addChild(mActor->getBaseNode());
         }
@@ -140,7 +135,7 @@ void CSVRender::Object::update()
     if (light)
     {
         bool isExterior = false; // FIXME
-        SceneUtil::addLight(mBaseNode, light, Mask_ParticleSystem, Mask_Lighting, isExterior);
+        SceneUtil::addLight(mBaseNode, light, Mask_Lighting, isExterior);
     }
 }
 
@@ -296,10 +291,10 @@ osg::ref_ptr<osg::Node> CSVRender::Object::makeMoveOrScaleMarker (int axis)
 
     setupCommonMarkerState(geometry);
 
-    osg::ref_ptr<osg::Geode> geode (new osg::Geode);
-    geode->addDrawable (geometry);
+    osg::ref_ptr<osg::Group> group (new osg::Group);
+    group->addChild(geometry);
 
-    return geode;
+    return group;
 }
 
 osg::ref_ptr<osg::Node> CSVRender::Object::makeRotateMarker (int axis)
@@ -382,10 +377,10 @@ osg::ref_ptr<osg::Node> CSVRender::Object::makeRotateMarker (int axis)
 
     setupCommonMarkerState(geometry);
 
-    osg::ref_ptr<osg::Geode> geode = new osg::Geode();
-    geode->addDrawable (geometry);
+    osg::ref_ptr<osg::Group> group = new osg::Group();
+    group->addChild(geometry);
 
-    return geode;
+    return group;
 }
 
 void CSVRender::Object::setupCommonMarkerState(osg::ref_ptr<osg::Geometry> geometry)

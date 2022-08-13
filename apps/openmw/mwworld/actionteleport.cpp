@@ -1,5 +1,7 @@
 #include "actionteleport.hpp"
 
+#include <components/esm3/loadcell.hpp>
+
 #include "../mwbase/environment.hpp"
 #include "../mwbase/world.hpp"
 #include "../mwbase/mechanicsmanager.hpp"
@@ -8,6 +10,7 @@
 
 #include "../mwworld/cellstore.hpp"
 #include "../mwworld/class.hpp"
+#include "../mwworld/cellutils.hpp"
 
 #include "player.hpp"
 
@@ -52,11 +55,8 @@ namespace MWWorld
                 actor.getClass().getCreatureStats(actor).getAiSequence().stopCombat();
             else if (mCellName.empty())
             {
-                int cellX;
-                int cellY;
-                world->positionToIndex(mPosition.pos[0],mPosition.pos[1],cellX,cellY);
-                world->moveObject(actor,world->getExterior(cellX,cellY),
-                    mPosition.asVec3(), true, true);
+                const osg::Vec2i index = positionToCellIndex(mPosition.pos[0], mPosition.pos[1]);
+                world->moveObject(actor, world->getExterior(index.x(), index.y()), mPosition.asVec3(), true, true);
             }
             else
                 world->moveObject(actor,world->getInterior(mCellName),mPosition.asVec3(), true, true);

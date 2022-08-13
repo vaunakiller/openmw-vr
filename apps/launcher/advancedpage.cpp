@@ -2,17 +2,18 @@
 
 #include <array>
 #include <string>
+#include <cmath>
 
-#include <components/config/gamesettings.hpp>
 #include <components/misc/stringops.hpp>
 #include <components/debug/debuglog.hpp>
 #include <QFileDialog>
 #include <QCompleter>
 #include <QString>
+
+#include <components/config/gamesettings.hpp>
 #include <components/contentselector/view/contentselector.hpp>
 #include <components/contentselector/model/esmfile.hpp>
-
-#include <cmath>
+#include <components/detournavigator/collisionshapetype.hpp>
 
 #include "utils/openalutil.hpp"
 
@@ -76,12 +77,12 @@ namespace
 
     double convertToCells(double unitRadius)
     {
-        return std::round((unitRadius + 1024) / CellSizeInUnits);
+        return unitRadius / CellSizeInUnits;
     }
 
-    double convertToUnits(double CellGridRadius)
+    int convertToUnits(double CellGridRadius)
     {
-        return CellSizeInUnits * CellGridRadius - 1024;
+        return static_cast<int>(CellSizeInUnits * CellGridRadius);
     }
 }
 
@@ -110,6 +111,10 @@ bool Launcher::AdvancedPage::loadSettings()
         if (numPhysicsThreads >= 0)
             physicsThreadsSpinBox->setValue(numPhysicsThreads);
         loadSettingBool(allowNPCToFollowOverWaterSurfaceCheckBox, "allow actors to follow over water surface", "Game");
+        loadSettingBool(unarmedCreatureAttacksDamageArmorCheckBox, "unarmed creature attacks damage armor", "Game");
+        const int actorCollisionShapeType = Settings::Manager::getInt("actor collision shape type", "Game");
+        if (0 <= actorCollisionShapeType && actorCollisionShapeType < actorCollisonShapeTypeComboBox->count())
+            actorCollisonShapeTypeComboBox->setCurrentIndex(actorCollisionShapeType);
     }
 
     // Visuals
@@ -119,7 +124,6 @@ bool Launcher::AdvancedPage::loadSettings()
         loadSettingBool(autoUseTerrainNormalMapsCheckBox, "auto use terrain normal maps", "Shaders");
         loadSettingBool(autoUseTerrainSpecularMapsCheckBox, "auto use terrain specular maps", "Shaders");
         loadSettingBool(bumpMapLocalLightingCheckBox, "apply lighting to environment maps", "Shaders");
-        loadSettingBool(radialFogCheckBox, "radial fog", "Shaders");
         loadSettingBool(softParticlesCheckBox, "soft particles", "Shaders");
         loadSettingBool(antialiasAlphaTestCheckBox, "antialias alpha test", "Shaders");
         if (Settings::Manager::getInt("antialiasing", "Video") == 0) {
@@ -147,6 +151,18 @@ bool Launcher::AdvancedPage::loadSettings()
         objectPagingMinSizeComboBox->setValue(Settings::Manager::getDouble("object paging min size", "Terrain"));
 
         loadSettingBool(nightDaySwitchesCheckBox, "day night switches", "Game");
+
+        connect(postprocessEnabledCheckBox, SIGNAL(toggled(bool)), this, SLOT(slotPostProcessToggled(bool)));
+        loadSettingBool(postprocessEnabledCheckBox, "enabled", "Post Processing");
+        loadSettingBool(postprocessLiveReloadCheckBox, "live reload", "Post Processing");
+        loadSettingBool(postprocessTransparentPostpassCheckBox, "transparent postpass", "Post Processing");
+        postprocessHDRTimeComboBox->setValue(Settings::Manager::getDouble("auto exposure speed", "Post Processing"));
+
+        connect(skyBlendingCheckBox, SIGNAL(toggled(bool)), this, SLOT(slotSkyBlendingToggled(bool)));
+        loadSettingBool(radialFogCheckBox, "radial fog", "Fog");
+        loadSettingBool(exponentialFogCheckBox, "exponential fog", "Fog");
+        loadSettingBool(skyBlendingCheckBox, "sky blending", "Fog");
+        skyBlendingStartComboBox->setValue(Settings::Manager::getDouble("sky blending start", "Fog"));
     }
 
     // Audio
@@ -174,20 +190,6 @@ bool Launcher::AdvancedPage::loadSettings()
                 hrtfProfileSelectorComboBox->setCurrentIndex(hrtfProfileIndex);
             }
         }
-    }
-
-
-    // Camera
-    {
-        loadSettingBool(viewOverShoulderCheckBox, "view over shoulder", "Camera");
-        connect(viewOverShoulderCheckBox, SIGNAL(toggled(bool)), this, SLOT(slotViewOverShoulderToggled(bool)));
-        viewOverShoulderVerticalLayout->setEnabled(viewOverShoulderCheckBox->checkState());
-        loadSettingBool(autoSwitchShoulderCheckBox, "auto switch shoulder", "Camera");
-        loadSettingBool(previewIfStandStillCheckBox, "preview if stand still", "Camera");
-        loadSettingBool(deferredPreviewRotationCheckBox, "deferred preview rotation", "Camera");
-        loadSettingBool(headBobbingCheckBox, "head bobbing", "Camera");
-        defaultShoulderComboBox->setCurrentIndex(
-            Settings::Manager::getVector2("view over shoulder offset", "Camera").x() >= 0 ? 0 : 1);
     }
 
     // Interface Changes
@@ -283,6 +285,9 @@ void Launcher::AdvancedPage::saveSettings()
         saveSettingBool(stealingFromKnockedOutCheckBox, "always allow stealing from knocked out actors", "Game");
         saveSettingBool(enableNavigatorCheckBox, "enable", "Navigator");
         saveSettingInt(physicsThreadsSpinBox, "async num threads", "Physics");
+        saveSettingBool(allowNPCToFollowOverWaterSurfaceCheckBox, "allow actors to follow over water surface", "Game");
+        saveSettingBool(unarmedCreatureAttacksDamageArmorCheckBox, "unarmed creature attacks damage armor", "Game");
+        saveSettingInt(actorCollisonShapeTypeComboBox, "actor collision shape type", "Game");
     }
 
     // Visuals
@@ -292,7 +297,7 @@ void Launcher::AdvancedPage::saveSettings()
         saveSettingBool(autoUseTerrainNormalMapsCheckBox, "auto use terrain normal maps", "Shaders");
         saveSettingBool(autoUseTerrainSpecularMapsCheckBox, "auto use terrain specular maps", "Shaders");
         saveSettingBool(bumpMapLocalLightingCheckBox, "apply lighting to environment maps", "Shaders");
-        saveSettingBool(radialFogCheckBox, "radial fog", "Shaders");
+        saveSettingBool(radialFogCheckBox, "radial fog", "Fog");
         saveSettingBool(softParticlesCheckBox, "soft particles", "Shaders");
         saveSettingBool(antialiasAlphaTestCheckBox, "antialias alpha test", "Shaders");
         saveSettingBool(magicItemAnimationsCheckBox, "use magic item animations", "Game");
@@ -311,28 +316,43 @@ void Launcher::AdvancedPage::saveSettings()
         }
 
         saveSettingBool(activeGridObjectPagingCheckBox, "object paging active grid", "Terrain");
-        double viewingDistance = viewingDistanceComboBox->value();
-        if (viewingDistance != convertToCells(Settings::Manager::getInt("viewing distance", "Camera")))
+        int viewingDistance = convertToUnits(viewingDistanceComboBox->value());
+        if (viewingDistance != Settings::Manager::getInt("viewing distance", "Camera"))
         {
-            Settings::Manager::setInt("viewing distance", "Camera", convertToUnits(viewingDistance));
+            Settings::Manager::setInt("viewing distance", "Camera", viewingDistance);
         }
         double objectPagingMinSize = objectPagingMinSizeComboBox->value();
         if (objectPagingMinSize != Settings::Manager::getDouble("object paging min size", "Terrain"))
             Settings::Manager::setDouble("object paging min size", "Terrain", objectPagingMinSize);
 
         saveSettingBool(nightDaySwitchesCheckBox, "day night switches", "Game");
+
+        saveSettingBool(postprocessEnabledCheckBox, "enabled", "Post Processing");
+        saveSettingBool(postprocessLiveReloadCheckBox, "live reload", "Post Processing");
+        saveSettingBool(postprocessTransparentPostpassCheckBox, "transparent postpass", "Post Processing");
+        double hdrExposureTime = postprocessHDRTimeComboBox->value();
+        if (hdrExposureTime != Settings::Manager::getDouble("auto exposure speed", "Post Processing"))
+            Settings::Manager::setDouble("auto exposure speed", "Post Processing", hdrExposureTime);
+
+        saveSettingBool(radialFogCheckBox, "radial fog", "Fog");
+        saveSettingBool(exponentialFogCheckBox, "exponential fog", "Fog");
+        saveSettingBool(skyBlendingCheckBox, "sky blending", "Fog");
+        Settings::Manager::setDouble("sky blending start", "Fog", skyBlendingStartComboBox->value());
     }
     
     // Audio
     {
         int audioDeviceIndex = audioDeviceSelectorComboBox->currentIndex();
+        std::string prevAudioDevice = Settings::Manager::getString("device", "Sound");
         if (audioDeviceIndex != 0)
         {
-            Settings::Manager::setString("device", "Sound", audioDeviceSelectorComboBox->currentText().toUtf8().constData());
-        } 
-        else 
+            const std::string& newAudioDevice = audioDeviceSelectorComboBox->currentText().toUtf8().constData();
+            if (newAudioDevice != prevAudioDevice)
+                Settings::Manager::setString("device", "Sound", newAudioDevice);
+        }
+        else if (!prevAudioDevice.empty())
         {
-            Settings::Manager::setString("device", "Sound", "");
+            Settings::Manager::setString("device", "Sound", {});
         }
         int hrtfEnabledIndex = enableHRTFComboBox->currentIndex() - 1;
         if (hrtfEnabledIndex != Settings::Manager::getInt("hrtf enable", "Sound"))
@@ -340,32 +360,16 @@ void Launcher::AdvancedPage::saveSettings()
             Settings::Manager::setInt("hrtf enable", "Sound", hrtfEnabledIndex);
         }
         int selectedHRTFProfileIndex = hrtfProfileSelectorComboBox->currentIndex();
+        std::string prevHRTFProfile = Settings::Manager::getString("hrtf", "Sound");
         if (selectedHRTFProfileIndex != 0)
         {
-            Settings::Manager::setString("hrtf", "Sound", hrtfProfileSelectorComboBox->currentText().toUtf8().constData());
+            const std::string& newHRTFProfile  = hrtfProfileSelectorComboBox->currentText().toUtf8().constData();
+            if (newHRTFProfile != prevHRTFProfile)
+                Settings::Manager::setString("hrtf", "Sound", newHRTFProfile);
         }
-        else 
+        else if (!prevHRTFProfile.empty())
         {
-            Settings::Manager::setString("hrtf", "Sound", "");
-        }
-    }
-
-    // Camera
-    {
-        saveSettingBool(viewOverShoulderCheckBox, "view over shoulder", "Camera");
-        saveSettingBool(autoSwitchShoulderCheckBox, "auto switch shoulder", "Camera");
-        saveSettingBool(previewIfStandStillCheckBox, "preview if stand still", "Camera");
-        saveSettingBool(deferredPreviewRotationCheckBox, "deferred preview rotation", "Camera");
-        saveSettingBool(headBobbingCheckBox, "head bobbing", "Camera");
-
-        osg::Vec2f shoulderOffset = Settings::Manager::getVector2("view over shoulder offset", "Camera");
-        if (defaultShoulderComboBox->currentIndex() != (shoulderOffset.x() >= 0 ? 0 : 1))
-        {
-            if (defaultShoulderComboBox->currentIndex() == 0)
-                shoulderOffset.x() = std::abs(shoulderOffset.x());
-            else
-                shoulderOffset.x() = -std::abs(shoulderOffset.x());
-            Settings::Manager::setVector2("view over shoulder offset", "Camera", shoulderOffset);
+            Settings::Manager::setString("hrtf", "Sound", {});
         }
     }
 
@@ -501,7 +505,16 @@ void Launcher::AdvancedPage::slotAnimSourcesToggled(bool checked)
     }
 }
 
-void Launcher::AdvancedPage::slotViewOverShoulderToggled(bool checked)
+void Launcher::AdvancedPage::slotPostProcessToggled(bool checked)
 {
-    viewOverShoulderVerticalLayout->setEnabled(viewOverShoulderCheckBox->checkState());
+    postprocessLiveReloadCheckBox->setEnabled(checked);
+    postprocessTransparentPostpassCheckBox->setEnabled(checked);
+    postprocessHDRTimeComboBox->setEnabled(checked);
+    postprocessHDRTimeLabel->setEnabled(checked);
+}
+
+void Launcher::AdvancedPage::slotSkyBlendingToggled(bool checked)
+{
+    skyBlendingStartComboBox->setEnabled(checked);
+    skyBlendingStartLabel->setEnabled(checked);
 }

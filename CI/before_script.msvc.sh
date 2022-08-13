@@ -76,6 +76,9 @@ GOOGLE_INSTALL_ROOT=""
 INSTALL_PREFIX="."
 BUILD_BENCHMARKS=""
 SKIP_VR=""
+OSG_MULTIVIEW_BUILD=""
+USE_WERROR=""
+USE_CLANG_TIDY=""
 
 ACTIVATE_MSVC=""
 SINGLE_CONFIG=""
@@ -107,6 +110,7 @@ while [ $# -gt 0 ]; do
 
 			C )
 				USE_CCACHE=true ;;
+
 			k )
 				KEEP=true ;;
 
@@ -119,7 +123,7 @@ while [ $# -gt 0 ]; do
 
 			n )
 				NMAKE=true ;;
-			
+
 			N )
 				NINJA=true ;;
 
@@ -143,6 +147,15 @@ while [ $# -gt 0 ]; do
 
 			b )
 				BUILD_BENCHMARKS=true ;;
+
+			M )
+				OSG_MULTIVIEW_BUILD=true ;;
+
+			E )
+				USE_WERROR=true ;;
+
+			T )
+				USE_CLANG_TIDY=true ;;
 
 			h )
 				cat <<EOF
@@ -168,7 +181,7 @@ Options:
 		Build unit tests / Google test
 	-u
 		Configure for unity builds.
-	-v <2017/2019>
+	-v <2019/2022>
 		Choose the Visual Studio version to use.
 	-n
 		Produce NMake makefiles instead of a Visual Studio solution. Cannot be used with -N.
@@ -182,6 +195,12 @@ Options:
 		CMake install prefix
 	-b
 		Build benchmarks
+	-M
+		Use a multiview build of OSG
+	-E
+		Use warnings as errors (/WX)
+	-T
+		Run clang-tidy
 EOF
 				wrappedExit 0
 				;;
@@ -347,34 +366,49 @@ if [ -z $PLATFORM ]; then
 fi
 
 if [ -z $VS_VERSION ]; then
-	VS_VERSION="2017"
+	VS_VERSION="2019"
 fi
 
 case $VS_VERSION in
+	17|17.0|2022 )
+		GENERATOR="Visual Studio 17 2022"
+		TOOLSET="vc143"
+		MSVC_REAL_VER="17"
+		MSVC_VER="14.3"
+		MSVC_DISPLAY_YEAR="2022"
+
+		OSG_MSVC_YEAR="2019"
+		MYGUI_MSVC_YEAR="2019"
+		LUA_MSVC_YEAR="2019"
+		QT_MSVC_YEAR="2019"
+		BULLET_MSVC_YEAR="2015"
+
+		BOOST_VER="1.79.0"
+		BOOST_VER_URL="1_79_0"
+		BOOST_VER_SDK="107900"
+		;;
+
 	16|16.0|2019 )
 		GENERATOR="Visual Studio 16 2019"
 		TOOLSET="vc142"
 		MSVC_REAL_VER="16"
 		MSVC_VER="14.2"
-		MSVC_YEAR="2015"
-		MSVC_REAL_YEAR="2019"
 		MSVC_DISPLAY_YEAR="2019"
-		BOOST_VER="1.71.0"
-		BOOST_VER_URL="1_71_0"
-		BOOST_VER_SDK="107100"
+
+		OSG_MSVC_YEAR="2019"
+		MYGUI_MSVC_YEAR="2019"
+		LUA_MSVC_YEAR="2019"
+		QT_MSVC_YEAR="2019"
+		BULLET_MSVC_YEAR="2015"
+
+		BOOST_VER="1.79.0"
+		BOOST_VER_URL="1_79_0"
+		BOOST_VER_SDK="107900"
 		;;
 
 	15|15.0|2017 )
-		GENERATOR="Visual Studio 15 2017"
-		TOOLSET="vc141"
-		MSVC_REAL_VER="15"
-		MSVC_VER="14.1"
-		MSVC_YEAR="2015"
-		MSVC_REAL_YEAR="2017"
-		MSVC_DISPLAY_YEAR="2017"
-		BOOST_VER="1.67.0"
-		BOOST_VER_URL="1_67_0"
-		BOOST_VER_SDK="106700"
+		echo "Visual Studio 2017 is no longer supported"
+		wrappedExit 1
 		;;
 
 	14|14.0|2015 )
@@ -406,10 +440,6 @@ case $PLATFORM in
 		wrappedExit 1
 		;;
 esac
-
-if [ $BITS -eq 64 ] && [ $MSVC_REAL_VER -lt 16 ]; then
-	GENERATOR="${GENERATOR} Win64"
-fi
 
 if [ -n "$NMAKE" ]; then
 	GENERATOR="NMake Makefiles"
@@ -494,7 +524,7 @@ for i in ${!CONFIGURATIONS[@]}; do
 	esac
 done
 
-if [ $MSVC_REAL_VER -ge 16 ] && [ -z "$NMAKE" ] && [ -z "$NINJA" ]; then
+if [ -z "$NMAKE" ] && [ -z "$NINJA" ]; then
 	if [ $BITS -eq 64 ]; then
 		add_cmake_opts "-G\"$GENERATOR\" -A x64"
 	else
@@ -515,6 +545,29 @@ fi
 if ! [ -z $USE_CCACHE ]; then
 	add_cmake_opts "-DCMAKE_C_COMPILER_LAUNCHER=ccache  -DCMAKE_CXX_COMPILER_LAUNCHER=ccache"
 fi
+
+# turn on LTO by default
+add_cmake_opts "-DOPENMW_LTO_BUILD=True"
+
+if ! [ -z "$USE_WERROR" ]; then
+  add_cmake_opts "-DOPENMW_MSVC_WERROR=ON"
+fi
+
+if ! [ -z "$USE_CLANG_TIDY" ]; then
+  add_cmake_opts "-DCMAKE_CXX_CLANG_TIDY=\"clang-tidy --warnings-as-errors=*\""
+fi
+
+ICU_VER="70_1"
+
+OSG_ARCHIVE_NAME="OSGoS 3.6.5"
+OSG_ARCHIVE="OSGoS-3.6.5-b02abe2-msvc${OSG_MSVC_YEAR}-win${BITS}"
+OSG_ARCHIVE_REPO_URL="https://gitlab.com/OpenMW/openmw-deps/-/raw/main"
+if ! [ -z $OSG_MULTIVIEW_BUILD ]; then
+    OSG_ARCHIVE_NAME="OSG-3.6-multiview"
+    OSG_ARCHIVE="OSG-3.6-multiview-ee297dce0-msvc${OSG_MSVC_YEAR}-win${BITS}"
+    OSG_ARCHIVE_REPO_URL="https://gitlab.com/madsbuvi/openmw-deps/-/raw/openmw-vr-ovr_multiview"
+fi
+
 
 echo
 echo "==================================="
@@ -541,8 +594,8 @@ if [ -z $SKIP_DOWNLOAD ]; then
 
 	# Bullet
 	download "Bullet 2.89" \
-		"https://gitlab.com/OpenMW/openmw-deps/-/raw/main/windows/Bullet-2.89-msvc${MSVC_YEAR}-win${BITS}-double.7z" \
-		"Bullet-2.89-msvc${MSVC_YEAR}-win${BITS}-double.7z"
+		"https://gitlab.com/OpenMW/openmw-deps/-/raw/main/windows/Bullet-2.89-msvc${BULLET_MSVC_YEAR}-win${BITS}-double.7z" \
+		"Bullet-2.89-msvc${BULLET_MSVC_YEAR}-win${BITS}-double.7z"
 
 	# FFmpeg
 	download "FFmpeg 4.2.2" \
@@ -553,13 +606,13 @@ if [ -z $SKIP_DOWNLOAD ]; then
 
 	# MyGUI
 	download "MyGUI 3.4.1" \
-		"https://gitlab.com/OpenMW/openmw-deps/-/raw/main/windows/MyGUI-3.4.1-msvc${MSVC_REAL_YEAR}-win${BITS}.7z" \
-		"MyGUI-3.4.1-msvc${MSVC_REAL_YEAR}-win${BITS}.7z"
+		"https://gitlab.com/OpenMW/openmw-deps/-/raw/main/windows/MyGUI-3.4.1-msvc${MYGUI_MSVC_YEAR}-win${BITS}.7z" \
+		"MyGUI-3.4.1-msvc${MYGUI_MSVC_YEAR}-win${BITS}.7z"
 
 	if [ -n "$PDBS" ]; then
 		download "MyGUI symbols" \
-			"https://gitlab.com/OpenMW/openmw-deps/-/raw/main/windows/MyGUI-3.4.1-msvc${MSVC_REAL_YEAR}-win${BITS}-sym.7z" \
-			"MyGUI-3.4.1-msvc${MSVC_REAL_YEAR}-win${BITS}-sym.7z"
+			"https://gitlab.com/OpenMW/openmw-deps/-/raw/main/windows/MyGUI-3.4.1-msvc${MYGUI_MSVC_YEAR}-win${BITS}-sym.7z" \
+			"MyGUI-3.4.1-msvc${MYGUI_MSVC_YEAR}-win${BITS}-sym.7z"
 	fi
 
 	# OpenAL
@@ -568,20 +621,20 @@ if [ -z $SKIP_DOWNLOAD ]; then
 		"OpenAL-Soft-1.20.1.zip"
 
 	# OSGoS
-	download "OSGoS 3.6.5 (MultiView)" \
-		"https://gitlab.com/madsbuvi/openmw-deps/-/raw/openmw-vr-ovr_multiview/windows/OSG-3.6-multiview-ee297dce0-msvc${MSVC_REAL_YEAR}-win${BITS}.7z" \
-		"OSG-3.6-multiview-ee297dce0-msvc${MSVC_REAL_YEAR}-win${BITS}.7z"
+	download "${OSG_ARCHIVE_NAME}" \
+		"${OSG_ARCHIVE_REPO_URL}/windows/${OSG_ARCHIVE}.7z" \
+		"${OSG_ARCHIVE}.7z"
 
 	if [ -n "$PDBS" ]; then
-		download "OSGoS symbols" \
-            "https://gitlab.com/madsbuvi/openmw-deps/-/raw/openmw-vr-ovr_multiview/windows/OSG-3.6-multiview-ee297dce0-msvc${MSVC_REAL_YEAR}-win${BITS}-sym.7z" \
-			"OSG-3.6-multiview-ee297dce0-msvc${MSVC_REAL_YEAR}-win${BITS}-sym.7z"
+		download "${OSG_ARCHIVE_NAME} symbols" \
+			"${OSG_ARCHIVE_REPO_URL}/windows/${OSG_ARCHIVE}-sym.7z" \
+			"${OSG_ARCHIVE}-sym.7z"
 	fi
 
 	# SDL2
-	download "SDL 2.0.18" \
-		"https://gitlab.com/OpenMW/openmw-deps/-/raw/main/windows/SDL2-2.0.18.zip" \
-		"SDL2-2.0.18.zip"
+	download "SDL 2.0.22" \
+		"https://gitlab.com/OpenMW/openmw-deps/-/raw/main/windows/SDL2-2.0.22.zip" \
+		"SDL2-2.0.22.zip"
 
 	# LZ4
 	download "LZ4 1.9.2" \
@@ -590,18 +643,13 @@ if [ -z $SKIP_DOWNLOAD ]; then
 
 	# LuaJIT
 	download "LuaJIT 2.1.0-beta3" \
-		"https://gitlab.com/OpenMW/openmw-deps/-/raw/main/windows/LuaJIT-2.1.0-beta3-msvc${MSVC_REAL_YEAR}-win${BITS}.7z" \
-		"LuaJIT-2.1.0-beta3-msvc${MSVC_REAL_YEAR}-win${BITS}.7z"
+		"https://gitlab.com/OpenMW/openmw-deps/-/raw/main/windows/LuaJIT-2.1.0-beta3-msvc${LUA_MSVC_YEAR}-win${BITS}.7z" \
+		"LuaJIT-2.1.0-beta3-msvc${LUA_MSVC_YEAR}-win${BITS}.7z"
 
-	# Google test and mock
-	if [ ! -z $TEST_FRAMEWORK ]; then
-		echo "Google test 1.10.0..."
-		if [ -d googletest ]; then
-			printf "  Google test exists, skipping."
-		else
-			git clone -b release-1.10.0 https://github.com/google/googletest.git
-		fi
-	fi
+    # ICU
+    download "ICU ${ICU_VER/_/.}"\
+        "https://github.com/unicode-org/icu/releases/download/release-${ICU_VER/_/-}/icu4c-${ICU_VER}-Win${BITS}-MSVC2019.zip" \
+        "icu4c-${ICU_VER}-Win${BITS}-MSVC2019.zip"
 fi
 
 cd .. #/..
@@ -694,8 +742,8 @@ printf "Bullet 2.89... "
 		printf -- "Exists. (No version checking) "
 	elif [ -z $SKIP_EXTRACT ]; then
 		rm -rf Bullet
-		eval 7z x -y "${DEPS}/Bullet-2.89-msvc${MSVC_YEAR}-win${BITS}-double.7z" $STRIP
-		mv "Bullet-2.89-msvc${MSVC_YEAR}-win${BITS}-double" Bullet
+		eval 7z x -y "${DEPS}/Bullet-2.89-msvc${BULLET_MSVC_YEAR}-win${BITS}-double.7z" $STRIP
+		mv "Bullet-2.89-msvc${BULLET_MSVC_YEAR}-win${BITS}-double" Bullet
 	fi
 	add_cmake_opts -DBULLET_ROOT="$(real_pwd)/Bullet"
 	echo Done.
@@ -739,9 +787,9 @@ printf "MyGUI 3.4.1... "
 		printf "Exists. "
 	elif [ -z $SKIP_EXTRACT ]; then
 		rm -rf MyGUI
-		eval 7z x -y "${DEPS}/MyGUI-3.4.1-msvc${MSVC_REAL_YEAR}-win${BITS}.7z" $STRIP
-		[ -n "$PDBS" ] && eval 7z x -y "${DEPS}/MyGUI-3.4.1-msvc${MSVC_REAL_YEAR}-win${BITS}-sym.7z" $STRIP
-		mv "MyGUI-3.4.1-msvc${MSVC_REAL_YEAR}-win${BITS}" MyGUI
+		eval 7z x -y "${DEPS}/MyGUI-3.4.1-msvc${MYGUI_MSVC_YEAR}-win${BITS}.7z" $STRIP
+		[ -n "$PDBS" ] && eval 7z x -y "${DEPS}/MyGUI-3.4.1-msvc${MYGUI_MSVC_YEAR}-win${BITS}-sym.7z" $STRIP
+		mv "MyGUI-3.4.1-msvc${MYGUI_MSVC_YEAR}-win${BITS}" MyGUI
 	fi
 	export MYGUI_HOME="$(real_pwd)/MyGUI"
 	for CONFIGURATION in ${CONFIGURATIONS[@]}; do
@@ -778,7 +826,7 @@ printf "OpenAL-Soft 1.20.1... "
 cd $DEPS
 echo
 # OSGoS
-printf "OSGoS 3.6.5... "
+printf "${OSG_ARCHIVE_NAME}... "
 {
 	cd $DEPS_INSTALL
 	if [ -d OSG ] && \
@@ -789,9 +837,9 @@ printf "OSGoS 3.6.5... "
 		printf "Exists. "
 	elif [ -z $SKIP_EXTRACT ]; then
 		rm -rf OSG
-		eval 7z x -y "${DEPS}/OSG-3.6-multiview-ee297dce0-msvc${MSVC_REAL_YEAR}-win${BITS}.7z" $STRIP
-		[ -n "$PDBS" ] && eval 7z x -y "${DEPS}/OSG-3.6-multiview-ee297dce0-msvc${MSVC_REAL_YEAR}-win${BITS}-sym.7z" $STRIP
-		mv "OSG-3.6-multiview-ee297dce0-msvc${MSVC_REAL_YEAR}-win${BITS}" OSG
+		eval 7z x -y "${DEPS}/${OSG_ARCHIVE}.7z" $STRIP
+		[ -n "$PDBS" ] && eval 7z x -y "${DEPS}/${OSG_ARCHIVE}-sym.7z" $STRIP
+		mv "${OSG_ARCHIVE}" OSG
 	fi
 	OSG_SDK="$(real_pwd)/OSG"
 	add_cmake_opts -DOSG_DIR="$OSG_SDK"
@@ -801,8 +849,13 @@ printf "OSGoS 3.6.5... "
 		else
 			SUFFIX=""
 		fi
-		add_runtime_dlls $CONFIGURATION "$(pwd)/OSG/bin/"{ot21-OpenThreads,zlib,libpng16}${SUFFIX}.dll \
-			"$(pwd)/OSG/bin/osg162-osg"{,Animation,DB,FX,GA,Particle,Text,Util,Viewer,Shadow}${SUFFIX}.dll
+        if ! [ -z $OSG_MULTIVIEW_BUILD ]; then
+            add_runtime_dlls $CONFIGURATION "$(pwd)/OSG/bin/"{ot21-OpenThreads,zlib,libpng16}${SUFFIX}.dll \
+                "$(pwd)/OSG/bin/osg162-osg"{,Animation,DB,FX,GA,Particle,Text,Util,Viewer,Shadow}${SUFFIX}.dll
+        else
+            add_runtime_dlls $CONFIGURATION "$(pwd)/OSG/bin/"{OpenThreads,zlib,libpng}${SUFFIX}.dll \
+                "$(pwd)/OSG/bin/osg"{,Animation,DB,FX,GA,Particle,Text,Util,Viewer,Shadow}${SUFFIX}.dll
+        fi
 		add_osg_dlls $CONFIGURATION "$(pwd)/OSG/bin/osgPlugins-3.6.5/osgdb_"{bmp,dds,freetype,jpeg,osg,png,tga}${SUFFIX}.dll
 		add_osg_dlls $CONFIGURATION "$(pwd)/OSG/bin/osgPlugins-3.6.5/osgdb_serializers_osg"{,animation,fx,ga,particle,text,util,viewer,shadow}${SUFFIX}.dll
 	done
@@ -811,123 +864,92 @@ printf "OSGoS 3.6.5... "
 cd $DEPS
 echo
 # Qt
-if [ -z $APPVEYOR ]; then
-	printf "Qt 5.15.0... "
-else
-	printf "Qt 5.13 AppVeyor... "
-fi
+printf "Qt 5.15.2... "
 {
 	if [ $BITS -eq 64 ]; then
 		SUFFIX="_64"
 	else
 		SUFFIX=""
 	fi
-	if [ -z $APPVEYOR ]; then
-		cd $DEPS_INSTALL
 
-		qt_version="5.15.0"
-		if [ "win${BITS}_msvc${MSVC_REAL_YEAR}${SUFFIX}" == "win64_msvc2017_64" ]; then
-			echo "This combination of options is known not to work. Falling back to Qt 5.14.2."
-			qt_version="5.14.2"
+	cd $DEPS_INSTALL
+
+	qt_version="5.15.2"
+
+	QT_SDK="$(real_pwd)/Qt/${qt_version}/msvc${QT_MSVC_YEAR}${SUFFIX}"
+
+	if [ -d "Qt/${qt_version}" ]; then
+		printf "Exists. "
+	elif [ -z $SKIP_EXTRACT ]; then
+		if [ $MISSINGPYTHON -ne 0 ]; then
+			echo "Can't be automatically installed without Python."
+			wrappedExit 1
 		fi
 
-		QT_SDK="$(real_pwd)/Qt/${qt_version}/msvc${MSVC_REAL_YEAR}${SUFFIX}"
-
-		if [ -d "Qt/${qt_version}" ]; then
-			printf "Exists. "
-		elif [ -z $SKIP_EXTRACT ]; then
-			if [ $MISSINGPYTHON -ne 0 ]; then
-				echo "Can't be automatically installed without Python."
-				wrappedExit 1
-			fi
-
-			pushd "$DEPS" > /dev/null
-			if ! [ -d 'aqt-venv' ]; then
-				echo "  Creating Virtualenv for aqt..."
-				run_cmd python -m venv aqt-venv
-			fi
-			if [ -d 'aqt-venv/bin' ]; then
-				VENV_BIN_DIR='bin'
-			elif [ -d 'aqt-venv/Scripts' ]; then
-				VENV_BIN_DIR='Scripts'
-			else
-				echo "Error: Failed to create virtualenv in expected location."
-				wrappedExit 1
-			fi
-
-			# check version
-			aqt-venv/${VENV_BIN_DIR}/pip list | grep 'aqtinstall\s*1.1.3' || [ $? -ne 0 ]
-			if [ $? -eq 0 ]; then
-				echo "  Installing aqt wheel into virtualenv..."
-				run_cmd "aqt-venv/${VENV_BIN_DIR}/pip" install aqtinstall==1.1.3
-			fi
-			popd > /dev/null
-
-			rm -rf Qt
-
-			mkdir Qt
-			cd Qt
-
-			run_cmd "${DEPS}/aqt-venv/${VENV_BIN_DIR}/aqt" install $qt_version windows desktop "win${BITS}_msvc${MSVC_REAL_YEAR}${SUFFIX}"
-
-			printf "  Cleaning up extraneous data... "
-			rm -rf Qt/{aqtinstall.log,Tools}
-
-			echo Done.
+		pushd "$DEPS" > /dev/null
+		if ! [ -d 'aqt-venv' ]; then
+			echo "  Creating Virtualenv for aqt..."
+			run_cmd python -m venv aqt-venv
+		fi
+		if [ -d 'aqt-venv/bin' ]; then
+			VENV_BIN_DIR='bin'
+		elif [ -d 'aqt-venv/Scripts' ]; then
+			VENV_BIN_DIR='Scripts'
+		else
+			echo "Error: Failed to create virtualenv in expected location."
+			wrappedExit 1
 		fi
 
-		cd $QT_SDK
-		add_cmake_opts -DQT_QMAKE_EXECUTABLE="${QT_SDK}/bin/qmake.exe" \
-			-DCMAKE_PREFIX_PATH="$QT_SDK"
-		for CONFIGURATION in ${CONFIGURATIONS[@]}; do
-			if [ $CONFIGURATION == "Debug" ]; then
-				DLLSUFFIX="d"
-			else
-				DLLSUFFIX=""
-			fi
-			add_runtime_dlls $CONFIGURATION "$(pwd)/bin/Qt5"{Core,Gui,Network,OpenGL,Widgets}${DLLSUFFIX}.dll
-			add_qt_platform_dlls $CONFIGURATION "$(pwd)/plugins/platforms/qwindows${DLLSUFFIX}.dll"
-			add_qt_style_dlls $CONFIGURATION "$(pwd)/plugins/styles/qwindowsvistastyle${DLLSUFFIX}.dll"
-		done
-		echo Done.
-	else
-		# default to msvc2019 which pre-loads Qt 5.15.2
-		qt_version="5.15.2"
-		if [ "msvc${MSVC_REAL_YEAR}" == "msvc2017" ]; then
-			qt_version="5.13"
-    	fi
-		QT_SDK="C:/Qt/${qt_version}/msvc${MSVC_REAL_YEAR}${SUFFIX}"
+		# check version
+		aqt-venv/${VENV_BIN_DIR}/pip list | grep 'aqtinstall\s*1.1.3' || [ $? -ne 0 ]
+		if [ $? -eq 0 ]; then
+			echo "  Installing aqt wheel into virtualenv..."
+			run_cmd "aqt-venv/${VENV_BIN_DIR}/pip" install aqtinstall==1.1.3
+		fi
+		popd > /dev/null
 
-		add_cmake_opts -DQT_QMAKE_EXECUTABLE="${QT_SDK}/bin/qmake.exe" \
-			-DCMAKE_PREFIX_PATH="$QT_SDK"
-		for CONFIGURATION in ${CONFIGURATIONS[@]}; do
-			if [ $CONFIGURATION == "Debug" ]; then
-				DLLSUFFIX="d"
-			else
-				DLLSUFFIX=""
-			fi
-			DIR=$(windowsPathAsUnix "${QT_SDK}")
-			add_runtime_dlls $CONFIGURATION "${DIR}/bin/Qt5"{Core,Gui,Network,OpenGL,Widgets}${DLLSUFFIX}.dll
-			add_qt_platform_dlls $CONFIGURATION "${DIR}/plugins/platforms/qwindows${DLLSUFFIX}.dll"
-			add_qt_style_dlls $CONFIGURATION "${DIR}/plugins/styles/qwindowsvistastyle${DLLSUFFIX}.dll"
-		done
+		rm -rf Qt
+
+		mkdir Qt
+		cd Qt
+
+		run_cmd "${DEPS}/aqt-venv/${VENV_BIN_DIR}/aqt" install $qt_version windows desktop "win${BITS}_msvc${QT_MSVC_YEAR}${SUFFIX}"
+
+		printf "  Cleaning up extraneous data... "
+		rm -rf Qt/{aqtinstall.log,Tools}
+
 		echo Done.
 	fi
+
+	cd $QT_SDK
+	add_cmake_opts -DQT_QMAKE_EXECUTABLE="${QT_SDK}/bin/qmake.exe" \
+		-DCMAKE_PREFIX_PATH="$QT_SDK"
+	for CONFIGURATION in ${CONFIGURATIONS[@]}; do
+		if [ $CONFIGURATION == "Debug" ]; then
+			DLLSUFFIX="d"
+		else
+			DLLSUFFIX=""
+		fi
+		add_runtime_dlls $CONFIGURATION "$(pwd)/bin/Qt5"{Core,Gui,Network,OpenGL,Widgets}${DLLSUFFIX}.dll
+		add_qt_platform_dlls $CONFIGURATION "$(pwd)/plugins/platforms/qwindows${DLLSUFFIX}.dll"
+		add_qt_style_dlls $CONFIGURATION "$(pwd)/plugins/styles/qwindowsvistastyle${DLLSUFFIX}.dll"
+	done
+	echo Done.
 }
 cd $DEPS
 echo
 # SDL2
-printf "SDL 2.0.18... "
+printf "SDL 2.0.22... "
 {
-	if [ -d SDL2-2.0.18 ]; then
+	if [ -d SDL2-2.0.22 ]; then
 		printf "Exists. "
 	elif [ -z $SKIP_EXTRACT ]; then
-		rm -rf SDL2-2.0.18
-		eval 7z x -y SDL2-2.0.18.zip $STRIP
+		rm -rf SDL2-2.0.22
+		eval 7z x -y SDL2-2.0.22.zip $STRIP
 	fi
-	export SDL2DIR="$(real_pwd)/SDL2-2.0.18"
+	export SDL2DIR="$(real_pwd)/SDL2-2.0.22"
 	for config in ${CONFIGURATIONS[@]}; do
-		add_runtime_dlls $config "$(pwd)/SDL2-2.0.18/lib/x${ARCHSUFFIX}/SDL2.dll"
+		add_runtime_dlls $config "$(pwd)/SDL2-2.0.22/lib/x${ARCHSUFFIX}/SDL2.dll"
 	done
 	echo Done.
 }
@@ -965,7 +987,7 @@ printf "LuaJIT 2.1.0-beta3... "
 		printf "Exists. "
 	elif [ -z $SKIP_EXTRACT ]; then
 		rm -rf LuaJIT
-		eval 7z x -y LuaJIT-2.1.0-beta3-msvc${MSVC_REAL_YEAR}-win${BITS}.7z -o$(real_pwd)/LuaJIT $STRIP
+		eval 7z x -y LuaJIT-2.1.0-beta3-msvc${LUA_MSVC_YEAR}-win${BITS}.7z -o$(real_pwd)/LuaJIT $STRIP
 	fi
 	export LUAJIT_DIR="$(real_pwd)/LuaJIT"
 	add_cmake_opts -DLuaJit_INCLUDE_DIR="${LUAJIT_DIR}/include" \
@@ -975,61 +997,32 @@ printf "LuaJIT 2.1.0-beta3... "
 	done
 	echo Done.
 }
+
 cd $DEPS
 echo
-# Google Test and Google Mock
-if [ ! -z $TEST_FRAMEWORK ]; then
-	printf "Google test 1.10.0 ..."
+# ICU
+printf "ICU ${ICU_VER/_/.}... "
+{
+	if [ -d ICU-${ICU_VER} ]; then
+		printf "Exists. "
+	elif [ -z $SKIP_EXTRACT ]; then
+		rm -rf ICU-${ICU_VER}
+		eval 7z x -y icu4c-${ICU_VER}-Win${BITS}-MSVC2019.zip -o$(real_pwd)/ICU-${ICU_VER} $STRIP
+	fi
+	ICU_ROOT="$(real_pwd)/ICU-${ICU_VER}"
+	add_cmake_opts -DICU_ROOT="${ICU_ROOT}" \
+		-DICU_INCLUDE_DIR="${ICU_ROOT}/include" \
+		-DICU_I18N_LIBRARY="${ICU_ROOT}/lib${BITS}/icuin.lib " \
+		-DICU_UC_LIBRARY="${ICU_ROOT}/lib${BITS}/icuuc.lib " \
+		-DICU_DEBUG=ON
 
-	cd googletest
-	mkdir -p build${MSVC_REAL_YEAR}
-
-	cd build${MSVC_REAL_YEAR}
-
-	GOOGLE_INSTALL_ROOT="${DEPS_INSTALL}/GoogleTest"
-	
-	for CONFIGURATION in ${CONFIGURATIONS[@]}; do
-		# FindGMock.cmake mentions Release explicitly, but not RelWithDebInfo. Only one optimised library config can be used, so go for the safer one.
-		GTEST_CONFIG=$([ $CONFIGURATION == "RelWithDebInfo" ] && echo "Release" || echo "$CONFIGURATION" )
-		if [ $GTEST_CONFIG == "Debug" ]; then
-			DEBUG_SUFFIX="d"
-		else
-			DEBUG_SUFFIX=""
-		fi
-
-		if [ ! -f "$GOOGLE_INSTALL_ROOT/lib/gtest${DEBUG_SUFFIX}.lib" ]; then
-			# Always use MSBuild solution files as they don't need the environment activating
-			cmake .. -DCMAKE_USE_WIN32_THREADS_INIT=1 -G "Visual Studio $MSVC_REAL_VER $MSVC_REAL_YEAR$([ $BITS -eq 64 ] && [ $MSVC_REAL_VER -lt 16 ] && echo " Win64")" $([ $MSVC_REAL_VER -ge 16 ] && echo "-A $([ $BITS -eq 64 ] && echo "x64" || echo "Win32")") -DBUILD_SHARED_LIBS=1
-			cmake --build . --config "${GTEST_CONFIG}"
-			cmake --install . --config "${GTEST_CONFIG}" --prefix "${GOOGLE_INSTALL_ROOT}"
-		fi
-
-		add_runtime_dlls $CONFIGURATION "${GOOGLE_INSTALL_ROOT}\bin\gtest_main${DEBUG_SUFFIX}.dll"
-		add_runtime_dlls $CONFIGURATION "${GOOGLE_INSTALL_ROOT}\bin\gtest${DEBUG_SUFFIX}.dll"
-		add_runtime_dlls $CONFIGURATION "${GOOGLE_INSTALL_ROOT}\bin\gmock_main${DEBUG_SUFFIX}.dll"
-		add_runtime_dlls $CONFIGURATION "${GOOGLE_INSTALL_ROOT}\bin\gmock${DEBUG_SUFFIX}.dll"
+	for config in ${CONFIGURATIONS[@]}; do
+		add_runtime_dlls $config "$(pwd)/ICU-${ICU_VER}/bin${BITS}/icudt${ICU_VER/_*/}.dll"
+		add_runtime_dlls $config "$(pwd)/ICU-${ICU_VER}/bin${BITS}/icuin${ICU_VER/_*/}.dll"
+		add_runtime_dlls $config "$(pwd)/ICU-${ICU_VER}/bin${BITS}/icuuc${ICU_VER/_*/}.dll"
 	done
-
-	add_cmake_opts -DBUILD_UNITTESTS=yes
-	# FindGTest and FindGMock do not work perfectly on Windows
-	# but we can help them by telling them everything we know about installation
-	add_cmake_opts -DGMOCK_ROOT="$GOOGLE_INSTALL_ROOT"
-	add_cmake_opts -DGTEST_ROOT="$GOOGLE_INSTALL_ROOT"
-	add_cmake_opts -DGTEST_LIBRARY="$GOOGLE_INSTALL_ROOT/lib/gtest.lib"
-	add_cmake_opts -DGTEST_MAIN_LIBRARY="$GOOGLE_INSTALL_ROOT/lib/gtest_main.lib"
-	add_cmake_opts -DGMOCK_LIBRARY="$GOOGLE_INSTALL_ROOT/lib/gmock.lib"
-	add_cmake_opts -DGMOCK_MAIN_LIBRARY="$GOOGLE_INSTALL_ROOT/lib/gmock_main.lib"
-	add_cmake_opts -DGTEST_LIBRARY_DEBUG="$GOOGLE_INSTALL_ROOT/lib/gtestd.lib"
-	add_cmake_opts -DGTEST_MAIN_LIBRARY_DEBUG="$GOOGLE_INSTALL_ROOT/lib/gtest_maind.lib"
-	add_cmake_opts -DGMOCK_LIBRARY_DEBUG="$GOOGLE_INSTALL_ROOT/lib/gmockd.lib"
-	add_cmake_opts -DGMOCK_MAIN_LIBRARY_DEBUG="$GOOGLE_INSTALL_ROOT/lib/gmock_maind.lib"
-	add_cmake_opts -DGTEST_LINKED_AS_SHARED_LIBRARY=True
-	add_cmake_opts -DGTEST_LIBRARY_TYPE=SHARED
-	add_cmake_opts -DGTEST_MAIN_LIBRARY_TYPE=SHARED
-
 	echo Done.
-
-fi
+}
 
 # VR build
 if [ ! -Z $SKIP_VR ]; then
@@ -1043,6 +1036,7 @@ echo "Setting up OpenMW build..."
 add_cmake_opts -DOPENMW_MP_BUILD=on
 add_cmake_opts -DCMAKE_INSTALL_PREFIX="${INSTALL_PREFIX}"
 add_cmake_opts -DOPENMW_USE_SYSTEM_SQLITE3=OFF
+add_cmake_opts -DOPENMW_USE_SYSTEM_YAML_CPP=OFF
 if [ ! -z $CI ]; then
 	case $STEP in
 		components )
@@ -1136,6 +1130,10 @@ fi
 
 if [ "${BUILD_BENCHMARKS}" ]; then
 	add_cmake_opts -DBUILD_BENCHMARKS=ON
+fi
+
+if [ -n "${TEST_FRAMEWORK}" ]; then
+	add_cmake_opts -DBUILD_UNITTESTS=ON
 fi
 
 if [ -n "$ACTIVATE_MSVC" ]; then

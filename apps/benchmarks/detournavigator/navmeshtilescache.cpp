@@ -5,7 +5,6 @@
 
 #include <algorithm>
 #include <random>
-#include <iostream>
 
 namespace
 {
@@ -13,7 +12,7 @@ namespace
 
     struct Key
     {
-        osg::Vec3f mAgentHalfExtents;
+        AgentBounds mAgentBounds;
         TilePosition mTilePosition;
         RecastMesh mRecastMesh;
     };
@@ -137,6 +136,7 @@ namespace
     template <class Random>
     Key generateKey(std::size_t triangles, Random& random)
     {
+        const CollisionShapeType agentShapeType = CollisionShapeType::Aabb;
         const osg::Vec3f agentHalfExtents = generateAgentHalfExtents(0.5, 1.5, random);
         const TilePosition tilePosition = generateVec2i(10000, random);
         const std::size_t generation = std::uniform_int_distribution<std::size_t>(0, 100)(random);
@@ -146,7 +146,7 @@ namespace
         generateWater(std::back_inserter(water), 1, random);
         RecastMesh recastMesh(generation, revision, std::move(mesh), std::move(water),
                               {generateHeightfield(random)}, {generateFlatHeightfield(random)}, {});
-        return Key {agentHalfExtents, tilePosition, std::move(recastMesh)};
+        return Key {AgentBounds {agentShapeType, agentHalfExtents}, tilePosition, std::move(recastMesh)};
     }
 
     constexpr std::size_t trianglesPerTile = 239;
@@ -165,7 +165,7 @@ namespace
         while (true)
         {
             Key key = generateKey(trianglesPerTile, random);
-            cache.set(key.mAgentHalfExtents, key.mTilePosition, key.mRecastMesh,
+            cache.set(key.mAgentBounds, key.mTilePosition, key.mRecastMesh,
                       std::make_unique<PreparedNavMeshData>());
             *out++ = std::move(key);
             const std::size_t newSize = cache.getStats().mNavMeshCacheSize;
@@ -188,19 +188,50 @@ namespace
         while (state.KeepRunning())
         {
             const auto& key = keys[n++ % keys.size()];
-            const auto result = cache.get(key.mAgentHalfExtents, key.mTilePosition, key.mRecastMesh);
+            const auto result = cache.get(key.mAgentBounds, key.mTilePosition, key.mRecastMesh);
             benchmark::DoNotOptimize(result);
         }
     }
 
-    constexpr auto getFromFilledCache_1m_100hit = getFromFilledCache<1 * 1024 * 1024, 100>;
-    constexpr auto getFromFilledCache_4m_100hit = getFromFilledCache<4 * 1024 * 1024, 100>;
-    constexpr auto getFromFilledCache_16m_100hit = getFromFilledCache<16 * 1024 * 1024, 100>;
-    constexpr auto getFromFilledCache_64m_100hit = getFromFilledCache<64 * 1024 * 1024, 100>;
-    constexpr auto getFromFilledCache_1m_70hit = getFromFilledCache<1 * 1024 * 1024, 70>;
-    constexpr auto getFromFilledCache_4m_70hit = getFromFilledCache<4 * 1024 * 1024, 70>;
-    constexpr auto getFromFilledCache_16m_70hit = getFromFilledCache<16 * 1024 * 1024, 70>;
-    constexpr auto getFromFilledCache_64m_70hit = getFromFilledCache<64 * 1024 * 1024, 70>;
+    void getFromFilledCache_1m_100hit(benchmark::State& state)
+    {
+        getFromFilledCache<1 * 1024 * 1024, 100>(state);
+    }
+
+    void getFromFilledCache_4m_100hit(benchmark::State& state)
+    {
+        getFromFilledCache<4 * 1024 * 1024, 100>(state);
+    }
+
+    void getFromFilledCache_16m_100hit(benchmark::State& state)
+    {
+        getFromFilledCache<16 * 1024 * 1024, 100>(state);
+    }
+
+    void getFromFilledCache_64m_100hit(benchmark::State& state)
+    {
+        getFromFilledCache<64 * 1024 * 1024, 100>(state);
+    }
+
+    void getFromFilledCache_1m_70hit(benchmark::State& state)
+    {
+        getFromFilledCache<1 * 1024 * 1024, 70>(state);
+    }
+
+    void getFromFilledCache_4m_70hit(benchmark::State& state)
+    {
+        getFromFilledCache<4 * 1024 * 1024, 70>(state);
+    }
+
+    void getFromFilledCache_16m_70hit(benchmark::State& state)
+    {
+        getFromFilledCache<16 * 1024 * 1024, 70>(state);
+    }
+
+    void getFromFilledCache_64m_70hit(benchmark::State& state)
+    {
+        getFromFilledCache<64 * 1024 * 1024, 70>(state);
+    }
 
     template <std::size_t maxCacheSize>
     void setToBoundedNonEmptyCache(benchmark::State& state)
@@ -216,16 +247,31 @@ namespace
         while (state.KeepRunning())
         {
             const auto& key = keys[n++ % keys.size()];
-            const auto result = cache.set(key.mAgentHalfExtents, key.mTilePosition, key.mRecastMesh,
+            const auto result = cache.set(key.mAgentBounds, key.mTilePosition, key.mRecastMesh,
                                           std::make_unique<PreparedNavMeshData>());
             benchmark::DoNotOptimize(result);
         }
     }
 
-    constexpr auto setToBoundedNonEmptyCache_1m = setToBoundedNonEmptyCache<1 * 1024 * 1024>;
-    constexpr auto setToBoundedNonEmptyCache_4m = setToBoundedNonEmptyCache<4 * 1024 * 1024>;
-    constexpr auto setToBoundedNonEmptyCache_16m = setToBoundedNonEmptyCache<16 * 1024 * 1024>;
-    constexpr auto setToBoundedNonEmptyCache_64m = setToBoundedNonEmptyCache<64 * 1024 * 1024>;
+    void setToBoundedNonEmptyCache_1m(benchmark::State& state)
+    {
+        setToBoundedNonEmptyCache<1 * 1024 * 1024>(state);
+    }
+
+    void setToBoundedNonEmptyCache_4m(benchmark::State& state)
+    {
+        setToBoundedNonEmptyCache<4 * 1024 * 1024>(state);
+    }
+
+    void setToBoundedNonEmptyCache_16m(benchmark::State& state)
+    {
+        setToBoundedNonEmptyCache<16 * 1024 * 1024>(state);
+    }
+
+    void setToBoundedNonEmptyCache_64m(benchmark::State& state)
+    {
+        setToBoundedNonEmptyCache<64 * 1024 * 1024>(state);
+    }
 } // namespace
 
 BENCHMARK(getFromFilledCache_1m_100hit);

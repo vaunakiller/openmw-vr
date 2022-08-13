@@ -50,7 +50,7 @@
 namespace
 {
 
-std::string getVampireHead(const std::string& race, bool female)
+std::string getVampireHead(const std::string& race, bool female, const VFS::Manager& vfs)
 {
     static std::map <std::pair<std::string,int>, const ESM::BodyPart* > sVampireMapping;
 
@@ -80,7 +80,7 @@ std::string getVampireHead(const std::string& race, bool female)
     const ESM::BodyPart* bodyPart = sVampireMapping[thisCombination];
     if (!bodyPart)
         return std::string();
-    return "meshes\\" + bodyPart->mModel;
+    return Misc::ResourceHelpers::correctMeshPath(bodyPart->mModel, &vfs);
 }
 
 }
@@ -142,7 +142,8 @@ void HeadAnimationTime::setEnabled(bool enabled)
 
 void HeadAnimationTime::resetBlinkTimer()
 {
-    mBlinkTimer = -(2.0f + Misc::Rng::rollDice(6));
+    auto& prng = MWBase::Environment::get().getWorld()->getPrng();
+    mBlinkTimer = -(2.0f + Misc::Rng::rollDice(6, prng));
 }
 
 void HeadAnimationTime::update(float dt)
@@ -275,8 +276,8 @@ NpcAnimation::NpcAnimation(const MWWorld::Ptr& ptr, osg::ref_ptr<osg::Group> par
 {
     mNpc = mPtr.get<ESM::NPC>()->mBase;
 
-    mHeadAnimationTime = std::shared_ptr<HeadAnimationTime>(new HeadAnimationTime(mPtr));
-    mWeaponAnimationTime = std::shared_ptr<WeaponAnimationTime>(new WeaponAnimationTime(this));
+    mHeadAnimationTime = std::make_shared<HeadAnimationTime>(mPtr);
+    mWeaponAnimationTime = std::make_shared<WeaponAnimationTime>(this);
 
     for(size_t i = 0;i < ESM::PRT_Count;i++)
     {
@@ -294,13 +295,23 @@ void NpcAnimation::setViewMode(NpcAnimation::ViewMode viewMode)
     assert(viewMode != VM_HeadOnly);
     if(mViewMode == viewMode)
         return;
-
+    // FIXME: sheathing state must be consistent if the third person skeleton doesn't have the necessary node, but
+    // third person skeleton is unavailable in first person view. This is a hack to avoid cosmetic issues.
+    bool viewChange = mViewMode == VM_FirstPerson || viewMode == VM_FirstPerson;
     mViewMode = viewMode;
     MWBase::Environment::get().getWorld()->scaleObject(mPtr, mPtr.getCellRef().getScale(), true); // apply race height after view change
 
     mAmmunition.reset();
     rebuild();
     setRenderBin();
+
+    static const bool shieldSheathing = Settings::Manager::getBool("shield sheathing", "Game");
+    if (viewChange && shieldSheathing)
+    {
+        int weaptype = ESM::Weapon::None;
+        MWMechanics::getActiveWeapon(mPtr, &weaptype);
+        showCarriedLeft(updateCarriedLeftVisible(weaptype));
+    }
 }
 
 /// @brief A RenderBin callback to clear the depth buffer before rendering.
@@ -327,24 +338,31 @@ public:
 
         state->applyAttribute(mDepth);
 
-        if (postProcessor && postProcessor->getFirstPersonRBProxy())
-        {
-            osg::GLExtensions* ext = state->get<osg::GLExtensions>();
+        unsigned int frameId = state->getFrameStamp()->getFrameNumber() % 2;
 
-            osg::FrameBufferAttachment(postProcessor->getFirstPersonRBProxy()).attach(*state, GL_FRAMEBUFFER_EXT, GL_DEPTH_ATTACHMENT_EXT, ext);
+        if (postProcessor && postProcessor->getFbo(PostProcessor::FBO_FirstPerson, frameId))
+        {
+            postProcessor->getFbo(PostProcessor::FBO_FirstPerson, frameId)->apply(*state);
 
             glClear(GL_DEPTH_BUFFER_BIT | GL_STENCIL_BUFFER_BIT);
             // color accumulation pass
             bin->drawImplementation(renderInfo, previous);
 
-            auto primaryFBO = postProcessor->getMsaaFbo() ? postProcessor->getMsaaFbo() : postProcessor->getFbo();
-            primaryFBO->getAttachment(osg::FrameBufferObject::BufferComponent::PACKED_DEPTH_STENCIL_BUFFER).attach(*state, GL_FRAMEBUFFER_EXT, GL_DEPTH_ATTACHMENT_EXT, ext);
+            auto primaryFBO = postProcessor->getPrimaryFbo(frameId);
 
-            state->pushStateSet(mStateSet);
-            state->apply();
+            if (postProcessor->getFbo(PostProcessor::FBO_OpaqueDepth, frameId))
+                postProcessor->getFbo(PostProcessor::FBO_OpaqueDepth, frameId)->apply(*state);
+            else
+                primaryFBO->apply(*state);
+
             // depth accumulation pass
+            osg::ref_ptr<osg::StateSet> restore = bin->getStateSet();
+            bin->setStateSet(mStateSet);
             bin->drawImplementation(renderInfo, previous);
-            state->popStateSet();
+            bin->setStateSet(restore);
+
+            if (postProcessor->getFbo(PostProcessor::FBO_OpaqueDepth, frameId))
+                primaryFBO->apply(*state);
         }
         else
         {
@@ -352,6 +370,8 @@ public:
             glClear(GL_DEPTH_BUFFER_BIT | GL_STENCIL_BUFFER_BIT);
             bin->drawImplementation(renderInfo, previous);
         }
+
+        state->checkGLErrors("after DepthClearCallback::drawImplementation");
     }
 
     osg::ref_ptr<osg::Depth> mDepth;
@@ -425,8 +445,8 @@ int NpcAnimation::getSlot(const osg::NodePath &path) const
 {
     for (int i=0; i<ESM::PRT_Count; ++i)
     {
-        PartHolderPtr part = mObjectParts[i];
-        if (!part.get())
+        const PartHolder* const part = mObjectParts[i].get();
+        if (part == nullptr)
             continue;
         if (std::find(path.begin(), path.end(), part->getNode().get()) != path.end())
         {
@@ -459,7 +479,7 @@ void NpcAnimation::updateNpcBase()
     {
         const ESM::BodyPart* bp = store.get<ESM::BodyPart>().search(headName);
         if (bp)
-            mHeadModel = "meshes\\" + bp->mModel;
+            mHeadModel = Misc::ResourceHelpers::correctMeshPath(bp->mModel, mResourceSystem->getVFS());
         else
             Log(Debug::Warning) << "Warning: Failed to load body part '" << headName << "'";
     }
@@ -468,12 +488,12 @@ void NpcAnimation::updateNpcBase()
     {
         const ESM::BodyPart* bp = store.get<ESM::BodyPart>().search(hairName);
         if (bp)
-            mHairModel = "meshes\\" + bp->mModel;
+            mHairModel = Misc::ResourceHelpers::correctMeshPath(bp->mModel, mResourceSystem->getVFS());
         else
             Log(Debug::Warning) << "Warning: Failed to load body part '" << hairName << "'";
     }
 
-    const std::string& vampireHead = getVampireHead(mNpc->mRace, isFemale);
+    const std::string vampireHead = getVampireHead(mNpc->mRace, isFemale, *mResourceSystem->getVFS());
     if (!isWerewolf && isVampire && !vampireHead.empty())
         mHeadModel = vampireHead;
 
@@ -485,7 +505,8 @@ void NpcAnimation::updateNpcBase()
 
     std::string smodel = defaultSkeleton;
     if (!is1stPerson && !isWerewolf && !mNpc->mModel.empty())
-        smodel = Misc::ResourceHelpers::correctActorModelPath("meshes\\" + mNpc->mModel, mResourceSystem->getVFS());
+        smodel = Misc::ResourceHelpers::correctActorModelPath(
+            Misc::ResourceHelpers::correctMeshPath(mNpc->mModel, mResourceSystem->getVFS()), mResourceSystem->getVFS());
 
     setObjectRoot(smodel, true, true, false);
 
@@ -645,8 +666,9 @@ void NpcAnimation::updateParts()
         if(store != inv.end() && (part=*store).getType() == ESM::Light::sRecordId)
         {
             const ESM::Light *light = part.get<ESM::Light>()->mBase;
-            addOrReplaceIndividualPart(ESM::PRT_Shield, MWWorld::InventoryStore::Slot_CarriedLeft,
-                                       1, "meshes\\"+light->mModel, false, nullptr, true);
+            const VFS::Manager* const vfs = MWBase::Environment::get().getResourceSystem()->getVFS();
+            addOrReplaceIndividualPart(ESM::PRT_Shield, MWWorld::InventoryStore::Slot_CarriedLeft, 1,
+                Misc::ResourceHelpers::correctMeshPath(light->mModel, vfs), false, nullptr, true);
             if (mObjectParts[ESM::PRT_Shield])
                 addExtraLight(mObjectParts[ESM::PRT_Shield]->getNode()->asGroup(), light);
         }
@@ -665,8 +687,11 @@ void NpcAnimation::updateParts()
         {
             const ESM::BodyPart* bodypart = parts[part];
             if(bodypart)
-                addOrReplaceIndividualPart((ESM::PartReferenceType)part, -1, 1,
-                                           "meshes\\"+bodypart->mModel);
+            {
+                const VFS::Manager* const vfs = MWBase::Environment::get().getResourceSystem()->getVFS();
+                addOrReplaceIndividualPart(static_cast<ESM::PartReferenceType>(part), -1, 1,
+                    Misc::ResourceHelpers::correctMeshPath(bodypart->mModel, vfs));
+            }
         }
     }
 
@@ -846,7 +871,7 @@ bool NpcAnimation::addOrReplaceIndividualPart(ESM::PartReferenceType type, int g
             if (type == ESM::PRT_Weapon)
                 src = mWeaponAnimationTime;
             else
-                src.reset(new NullAnimationTime);
+                src = std::make_shared<NullAnimationTime>();
             SceneUtil::AssignControllerSourcesVisitor assignVisitor(src);
             node->accept(assignVisitor);
         }
@@ -896,7 +921,11 @@ void NpcAnimation::addPartGroup(int group, int priority, const std::vector<ESM::
         }
 
         if(bodypart)
-            addOrReplaceIndividualPart((ESM::PartReferenceType)part.mPart, group, priority, "meshes\\"+bodypart->mModel, enchantedGlow, glowColor);
+        {
+            const VFS::Manager* const vfs = MWBase::Environment::get().getResourceSystem()->getVFS();
+            addOrReplaceIndividualPart(static_cast<ESM::PartReferenceType>(part.mPart), group, priority,
+                Misc::ResourceHelpers::correctMeshPath(bodypart->mModel, vfs), enchantedGlow, glowColor);
+        }
         else
             reserveIndividualPart((ESM::PartReferenceType)part.mPart, group, priority);
     }
@@ -964,6 +993,30 @@ void NpcAnimation::showWeapons(bool showWeapon)
     updateQuiver();
 }
 
+bool NpcAnimation::updateCarriedLeftVisible(const int weaptype) const
+{
+    static const bool shieldSheathing = Settings::Manager::getBool("shield sheathing", "Game");
+    if (shieldSheathing)
+    {
+        const MWWorld::Class &cls = mPtr.getClass();
+        MWMechanics::CreatureStats &stats = cls.getCreatureStats(mPtr);
+        if (stats.getDrawState() == MWMechanics::DrawState::Nothing)
+        {
+            SceneUtil::FindByNameVisitor findVisitor ("Bip01 AttachShield");
+            mObjectRoot->accept(findVisitor);
+            if (findVisitor.mFoundNode || mViewMode == VM_FirstPerson)
+            {
+                const MWWorld::InventoryStore& inv = cls.getInventoryStore(mPtr);
+                const MWWorld::ConstContainerStoreIterator shield = inv.getSlot(MWWorld::InventoryStore::Slot_CarriedLeft);
+                if (shield != inv.end() && shield->getType() == ESM::Armor::sRecordId && !getSheathedShieldMesh(*shield).empty())
+                    return false;
+            }
+        }
+    }
+
+    return !(MWMechanics::getWeaponType(weaptype)->mFlags & ESM::WeaponType::TwoHanded);
+}
+
 void NpcAnimation::showCarriedLeft(bool show)
 {
     mShowCarriedLeft = show;
@@ -1023,8 +1076,8 @@ void NpcAnimation::releaseArrow(float attackStrength)
 
 osg::Group* NpcAnimation::getArrowBone()
 {
-    PartHolderPtr part = mObjectParts[ESM::PRT_Weapon];
-    if (!part)
+    const PartHolder* const part = mObjectParts[ESM::PRT_Weapon].get();
+    if (part == nullptr)
         return nullptr;
 
     const MWWorld::InventoryStore& inv = mPtr.getClass().getInventoryStore(mPtr);
@@ -1034,6 +1087,8 @@ osg::Group* NpcAnimation::getArrowBone()
 
     int type = weapon->get<ESM::Weapon>()->mBase->mData.mType;
     int ammoType = MWMechanics::getWeaponType(type)->mAmmoType;
+    if (ammoType == ESM::Weapon::None)
+        return nullptr;
 
     // Try to find and attachment bone in actor's skeleton, otherwise fall back to the ArrowBone in weapon's mesh
     osg::Group* bone = getBoneByName(MWMechanics::getWeaponType(ammoType)->mAttachBone);
@@ -1048,8 +1103,8 @@ osg::Group* NpcAnimation::getArrowBone()
 
 osg::Node* NpcAnimation::getWeaponNode()
 {
-    PartHolderPtr part = mObjectParts[ESM::PRT_Weapon];
-    if (!part)
+    const PartHolder* const part = mObjectParts[ESM::PRT_Weapon].get();
+    if (part == nullptr)
         return nullptr;
     return part->getNode();
 }

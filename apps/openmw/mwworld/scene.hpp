@@ -12,6 +12,7 @@
 #include <memory>
 #include <unordered_map>
 #include <vector>
+#include <optional>
 
 #include <components/misc/constants.hpp>
 
@@ -61,6 +62,7 @@ namespace MWWorld
     class Player;
     class CellStore;
     class CellPreloader;
+    class World;
 
     enum class RotationOrder
     {
@@ -74,10 +76,17 @@ namespace MWWorld
             using CellStoreCollection = std::set<CellStore *>;
 
         private:
+            struct ChangeCellGridRequest
+            {
+                osg::Vec3f mPosition;
+                osg::Vec2i mCell;
+                bool mChangeEvent;
+            };
 
             CellStore* mCurrentCell; // the cell the player is in
             CellStoreCollection mActiveCells;
             bool mCellChanged;
+            MWWorld::World& mWorld;
             MWPhysics::PhysicsSystem *mPhysics;
             MWRender::RenderingManager& mRendering;
             DetourNavigator::Navigator& mNavigator;
@@ -95,15 +104,19 @@ namespace MWWorld
 
             osg::Vec3f mLastPlayerPos;
 
-            std::set<ESM::RefNum> mPagedRefs;
+            std::vector<ESM::RefNum> mPagedRefs;
 
             std::vector<osg::ref_ptr<SceneUtil::WorkItem>> mWorkItems;
+
+            std::optional<ChangeCellGridRequest> mChangeCellGridRequest;
 
             void insertCell(CellStore &cell, Loading::Listener* loadingListener);
             osg::Vec2i mCurrentGridCenter;
 
             // Load and unload cells as necessary to create a cell grid with "X" and "Y" in the center
             void changeCellGrid (const osg::Vec3f &pos, int playerCellX, int playerCellY, bool changeEvent = true);
+
+            void requestChangeCellGrid(const osg::Vec3f &position, const osg::Vec2i& cell, bool changeEvent = true);
 
             typedef std::pair<osg::Vec3f, osg::Vec4i> PositionCellGrid;
 
@@ -120,7 +133,7 @@ namespace MWWorld
 
         public:
 
-            Scene (MWRender::RenderingManager& rendering, MWPhysics::PhysicsSystem *physics,
+            Scene(MWWorld::World& world, MWRender::RenderingManager& rendering, MWPhysics::PhysicsSystem *physics,
                    DetourNavigator::Navigator& navigator);
 
             ~Scene();
@@ -131,7 +144,7 @@ namespace MWWorld
 
             void playerMoved (const osg::Vec3f& pos);
 
-            void changePlayerCell (CellStore* newCell, const ESM::Position& position, bool adjustPlayerPos);
+            void changePlayerCell(CellStore* newCell, const ESM::Position& position, bool adjustPlayerPos);
 
             CellStore *getCurrentCell();
 
@@ -153,13 +166,15 @@ namespace MWWorld
 
             void markCellAsUnchanged();
 
-            void update (float duration, bool paused);
+            void update(float duration);
 
             void addObjectToScene (const Ptr& ptr);
             ///< Add an object that already exists in the world model to the scene.
 
             void removeObjectFromScene (const Ptr& ptr, bool keepActive = false);
             ///< Remove an object from the scene, but not from the world model.
+
+            void addPostponedPhysicsObjects();
 
             void removeFromPagedRefs(const Ptr &ptr);
 

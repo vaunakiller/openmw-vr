@@ -24,17 +24,13 @@
   trial & error.  See http://en.uesp.net/wiki for details.
 
 */
-#include "acti.hpp"
+#include "loadacti.hpp"
 
 #include <stdexcept>
 #include <iostream> // FIXME
 
 #include "reader.hpp"
 //#include "writer.hpp"
-
-ESM4::Activator::~Activator()
-{
-}
 
 void ESM4::Activator::load(ESM4::Reader& reader)
 {

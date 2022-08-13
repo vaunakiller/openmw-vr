@@ -10,7 +10,7 @@
 #include <osgUtil/IncrementalCompileOperation>
 
 #include "objects.hpp"
-
+#include "navmeshmode.hpp"
 #include "renderinginterface.hpp"
 #include "rendermode.hpp"
 
@@ -59,12 +59,15 @@ namespace SceneUtil
 {
     class ShadowManager;
     class WorkQueue;
+    class LightManager;
+    class UnrefQueue;
 }
 
 namespace DetourNavigator
 {
     struct Navigator;
     struct Settings;
+    struct AgentBounds;
 }
 
 namespace MWWorld
@@ -119,8 +122,9 @@ namespace MWRender
     {
     public:
         RenderingManager(osgViewer::Viewer* viewer, osg::ref_ptr<osg::Group> rootNode, std::unique_ptr<Camera> camera,
-                         Resource::ResourceSystem* resourceSystem, SceneUtil::WorkQueue* workQueue,
-                         const std::string& resourcePath, DetourNavigator::Navigator& navigator, const MWWorld::GroundcoverStore& groundcoverStore);
+            Resource::ResourceSystem* resourceSystem, SceneUtil::WorkQueue* workQueue, const std::string& resourcePath,
+            DetourNavigator::Navigator& navigator, const MWWorld::GroundcoverStore& groundcoverStore,
+            SceneUtil::UnrefQueue& unrefQueue);
         ~RenderingManager();
 
         osgUtil::IncrementalCompileOperation* getIncrementalCompileOperation();
@@ -140,7 +144,7 @@ namespace MWRender
 
         double getReferenceTime() const;
 
-        osg::Group* getLightRoot();
+        SceneUtil::LightManager* getLightRoot();
 
         void setNightEyeFactor(float factor);
 
@@ -152,7 +156,8 @@ namespace MWRender
         void skySetMoonColour(bool red);
 
         void setSunDirection(const osg::Vec3f& direction);
-        void setSunColour(const osg::Vec4f& diffuse, const osg::Vec4f& specular);
+        void setSunColour(const osg::Vec4f& diffuse, const osg::Vec4f& specular, float sunVis);
+        void setNight(bool isNight) { mNight = isNight; }
 
         void configureAmbient(const ESM::Cell* cell);
         void configureFog(const ESM::Cell* cell);
@@ -209,6 +214,8 @@ namespace MWRender
         Animation* getAnimation(const MWWorld::Ptr& ptr);
         const Animation* getAnimation(const MWWorld::ConstPtr& ptr) const;
 
+        PostProcessor* getPostProcessor();
+
         void addWaterRippleEmitter(const MWWorld::Ptr& ptr);
         void removeWaterRippleEmitter(const MWWorld::Ptr& ptr);
         void emitWaterRipple(const osg::Vec3f& pos);
@@ -223,7 +230,10 @@ namespace MWRender
 
         void processChangedSettings(const Settings::CategorySettingVector& settings);
 
-        float getNearClipDistance() const;
+        float getNearClipDistance() const { return mNearClip; }
+        float getViewDistance() const { return mViewDistance; }
+
+        void setViewDistance(float distance, bool delay = false);
 
         float getTerrainHeightAt(const osg::Vec3f& pos);
 
@@ -232,6 +242,8 @@ namespace MWRender
 
         /// temporarily override the field of view with given value.
         void overrideFieldOfView(float val);
+        void setFieldOfView(float val);
+        float getFieldOfView() const;
         /// reset a previous overrideFieldOfView() call, i.e. revert to field of view specified in the settings file.
         void resetFieldOfView();
 
@@ -244,7 +256,7 @@ namespace MWRender
         bool toggleBorders();
 
         void updateActorPath(const MWWorld::ConstPtr& actor, const std::deque<osg::Vec3f>& path,
-                const osg::Vec3f& halfExtents, const osg::Vec3f& start, const osg::Vec3f& end) const;
+            const DetourNavigator::AgentBounds& agentBounds, const osg::Vec3f& start, const osg::Vec3f& end) const;
 
         void removeActorPath(const MWWorld::ConstPtr& actor) const;
 
@@ -255,11 +267,15 @@ namespace MWRender
         bool pagingEnableObject(int type, const MWWorld::ConstPtr& ptr, bool enabled);
         void pagingBlacklistObject(int type, const MWWorld::ConstPtr &ptr);
         bool pagingUnlockCache();
-        void getPagedRefnums(const osg::Vec4i &activeGrid, std::set<ESM::RefNum> &out);
+        void getPagedRefnums(const osg::Vec4i &activeGrid, std::vector<ESM::RefNum>& out);
 
         void updateProjectionMatrix();
 
+        void setScreenRes(int width, int height);
+        
         void enableVRPointer(bool left, bool right);
+
+        void setNavMeshMode(NavMeshMode value);
 
     private:
         void updateTextureFiltering();
@@ -273,6 +289,7 @@ namespace MWRender
 
         void updateRecastMesh();
 
+        const bool mSkyBlending;
 
         osg::ref_ptr<osgUtil::IntersectionVisitor> getIntersectionVisitor(osgUtil::Intersector* intersector, bool ignorePlayer, bool ignoreActors);
 
@@ -280,7 +297,7 @@ namespace MWRender
 
         osg::ref_ptr<osgViewer::Viewer> mViewer;
         osg::ref_ptr<osg::Group> mRootNode;
-        osg::ref_ptr<osg::Group> mSceneRoot;
+        osg::ref_ptr<SceneUtil::LightManager> mSceneRoot;
         Resource::ResourceSystem* mResourceSystem;
 
         osg::ref_ptr<SceneUtil::WorkQueue> mWorkQueue;
@@ -323,6 +340,8 @@ namespace MWRender
         float mFieldOfViewOverride;
         float mFieldOfView;
         float mFirstPersonFieldOfView;
+        bool mUpdateProjectionMatrix = false;
+        bool mNight = false;
 
 #ifdef USE_OPENXR
         std::shared_ptr<MWVR::UserPointer> mUserPointer;

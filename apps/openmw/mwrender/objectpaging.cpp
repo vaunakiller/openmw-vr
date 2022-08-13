@@ -1,10 +1,11 @@
 #include "objectpaging.hpp"
 
 #include <unordered_map>
+#include <vector>
 
-#include <osg/Version>
 #include <osg/LOD>
 #include <osg/Switch>
+#include <osg/Sequence>
 #include <osg/MatrixTransform>
 #include <osg/Material>
 #include <osgUtil/IncrementalCompileOperation>
@@ -17,12 +18,14 @@
 #include <components/sceneutil/clone.hpp>
 #include <components/sceneutil/util.hpp>
 #include <components/vfs/manager.hpp>
+#include <components/esm3/readerscache.hpp>
 
 #include <osgParticle/ParticleProcessor>
 #include <osgParticle/ParticleSystemUpdater>
 
 #include <components/sceneutil/lightmanager.hpp>
 #include <components/sceneutil/morphgeometry.hpp>
+#include <components/sceneutil/riggeometryosgaextension.hpp>
 #include <components/sceneutil/riggeometry.hpp>
 #include <components/settings/settings.hpp>
 #include <components/misc/rng.hpp>
@@ -32,6 +35,8 @@
 #include "apps/openmw/mwbase/world.hpp"
 
 #include "vismask.hpp"
+
+#include <condition_variable>
 
 namespace MWRender
 {
@@ -65,7 +70,7 @@ namespace MWRender
           case ESM::REC_CONT:
             return store.get<ESM::Container>().searchStatic(id)->mModel;
           default:
-            return std::string();
+            return {};
         }
     }
 
@@ -152,6 +157,13 @@ namespace MWRender
                 n->setDataVariance(osg::Object::STATIC);
                 return n;
             }
+            if (const osg::Sequence* sq = dynamic_cast<const osg::Sequence*>(node))
+            {
+                osg::Group* n = new osg::Group;
+                n->addChild(operator()(sq->getChild(sq->getValue() != -1 ? sq->getValue() : 0)));
+                n->setDataVariance(osg::Object::STATIC);
+                return n;
+            }
 
             mNodePath.push_back(node);
 
@@ -235,6 +247,8 @@ namespace MWRender
             if (dynamic_cast<const osgParticle::ParticleSystem*>(drawable))
                 return nullptr;
 
+            if (dynamic_cast<const SceneUtil::OsgaRigGeometry*>(drawable))
+                return nullptr;
             if (const SceneUtil::RigGeometry* rig = dynamic_cast<const SceneUtil::RigGeometry*>(drawable))
                 return operator()(rig->getSourceGeometry());
             if (const SceneUtil::MorphGeometry* morph = dynamic_cast<const SceneUtil::MorphGeometry*>(drawable))
@@ -263,7 +277,7 @@ namespace MWRender
         RefnumSet(){}
         RefnumSet(const RefnumSet& copy, const osg::CopyOp&) : mRefnums(copy.mRefnums) {}
         META_Object(MWRender, RefnumSet)
-        std::set<ESM::RefNum> mRefnums;
+        std::vector<ESM::RefNum> mRefnums;
     };
 
     class AnalyzeVisitor : public osg::NodeVisitor
@@ -299,6 +313,11 @@ namespace MWRender
                 for (unsigned int i=0; i<lod->getNumChildren(); ++i)
                     if (lod->getMinRange(i) * lod->getMinRange(i) <= mCurrentDistance && mCurrentDistance < lod->getMaxRange(i) * lod->getMaxRange(i))
                         traverse(*lod->getChild(i));
+                return;
+            }
+            if (osg::Sequence* sq = dynamic_cast<osg::Sequence*>(&node))
+            {
+                traverse(*sq->getChild(sq->getValue() != -1 ? sq->getValue() : 0));
                 return;
             }
 
@@ -400,7 +419,7 @@ namespace MWRender
         osg::Vec3f relativeViewPoint = viewPoint - worldCenter;
 
         std::map<ESM::RefNum, ESM::CellRef> refs;
-        std::vector<ESM::ESMReader> esm;
+        ESM::ReadersCache readers;
         const MWWorld::ESMStore& store = MWBase::Environment::get().getWorld()->getStore();
 
         for (int cellX = startCell.x(); cellX < startCell.x() + size; ++cellX)
@@ -413,22 +432,24 @@ namespace MWRender
                 {
                     try
                     {
-                        unsigned int index = cell->mContextList[i].index;
-                        if (esm.size()<=index)
-                            esm.resize(index+1);
-                        cell->restore(esm[index], i);
+                        const std::size_t index = static_cast<std::size_t>(cell->mContextList[i].index);
+                        const ESM::ReadersCache::BusyItem reader = readers.get(index);
+                        cell->restore(*reader, i);
                         ESM::CellRef ref;
                         ref.mRefNum.unset();
                         ESM::MovedCellRef cMRef;
                         cMRef.mRefNum.mIndex = 0;
                         bool deleted = false;
                         bool moved = false;
-                        while(cell->getNextRef(esm[index], ref, deleted, cMRef, moved))
+                        while (ESM::Cell::getNextRef(*reader, ref, deleted, cMRef, moved, ESM::Cell::GetNextRefMode::LoadOnlyNotMoved))
                         {
                             if (moved)
                                 continue;
 
-                            if (std::find(cell->mMovedRefs.begin(), cell->mMovedRefs.end(), ref.mRefNum) != cell->mMovedRefs.end()) continue;
+                            if (std::find(cell->mMovedRefs.begin(), cell->mMovedRefs.end(), ref.mRefNum) != cell->mMovedRefs.end())
+                                continue;
+
+                            Misc::StringUtils::lowerCaseInPlace(ref.mRefID);
                             int type = store.findStatic(ref.mRefID);
                             if (!typeFilter(type,size>=2)) continue;
                             if (deleted) { refs.erase(ref.mRefNum); continue; }
@@ -442,7 +463,12 @@ namespace MWRender
                 }
                 for (auto [ref, deleted] : cell->mLeasedRefs)
                 {
-                    if (deleted) { refs.erase(ref.mRefNum); continue; }
+                    if (deleted)
+                    {
+                        refs.erase(ref.mRefNum);
+                        continue;
+                    }
+                    Misc::StringUtils::lowerCaseInPlace(ref.mRefID);
                     int type = store.findStatic(ref.mRefID);
                     if (!typeFilter(type,size>=2)) continue;
                     refs[ref.mRefNum] = std::move(ref);
@@ -508,7 +534,7 @@ namespace MWRender
             int type = store.findStatic(ref.mRefID);
             std::string model = getModel(type, ref.mRefID, store);
             if (model.empty()) continue;
-            model = "meshes/" + model;
+            model = Misc::ResourceHelpers::correctMeshPath(model, mSceneManager->getVFS());
 
             if (activeGrid && type != ESM::REC_STAT)
             {
@@ -529,7 +555,7 @@ namespace MWRender
                 if (cnode->getNumChildrenRequiringUpdateTraversal() > 0 || SceneUtil::hasUserDescription(cnode, Constants::NightDayLabel) || SceneUtil::hasUserDescription(cnode, Constants::HerbalismLabel))
                     continue;
                 else
-                    refnumSet->mRefnums.insert(pair.first);
+                    refnumSet->mRefnums.push_back(pair.first);
             }
 
             {
@@ -702,6 +728,8 @@ namespace MWRender
         osg::UserDataContainer* udc = group->getOrCreateUserDataContainer();
         if (activeGrid)
         {
+            std::sort(refnumSet->mRefnums.begin(), refnumSet->mRefnums.end());
+            refnumSet->mRefnums.erase(std::unique(refnumSet->mRefnums.begin(), refnumSet->mRefnums.end()), refnumSet->mRefnums.end());
             udc->addUserObject(refnumSet);
             group->addCullCallback(new SceneUtil::LightListCallback);
         }
@@ -812,7 +840,7 @@ namespace MWRender
 
     struct GetRefnumsFunctor
     {
-        GetRefnumsFunctor(std::set<ESM::RefNum>& output) : mOutput(output) {}
+        GetRefnumsFunctor(std::vector<ESM::RefNum>& output) : mOutput(output) {}
         void operator()(MWRender::ChunkId chunkId, osg::Object* obj)
         {
             if (!std::get<2>(chunkId)) return;
@@ -825,18 +853,20 @@ namespace MWRender
             {
                 RefnumSet* refnums = dynamic_cast<RefnumSet*>(udc->getUserObject(0));
                 if (!refnums) return;
-                mOutput.insert(refnums->mRefnums.begin(), refnums->mRefnums.end());
+                mOutput.insert(mOutput.end(), refnums->mRefnums.begin(), refnums->mRefnums.end());
             }
         }
         osg::Vec4i mActiveGrid;
-        std::set<ESM::RefNum>& mOutput;
+        std::vector<ESM::RefNum>& mOutput;
     };
 
-    void ObjectPaging::getPagedRefnums(const osg::Vec4i &activeGrid, std::set<ESM::RefNum> &out)
+    void ObjectPaging::getPagedRefnums(const osg::Vec4i &activeGrid, std::vector<ESM::RefNum>& out)
     {
         GetRefnumsFunctor grf(out);
         grf.mActiveGrid = activeGrid;
         mCache->call(grf);
+        std::sort(out.begin(), out.end());
+        out.erase(std::unique(out.begin(), out.end()), out.end());
     }
 
     void ObjectPaging::reportStats(unsigned int frameNumber, osg::Stats *stats) const

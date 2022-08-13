@@ -10,6 +10,7 @@
 
 #include <components/esm/records.hpp>
 #include <components/misc/stringops.hpp>
+#include <components/misc/rng.hpp>
 
 #include "../mwdialogue/keywordsearch.hpp"
 
@@ -77,6 +78,8 @@ namespace MWWorld
         void setUp();
 
         const T *search(int index) const;
+
+        // calls `search` and throws an exception if not found
         const T *find(int index) const;
     };
 
@@ -181,8 +184,9 @@ namespace MWWorld
         bool isDynamic(const std::string &id) const;
 
         /** Returns a random record that starts with the named ID, or nullptr if not found. */
-        const T *searchRandom(const std::string &id) const;
+        const T *searchRandom(const std::string &id, Misc::Rng::Generator& prng) const;
 
+        // calls `search` and throws an exception if not found
         const T *find(const std::string &id) const;
 
         iterator begin() const;
@@ -408,6 +412,8 @@ namespace MWWorld
         Store();
 
         const ESM::Attribute *search(size_t index) const;
+
+        // calls `search` and throws an exception if not found
         const ESM::Attribute *find(size_t index) const;
 
         void setUp();
@@ -428,6 +434,8 @@ namespace MWWorld
         Store();
 
         const ESM::WeaponType *search(const int id) const;
+
+        // calls `search` and throws an exception if not found
         const ESM::WeaponType *find(const int id) const;
 
         RecordId load(ESM::ESMReader &esm) override { return RecordId({}, false); }
@@ -473,6 +481,8 @@ namespace MWWorld
         bool eraseStatic(const std::string &id) override;
 
         RecordId load(ESM::ESMReader &esm) override;
+
+        void listIdentifier(std::vector<std::string> &list) const override;
 
         const MWDialogue::KeywordSearch<std::string, int>& getDialogIdKeywordSearch() const;
     };

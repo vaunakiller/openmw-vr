@@ -2,7 +2,8 @@
 
 #include <osg/Light>
 #include <osg/Group>
-#include <osg/ComputeBoundsVisitor>
+
+#include <osgParticle/ParticleSystem>
 
 #include <components/esm3/loadligh.hpp>
 #include <components/fallback/fallback.hpp>
@@ -11,7 +12,33 @@
 #include "lightcontroller.hpp"
 #include "util.hpp"
 #include "visitor.hpp"
-#include "positionattitudetransform.hpp"
+
+namespace
+{
+    class CheckEmptyLightVisitor : public osg::NodeVisitor
+    {
+    public:
+        CheckEmptyLightVisitor() : osg::NodeVisitor(TRAVERSE_ALL_CHILDREN) {}
+
+        void apply(osg::Drawable& drawable) override
+        {
+            if (!mEmpty)
+                return;
+
+            if (dynamic_cast<const osgParticle::ParticleSystem*>(&drawable))
+                mEmpty = false;
+            else
+                traverse(drawable);
+        }
+
+        void apply(osg::Geometry& geometry) override
+        {
+            mEmpty = false;
+        }
+
+        bool mEmpty = true;
+    };
+}
 
 namespace SceneUtil
 {
@@ -58,36 +85,20 @@ namespace SceneUtil
         light->setQuadraticAttenuation(quadraticAttenuation);
     }
 
-    osg::ref_ptr<LightSource> addLight(osg::Group* node, const ESM::Light* esmLight, unsigned int partsysMask, unsigned int lightMask, bool isExterior)
+    osg::ref_ptr<LightSource> addLight(osg::Group* node, const ESM::Light* esmLight, unsigned int lightMask, bool isExterior)
     {
         SceneUtil::FindByNameVisitor visitor("AttachLight");
         node->accept(visitor);
 
-        osg::Group* attachTo = nullptr;
-        if (visitor.mFoundNode)
-        {
-            attachTo = visitor.mFoundNode;
-        }
-        else
-        {
-            osg::ComputeBoundsVisitor computeBound;
-            computeBound.setTraversalMask(~partsysMask);
-            // We want the bounds of all children of the node, ignoring the node's local transformation
-            // So do a traverse(), not accept()
-            computeBound.traverse(*node);
-
-            // PositionAttitudeTransform seems to be slightly faster than MatrixTransform
-            osg::ref_ptr<SceneUtil::PositionAttitudeTransform> trans(new SceneUtil::PositionAttitudeTransform);
-            trans->setPosition(computeBound.getBoundingBox().center());
-            trans->setNodeMask(lightMask);
-
-            node->addChild(trans);
-
-            attachTo = trans;
-        }
-
+        osg::Group* attachTo = visitor.mFoundNode ? visitor.mFoundNode : node;
         osg::ref_ptr<LightSource> lightSource = createLightSource(esmLight, lightMask, isExterior, osg::Vec4f(0,0,0,1));
         attachTo->addChild(lightSource);
+
+        CheckEmptyLightVisitor emptyVisitor;
+        node->accept(emptyVisitor);
+
+        lightSource->setEmpty(emptyVisitor.mEmpty);
+
         return lightSource;
     }
 

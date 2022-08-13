@@ -3,10 +3,12 @@
 #include "esmreader.hpp"
 #include "esmwriter.hpp"
 
-unsigned int ESM::SavedGame::sRecordId = ESM::REC_SAVE;
-int ESM::SavedGame::sCurrentFormat = 20;
+namespace ESM
+{
 
-void ESM::SavedGame::load (ESMReader &esm)
+int SavedGame::sCurrentFormat = 21;
+
+void SavedGame::load (ESMReader &esm)
 {
     mPlayerName = esm.getHNString("PLNA");
     esm.getHNOT (mPlayerLevel, "PLLE");
@@ -15,7 +17,7 @@ void ESM::SavedGame::load (ESMReader &esm)
     mPlayerClassName = esm.getHNOString("PLCN");
 
     mPlayerCell = esm.getHNString("PLCE");
-    esm.getHNT (mInGameTime, "TSTM", 16);
+    esm.getHNTSized<16>(mInGameTime, "TSTM");
     esm.getHNT (mTimePlayed, "TIME");
     mDescription = esm.getHNString ("DESC");
 
@@ -28,7 +30,7 @@ void ESM::SavedGame::load (ESMReader &esm)
     esm.getExact(mScreenshot.data(), mScreenshot.size());
 }
 
-void ESM::SavedGame::save (ESMWriter &esm) const
+void SavedGame::save (ESMWriter &esm) const
 {
     esm.writeHNString ("PLNA", mPlayerName);
     esm.writeHNT ("PLLE", mPlayerLevel);
@@ -50,4 +52,6 @@ void ESM::SavedGame::save (ESMWriter &esm) const
     esm.startSubRecord("SCRN");
     esm.write(&mScreenshot[0], mScreenshot.size());
     esm.endRecord("SCRN");
+}
+
 }

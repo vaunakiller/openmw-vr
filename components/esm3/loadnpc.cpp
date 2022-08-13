@@ -2,12 +2,9 @@
 
 #include "esmreader.hpp"
 #include "esmwriter.hpp"
-#include "components/esm/defs.hpp"
 
 namespace ESM
 {
-    unsigned int NPC::sRecordId = REC_NPC_;
-
     void NPC::load(ESMReader &esm, bool &isDeleted)
     {
         isDeleted = false;
@@ -28,35 +25,35 @@ namespace ESM
             esm.getSubName();
             switch (esm.retSubName().toInt())
             {
-                case ESM::SREC_NAME:
+                case SREC_NAME:
                     mId = esm.getHString();
                     hasName = true;
                     break;
-                case ESM::FourCC<'M','O','D','L'>::value:
+                case fourCC("MODL"):
                     mModel = esm.getHString();
                     break;
-                case ESM::FourCC<'F','N','A','M'>::value:
+                case fourCC("FNAM"):
                     mName = esm.getHString();
                     break;
-                case ESM::FourCC<'R','N','A','M'>::value:
+                case fourCC("RNAM"):
                     mRace = esm.getHString();
                     break;
-                case ESM::FourCC<'C','N','A','M'>::value:
+                case fourCC("CNAM"):
                     mClass = esm.getHString();
                     break;
-                case ESM::FourCC<'A','N','A','M'>::value:
+                case fourCC("ANAM"):
                     mFaction = esm.getHString();
                     break;
-                case ESM::FourCC<'B','N','A','M'>::value:
+                case fourCC("BNAM"):
                     mHead = esm.getHString();
                     break;
-                case ESM::FourCC<'K','N','A','M'>::value:
+                case fourCC("KNAM"):
                     mHair = esm.getHString();
                     break;
-                case ESM::FourCC<'S','C','R','I'>::value:
+                case fourCC("SCRI"):
                     mScript = esm.getHString();
                     break;
-                case ESM::FourCC<'N','P','D','T'>::value:
+                case fourCC("NPDT"):
                     hasNpdt = true;
                     esm.getSubHeader();
                     if (esm.getSubSize() == 52)
@@ -83,24 +80,24 @@ namespace ESM
                     else
                         esm.fail("NPC_NPDT must be 12 or 52 bytes long");
                     break;
-                case ESM::FourCC<'F','L','A','G'>::value:
+                case fourCC("FLAG"):
                     hasFlags = true;
                     int flags;
                     esm.getHT(flags);
                     mFlags = flags & 0xFF;
                     mBloodType = ((flags >> 8) & 0xFF) >> 2;
                     break;
-                case ESM::FourCC<'N','P','C','S'>::value:
+                case fourCC("NPCS"):
                     mSpells.add(esm);
                     break;
-                case ESM::FourCC<'N','P','C','O'>::value:
+                case fourCC("NPCO"):
                     mInventory.add(esm);
                     break;
-                case ESM::FourCC<'A','I','D','T'>::value:
+                case fourCC("AIDT"):
                     esm.getHExact(&mAiData, sizeof(mAiData));
                     break;
-                case ESM::FourCC<'D','O','D','T'>::value:
-                case ESM::FourCC<'D','N','A','M'>::value:
+                case fourCC("DODT"):
+                case fourCC("DNAM"):
                     mTransport.add(esm);
                     break;
                 case AI_Wander:
@@ -111,7 +108,7 @@ namespace ESM
                 case AI_CNDT:
                     mAiPackage.add(esm);
                     break;
-                case ESM::SREC_DELE:
+                case SREC_DELE:
                     esm.skipHSub();
                     isDeleted = true;
                     break;
@@ -158,6 +155,9 @@ namespace ESM
             npdt12.mDisposition = mNpdt.mDisposition;
             npdt12.mReputation = mNpdt.mReputation;
             npdt12.mRank = mNpdt.mRank;
+            npdt12.mUnknown1 = 0;
+            npdt12.mUnknown2 = 0;
+            npdt12.mUnknown3 = 0;
             npdt12.mGold = mNpdt.mGold;
             esm.writeHNT("NPDT", npdt12, 12);
         }
@@ -186,6 +186,7 @@ namespace ESM
 
     void NPC::blank()
     {
+        mRecordFlags = 0;
         mNpdtType = NPC_DEFAULT;
         blankNpdt();
         mBloodType = 0;

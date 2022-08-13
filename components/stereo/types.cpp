@@ -49,8 +49,11 @@ namespace Stereo
         return position == rhs.position && orientation == rhs.orientation;
     }
 
-    osg::Matrix Pose::viewMatrix(bool useGLConventions)
+    osg::Matrix View::viewMatrix(bool useGLConventions)
     {
+        auto position = pose.position;
+        auto orientation = pose.orientation;
+
         if (useGLConventions)
         {
             // When applied as an offset to an existing view matrix,
@@ -83,26 +86,15 @@ namespace Stereo
         }
     }
 
-    bool FieldOfView::operator==(const FieldOfView& rhs) const
+    osg::Matrix View::perspectiveMatrix(float near, float far, bool reverseZ)
     {
-        return angleDown == rhs.angleDown
-            && angleUp == rhs.angleUp
-            && angleLeft == rhs.angleLeft
-            && angleRight == rhs.angleRight;
-    }
-
-    // near and far named with an underscore because of windows' headers galaxy brain defines.
-    osg::Matrix FieldOfView::perspectiveMatrix(float near_, float far_, bool reverseZ) const
-    {
-        const float tanLeft = tanf(angleLeft);
-        const float tanRight = tanf(angleRight);
-        const float tanDown = tanf(angleDown);
-        const float tanUp = tanf(angleUp);
+        const float tanLeft = tanf(fov.angleLeft);
+        const float tanRight = tanf(fov.angleRight);
+        const float tanDown = tanf(fov.angleDown);
+        const float tanUp = tanf(fov.angleUp);
 
         const float tanWidth = tanRight - tanLeft;
         const float tanHeight = tanUp - tanDown;
-
-        const float offset = near_;
 
         float matrix[16] = {};
 
@@ -119,14 +111,14 @@ namespace Stereo
         if (reverseZ) {
             matrix[2] = 0;
             matrix[6] = 0;
-            matrix[10] = (near_ + offset) / (far_ - near_);
-            matrix[14] = ((near_ + offset) * far_) / (far_ - near_);
+            matrix[10] = (2.f * near) / (far - near);
+            matrix[14] = ((2.f * near) * far) / (far - near);
         }
         else {
             matrix[2] = 0;
             matrix[6] = 0;
-            matrix[10] = -(far_ + offset) / (far_ - near_);
-            matrix[14] = -(far_ * (near_ + offset)) / (far_ - near_);
+            matrix[10] = -(far + near) / (far - near);
+            matrix[14] = -(far * (2.f * near)) / (far - near);
         }
 
         matrix[3] = 0;
@@ -135,6 +127,14 @@ namespace Stereo
         matrix[15] = 0;
 
         return osg::Matrix(matrix);
+    }
+
+    bool FieldOfView::operator==(const FieldOfView& rhs) const
+    {
+        return angleDown == rhs.angleDown
+            && angleUp == rhs.angleUp
+            && angleLeft == rhs.angleLeft
+            && angleRight == rhs.angleRight;
     }
 
     bool View::operator==(const View& rhs) const

@@ -31,13 +31,14 @@ namespace MWBase
     public:
         virtual ~LuaManager() = default;
 
+        virtual std::string translate(const std::string& contextName, const std::string& key) = 0;
         virtual void newGameStarted() = 0;
         virtual void gameLoaded() = 0;
         virtual void registerObject(const MWWorld::Ptr& ptr) = 0;
         virtual void deregisterObject(const MWWorld::Ptr& ptr) = 0;
         virtual void objectAddedToScene(const MWWorld::Ptr& ptr) = 0;
         virtual void objectRemovedFromScene(const MWWorld::Ptr& ptr) = 0;
-        virtual void appliedToObject(const MWWorld::Ptr& toPtr, std::string_view recordId, const MWWorld::Ptr& fromPtr) = 0;
+        virtual void itemConsumed(const MWWorld::Ptr& consumable, const MWWorld::Ptr& actor) = 0;
         virtual void objectActivated(const MWWorld::Ptr& object, const MWWorld::Ptr& actor) = 0;
         // TODO: notify LuaManager about other events
         // virtual void objectOnHit(const MWWorld::Ptr &ptr, float damage, bool ishealth, const MWWorld::Ptr &object,
@@ -92,6 +93,8 @@ namespace MWBase
 
         // Drops script cache and reloads all scripts. Calls `onSave` and `onLoad` for every script.
         virtual void reloadAllScripts() = 0;
+
+        virtual void handleConsoleCommand(const std::string& consoleMode, const std::string& command, const MWWorld::Ptr& selectedPtr) = 0;
     };
 
 }

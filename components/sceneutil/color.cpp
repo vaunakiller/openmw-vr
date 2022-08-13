@@ -1,6 +1,7 @@
 #include "color.hpp"
 
 #include <algorithm>
+#include <array>
 
 #include <SDL_opengl_glext.h>
 
@@ -12,7 +13,7 @@ namespace SceneUtil
 
     bool isColorFormat(GLenum format)
     {
-        constexpr std::array<GLenum, 42> formats = {
+        static constexpr std::array<GLenum, 42> formats = {
             GL_RGB,
             GL_RGB4,
             GL_RGB5,
@@ -62,7 +63,7 @@ namespace SceneUtil
 
     bool isFloatingPointColorFormat(GLenum format)
     {
-        constexpr std::array<GLenum, 5> formats = {
+        static constexpr std::array<GLenum, 5> formats = {
             GL_RGB16F,
             GL_RGB32F,
             GL_R11F_G11F_B10F,
@@ -75,7 +76,7 @@ namespace SceneUtil
 
     int getColorFormatChannelCount(GLenum format)
     {
-        constexpr std::array<GLenum, 21> formats = {
+        static constexpr std::array<GLenum, 21> formats = {
             GL_RGBA,
             GL_RGBA2,
             GL_RGBA4,
@@ -137,9 +138,8 @@ namespace SceneUtil
             return sColorSourceType;
         }
 
-        void SelectColorFormatOperation::operator()(osg::GraphicsContext* graphicsContext)
+        void SelectColorFormatOperation::operator()([[maybe_unused]] osg::GraphicsContext* graphicsContext)
         {
-            (void)graphicsContext;
             sColorInternalFormat = GL_RGB;
 
             for (auto supportedFormat : mSupportedFormats)

@@ -9,6 +9,7 @@
 
 #include <components/settings/settings.hpp>
 #include <components/widgets/box.hpp>
+#include <components/misc/resourcehelpers.hpp>
 #include <components/vr/vr.hpp>
 
 #include "../mwbase/world.hpp"
@@ -129,7 +130,7 @@ namespace MWGui
                     info.caption = mFocusObject.getClass().getName(mFocusObject);
                     if (info.caption.empty())
                         info.caption=mFocusObject.getCellRef().getRefId();
-                    info.icon="";
+                    info.icon.clear();
                     tooltipSize = createToolTip(info, checkOwned());
                 }
                 else
@@ -167,13 +168,11 @@ namespace MWGui
 
                 // try to go 1 level up until there is a widget that has tooltip
                 // this is necessary because some skin elements are actually separate widgets
-                int i=0;
                 while (!focus->isUserString("ToolTipType"))
                 {
                     focus = focus->getParent();
                     if (!focus)
                         return;
-                    ++i;
                 }
 
                 std::string type = focus->getUserString("ToolTipType");
@@ -380,7 +379,7 @@ namespace MWGui
 
             ToolTipInfo info = object.getToolTipInfo(mFocusObject, count);
             if (!image)
-                info.icon = "";
+                info.icon.clear();
             tooltipSize = createToolTip(info, isOwned);
         }
 
@@ -445,7 +444,8 @@ namespace MWGui
 
         const int maximumWidth = MyGUI::RenderManager::getInstance().getViewSize().width - imageCaptionHPadding * 2;
 
-        std::string realImage = MWBase::Environment::get().getWindowManager()->correctIconPath(image);
+        const std::string realImage = Misc::ResourceHelpers::correctIconPath(image,
+            MWBase::Environment::get().getResourceSystem()->getVFS());
 
         Gui::EditBox* captionWidget = mDynamicToolTipBox->createWidget<Gui::EditBox>("NormalText", MyGUI::IntCoord(0, 0, 300, 300), MyGUI::Align::Left | MyGUI::Align::Top, "ToolTipCaption");
         captionWidget->setEditStatic(true);
@@ -501,7 +501,7 @@ namespace MWGui
             int flag = info.isPotion ? Widgets::MWEffectList::EF_NoTarget : 0;
             flag |= info.isIngredient ? Widgets::MWEffectList::EF_NoMagnitude : 0;
             flag |= info.isIngredient ? Widgets::MWEffectList::EF_Constant : 0;
-            effectsWidget->createEffectWidgets(effectItems, effectArea, coord, true, flag);
+            effectsWidget->createEffectWidgets(effectItems, effectArea, coord, info.isPotion || info.isIngredient, flag);
             totalSize.height += coord.top-6;
             totalSize.width = std::max(totalSize.width, coord.width);
         }
@@ -520,7 +520,7 @@ namespace MWGui
 
             std::vector<MyGUI::Widget*> enchantEffectItems;
             int flag = (enchant->mData.mType == ESM::Enchantment::ConstantEffect) ? Widgets::MWEffectList::EF_Constant : 0;
-            enchantWidget->createEffectWidgets(enchantEffectItems, enchantArea, coord, true, flag);
+            enchantWidget->createEffectWidgets(enchantEffectItems, enchantArea, coord, false, flag);
             totalSize.height += coord.top-6;
             totalSize.width = std::max(totalSize.width, coord.width);
 
@@ -852,10 +852,11 @@ namespace MWGui
             MWBase::Environment::get().getWorld()->getStore();
 
         const ESM::BirthSign *sign = store.get<ESM::BirthSign>().find(birthsignId);
+        const VFS::Manager* const vfs = MWBase::Environment::get().getResourceSystem()->getVFS();
 
         widget->setUserString("ToolTipType", "Layout");
         widget->setUserString("ToolTipLayout", "BirthSignToolTip");
-        widget->setUserString("ImageTexture_BirthSignImage", MWBase::Environment::get().getWindowManager()->correctTexturePath(sign->mTexture));
+        widget->setUserString("ImageTexture_BirthSignImage", Misc::ResourceHelpers::correctTexturePath(sign->mTexture, vfs));
         std::string text;
 
         text += sign->mName;
@@ -947,7 +948,7 @@ namespace MWGui
         std::string icon = effect->mIcon;
         int slashPos = icon.rfind('\\');
         icon.insert(slashPos+1, "b_");
-        icon = MWBase::Environment::get().getWindowManager()->correctIconPath(icon);
+        icon = Misc::ResourceHelpers::correctIconPath(icon, MWBase::Environment::get().getResourceSystem()->getVFS());
 
         widget->setUserString("ToolTipType", "Layout");
         widget->setUserString("ToolTipLayout", "MagicEffectToolTip");

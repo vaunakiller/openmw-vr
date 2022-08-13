@@ -6,6 +6,11 @@
 #include "../mwworld/class.hpp"
 #include "../mwworld/player.hpp"
 
+#include "../mwmechanics/magiceffects.hpp"
+#include "../mwmechanics/creaturestats.hpp"
+
+#include <components/esm3/loadmgef.hpp>
+
 namespace MWMechanics
 {
     MWWorld::Ptr getPlayer()
@@ -30,11 +35,10 @@ namespace MWMechanics
         return effects.get(ESM::MagicEffect::WaterWalking).getMagnitude() > 0;
     }
 
-    CreatureCustomDataResetter::CreatureCustomDataResetter(const MWWorld::Ptr& ptr) : mPtr(ptr) {}
-
-    CreatureCustomDataResetter::~CreatureCustomDataResetter()
+    bool isTargetMagicallyHidden(const MWWorld::Ptr& actor)
     {
-        if(!mPtr.isEmpty())
-            mPtr.getRefData().setCustomData({});
+        const MagicEffects& magicEffects = actor.getClass().getCreatureStats(actor).getMagicEffects();
+        return (magicEffects.get(ESM::MagicEffect::Invisibility).getMagnitude() > 0)
+            || (magicEffects.get(ESM::MagicEffect::Chameleon).getMagnitude() > 75);
     }
 }

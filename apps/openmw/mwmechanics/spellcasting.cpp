@@ -2,6 +2,7 @@
 
 #include <components/misc/constants.hpp>
 #include <components/misc/rng.hpp>
+#include <components/misc/resourcehelpers.hpp>
 
 #include "../mwbase/windowmanager.hpp"
 #include "../mwbase/soundmanager.hpp"
@@ -87,7 +88,8 @@ namespace MWMechanics
                 : ESM::MagicEffect::ResistBlightDisease;
             float x = target.getClass().getCreatureStats(target).getMagicEffects().get(requiredResistance).getMagnitude();
 
-            if (Misc::Rng::roll0to99() <= x)
+            auto& prng = MWBase::Environment::get().getWorld()->getPrng();
+            if (Misc::Rng::roll0to99(prng) <= x)
             {
                 // Fully resisted, show message
                 if (target == getPlayer())
@@ -311,8 +313,6 @@ namespace MWMechanics
         mSourceName = spell->mName;
         mId = spell->mId;
 
-        const MWWorld::ESMStore& store = MWBase::Environment::get().getWorld()->getStore();
-
         int school = 0;
 
         bool godmode = mCaster == MWMechanics::getPlayer() && MWBase::Environment::get().getWorld()->getGodModeState();
@@ -325,21 +325,12 @@ namespace MWMechanics
 
             if (!godmode)
             {
-                // Reduce fatigue (note that in the vanilla game, both GMSTs are 0, and there's no fatigue loss)
-                static const float fFatigueSpellBase = store.get<ESM::GameSetting>().find("fFatigueSpellBase")->mValue.getFloat();
-                static const float fFatigueSpellMult = store.get<ESM::GameSetting>().find("fFatigueSpellMult")->mValue.getFloat();
-                DynamicStat<float> fatigue = stats.getFatigue();
-                const float normalizedEncumbrance = mCaster.getClass().getNormalizedEncumbrance(mCaster);
-
-                float fatigueLoss = MWMechanics::calcSpellCost(*spell) * (fFatigueSpellBase + normalizedEncumbrance * fFatigueSpellMult);
-                fatigue.setCurrent(fatigue.getCurrent() - fatigueLoss); 
-                stats.setFatigue(fatigue);
-
                 bool fail = false;
 
                 // Check success
                 float successChance = getSpellSuccessChance(spell, mCaster, nullptr, true, false);
-                if (Misc::Rng::roll0to99() >= successChance)
+                auto& prng = MWBase::Environment::get().getWorld()->getPrng();
+                if (Misc::Rng::roll0to99(prng) >= successChance)
                 {
                     if (mCaster == getPlayer())
                         MWBase::Environment::get().getWindowManager()->messageBox("#{sMagicSkillFail}");
@@ -403,7 +394,8 @@ namespace MWMechanics
                     + 0.1f * creatureStats.getAttribute (ESM::Attribute::Luck).getModified())
                     * creatureStats.getFatigueTerm();
 
-        int roll = Misc::Rng::roll0to99();
+        auto& prng = MWBase::Environment::get().getWorld()->getPrng();
+        int roll = Misc::Rng::roll0to99(prng);
         if (roll > x)
         {
             // "X has no effect on you"
@@ -461,6 +453,8 @@ namespace MWMechanics
     {
         const MWWorld::ESMStore& store = MWBase::Environment::get().getWorld()->getStore();
         std::vector<std::string> addedEffects;
+        const VFS::Manager* const vfs = MWBase::Environment::get().getResourceSystem()->getVFS();
+
         for (const ESM::ENAMstruct& effectData : effects)
         {
             const auto effect = store.get<ESM::MagicEffect>().find(effectData.mEffectID);
@@ -473,13 +467,17 @@ namespace MWMechanics
                 castStatic = store.get<ESM::Static>().find ("VFX_DefaultCast");
 
             // check if the effect was already added
-            if (std::find(addedEffects.begin(), addedEffects.end(), "meshes\\" + castStatic->mModel) != addedEffects.end())
+            if (std::find(addedEffects.begin(), addedEffects.end(),
+                Misc::ResourceHelpers::correctMeshPath(castStatic->mModel, vfs))
+                != addedEffects.end())
                 continue;
 
             MWRender::Animation* animation = MWBase::Environment::get().getWorld()->getAnimation(mCaster);
             if (animation)
             {
-                animation->addEffect("meshes\\" + castStatic->mModel, effect->mIndex, false, "", effect->mParticle);
+                animation->addEffect(
+                    Misc::ResourceHelpers::correctMeshPath(castStatic->mModel, vfs),
+                    effect->mIndex, false, "", effect->mParticle);
             }
             else
             {
@@ -508,7 +506,9 @@ namespace MWMechanics
                     scale *= npcScaleVec.z();
                 }
                 scale = std::max(scale, 1.f);
-                MWBase::Environment::get().getWorld()->spawnEffect("meshes\\" + castStatic->mModel, effect->mParticle, pos, scale);
+                MWBase::Environment::get().getWorld()->spawnEffect(
+                    Misc::ResourceHelpers::correctMeshPath(castStatic->mModel, vfs),
+                    effect->mParticle, pos, scale);
             }
 
             if (animation && !mCaster.getClass().isActor())
@@ -518,7 +518,7 @@ namespace MWMechanics
                 "alteration", "conjuration", "destruction", "illusion", "mysticism", "restoration"
             };
 
-            addedEffects.push_back("meshes\\" + castStatic->mModel);
+            addedEffects.push_back(Misc::ResourceHelpers::correctMeshPath(castStatic->mModel, vfs));
 
             MWBase::SoundManager *sndMgr = MWBase::Environment::get().getSoundManager();
             if(!effect->mCastSound.empty())
@@ -556,7 +556,12 @@ namespace MWMechanics
         {
             // Don't play particle VFX unless the effect is new or it should be looping.
             if (playNonLooping || loop)
-                anim->addEffect("meshes\\" + castStatic->mModel, magicEffect.mIndex, loop, "", magicEffect.mParticle);
+            {
+                const VFS::Manager* const vfs = MWBase::Environment::get().getResourceSystem()->getVFS();
+                anim->addEffect(
+                    Misc::ResourceHelpers::correctMeshPath(castStatic->mModel, vfs),
+                    magicEffect.mIndex, loop, "", magicEffect.mParticle);
+            }
         }
     }
 }

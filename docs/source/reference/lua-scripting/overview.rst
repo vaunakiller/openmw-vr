@@ -165,7 +165,11 @@ Possible flags are:
 - ``MISC_ITEM`` - a local script that will be automatically attached to any miscellaneous item;
 - ``NPC`` - a local script that will be automatically attached to any NPC;
 - ``POTION`` - a local script that will be automatically attached to any potion;
-- ``WEAPON`` - a local script that will be automatically attached to any weapon.
+- ``WEAPON`` - a local script that will be automatically attached to any weapon;
+- ``APPARATUS`` - a local script that will be automatically attached to any apparatus;
+- ``LOCKPICK`` - a local script that will be automatically attached to any lockpick;
+- ``PROBE`` - a local script that will be automatically attached to any probe tool;
+- ``REPAIR`` - a local script that will be automatically attached to any repair tool.
 
 Several flags (except ``GLOBAL``) can be used with a single script. Use space or comma as a separator.
 
@@ -175,6 +179,17 @@ Hot reloading
 It is possible to modify a script without restarting OpenMW. To apply changes, open the in-game console and run the command: ``reloadlua``.
 This will restart all Lua scripts using the `onSave and onLoad`_ handlers the same way as if the game was saved or loaded.
 It reloads all ``.omwscripts`` files and ``.lua`` files that are not packed to any archives. ``.omwaddon`` files and scripts packed to BSA can not be changed without restarting the game.
+
+Lua console
+===========
+
+It is also possible to run Lua commands directly from the in-game console.
+
+To enter the Lua mode run one of the commands:
+
+- ``lua player`` or ``luap`` - enter player context
+- ``lua global`` or ``luag`` - enter global context
+- ``lua selected`` or ``luas`` - enter local context on the selected object
 
 Script structure
 ================
@@ -340,35 +355,7 @@ It can not be overloaded even if there is a lua file with the same name.
 The list of available packages is different for global and for local scripts.
 Player scripts are local scripts that are attached to a player.
 
-+---------------------------------------------------------+--------------------+---------------------------------------------------------------+
-| Package                                                 | Can be used        | Description                                                   |
-+=========================================================+====================+===============================================================+
-|:ref:`openmw.interfaces <Script interfaces>`             | everywhere         | | Public interfaces of other scripts.                         |
-+---------------------------------------------------------+--------------------+---------------------------------------------------------------+
-|:ref:`openmw.util <Package openmw.util>`                 | everywhere         | | Defines utility functions and classes like 3D vectors,      |
-|                                                         |                    | | that don't depend on the game world.                        |
-+---------------------------------------------------------+--------------------+---------------------------------------------------------------+
-|:ref:`openmw.storage <Package openmw.storage>`           | everywhere         | | Storage API. In particular can be used to store data        |
-|                                                         |                    | | between game sessions.                                      |
-+---------------------------------------------------------+--------------------+---------------------------------------------------------------+
-|:ref:`openmw.core <Package openmw.core>`                 | everywhere         | | Functions that are common for both global and local scripts |
-+---------------------------------------------------------+--------------------+---------------------------------------------------------------+
-|:ref:`openmw.async <Package openmw.async>`               | everywhere         | | Timers (implemented) and coroutine utils (not implemented)  |
-+---------------------------------------------------------+--------------------+---------------------------------------------------------------+
-|:ref:`openmw.query <Package openmw.query>`               | everywhere         | | Tools for constructing queries: base queries and fields.    |
-+---------------------------------------------------------+--------------------+---------------------------------------------------------------+
-|:ref:`openmw.world <Package openmw.world>`               | by global scripts  | | Read-write access to the game world.                        |
-+---------------------------------------------------------+--------------------+---------------------------------------------------------------+
-|:ref:`openmw.self <Package openmw.self>`                 | by local scripts   | | Full access to the object the script is attached to.        |
-+---------------------------------------------------------+--------------------+---------------------------------------------------------------+
-|:ref:`openmw.nearby <Package openmw.nearby>`             | by local scripts   | | Read-only access to the nearest area of the game world.     |
-+---------------------------------------------------------+--------------------+---------------------------------------------------------------+
-|:ref:`openmw.input <Package openmw.input>`               | by player scripts  | | User input                                                  |
-+---------------------------------------------------------+--------------------+---------------------------------------------------------------+
-|:ref:`openmw.ui <Package openmw.ui>`                     | by player scripts  | | Controls :ref:`user interface <User interface reference>`   |
-+---------------------------------------------------------+--------------------+---------------------------------------------------------------+
-|:ref:`openmw.camera <Package openmw.camera>`             | by player scripts  | | Controls camera                                             |
-+---------------------------------------------------------+--------------------+---------------------------------------------------------------+
+.. include:: tables/packages.rst
 
 openmw_aux
 ----------
@@ -376,15 +363,7 @@ openmw_aux
 ``openmw_aux.*`` are built-in libraries that are themselves implemented in Lua. They can not do anything that is not possible with the basic API, they only make it more convenient.
 Sources can be found in ``resources/vfs/openmw_aux``. In theory mods can override them, but it is not recommended.
 
-+---------------------------------------------------------+--------------------+---------------------------------------------------------------+
-| Built-in library                                        | Can be used        | Description                                                   |
-+=========================================================+====================+===============================================================+
-|:ref:`openmw_aux.calendar <Package openmw_aux.calendar>` | everywhere         | | Game time calendar                                          |
-+---------------------------------------------------------+--------------------+---------------------------------------------------------------+
-|:ref:`openmw_aux.util <Package openmw_aux.util>`         | everywhere         | | Miscellaneous utils                                         |
-+---------------------------------------------------------+--------------------+---------------------------------------------------------------+
-|:ref:`openmw_aux.time <Package openmw_aux.time>`         | everywhere         | | Timers and game time utils                                  |
-+---------------------------------------------------------+--------------------+---------------------------------------------------------------+
+.. include:: tables/aux_packages.rst
 
 They can be loaded with ``require`` the same as API packages. For example:
 
@@ -460,15 +439,25 @@ The order in which the scripts are started is important. So if one mod should ov
 
 **Interfaces of built-in scripts**
 
-+---------------------------------------------------------+--------------------+---------------------------------------------------------------+
-| Interface                                               | Can be used        | Description                                                   |
-+=========================================================+====================+===============================================================+
-|:ref:`AI <Interface AI>`                                 | by local scripts   | | Control basic AI of NPCs and creatures.                     |
-+---------------------------------------------------------+--------------------+---------------------------------------------------------------+
-|:ref:`Camera <Interface Camera>`                         | by player scripts  | | Allows to alter behavior of the built-in camera script      |
-|                                                         |                    | | without overriding the script completely.                   |
-+---------------------------------------------------------+--------------------+---------------------------------------------------------------+
+.. list-table::
+  :widths: 20 20 60
 
+  * - Interface
+    - Can be used
+    - Description
+  * - :ref:`AI <Interface AI>`
+    - by local scripts
+    - Control basic AI of NPCs and creatures.
+  * - :ref:`Camera <Interface Camera>`
+    - by player scripts
+    - | Allows to alter behavior of the built-in camera script
+      | without overriding the script completely.
+  * - :ref:`Settings <Interface Settings>`
+    - by player and global scripts
+    - Save, display and track changes of setting values.
+  * - :ref:`MWUI <Interface MWUI>`
+    - by player scripts
+    - Morrowind-style UI templates.
 
 Event system
 ============
@@ -628,98 +617,6 @@ Also in `openmw_aux`_ is the helper function ``runRepeatedly``, it is implemente
         initialDelay = timeBeforeMidnight,
         type = time.GameTime,
     })
-
-
-Queries
-=======
-
-`openmw.query` contains base queries of each type (e.g. `query.doors`, `query.containers`...), which return all of the objects of given type in no particular order. You can then modify that query to filter the results, sort them, group them, etc. Queries are immutable, so any operations on them return a new copy, leaving the original unchanged.
-
-`openmw.world.selectObjects` and `openmw.nearby.selectObjects` both accept a query and return objects that match it. However, `nearby.selectObjects` is only available in local scripts, and returns only objects from currently active cells, while `world.selectObjects` is only available in global scripts, and returns objects regardless of them being in active cells.
-**TODO:** describe how to filter out inactive objects from world queries
-
-An example of an object query:
-
-.. code-block:: Lua
-
-    local query = require('openmw.query')
-    local nearby = require('openmw.nearby')
-    local ui = require('openmw.ui')
-
-    local function selectDoors(namePattern)
-        local query = query.doors:where(query.DOOR.destCell.name:like(namePattern))
-        return nearby.selectObjects(query)
-    end
-
-    local function showGuildDoors()
-        ui.showMessage('Here are all the entrances to guilds!')
-        for _, door in selectDoors("%Guild%"):ipairs() do
-            local pos = door.position
-            local message = string.format("%.0f;%.0f;%.0f", pos.x, pos.y, pos.z)
-            ui.showMessage(message)
-        end
-    end
-
-    return {
-        engineHandlers = {
-            onKeyPress = function(key)
-                if key.symbol == 'e' then
-                    showGuildDoors()
-                end
-            end
-        }
-    }
-
-.. warning::
-    The example above uses operation `like` that is not implemented yet.
-
-**TODO:** add non-object queries, explain how relations work, and define what a field is
-
-Queries are constructed through the following method calls: (if you've used SQL before, you will find them familiar)
-
-- `:where(filter)` - filters the results to match the combination of conditions passed as the argument
-- `:orderBy(field)` and `:orderByDesc(field)` sort the result by the `field` argument. Sorts in descending order in case of `:orderByDesc`. Multiple calls can be chained, with the first call having priority. (i. e. if the first field is equal, objects are sorted by the second one...) **(not implemented yet)**
-- `:groupBy(field)` returns only one result for each value of the `field` argument. The choice of the result is arbitrary. Useful for counting only unique objects, or checking if certain objects exist. **(not implemented yet)**
-- `:limit(number)` will only return `number` of results (or fewer)
-- `:offset(number)` skips the first `number` results. Particularly useful in combination with `:limit` **(not implemented yet)**
-
-Filters consist of conditions, which are combined with "and" (operator `*`), "or" (operator `+`), "not" (operator `-`) and braces `()`.
-
-To make a condition, take a field from the `openmw.query` package and call any of the following methods:
-
-- `:eq` equal to
-- `:neq` not equal to
-- `:gt` greater than
-- `:gte` greater or equal to
-- `:lt` less than
-- `:lte` less or equal to
-- `:like` matches a pattern. Only applicable to text (strings) **(not implemented yet)**
-
-**TODO:** describe the pattern format
-
-All the condition methods are type sensitive, and will throw an error if you pass a value of the wrong type into them.
-
-A few examples of filters:
-
-.. warning::
-    `openmw.query.ACTOR` is not implemented yet
-
-.. code-block:: Lua
-
-    local query = require('openmw.query')
-    local ACTOR = query.ACTOR
-
-    local strong_guys_from_capital = (ACTOR.stats.level:gt(10) + ACTOR.stats.strength:gt(70))
-        * ACTOR.cell.name:eq("Default city")
-
-    -- could also write like this:
-    local strong_guys = ACTOR.stats.level:gt(10) + ACTOR.stats.strength:gt(70)
-    local guys_from_capital = ACTOR.cell.name:eq("Default city")
-    local strong_guys_from_capital_2 = strong_guys * guys_from_capital
-
-    local DOOR = query.DOOR
-
-    local interestingDoors = -DOOR.name:eq("") * DOOR.isTeleport:eq(true) * Door.destCell.isExterior:eq(false)
 
 
 Using IDE for Lua scripting

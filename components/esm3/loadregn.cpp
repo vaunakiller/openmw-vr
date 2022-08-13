@@ -2,12 +2,9 @@
 
 #include "esmreader.hpp"
 #include "esmwriter.hpp"
-#include "components/esm/defs.hpp"
 
 namespace ESM
 {
-    unsigned int Region::sRecordId = REC_REGN;
-
     void Region::load(ESMReader &esm, bool &isDeleted)
     {
         isDeleted = false;
@@ -19,35 +16,26 @@ namespace ESM
             esm.getSubName();
             switch (esm.retSubName().toInt())
             {
-                case ESM::SREC_NAME:
+                case SREC_NAME:
                     mId = esm.getHString();
                     hasName = true;
                     break;
-                case ESM::FourCC<'F','N','A','M'>::value:
+                case fourCC("FNAM"):
                     mName = esm.getHString();
                     break;
-                case ESM::FourCC<'W','E','A','T'>::value:
+                case fourCC("WEAT"):
                 {
                     esm.getSubHeader();
-                    if (esm.getVer() == VER_12)
+                    // Cold weather not included before 1.3
+                    if (esm.getSubSize() == sizeof(mData))
                     {
-                        mData.mA = 0;
-                        mData.mB = 0;
-                        esm.getExact(&mData, sizeof(mData) - 2);
+                        esm.getT(mData);
                     }
-                    else if (esm.getVer() == VER_13)
+                    else if (esm.getSubSize() == sizeof(mData) - 2)
                     {
-                        // May include the additional two bytes (but not necessarily)
-                        if (esm.getSubSize() == sizeof(mData))
-                        {
-                            esm.getT(mData);
-                        }
-                        else
-                        {
-                            mData.mA = 0;
-                            mData.mB = 0;
-                            esm.getExact(&mData, sizeof(mData)-2);
-                        }
+                        mData.mSnow = 0;
+                        mData.mBlizzard = 0;
+                        esm.getExact(&mData, sizeof(mData) - 2);
                     }
                     else
                     {
@@ -55,13 +43,13 @@ namespace ESM
                     }
                     break;
                 }
-                case ESM::FourCC<'B','N','A','M'>::value:
+                case fourCC("BNAM"):
                     mSleepList = esm.getHString();
                     break;
-                case ESM::FourCC<'C','N','A','M'>::value:
+                case fourCC("CNAM"):
                     esm.getHT(mMapColor);
                     break;
-                case ESM::FourCC<'S','N','A','M'>::value:
+                case fourCC("SNAM"):
                 {
                     esm.getSubHeader();
                     SoundRef sr;
@@ -70,7 +58,7 @@ namespace ESM
                     mSoundList.push_back(sr);
                     break;
                 }
-                case ESM::SREC_DELE:
+                case SREC_DELE:
                     esm.skipHSub();
                     isDeleted = true;
                     break;
@@ -109,14 +97,15 @@ namespace ESM
             esm.startSubRecord("SNAM");
             esm.writeFixedSizeString(it->mSound, 32);
             esm.writeT(it->mChance);
-            esm.endRecord("NPCO");
+            esm.endRecord("SNAM");
         }
     }
 
     void Region::blank()
     {
+        mRecordFlags = 0;
         mData.mClear = mData.mCloudy = mData.mFoggy = mData.mOvercast = mData.mRain =
-            mData.mThunder = mData.mAsh = mData.mBlight = mData.mA = mData.mB = 0;
+            mData.mThunder = mData.mAsh = mData.mBlight = mData.mSnow = mData.mBlizzard = 0;
 
         mMapColor = 0;
 

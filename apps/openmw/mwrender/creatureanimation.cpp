@@ -63,7 +63,7 @@ CreatureWeaponAnimation::CreatureWeaponAnimation(const MWWorld::Ptr &ptr, const 
         updateParts();
     }
 
-    mWeaponAnimationTime = std::shared_ptr<WeaponAnimationTime>(new WeaponAnimationTime(this));
+    mWeaponAnimationTime = std::make_shared<WeaponAnimationTime>(this);
 }
 
 void CreatureWeaponAnimation::showWeapons(bool showWeapon)
@@ -147,7 +147,7 @@ void CreatureWeaponAnimation::updatePart(PartHolderPtr& scene, int slot)
     {
         osg::ref_ptr<osg::Node> attached = attach(itemModel, bonename, bonename, item.getType() == ESM::Light::sRecordId);
 
-        scene.reset(new PartHolder(attached));
+        scene = std::make_unique<PartHolder>(attached);
 
         if (!item.getClass().getEnchantment(item).empty())
             mGlowUpdater = SceneUtil::addEnchantedGlow(attached, mResourceSystem, item.getClass().getEnchantmentColor(item));
@@ -173,7 +173,7 @@ void CreatureWeaponAnimation::updatePart(PartHolderPtr& scene, int slot)
         if (slot == MWWorld::InventoryStore::Slot_CarriedRight)
             source = mWeaponAnimationTime;
         else
-            source.reset(new NullAnimationTime);
+            source = std::make_shared<NullAnimationTime>();
 
         SceneUtil::AssignControllerSourcesVisitor assignVisitor(source);
         attached->accept(assignVisitor);
@@ -232,6 +232,8 @@ osg::Group *CreatureWeaponAnimation::getArrowBone()
 
     int type = weapon->get<ESM::Weapon>()->mBase->mData.mType;
     int ammoType = MWMechanics::getWeaponType(type)->mAmmoType;
+    if (ammoType == ESM::Weapon::None)
+        return nullptr;
 
     // Try to find and attachment bone in actor's skeleton, otherwise fall back to the ArrowBone in weapon's mesh
     osg::Group* bone = getBoneByName(MWMechanics::getWeaponType(ammoType)->mAttachBone);

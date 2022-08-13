@@ -5,9 +5,12 @@
 
 #include <sol/sol.hpp>
 
-#include <components/vfs/manager.hpp>
-
 #include "configuration.hpp"
+
+namespace VFS
+{
+    class Manager;
+}
 
 namespace LuaUtil
 {
@@ -139,7 +142,9 @@ namespace LuaUtil
 
     // Makes a table read only (when accessed from Lua) by wrapping it with an empty userdata.
     // Needed to forbid any changes in common resources that can be accessed from different sandboxes.
-    sol::table makeReadOnly(sol::table);
+    // `strictIndex = true` replaces default `__index` with a strict version that throws an error if key is not found.
+    sol::table makeReadOnly(const sol::table&, bool strictIndex = false);
+    inline sol::table makeStrictReadOnly(const sol::table& tbl) { return makeReadOnly(tbl, true); }
     sol::table getMutableFromReadOnly(const sol::userdata&);
 
 }

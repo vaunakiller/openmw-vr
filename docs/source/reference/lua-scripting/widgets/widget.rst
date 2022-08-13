@@ -32,11 +32,26 @@ Properties
   * - visible
     - boolean (true)
     - Defines if the widget is visible
+  * - propagateEvents
+    - boolean (true)
+    - Allows base widget events to propagate to the widget's parent.
+  * - alpha
+    - number (1.0)
+    - | Set the opacity of the widget and its contents.
+      | If `inheritAlpha` is set to `true`, this becomes the maximum alpha value the widget can take.
+  * - inheritAlpha
+    - boolean (true)
+    - | Modulate `alpha` with parents `alpha`.
+      | If the parent has `inheritAlpha` set to `true`, the value after modulating is passed to the child.
 
 .. TODO: document the mouse pointer property, when API for reading / adding pointer types is available
 
 Events
 ------
+
+Base widget events are special, they can propagate up to the parent widget.
+This can be prevented by changing the `propagateEvents` property, or by assigning an  event handler.
+The event is still allowed to propagate if the event handler returns `true`.
 
 .. list-table::
   :header-rows: 1

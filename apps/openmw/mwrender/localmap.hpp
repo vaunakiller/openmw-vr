@@ -21,7 +21,7 @@ namespace ESM
 
 namespace osg
 {
-    class Texture;
+    class Texture2D;
     class Image;
     class Camera;
     class Group;
@@ -56,16 +56,9 @@ namespace MWRender
 
         void removeCell (MWWorld::CellStore* cell);
 
-        osg::ref_ptr<osg::Texture> getMapTexture (int x, int y);
+        osg::ref_ptr<osg::Texture2D> getMapTexture (int x, int y);
 
-        osg::ref_ptr<osg::Texture> getFogOfWarTexture (int x, int y);
-
-        void removeCamera(osg::Camera* cam);
-
-        /**
-         * Indicates a camera has been queued for rendering and can be cleaned up in the next frame. For internal use only.
-         */
-        void markForRemoval(osg::Camera* cam);
+        osg::ref_ptr<osg::Texture2D> getFogOfWarTexture (int x, int y);
 
         /**
          * Removes cameras that have already been rendered. Should be called every frame to ensure that
@@ -106,19 +99,8 @@ namespace MWRender
         osg::ref_ptr<osg::Group> mRoot;
         osg::ref_ptr<osg::Node> mSceneRoot;
 
-        struct RTTStruct
-        {
-            RTTStruct();
-            ~RTTStruct();
-            osg::ref_ptr<osg::Camera> camera;
-            osg::ref_ptr<LocalMapRenderToTexture> rttnode;
-        };
-
-        typedef std::vector< RTTStruct > CameraVector;
-
-        CameraVector mActiveCameras;
-
-        CameraVector mCamerasPendingRemoval;
+        typedef std::vector< osg::ref_ptr<LocalMapRenderToTexture> > RTTVector;
+        RTTVector mLocalMapRTTs;
 
         typedef std::set<std::pair<int, int> > Grid;
         Grid mCurrentGrid;
@@ -133,8 +115,8 @@ namespace MWRender
             void saveFogOfWar(ESM::FogTexture& fog) const;
             void createFogOfWarTexture();
 
-            osg::ref_ptr<osg::Texture> mMapTexture;
-            osg::ref_ptr<osg::Texture> mFogOfWarTexture;
+            osg::ref_ptr<osg::Texture2D> mMapTexture;
+            osg::ref_ptr<osg::Texture2D> mFogOfWarTexture;
             osg::ref_ptr<osg::Image> mFogOfWarImage;
 
             bool needUpdate = true;
@@ -162,8 +144,7 @@ namespace MWRender
         void requestExteriorMap(const MWWorld::CellStore* cell);
         void requestInteriorMap(const MWWorld::CellStore* cell);
 
-        void createOrthographicCamera(osg::Camera*, float left, float top, float width, float height, const osg::Vec3d& upVector, float zmin, float zmax);
-        void setupRenderToTexture(RTTStruct rtt, int x, int y);
+        void setupRenderToTexture(int segment_x, int segment_y, float left, float top, const osg::Vec3d& upVector, float zmin, float zmax);
 
         bool mInterior;
         osg::BoundingBox mBounds;

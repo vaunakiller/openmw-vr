@@ -31,15 +31,16 @@
 #include <components/esm3/loadnpc.hpp>
 #include <components/esm3/loadmisc.hpp>
 #include <components/esm3/loadbody.hpp>
+#include <components/esm3/fogstate.hpp>
 
 #include "timestamp.hpp"
 #include "ptr.hpp"
 
 namespace ESM
 {
+    class ReadersCache;
     struct Cell;
     struct CellState;
-    struct FogState;
     struct CellId;
     struct RefNum;
 }
@@ -61,12 +62,12 @@ namespace MWWorld
         private:
 
             const MWWorld::ESMStore& mStore;
-            std::vector<ESM::ESMReader>& mReader;
+            ESM::ReadersCache& mReaders;
 
             // Even though fog actually belongs to the player and not cells,
             // it makes sense to store it here since we need it once for each cell.
             // Note this is nullptr until the cell is explored to save some memory
-            std::shared_ptr<ESM::FogState> mFogState;
+            std::unique_ptr<ESM::FogState> mFogState;
 
             const ESM::Cell *mCell;
             State mState;
@@ -211,9 +212,7 @@ namespace MWWorld
             }
 
             /// @param readerList The readers to use for loading of the cell on-demand.
-            CellStore (const ESM::Cell *cell_,
-                       const MWWorld::ESMStore& store,
-                       std::vector<ESM::ESMReader>& readerList);
+            CellStore(const ESM::Cell* cell, const MWWorld::ESMStore& store, ESM::ReadersCache& readers);
 
             const ESM::Cell *getCell() const;
 
@@ -254,7 +253,7 @@ namespace MWWorld
 
             void setWaterLevel (float level);
 
-            void setFog (ESM::FogState* fog);
+            void setFog(std::unique_ptr<ESM::FogState>&& fog);
             ///< \note Takes ownership of the pointer
 
             ESM::FogState* getFog () const;

@@ -8,7 +8,6 @@
 #include <components/resource/bulletshape.hpp>
 
 #include <BulletCollision/CollisionDispatch/btCollisionObject.h>
-#include <BulletCollision/Gimpact/btBoxCollision.h>
 #include <LinearMath/btVector3.h>
 
 #include <memory>
@@ -18,6 +17,7 @@
 namespace ESM
 {
     class ESMReader;
+    class ReadersCache;
 }
 
 namespace VFS
@@ -89,9 +89,9 @@ namespace NavMeshTool
         std::vector<std::vector<float>> mHeightfields;
     };
 
-    WorldspaceData gatherWorldspaceData(const DetourNavigator::Settings& settings, std::vector<ESM::ESMReader>& readers,
+    WorldspaceData gatherWorldspaceData(const DetourNavigator::Settings& settings, ESM::ReadersCache& readers,
         const VFS::Manager& vfs, Resource::BulletShapeManager& bulletShapeManager, const EsmLoader::EsmData& esmData,
-        bool processInteriorCells);
+        bool processInteriorCells, bool writeBinaryLog);
 }
 
 #endif

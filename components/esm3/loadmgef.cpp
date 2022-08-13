@@ -6,9 +6,11 @@
 #include "esmwriter.hpp"
 #include "components/esm/defs.hpp"
 
+namespace ESM
+{
 namespace
 {
-    static const char *sIds[ESM::MagicEffect::Length] =
+    static const char *sIds[MagicEffect::Length] =
     {
         "WaterBreathing",
         "SwiftSwim",
@@ -181,11 +183,10 @@ namespace
         0x11c8, 0x1048, 0x1048, 0x1048, 0x1048, 0x1048, 0x1048
     };
 }
+}
 
 namespace ESM
 {
-    unsigned int MagicEffect::sRecordId = REC_MGEF;
-
 void MagicEffect::load(ESMReader &esm, bool &isDeleted)
 {
     isDeleted = false; // MagicEffect record can't be deleted now (may be changed in the future)
@@ -195,7 +196,7 @@ void MagicEffect::load(ESMReader &esm, bool &isDeleted)
 
     mId = indexToId (mIndex);
 
-    esm.getHNT(mData, "MEDT", 36);
+    esm.getHNTSized<36>(mData, "MEDT");
     if (esm.getFormat() == 0)
     {
         // don't allow mods to change fixed flags in the legacy format
@@ -211,37 +212,37 @@ void MagicEffect::load(ESMReader &esm, bool &isDeleted)
         esm.getSubName();
         switch (esm.retSubName().toInt())
         {
-            case ESM::FourCC<'I','T','E','X'>::value:
+            case fourCC("ITEX"):
                 mIcon = esm.getHString();
                 break;
-            case ESM::FourCC<'P','T','E','X'>::value:
+            case fourCC("PTEX"):
                 mParticle = esm.getHString();
                 break;
-            case ESM::FourCC<'B','S','N','D'>::value:
+            case fourCC("BSND"):
                 mBoltSound = esm.getHString();
                 break;
-            case ESM::FourCC<'C','S','N','D'>::value:
+            case fourCC("CSND"):
                 mCastSound = esm.getHString();
                 break;
-            case ESM::FourCC<'H','S','N','D'>::value:
+            case fourCC("HSND"):
                 mHitSound = esm.getHString();
                 break;
-            case ESM::FourCC<'A','S','N','D'>::value:
+            case fourCC("ASND"):
                 mAreaSound = esm.getHString();
                 break;
-            case ESM::FourCC<'C','V','F','X'>::value:
+            case fourCC("CVFX"):
                 mCasting = esm.getHString();
                 break;
-            case ESM::FourCC<'B','V','F','X'>::value:
+            case fourCC("BVFX"):
                 mBolt = esm.getHString();
                 break;
-            case ESM::FourCC<'H','V','F','X'>::value:
+            case fourCC("HVFX"):
                 mHit = esm.getHString();
                 break;
-            case ESM::FourCC<'A','V','F','X'>::value:
+            case fourCC("AVFX"):
                 mArea = esm.getHString();
                 break;
-            case ESM::FourCC<'D','E','S','C'>::value:
+            case fourCC("DESC"):
                 mDescription = esm.getHString();
                 break;
             default:
@@ -530,10 +531,10 @@ const std::string &MagicEffect::effectIdToString(short effectID)
 }
 
 class FindSecond {
-    const std::string &mName;
+    std::string_view mName;
 
 public:
-    FindSecond(const std::string &name) : mName(name) { }
+    FindSecond(std::string_view name) : mName(name) { }
 
     bool operator()(const std::pair<short,std::string> &item) const
     {
@@ -543,13 +544,13 @@ public:
     }
 };
 
-short MagicEffect::effectStringToId(const std::string &effect)
+short MagicEffect::effectStringToId(std::string_view effect)
 {
     std::map<short,std::string>::const_iterator name;
 
     name = std::find_if(sNames.begin(), sNames.end(), FindSecond(effect));
     if(name == sNames.end())
-        throw std::runtime_error(std::string("Unimplemented effect ")+effect);
+        throw std::runtime_error("Unimplemented effect " + std::string(effect));
 
     return name->first;
 }
@@ -575,6 +576,7 @@ MagicEffect::MagnitudeDisplayType MagicEffect::getMagnitudeDisplayType() const {
 
     void MagicEffect::blank()
     {
+        mRecordFlags = 0;
         mData.mSchool = 0;
         mData.mBaseCost = 0;
         mData.mFlags = 0;

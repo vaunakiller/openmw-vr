@@ -2,6 +2,7 @@
 #define GAME_MWMECHANICS_AICOMBAT_H
 
 #include "typedaipackage.hpp"
+#include "aitemporarybase.hpp"
 
 #include "../mwworld/cellstore.hpp" // for Doors
 
@@ -36,7 +37,7 @@ namespace MWMechanics
         bool mRotateMove;
         osg::Vec3f mLastTargetPos;
         const MWWorld::CellStore* mCell;
-        std::shared_ptr<Action> mCurrentAction;
+        std::unique_ptr<Action> mCurrentAction;
         float mActionCooldown;
         float mStrength;
         bool mForceNoShortcut;
@@ -59,29 +60,7 @@ namespace MWMechanics
         bool mUseCustomDestination;
         osg::Vec3f mCustomDestination;
 
-        AiCombatStorage():
-        mAttackCooldown(0.0f),
-        mTimerCombatMove(0.0f),
-        mReadyToAttack(false),
-        mAttack(false),
-        mAttackRange(0.0f),
-        mCombatMove(false),
-        mRotateMove(false),
-        mLastTargetPos(0,0,0),
-        mCell(nullptr),
-        mCurrentAction(),
-        mActionCooldown(0.0f),
-        mStrength(),
-        mForceNoShortcut(false),
-        mShortcutFailPos(),
-        mMovement(),
-        mFleeState(FleeState_None),
-        mLOS(false),
-        mUpdateLOSTimer(0.0f),
-        mFleeBlindRunTimer(0.0f),
-        mUseCustomDestination(false),
-        mCustomDestination()
-        {}
+        AiCombatStorage();
 
         void startCombatMove(bool isDistantCombat, float distToTarget, float rangeAttack, const MWWorld::Ptr& actor, const MWWorld::Ptr& target);
         void updateCombatMove(float duration);

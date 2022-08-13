@@ -5,17 +5,20 @@
 #include <QLocalSocket>
 #include <QMessageBox>
 
+#include <boost/program_options/options_description.hpp>
+
 #include <components/debug/debugging.hpp>
 #include <components/debug/debuglog.hpp>
 #include <components/fallback/validate.hpp>
 #include <components/misc/rng.hpp>
 #include <components/nifosg/nifloader.hpp>
+#include <components/settings/settings.hpp>
 
 #include "model/doc/document.hpp"
 #include "model/world/data.hpp"
 
 #ifdef _WIN32
-#include <Windows.h>
+#include <components/windows.hpp>
 #endif
 
 using namespace Fallback;
@@ -107,6 +110,7 @@ boost::program_options::variables_map CS::Editor::readConfiguration()
     boost::program_options::notify(variables);
 
     mCfgMgr.readConfiguration(variables, desc, false);
+    Settings::Manager::load(mCfgMgr, true);
     setupLogging(mCfgMgr.getLogPath().string(), "OpenMW-CS");
 
     return variables;
@@ -137,10 +141,12 @@ std::pair<Files::PathContainer, std::vector<std::string> > CS::Editor::readConfi
 
     Files::PathContainer::value_type local(variables["data-local"].as<Files::MaybeQuotedPathContainer::value_type>());
     if (!local.empty())
+    {
+        boost::filesystem::create_directories(local);
         dataLocal.push_back(local);
-
-    mCfgMgr.processPaths (dataDirs);
-    mCfgMgr.processPaths (dataLocal, true);
+    }
+    mCfgMgr.filterOutNonExistingPaths(dataDirs);
+    mCfgMgr.filterOutNonExistingPaths(dataLocal);
 
     if (!dataLocal.empty())
         mLocal = dataLocal[0];

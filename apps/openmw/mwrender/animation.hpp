@@ -61,7 +61,7 @@ public:
 
     ~PartHolder();
 
-    osg::ref_ptr<osg::Node> getNode()
+    const osg::ref_ptr<osg::Node>& getNode() const
     {
         return mNode;
     }
@@ -72,7 +72,7 @@ private:
     void operator= (const PartHolder&);
     PartHolder(const PartHolder&);
 };
-typedef std::shared_ptr<PartHolder> PartHolderPtr;
+using PartHolderPtr = std::unique_ptr<PartHolder>;
 
 struct EffectParams
 {
@@ -149,7 +149,7 @@ public:
     class TextKeyListener
     {
     public:
-        virtual void handleTextKey(const std::string &groupname, SceneUtil::TextKeyMap::ConstIterator key,
+        virtual void handleTextKey(std::string_view groupname, SceneUtil::TextKeyMap::ConstIterator key,
                                    const SceneUtil::TextKeyMap& map) = 0;
 
         virtual ~TextKeyListener() = default;
@@ -351,9 +351,9 @@ public:
     /// Must be thread safe
     virtual ~Animation();
 
-    MWWorld::ConstPtr getPtr() const;
+    MWWorld::ConstPtr getPtr() const { return mPtr; }
 
-    MWWorld::Ptr getPtr();
+    MWWorld::Ptr getPtr() { return mPtr; }
 
     /// Set active flag on the object skeleton, if one exists.
     /// @see SceneUtil::Skeleton::setActive
@@ -385,7 +385,7 @@ public:
 
     virtual void updatePtr(const MWWorld::Ptr &ptr);
 
-    bool hasAnimation(const std::string &anim) const;
+    bool hasAnimation(std::string_view anim) const;
 
     // Specifies the axis' to accumulate on. Non-accumulated axis will just
     // move visually, but not affect the actual movement. Each x/y/z value
@@ -496,6 +496,8 @@ public:
 
     virtual void setAccurateAiming(bool enabled) {}
     virtual bool canBeHarvested() const { return false; }
+
+    virtual void removeFromScene();
 
 private:
     Animation(const Animation&);

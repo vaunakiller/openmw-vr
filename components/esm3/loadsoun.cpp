@@ -2,12 +2,9 @@
 
 #include "esmreader.hpp"
 #include "esmwriter.hpp"
-#include "components/esm/defs.hpp"
 
 namespace ESM
 {
-    unsigned int Sound::sRecordId = REC_SOUN;
-
     void Sound::load(ESMReader &esm, bool &isDeleted)
     {
         isDeleted = false;
@@ -20,18 +17,18 @@ namespace ESM
             esm.getSubName();
             switch (esm.retSubName().toInt())
             {
-                case ESM::SREC_NAME:
+                case SREC_NAME:
                     mId = esm.getHString();
                     hasName = true;
                     break;
-                case ESM::FourCC<'F','N','A','M'>::value:
+                case fourCC("FNAM"):
                     mSound = esm.getHString();
                     break;
-                case ESM::FourCC<'D','A','T','A'>::value:
-                    esm.getHT(mData, 3);
+                case fourCC("DATA"):
+                    esm.getHTSized<3>(mData);
                     hasData = true;
                     break;
-                case ESM::SREC_DELE:
+                case SREC_DELE:
                     esm.skipHSub();
                     isDeleted = true;
                     break;
@@ -63,6 +60,7 @@ namespace ESM
 
     void Sound::blank()
     {
+        mRecordFlags = 0;
         mSound.clear();
 
         mData.mVolume = 128;
