@@ -6,6 +6,7 @@
 #include <osg/BlendFunc>
 #include <osg/Fog>
 #include <osg/LightModel>
+#include <osg/Material>
 
 #include <components/resource/resourcesystem.hpp>
 #include <components/resource/scenemanager.hpp>
@@ -112,29 +113,25 @@ namespace MWVR
 
     void UserPointer::updatePointerTarget()
     {
-        auto* world = MWBase::Environment::get().getWorld();
-        if (world)
+        mPointerRescale->setMatrix(osg::Matrix::scale(1, 1, 1));
+
+        //mDistanceToPointerTarget = world->getTargetObject(mPointerTarget, mPointerTransform);
+        //osg::computeLocalToWorld(mPointerTransform->getParentalNodePaths()[0]);
+        mDistanceToPointerTarget = Util::getPoseTarget(mPointerRay, Util::getNodePose(mPointerTransform), true);
+        // Make a ref-counted copy of the target node to ensure the object's lifetime this frame.
+        mPointerTarget = mPointerRay.mHitNode;
+
+        mCanPlaceObject = false;
+        if (mPointerRay.mHit)
         {
-            mPointerRescale->setMatrix(osg::Matrix::scale(1, 1, 1));
-
-            //mDistanceToPointerTarget = world->getTargetObject(mPointerTarget, mPointerTransform);
-            //osg::computeLocalToWorld(mPointerTransform->getParentalNodePaths()[0]);
-            mDistanceToPointerTarget = Util::getPoseTarget(mPointerRay, Util::getNodePose(mPointerTransform), true);
-            // Make a ref-counted copy of the target node to ensure the object's lifetime this frame.
-            mPointerTarget = mPointerRay.mHitNode;
-
-            mCanPlaceObject = false;
-            if (mPointerRay.mHit)
-            {
-                // check if the wanted position is on a flat surface, and not e.g. against a vertical wall
-                mCanPlaceObject = !(std::acos((mPointerRay.mHitNormalWorld / mPointerRay.mHitNormalWorld.length()) * osg::Vec3f(0, 0, 1)) >= osg::DegreesToRadians(30.f));
-            }
-
-            if (mDistanceToPointerTarget > 0.f)
-                mPointerRescale->setMatrix(osg::Matrix::scale(0.25f, mDistanceToPointerTarget, 0.25f));
-            else
-                mPointerRescale->setMatrix(osg::Matrix::scale(0.25f, 10000.f, 0.25f));
+            // check if the wanted position is on a flat surface, and not e.g. against a vertical wall
+            mCanPlaceObject = !(std::acos((mPointerRay.mHitNormalWorld / mPointerRay.mHitNormalWorld.length()) * osg::Vec3f(0, 0, 1)) >= osg::DegreesToRadians(30.f));
         }
+
+        if (mDistanceToPointerTarget > 0.f)
+            mPointerRescale->setMatrix(osg::Matrix::scale(0.25f, mDistanceToPointerTarget, 0.25f));
+        else
+            mPointerRescale->setMatrix(osg::Matrix::scale(0.25f, 10000.f, 0.25f));
     }
 
     osg::ref_ptr<osg::Geometry> UserPointer::createPointerGeometry()
@@ -189,6 +186,7 @@ namespace MWVR
         geometry->addPrimitiveSet(new osg::DrawArrays(osg::PrimitiveSet::TRIANGLES, 0, numVertices));
         geometry->setSupportsDisplayList(false);
         geometry->setDataVariance(osg::Object::STATIC);
+        geometry->setName("VRPointer");
 
         auto stateset = geometry->getOrCreateStateSet();
         stateset->setMode(GL_LIGHTING, osg::StateAttribute::OFF);

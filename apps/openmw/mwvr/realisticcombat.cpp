@@ -126,9 +126,8 @@ namespace MWVR {
 
         void StateMachine::update(float dt, bool enabled)
         {
-            auto* world = MWBase::Environment::get().getWorld();
             auto& handPose = mTrackingInput.pose;
-            auto weaponType = world->getActiveWeaponType();
+            auto weaponType = MWBase::Environment::get().getWorld()->getActiveWeaponType();
 
             enabled = enabled && isMeleeWeapon(weaponType);
             enabled = enabled && !!mTrackingInput.status;

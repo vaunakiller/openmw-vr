@@ -162,7 +162,7 @@ namespace MWBase
             virtual MWWorld::Ptr getPlayerPtr() = 0;
             virtual MWWorld::ConstPtr getPlayerConstPtr() const = 0;
 
-            virtual MWRender::RenderingManager& getRenderingManager() = 0;
+            virtual MWRender::RenderingManager* getRenderingManager() = 0;
 
             virtual const MWWorld::ESMStore& getStore() const = 0;
 
@@ -691,8 +691,6 @@ namespace MWBase
             virtual void enableVRPointer(bool left, bool right) = 0;
             
             virtual Misc::Rng::Generator& getPrng() = 0;
-
-            virtual MWRender::RenderingManager* getRenderingManager() = 0;
 
             virtual MWRender::PostProcessor* getPostProcessor() = 0;
 

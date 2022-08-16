@@ -2021,7 +2021,7 @@ namespace MWWorld
     bool World::castRenderingRay(MWPhysics::RayCastingResult& res, const osg::Vec3f& from, const osg::Vec3f& to,
                                  bool ignorePlayer, bool ignoreActors)
     {
-        MWRender::RenderingManager::RayResult rayRes = mRendering->castRay(from, to, ignorePlayer, ignoreActors);
+        MWRender::RayResult rayRes = mRendering->castRay(from, to, ignorePlayer, ignoreActors);
         res.mHit = rayRes.mHit;
         res.mHitPos = rayRes.mHitPointWorld;
         res.mHitNormal = rayRes.mHitNormalWorld;
@@ -3605,9 +3605,9 @@ namespace MWWorld
         return mPlayer->getConstPlayer();
     }
 
-    MWRender::RenderingManager& World::getRenderingManager()
+    MWRender::RenderingManager* World::getRenderingManager()
     {
-        return *mRendering;
+        return mRendering.get();
     }
 
     void World::updateDialogueGlobals()
@@ -4084,10 +4084,10 @@ namespace MWWorld
     {
         if (mPlayer)
         {
-            if (mPlayer->getDrawState() == MWMechanics::DrawState_Nothing)
+            if (mPlayer->getDrawState() == MWMechanics::DrawState::Nothing)
                 return ESM::Weapon::Type::None;
 
-            if (mPlayer->getDrawState() == MWMechanics::DrawState_Spell)
+            if (mPlayer->getDrawState() == MWMechanics::DrawState::Spell)
                 return ESM::Weapon::Type::Spell;
 
             MWWorld::Ptr ptr = mPlayer->getPlayer();

@@ -20,6 +20,7 @@
 #include <components/vfs/manager.hpp>
 #include <components/stereo/multiview.hpp>
 #include <components/stereo/stereomanager.hpp>
+#include <components/vr/vr.hpp>
 
 #include "../mwbase/world.hpp"
 #include "../mwbase/environment.hpp"
@@ -32,6 +33,10 @@
 #include "renderingmanager.hpp"
 #include "vismask.hpp"
 #include "sky.hpp"
+
+#ifdef USE_OPENXR
+#include "../mwvr/vrpingpongcallback.hpp"
+#endif
 
 namespace
 {
@@ -261,6 +266,12 @@ namespace MWRender
 
         setCullCallback(mStateUpdater);
         mHUDCamera->setCullCallback(new HUDCullCallback);
+
+        if (VR::getVR())
+        {
+            Stereo::Manager::instance().setShouldAttachMultiviewFramebufferToMainCamera(false);
+            mPingPongCanvas->setPingPongCallback(std::make_unique<MWVR::PingPongCallback>(this));
+        }
     }
 
     void PostProcessor::disable()

@@ -242,13 +242,10 @@ namespace SceneUtil
             }
 
             // OSG appears not to properly initialize this metadata. So when multisampling is enabled, OSG will use incorrect formats for the resolve buffers.
-            if (mSamples > 1)
-            {
-                camera->getBufferAttachmentMap()[osg::Camera::COLOR_BUFFER]._internalFormat = mColorBufferInternalFormat;
-                camera->getBufferAttachmentMap()[osg::Camera::COLOR_BUFFER]._mipMapGeneration = mGenerateMipmaps;
-                camera->getBufferAttachmentMap()[osg::Camera::PACKED_DEPTH_STENCIL_BUFFER]._internalFormat = mDepthBufferInternalFormat;
-                camera->getBufferAttachmentMap()[osg::Camera::PACKED_DEPTH_STENCIL_BUFFER]._mipMapGeneration = mGenerateMipmaps;
-            }
+            camera->getBufferAttachmentMap()[osg::Camera::COLOR_BUFFER]._internalFormat = mColorBufferInternalFormat;
+            camera->getBufferAttachmentMap()[osg::Camera::COLOR_BUFFER]._mipMapGeneration = mGenerateMipmaps;
+            camera->getBufferAttachmentMap()[osg::Camera::PACKED_DEPTH_STENCIL_BUFFER]._internalFormat = mDepthBufferInternalFormat;
+            camera->getBufferAttachmentMap()[osg::Camera::PACKED_DEPTH_STENCIL_BUFFER]._mipMapGeneration = mGenerateMipmaps;
         }
 
         return mViewDependentDataMap[cv].get();

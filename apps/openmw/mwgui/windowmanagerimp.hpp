@@ -398,7 +398,7 @@ namespace MWGui
     void onDeleteCustomData(const MWWorld::Ptr& ptr) override;
     void forceLootMode(const MWWorld::Ptr& ptr) override;
 
-    void viewerTraversals(bool updateWindowManager) override;
+    void viewerTraversals() override;
     void asyncPrepareSaveMap() override;
 
   private:

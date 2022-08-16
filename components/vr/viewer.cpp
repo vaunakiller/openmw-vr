@@ -181,6 +181,7 @@ namespace VR
         mViewer->getCamera()->getGraphicsContext()->setSwapCallback(mSwapBuffersCallback);
         mViewer->getCamera()->setViewport(0, 0, mFramebufferWidth, mFramebufferHeight);
         Stereo::Manager::instance().overrideEyeResolution(osg::Vec2i(mFramebufferWidth, mFramebufferHeight));
+        Stereo::Manager::instance().setShouldAttachMultiviewFramebufferToMainCamera(true);
 
         setupMirrorTexture();
 
@@ -359,12 +360,51 @@ namespace VR
         return false;
     }
 
+    osg::ref_ptr<osg::FrameBufferObject> Viewer::getFboForView(Stereo::Eye view)
+    {
+        osg::ref_ptr<osg::FrameBufferObject>fbo = nullptr;
+        auto stereoFbo = Stereo::Manager::instance().multiviewFramebuffer();
+        if (Stereo::getMultiview())
+        {
+            fbo = stereoFbo->multiviewFbo();
+        }
+        else
+        {
+            int i = view == Stereo::Eye::Left ? 0 : 1;
+            fbo = stereoFbo->layerFbo(i);
+        }
+
+        return fbo;
+    }
+
+    void Viewer::submitDepthForView(osg::State& state, osg::FrameBufferObject* depthFbo, Stereo::Eye view)
+    {
+        auto stereoFbo = Stereo::Manager::instance().multiviewFramebuffer();
+        if (Stereo::getMultiview())
+        {
+            auto it = mMultiviewResolve.find(depthFbo);
+            if (it == mMultiviewResolve.end())
+            {
+                mMultiviewResolve[depthFbo] = std::make_unique<Stereo::MultiviewFramebufferResolve>(depthFbo, stereoFbo->multiviewFbo(), GL_DEPTH_BUFFER_BIT);
+                it = mMultiviewResolve.find(depthFbo);
+            }
+
+            it->second->resolveImplementation(state);
+        }
+        else
+        {
+            stereoFbo->layerFbo(view == Stereo::Eye::Left ? 0 : 1)->apply(state, osg::FrameBufferObject::DRAW_FRAMEBUFFER);
+            depthFbo->apply(state, osg::FrameBufferObject::READ_FRAMEBUFFER);
+            osg::GLExtensions* ext = state.get<osg::GLExtensions>();
+            ext->glBlitFramebuffer(0, 0, mFramebufferWidth, mFramebufferHeight, 0, 0, mFramebufferWidth, mFramebufferHeight, GL_DEPTH_BUFFER_BIT, GL_NEAREST);
+        }
+    }
+
     osg::ref_ptr<osg::FrameBufferObject> Viewer::getXrFramebuffer(uint32_t view, osg::State* state)
     {
         uint64_t colorImage = mColorSwapchain[view]->image();
         uint64_t depthImage = 0;
         uint32_t textureTarget = mColorSwapchain[view]->textureTarget();
-        uint32_t arraySize = mColorSwapchain[view]->arraySize();
 
         if(mSession->appShouldShareDepthInfo())
             depthImage = mDepthSwapchain[view]->image();
@@ -374,52 +414,13 @@ namespace VR
         {
             osg::ref_ptr<osg::FrameBufferObject> fbo = new osg::FrameBufferObject();
 
-            // Wrap subimage textures in texture objects, and attach them to a framebuffer object
-            if (textureTarget == GL_TEXTURE_2D)
-            {
-                auto colorTexture = new osg::Texture2D();
-                colorTexture->setTextureSize(mFramebufferWidth, mFramebufferHeight);
-                colorTexture->setFilter(osg::Texture::MIN_FILTER, osg::Texture::LINEAR);
-                colorTexture->setFilter(osg::Texture::MAG_FILTER, osg::Texture::LINEAR);
-
-                auto colorTextureObject = new osg::Texture::TextureObject(colorTexture, colorImage, GL_TEXTURE_2D);
-                colorTexture->setTextureObject(state->getContextID(), colorTextureObject);
-                fbo->setAttachment(osg::FrameBufferObject::BufferComponent::COLOR_BUFFER, osg::FrameBufferAttachment(colorTexture));
-            }
-            else
-            {
-                auto colorTexture = new osg::Texture2DArray();
-                colorTexture->setTextureSize(mFramebufferWidth, mFramebufferHeight, arraySize);
-                colorTexture->setFilter(osg::Texture::MIN_FILTER, osg::Texture::LINEAR);
-                colorTexture->setFilter(osg::Texture::MAG_FILTER, osg::Texture::LINEAR);
-
-                auto colorTextureObject = new osg::Texture::TextureObject(colorTexture, colorImage, GL_TEXTURE_2D_ARRAY);
-                colorTexture->setTextureObject(state->getContextID(), colorTextureObject);
-                fbo->setAttachment(osg::FrameBufferObject::BufferComponent::COLOR_BUFFER, osg::FrameBufferAttachment(colorTexture, view));
-            }
+            auto colorAttachment = Stereo::createLayerAttachmentFromHandle(state, colorImage, textureTarget, mFramebufferWidth, mFramebufferHeight, view);
+            fbo->setAttachment(osg::FrameBufferObject::BufferComponent::COLOR_BUFFER, colorAttachment);
 
             if (depthImage != 0)
             {
-                if (textureTarget == GL_TEXTURE_2D)
-                {
-                    auto depthTexture = new osg::Texture2D();
-                    depthTexture->setTextureSize(mFramebufferWidth, mFramebufferHeight);
-                    depthTexture->setFilter(osg::Texture::MIN_FILTER, osg::Texture::LINEAR);
-                    depthTexture->setFilter(osg::Texture::MAG_FILTER, osg::Texture::LINEAR);
-                    auto depthTextureObject = new osg::Texture::TextureObject(depthTexture, depthImage, GL_TEXTURE_2D);
-                    depthTexture->setTextureObject(state->getContextID(), depthTextureObject);
-                    fbo->setAttachment(osg::FrameBufferObject::BufferComponent::DEPTH_BUFFER, osg::FrameBufferAttachment(depthTexture));
-                }
-                else
-                {
-                    auto depthTexture = new osg::Texture2DArray();
-                    depthTexture->setTextureSize(mFramebufferWidth, mFramebufferHeight, arraySize);
-                    depthTexture->setFilter(osg::Texture::MIN_FILTER, osg::Texture::LINEAR);
-                    depthTexture->setFilter(osg::Texture::MAG_FILTER, osg::Texture::LINEAR);
-                    auto depthTextureObject = new osg::Texture::TextureObject(depthTexture, depthImage, GL_TEXTURE_2D_ARRAY);
-                    depthTexture->setTextureObject(state->getContextID(), depthTextureObject);
-                    fbo->setAttachment(osg::FrameBufferObject::BufferComponent::DEPTH_BUFFER, osg::FrameBufferAttachment(depthTexture, view));
-                }
+                auto depthAttachment = Stereo::createLayerAttachmentFromHandle(state, depthImage, textureTarget, mFramebufferWidth, mFramebufferHeight, view);
+                fbo->setAttachment(osg::FrameBufferObject::BufferComponent::COLOR_BUFFER, depthAttachment);
             }
 
             it = mSwapchainFramebuffers.emplace(std::pair{ colorImage, depthImage }, fbo).first;
@@ -447,11 +448,10 @@ namespace VR
         uint32_t dstY0 = mSubImages[i].y;
         uint32_t dstY1 = dstY0 + height;
 
-        mGammaResolveFramebuffer->apply(*state, osg::FrameBufferObject::READ_FRAMEBUFFER);
+        Stereo::Manager::instance().multiviewFramebuffer()->layerFbo(i)->apply(*state, osg::FrameBufferObject::READ_FRAMEBUFFER);
         gl->glBlitFramebuffer(srcX0, srcY0, srcX1, srcY1, dstX0, dstY0, dstX1, dstY1, GL_COLOR_BUFFER_BIT, GL_NEAREST);
         if (mSession->appShouldShareDepthInfo())
         {
-            Stereo::Manager::instance().multiviewFramebuffer()->layerFbo(i)->apply(*state, osg::FrameBufferObject::READ_FRAMEBUFFER);
             gl->glBlitFramebuffer(srcX0, srcY0, srcX1, srcY1, dstX0, dstY0, dstX1, dstY1, GL_DEPTH_BUFFER_BIT, GL_NEAREST);
         }
 
@@ -473,28 +473,12 @@ namespace VR
         // Which eye is blitted left/right is determined by which order left/right was added to mMirrorTextureViews
         int dstX = 0;
         gl->glBindFramebuffer(GL_FRAMEBUFFER_EXT, 0);
-        mGammaResolveFramebuffer->apply(*state, osg::FrameBufferObject::READ_FRAMEBUFFER);
+        Stereo::Manager::instance().multiviewFramebuffer()->layerFbo(i)->apply(*state, osg::FrameBufferObject::READ_FRAMEBUFFER);
         for (auto viewId : mMirrorTextureViews)
         {
             if(viewId == static_cast<unsigned int>(i))
                 gl->glBlitFramebuffer(0, 0, mFramebufferWidth, mFramebufferHeight, dstX, 0, dstX + dstWidth, screenHeight, GL_COLOR_BUFFER_BIT, GL_LINEAR);
             dstX += dstWidth;
-        }
-    }
-
-    void Viewer::resolveGamma(osg::RenderInfo& info, int i)
-    {
-        auto* state = info.getState();
-        auto* gl = osg::GLExtensions::Get(state->getContextID(), false);
-
-        // Apply gamma by running a shader, sampling the colors that were rendered
-        mGammaResolveFramebuffer->apply(*state, osg::FrameBufferObject::DRAW_FRAMEBUFFER);
-        bool shouldDoGamma = Settings::Manager::getBool("gamma postprocessing", "VR Debug");
-        if (!shouldDoGamma || !applyGamma(info, i))
-        {
-            // Gamma should not / failed to be applied. Blit the colors unmodified
-            Stereo::Manager::instance().multiviewFramebuffer()->layerFbo(i)->apply(*state, osg::FrameBufferObject::READ_FRAMEBUFFER);
-            gl->glBlitFramebuffer(0, 0, mFramebufferWidth, mFramebufferHeight, 0, 0, mFramebufferWidth, mFramebufferHeight, GL_COLOR_BUFFER_BIT, GL_NEAREST);
         }
     }
 
@@ -509,7 +493,6 @@ namespace VR
             if (mSession->appShouldShareDepthInfo())
                 mDepthSwapchain[i]->beginFrame(state->getGraphicsContext());
 
-            resolveGamma(info, i);
             if (mMirrorTextureEnabled)
                 blitMirrorTexture(state, i);
             blitXrFramebuffer(state, i);

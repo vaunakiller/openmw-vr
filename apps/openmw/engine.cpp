@@ -305,18 +305,6 @@ namespace
         }
     };
 
-    class InitializeStereoOperation : public osg::GraphicsOperation
-    {
-    public:
-        InitializeStereoOperation() : GraphicsOperation("InitializeStereoOperation", false)
-        {}
-
-        void operator()(osg::GraphicsContext* graphicsContext) override
-        {
-            Stereo::Manager::instance().initializeStereo(graphicsContext);
-        }
-    };
-
     class InitializeVrOperation : public osg::GraphicsOperation
     {
     public:
@@ -902,9 +890,6 @@ void OMW::Engine::prepareEngine()
                 Version::getOpenmwVersionDescription(mResDir.string()), shadersSupported);
     mEnvironment.setWindowManager(*mWindowManager);
 
-    mInputManager = std::make_unique<MWInput::InputManager>(mWindow, mViewer, mScreenCaptureHandler,
-        mScreenCaptureOperation, keybinderUser, keybinderUserExists, userGameControllerdb, gameControllerdb, mGrab);
-    mEnvironment.setInputManager(*mInputManager); //MERGETODO
 #ifdef USE_OPENXR
     const std::string xrinputuserdefault = mCfgMgr.getUserConfigPath().string() + "/xrcontrollersuggestions.xml";
     const std::string xrinputlocaldefault = mCfgMgr.getLocalPath().string() + "/xrcontrollersuggestions.xml";
@@ -924,11 +909,14 @@ void OMW::Engine::prepareEngine()
     Log(Debug::Verbose) << "xrinputlocaldefault: " << xrinputlocaldefault;
     Log(Debug::Verbose) << "xrinputglobaldefault: " << xrinputglobaldefault;
 
-    auto input = std::make_unique<MWVR::VRInputManager>(mWindow, mViewer, mScreenCaptureHandler, mScreenCaptureOperation, keybinderUser, keybinderUserExists, userGameControllerdb, gameControllerdb, mGrab, xrControllerSuggestions);
+    mInputManager = std::make_unique<MWVR::VRInputManager>(mWindow, mViewer, mScreenCaptureHandler,
+        mScreenCaptureOperation, keybinderUser, keybinderUserExists, userGameControllerdb, gameControllerdb, mGrab,
+        xrControllerSuggestions);
 #else
-    auto input = std::make_unique<MWInput::InputManager>(mWindow, mViewer, mScreenCaptureHandler, mScreenCaptureOperation, keybinderUser, keybinderUserExists, userGameControllerdb, gameControllerdb, mGrab);
+    mInputManager = std::make_unique<MWInput::InputManager>(mWindow, mViewer, mScreenCaptureHandler,
+        mScreenCaptureOperation, keybinderUser, keybinderUserExists, userGameControllerdb, gameControllerdb, mGrab);
 #endif
-    mEnvironment.setInputManager (std::move(input));
+    mEnvironment.setInputManager(*mInputManager);
 
     // Create sound system
     mSoundManager = std::make_unique<MWSound::SoundManager>(mVFS.get(), mUseSound);
@@ -962,9 +950,8 @@ void OMW::Engine::prepareEngine()
     }
 
     // Create the world
-    [[maybe_unused]] auto* cameraTemp = camera.get(); //MERGETODO
-    mEnvironment.setWorld( std::make_unique<MWWorld::World>(mViewer, rootNode, std::move(camera), mResourceSystem.get(), mWorkQueue.get(),
-    mWorld = std::make_unique<MWWorld::World>(mViewer, rootNode, mResourceSystem.get(), mWorkQueue.get(), *mUnrefQueue,
+    [[maybe_unused]] auto* cameraTemp = camera.get();
+    mWorld = std::make_unique<MWWorld::World>(mViewer, rootNode, std::move(camera), mResourceSystem.get(), mWorkQueue.get(), *mUnrefQueue,
         mFileCollections, mContentFiles, mGroundcoverFiles, mEncoder.get(), mActivationDistanceOverride, mCellName,
         mStartupScript, mResDir.string(), mCfgMgr.getUserDataPath().string());
     mWorld->setupPlayer();
@@ -1185,14 +1172,6 @@ void OMW::Engine::go()
     if (VR::getVR())
     {
         mViewer->getCamera()->setCullMask(mViewer->getCamera()->getCullMask() & ~(MWRender::VisMask::Mask_GUI));
-    }
-
-    if (Stereo::getStereo())
-    {
-        if (!mStereoManager->error().empty())
-        {
-            mEnvironment.getWindowManager()->messageBox(mStereoManager->error());
-        }
     }
 
     // Start the game

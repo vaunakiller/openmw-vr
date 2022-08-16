@@ -290,7 +290,7 @@ namespace MWRender
         mDrawCompleteCallback->reset(frame);
 
         Misc::CallbackManager::instance().addCallbackOneshot(Misc::CallbackManager::DrawStage::Final, mDrawCompleteCallback);
-        MWBase::Environment::get().getWindowManager()->viewerTraversals(false);
+        MWBase::Environment::get().getWindowManager()->viewerTraversals();
         Misc::CallbackManager::instance().waitCallbackOneshot(Misc::CallbackManager::DrawStage::Final, mDrawCompleteCallback);
     }
 

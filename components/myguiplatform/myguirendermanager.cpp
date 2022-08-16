@@ -458,8 +458,6 @@ RenderManager::~RenderManager()
 {
     MYGUI_PLATFORM_LOG(Info, "* Shutdown: "<<getClassTypeName());
 
-    destroyAllResources();
-
     mSceneRoot = nullptr;
     mViewer = nullptr;
 

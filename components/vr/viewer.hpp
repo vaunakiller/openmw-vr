@@ -12,6 +12,7 @@
 #include <osg/RenderInfo>
 
 #include <components/sceneutil/positionattitudetransform.hpp>
+#include <components/stereo/multiview.hpp>
 #include <components/misc/callbackmanager.hpp>
 #include <components/vr/constants.hpp>
 #include <components/vr/frame.hpp>
@@ -69,6 +70,10 @@ namespace VR
 
         bool applyGamma(osg::RenderInfo& info, int i);
 
+        osg::ref_ptr<osg::FrameBufferObject> getFboForView(Stereo::Eye view);
+
+        void submitDepthForView(osg::State& state, osg::FrameBufferObject* fbo, Stereo::Eye view);
+
     private:
         osg::ref_ptr<osg::FrameBufferObject> getXrFramebuffer(uint32_t view, osg::State* state);
         void blitXrFramebuffer(osg::State* state, int i);
@@ -105,6 +110,8 @@ namespace VR
 
         std::queue<VR::Frame> mReadyFrames;
         VR::Frame mDrawFrame;
+
+        std::map<osg::FrameBufferObject*, std::unique_ptr<Stereo::MultiviewFramebufferResolve> > mMultiviewResolve;
     };
 }
 

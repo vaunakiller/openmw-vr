@@ -51,8 +51,8 @@ namespace MWVR
 
         float getPoseTarget(MWRender::RayResult& result, const Stereo::Pose& pose, bool allowTelekinesis)
         {
-            auto* wm = MWBase::Environment::get().getWindowManager();
-            auto* world = MWBase::Environment::get().getWorld();
+            auto wm = MWBase::Environment::get().getWindowManager();
+            auto world = MWBase::Environment::get().getWorld();
 
             if (wm->isGuiMode() && wm->isConsoleMode())
                 return world->getTargetObject(result, pose.position, pose.orientation, world->getMaxActivationDistance() * 50, true);
@@ -99,11 +99,9 @@ namespace MWVR
         }
         void requestRecenter(bool resetZ)
         {
-            auto* inputManager = MWBase::Environment::get().getInputManager();
-            assert(inputManager);
-            auto vrInputManager = dynamic_cast<MWVR::VRInputManager*>(inputManager);
-            assert(vrInputManager);
-            vrInputManager->requestRecenter(resetZ);
+            auto& inputManager = *MWBase::Environment::get().getInputManager();
+            auto& vrInputManager = dynamic_cast<MWVR::VRInputManager&>(inputManager);
+            vrInputManager.requestRecenter(resetZ);
         }
     }
 }

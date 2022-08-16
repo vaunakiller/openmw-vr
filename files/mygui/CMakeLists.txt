@@ -9,7 +9,6 @@ set(DDIRRELATIVE resources/mygui)
 set(MYGUI_FILES
     core.skin
     core.xml
-    core_vr.xml
     core_layouteditor.xml
     openmw_alchemy_window.layout
     openmw_book.layout
@@ -30,12 +29,10 @@ set(MYGUI_FILES
     openmw_console.layout
     openmw_console.skin.xml
     openmw_container_window.layout
-    openmw_container_window_vr.layout
     openmw_count_window.layout
     openmw_debug_window.layout
     openmw_debug_window.skin.xml
     openmw_dialogue_window.layout
-    openmw_dialogue_window_vr.layout
     openmw_dialogue_window.skin.xml
     openmw_edit.skin.xml
     openmw_edit_effect.layout
@@ -45,29 +42,24 @@ set(MYGUI_FILES
     openmw_hud.layout
     openmw_hud_box.skin.xml
     openmw_hud_energybar.skin.xml
-    openmw_hud_vr.layout
     openmw_infobox.layout
     openmw_interactive_messagebox.layout
     openmw_interactive_messagebox_notransp.layout
     openmw_inventory_window.layout
-    openmw_inventory_window_vr.layout
     openmw_itemselection_dialog.layout
     openmw_jail_screen.layout
     openmw_journal.layout
     openmw_journal.skin.xml
     openmw_layers.xml
     openmw_lua.xml
-    openmw_layers_vr.xml
     openmw_levelup_dialog.layout
     openmw_list.skin.xml
     openmw_loading_screen.layout
     openmw_magicselection_dialog.layout
-    openmw_vr_metamenu.layout
     openmw_mainmenu.layout
     openmw_mainmenu.skin.xml
     openmw_map_window.layout
     openmw_map_window.skin.xml
-    openmw_map_window_vr.layout
     openmw_merchantrepair.layout
     openmw_messagebox.layout
     openmw_persuasion_dialog.layout
@@ -85,23 +77,16 @@ set(MYGUI_FILES
     openmw_scroll.skin.xml
     openmw_settings.xml
     openmw_settings_window.layout
-    openmw_settings_window_vr.layout
     openmw_spell_buying_window.layout
     openmw_spell_window.layout
-    openmw_spell_window_vr.layout
     openmw_spellcreation_dialog.layout
     openmw_stats_window.layout
-    openmw_stats_window_vr.layout
     openmw_text.skin.xml
     openmw_text_input.layout
     openmw_tooltips.layout
-    openmw_tooltips_vr.layout
     openmw_trade_window.layout
-    openmw_trade_window_vr.layout
     openmw_trainingwindow.layout
     openmw_travel_window.layout
-    openmw_vr_listbox.layout
-    openmw_vr_virtual_keyboard.layout
     openmw_wait_dialog.layout
     openmw_wait_dialog_progressbar.layout
     openmw_windows.skin.xml

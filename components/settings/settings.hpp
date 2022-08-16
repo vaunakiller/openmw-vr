@@ -45,7 +45,7 @@ namespace Settings
         static std::string load(const Files::ConfigurationManager& cfgMgr, bool loadEditorSettings = false);
         ///< load settings from all active config dirs. Returns the path of the last loaded file.
 
-        void loadOverrides (const std::string& file);
+        static void loadOverrides (const std::string& file);
         ///< load file as settings overrides
 
         static void saveUser (const std::string& file);

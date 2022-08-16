@@ -363,7 +363,7 @@ namespace MWBase
 
             virtual void asyncPrepareSaveMap() = 0;
 
-            virtual void viewerTraversals(bool updateWindowManager) = 0;
+            virtual void viewerTraversals() = 0;
             
             /// Sets the cull masks for all applicable views
             virtual void setCullMask(uint32_t mask) = 0;

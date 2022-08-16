@@ -251,7 +251,7 @@ namespace MWWorld
             MWWorld::Ptr getPlayerPtr() override;
             MWWorld::ConstPtr getPlayerConstPtr() const override;
 
-            MWRender::RenderingManager& getRenderingManager() override;
+            MWRender::RenderingManager* getRenderingManager() override;
 
             const MWWorld::ESMStore& getStore() const override;
 
@@ -777,8 +777,6 @@ namespace MWWorld
             Misc::Rng::Generator& getPrng() override;
             
             void enableVRPointer(bool left, bool right) override;
-
-            MWRender::RenderingManager* getRenderingManager() override { return mRendering.get(); }
 
             MWRender::PostProcessor* getPostProcessor() override;
 

@@ -75,10 +75,13 @@ TEST_FRAMEWORK=""
 GOOGLE_INSTALL_ROOT=""
 INSTALL_PREFIX="."
 BUILD_BENCHMARKS=""
+<<<<<<< HEAD
 SKIP_VR=""
+=======
 OSG_MULTIVIEW_BUILD=""
 USE_WERROR=""
 USE_CLANG_TIDY=""
+>>>>>>> 69654b6697691ae5c20960f0c85246973e48b089
 
 ACTIVATE_MSVC=""
 SINGLE_CONFIG=""
@@ -383,9 +386,9 @@ case $VS_VERSION in
 		QT_MSVC_YEAR="2019"
 		BULLET_MSVC_YEAR="2015"
 
-		BOOST_VER="1.80.0"
-		BOOST_VER_URL="1_80_0"
-		BOOST_VER_SDK="108000"
+		BOOST_VER="1.79.0"
+		BOOST_VER_URL="1_79_0"
+		BOOST_VER_SDK="107900"
 		;;
 
 	16|16.0|2019 )
@@ -586,11 +589,11 @@ if [ -z $SKIP_DOWNLOAD ]; then
 	echo
 
 	# Boost
-	# if [ -z $APPVEYOR ]; then
-	# 	download "Boost ${BOOST_VER}" \
-	#		"https://gitlab.com/OpenMW/openmw-deps/-/raw/main/windows/boost_${BOOST_VER_URL}-msvc-${MSVC_VER}-${BITS}.exe" \
-	#		"boost-${BOOST_VER}-msvc${MSVC_VER}-win${BITS}.exe"
-	#fi
+	if [ -z $APPVEYOR ]; then
+		download "Boost ${BOOST_VER}" \
+			"https://gitlab.com/OpenMW/openmw-deps/-/raw/main/windows/boost_${BOOST_VER_URL}-msvc-${MSVC_VER}-${BITS}.exe" \
+			"boost-${BOOST_VER}-msvc${MSVC_VER}-win${BITS}.exe"
+	fi
 
 	# Bullet
 	download "Bullet 2.89" \
@@ -621,6 +624,16 @@ if [ -z $SKIP_DOWNLOAD ]; then
 		"OpenAL-Soft-1.20.1.zip"
 
 	# OSGoS
+<<<<<<< HEAD
+	download "OSGoS 3.6.5 (MultiView)" \
+		"https://gitlab.com/madsbuvi/openmw-deps/-/raw/openmw-vr-ovr_multiview/windows/OSG-3.6-multiview-ee297dce0-msvc${MSVC_REAL_YEAR}-win${BITS}.7z" \
+		"OSG-3.6-multiview-ee297dce0-msvc${MSVC_REAL_YEAR}-win${BITS}.7z"
+
+	if [ -n "$PDBS" ]; then
+		download "OSGoS symbols" \
+            "https://gitlab.com/madsbuvi/openmw-deps/-/raw/openmw-vr-ovr_multiview/windows/OSG-3.6-multiview-ee297dce0-msvc${MSVC_REAL_YEAR}-win${BITS}-sym.7z" \
+			"OSG-3.6-multiview-ee297dce0-msvc${MSVC_REAL_YEAR}-win${BITS}-sym.7z"
+=======
 	download "${OSG_ARCHIVE_NAME}" \
 		"${OSG_ARCHIVE_REPO_URL}/windows/${OSG_ARCHIVE}.7z" \
 		"${OSG_ARCHIVE}.7z"
@@ -629,6 +642,7 @@ if [ -z $SKIP_DOWNLOAD ]; then
 		download "${OSG_ARCHIVE_NAME} symbols" \
 			"${OSG_ARCHIVE_REPO_URL}/windows/${OSG_ARCHIVE}-sym.7z" \
 			"${OSG_ARCHIVE}-sym.7z"
+>>>>>>> 69654b6697691ae5c20960f0c85246973e48b089
 	fi
 
 	# SDL2
@@ -694,8 +708,29 @@ else
 fi
 {
 	if [ -z $APPVEYOR ]; then
-		BOOST_SDK="c:/local/boost_${BOOST_VER_URL}"
+		cd $DEPS_INSTALL
 
+		BOOST_SDK="$(real_pwd)/Boost"
+
+		# Boost's installer is still based on ms-dos API that doesn't support larger than 260 char path names
+		# We work around this by installing to root of the current working drive and then move it to our deps
+		# get the current working drive's root, we'll install to that temporarily
+		CWD_DRIVE_ROOT="$(powershell -command '(get-location).Drive.Root')Boost_temp"
+		CWD_DRIVE_ROOT_BASH=$(windowsPathAsUnix "$CWD_DRIVE_ROOT")
+		if [ -d CWD_DRIVE_ROOT_BASH ]; then
+			printf "Cannot continue, ${CWD_DRIVE_ROOT_BASH} aka ${CWD_DRIVE_ROOT} already exists. Please remove before re-running. ";
+			wrappedExit 1;
+		fi
+
+		if [ -d ${BOOST_SDK} ] && grep "BOOST_VERSION ${BOOST_VER_SDK}" Boost/boost/version.hpp > /dev/null; then
+			printf "Exists. "
+		elif [ -z $SKIP_EXTRACT ]; then
+			rm -rf Boost
+			CI_EXTRA_INNO_OPTIONS=""
+			[ -n "$CI" ] && CI_EXTRA_INNO_OPTIONS="//SUPPRESSMSGBOXES //LOG='boost_install.log'"
+			"${DEPS}/boost-${BOOST_VER}-msvc${MSVC_VER}-win${BITS}.exe" //DIR="${CWD_DRIVE_ROOT}" //VERYSILENT //NORESTART ${CI_EXTRA_INNO_OPTIONS}
+			mv "${CWD_DRIVE_ROOT_BASH}" "${BOOST_SDK}"
+		fi
 		add_cmake_opts -DBOOST_ROOT="$BOOST_SDK" \
 			-DBOOST_LIBRARYDIR="${BOOST_SDK}/lib${BITS}-msvc-${MSVC_VER}"
 		add_cmake_opts -DBoost_COMPILER="-${TOOLSET}"
@@ -816,9 +851,15 @@ printf "${OSG_ARCHIVE_NAME}... "
 		printf "Exists. "
 	elif [ -z $SKIP_EXTRACT ]; then
 		rm -rf OSG
+<<<<<<< HEAD
+		eval 7z x -y "${DEPS}/OSG-3.6-multiview-ee297dce0-msvc${MSVC_REAL_YEAR}-win${BITS}.7z" $STRIP
+		[ -n "$PDBS" ] && eval 7z x -y "${DEPS}/OSG-3.6-multiview-ee297dce0-msvc${MSVC_REAL_YEAR}-win${BITS}-sym.7z" $STRIP
+		mv "OSG-3.6-multiview-ee297dce0-msvc${MSVC_REAL_YEAR}-win${BITS}" OSG
+=======
 		eval 7z x -y "${DEPS}/${OSG_ARCHIVE}.7z" $STRIP
 		[ -n "$PDBS" ] && eval 7z x -y "${DEPS}/${OSG_ARCHIVE}-sym.7z" $STRIP
 		mv "${OSG_ARCHIVE}" OSG
+>>>>>>> 69654b6697691ae5c20960f0c85246973e48b089
 	fi
 	OSG_SDK="$(real_pwd)/OSG"
 	add_cmake_opts -DOSG_DIR="$OSG_SDK"
@@ -828,6 +869,10 @@ printf "${OSG_ARCHIVE_NAME}... "
 		else
 			SUFFIX=""
 		fi
+<<<<<<< HEAD
+		add_runtime_dlls $CONFIGURATION "$(pwd)/OSG/bin/"{ot21-OpenThreads,zlib,libpng16}${SUFFIX}.dll \
+			"$(pwd)/OSG/bin/osg162-osg"{,Animation,DB,FX,GA,Particle,Text,Util,Viewer,Shadow}${SUFFIX}.dll
+=======
         if ! [ -z $OSG_MULTIVIEW_BUILD ]; then
             add_runtime_dlls $CONFIGURATION "$(pwd)/OSG/bin/"{ot21-OpenThreads,zlib,libpng16}${SUFFIX}.dll \
                 "$(pwd)/OSG/bin/osg162-osg"{,Animation,DB,FX,GA,Particle,Text,Util,Viewer,Shadow}${SUFFIX}.dll
@@ -835,6 +880,7 @@ printf "${OSG_ARCHIVE_NAME}... "
             add_runtime_dlls $CONFIGURATION "$(pwd)/OSG/bin/"{OpenThreads,zlib,libpng}${SUFFIX}.dll \
                 "$(pwd)/OSG/bin/osg"{,Animation,DB,FX,GA,Particle,Text,Util,Viewer,Shadow}${SUFFIX}.dll
         fi
+>>>>>>> 69654b6697691ae5c20960f0c85246973e48b089
 		add_osg_dlls $CONFIGURATION "$(pwd)/OSG/bin/osgPlugins-3.6.5/osgdb_"{bmp,dds,freetype,jpeg,osg,png,tga}${SUFFIX}.dll
 		add_osg_dlls $CONFIGURATION "$(pwd)/OSG/bin/osgPlugins-3.6.5/osgdb_serializers_osg"{,animation,fx,ga,particle,text,util,viewer,shadow}${SUFFIX}.dll
 	done

@@ -125,9 +125,8 @@ namespace MWVR
         float PI_4 = PI_2 / 2.f;
 
         osg::Quat rotate{ 0,0,0,1 };
-        auto* world = MWBase::Environment::get().getWorld();
         auto windowManager = MWBase::Environment::get().getWindowManager();
-        auto weaponType = world->getActiveWeaponType();
+        auto weaponType = MWBase::Environment::get().getWorld()->getActiveWeaponType();
         // Morrowind models do not hold most weapons at a natural angle, so i rotate the hand
         // to more natural angles on weapons to allow more comfortable combat.
         if (!windowManager->isGuiMode() && !mFingerPointingMode)
@@ -197,8 +196,7 @@ namespace MWVR
 
 
         osg::Quat rotate{ 0,0,0,1 };
-        auto* world = MWBase::Environment::get().getWorld();
-        auto weaponType = world->getActiveWeaponType();
+        auto weaponType = MWBase::Environment::get().getWorld()->getActiveWeaponType();
         switch (weaponType)
         {
         case ESM::Weapon::MarksmanThrown:

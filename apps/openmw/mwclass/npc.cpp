@@ -568,7 +568,7 @@ namespace MWClass
         if(!weapon.isEmpty() && weapon.getType() != ESM::Weapon::sRecordId)
             weapon = MWWorld::Ptr();
 
-        if (getCreatureStats(ptr).getDrawState() != MWMechanics::DrawState_Weapon)
+        if (getCreatureStats(ptr).getDrawState() != MWMechanics::DrawState::Weapon)
             return false;
 
         if (!simulated)
@@ -892,7 +892,7 @@ namespace MWClass
         // Apply haptics
         if (successful)
         {
-            auto* inputManager = MWBase::Environment::get().getInputManager();
+            auto inputManager = MWBase::Environment::get().getInputManager();
             if (victimIsPlayer)
             {
                 float maxHealth = getCreatureStats(ptr).getHealth().getModified();

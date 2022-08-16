@@ -615,25 +615,26 @@ namespace MWGui
         unsigned int disableUpdateMask = disableCullMask;
         osg::Vec4 disableClearColor = osg::Vec4(0, 0, 0, 1);
 
-        // VR mode needs to render the 3D gui
+        // VR mode needs to render the 3D gui but not the regular GUI.
         if (VR::getVR())
         {
-            disableCullMask = MWRender::Mask_Pointer | MWRender::Mask_3DGUI | MWRender::Mask_PreCompile;
+            disableCullMask = MWRender::Mask_Pointer | MWRender::Mask_3DGUI | MWRender::Mask_PreCompile | MWRender::Mask_RenderToTexture;
+            // GUI must still be updated.
             disableUpdateMask = disableCullMask | MWRender::Mask_GUI;
         }
         
         // MERGETODO: verify behavior
 
-        if (!enable && getCullMask() != disablemask)
+        if (!enable && getCullMask() != disableCullMask)
         {
             mOldUpdateMask = mViewer->getUpdateVisitor()->getTraversalMask();
             mOldCullMask = getCullMask();
             mOldClearColor = mViewer->getCamera()->getClearColor();
             mViewer->getUpdateVisitor()->setTraversalMask(disableUpdateMask);
-            setCullMask(disablemask);
             mViewer->getCamera()->setClearColor(disableClearColor);
+            setCullMask(disableCullMask);
         }
-        else if (enable && getCullMask() == disablemask)
+        else if (enable && getCullMask() == disableCullMask)
         {
             mViewer->getUpdateVisitor()->setTraversalMask(mOldUpdateMask);
             mViewer->getCamera()->setClearColor(mOldClearColor);
@@ -794,7 +795,7 @@ namespace MWGui
                 if (!mWindowVisible)
                     std::this_thread::sleep_for(std::chrono::milliseconds(5));
                 else
-                    viewerTraversals(false);
+                    viewerTraversals();
                 // at the time this function is called we are in the middle of a frame,
                 // so out of order calls are necessary to get a correct frameNumber for the next frame.
                 // refer to the advance() and frame() order in Engine::go()
@@ -1920,7 +1921,7 @@ namespace MWGui
                 if (mVideoWidget->isPaused())
                     mVideoWidget->resume();
 
-                viewerTraversals(false);
+                viewerTraversals();
             }
             // at the time this function is called we are in the middle of a frame,
             // so out of order calls are necessary to get a correct frameNumber for the next frame.
@@ -2339,12 +2340,10 @@ namespace MWGui
         return MyGUI::InputManager::getInstance().injectKeyRelease(key);
     }
 
-    void WindowManager::viewerTraversals(bool updateWindowManager)
+    void WindowManager::viewerTraversals()
     {
         mViewer->eventTraversal();
         mViewer->updateTraversal();
-        if (updateWindowManager)
-            MWBase::Environment::get().getWorld()->updateWindowManager();
         mViewer->renderingTraversals();
     }
 

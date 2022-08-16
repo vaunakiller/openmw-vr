@@ -234,7 +234,7 @@ namespace MWGui
         if (selectedIndex == MyGUI::ITEM_NONE)
         {
             mCharacterSelection->setCaptionWithReplacing("#{SavegameMenu:SelectCharacter}");
-            mCharacterSelectionButton->setCaption("Select Character ..."); // MERGETODO: The above was changed from "Select Character ..." to that, something like that should probably be done here too
+            mCharacterSelectionButton->setCaptionWithReplacing("#{SavegameMenu:SelectCharacter}");
         }
         else
             mCharacterSelectionButton->setCaption(mCharacterSelection->getCaption());

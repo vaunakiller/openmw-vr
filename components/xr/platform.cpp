@@ -10,6 +10,9 @@
 
 // The OpenXR SDK's platform headers assume we've included platform headers
 #ifdef _WIN32
+#ifdef NOGDI
+#undef NOGDI
+#endif
 #include <Windows.h>
 #include <objbase.h>
 

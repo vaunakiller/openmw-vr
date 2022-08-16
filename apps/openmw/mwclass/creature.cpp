@@ -434,11 +434,10 @@ namespace MWClass
 
         if(successful)
         {
-            auto* inputManager = MWBase::Environment::get().getInputManager();
             if (attackerIsPlayer && hitStrength > 0.f)
             {
                 float hapticIntensity = std::max(0.25f, std::min(1.f, hitStrength));
-                inputManager->applyHapticsRightHand(hapticIntensity);
+                MWBase::Environment::get().getInputManager()->applyHapticsRightHand(hapticIntensity);
             }
         }
     }

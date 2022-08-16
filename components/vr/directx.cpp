@@ -1,6 +1,10 @@
 #include "directx.hpp"
 #ifdef _WIN32
 
+#ifdef NOGDI
+#undef NOGDI
+#endif
+
 #include <Windows.h>
 #include <objbase.h>
 

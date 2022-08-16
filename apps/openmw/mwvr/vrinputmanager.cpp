@@ -252,7 +252,7 @@ namespace MWVR
     void VRInputManager::requestRecenter(bool resetZ)
     {
         // TODO: Hack, should have a cleaner way of accessing this
-        reinterpret_cast<VRCamera*>(MWBase::Environment::get().getWorld()->getRenderingManager().getCamera())->requestRecenter(resetZ);
+        reinterpret_cast<VRCamera*>(MWBase::Environment::get().getWorld()->getRenderingManager()->getCamera())->requestRecenter(resetZ);
     }
 
     VRInputManager::VRInputManager(
@@ -334,7 +334,7 @@ namespace MWVR
 
         if (!guiMode)
         {
-            auto* world = MWBase::Environment::get().getWorld();
+            auto world = MWBase::Environment::get().getWorld();
 
             auto& player = world->getPlayer();
             auto playerPtr = world->getPlayerPtr();
@@ -344,7 +344,7 @@ namespace MWVR
                 auto trackingPath = VR::stringToVRPath("/stage/user/hand/right/input/aim/pose");
                 mRealisticCombat.reset(new RealisticCombat::StateMachine(playerPtr, trackingPath));
             }
-            bool enabled = !guiMode && player.getDrawState() == MWMechanics::DrawState_Weapon && !player.isDisabled();
+            bool enabled = !guiMode && player.getDrawState() == MWMechanics::DrawState::Weapon && !player.isDisabled();
             mRealisticCombat->update(dt, enabled);
         }
         else if (mRealisticCombat)
@@ -362,7 +362,7 @@ namespace MWVR
     void VRInputManager::processAction(const XR::InputAction* action, float dt, bool disableControls)
     {
         static const bool isToggleSneak = Settings::Manager::getBool("toggle sneak", "Input");
-        auto* wm = MWBase::Environment::get().getWindowManager();
+        auto wm = MWBase::Environment::get().getWindowManager();
 
         // OpenMW does not currently provide any way to directly request skipping a video.
         // This is copied from the controller manager and is used to skip videos, 

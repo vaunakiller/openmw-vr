@@ -137,8 +137,7 @@ set(OPENMW_LINK_TARGETS
     components
 )
 
-if (CMAKE_VERSION VERSION_GREATER_EQUAL 3.16 AND MSVC)
-    target_precompile_headers(openmw PRIVATE
+set (OPENMW_PRECOMPILE_HEADERS
         <boost/filesystem.hpp>
         <boost/program_options/options_description.hpp>
 
@@ -160,9 +159,8 @@ if (CMAKE_VERSION VERSION_GREATER_EQUAL 3.16 AND MSVC)
         <memory>
         <string>
         <string_view>
-        <vector>
-    )
-endif()
+        <vector>)
+
 if (USE_SYSTEM_TINYXML)
     set(OPENMW_LINK_TARGETS ${OPENMW_LINK_TARGETS}
         ${TinyXML_LIBRARIES})
@@ -258,6 +256,10 @@ if(BUILD_OPENMW)
     if (WIN32)
         INSTALL(TARGETS openmw RUNTIME DESTINATION ".")
     endif (WIN32)
+    
+    if (CMAKE_VERSION VERSION_GREATER_EQUAL 3.16 AND MSVC)
+        target_precompile_headers(openmw PRIVATE ${OPENMW_PRECOMPILE_HEADERS})
+    endif()
 endif()
 
 if(BUILD_OPENMW_VR)
@@ -272,7 +274,7 @@ if(BUILD_OPENMW_VR)
     add_openmw_dir (mwvr
          openxrinput
          realisticcombat 
-         vranimation vrcamera vrgui vrinputmanager vrinput vrlistbox vrmetamenu vrpointer vrtracking vrtypes vrutil vrvirtualkeyboard
+         vranimation vrcamera vrgui vrinputmanager vrinput vrlistbox vrmetamenu vrpingpongcallback vrpointer vrtracking vrtypes vrutil vrvirtualkeyboard
         )
 
     openmw_add_executable(openmw_vr
@@ -306,6 +308,10 @@ if(BUILD_OPENMW_VR)
     if (WIN32)
         INSTALL(TARGETS openmw_vr RUNTIME DESTINATION ".")
     endif (WIN32)
+    
+    if (CMAKE_VERSION VERSION_GREATER_EQUAL 3.16 AND MSVC)
+        target_precompile_headers(openmw_vr PRIVATE ${OPENMW_PRECOMPILE_HEADERS})
+    endif()
 endif()
 
 # Sound stuff - here so CMake doesn't stupidly recompile EVERYTHING

@@ -46,7 +46,7 @@ namespace MWInput
     /**
     * @brief Class that provides a high-level API for game input
     */
-    class InputManager final : public MWBase::InputManager
+    class InputManager : public MWBase::InputManager
     {
     public:
         InputManager(
@@ -58,7 +58,7 @@ namespace MWInput
             const std::string& userControllerBindingsFile,
             const std::string& controllerBindingsFile, bool grab);
 
-        ~InputManager() final;
+        virtual ~InputManager();
 
         /// Clear all savegame-specific data
         void clear() override;

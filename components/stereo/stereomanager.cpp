@@ -171,7 +171,7 @@ namespace Stereo
         else
             setupBruteForceTechnique();
 
-        updateStereoFramebuffer();
+        updateMultiviewFramebuffer();
 
     }
 
@@ -194,13 +194,13 @@ namespace Stereo
         mEyeResolutionOverride = eyeResolution;
         mEyeResolutionOverriden = true;
 
-        //if (mMultiviewFramebuffer)
-        //    updateStereoFramebuffer();
+        if (mMultiviewFramebuffer)
+            updateMultiviewFramebuffer();
     }
 
     void Manager::screenResolutionChanged()
     {
-        updateStereoFramebuffer();
+        updateMultiviewFramebuffer();
     }
 
     osg::Vec2i Manager::eyeResolution()
@@ -298,18 +298,26 @@ namespace Stereo
         mMainCamera->addCullCallback(new MultiviewStereoStatesetUpdateCallback(this));
     }
 
-    void Manager::updateStereoFramebuffer()
+    void Manager::updateMultiviewFramebuffer()
     {
         //VR-TODO: in VR, still need to have this framebuffer attached before the postprocessor is created
-        //auto samples = Settings::Manager::getInt("antialiasing", "Video");
-        //auto eyeRes = eyeResolution();
+        auto samples = Settings::Manager::getInt("antialiasing", "Video");
+        auto eyeRes = eyeResolution();
 
-        //if (mMultiviewFramebuffer)
-        //    mMultiviewFramebuffer->detachFrom(mMainCamera);
-        //mMultiviewFramebuffer = std::make_shared<MultiviewFramebuffer>(static_cast<int>(eyeRes.x()), static_cast<int>(eyeRes.y()), samples);
-        //mMultiviewFramebuffer->attachColorComponent(SceneUtil::Color::colorSourceFormat(), SceneUtil::Color::colorSourceType(), SceneUtil::Color::colorInternalFormat());
-        //mMultiviewFramebuffer->attachDepthComponent(SceneUtil::AutoDepth::depthSourceFormat(), SceneUtil::AutoDepth::depthSourceType(), SceneUtil::AutoDepth::depthInternalFormat());
-        //mMultiviewFramebuffer->attachTo(mMainCamera);
+        if (mMultiviewFramebuffer && mMultiviewFramebufferIsAttached)
+        {
+            mMultiviewFramebuffer->detachFrom(mMainCamera);
+            mMultiviewFramebufferIsAttached = false;
+        }
+
+        mMultiviewFramebuffer = std::make_shared<MultiviewFramebuffer>(static_cast<int>(eyeRes.x()), static_cast<int>(eyeRes.y()), samples);
+        mMultiviewFramebuffer->attachColorComponent(SceneUtil::Color::colorSourceFormat(), SceneUtil::Color::colorSourceType(), SceneUtil::Color::colorInternalFormat());
+        mMultiviewFramebuffer->attachDepthComponent(SceneUtil::AutoDepth::depthSourceFormat(), SceneUtil::AutoDepth::depthSourceType(), SceneUtil::AutoDepth::depthInternalFormat());
+
+        if (mShouldAttachMultiviewFramebufferToMainCamera)
+        {
+            mMultiviewFramebuffer->attachTo(mMainCamera);
+        }
     }
 
     void Manager::update()
@@ -412,6 +420,12 @@ namespace Stereo
         if (cv->getIdentifier() == mIdentifierRight)
             return Eye::Right;
         return Eye::Center;
+    }
+
+    void Manager::setShouldAttachMultiviewFramebufferToMainCamera(bool attach)
+    {
+        mShouldAttachMultiviewFramebufferToMainCamera = attach;
+        updateMultiviewFramebuffer();
     }
 
     bool getStereo()

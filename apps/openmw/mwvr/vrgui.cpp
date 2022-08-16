@@ -13,6 +13,7 @@
 #include <osg/Depth>
 #include <osg/Fog>
 #include <osg/LightModel>
+#include <osg/Material>
 
 
 #include <osgViewer/Renderer>
@@ -68,7 +69,7 @@ namespace MWVR
     {
     public:
         GUICamera(int width, int height, osg::Vec4 clearColor, osg::ref_ptr<osg::Node> scene)
-            : RTTNode(width, height, 1, StereoAwareness::Unaware)
+            : RTTNode(width, height, 1, true, 0, StereoAwareness::Unaware)
             , mScene(scene)
             , mClearColor(clearColor)
         {
@@ -85,6 +86,7 @@ namespace MWVR
             camera->setReferenceFrame(osg::Camera::ABSOLUTE_RF);
             camera->setComputeNearFarMode(osg::CullSettings::DO_NOT_COMPUTE_NEAR_FAR);
             setName("GUICamera");
+            camera->setName("GUICamera_");
 
             camera->setCullMask(MWRender::Mask_GUI);
             camera->setCullMaskLeft(MWRender::Mask_GUI);
@@ -746,7 +748,7 @@ namespace MWVR
         ));
         mLayers[name] = layer;
 
-        Shader::ShaderManager::DefineMap defineMap{ {"GLSLVersion", "120"} };
+        Shader::ShaderManager::DefineMap defineMap;
         Stereo::Manager::instance().shaderStereoDefines(defineMap);
         auto& shaderManager = mResourceSystem->getSceneManager()->getShaderManager();
 

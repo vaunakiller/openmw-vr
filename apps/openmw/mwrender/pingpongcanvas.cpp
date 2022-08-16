@@ -4,6 +4,7 @@
 #include <components/debug/debuglog.hpp>
 #include <components/stereo/stereomanager.hpp>
 #include <components/stereo/multiview.hpp>
+#include <components/vr/vr.hpp>
 
 #include <osg/Texture2DArray>
 
@@ -65,6 +66,11 @@ namespace MWRender
         osg::Geometry::drawImplementation(renderInfo);
     }
 
+    void PingPongCanvas::setPingPongCallback(std::unique_ptr<PingPongCallback> cb)
+    {
+        mPingPongCallback = std::move(cb);
+    }
+
     static void attachCloneOfTemplate(osg::FrameBufferObject* fbo, osg::Camera::BufferComponent component, osg::Texture* tex)
     {
         osg::ref_ptr<osg::Texture> clone = static_cast<osg::Texture*>(tex->clone(osg::CopyOp::SHALLOW_COPY));
@@ -96,14 +102,17 @@ namespace MWRender
             filtered.push_back(i);
         }
 
-        auto* resolveViewport = state.getCurrentViewport();
+        auto* resolveViewport = bufferData.destinationViewport ? bufferData.destinationViewport : state.getCurrentViewport();
 
         if (filtered.empty() || !bufferData.postprocessing)
         {
+            if (mPingPongCallback)
+                mPingPongCallback->pingPongBegin(frameId, state, *this);
+
             state.pushStateSet(mFallbackStateSet);
             state.apply();
 
-            if (Stereo::getMultiview())
+            if (Stereo::getMultiview() && !VR::getVR())
             {
                 state.pushStateSet(mMultiviewResolveStateSet);
                 state.apply();
@@ -112,14 +121,24 @@ namespace MWRender
             state.applyTextureAttribute(0, bufferData.sceneTex);
             resolveViewport->apply(state);
 
-            drawGeometry(renderInfo);
+            if (bufferData.destination)
+            {
+                bufferData.destination->apply(state, osg::FrameBufferObject::DRAW_FRAMEBUFFER);
+                drawGeometry(renderInfo);
+                ext->glBindFramebuffer(GL_DRAW_FRAMEBUFFER_EXT, 0);
+            }
+            else
+                drawGeometry(renderInfo);
+
             state.popStateSet();
 
-            if (Stereo::getMultiview())
+            if (Stereo::getMultiview() && !VR::getVR())
             {
                 state.popStateSet();
             }
 
+            if (mPingPongCallback)
+                mPingPongCallback->pingPongEnd(frameId, state, *this);
             return;
         }
 
@@ -176,6 +195,7 @@ namespace MWRender
         unsigned int lastApplied = handle;
 
         const unsigned int cid = state.getContextID();
+
 
         const osg::ref_ptr<osg::FrameBufferObject>& destinationFbo = bufferData.destination ? bufferData.destination : nullptr;
         unsigned int destinationHandle = destinationFbo ? destinationFbo->getHandle(cid) : 0;
@@ -287,7 +307,7 @@ namespace MWRender
             state.popStateSet();
         }
 
-        if (Stereo::getMultiview())
+        if (Stereo::getMultiview() && !VR::getVR())
         {
             ext->glBindFramebuffer(GL_DRAW_FRAMEBUFFER_EXT, 0);
             lastApplied = 0;
@@ -306,5 +326,8 @@ namespace MWRender
         {
             bindDestinationFbo();
         }
+
+        if (mPingPongCallback)
+            mPingPongCallback->pingPongEnd(frameId, state, *this);
     }
 }
