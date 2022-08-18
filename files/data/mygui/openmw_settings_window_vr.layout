@@ -731,10 +731,10 @@
                         <Property key="Caption" value="Snap Turning Angle"/>
                     </Widget>
                 </Widget>
-                <Widget type="TextBox" skin="NormalText" position="4 64 352 18" align="Left Bottom">
+                <Widget type="TextBox" skin="NormalText" position="4 64 352 18" align="Left Top">
                     <Property key="Caption" value="Smooth Turn Rate"/>
                 </Widget>
-                <Widget type="ScrollBar" skin="MW_HScroll" position="4 88 352 18" align="HStretch Bottom">
+                <Widget type="ScrollBar" skin="MW_HScroll" position="4 88 352 18" align="HStretch Top">
                     <Property key="Range" value="10000"/>
                     <Property key="Page" value="300"/>
                     <UserString key="SettingType" value="Slider"/>
@@ -744,11 +744,11 @@
                     <UserString key="SettingMin" value="0.2"/>
                     <UserString key="SettingMax" value="1.5"/>
                 </Widget>
-                <Widget type="TextBox" skin="SandText" position="4 112 352 18" align="Left Bottom">
+                <Widget type="TextBox" skin="SandText" position="4 112 352 18" align="Left Top">
                     <Property key="Caption" value="#{sLow}"/>
                     <Property key="TextAlign" value="Left"/>
                 </Widget>
-                <Widget type="TextBox" skin="SandText" position="4 112 352 18" align="Right Bottom">
+                <Widget type="TextBox" skin="SandText" position="4 112 352 18" align="Right Top">
                     <Property key="Caption" value="#{sHigh}"/>
                     <Property key="TextAlign" value="Right"/>
                 </Widget>

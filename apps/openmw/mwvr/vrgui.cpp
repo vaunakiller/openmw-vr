@@ -588,7 +588,7 @@ namespace MWVR
 
         LayerConfig defaultConfig = createDefaultConfig(1);
         LayerConfig loadingScreenConfig = createDefaultConfig(1, true, SizingMode::Fixed, "LoadingScreenBackground");
-        LayerConfig mainMenuConfig = createDefaultConfig(1, true, MWVR::SizingMode::Auto, "MainMenuBackground");
+        LayerConfig mainMenuConfig = createDefaultConfig(1, true, MWVR::SizingMode::Auto, "MainMenuBackground;Popup");
         LayerConfig journalBooksConfig = createDefaultConfig(2, false, SizingMode::Fixed);
         LayerConfig defaultWindowsConfig = createDefaultConfig(3, true);
         LayerConfig videoPlayerConfig = createDefaultConfig(4, true, SizingMode::Fixed);
