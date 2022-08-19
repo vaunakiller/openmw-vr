@@ -270,7 +270,9 @@ namespace MWRender
         if (VR::getVR())
         {
             Stereo::Manager::instance().setShouldAttachMultiviewFramebufferToMainCamera(false);
+#ifdef USE_OPENXR
             mPingPongCanvas->setPingPongCallback(std::make_unique<MWVR::PingPongCallback>(this));
+#endif
         }
     }
 
