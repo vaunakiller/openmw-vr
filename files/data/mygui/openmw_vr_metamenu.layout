@@ -66,6 +66,11 @@
             <Property key="FontHeight" value="32"/>
         </Widget>
 
+        <Widget type="AutoSizedButton" skin="MW_Button" name="postprocessor" align="HCenter">
+            <Property key="Caption" value="PostProcessor HUD"/>
+            <Property key="FontHeight" value="32"/>
+        </Widget>
+
         <Widget type="AutoSizedButton" skin="MW_Button" name="gamemenu" align="HCenter">
             <Property key="Caption" value="Game Menu"/>
             <Property key="FontHeight" value="32"/>

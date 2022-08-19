@@ -100,6 +100,11 @@ namespace MWVR
         MWVR::Util::requestRecenter(true);
     }
 
+    void VrMetaMenu::onPostprocessor()
+    {
+        MWBase::Environment::get().getWindowManager()->togglePostProcessorHud();
+    }
+
     void VrMetaMenu::close()
     {
         MWBase::Environment::get().getWindowManager()->removeGuiMode(MWGui::GM_VrMetaMenu);
@@ -124,9 +129,11 @@ namespace MWVR
         else if (name == "quickload")
             onQuickLoad();
         else if (name == "quicksave")
-            onQuickSave();       
+            onQuickSave();
         else if (name == "recenter")
             onRecenter();
+        else if (name == "postprocessor")
+            onPostprocessor();
     }
 
     bool VrMetaMenu::exit()
@@ -136,7 +143,7 @@ namespace MWVR
 
     void VrMetaMenu::updateMenu()
     {
-        static std::vector<std::string> buttons{ "return", "recenter", "quicksave", "quickload", "console", "inventory", "journal", "rest", "quickmenu", "gamemenu" };
+        static std::vector<std::string> buttons{ "return", "recenter", "quicksave", "quickload", "console", "inventory", "journal", "rest", "quickmenu", "gamemenu", "postprocessor" };
 
         if(mButtons.empty())
         for (std::string& buttonId : buttons)
