@@ -102,13 +102,13 @@ namespace MWRender
             filtered.push_back(i);
         }
 
+        if (mPingPongCallback)
+            mPingPongCallback->pingPongBegin(frameId, state, *this);
+
         auto* resolveViewport = bufferData.destinationViewport ? bufferData.destinationViewport : state.getCurrentViewport();
 
         if (filtered.empty() || !bufferData.postprocessing)
         {
-            if (mPingPongCallback)
-                mPingPongCallback->pingPongBegin(frameId, state, *this);
-
             state.pushStateSet(mFallbackStateSet);
             state.apply();
 
