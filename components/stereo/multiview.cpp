@@ -344,7 +344,7 @@ namespace Stereo
         if (!projUniform)
         {
             projUniform = new osg::Uniform(osg::Uniform::FLOAT_MAT4, "projectionMatrixMultiView", 2);
-            stateset->addUniform(projUniform, osg::StateAttribute::ON | osg::StateAttribute::OVERRIDE);
+            stateset->addUniform(projUniform, osg::StateAttribute::ON | osg::StateAttribute::PROTECTED);
         }
 
         projUniform->setElement(0, projection[0]);
@@ -356,7 +356,7 @@ namespace Stereo
             if (!invUniform)
             {
                 invUniform = new osg::Uniform(osg::Uniform::FLOAT_MAT4, "invProjectionMatrixMultiView", 2);
-                stateset->addUniform(invUniform, osg::StateAttribute::ON | osg::StateAttribute::OVERRIDE);
+                stateset->addUniform(invUniform, osg::StateAttribute::ON | osg::StateAttribute::PROTECTED);
             }
 
             invUniform->setElement(0, osg::Matrix::inverse(projection[0]));
