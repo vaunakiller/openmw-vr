@@ -1577,6 +1577,11 @@ namespace MWGui
         return mConsole && mConsole->isVisible();
     }
 
+    bool WindowManager::isPostProcessorHudVisible() const
+    {
+        return mPostProcessorHud->isVisible();
+    }
+
     MWGui::GuiMode WindowManager::getMode() const
     {
         if (mGuiModes.empty())
