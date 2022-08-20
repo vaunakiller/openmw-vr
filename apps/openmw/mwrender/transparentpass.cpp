@@ -127,7 +127,7 @@ namespace MWRender
         void TransparentDepthBinCallback::dirtyFrame(int frameId)
         {
             if (mMultiviewResolve[frameId])
-                mMultiviewResolve[frameId]->dirty();
+                mMultiviewResolve[frameId] = nullptr;
         }
 
 }
