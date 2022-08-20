@@ -383,9 +383,9 @@ case $VS_VERSION in
 		QT_MSVC_YEAR="2019"
 		BULLET_MSVC_YEAR="2015"
 
-		BOOST_VER="1.80.0"
-		BOOST_VER_URL="1_80_0"
-		BOOST_VER_SDK="108000"
+		BOOST_VER="1.79.0"
+		BOOST_VER_URL="1_79_0"
+		BOOST_VER_SDK="107900"
 		;;
 
 	16|16.0|2019 )
@@ -586,11 +586,11 @@ if [ -z $SKIP_DOWNLOAD ]; then
 	echo
 
 	# Boost
-	# if [ -z $APPVEYOR ]; then
-	# 	download "Boost ${BOOST_VER}" \
-	#		"https://gitlab.com/OpenMW/openmw-deps/-/raw/main/windows/boost_${BOOST_VER_URL}-msvc-${MSVC_VER}-${BITS}.exe" \
-	#		"boost-${BOOST_VER}-msvc${MSVC_VER}-win${BITS}.exe"
-	#fi
+	if [ -z $APPVEYOR ]; then
+		download "Boost ${BOOST_VER}" \
+			"https://gitlab.com/OpenMW/openmw-deps/-/raw/main/windows/boost_${BOOST_VER_URL}-msvc-${MSVC_VER}-${BITS}.exe" \
+			"boost-${BOOST_VER}-msvc${MSVC_VER}-win${BITS}.exe"
+	fi
 
 	# Bullet
 	download "Bullet 2.89" \
@@ -694,8 +694,29 @@ else
 fi
 {
 	if [ -z $APPVEYOR ]; then
-		BOOST_SDK="c:/local/boost_${BOOST_VER_URL}"
+		cd $DEPS_INSTALL
 
+		BOOST_SDK="$(real_pwd)/Boost"
+
+		# Boost's installer is still based on ms-dos API that doesn't support larger than 260 char path names
+		# We work around this by installing to root of the current working drive and then move it to our deps
+		# get the current working drive's root, we'll install to that temporarily
+		CWD_DRIVE_ROOT="$(powershell -command '(get-location).Drive.Root')Boost_temp"
+		CWD_DRIVE_ROOT_BASH=$(windowsPathAsUnix "$CWD_DRIVE_ROOT")
+		if [ -d CWD_DRIVE_ROOT_BASH ]; then
+			printf "Cannot continue, ${CWD_DRIVE_ROOT_BASH} aka ${CWD_DRIVE_ROOT} already exists. Please remove before re-running. ";
+			wrappedExit 1;
+		fi
+
+		if [ -d ${BOOST_SDK} ] && grep "BOOST_VERSION ${BOOST_VER_SDK}" Boost/boost/version.hpp > /dev/null; then
+			printf "Exists. "
+		elif [ -z $SKIP_EXTRACT ]; then
+			rm -rf Boost
+			CI_EXTRA_INNO_OPTIONS=""
+			[ -n "$CI" ] && CI_EXTRA_INNO_OPTIONS="//SUPPRESSMSGBOXES //LOG='boost_install.log'"
+			"${DEPS}/boost-${BOOST_VER}-msvc${MSVC_VER}-win${BITS}.exe" //DIR="${CWD_DRIVE_ROOT}" //VERYSILENT //NORESTART ${CI_EXTRA_INNO_OPTIONS}
+			mv "${CWD_DRIVE_ROOT_BASH}" "${BOOST_SDK}"
+		fi
 		add_cmake_opts -DBOOST_ROOT="$BOOST_SDK" \
 			-DBOOST_LIBRARYDIR="${BOOST_SDK}/lib${BITS}-msvc-${MSVC_VER}"
 		add_cmake_opts -DBoost_COMPILER="-${TOOLSET}"
