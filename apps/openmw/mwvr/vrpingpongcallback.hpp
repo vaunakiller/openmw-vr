@@ -26,7 +26,7 @@ namespace MWVR
         void pingPongBegin(size_t frameId, osg::State& state, const MWRender::PingPongCanvas& canvas) override;
         void pingPongEnd(size_t frameId, osg::State& state, const MWRender::PingPongCanvas& canvas) override;
 
-        size_t mLastFrameId = -1;
+        size_t mLastFrameId = 0xffffffff;
         MWRender::PostProcessor* mParent;
         std::array<osg::ref_ptr<osg::Viewport>, 2> mDestinationViewport;
     };

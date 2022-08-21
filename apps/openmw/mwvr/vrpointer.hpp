@@ -30,18 +30,18 @@ namespace MWVR
     private:
         osg::ref_ptr<osg::Geometry> createPointerGeometry();
 
-        osg::ref_ptr<osg::Geometry> mPointerGeometry = nullptr;
-        osg::ref_ptr<osg::MatrixTransform> mPointerRescale = nullptr;
-        osg::ref_ptr<osg::MatrixTransform> mPointerTransform = nullptr;
+        osg::ref_ptr<osg::Geometry> mPointerGeometry;
+        osg::ref_ptr<osg::MatrixTransform> mPointerRescale;
+        osg::ref_ptr<osg::MatrixTransform> mPointerTransform;
 
-        osg::ref_ptr<osg::Group> mParent = nullptr;
-        osg::ref_ptr<osg::Group> mRoot = nullptr;
+        osg::ref_ptr<osg::Group> mParent;
+        osg::ref_ptr<osg::Group> mRoot;
         VR::VRPath mLeftHandPath = 0;
         VR::VRPath mRightHandPath = 0;
 
         bool mEnabled = true;
         MWRender::RayResult mPointerRay = {};
-        osg::ref_ptr<osg::Node> mPointerTarget = nullptr;
+        osg::ref_ptr<osg::Node> mPointerTarget;
         float mDistanceToPointerTarget = -1.f;
         bool mCanPlaceObject = false;
         bool mLeftHandEnabled = true;

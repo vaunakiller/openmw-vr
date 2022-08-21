@@ -68,8 +68,8 @@ namespace MWVR
         osg::ref_ptr<osg::MatrixTransform> mModelOffset;
 
         std::shared_ptr<UserPointer> mUserPointer;
-        osg::ref_ptr<osg::MatrixTransform> mWeaponDirectionTransform{ nullptr };
-        osg::ref_ptr<osg::MatrixTransform> mWeaponPointerTransform{ nullptr };
+        osg::ref_ptr<osg::MatrixTransform> mWeaponDirectionTransform;
+        osg::ref_ptr<osg::MatrixTransform> mWeaponPointerTransform;
     };
 
 }
