@@ -15,7 +15,6 @@
       <Property key="Size" value="600 520"/>
     </Layer>
     <Layer name="Windows" overlapped="true" pick="true"/>
-    <Layer name="ListBox" overlapped="true" pick="true"/>
     <Layer name="Debug" overlapped="true" pick="true"/>
     <Layer name="Tooltip" overlapped="true" pick="true"/>
     <Layer name="Notification" overlapped="false" pick="false"/>
@@ -27,6 +26,7 @@
     <Layer name="LoadingScreenBackground" overlapped="false" pick="true"/>
     <Layer name="LoadingScreen" overlapped="false" pick="true"/>
     <Layer name="Modal" overlapped="true" pick="true"/>
+    <Layer name="ListBox" overlapped="true" pick="true"/>
     <Layer name="Popup" overlapped="true" pick="true"/>
     <Layer name="Video" overlapped="false" pick="true"/>
     <Layer name="InputBlocker" overlapped="false" pick="true"/>
