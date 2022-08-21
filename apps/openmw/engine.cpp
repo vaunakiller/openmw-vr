@@ -1328,7 +1328,8 @@ void OMW::Engine::configureVR(osg::GraphicsContext* gc)
     mVrTrackingManager = std::make_unique<VR::TrackingManager>();
     mXrInstance = std::make_unique<XR::Instance>(gc);
     mXrSession = mXrInstance->createSession();
-    mSelectDepthFormatOperation->setSupportedFormats(mXrInstance->platform().supportedDepthFormats());
-    mSelectColorFormatOperation->setSupportedFormats(mXrInstance->platform().supportedColorFormats());
+    if (mXrSession->appShouldShareDepthInfo())
+        mSelectDepthFormatOperation->setSupportedFormats(mXrInstance->platform().supportedDepthFormats());
+    mSelectColorFormatOperation->setSupportedFormats({ GL_R11F_G11F_B10F });
 #endif
 }

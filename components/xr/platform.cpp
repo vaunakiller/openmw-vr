@@ -88,6 +88,8 @@ namespace XR
     Platform::Platform(osg::GraphicsContext* gc)
         : mPrivate(new PlatformPrivate(gc))
     {
+        mMWColorFormatsGL.push_back(GL_SRGB8);
+        mMWColorFormatsGL.push_back(GL_SRGB8_ALPHA8);
         mMWColorFormatsGL.push_back(GL_RGB10);
         mMWColorFormatsGL.push_back(GL_RGB10_A2);
         mMWColorFormatsGL.push_back(GL_RGB10_A2UI);
@@ -355,7 +357,7 @@ namespace XR
 
 #ifdef XR_USE_GRAPHICS_API_D3D11
         // Need to translate DXGI formats to GL equivalents for texture sharing to work.
-        // This discards any DXGI formats that do not have GL equivalents.
+        // This discards any DXGI formats that do not have exact GL equivalents.
         if (KHR_D3D11_enable.enabled())
         {
             std::stringstream ss;
@@ -467,7 +469,7 @@ namespace XR
         int glFormat = 0;
         if (use == VR::SwapchainUse::Color)
         {
-            glFormat = SceneUtil::Color::colorInternalFormat();
+            glFormat = mMWColorFormatsGL[0];
         }
         else
         {
