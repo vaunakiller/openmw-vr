@@ -15,10 +15,9 @@ variables:
   tags:
     - docker
     - linux
-  image: ubuntu:focal
+  image: ubuntu:22.04
   rules:
-    - if: $CI_PIPELINE_SOURCE == "push"  
-  
+    - if: $CI_PIPELINE_SOURCE == "push"
 
 .Ubuntu:
   extends: .Ubuntu_Image
@@ -27,72 +26,42 @@ variables:
     - apt-cache/
     - ccache/
   stage: build
+  variables:
+    CMAKE_EXE_LINKER_FLAGS: -fuse-ld=mold
   script:
+    - df -h
     - export CCACHE_BASEDIR="`pwd`"
     - export CCACHE_DIR="`pwd`/ccache" && mkdir -pv "$CCACHE_DIR"
     - ccache -z -M "${CCACHE_SIZE}"
     - CI/before_script.linux.sh
     - cd build
     - cmake --build . -- -j $(nproc)
+    - df -h
+    - du -sh .
+    - find . | grep '\.o$' | xargs rm -f
+    - df -h
+    - du -sh .
     - cmake --install .
-    - if [[ "${BUILD_TESTS_ONLY}" ]]; then ./openmw_test_suite; fi
-    - if [[ "${BUILD_TESTS_ONLY}" ]]; then ./openmw_detournavigator_navmeshtilescache_benchmark; fi
+    - if [[ "${BUILD_TESTS_ONLY}" ]]; then ./openmw_test_suite --gtest_output="xml:tests.xml"; fi
+    - if [[ "${BUILD_TESTS_ONLY}" && ! "${BUILD_WITH_CODE_COVERAGE}" ]]; then ./openmw_detournavigator_navmeshtilescache_benchmark; fi
     - ccache -s
+    - df -h
+    - if [[ "${BUILD_WITH_CODE_COVERAGE}" ]]; then gcovr --xml-pretty --exclude-unreachable-branches --print-summary --root "${CI_PROJECT_DIR}" -j $(nproc) -o ../coverage.xml; fi
+    - ls | grep -v -e '^extern$' -e '^install$' -e '^tests.xml$' | xargs -I '{}' rm -rf './{}'
+    - cd ..
+    - df -h
+    - du -sh build/
+    - du -sh build/install/
+    - du -sh apt-cache/
+    - du -sh ccache/
   artifacts:
     paths:
       - build/install/
 
-Clang_Tidy:
-  extends: .Ubuntu_Image
-  stage: build
-  rules:
-    - if: '$CI_PIPELINE_SOURCE == "schedule"'
-  before_script:
-    - CI/install_debian_deps.sh gcc openmw-deps openmw-deps-dynamic clang-tidy clang
-  script:
-    - CI/before_script.linux.sh
-    - cd build
-    - cmake --build . -- -j $(nproc) openmw esmtool bsatool niftest openmw-wizard openmw-launcher openmw-iniimporter openmw-essimporter
-  variables:
-    CC: clang
-    CXX: clang++
-    CI_CLANG_TIDY: 1
-  timeout: 8h
-  artifacts:
-    paths: []
-    expire_in: 1 minute
-
-Coverity:
-  extends: .Ubuntu_Image
-  stage: build
-  rules:
-    - if: $CI_PIPELINE_SOURCE == "schedule"
-  before_script:
-    - CI/install_debian_deps.sh clang openmw-deps openmw-deps-dynamic
-    - curl -o /tmp/cov-analysis-linux64.tgz https://scan.coverity.com/download/linux64 --form project=$COVERITY_SCAN_PROJECT_NAME --form token=$COVERITY_SCAN_TOKEN
-    - tar xfz /tmp/cov-analysis-linux64.tgz
-  script:
-    - CI/before_script.linux.sh
-    # Remove the specific targets and build everything once we can do it under 3h
-    - cov-analysis-linux64-*/bin/cov-build --dir cov-int cmake --build build -- -j $(nproc) openmw-vr esmtool bsatool niftest openmw-wizard openmw-launcher openmw-iniimporter openmw-essimporter openmw-navmeshtool openmw-cs
-  after_script:
-    - tar cfz cov-int.tar.gz cov-int
-    - curl https://scan.coverity.com/builds?project=$COVERITY_SCAN_PROJECT_NAME
-      --form token=$COVERITY_SCAN_TOKEN --form email=$GITLAB_USER_EMAIL
-      --form file=@cov-int.tar.gz --form version="$CI_COMMIT_REF_NAME:$CI_COMMIT_SHORT_SHA"
-      --form description="CI_COMMIT_SHORT_SHA / $CI_COMMIT_TITLE / $CI_COMMIT_REF_NAME:$CI_PIPELINE_ID"
-  variables:
-    CC: clang
-    CXX: clang++
-    CXXFLAGS: -O0
-  artifacts:
-    paths: 
-      - /builds/OpenMW/openmw/cov-int/build-log.txt
-
 Ubuntu_GCC:
   extends: .Ubuntu
   cache:
-    key: Ubuntu_GCC.v2
+    key: Ubuntu_GCC.ubuntu_22.04.v1
   before_script:
     - CI/install_debian_deps.sh gcc openmw-deps openmw-deps-dynamic
   variables:
@@ -102,85 +71,82 @@ Ubuntu_GCC:
   # When CCache doesn't exist (e.g. first build on a fork), build takes more than 1h, which is the default for forks.
   timeout: 2h
 
+Ubuntu_GCC_Debug:
+  extends: .Ubuntu
+  cache:
+    key: Ubuntu_GCC_Debug.ubuntu_22.04.v1
+  before_script:
+    - CI/install_debian_deps.sh gcc openmw-deps openmw-deps-dynamic
+  variables:
+    CC: gcc
+    CXX: g++
+    CCACHE_SIZE: 4G
+    CMAKE_BUILD_TYPE: Debug
+    CMAKE_CXX_FLAGS_DEBUG: -O0
+  # When CCache doesn't exist (e.g. first build on a fork), build takes more than 1h, which is the default for forks.
+  timeout: 2h
+
 Ubuntu_GCC_tests:
   extends: Ubuntu_GCC
   cache:
-    key: Ubuntu_GCC_tests.v3
+    key: Ubuntu_GCC_tests.ubuntu_22.04.v1
   variables:
     CCACHE_SIZE: 1G
     BUILD_TESTS_ONLY: 1
   artifacts:
     paths: []
-    expire_in: 1 minute
-
-Ubuntu_GCC_tests_Debug:
-  extends: Ubuntu_GCC
-  cache:
-    key: Ubuntu_GCC_tests_Debug.v1
-  variables:
-    CCACHE_SIZE: 1G
-    BUILD_TESTS_ONLY: 1
-    CMAKE_BUILD_TYPE: Debug
-  artifacts:
-    paths: []
-    expire_in: 1 minute
+    name: ${CI_JOB_NAME}-${CI_COMMIT_REF_NAME}-${CI_COMMIT_SHA}
+    when: always
+    reports:
+      junit: build/tests.xml
 
 Ubuntu_GCC_tests_asan:
   extends: Ubuntu_GCC
   cache:
-    key: Ubuntu_GCC_asan.v1
+    key: Ubuntu_GCC_asan.ubuntu_22.04.v1
   variables:
     CCACHE_SIZE: 1G
     BUILD_TESTS_ONLY: 1
     CMAKE_BUILD_TYPE: Debug
     CMAKE_CXX_FLAGS_DEBUG: -g -O1 -fno-omit-frame-pointer -fsanitize=address -fsanitize=pointer-compare -fsanitize=pointer-subtract -fsanitize=leak
-    CMAKE_EXE_LINKER_FLAGS: -fsanitize=address -fsanitize=pointer-compare -fsanitize=pointer-subtract -fsanitize=leak
+    CMAKE_EXE_LINKER_FLAGS: -fsanitize=address -fsanitize=pointer-compare -fsanitize=pointer-subtract -fsanitize=leak -fuse-ld=mold
     ASAN_OPTIONS: halt_on_error=1:strict_string_checks=1:detect_stack_use_after_return=1:check_initialization_order=1:strict_init_order=1
   artifacts:
     paths: []
-    expire_in: 1 minute
+    name: ${CI_JOB_NAME}-${CI_COMMIT_REF_NAME}-${CI_COMMIT_SHA}
+    when: always
+    reports:
+      junit: build/tests.xml
 
-# This keeps failing with a nonsense linking error
-#Ubuntu_GCC_tests_ubsan:
-#  extends: Ubuntu_GCC
-#  cache:
-#    key: Ubuntu_GCC_ubsan.v1
-#  variables:
-#    CCACHE_SIZE: 1G
-#    BUILD_TESTS_ONLY: 1
-#    CMAKE_BUILD_TYPE: Debug
-#    CMAKE_CXX_FLAGS_DEBUG: -g -O0 -fsanitize=undefined
-#    UBSAN_OPTIONS: print_stacktrace=1:halt_on_error=1
-#  artifacts:
-#    paths: []
-#    expire_in: 1 minute
-
-Ubuntu_GCC_tests_tsan:
+.Ubuntu_GCC_tests_tsan:
   extends: Ubuntu_GCC
   cache:
-    key: Ubuntu_GCC_tsan.v1
+    key: Ubuntu_GCC_tsan.ubuntu_22.04.v1
   variables:
     CCACHE_SIZE: 1G
     BUILD_TESTS_ONLY: 1
     CMAKE_BUILD_TYPE: Debug
     CMAKE_CXX_FLAGS_DEBUG: -g -O2 -fno-omit-frame-pointer -fno-optimize-sibling-calls -fsanitize=thread -fPIE
-    CMAKE_EXE_LINKER_FLAGS: -pthread -pie -fsanitize=thread
+    CMAKE_EXE_LINKER_FLAGS: -pthread -pie -fsanitize=thread -fuse-ld=mold
     TSAN_OPTIONS: second_deadlock_stack=1:halt_on_error=1
   artifacts:
     paths: []
-    expire_in: 1 minute
+    name: ${CI_JOB_NAME}-${CI_COMMIT_REF_NAME}-${CI_COMMIT_SHA}
+    when: always
+    reports:
+      junit: build/tests.xml
 
-Ubuntu_Static_Deps:
+.Ubuntu_Static_Deps:
   extends: Ubuntu_Clang
   rules:
-    - if: $CI_PIPELINE_SOURCE == "push"  
+    - if: $CI_PIPELINE_SOURCE == "push"
       changes:
         - "**/CMakeLists.txt"
         - "cmake/**/*"
         - "CI/**/*"
         - ".gitlab-ci.yml"
   cache:
-    key: Ubuntu_Static_Deps.V1
+    key: Ubuntu_Static_Deps.ubuntu_22.04.v1
     paths:
       - apt-cache/
       - ccache/
@@ -194,10 +160,10 @@ Ubuntu_Static_Deps:
     CXXFLAGS: -O0
   timeout: 3h
 
-Ubuntu_Static_Deps_tests:
-  extends: Ubuntu_Static_Deps
+.Ubuntu_Static_Deps_tests:
+  extends: .Ubuntu_Static_Deps
   cache:
-    key: Ubuntu_Static_Deps_tests.V1
+    key: Ubuntu_Static_Deps_tests.ubuntu_22.04.v1
   variables:
     CCACHE_SIZE: 1G
     BUILD_TESTS_ONLY: 1
@@ -206,43 +172,65 @@ Ubuntu_Static_Deps_tests:
     CXXFLAGS: -O0
   artifacts:
     paths: []
-    expire_in: 1 minute
+    name: ${CI_JOB_NAME}-${CI_COMMIT_REF_NAME}-${CI_COMMIT_SHA}
+    when: always
+    reports:
+      junit: build/tests.xml
 
 Ubuntu_Clang:
   extends: .Ubuntu
   before_script:
     - CI/install_debian_deps.sh clang openmw-deps openmw-deps-dynamic
   cache:
-    key: Ubuntu_Clang.v2
+    key: Ubuntu_Clang.ubuntu_22.04.v2
   variables:
     CC: clang
     CXX: clang++
     CCACHE_SIZE: 2G
   # When CCache doesn't exist (e.g. first build on a fork), build takes more than 1h, which is the default for forks.
-  timeout: 2h
+  timeout: 3h
 
-Ubuntu_Clang_tests:
+Ubuntu_Clang_Tidy:
+  extends: Ubuntu_Clang
+  before_script:
+    - CI/install_debian_deps.sh clang clang-tidy openmw-deps openmw-deps-dynamic
+  cache:
+    key: Ubuntu_Clang_Tidy.ubuntu_22.04.v1
+  variables:
+    CMAKE_BUILD_TYPE: Debug
+    CMAKE_CXX_FLAGS_DEBUG: -O0
+    CI_CLANG_TIDY: 1
+  # When CCache doesn't exist (e.g. first build on a fork), build takes more than 1h, which is the default for forks.
+  timeout: 3h
+
+.Ubuntu_Clang_tests:
   extends: Ubuntu_Clang
   cache:
-    key: Ubuntu_Clang_tests.v3
+    key: Ubuntu_Clang_tests.ubuntu_22.04.v1
   variables:
     CCACHE_SIZE: 1G
     BUILD_TESTS_ONLY: 1
   artifacts:
     paths: []
-    expire_in: 1 minute
+    name: ${CI_JOB_NAME}-${CI_COMMIT_REF_NAME}-${CI_COMMIT_SHA}
+    when: always
+    reports:
+      junit: build/tests.xml
 
 Ubuntu_Clang_tests_Debug:
   extends: Ubuntu_Clang
   cache:
-    key: Ubuntu_Clang_tests_Debug.v1
+    key: Ubuntu_Clang_tests_Debug.ubuntu_22.04.v1
   variables:
     CCACHE_SIZE: 1G
     BUILD_TESTS_ONLY: 1
     CMAKE_BUILD_TYPE: Debug
   artifacts:
     paths: []
-    expire_in: 1 minute
+    name: ${CI_JOB_NAME}-${CI_COMMIT_REF_NAME}-${CI_COMMIT_SHA}
+    when: always
+    reports:
+      junit: build/tests.xml
 
 variables: &engine-targets
   targets: "openmw_vr,openmw-launcher"
@@ -264,8 +252,10 @@ variables: &tests-targets
   before_script:
   - Import-Module "$env:ChocolateyInstall\helpers\chocolateyProfile.psm1"
   - choco source add -n=openmw-proxy -s="https://repo.openmw.org/repository/Chocolatey/" --priority=1
+  - choco source disable -n=chocolatey
   - choco install git --force --params "/GitAndUnixToolsOnPath" -y
   - choco install 7zip -y
+  - choco install ccache -y
   - choco install cmake.install --installargs 'ADD_CMAKE_TO_PATH=System' -y
   - choco install vswhere -y
   - choco install ninja -y
@@ -288,7 +278,11 @@ variables: &tests-targets
     - $time = (Get-Date -Format "HH:mm:ss")
     - echo ${time}
     - echo "started by ${GITLAB_USER_NAME}"
-    - sh CI/before_script.msvc.sh -c $config -p Win64 -v 2019 -k -V -N -b -t
+    - $env:CCACHE_BASEDIR = Get-Location
+    - $env:CCACHE_DIR = "$(Get-Location)\ccache"
+    - New-Item -Type Directory -Force -Path $env:CCACHE_DIR
+    - sh CI/before_script.msvc.sh -c $config -p Win64 -v 2019 -k -V -N -b -t  -C -M -E
+    - ccache --show-stats
     - cd MSVC2019_64_Ninja
     - .\ActivateMSVC.ps1
     - cmake --build . --config $config --target ($targets.Split(','))
@@ -307,6 +301,7 @@ variables: &tests-targets
   cache:
     key: ninja-v2
     paths:
+    - ccache
     - deps
     - MSVC2019_64_Ninja/deps/Qt
   artifacts:
@@ -322,6 +317,8 @@ variables: &tests-targets
     - MSVC2019_64_Ninja/*/*/*/*/*/*.log
     - MSVC2019_64_Ninja/*/*/*/*/*/*/*.log
     - MSVC2019_64_Ninja/*/*/*/*/*/*/*/*.log
+  # When CCache doesn't exist (e.g. first build on a fork), build takes more than 1h, which is the default for forks.
+  timeout: 2h
 
 Windows_Ninja_Engine_Release:
   extends:
@@ -364,8 +361,10 @@ Windows_Ninja_Tests_RelWithDebInfo:
   before_script:
   - Import-Module "$env:ChocolateyInstall\helpers\chocolateyProfile.psm1"
   - choco source add -n=openmw-proxy -s="https://repo.openmw.org/repository/Chocolatey/" --priority=1
+  - choco source disable -n=chocolatey
   - choco install git --force --params "/GitAndUnixToolsOnPath" -y
   - choco install 7zip -y
+  - choco install ccache -y
   - choco install cmake.install --installargs 'ADD_CMAKE_TO_PATH=System' -y
   - choco install vswhere -y
   - choco install python -y
@@ -387,9 +386,13 @@ Windows_Ninja_Tests_RelWithDebInfo:
     - $time = (Get-Date -Format "HH:mm:ss")
     - echo ${time}
     - echo "started by ${GITLAB_USER_NAME}"
+    - $env:CCACHE_BASEDIR = Get-Location
+    - $env:CCACHE_DIR = "$(Get-Location)\ccache"
+    - New-Item -Type Directory -Force -Path $env:CCACHE_DIR
     - sh CI/before_script.msvc.sh -c $config -p Win64 -v 2019 -k -V -b -t
     - cd MSVC2019_64
     - cmake --build . --config $config --target ($targets.Split(','))
+    - ccache --show-stats
     - cd $config
     - echo "CI_COMMIT_REF_NAME ${CI_COMMIT_REF_NAME}`nCI_JOB_ID ${CI_JOB_ID}`nCI_COMMIT_SHA ${CI_COMMIT_SHA}" | Out-File -Encoding UTF8 CI-ID.txt
     - Get-ChildItem -Recurse *.ilk | Remove-Item
@@ -405,6 +408,7 @@ Windows_Ninja_Tests_RelWithDebInfo:
   cache:
     key: msbuild-v2
     paths:
+    - ccache
     - deps
     - MSVC2019_64/deps/Qt
   artifacts:
@@ -420,6 +424,8 @@ Windows_Ninja_Tests_RelWithDebInfo:
     - MSVC2019_64/*/*/*/*/*/*.log
     - MSVC2019_64/*/*/*/*/*/*/*.log
     - MSVC2019_64/*/*/*/*/*/*/*/*.log
+  # When CCache doesn't exist (e.g. first build on a fork), build takes more than 1h, which is the default for forks.
+  timeout: 2h
 
 Windows_MSBuild_Engine_Release:
   extends:
