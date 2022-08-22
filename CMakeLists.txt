@@ -33,7 +33,7 @@ if(OPENMW_GL4ES_MANUAL_INIT)
 endif()
 
 # Apps and tools
-option(BUILD_OPENMW             "Build OpenMW" ON)
+option(BUILD_OPENMW             "Build OpenMW" OFF) #TEMP: do not build pancake target by default
 option(BUILD_LAUNCHER           "Build Launcher" ON)
 option(BUILD_WIZARD             "Build Installation Wizard" ON)
 option(BUILD_MWINIIMPORTER      "Build MWiniImporter" ON)
@@ -43,12 +43,17 @@ option(BUILD_BSATOOL            "Build BSA extractor" ON)
 option(BUILD_ESMTOOL            "Build ESM inspector" ON)
 option(BUILD_NIFTEST            "Build nif file tester" ON)
 option(BUILD_DOCS               "Build documentation." OFF )
-option(BUILD_OPENMW_VR          "Build VR support using OpenXR" ON)
 option(BUILD_WITH_CODE_COVERAGE "Enable code coverage with gconv" OFF)
 option(BUILD_UNITTESTS          "Enable Unittests with Google C++ Unittest" OFF)
 option(BUILD_BENCHMARKS         "Build benchmarks with Google Benchmark" OFF)
 option(BUILD_NAVMESHTOOL        "Build navmesh tool" ON)
 option(BUILD_BULLETOBJECTTOOL   "Build Bullet object tool" ON)
+
+if (ANDROID)
+    option(BUILD_OPENMW_VR          "Build OpenMW-VR VR" OFF)
+else()
+    option(BUILD_OPENMW_VR          "Build OpenMW-VR VR" ON)
+endif()
 
 set(OpenGL_GL_PREFERENCE LEGACY)  # Use LEGACY as we use GL2; GLNVD is for GL3 and up.
 

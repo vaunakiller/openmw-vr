@@ -566,7 +566,7 @@ OSG_ARCHIVE="OSGoS-3.6.5-dd803bc-msvc${OSG_MSVC_YEAR}-win${BITS}"
 OSG_ARCHIVE_REPO_URL="https://gitlab.com/OpenMW/openmw-deps/-/raw/main"
 if ! [ -z $OSG_MULTIVIEW_BUILD ]; then
     OSG_ARCHIVE_NAME="OSG-3.6-multiview"
-    OSG_ARCHIVE="OSG-3.6-multiview-ee297dce0-msvc${OSG_MSVC_YEAR}-win${BITS}"
+    OSG_ARCHIVE="OSG-3.6-multiview-e8a799829-msvc${OSG_MSVC_YEAR}-win${BITS}"
     OSG_ARCHIVE_REPO_URL="https://gitlab.com/madsbuvi/openmw-deps/-/raw/openmw-vr-ovr_multiview"
 fi
 
@@ -868,12 +868,7 @@ printf "${OSG_ARCHIVE_NAME}... "
 				add_runtime_dlls $CONFIGURATION "$(pwd)/OSG/bin/"{boost_filesystem-vc141-mt-1_63,boost_system-vc141-mt-1_63,collada-dom2.4-dp-vc141-mt}.dll
 			fi
 		fi
-        # The multiview build does not have the dae plugin
-        if ! [ -z $OSG_MULTIVIEW_BUILD ]; then
-            add_osg_dlls $CONFIGURATION "$(pwd)/OSG/bin/osgPlugins-3.6.5/osgdb_"{bmp,dds,freetype,jpeg,osg,png,tga}${SUFFIX}.dll
-        else
-            add_osg_dlls $CONFIGURATION "$(pwd)/OSG/bin/osgPlugins-3.6.5/osgdb_"{bmp,dae,dds,freetype,jpeg,osg,png,tga}${SUFFIX}.dll
-        fi
+        add_osg_dlls $CONFIGURATION "$(pwd)/OSG/bin/osgPlugins-3.6.5/osgdb_"{bmp,dae,dds,freetype,jpeg,osg,png,tga}${SUFFIX}.dll
 		add_osg_dlls $CONFIGURATION "$(pwd)/OSG/bin/osgPlugins-3.6.5/osgdb_serializers_osg"{,animation,fx,ga,particle,text,util,viewer,shadow}${SUFFIX}.dll
 	done
 	echo Done.
