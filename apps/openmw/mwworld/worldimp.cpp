@@ -983,7 +983,7 @@ namespace MWWorld
         mPhysics->clearQueuedMovement();
         mDiscardMovements = true;
 
-        if (changeEvent && mCurrentWorldSpace != cellName)
+        if (changeEvent && !Misc::StringUtils::ciEqual(mCurrentWorldSpace, cellName))
         {
             // changed worldspace
             mProjectileManager->clear();
@@ -3790,8 +3790,10 @@ namespace MWWorld
                              const std::string& id, const std::string& sourceName, const bool fromProjectile, int slot)
     {
         std::map<MWWorld::Ptr, std::vector<ESM::ENAMstruct> > toApply;
+        int index = -1;
         for (const ESM::ENAMstruct& effectInfo : effects.mList)
         {
+            ++index;
             const ESM::MagicEffect* effect = mStore.get<ESM::MagicEffect>().find(effectInfo.mEffectID);
 
             if (effectInfo.mRange != rangeType || (effectInfo.mArea <= 0 && !ignore.isEmpty() && ignore.getClass().isActor()))
@@ -3846,7 +3848,15 @@ namespace MWWorld
                 if (affected.getClass().isActor() && !isActorCollisionEnabled(affected))
                     continue;
 
-                toApply[affected].push_back(effectInfo);
+                auto& list = toApply[affected];
+                while (list.size() < static_cast<std::size_t>(index))
+                {
+                    // Insert dummy effects to preserve indices
+                    auto& dummy = list.emplace_back(effectInfo);
+                    dummy.mRange = ESM::RT_Self;
+                    assert(dummy.mRange != rangeType);
+                }
+                list.push_back(effectInfo);
             }
         }
 

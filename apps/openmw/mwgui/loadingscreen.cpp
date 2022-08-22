@@ -1,12 +1,10 @@
 #include "loadingscreen.hpp"
 
 #include <array>
-#include <condition_variable>
 
 #include <osgViewer/Viewer>
 
 #include <osg/Texture2D>
-#include <osg/Version>
 
 #include <MyGUI_ScrollBar.h>
 #include <MyGUI_Gui.h>

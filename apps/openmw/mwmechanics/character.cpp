@@ -1487,7 +1487,7 @@ bool CharacterController::updateWeaponState(CharacterState idle)
                     }
 
                     mAnimation->play(mCurrentWeapon, priorityWeapon,
-                                     MWRender::Animation::BlendMask_All, true,
+                                     MWRender::Animation::BlendMask_All, false,
                                      1, startKey, stopKey,
                                      0.0f, 0);
                     mUpperBodyState = UpperCharState_CastingSpell;
@@ -1518,7 +1518,7 @@ bool CharacterController::updateWeaponState(CharacterState idle)
                         Security(mPtr).probeTrap(target, item, resultMessage, resultSound);
                 }
                 mAnimation->play(mCurrentWeapon, priorityWeapon,
-                                 MWRender::Animation::BlendMask_All, true,
+                                 MWRender::Animation::BlendMask_All, false,
                                  1.0f, "start", "stop", 0.0, 0);
                 mUpperBodyState = UpperCharState_FollowStartToFollowStop;
 
@@ -1579,8 +1579,9 @@ bool CharacterController::updateWeaponState(CharacterState idle)
                     mUpperBodyState = UpperCharState_StartToMinAttack;
                     if (isRandomAttackAnimation(mCurrentWeapon))
                     {
+                        world->breakInvisibility(mPtr);
                         mAttackStrength = std::min(1.f, 0.1f + Misc::Rng::rollClosedProbability(prng));
-                        playSwishSound(0.0f);
+                        playSwishSound(mAttackStrength);
                     }
                 }
             }
@@ -1683,7 +1684,7 @@ bool CharacterController::updateWeaponState(CharacterState idle)
         }
     }
 
-    if(!animPlaying)
+    if (!animPlaying || complete >= 1.f)
     {
         if(mUpperBodyState == UpperCharState_EquipingWeap ||
            mUpperBodyState == UpperCharState_FollowStartToFollowStop ||
@@ -1697,12 +1698,21 @@ bool CharacterController::updateWeaponState(CharacterState idle)
             if (mUpperBodyState != UpperCharState_EquipingWeap && isRecovery())
                 mAnimation->disable(mCurrentHit);
 
+            if (animPlaying)
+                mAnimation->disable(mCurrentWeapon);
+
             mUpperBodyState = UpperCharState_WeapEquiped;
         }
         else if(mUpperBodyState == UpperCharState_UnEquipingWeap)
+        {
+            if (animPlaying)
+                mAnimation->disable(mCurrentWeapon);
+
             mUpperBodyState = UpperCharState_Nothing;
+        }
     }
-    else if(complete >= 1.0f && !isRandomAttackAnimation(mCurrentWeapon))
+
+    if (complete >= 1.0f && !isRandomAttackAnimation(mCurrentWeapon))
     {
         std::string start, stop;
         switch(mUpperBodyState)
@@ -1781,19 +1791,14 @@ bool CharacterController::updateWeaponState(CharacterState idle)
                 mask = MWRender::Animation::BlendMask_UpperBody;
 
             mAnimation->disable(mCurrentWeapon);
-            if (mUpperBodyState == UpperCharState_FollowStartToFollowStop)
-                mAnimation->play(mCurrentWeapon, priorityWeapon,
-                                 mask, true,
-                                 weapSpeed, start, stop, 0.0f, 0);
-            else
-                mAnimation->play(mCurrentWeapon, priorityWeapon,
-                                 mask, false,
-                                 weapSpeed, start, stop, 0.0f, 0);
+            mAnimation->play(mCurrentWeapon, priorityWeapon, mask, false, weapSpeed, start, stop, 0.0f, 0);
         }
     }
     else if(complete >= 1.0f && isRandomAttackAnimation(mCurrentWeapon))
     {
         clearStateAnimation(mCurrentWeapon);
+        if (isRecovery())
+            mAnimation->disable(mCurrentHit);
         mUpperBodyState = UpperCharState_WeapEquiped;
     }
 

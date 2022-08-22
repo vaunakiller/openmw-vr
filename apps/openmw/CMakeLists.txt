@@ -201,12 +201,12 @@ if(APPLE)
         ${IOKIT_FRAMEWORK})
 
     if (FFmpeg_FOUND)
-        find_library(COREVIDEO_FRAMEWORK CoreVideo)
-        find_library(VDA_FRAMEWORK VideoDecodeAcceleration)
-        set(OPENMW_LINK_TARGETS ${OPENMW_LINK_TARGETS}
-            z
-            ${COREVIDEO_FRAMEWORK}
-            ${VDA_FRAMEWORK})
+        target_link_libraries(openmw z)
+        target_link_options(openmw PRIVATE "LINKER:SHELL:-framework CoreVideo"
+                                           "LINKER:SHELL:-framework CoreMedia"
+                                           "LINKER:SHELL:-framework VideoToolbox"
+                                           "LINKER:SHELL:-framework AudioToolbox"
+                                           "LINKER:SHELL:-framework VideoDecodeAcceleration")
     endif()
 endif(APPLE)
 

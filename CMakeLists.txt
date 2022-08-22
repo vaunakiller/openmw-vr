@@ -407,18 +407,9 @@ if(NOT HAVE_STDINT_H)
     message(FATAL_ERROR "stdint.h was not found" )
 endif()
 
-
-set(OSG_VERSION_REQUIRED "3.3.4")
-if(BUILD_OPENMW_VR)
-    set(OSG_VERSION_REQUIRED "3.6.5")
-endif()
-
 if(OPENMW_USE_SYSTEM_OSG)
-    find_package(OpenSceneGraph ${OSG_VERSION_REQUIRED} REQUIRED ${USED_OSG_COMPONENTS})
+    find_package(OpenSceneGraph 3.6.5 REQUIRED ${USED_OSG_COMPONENTS})  # Bump to 3.6.6 when released
 
-    if (${OPENSCENEGRAPH_VERSION} VERSION_GREATER 3.6.2 AND ${OPENSCENEGRAPH_VERSION} VERSION_LESS 3.6.5)
-        message(FATAL_ERROR "OpenSceneGraph version ${OPENSCENEGRAPH_VERSION} has critical regressions which cause crashes. Please upgrade to 3.6.5 or later. We strongly recommend using the tip of the official 'OpenSceneGraph-3.6' branch or the tip of '3.6' OpenMW/osg (OSGoS).")
-    endif()
 
     if(OSG_STATIC)
         find_package(OSGPlugins REQUIRED COMPONENTS ${USED_OSG_PLUGINS})

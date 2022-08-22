@@ -8,7 +8,6 @@
 #include <osg/BufferObject>
 #include <osg/BufferIndexBinding>
 #include <osg/Endian>
-#include <osg/Version>
 #include <osg/ValueObject>
 
 #include <osgUtil/CullVisitor>
@@ -302,11 +301,7 @@ namespace SceneUtil
 
                 osg::ref_ptr<osg::UniformBufferObject> ubo = new osg::UniformBufferObject;
                 buffer->getData()->setBufferObject(ubo);
-#if OSG_VERSION_GREATER_OR_EQUAL(3,5,7)
                 osg::ref_ptr<osg::UniformBufferBinding> ubb = new osg::UniformBufferBinding(static_cast<int>(Resource::SceneManager::UBOBinding::LightBuffer), buffer->getData(), 0, buffer->getData()->getTotalDataSize());
-#else
-                osg::ref_ptr<osg::UniformBufferBinding> ubb = new osg::UniformBufferBinding(static_cast<int>(Resource::SceneManager::UBOBinding::LightBuffer), ubo, 0, buffer->getData()->getTotalDataSize());
-#endif
                 stateset->setAttributeAndModes(ubb, mode);
 
                 break;
@@ -476,16 +471,14 @@ namespace SceneUtil
         {
             osg::ref_ptr<osg::StateSet> stateset = new osg::StateSet;
 
-            osg::ref_ptr<osg::IntArray> indices = new osg::IntArray(mLightManager->getMaxLights());
-            osg::ref_ptr<osg::Uniform> indicesUni = new osg::Uniform(osg::Uniform::Type::INT, "PointLightIndex", indices->size());
+            osg::ref_ptr<osg::Uniform> indicesUni = new osg::Uniform(osg::Uniform::Type::INT, "PointLightIndex", mLightManager->getMaxLights());
             int pointCount = 0;
 
             for (size_t i = 0; i < lightList.size(); ++i)
             {
                 int bufIndex = mLightManager->getLightIndexMap(frameNum)[lightList[i]->mLightSource->getId()];
-                indices->at(pointCount++) = bufIndex;
+                indicesUni->setElement(pointCount++, bufIndex);
             }
-            indicesUni->setArray(indices);
             stateset->addUniform(indicesUni);
             stateset->addUniform(new osg::Uniform("PointLightCount", pointCount));
 
@@ -608,20 +601,28 @@ namespace SceneUtil
     class LightManagerCullCallback : public SceneUtil::NodeCallback<LightManagerCullCallback, LightManager*, osgUtil::CullVisitor*>
     {
     public:
+        LightManagerCullCallback(LightManager* lightManager)
+        {
+            if (!lightManager->getUBOManager())
+                return;
+
+            for (size_t i = 0; i < mStateSet.size(); ++i)
+            {
+                auto& buffer = lightManager->getUBOManager()->getLightBuffer(i);
+                osg::ref_ptr<osg::UniformBufferBinding> ubb = new osg::UniformBufferBinding(static_cast<int>(Resource::SceneManager::UBOBinding::LightBuffer), buffer->getData(), 0, buffer->getData()->getTotalDataSize());
+                mStateSet[i]->setAttributeAndModes(ubb, osg::StateAttribute::ON);
+            }
+        }
+
         void operator()(LightManager* node, osgUtil::CullVisitor* cv)
         {
-            osg::ref_ptr<osg::StateSet> stateset = new osg::StateSet;
+            const size_t frameId = cv->getTraversalNumber() % 2;
+
+            auto& stateset = mStateSet[frameId];
 
             if (node->getLightingMethod() == LightingMethod::SingleUBO)
             {
-                auto buffer = node->getUBOManager()->getLightBuffer(cv->getTraversalNumber());
-
-#if OSG_VERSION_GREATER_OR_EQUAL(3,5,7)
-                osg::ref_ptr<osg::UniformBufferBinding> ubb = new osg::UniformBufferBinding(static_cast<int>(Resource::SceneManager::UBOBinding::LightBuffer), buffer->getData(), 0, buffer->getData()->getTotalDataSize());
-#else
-                osg::ref_ptr<osg::UniformBufferBinding> ubb = new osg::UniformBufferBinding(static_cast<int>(Resource::SceneManager::UBOBinding::LightBuffer), buffer->getData()->getBufferObject(), 0, buffer->getData()->getTotalDataSize());
-#endif
-                stateset->setAttributeAndModes(ubb, osg::StateAttribute::ON);
+                auto& buffer = node->getUBOManager()->getLightBuffer(cv->getTraversalNumber());
 
                 if (auto sun = node->getSunlight())
                 {
@@ -652,6 +653,8 @@ namespace SceneUtil
             if (node->getPPLightsBuffer() && cv->getCurrentCamera()->getName() == Constants::SceneCamera)
                 node->getPPLightsBuffer()->updateCount(cv->getTraversalNumber());
         }
+
+        std::array<osg::ref_ptr<osg::StateSet>, 2> mStateSet = { new osg::StateSet, new osg::StateSet };
     };
 
     UBOManager::UBOManager(int lightCount)
@@ -838,7 +841,7 @@ namespace SceneUtil
 
         getOrCreateStateSet()->addUniform(new osg::Uniform("PointLightCount", 0));
 
-        addCullCallback(new LightManagerCullCallback);
+        addCullCallback(new LightManagerCullCallback(this));
     }
 
     LightManager::LightManager(const LightManager &copy, const osg::CopyOp &copyop)
