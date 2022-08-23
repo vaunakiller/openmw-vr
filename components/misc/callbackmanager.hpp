@@ -89,9 +89,6 @@ namespace Misc
         /// Waits for a oneshot callback to complete. Returns immediately if already complete or no such callback exists
         void waitCallbackOneshot(DrawStage stage, std::shared_ptr<MwDrawCallback> cb);
 
-        /// Determine which view the cull visitor belongs to
-        View getView(const osgUtil::CullVisitor* cv) const;
-
     private:
         bool hasOneshot(DrawStage stage, std::shared_ptr<MwDrawCallback> cb);
 
@@ -100,11 +97,6 @@ namespace Misc
         std::condition_variable mCondition;
 
         osg::ref_ptr<osgViewer::Viewer> mViewer;
-
-        using Identifier = osgUtil::CullVisitor::Identifier;
-        osg::ref_ptr<Identifier> mIdentifierMain = new Identifier();
-        osg::ref_ptr<Identifier> mIdentifierLeft = new Identifier();
-        osg::ref_ptr<Identifier> mIdentifierRight = new Identifier();
     };
 }
 
