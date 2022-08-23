@@ -469,6 +469,10 @@ macOS12_Xcode13:
   variables:
     multiview: "-M"
     config: "Release"
+  rules:
+    # run this until 
+    - if: $CI_PIPELINE_SOURCE == "push"
+    - if: $CI_PIPELINE_SOURCE == "schedule"
 
 .Windows_Ninja_Debug:
   extends:
