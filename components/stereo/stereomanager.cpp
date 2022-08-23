@@ -317,6 +317,7 @@ namespace Stereo
         if (mShouldAttachMultiviewFramebufferToMainCamera)
         {
             mMultiviewFramebuffer->attachTo(mMainCamera);
+            mMultiviewFramebufferIsAttached = true;
         }
     }
 
@@ -394,11 +395,6 @@ namespace Stereo
     void Manager::setUpdateViewCallback(std::shared_ptr<UpdateViewCallback> cb)
     {
         mUpdateViewCallback = cb;
-    }
-
-    void Manager::setCullCallback(osg::ref_ptr<osg::NodeCallback> cb)
-    {
-        mMainCamera->setCullCallback(cb);
     }
 
     osg::Matrixd Manager::computeEyeProjection(int view, bool reverseZ) const
