@@ -39,10 +39,10 @@ namespace VR
         bool seatedPlay() const { return mSeatedPlay; }
 
         float playerScale() const { return mPlayerScale; }
-        void setPlayerScale(float scale) { mPlayerScale = scale; }
+        void computePlayerScale();
 
-        float eyeLevel() const { return mEyeLevel; }
-        void setEyeLevel(float eyeLevel) { mEyeLevel = eyeLevel; }
+        void setCharHeight(float height);
+        float charHeight() const { return mCharHeight; };
 
         void processChangedSettings(const std::set< std::pair<std::string, std::string> >& changed);
 
@@ -89,7 +89,7 @@ namespace VR
 
         bool mSeatedPlay = false;
         float mPlayerScale = 1.f;
-        float mEyeLevel = 1.f;
+        float mCharHeight = 1.f;
     };
 
 }

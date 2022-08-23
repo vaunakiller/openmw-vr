@@ -1168,6 +1168,9 @@ void OMW::Engine::go()
     if (VR::getVR())
     {
         mViewer->getCamera()->setCullMask(mViewer->getCamera()->getCullMask() & ~(MWRender::VisMask::Mask_GUI));
+#ifdef USE_OPENXR
+        static_cast<MWVR::VRInputManager*>(mInputManager.get())->calibrate();
+#endif
     }
 
     // Start the game

@@ -447,14 +447,8 @@ namespace MWVR
         float charHeightFactor = isMale ? race->mData.mHeight.mMale : race->mData.mHeight.mFemale;
         float charHeightBase = Settings::Manager::getFloat("character base height", "VR Debug");
         float charHeight = charHeightBase * charHeightFactor;
-        float realHeight = Settings::Manager::getFloat("real height", "VR");
-        float sizeFactor = charHeight / realHeight;
-        float eyeLevel = charHeight;
-        VR::Session::instance().setPlayerScale(sizeFactor);
-        VR::Session::instance().setEyeLevel(eyeLevel);
+        VR::Session::instance().setCharHeight(charHeight);
         Log(Debug::Verbose) << "Calculated character height: " << charHeight;
-        Log(Debug::Verbose) << "Calculated player scale: " << sizeFactor;
-        Log(Debug::Verbose) << "Approximated eye level: " << eyeLevel;
     }
 
     float VRAnimation::getVelocity(const std::string& groupname) const

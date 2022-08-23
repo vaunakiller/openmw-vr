@@ -58,6 +58,9 @@ namespace MWVR
         /// OpenXR input interface
         OpenXRInput& xrInput() { return *mXRInput; }
 
+        void calibrate();
+        void calibratePlayerHeight();
+
     protected:
         void processAction(const class XR::InputAction* action, float dt, bool disableControls);
 
@@ -85,6 +88,16 @@ namespace MWVR
         bool mSmoothTurning = true;
         float mSnapAngle = 30.f;
         float mSmoothTurnRate = 1.0f;
+
+        enum class CalibrationState
+        {
+            None = 0,
+            Active = 1,
+            Aborted = 2,
+            Complete = 3,
+        };
+
+        CalibrationState mCalibrationState = CalibrationState::None;
 
     };
 }

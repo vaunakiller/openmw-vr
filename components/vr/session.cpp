@@ -84,5 +84,17 @@ namespace VR
             //Environment::get().getInputManager()->requestRecenter(true);
         }
     }
+
+    void Session::computePlayerScale()
+    {
+        mPlayerScale = mCharHeight / Settings::Manager::getFloat("player height", "VR");
+        Log(Debug::Verbose) << "Calculated player scale: " << mPlayerScale;
+    }
+
+    void Session::setCharHeight(float height)
+    {
+        mCharHeight = height;
+        computePlayerScale();
+    }
 }
 

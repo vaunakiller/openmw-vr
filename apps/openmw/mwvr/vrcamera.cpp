@@ -91,7 +91,7 @@ namespace MWVR
         auto* stageToWorldBinding = static_cast<VR::StageToWorldBinding*>(VR::TrackingManager::instance().getTrackingSource(path));
 
         stageToWorldBinding->setSeatedPlay(VR::Session::instance().seatedPlay());
-        stageToWorldBinding->setEyeLevel(VR::Session::instance().eyeLevel() * Constants::UnitsPerMeter);
+        stageToWorldBinding->setEyeLevel(VR::Session::instance().charHeight() * Constants::UnitsPerMeter);
         stageToWorldBinding->recenter(mShouldResetZ);
 
         mShouldRecenter = false;
