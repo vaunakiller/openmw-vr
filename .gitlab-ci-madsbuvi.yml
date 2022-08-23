@@ -582,6 +582,7 @@ Windows_MSBuild_RelWithDebInfo:
   extends:
     - .Windows_MSBuild_Base
   variables:
+    multiview: "-M"
     config: "RelWithDebInfo"
     # Gitlab can't successfully execute following binaries due to unknown reason
     # executables: "openmw_test_suite.exe,openmw_detournavigator_navmeshtilescache_benchmark.exe"
