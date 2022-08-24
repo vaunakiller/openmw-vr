@@ -19,10 +19,11 @@ OpenMW-VR is not yet a part of official OpenMW and must be installed separately.
 Windows Binaries
 ================
 
+`Download <https://gitlab.com/madsbuvi/openmw/-/jobs/artifacts/openmw-vr/download?job=Windows_MSBuild_Release>`_
+
 If you're not sure what any of the different methods mean, you should probably stick to this one.
-Simply download the latest build from the following link:
-`https://gitlab.com/madsbuvi/openmw/-/jobs/artifacts/openmw-vr/download?job=Windows_MSBuild_RelWithDebInfo <https://gitlab.com/madsbuvi/openmw/-/jobs/artifacts/openmw-vr/download?job=Windows_MSBuild_RelWithDebInfo>`_
-and extract the archive into a new/empty folder. If you have not run the OpenMW install wizard in the past, run the extracted openmw_wizard.exe. Now you can run the extracted openmw-vr.exe to launch the game.
+Simply download the latest build from the link above and extract the archive into a new/empty folder.
+If you have not run the OpenMW install wizard in the past, run the extracted openmw_wizard.exe. Now you can run the extracted openmw-vr.exe to launch the game.
 
 	.. note::
 		There is no need to uninstall previous builds, but extract each build into a **new or empty** folder and **do not** extract two builds to the same folder.
