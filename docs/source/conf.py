@@ -148,7 +148,7 @@ html_theme = 'sphinx_rtd_theme'
 #html_css_files = 'figures.css'         use this once Sphinx 1.8 is released!!!
 
 def setup(app):
-    app.add_css_file('figures.css')
+    app.add_stylesheet('figures.css')
     app.add_stylesheet('luadoc.css')
     try:
         subprocess.call(project_root + '/docs/source/generate_luadoc.sh')
