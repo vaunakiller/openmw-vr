@@ -24,6 +24,7 @@
 namespace VR
 {
     class Swapchain;
+    class StageToWorldBinding;
 
     /// \brief Manages VR logic, such as managing frames, predicting their poses, and handling frame synchronization with the VR runtime.
     /// Should not be confused with the openxr session object.
@@ -63,6 +64,10 @@ namespace VR
 
         bool handDirectedMovement() const { return mHandDirectedMovement; };
 
+        void requestRecenter(bool recenterZ);
+
+        VR::StageToWorldBinding& stageToWorldBinding();
+
     protected:
         void setSeatedPlay(bool seatedPlay);
 
@@ -90,6 +95,8 @@ namespace VR
         bool mSeatedPlay = false;
         float mPlayerScale = 1.f;
         float mCharHeight = 1.f;
+
+        std::unique_ptr<VR::StageToWorldBinding> mTrackerToWorldBinding;
     };
 
 }

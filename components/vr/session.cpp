@@ -4,6 +4,8 @@
 #include <components/sdlutil/sdlgraphicswindow.hpp>
 #include <components/misc/stringops.hpp>
 #include <components/misc/constants.hpp>
+#include <components/vr/trackingpath.hpp>
+#include <components/vr/trackingsource.hpp>
 
 #include <osg/Camera>
 
@@ -35,6 +37,13 @@ namespace VR
 
         mSeatedPlay = Settings::Manager::getBool("seated play", "VR");
         mHandDirectedMovement = Settings::Manager::getBool("hand directed movement", "VR");
+
+
+        auto stageUserHeadPath = VR::stringToVRPath("/stage/user/head/input/pose");
+        auto worldUserPath = VR::stringToVRPath("/world/user");
+        auto worldUserHeadPath = VR::stringToVRPath("/world/user/head/input/pose");
+        mTrackerToWorldBinding = std::make_unique<VR::StageToWorldBinding>(worldUserPath, stageUserHeadPath);
+        mTrackerToWorldBinding->bindPaths(worldUserHeadPath, stageUserHeadPath);
     }
 
     Session::~Session()
@@ -80,22 +89,32 @@ namespace VR
     {
         std::swap(mSeatedPlay, seatedPlay);
         if (mSeatedPlay != seatedPlay)
-        {
-            // TODO:
-            //Environment::get().getInputManager()->requestRecenter(true);
-        }
+            requestRecenter(true);
     }
 
     void Session::computePlayerScale()
     {
         mPlayerScale = mCharHeight / Settings::Manager::getFloat("player height", "VR");
         Log(Debug::Verbose) << "Calculated player scale: " << mPlayerScale;
+        requestRecenter(true);
     }
 
     void Session::setCharHeight(float height)
     {
         mCharHeight = height;
         computePlayerScale();
+    }
+
+    void Session::requestRecenter(bool recenterZ)
+    {
+        mTrackerToWorldBinding->recenter(recenterZ);
+        mTrackerToWorldBinding->setSeatedPlay(seatedPlay());
+        mTrackerToWorldBinding->setEyeLevel(charHeight() * Constants::UnitsPerMeter);
+    }
+
+    VR::StageToWorldBinding& Session::stageToWorldBinding()
+    {
+        return *mTrackerToWorldBinding;
     }
 }
 

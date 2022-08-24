@@ -7,6 +7,8 @@
 #include "../mwbase/world.hpp"
 #include "../mwbase/statemanager.hpp"
 
+#include <components/vr/session.hpp>
+
 #include "vrutil.hpp"
 
 namespace MWVR
@@ -97,7 +99,7 @@ namespace MWVR
 
     void VrMetaMenu::onRecenter()
     {
-        MWVR::Util::requestRecenter(true);
+        VR::Session::instance().requestRecenter(true);
     }
 
     void VrMetaMenu::onPostprocessor()

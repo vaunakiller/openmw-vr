@@ -97,11 +97,5 @@ namespace MWVR
             pose.orientation = worldMatrix.getRotate();
             return pose;
         }
-        void requestRecenter(bool resetZ)
-        {
-            auto& inputManager = *MWBase::Environment::get().getInputManager();
-            auto& vrInputManager = dynamic_cast<MWVR::VRInputManager&>(inputManager);
-            vrInputManager.requestRecenter(resetZ);
-        }
     }
 }

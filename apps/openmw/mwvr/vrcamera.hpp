@@ -48,12 +48,9 @@ namespace MWVR
 
         void instantTransition() override;
 
-        void requestRecenter(bool resetZ);
-
         void setShouldTrackPlayerCharacter(bool track);
 
     protected:
-        void recenter();
         void applyTracking();
 
         void onTrackingUpdated(VR::TrackingManager& manager, VR::DisplayTime predictedDisplayTime) override;
@@ -64,8 +61,6 @@ namespace MWVR
         VR::VRPath mWorldHeadPath;
         VR::VRPath mWorldLeftHandPath;
         VR::VRPath mWorldRightHandPath;
-        bool mShouldRecenter{ true };
-        bool mShouldResetZ{ true };
         bool mHasTrackingData{ false };
         bool mShouldTrackPlayerCharacter{ false };
     };

@@ -79,26 +79,6 @@ namespace MWVR
         mShouldTrackPlayerCharacter = track;
     }
 
-    void VRCamera::recenter()
-    {
-        if (!mHasTrackingData)
-            return;
-
-        // Move position of head to center of character 
-        // Z should not be affected
-
-        auto path = VR::stringToVRPath("/world/user");
-        auto* stageToWorldBinding = static_cast<VR::StageToWorldBinding*>(VR::TrackingManager::instance().getTrackingSource(path));
-
-        stageToWorldBinding->setSeatedPlay(VR::Session::instance().seatedPlay());
-        stageToWorldBinding->setEyeLevel(VR::Session::instance().charHeight() * Constants::UnitsPerMeter);
-        stageToWorldBinding->recenter(mShouldResetZ);
-
-        mShouldRecenter = false;
-        mShouldResetZ = false;
-        Log(Debug::Verbose) << "Recentered";
-    }
-
     void VRCamera::applyTracking()
     {
         MWBase::World* world = MWBase::Environment::get().getWorld();
@@ -135,6 +115,7 @@ namespace MWVR
     void VRCamera::onTrackingUpdated(VR::TrackingManager& manager, VR::DisplayTime predictedDisplayTime)
     {
         auto headTrackingPose = manager.locate(mWorldHeadPath, predictedDisplayTime);
+
         if (!!headTrackingPose.status)
         {
             mHeadPose = headTrackingPose.pose;
@@ -147,20 +128,10 @@ namespace MWVR
             mTrackingHandPose = handTrackingPose.pose;
         }
 
+        if (mShouldTrackPlayerCharacter && !MWBase::Environment::get().getWindowManager()->isGuiMode())
+            applyTracking();
 
-        if (mShouldRecenter)
-        {
-            recenter();
-            Camera::updateCamera(mCamera);
-            MWVR::VRGUIManager::instance().updateTracking();
-        }
-        else
-        {
-            if (mShouldTrackPlayerCharacter && !MWBase::Environment::get().getWindowManager()->isGuiMode())
-                applyTracking();
-
-            Camera::updateCamera(mCamera);
-        }
+        Camera::updateCamera(mCamera);
     }
 
     void VRCamera::updateCamera(osg::Camera* cam)
@@ -230,13 +201,5 @@ namespace MWVR
         auto path = VR::stringToVRPath("/world/user");
         auto* stageToWorldBinding = static_cast<VR::StageToWorldBinding*>(VR::TrackingManager::instance().getTrackingSource(path));
         stageToWorldBinding->setWorldOrientation(yaw, true);
-    }
-
-    void VRCamera::requestRecenter(bool resetZ)
-    {
-        mShouldRecenter = true;
-
-        // Use OR so we don't negate a pending requests.
-        mShouldResetZ |= resetZ;
     }
 }

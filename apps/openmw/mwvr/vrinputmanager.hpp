@@ -46,9 +46,6 @@ namespace MWVR
         /// Overriden to update XR inputs
         void update(float dt, bool disableControls = false, bool disableEvents = false) override;
 
-        /// Set current offset to 0 and re-align VR stage.
-        void requestRecenter(bool resetZ);
-
         /// Currently active action set
         XR::ActionSet& activeActionSet();
 

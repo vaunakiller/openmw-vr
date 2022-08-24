@@ -13,6 +13,7 @@
 #include <components/xr/action.hpp>
 #include <components/xr/actionset.hpp>
 #include <components/vr/trackingmanager.hpp>
+#include <components/vr/session.hpp>
 
 #include <MyGUI_InputManager.h>
 
@@ -320,12 +321,6 @@ namespace MWVR
         }
 
         wm->exitVoid();
-    }
-
-    void VRInputManager::requestRecenter(bool resetZ)
-    {
-        // TODO: Hack, should have a cleaner way of accessing this
-        reinterpret_cast<VRCamera*>(MWBase::Environment::get().getWorld()->getRenderingManager()->getCamera())->requestRecenter(resetZ);
     }
 
     VRInputManager::VRInputManager(
@@ -729,7 +724,7 @@ namespace MWVR
                 case A_Recenter:
                     MWVR::VRGUIManager::instance().updateTracking();
                     if (!MWBase::Environment::get().getWindowManager()->isGuiMode())
-                        requestRecenter(true);
+                        VR::Session::instance().requestRecenter(true);
                     break;
                 case MWInput::A_Use:
                     if (mPointerLeft || mPointerRight || MWBase::Environment::get().getWindowManager()->isGuiMode())

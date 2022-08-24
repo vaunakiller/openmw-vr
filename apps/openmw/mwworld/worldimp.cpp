@@ -35,7 +35,9 @@
 #include <components/detournavigator/settings.hpp>
 
 #include <components/loadinglistener/loadinglistener.hpp>
+
 #include <components/vr/vr.hpp>
+#include <components/vr/session.hpp>
 
 #include "../mwbase/environment.hpp"
 #include "../mwbase/soundmanager.hpp"
@@ -998,7 +1000,7 @@ namespace MWWorld
         mRendering->getCamera()->instantTransition();
 
 #ifdef USE_OPENXR
-        MWVR::Util::requestRecenter(false);
+        VR::Session::instance().requestRecenter(false);
 #endif
     }
 
@@ -1019,7 +1021,7 @@ namespace MWWorld
         mRendering->getCamera()->instantTransition();
 
 #ifdef USE_OPENXR
-        MWVR::Util::requestRecenter(false);
+        VR::Session::instance().requestRecenter(false);
 #endif
     }
 

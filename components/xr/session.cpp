@@ -393,11 +393,6 @@ namespace XR
 
         mTracker.reset(new Tracker(stageUserPath, mReferenceSpaceStage));
         mTracker->addTrackingSpace(stageUserHeadPath, mReferenceSpaceView);
-
-        auto worldUserPath = VR::stringToVRPath("/world/user");
-        auto worldUserHeadPath = VR::stringToVRPath("/world/user/head/input/pose");
-        mTrackerToWorldBinding = std::make_unique<VR::StageToWorldBinding>(worldUserPath, stageUserHeadPath);
-        mTrackerToWorldBinding->bindPaths(worldUserHeadPath, stageUserHeadPath);
     }
 
     void Session::initCompositionLayerDepth()

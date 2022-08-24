@@ -19,7 +19,6 @@ namespace MWVR
         float getPoseTarget(MWRender::RayResult& result, const Stereo::Pose& pose, bool allowTelekinesis);
         Stereo::Pose getWeaponPose();
         Stereo::Pose getNodePose(const osg::Node* node);
-        void requestRecenter(bool resetZ);
     }
 
 }

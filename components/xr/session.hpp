@@ -38,7 +38,6 @@ namespace XR
         XrSpace getReferenceSpace(VR::ReferenceSpace space);
 
         XR::Tracker& tracker() { return *mTracker; }
-        VR::StageToWorldBinding& stageToWorldBinding() { return *mTrackerToWorldBinding; }
         std::array<Stereo::View, 2> getPredictedViews(int64_t predictedDisplayTime, VR::ReferenceSpace space) override;
 
         void xrDebugSetNames();
@@ -87,7 +86,6 @@ namespace XR
         XrSpace mReferenceSpaceLocal = XR_NULL_HANDLE;
 
         std::unique_ptr<XR::Tracker> mTracker;
-        std::unique_ptr<VR::StageToWorldBinding> mTrackerToWorldBinding{ nullptr };
 
         std::mutex mMutex;
         uint32_t mAcquiredResources = 0;
