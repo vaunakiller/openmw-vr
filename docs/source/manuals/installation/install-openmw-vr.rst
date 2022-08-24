@@ -21,7 +21,7 @@ Windows Binaries
 
 If you're not sure what any of the different methods mean, you should probably stick to this one.
 Simply download the latest build from the following link:
-`https://gitlab.com/madsbuvi/openmw/-/jobs/artifacts/openmw-vr/download?job=Windows_MSBuild_Engine_Release <https://gitlab.com/madsbuvi/openmw/-/jobs/artifacts/openmw-vr/download?job=Windows_MSBuild_Engine_Release>`_
+`https://gitlab.com/madsbuvi/openmw/-/jobs/artifacts/openmw-vr/download?job=Windows_MSBuild_RelWithDebInfo <https://gitlab.com/madsbuvi/openmw/-/jobs/artifacts/openmw-vr/download?job=Windows_MSBuild_RelWithDebInfo>`_
 and extract the archive into a new/empty folder. If you have not run the OpenMW install wizard in the past, run the extracted openmw_wizard.exe. Now you can run the extracted openmw-vr.exe to launch the game.
 
 	.. note::
