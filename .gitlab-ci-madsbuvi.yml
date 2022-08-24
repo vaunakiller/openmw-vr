@@ -463,7 +463,7 @@ macOS12_Xcode13:
   # When CCache doesn't exist (e.g. first build on a fork), build takes more than 1h, which is the default for forks.
   timeout: 2h
 
-.Windows_Ninja_Release:
+Windows_Ninja_Release:
   extends:
     - .Windows_Ninja_Base
   variables:
