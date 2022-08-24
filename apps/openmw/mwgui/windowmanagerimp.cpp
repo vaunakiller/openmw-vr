@@ -653,7 +653,7 @@ namespace MWGui
 
         bool mainmenucover = containsMode(GM_MainMenu) && MWBase::Environment::get().getStateManager()->getState() == MWBase::StateManager::State_NoGame;
 
-        enableScene(!loading && !mainmenucover);
+        enableScene(!loading && !mainmenucover && !mTheVoid);
 
         if (!mMap)
             return; // UI not created yet
@@ -1310,6 +1310,18 @@ namespace MWGui
     uint32_t WindowManager::getCullMask()
     {
         return mViewer->getCamera()->getCullMask();
+    }
+
+    void WindowManager::enterVoid()
+    {
+        mTheVoid = true;
+        updateVisible();
+    }
+
+    void WindowManager::exitVoid()
+    {
+        mTheVoid = false;
+        updateVisible();
     }
 
     void WindowManager::popGuiMode(bool noSound)

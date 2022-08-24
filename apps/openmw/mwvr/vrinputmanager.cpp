@@ -258,6 +258,7 @@ namespace MWVR
     void VRInputManager::calibratePlayerHeight()
     {
         auto wm = MWBase::Environment::get().getWindowManager();
+        wm->enterVoid();
         mCalibrationState = CalibrationState::Active;
 
         wm->staticMessageBox("To deal with the diversity in height of playable races, OpenMW-VR Needs to know how tall you are. Stand up straight and press the menu key. You'll be able to redo this calibrating later by going to the VR tab of the settings menu");
@@ -297,27 +298,28 @@ namespace MWVR
 
         wm->removeStaticMessageBox();
 
-        // Game is exiting, do not care about completing calibrationg.
-        if (mCalibrationState == CalibrationState::Aborted)
-            return;
-
-        float height = 1.8;
-
-        if (mCalibrationState != CalibrationState::Complete)
+        if (mCalibrationState != CalibrationState::Aborted)
         {
-            wm->messageBox("Calibration was skipped. Using a default height of 1.8m. You should redo the calibration later by going to the VR tab of the settings menu");
-        }
-        else if (!heightListener.receivedTrackingData)
-        {
-            wm->messageBox("Could not read tracking data. Using a default height of 1.8m. You should redo the calibration later by going to the VR tab of the settings menu");
-        }
-        else
-        {
-            height = heightListener.height;
+            float height = 1.8;
+
+            if (mCalibrationState != CalibrationState::Complete)
+            {
+                wm->messageBox("Calibration was skipped. Using a default height of 1.8m. You should redo the calibration later by going to the VR tab of the settings menu");
+            }
+            else if (!heightListener.receivedTrackingData)
+            {
+                wm->messageBox("Could not read tracking data. Using a default height of 1.8m. You should redo the calibration later by going to the VR tab of the settings menu");
+            }
+            else
+            {
+                height = heightListener.height;
+            }
+
+            Settings::Manager::setFloat("player height", "VR", height);
+            Settings::Manager::setBool("player height calibrated", "VR", true);
         }
 
-        Settings::Manager::setFloat("player height", "VR", height);
-        Settings::Manager::setBool("player height calibrated", "VR", true);
+        wm->exitVoid();
     }
 
     void VRInputManager::requestRecenter(bool resetZ)
@@ -460,6 +462,7 @@ namespace MWVR
             {
                 mCalibrationState = CalibrationState::Complete;
             }
+            return;
         }
 
         bool guiMode = MWBase::Environment::get().getWindowManager()->isGuiMode();

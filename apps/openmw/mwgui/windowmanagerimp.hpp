@@ -598,6 +598,11 @@ namespace MWGui
 
     void setCullMask(uint32_t mask) override;
     uint32_t getCullMask() override;
+
+    void enterVoid() override;
+    void exitVoid() override;
+
+    bool mTheVoid = false;
   };
 }
 

@@ -290,6 +290,7 @@ namespace MWGui
             getWidget(mVRMirrorTextureEye, "VRMirrorTextureEye");
             getWidget(mVRLeftHudPosition, "VRLeftHudPosition");
             getWidget(mVRSnapAngle, "VRSnapAngle");
+            getWidget(mVRHeightCalibButton, "VRHeighCalib");
         }
 
 #ifndef WIN32
@@ -334,6 +335,7 @@ namespace MWGui
             mVRMirrorTextureEye->eventComboChangePosition += MyGUI::newDelegate(this, &SettingsWindow::onVRMirrorTextureEyeChanged);
             mVRLeftHudPosition->eventComboChangePosition += MyGUI::newDelegate(this, &SettingsWindow::onVRLeftHudPositionChanged);
             mVRSnapAngle->eventComboChangePosition += MyGUI::newDelegate(this, &SettingsWindow::onVRSnapAngleChanged);
+            mVRHeightCalibButton->eventMouseButtonClick += MyGUI::newDelegate(this, &SettingsWindow::onVRHeightCalibButtonClicked);
         }
 
         computeMinimumWindowSize();
@@ -545,6 +547,16 @@ namespace MWGui
         settingString = Misc::StringUtils::lowerCase(settingString);
         Settings::Manager::setString("snap angle", "VR", settingString);
         apply();
+    }
+
+    void SettingsWindow::onVRHeightCalibButtonClicked(MyGUI::Widget* _sender)
+    {
+        auto* im = dynamic_cast<MWVR::VRInputManager*>(MWBase::Environment::get().getInputManager().get());
+        if (im)
+        {
+            im->calibratePlayerHeight();
+            apply();
+        }
     }
 
     void SettingsWindow::onWaterTextureSizeChanged(MyGUI::ComboBox* _sender, size_t pos)

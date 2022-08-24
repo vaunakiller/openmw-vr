@@ -372,6 +372,10 @@ namespace MWBase
 
             /// Same as viewer->getCamera()->getCullMask(), provided for consistency.
             virtual uint32_t getCullMask() = 0;
+
+            // Disables the scene until exitVoid() is called
+            virtual void enterVoid() = 0;
+            virtual void exitVoid() = 0;
     };
 }
 

@@ -25,6 +25,8 @@ namespace Misc
 
         T& operator*() const { return *mValue; }
 
+        T* get() const { return mValue; }
+
     private:
         T* mValue;
     };
