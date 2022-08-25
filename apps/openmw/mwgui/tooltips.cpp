@@ -359,6 +359,15 @@ namespace MWGui
         mFocusObject = focus;
 
         update(mFrameDuration);
+
+        bool visible = false;
+        for (unsigned int i = 0; i < mMainWidget->getChildCount(); ++i)
+        {
+            visible |= mMainWidget->getChildAt(i)->getVisible();
+        }
+
+        if (visible != mMainWidget->getVisible())
+            setVisible(visible);
     }
 
     MyGUI::IntSize ToolTips::getToolTipViaPtr (int count, bool image, bool isOwned)

@@ -375,9 +375,9 @@ namespace MWVR
         actionSet.updateControls();
 
         bool vrHasFocus = MWVR::VRGUIManager::instance().updateFocus();
-        auto guiCursor = MWVR::VRGUIManager::instance().guiCursor();
         if (vrHasFocus)
         {
+            auto guiCursor = MWVR::VRGUIManager::instance().guiCursor();
             mMouseManager->setMousePosition(guiCursor.x(), guiCursor.y());
         }
 
@@ -391,10 +391,7 @@ namespace MWVR
 
         // The rest of this code assumes the game is running
         if (MWBase::Environment::get().getStateManager()->getState() == MWBase::StateManager::State_NoGame)
-        {
-            MWVR::VRGUIManager::instance().updateTracking();
             return;
-        }
 
         updateVRPointer();
         bool guiMode = MWBase::Environment::get().getWindowManager()->isGuiMode();

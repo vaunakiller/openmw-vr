@@ -551,12 +551,14 @@ namespace MWGui
 
     void SettingsWindow::onVRHeightCalibButtonClicked(MyGUI::Widget* _sender)
     {
+#ifdef USE_OPENXR
         auto* im = dynamic_cast<MWVR::VRInputManager*>(MWBase::Environment::get().getInputManager().get());
         if (im)
         {
             im->calibratePlayerHeight();
             apply();
         }
+#endif
     }
 
     void SettingsWindow::onWaterTextureSizeChanged(MyGUI::ComboBox* _sender, size_t pos)

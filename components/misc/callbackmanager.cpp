@@ -212,6 +212,7 @@ namespace Misc
             if (_camera.valid()) renderInfo.pushCamera(_camera.get());
             mCallbackManager->callback(CallbackManager::DrawStage::Initial, mView, renderInfo);
         }
+
         osgUtil::RenderStage::draw(renderInfo, previous);
         if (mCallbackManager)
         {

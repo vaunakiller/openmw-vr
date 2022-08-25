@@ -350,7 +350,7 @@ namespace MWVR
         if (mVisible)
             mTransform->addChild(geometry);
 
-        if (mConfig.sideBySide)
+        if (mConfig.sideBySide && !mWidgets.empty())
         {
             // The side-by-side windows are also the resizable windows.
             // Stretch according to config
@@ -372,8 +372,11 @@ namespace MWVR
         float h = 0.f;
         for (auto* widget : mWidgets)
         {
-            w = std::max(w, (float)widget->mMainWidget->getWidth());
-            h = std::max(h, (float)widget->mMainWidget->getHeight());
+            if (widget->mMainWidget->getVisible())
+            {
+                w = std::max(w, (float)widget->mMainWidget->getWidth());
+                h = std::max(h, (float)widget->mMainWidget->getHeight());
+            }
         }
 
         // Pixels per unit
