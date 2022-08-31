@@ -379,20 +379,16 @@ namespace VR
 
     void Viewer::submitDepthForView(osg::State& state, osg::FrameBufferObject* depthFbo, Stereo::Eye view)
     {
+        if (!mSession->appShouldShareDepthInfo())
+            return;
+
         auto stereoFbo = Stereo::Manager::instance().multiviewFramebuffer();
+
         if (Stereo::getMultiview())
         {
             // TODO: Should cache this, but the pp keeps remaking the depth fbo so i need a dirty/cleanup step too.
             auto foo = std::make_unique<Stereo::MultiviewFramebufferResolve>(depthFbo, stereoFbo->multiviewFbo(), GL_DEPTH_BUFFER_BIT);
             foo->resolveImplementation(state);
-            //auto it = mMultiviewResolve.find(depthFbo);
-            //if (it == mMultiviewResolve.end())
-            //{
-            //    mMultiviewResolve[depthFbo] = std::make_unique<Stereo::MultiviewFramebufferResolve>(depthFbo, stereoFbo->multiviewFbo(), GL_DEPTH_BUFFER_BIT);
-            //    it = mMultiviewResolve.find(depthFbo);
-            //}
-
-            //it->second->resolveImplementation(state);
         }
         else
         {
@@ -423,7 +419,7 @@ namespace VR
             if (depthImage != 0)
             {
                 auto depthAttachment = Stereo::createLayerAttachmentFromHandle(state, depthImage, textureTarget, mFramebufferWidth, mFramebufferHeight, view);
-                fbo->setAttachment(osg::FrameBufferObject::BufferComponent::COLOR_BUFFER, depthAttachment);
+                fbo->setAttachment(osg::FrameBufferObject::BufferComponent::DEPTH_BUFFER, depthAttachment);
             }
 
             it = mSwapchainFramebuffers.emplace(std::pair{ colorImage, depthImage }, fbo).first;
