@@ -250,7 +250,7 @@ bool Launcher::AdvancedPage::loadSettings()
     // VR
     {
         loadSettingBool(useMultiview, "multiview", "Stereo");
-        loadSettingBool(disableDisplayList, "disable display lists for multiview", "Stereo");
+        loadSettingBool(allowDisplayLists, "allow display lists for multiview", "Stereo");
         loadSettingBool(useSharedShadowMaps, "shared shadow maps", "Stereo");
         loadSettingBool(leftHandedMode, "left handed mode", "VR");
         loadSettingBool(logAllXrCalls, "log all openxr calls", "VR Debug");
@@ -260,8 +260,6 @@ bool Launcher::AdvancedPage::loadSettings()
         realisticCombatMinimumSwingSpeedSpinBox->setValue(minimumSwingSpeed);
         double maximumSwingSpeed = Settings::Manager::getDouble("realistic combat maximum swing velocity", "VR");
         realisticCombatMaximumSwingSpeedSpinBox->setValue(maximumSwingSpeed);
-        double realHeightValue = Settings::Manager::getDouble("real height", "VR");
-        realHeightSpinBox->setValue(realHeightValue);
     }
     return true;
 }
@@ -439,7 +437,7 @@ void Launcher::AdvancedPage::saveSettings()
     // VR
     {
         saveSettingBool(useMultiview, "multiview", "Stereo");
-        saveSettingBool(disableDisplayList, "disable display lists for multiview", "Stereo");
+        saveSettingBool(allowDisplayLists, "disable display lists for multiview", "Stereo");
         saveSettingBool(useSharedShadowMaps, "shared shadow maps", "Stereo");
         saveSettingBool(leftHandedMode, "left handed mode", "VR");
         saveSettingBool(logAllXrCalls, "log all openxr calls", "VR Debug");
@@ -452,10 +450,6 @@ void Launcher::AdvancedPage::saveSettings()
         double maximumSwingSpeed = realisticCombatMaximumSwingSpeedSpinBox->value();
         if (maximumSwingSpeed != Settings::Manager::getFloat("realistic combat maximum swing velocity", "VR"))
             Settings::Manager::setFloat("realistic combat maximum swing velocity", "VR", maximumSwingSpeed);
-
-        double realHeightValue = realHeightSpinBox->value();
-        if (realHeightValue != Settings::Manager::getFloat("real height", "VR"))
-            Settings::Manager::setFloat("real height", "VR", realHeightValue);
     }
 }
 

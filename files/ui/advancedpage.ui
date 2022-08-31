@@ -1359,186 +1359,154 @@ Lower values make text more blurry, higher ones - more pixelated.</string>
        </item>
       </layout>
      </widget>
-	  <widget class="QWidget" name="VR">
-	   <attribute name="title">
-		<string>VR</string>
-	   </attribute>
-	   <layout class="QVBoxLayout">
-		<item>
-		 <layout class="QGridLayout" name="gridLayout_VR">
-		  <item row="0" column="0">
-		   <widget class="QLabel" name="realisticCombatMinimumSwingSpeed">
-			<property name="toolTip">
-			 <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;The velocity at which the minimum strength of attack is achieved when swinging your motion controllers. In meters/second. Swinging slower than this does not initiate an attack.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
-			</property>
-			<property name="text">
-			 <string>Realistic melee combat minimum swing speed</string>
-			</property>
-		   </widget>
-		  </item>
-		  <item row="0" column="1">
-		   <widget class="QDoubleSpinBox" name="realisticCombatMinimumSwingSpeedSpinBox">
-			<property name="enabled">
-			 <bool>true</bool>
-			</property>
-			<property name="decimals">
-			 <number>2</number>
-			</property>
-			<property name="minimum">
-			 <double>0</double>
-			</property>
-			<property name="maximum">
-			 <double>100</double>
-			</property>
-			<property name="value">
-			 <double>0.00</double>
-			</property>
-			<property name="singleStep">
-			 <double>0.100000000000000</double>
-			</property>
-		   </widget>
-		  </item>
-		  <item row="1" column="0">
-		   <widget class="QLabel" name="realisticCombatMaximumSwingSpeed">
-			<property name="toolTip">
-			 <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;The velocity at which max strength of attack is achieved when swinging your motion controllers. In meters/second&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
-			</property>
-			<property name="text">
-			 <string>Realistic melee combat minimum swing speed</string>
-			</property>
-		   </widget>
-		  </item>
-		  <item row="1" column="1">
-		   <widget class="QDoubleSpinBox" name="realisticCombatMaximumSwingSpeedSpinBox">
-			<property name="enabled">
-			 <bool>true</bool>
-			</property>
-			<property name="decimals">
-			 <number>2</number>
-			</property>
-			<property name="minimum">
-			 <double>0</double>
-			</property>
-			<property name="maximum">
-			 <double>100</double>
-			</property>
-			<property name="value">
-			 <double>0.00</double>
-			</property>
-			<property name="singleStep">
-			 <double>0.100000000000000</double>
-			</property>
-		   </widget>
-		  </item>
-		  <item row="2" column="0">
-		   <widget class="QLabel" name="realHeight">
-			<property name="toolTip">
-			 <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Your real height. In meters.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
-			</property>
-			<property name="text">
-			 <string>Real height (Meters)</string>
-			</property>
-		   </widget>
-		  </item>
-		  <item row="2" column="1">
-		   <widget class="QDoubleSpinBox" name="realHeightSpinBox">
-			<property name="enabled">
-			 <bool>true</bool>
-			</property>
-			<property name="decimals">
-			 <number>2</number>
-			</property>
-			<property name="minimum">
-			 <double>0</double>
-			</property>
-			<property name="maximum">
-			 <double>100</double>
-			</property>
-			<property name="value">
-			 <double>0.00</double>
-			</property>
-			<property name="singleStep">
-			 <double>0.010000000000000</double>
-			</property>
-		   </widget>
-		  </item>
-				<item row="3" column="0">
-				  <widget class="QCheckBox" name="leftHandedMode">
-					<property name="toolTip">
-					  <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Makes OpenMW VR handed modes where this has been implemented.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
-					</property>
-					<property name="text">
-					  <string>Left handed mode.</string>
-					</property>
-				  </widget>
-				</item>
-		  <item row="4" column="0">
-		   <widget class="QCheckBox" name="useSharedShadowMaps">
-			<property name="toolTip">
-			 <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Makes OpenMW VR map shadows for both eyes in one pass, instead of once per eye. This is a significant performance benefit, and should only be disabled for debugging or masochism purposes.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
-			</property>
-			<property name="text">
-			 <string>Use shared shadow maps</string>
-			</property>
-		   </widget>
-		  </item>
-		  <item row="5" column="0">
-		   <widget class="QCheckBox" name="useMultiview">
-			<property name="toolTip">
-			 <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Makes OpenMW VR render stereo using the OVR_MultiView2 extension to OpenGL instead of two render passes. You may need to disable this on older GPUs. &lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
-			</property>
-			<property name="text">
-			 <string>!!Experimental!!: Use OVR_MultiView2.</string>
-			</property>
-		   </widget>
-		  </item>
-      <item row="5" column="1">
-        <widget class="QCheckBox" name="disableDisplayList">
-          <property name="toolTip">
-            <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Makes OpenMW VR disable display lists when multiview is enabled. This is necessary on some platforms to use the multiview feature, but may penalize performance. &lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
+     <widget class="QWidget" name="VR">
+       <attribute name="title">
+        <string>VR</string>
+       </attribute>
+       <layout class="QVBoxLayout">
+        <item>
+         <layout class="QGridLayout" name="gridLayout_VR">
+          <item row="0" column="0">
+           <widget class="QLabel" name="realisticCombatMinimumSwingSpeed">
+            <property name="toolTip">
+             <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;The velocity at which the minimum strength of attack is achieved when swinging your motion controllers. In meters/second. Swinging slower than this does not initiate an attack.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
+            </property>
+            <property name="text">
+             <string>Realistic melee combat minimum swing speed</string>
+            </property>
+           </widget>
+          </item>
+          <item row="0" column="1">
+           <widget class="QDoubleSpinBox" name="realisticCombatMinimumSwingSpeedSpinBox">
+            <property name="enabled">
+             <bool>true</bool>
+            </property>
+            <property name="decimals">
+             <number>2</number>
+            </property>
+            <property name="minimum">
+             <double>0</double>
+            </property>
+            <property name="maximum">
+             <double>100</double>
+            </property>
+            <property name="value">
+             <double>0.00</double>
+            </property>
+            <property name="singleStep">
+             <double>0.100000000000000</double>
+            </property>
+           </widget>
+          </item>
+          <item row="1" column="0">
+           <widget class="QLabel" name="realisticCombatMaximumSwingSpeed">
+            <property name="toolTip">
+             <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;The velocity at which max strength of attack is achieved when swinging your motion controllers. In meters/second&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
+            </property>
+            <property name="text">
+             <string>Realistic melee combat minimum swing speed</string>
+            </property>
+           </widget>
+          </item>
+          <item row="1" column="1">
+           <widget class="QDoubleSpinBox" name="realisticCombatMaximumSwingSpeedSpinBox">
+            <property name="enabled">
+             <bool>true</bool>
+            </property>
+            <property name="decimals">
+             <number>2</number>
+            </property>
+            <property name="minimum">
+             <double>0</double>
+            </property>
+            <property name="maximum">
+             <double>100</double>
+            </property>
+            <property name="value">
+             <double>0.00</double>
+            </property>
+            <property name="singleStep">
+             <double>0.100000000000000</double>
+            </property>
+           </widget>
+          </item>
+          <item row="2" column="0">
+           <widget class="QCheckBox" name="leftHandedMode">
+            <property name="toolTip">
+             <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Makes OpenMW VR use left handed modes where this has been implemented.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
+            </property>
+            <property name="text">
+             <string>Left handed mode.</string>
+            </property>
+           </widget>
+          </item>
+          <item row="3" column="0">
+           <widget class="QCheckBox" name="useSharedShadowMaps">
+            <property name="toolTip">
+             <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Makes OpenMW VR map shadows for both eyes in one pass, instead of once per eye. This is a significant performance benefit, and should only be disabled for debugging or masochism purposes.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
+            </property>
+            <property name="text">
+             <string>Use shared shadow maps</string>
+            </property>
+           </widget>
+          </item>
+          <item row="4" column="0">
+           <widget class="QCheckBox" name="useMultiview">
+            <property name="toolTip">
+             <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Makes OpenMW VR render stereo using the OVR_MultiView2 extension to OpenGL instead of two render passes. You may need to disable this on older GPUs. &lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
+            </property>
+            <property name="text">
+             <string>Use OVR_MultiView2.</string>
+            </property>
+           </widget>
+          </item>
+          <item row="4" column="1">
+            <widget class="QCheckBox" name="allowDisplayLists">
+              <property name="toolTip">
+                <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Lets OpenMW VR use display lists when multiview is enabled. This is default disabled as it breaks on some drivers/cards. If you don't know what this is, ignore it. &lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
+              </property>
+              <property name="text">
+                <string>Enable display lists.</string>
+              </property>
+            </widget>
+          </item>
+          <item row="5" column="0">
+           <widget class="QCheckBox" name="logAllXrCalls">
+            <property name="toolTip">
+             <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Makes OpenMW VR log every single OpenXR call. This degrades performance and creates a massive log. You probably want this disabled.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
+            </property>
+            <property name="text">
+             <string>Debug: Log all OpenXR calls</string>
+            </property>
+           </widget>
+          </item>
+          <item row="6" column="0">
+           <widget class="QCheckBox" name="ignoreXrErrors">
+            <property name="toolTip">
+             <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Makes OpenMW VR ignore unsuccessful calls to OpenXR. You probably want this enabled.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
+            </property>
+            <property name="text">
+             <string>Debug: Continue on errors</string>
+            </property>
+           </widget>
+          </item>
+         </layout>
+        </item>
+        <item>
+         <spacer name="verticalSpacer_VR">
+          <property name="orientation">
+           <enum>Qt::Vertical</enum>
           </property>
-          <property name="text">
-            <string>Disable display lists.</string>
+          <property name="sizeHint" stdset="0">
+           <size>
+            <width>20</width>
+            <height>40</height>
+           </size>
           </property>
-        </widget>
-      </item>
-		  <item row="6" column="0">
-		   <widget class="QCheckBox" name="logAllXrCalls">
-			<property name="toolTip">
-			 <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Makes OpenMW VR log every single OpenXR call. This degrades performance and creates a massive log. You probably want this disabled.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
-			</property>
-			<property name="text">
-			 <string>Debug: Log all OpenXR calls</string>
-			</property>
-		   </widget>
-		  </item>
-		  <item row="7" column="0">
-		   <widget class="QCheckBox" name="ignoreXrErrors">
-			<property name="toolTip">
-			 <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Makes OpenMW VR ignore unsuccessful calls to OpenXR. You probably want this enabled.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
-			</property>
-			<property name="text">
-			 <string>Debug: Continue on errors</string>
-			</property>
-		   </widget>
-		  </item>
-		 </layout>
-		</item>
-		<item>
-		 <spacer name="verticalSpacer_VR">
-		  <property name="orientation">
-		   <enum>Qt::Vertical</enum>
-		  </property>
-		  <property name="sizeHint" stdset="0">
-		   <size>
-			<width>20</width>
-			<height>40</height>
-		   </size>
-		  </property>
-		 </spacer>
-		</item>
-	   </layout>
-	  </widget>
+         </spacer>
+        </item>
+       </layout>
+      </widget>
     </widget>
    </item>
   </layout>
