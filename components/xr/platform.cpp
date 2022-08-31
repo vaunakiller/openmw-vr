@@ -469,13 +469,31 @@ namespace XR
         int glFormat = 0;
         if (use == VR::SwapchainUse::Color)
         {
+            if (mMWColorFormatsGL.empty())
+                throw std::runtime_error("Could not find a usable runtime color format");
             glFormat = mMWColorFormatsGL[0];
         }
         else
         {
+            if (mMWDepthFormatsGL.empty())
+                throw std::runtime_error("Could not find a usable runtime depth format");
+
             glFormat = SceneUtil::AutoDepth::depthInternalFormat();
             if (!Settings::Manager::getBool("submit stencil formats", "VR Debug"))
-                glFormat = SceneUtil::getDepthFormatOfDepthStencilFormat(glFormat);
+            {
+                auto nonStencilFormat = SceneUtil::getDepthFormatOfDepthStencilFormat(glFormat);
+                if (std::find(mMWDepthFormatsGL.begin(), mMWDepthFormatsGL.end(), nonStencilFormat) != mMWDepthFormatsGL.end())
+                {
+                    glFormat = nonStencilFormat;
+                }
+                else
+                {
+                    Log(Debug::Warning) << "Submit stencil formats = false, but the non-stencil format was not supported while the stencil format was. Using the stencil format anyway.";
+                }
+            }
+
+            if(std::find(mMWDepthFormatsGL.begin(), mMWDepthFormatsGL.end(), glFormat) == mMWDepthFormatsGL.end())
+                throw std::runtime_error("OpenMW selected an incompatible depth format, cannot submit depth buffers.");
         }
 
         XrSwapchainCreateInfo swapchainCreateInfo{};

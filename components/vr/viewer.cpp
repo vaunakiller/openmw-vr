@@ -194,9 +194,9 @@ namespace VR
                 try {
                     mDepthSwapchain[i].reset(VR::Session::instance().createSwapchain(mFramebufferWidth, mFramebufferHeight, 1, 1, VR::SwapchainUse::Depth, i == 0 ? "LeftEye" : "RightEye"));
                 }
-                catch (...)
+                catch (std::exception& e)
                 {
-                    Log(Debug::Warning) << "XR_KHR_composition_layer_depth was enabled, but a depth attachment swapchain could not be created. Depth information will not be submitted.";
+                    Log(Debug::Warning) << "XR_KHR_composition_layer_depth was enabled, but a depth attachment swapchain could not be created. Depth information will not be submitted: " << e.what();
                     mSession->setAppShouldShareDepthBuffer(false);
                     mDepthSwapchain[0] = mDepthSwapchain[1] = nullptr;
                 }
