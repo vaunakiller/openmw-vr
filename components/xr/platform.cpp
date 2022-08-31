@@ -466,7 +466,7 @@ namespace XR
     VR::Swapchain* Platform::createSwapchain(uint32_t width, uint32_t height, uint32_t samples, uint32_t arraySize, VR::SwapchainUse use, const std::string& name)
     {
         std::string typeString = use == VR::SwapchainUse::Color ? "color" : "depth";
-        int glFormat = 0;
+        GLenum glFormat = 0;
         if (use == VR::SwapchainUse::Color)
         {
             if (mMWColorFormatsGL.empty())
