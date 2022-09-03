@@ -84,6 +84,7 @@ namespace MWVR
         getActionSet(MWActionSet::Gameplay).createMWAction(XR::ControlType::Press, MWInput::A_AutoMove, "auto_move", "Auto Move");
         getActionSet(MWActionSet::Gameplay).createMWAction(XR::ControlType::Press, MWInput::A_ToggleHUD, "toggle_hud", "Toggle HUD");
         getActionSet(MWActionSet::Gameplay).createMWAction(XR::ControlType::Press, MWInput::A_ToggleDebug, "toggle_debug", "Toggle the debug hud");
+        getActionSet(MWActionSet::Gameplay).createMWAction(XR::ControlType::Press, MWInput::A_ToggleThumbstickAutoRun, "toggle_thumbstick_auto_run", "Toggle Thumbstick Auto Run");
     }
 
     void OpenXRInput::createGUIActions()

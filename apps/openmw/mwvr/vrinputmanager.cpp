@@ -29,6 +29,7 @@
 #include "../mwinput/actionmanager.hpp"
 #include "../mwinput/bindingsmanager.hpp"
 #include "../mwinput/mousemanager.hpp"
+#include "../mwinput/controllermanager.hpp"
 
 #include "../mwworld/player.hpp"
 #include "../mwmechanics/actorutil.hpp"
@@ -621,6 +622,9 @@ namespace MWVR
                 {
                 case MWInput::A_GameMenu:
                     mActionManager->toggleMainMenu();
+                    break;
+                case MWInput::A_ToggleThumbstickAutoRun:
+                    mControllerManager->setThumbstickAutoRun(!mControllerManager->thumbstickAutoRun());
                     break;
                 case A_VrMetaMenu:
                     MWBase::Environment::get().getWindowManager()->pushGuiMode(MWGui::GM_VrMetaMenu);

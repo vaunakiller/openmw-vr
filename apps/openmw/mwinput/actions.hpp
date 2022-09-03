@@ -75,6 +75,8 @@ namespace MWInput
 
         A_TogglePostProcessorHUD,
 
+        A_ToggleThumbstickAutoRun,
+
         A_Last                      // Marker for the last item
     };
 }

@@ -51,6 +51,9 @@ namespace MWInput
         bool isGyroAvailable() const;
         std::array<float, 3> getGyroValues() const;
 
+        void setThumbstickAutoRun(bool enabled);
+        bool thumbstickAutoRun() const { return mThumbstickAutoRun; }
+
     private:
         // Return true if GUI consumes input.
         bool gamepadToGuiControl(const SDL_ControllerButtonEvent &arg);
@@ -70,6 +73,7 @@ namespace MWInput
         bool mGuiCursorEnabled;
         bool mJoystickLastUsed;
         bool mSneakGamepadShortcut;
+        bool mThumbstickAutoRun;
     };
 }
 #endif

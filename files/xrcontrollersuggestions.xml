@@ -45,6 +45,7 @@ You will not make an interaction profile work by removing the extension requirem
         <Action Name="menu_left_right" LocalName="Gameplay Menu Left Right"/>
         <Action Name="menu_select" LocalName="Gameplay Menu Select"/>
         <Action Name="menu_back" LocalName="Gameplay Menu Back"/>
+        <Action Name="toggle_thumbstick_auto_run" LocalName="Toggle Thumbstick Auto Run"/>
     </Actions>
     <Profile LocalName="Generic" Path="/interaction_profiles/khr/simple_controller">
         <ActionSet Name="Gameplay">
@@ -69,7 +70,7 @@ You will not make an interaction profile work by removing the extension requirem
             <Binding ActionName="sneak" Path="/user/hand/left/input/squeeze/value"/>
             <Binding ActionName="move_left_right" Path="/user/hand/left/input/thumbstick/x"/>
             <Binding ActionName="move_forward_backward" Path="/user/hand/left/input/thumbstick/y"/>
-            <Binding ActionName="always_run" Path="/user/hand/left/input/thumbstick/click"/>
+            <Binding ActionName="toggle_thumbstick_auto_run" Path="/user/hand/left/input/thumbstick/click"/>
             <Binding ActionName="jump" Path="/user/hand/left/input/trigger/value"/>
             <Binding ActionName="spell" Path="/user/hand/left/input/x/click"/>
             <Binding ActionName="rest" Path="/user/hand/left/input/y/click"/>
@@ -122,6 +123,7 @@ You will not make an interaction profile work by removing the extension requirem
             <Binding ActionName="rest" Path="/user/hand/left/input/b/click"/>
             <Binding ActionName="move_forward_backward" Path="/user/hand/left/input/thumbstick/y"/>
             <Binding ActionName="move_left_right" Path="/user/hand/left/input/thumbstick/x"/>
+            <Binding ActionName="toggle_thumbstick_auto_run" Path="/user/hand/left/input/thumbstick/click"/>
             <Binding ActionName="reposition_menu" Path="/user/hand/left/input/trackpad/force"/>
             <Binding ActionName="meta_menu" Path="/user/hand/left/input/trackpad/force"/>
             <Binding ActionName="jump" Path="/user/hand/left/input/trigger/value"/>
@@ -175,7 +177,7 @@ You will not make an interaction profile work by removing the extension requirem
             <Binding ActionName="sneak" Path="/user/hand/left/input/squeeze/value"/>
             <Binding ActionName="move_forward_backward" Path="/user/hand/left/input/thumbstick/y"/>
             <Binding ActionName="move_left_right" Path="/user/hand/left/input/thumbstick/x"/>
-            <Binding ActionName="always_run" Path="/user/hand/left/input/thumbstick/click"/>
+            <Binding ActionName="toggle_thumbstick_auto_run" Path="/user/hand/left/input/thumbstick/click"/>
             <Binding ActionName="jump" Path="/user/hand/left/input/trigger/value"/>
             <Binding ActionName="spell" Path="/user/hand/left/input/x/click"/>
             <Binding ActionName="rest" Path="/user/hand/left/input/y/click"/>
@@ -229,7 +231,7 @@ You will not make an interaction profile work by removing the extension requirem
             <Binding ActionName="sneak" Path="/user/hand/left/input/squeeze/click"/>
             <Binding ActionName="move_forward_backward" Path="/user/hand/left/input/thumbstick/y"/>
             <Binding ActionName="move_left_right" Path="/user/hand/left/input/thumbstick/x"/>
-            <Binding ActionName="always_run" Path="/user/hand/left/input/thumbstick/click"/>
+            <Binding ActionName="toggle_thumbstick_auto_run" Path="/user/hand/left/input/thumbstick/click"/>
             <Binding ActionName="jump" Path="/user/hand/left/input/trigger/click"/>
             <Binding ActionName="spell" Path="/user/hand/left/input/x/click"/>
             <Binding ActionName="rest" Path="/user/hand/left/input/y/click"/>

@@ -7,6 +7,7 @@
 
 #include <components/debug/debuglog.hpp>
 #include <components/sdlutil/sdlmappings.hpp>
+#include <components/vr/vr.hpp>
 
 #include "../mwbase/environment.hpp"
 #include "../mwbase/inputmanager.hpp"
@@ -25,14 +26,14 @@
 namespace MWInput
 {
     ControllerManager::ControllerManager(BindingsManager* bindingsManager,
-            ActionManager* actionManager,
-            MouseManager* mouseManager,
-            const std::string& userControllerBindingsFile,
-            const std::string& controllerBindingsFile)
+        ActionManager* actionManager,
+        MouseManager* mouseManager,
+        const std::string& userControllerBindingsFile,
+        const std::string& controllerBindingsFile)
         : mBindingsManager(bindingsManager)
         , mActionManager(actionManager)
         , mMouseManager(mouseManager)
-        , mJoystickEnabled (Settings::Manager::getBool("enable controller", "Input"))
+        , mJoystickEnabled(Settings::Manager::getBool("enable controller", "Input"))
         , mGyroAvailable(false)
         , mGamepadCursorSpeed(Settings::Manager::getFloat("gamepad cursor speed", "Input"))
         , mSneakToggleShortcutTimer(0.f)
@@ -40,6 +41,7 @@ namespace MWInput
         , mGuiCursorEnabled(true)
         , mJoystickLastUsed(false)
         , mSneakGamepadShortcut(false)
+        , mThumbstickAutoRun(Settings::Manager::getBool("thumbstick auto run", "Input"))
     {
         if (!controllerBindingsFile.empty())
         {
@@ -125,17 +127,32 @@ namespace MWInput
         {
             float xAxis = mBindingsManager->getActionValue(A_MoveLeftRight);
             float yAxis = mBindingsManager->getActionValue(A_MoveForwardBackward);
+            float scale = 1.f;
+
+            if (VR::getVR() && !mThumbstickAutoRun)
+            {
+                bool isRunningAllowed = (mBindingsManager->actionIsActive(A_Run) || mActionManager->isAlwaysRunActive());
+                if (!isRunningAllowed)
+                {
+                    auto l = osg::Vec2f(xAxis * 2 - 1, yAxis * 2 - 1).length();
+                    if (l > 0.5f)
+                    {
+                        scale = l / 0.5f;
+                    }
+                }
+            }
+
             if (xAxis != 0.5)
             {
                 triedToMove = true;
-                player.setLeftRight((xAxis - 0.5f) * 2);
+                player.setLeftRight((xAxis - 0.5f) * 2 / scale);
             }
 
             if (yAxis != 0.5)
             {
                 triedToMove = true;
                 player.setAutoMove (false);
-                player.setForwardBackward((0.5f - yAxis) * 2);
+                player.setForwardBackward((0.5f - yAxis) * 2 / scale);
             }
 
             if (triedToMove)
@@ -431,6 +448,12 @@ namespace MWInput
                 SDL_GameControllerGetSensorData(cntrl, SDL_SENSOR_GYRO, gyro, 3);
         #endif
         return std::array<float, 3>({gyro[0], gyro[1], gyro[2]});
+    }
+
+    void ControllerManager::setThumbstickAutoRun(bool enabled)
+    {
+        mThumbstickAutoRun = enabled;
+        Settings::Manager::setBool("thumbstick auto run", "Input", enabled);
     }
 
     void ControllerManager::touchpadMoved(int deviceId, const SDLUtil::TouchEvent& arg)
