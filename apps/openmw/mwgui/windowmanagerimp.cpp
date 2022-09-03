@@ -1743,9 +1743,22 @@ namespace MWGui
 
     void WindowManager::trackWindow(Layout *layout, const std::string &name)
     {
+        MyGUI::Window* window = layout->mMainWidget->castType<MyGUI::Window>();
+
         std::string settingName = name;
         MyGUI::IntSize viewSize = MyGUI::RenderManager::getInstance().getViewSize();
         bool isMaximized = Settings::Manager::getBool(name + " maximized", "Windows");
+
+        if (VR::getVR())
+        {
+            window->setMovable(false);
+            if (!isMaximized)
+            {
+                toggleMaximized(layout);
+                isMaximized = true;
+            }
+        }
+
         if (isMaximized)
             settingName += " maximized";
 
@@ -1756,7 +1769,6 @@ namespace MWGui
         layout->mMainWidget->setPosition(pos);
         layout->mMainWidget->setSize(size);
 
-        MyGUI::Window* window = layout->mMainWidget->castType<MyGUI::Window>();
         window->eventWindowChangeCoord += MyGUI::newDelegate(this, &WindowManager::onWindowChangeCoord);
         mTrackedWindows[window] = name;
     }
@@ -1772,6 +1784,9 @@ namespace MWGui
         if (maximized)
             setting += " maximized";
 
+        if (VR::getVR() && !maximized)
+            return;
+
         MyGUI::IntSize viewSize = MyGUI::RenderManager::getInstance().getViewSize();
         float x = Settings::Manager::getFloat(setting + " x", "Windows") * float(viewSize.width);
         float y = Settings::Manager::getFloat(setting + " y", "Windows") * float(viewSize.height);
@@ -1783,6 +1798,9 @@ namespace MWGui
 
     void WindowManager::onWindowChangeCoord(MyGUI::Window *_sender)
     {
+        if (VR::getVR())
+            return;
+
         std::string setting = mTrackedWindows[_sender];
         MyGUI::IntSize viewSize = MyGUI::RenderManager::getInstance().getViewSize();
         float x = _sender->getPosition().left / float(viewSize.width);
