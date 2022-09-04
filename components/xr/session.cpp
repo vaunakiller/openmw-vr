@@ -261,8 +261,8 @@ namespace XR
             break;
         }
         case XR_TYPE_EVENT_DATA_INTERACTION_PROFILE_CHANGED:
-            // TODO:
-            //MWVR::Environment::get().getInputManager()->notifyInteractionProfileChanged();
+            xrInteractionProfileChanged();
+
             break;
         case XR_TYPE_EVENT_DATA_INSTANCE_LOSS_PENDING:
         case XR_TYPE_EVENT_DATA_REFERENCE_SPACE_CHANGE_PENDING:
@@ -343,6 +343,41 @@ namespace XR
     bool Session::checkStopCondition()
     {
         return mAcquiredResources == 0;
+    }
+
+    void Session::xrInteractionProfileChanged()
+    {
+        // Unfortunately, openxr does not tell us WHICH profile has changed.
+        std::array<std::string, 5> topLevelUserPaths =
+        {
+            "/user/hand/left",
+            "/user/hand/right",
+            "/user/head",
+            "/user/gamepad",
+            "/user/treadmill"
+        };
+
+        for (auto& userPath : topLevelUserPaths)
+        {
+            XrPath xrPath = CHECK_XRCMD(xrStringToPath(XR::Instance::instance().xrInstance(), userPath.c_str(), &xrPath));
+            VR::VRPath vrPath = VR::stringToVRPath(userPath);
+
+            XrInteractionProfileState interactionProfileState{};
+            interactionProfileState.type = XR_TYPE_INTERACTION_PROFILE_STATE;
+
+            xrGetCurrentInteractionProfile(XR::Session::instance().xrSession(), xrPath, &interactionProfileState);
+            if (interactionProfileState.interactionProfile)
+            {
+                uint32_t size;
+                xrPathToString(XR::Instance::instance().xrInstance(), interactionProfileState.interactionProfile, 0, &size, nullptr);
+                std::string profile(size, ' ');
+                xrPathToString(XR::Instance::instance().xrInstance(), interactionProfileState.interactionProfile, size, &size, profile.data());
+                Log(Debug::Verbose) << userPath << ": Interaction profile changed to '" << profile.data() << "'";
+                setInteractionProfileActive(vrPath, true);
+            }
+            else
+                setInteractionProfileActive(vrPath, false);
+        }
     }
 
     void Session::init()

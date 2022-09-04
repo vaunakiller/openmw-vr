@@ -20,6 +20,7 @@
 #include <components/vr/constants.hpp>
 #include <components/vr/frame.hpp>
 #include <components/vr/swapchain.hpp>
+#include <components/vr/trackingpath.hpp>
 
 namespace VR
 {
@@ -70,6 +71,9 @@ namespace VR
 
         VR::StageToWorldBinding& stageToWorldBinding();
 
+        void setInteractionProfileActive(VRPath topLevelPath, bool active);
+        bool getInteractionProfileActive(VRPath topLevelPath) const;
+
     protected:
         void setSeatedPlay(bool seatedPlay);
 
@@ -97,6 +101,8 @@ namespace VR
         bool mSeatedPlay = false;
         float mPlayerScale = 1.f;
         float mCharHeight = 1.f;
+
+        std::set<VRPath> mActiveInteractionProfiles;
 
         std::unique_ptr<VR::StageToWorldBinding> mTrackerToWorldBinding;
     };

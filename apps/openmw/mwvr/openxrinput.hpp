@@ -67,9 +67,6 @@ namespace MWVR
         //! Set bindings and attach actionSets to the session.
         void attachActionSets();
 
-        //! Notify that active interaction profile has changed
-        void notifyInteractionProfileChanged();
-
         void throwDocumentError(TiXmlElement* element, std::string error);
         std::string requireAttribute(TiXmlElement* element, std::string attribute);
         void readInteractionProfile(TiXmlElement* element);

@@ -274,8 +274,9 @@ namespace MWVR
     class TrackingController
     {
     public:
-        TrackingController(VR::VRPath trackingPath, osg::Vec3 baseOffset, osg::Quat baseOrientation)
+        TrackingController(VR::VRPath trackingPath, VR::VRPath topLevelPath, osg::Vec3 baseOffset, osg::Quat baseOrientation)
             : mTrackingPath(trackingPath)
+            , mTopLevelPath(topLevelPath)
             , mTransform(nullptr)
             , mBaseOffset(baseOffset)
             , mBaseOrientation(baseOrientation)
@@ -290,6 +291,9 @@ namespace MWVR
 
             auto tp = manager.locate(mTrackingPath, predictedDisplayTime);
             if (!tp.status)
+                return;
+
+            if (!VR::Session::instance().getInteractionProfileActive(mTopLevelPath))
                 return;
 
             auto orientation = mBaseOrientation * tp.pose.orientation;
@@ -323,6 +327,7 @@ namespace MWVR
         }
 
         VR::VRPath mTrackingPath;
+        VR::VRPath mTopLevelPath;
         osg::ref_ptr<osg::MatrixTransform> mTransform;
         osg::Vec3 mBaseOffset;
         osg::Quat mBaseOrientation;
@@ -372,15 +377,15 @@ namespace MWVR
         osg::Quat roll(2 * VRbias, osg::Vec3f(1, 0, 0));
         osg::Vec3 offset{ 15,0,0 };
 
-        // Note that these controllers could be bound directly to source in the tracking manager.
-        // Instead we store them and update them manually to ensure order of operations.
         {
+            auto topLevelPath = VR::stringToVRPath("/user/hand/right");
             auto path = VR::stringToVRPath("/world/user/hand/right/input/aim/pose");
             auto orientation = yaw;
             mVrControllers.emplace("bip01 r forearm", std::make_unique<TrackingController>(path, offset, orientation));
         }
 
         {
+            auto topLevelPath = VR::stringToVRPath("/user/hand/left");
             auto path = VR::stringToVRPath("/world/user/hand/left/input/aim/pose");
             auto orientation = roll * yaw;
             mVrControllers.emplace("bip01 l forearm", std::make_unique<TrackingController>(path, offset, orientation));

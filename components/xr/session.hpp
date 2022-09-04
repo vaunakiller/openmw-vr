@@ -59,6 +59,9 @@ namespace XR
         bool handleSessionStateChanged(const XrEventDataSessionStateChanged& stateChangedEvent);
         bool checkStopCondition();
 
+
+        void xrInteractionProfileChanged();
+
         void init();
         void cleanup();
 

@@ -53,15 +53,18 @@ namespace MWVR
         return mXRInput->getActionSet(MWActionSet::Gameplay);
     }
 
-    void VRInputManager::notifyInteractionProfileChanged()
-    {
-        mXRInput->notifyInteractionProfileChanged();
-    }
-
     void VRInputManager::updateVRPointer(void)
     {
         bool guiMode = MWBase::Environment::get().getWindowManager()->isGuiMode();
         MWBase::Environment::get().getWorld()->enableVRPointer(guiMode || mPointerLeft, guiMode || mPointerRight);
+        //MWVR::VRGUIManager::instance().getUserPointer()
+
+        auto& session = VR::Session::instance();
+        if (!session.getInteractionProfileActive(mLeftHandPath) 
+            && !session.getInteractionProfileActive(mRightHandPath))
+        {
+            // Neither hands are active. Enable gamepad mode.
+        }
     }
 
     /**
@@ -349,6 +352,8 @@ namespace MWVR
         , mSmoothTurning{ Settings::Manager::getBool("smooth turning", "VR") }
         , mSnapAngle{ Settings::Manager::getFloat("snap angle", "VR") }
         , mSmoothTurnRate{ Settings::Manager::getFloat("smooth turn rate", "VR") }
+        , mLeftHandPath( VR::stringToVRPath("/user/hand/left"))
+        , mRightHandPath( VR::stringToVRPath("/user/hand/right"))
     {
         setThumbstickDeadzone(Settings::Manager::getFloat("joystick dead zone", "Input"));
     }

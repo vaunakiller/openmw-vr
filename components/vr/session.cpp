@@ -122,5 +122,18 @@ namespace VR
     {
         return *mTrackerToWorldBinding;
     }
+
+    void Session::setInteractionProfileActive(VRPath topLevelPath, bool active)
+    {
+        if (active)
+            mActiveInteractionProfiles.insert(topLevelPath);
+        else
+            mActiveInteractionProfiles.erase(topLevelPath);
+    }
+
+    bool Session::getInteractionProfileActive(VRPath topLevelPath) const
+    {
+        return !!mActiveInteractionProfiles.count(topLevelPath);
+    }
 }
 

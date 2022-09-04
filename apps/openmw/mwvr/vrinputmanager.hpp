@@ -49,9 +49,6 @@ namespace MWVR
         /// Currently active action set
         XR::ActionSet& activeActionSet();
 
-        /// Notify input manager that the active interaction profile has changed
-        void notifyInteractionProfileChanged();
-
         /// OpenXR input interface
         OpenXRInput& xrInput() { return *mXRInput; }
 
@@ -85,6 +82,9 @@ namespace MWVR
         bool mSmoothTurning = true;
         float mSnapAngle = 30.f;
         float mSmoothTurnRate = 1.0f;
+
+        VR::VRPath mLeftHandPath;
+        VR::VRPath mRightHandPath;
 
         enum class CalibrationState
         {

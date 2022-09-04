@@ -206,47 +206,6 @@ namespace MWVR
         CHECK_XRCMD(xrAttachSessionActionSets(XR::Session::instance().xrSession(), &attachInfo));
     }
 
-    void OpenXRInput::notifyInteractionProfileChanged()
-    {
-        // Unfortunately, openxr does not tell us WHICH profile has changed.
-        std::array<std::string, 5> topLevelUserPaths =
-        {
-            "/user/hand/left",
-            "/user/hand/right",
-            "/user/head",
-            "/user/gamepad",
-            "/user/treadmill"
-        };
-
-        for (auto& userPath : topLevelUserPaths)
-        {
-            auto pathIt = mInteractionProfilePaths.find(userPath);
-            if (pathIt == mInteractionProfilePaths.end())
-            {
-                XrPath xrUserPath = XR_NULL_PATH;
-                CHECK_XRCMD(
-                    xrStringToPath(XR::Instance::instance().xrInstance(), userPath.c_str(), &xrUserPath));
-                mInteractionProfilePaths[userPath] = xrUserPath;
-                pathIt = mInteractionProfilePaths.find(userPath);
-            }
-
-            XrInteractionProfileState interactionProfileState{};
-            interactionProfileState.type = XR_TYPE_INTERACTION_PROFILE_STATE;
-
-            xrGetCurrentInteractionProfile(XR::Session::instance().xrSession(), pathIt->second, &interactionProfileState);
-            if (interactionProfileState.interactionProfile)
-            {
-                auto activeProfileIt = mActiveInteractionProfiles.find(pathIt->second);
-                if (activeProfileIt == mActiveInteractionProfiles.end() || interactionProfileState.interactionProfile != activeProfileIt->second)
-                {
-                    auto activeProfileNameIt = mInteractionProfileNames.find(interactionProfileState.interactionProfile);
-                    Log(Debug::Verbose) << userPath << ": Interaction profile changed to '" << activeProfileNameIt->second << "'";
-                    mActiveInteractionProfiles[pathIt->second] = interactionProfileState.interactionProfile;
-                }
-            }
-        }
-    }
-
 
     void OpenXRInput::throwDocumentError(TiXmlElement* element, std::string error)
     {
