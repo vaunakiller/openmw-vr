@@ -112,6 +112,12 @@ namespace VR
         mTrackerToWorldBinding->setEyeLevel(charHeight() * Constants::UnitsPerMeter);
     }
 
+    void Session::instantTransition()
+    {
+        if (mTrackerToWorldBinding)
+            mTrackerToWorldBinding->instantTransition();
+    }
+
     VR::StageToWorldBinding& Session::stageToWorldBinding()
     {
         return *mTrackerToWorldBinding;

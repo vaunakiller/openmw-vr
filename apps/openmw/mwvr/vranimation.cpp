@@ -1,6 +1,5 @@
 #include "vranimation.hpp"
 #include "vrinputmanager.hpp"
-#include "vrcamera.hpp"
 #include "vrutil.hpp"
 #include "vrpointer.hpp"
 #include "vrgui.hpp"
@@ -35,6 +34,7 @@
 #include "../mwmechanics/npcstats.hpp"
 #include "../mwmechanics/actorutil.hpp"
 #include "../mwmechanics/weapontype.hpp"
+#include "../mwmechanics/movement.hpp"
 
 #include "../mwbase/environment.hpp"
 #include "../mwbase/world.hpp"
@@ -43,6 +43,9 @@
 #include "../mwrender/camera.hpp"
 #include "../mwrender/renderingmanager.hpp"
 #include "../mwrender/vismask.hpp"
+
+#include "../mwworld/player.hpp"
+#include "../mwworld/class.hpp"
 
 namespace MWVR
 {
@@ -465,6 +468,38 @@ namespace MWVR
             mSkeleton->markBoneMatriceDirty();
 
         mUserPointer->updatePointerTarget();
+
+        auto tp = manager.locate(VR::stringToVRPath("/world/user/head/input/pose"), predictedDisplayTime);
+
+        if (!!tp.status)
+        {
+            auto world = MWBase::Environment::get().getWorld();
+
+            auto& player = world->getPlayer();
+            auto playerPtr = player.getPlayer();
+
+            float headYaw = 0.f;
+            float headPitch = 0.f;
+            float headRoll = 0.f;
+            Stereo::getEulerAngles(tp.pose.orientation, headYaw, headPitch, headRoll);
+
+            world->rotateObject(playerPtr, osg::Vec3f(headPitch, 0.f, headYaw), MWBase::RotationFlag_none);
+
+            if (VR::Session::instance().handDirectedMovement())
+            {
+                tp = manager.locate(VR::stringToVRPath("/world/user/hand/left/input/aim/pose"), predictedDisplayTime);
+                float handYaw = 0.f;
+                float handPitch = 0.f;
+                float handRoll = 0.f;
+                const MWWorld::Class& cls = playerPtr.getClass();
+
+                Stereo::getEulerAngles(tp.pose.orientation, handYaw, handPitch, handRoll);
+
+                auto& rotation = cls.getMovementSettings(playerPtr).mRotation;
+                rotation[0] += (handPitch - headPitch);
+                rotation[2] += (handYaw - headYaw);
+            }
+        }
     }
 
     osg::Vec3f VRAnimation::runAnimation(float timepassed)

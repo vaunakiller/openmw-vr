@@ -81,6 +81,8 @@ namespace VR
         void bindPaths(VRPath worldPath, VRPath stagePath);
         void unbindPath(VRPath worldPath);
 
+        void instantTransition();
+
     protected:
         //! Fetches a pose from the source, and then aligns it with the game world if the reference is 0 (stage). 
         TrackingPose locate(VRPath path, DisplayTime predictedDisplayTime) override;
@@ -99,6 +101,7 @@ namespace VR
         osg::Node* mOrigin = nullptr;
         bool mSeatedPlay = false;
         bool mHasTrackingData = false;
+        bool mInstantTransition = false;
         float mEyeLevel = 0.f;
         Stereo::Pose mOriginWorldPose = Stereo::Pose();
         TrackingPose mLastPose = VR::TrackingPose();

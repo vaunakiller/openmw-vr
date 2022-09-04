@@ -80,6 +80,19 @@ namespace VR
         notifyAvailablePosesChanged();
     }
 
+    void StageToWorldBinding::instantTransition()
+    {
+        // When the cell changes, openmw rotates the character.
+        // To make sure the player faces the same direction regardless of current orientation,
+        // compute the offset from character orientation to player orientation and reset yaw offset to this.
+        //float yaw = 0.f;
+        //float pitch = 0.f;
+        //float roll = 0.f;
+        //Stereo::getEulerAngles(mLastPose.pose.orientation, yaw, pitch, roll);
+        //setWorldOrientation(-yaw, false);
+        mInstantTransition = true;
+    }
+
     TrackingPose StageToWorldBinding::locate(VRPath path, DisplayTime predictedDisplayTime)
     {
         if (predictedDisplayTime != mLastPose.time)
@@ -124,6 +137,19 @@ namespace VR
             mOriginWorldPose.position = worldMatrix.getTrans();
             mOriginWorldPose.orientation = worldMatrix.getRotate();
         }
+
+        if (mInstantTransition)
+        {
+            float yawWorld = 0.f;
+            float yawStage = 0.f;
+            float pitch = 0.f;
+            float roll = 0.f;
+            Stereo::getEulerAngles(mOriginWorldPose.orientation, yawWorld, pitch, roll);
+            Stereo::getEulerAngles(mLastPose.pose.orientation, yawStage, pitch, roll);
+            setWorldOrientation(yawWorld - yawStage, false);
+            mInstantTransition = false;
+        }
+
         auto mtp = TrackingManager::instance().locate(mMovementReference, predictedDisplayTime);
         if (!!mtp.status)
         {

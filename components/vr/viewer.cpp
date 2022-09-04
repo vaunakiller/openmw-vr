@@ -18,6 +18,7 @@
 #include <components/vr/layer.hpp>
 #include <components/vr/session.hpp>
 #include <components/vr/trackingmanager.hpp>
+#include <components/vr/trackingtransform.hpp>
 
 #include <components/sceneutil/depth.hpp>
 #include <components/sceneutil/color.hpp>
@@ -124,7 +125,8 @@ namespace VR
     Viewer::Viewer(
         std::shared_ptr<VR::Session> session,
         osg::ref_ptr<osgViewer::Viewer> viewer)
-        : mSession(session)
+        : mTrackersRoot(new osg::Group)
+        , mSession(session)
         , mViewer(viewer)
         , mSwapBuffersCallback(new SwapBuffersCallback(this))
         , mInitialDraw(new InitialDrawCallback(this))
@@ -202,6 +204,10 @@ namespace VR
                 }
             }
         }
+
+        mTrackersRoot->setName("Vr Root");
+
+        mViewer->getSceneData()->asGroup()->addChild(mTrackersRoot);
     }
 
     Viewer::~Viewer(void)
@@ -397,6 +403,25 @@ namespace VR
             osg::GLExtensions* ext = state.get<osg::GLExtensions>();
             ext->glBlitFramebuffer(0, 0, mFramebufferWidth, mFramebufferHeight, 0, 0, mFramebufferWidth, mFramebufferHeight, GL_DEPTH_BUFFER_BIT, GL_NEAREST);
         }
+    }
+
+    osg::Transform* Viewer::getTrackingNode(const std::string& path)
+    {
+        return getTrackingNode(VR::stringToVRPath(path));
+    }
+
+    osg::Transform* Viewer::getTrackingNode(VR::VRPath path)
+    {
+        for (unsigned int i = 0; i < mTrackersRoot->getNumChildren(); i++)
+        {
+            auto child = static_cast<TrackingTransform*>(mTrackersRoot->getChild(i));
+            if (child->path() == path)
+                return child;
+        }
+
+        auto node = new TrackingTransform(path);
+        mTrackersRoot->addChild(node);
+        return node;
     }
 
     osg::ref_ptr<osg::FrameBufferObject> Viewer::getXrFramebuffer(uint32_t view, osg::State* state)

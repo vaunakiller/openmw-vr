@@ -90,7 +90,6 @@
 #ifdef USE_OPENXR
 #include "mwvr/vrinputmanager.hpp"
 #include "mwvr/vrgui.hpp"
-#include "mwvr/vrcamera.hpp"
 #endif
 
 namespace
@@ -933,11 +932,11 @@ void OMW::Engine::prepareEngine()
 #endif
 
     
-#ifdef USE_OPENXR
-    auto camera = std::make_unique<MWVR::VRCamera>(mViewer->getCamera());
-#else
+//#ifdef USE_OPENXR
+//    auto camera = std::make_unique<MWVR::VRCamera>(mViewer->getCamera());
+//#else
     auto camera = std::make_unique<MWRender::Camera>(mViewer->getCamera());
-#endif
+//#endif
     
 
     if (!mSkipMenu)
@@ -959,11 +958,6 @@ void OMW::Engine::prepareEngine()
     mWindowManager->setStore(mWorld->getStore());
     mLuaManager->initL10n();
     mWindowManager->initUI();
-    
-#ifdef USE_OPENXR
-    // TODO: Workaround. Needed to stop camera from querying the world object before it is created.
-    cameraTemp->setShouldTrackPlayerCharacter(true);
-#endif
 
 
     //Load translation data

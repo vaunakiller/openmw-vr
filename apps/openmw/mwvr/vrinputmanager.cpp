@@ -1,7 +1,6 @@
 #include "vrinputmanager.hpp"
 
 #include "vranimation.hpp"
-#include "vrcamera.hpp"
 #include "vrgui.hpp"
 #include "vrpointer.hpp"
 #include "openxrinput.hpp"

@@ -56,6 +56,8 @@ namespace Stereo
     std::ostream& operator <<(std::ostream& os, const Pose& pose);
     std::ostream& operator <<(std::ostream& os, const FieldOfView& fov);
     std::ostream& operator <<(std::ostream& os, const View& view);
+
+    void getEulerAngles(const osg::Quat& quat, float& yaw, float& pitch, float& roll);
 }
 
 #endif

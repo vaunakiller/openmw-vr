@@ -371,6 +371,7 @@ if(BUILD_OPENMW_VR)
         trackingmanager
         trackingpath
         trackingsource
+        trackingtransform
         viewer
         vr
     )

@@ -157,11 +157,12 @@ namespace MWRender
 
         bool mShowCrosshair;
 
-        osg::Vec3d calculateTrackedPosition() const;
+        void updateTrackedPosition() const;
         osg::Vec3d calculateFirstPersonPosition(const osg::Vec3d& trackedPosition) const;
         osg::Vec3d getFocalPointOffset() const;
         void updateFocalPointOffset(float duration);
         void updatePosition();
+        mutable osg::Matrix mTrackedWorldMatrix;
 
         osg::ref_ptr<osg::Callback> mUpdateCallback;
 

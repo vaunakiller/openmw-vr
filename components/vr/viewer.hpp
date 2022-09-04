@@ -17,6 +17,12 @@
 #include <components/vr/constants.hpp>
 #include <components/vr/frame.hpp>
 #include <components/vr/layer.hpp>
+#include <components/vr/trackingpath.hpp>
+
+namespace osg
+{
+    class Transform;
+}
 
 namespace Stereo
 {
@@ -74,6 +80,9 @@ namespace VR
 
         void submitDepthForView(osg::State& state, osg::FrameBufferObject* fbo, Stereo::Eye view);
 
+        osg::Transform* getTrackingNode(const std::string& path);
+        osg::Transform* getTrackingNode(VR::VRPath path);
+
     private:
         osg::ref_ptr<osg::FrameBufferObject> getXrFramebuffer(uint32_t view, osg::State* state);
         void blitXrFramebuffer(osg::State* state, int i);
@@ -84,6 +93,8 @@ namespace VR
 
     private:
         std::mutex mMutex{};
+
+        osg::ref_ptr<osg::Group> mTrackersRoot;
 
         std::shared_ptr<VR::Session> mSession;
         osg::ref_ptr<osgViewer::Viewer> mViewer;

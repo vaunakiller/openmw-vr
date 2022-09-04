@@ -66,6 +66,8 @@ namespace VR
 
         void requestRecenter(bool recenterZ);
 
+        void instantTransition();
+
         VR::StageToWorldBinding& stageToWorldBinding();
 
     protected:
