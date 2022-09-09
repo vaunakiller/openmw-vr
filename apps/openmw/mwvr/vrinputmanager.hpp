@@ -3,6 +3,7 @@
 
 #include "../mwinput/inputmanagerimp.hpp"
 
+#include <components/vr/trackingpath.hpp>
 #include <vector>
 #include <array>
 #include <iostream>
@@ -84,7 +85,10 @@ namespace MWVR
         float mSmoothTurnRate = 1.0f;
 
         VR::VRPath mLeftHandPath;
+        VR::VRPath mLeftHandWorldPath;
         VR::VRPath mRightHandPath;
+        VR::VRPath mRightHandWorldPath;
+        VR::VRPath mHeadWorldPath;
 
         enum class CalibrationState
         {

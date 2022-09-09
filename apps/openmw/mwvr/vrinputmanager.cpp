@@ -55,16 +55,35 @@ namespace MWVR
 
     void VRInputManager::updateVRPointer(void)
     {
-        bool guiMode = MWBase::Environment::get().getWindowManager()->isGuiMode();
-        MWBase::Environment::get().getWorld()->enableVRPointer(guiMode || mPointerLeft, guiMode || mPointerRight);
-        //MWVR::VRGUIManager::instance().getUserPointer()
-
         auto& session = VR::Session::instance();
-        if (!session.getInteractionProfileActive(mLeftHandPath) 
-            && !session.getInteractionProfileActive(mRightHandPath))
+        bool haveLeftHand = session.getInteractionProfileActive(mLeftHandPath);
+        bool haveRightHand = session.getInteractionProfileActive(mRightHandPath);
+
+        auto source = mHeadWorldPath;
+        if(haveLeftHand || haveRightHand)
         {
-            // Neither hands are active. Enable gamepad mode.
+            bool guiMode = MWBase::Environment::get().getWindowManager()->isGuiMode();
+            MWBase::Environment::get().getWorld()->enableVRPointer(guiMode || mPointerLeft, guiMode || mPointerRight);
+
+            auto pointer = MWVR::VRGUIManager::instance().getUserPointer();
+            bool leftHanded = Settings::Manager::getBool("left handed mode", "VR");
+
+            if (guiMode)
+            {
+                if (leftHanded)
+                    source = haveLeftHand ? mLeftHandWorldPath : mRightHandWorldPath;
+                else
+                    source = haveRightHand ? mRightHandWorldPath : mLeftHandWorldPath;
+            }
+            else if (mPointerLeft)
+                source = mLeftHandWorldPath;
+            else if (mPointerRight)
+                source = mRightHandWorldPath;
+            else
+                source = 0;
         }
+
+        MWVR::VRGUIManager::instance().getUserPointer()->setSource(source);
     }
 
     /**
@@ -353,7 +372,10 @@ namespace MWVR
         , mSnapAngle{ Settings::Manager::getFloat("snap angle", "VR") }
         , mSmoothTurnRate{ Settings::Manager::getFloat("smooth turn rate", "VR") }
         , mLeftHandPath( VR::stringToVRPath("/user/hand/left"))
+        , mLeftHandWorldPath( VR::stringToVRPath("/world/user/hand/left/input/aim/pose"))
         , mRightHandPath( VR::stringToVRPath("/user/hand/right"))
+        , mRightHandWorldPath( VR::stringToVRPath("/world/user/hand/right/input/aim/pose"))
+        , mHeadWorldPath( VR::stringToVRPath("/world/user/head/input/pose"))
     {
         setThumbstickDeadzone(Settings::Manager::getFloat("joystick dead zone", "Input"));
     }

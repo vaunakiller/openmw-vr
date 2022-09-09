@@ -359,7 +359,8 @@ namespace XR
 
         for (auto& userPath : topLevelUserPaths)
         {
-            XrPath xrPath = CHECK_XRCMD(xrStringToPath(XR::Instance::instance().xrInstance(), userPath.c_str(), &xrPath));
+            XrPath xrPath = 0;
+            CHECK_XRCMD(xrStringToPath(XR::Instance::instance().xrInstance(), userPath.c_str(), &xrPath));
             VR::VRPath vrPath = VR::stringToVRPath(userPath);
 
             XrInteractionProfileState interactionProfileState{};

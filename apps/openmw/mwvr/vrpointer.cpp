@@ -8,12 +8,15 @@
 #include <osg/LightModel>
 #include <osg/Material>
 
+#include <components/debug/debuglog.hpp>
 #include <components/resource/resourcesystem.hpp>
 #include <components/resource/scenemanager.hpp>
 
 #include <components/sceneutil/shadow.hpp>
+#include <components/sceneutil/positionattitudetransform.hpp>
 
 #include <components/vr/trackingmanager.hpp>
+#include <components/vr/viewer.hpp>
 
 #include "../mwbase/environment.hpp"
 #include "../mwbase/world.hpp"
@@ -27,77 +30,31 @@ namespace MWVR
         : mRoot(root)
     {
         mPointerGeometry = createPointerGeometry();
-        mPointerRescale = new osg::MatrixTransform();
-        mPointerRescale->addChild(mPointerGeometry);
-        mPointerTransform = new osg::MatrixTransform();
-        mPointerTransform->addChild(mPointerRescale);
-        mPointerTransform->setName("Pointer Transform");
-        mPointerTransform->setNodeMask(MWRender::VisMask::Mask_Pointer);
-
-        mLeftHandPath = VR::stringToVRPath("/world/user/hand/left/input/aim/pose");
-        mRightHandPath = VR::stringToVRPath("/world/user/hand/right/input/aim/pose");
-
-        setEnabled(true);
+        mPointerPAT = new SceneUtil::PositionAttitudeTransform();
+        mPointerPAT->addChild(mPointerGeometry);
+        mPointerPAT->setNodeMask(MWRender::VisMask::Mask_Pointer);
+        mPointerPAT->setName("Pointer Transform 2");
     }
 
     UserPointer::~UserPointer()
     {
     }
 
-    void UserPointer::setParent(osg::Group* group)
+    void UserPointer::setSource(VR::VRPath source)
     {
-        bool enabled = mEnabled;
-        setEnabled(false);
-        mParent = group;
-        setEnabled(enabled);
-    }
+        mSourcePath = source;
 
-    void UserPointer::setEnabled(bool enabled)
-    {
-        mRoot->removeChild(mPointerTransform);
-        if (mParent)
+        if (mSource)
         {
-            mParent->removeChild(mPointerTransform);
-            if (enabled)
+            mSource->removeChild(mPointerPAT);
+        }
+        if(mSourcePath)
+        {
+            mSource = VR::Viewer::instance().getTrackingNode(source);
+            if (mSource)
             {
-                mParent->addChild(mPointerTransform);
-                // Morrowind's hands don't actually point forward, so we have to reorient the pointer.
-                mPointerTransform->setMatrix(osg::Matrix::rotate(osg::Quat(-osg::PI_2, osg::Vec3f(0, 0, 1))));
+                mSource->addChild(mPointerPAT);
             }
-        }
-        else if(enabled)
-        {
-            mRoot->addChild(mPointerTransform);
-        }
-        mEnabled = enabled;
-    }
-
-    void UserPointer::setHandEnabled(bool left, bool right)
-    {
-        mLeftHandEnabled = left;
-        mRightHandEnabled = right;
-        setEnabled(left || right);
-    }
-
-    void UserPointer::onTrackingUpdated(VR::TrackingManager& manager, VR::DisplayTime predictedDisplayTime)
-    {
-        // If no parent is set, then the actor is currently unloaded
-        // And we need to point directly from tracking data and the root
-        if (!mParent)
-        {
-            bool leftHanded = Settings::Manager::getBool("left handed mode", "VR");
-            auto path = mRightHandPath;
-            if (leftHanded && mLeftHandEnabled)
-                path = mLeftHandPath;
-
-            auto tp = manager.locate(path, predictedDisplayTime);
-            osg::Matrix worldReference = osg::Matrix::identity();
-            worldReference.preMultTranslate(tp.pose.position);
-            worldReference.preMultRotate(tp.pose.orientation);
-            mPointerTransform->setMatrix(worldReference);
-            updatePointerTarget();
-
-            MWBase::Environment::get().getResourceSystem()->getSceneManager()->recreateShaders(mPointerGeometry);
         }
     }
 
@@ -113,11 +70,11 @@ namespace MWVR
 
     void UserPointer::updatePointerTarget()
     {
-        mPointerRescale->setMatrix(osg::Matrix::scale(1, 1, 1));
+        mPointerPAT->setScale(osg::Vec3f(1, 1, 1));
+        mPointerPAT->setPosition(osg::Vec3f(0, 0, 0));
+        mPointerPAT->setAttitude(osg::Quat(0,0,0,1));
 
-        //mDistanceToPointerTarget = world->getTargetObject(mPointerTarget, mPointerTransform);
-        //osg::computeLocalToWorld(mPointerTransform->getParentalNodePaths()[0]);
-        mDistanceToPointerTarget = Util::getPoseTarget(mPointerRay, Util::getNodePose(mPointerTransform), true);
+        mDistanceToPointerTarget = Util::getPoseTarget(mPointerRay, Util::getNodePose(mPointerPAT), true);
         // Make a ref-counted copy of the target node to ensure the object's lifetime this frame.
         mPointerTarget = mPointerRay.mHitNode;
 
@@ -129,9 +86,14 @@ namespace MWVR
         }
 
         if (mDistanceToPointerTarget > 0.f)
-            mPointerRescale->setMatrix(osg::Matrix::scale(0.25f, mDistanceToPointerTarget, 0.25f));
+        {
+            mPointerPAT->setPosition(osg::Vec3f(0.f, 2.f * mDistanceToPointerTarget / 3.f, 0.f));
+            mPointerPAT->setScale(osg::Vec3f(0.25f, mDistanceToPointerTarget / 3.f, 0.25f));
+        }
         else
-            mPointerRescale->setMatrix(osg::Matrix::scale(0.25f, 10000.f, 0.25f));
+        {
+            mPointerPAT->setScale(osg::Vec3f(0.25f, 10000.f, 0.25f));
+        }
     }
 
     osg::ref_ptr<osg::Geometry> UserPointer::createPointerGeometry()
@@ -207,7 +169,7 @@ namespace MWVR
         material->setColorMode(osg::Material::ColorMode::AMBIENT_AND_DIFFUSE);
         stateset->setAttributeAndModes(material, osg::StateAttribute::ON);
 
-        MWBase::Environment::get().getResourceSystem()->getSceneManager()->recreateShaders(geometry);
+        MWBase::Environment::get().getResourceSystem()->getSceneManager()->recreateShaders(geometry, "objects", true);
 
         return geometry;
     }

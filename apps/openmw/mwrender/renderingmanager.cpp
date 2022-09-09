@@ -395,13 +395,10 @@ namespace MWRender
         , mFieldOfView(std::clamp(Settings::Manager::getFloat("field of view", "Camera"), 1.f, 179.f))
         , mFirstPersonFieldOfView(std::clamp(Settings::Manager::getFloat("first person field of view", "Camera"), 1.f, 179.f))
 #ifdef USE_OPENXR
-        , mUserPointer(std::make_shared<MWVR::UserPointer>(rootNode))
+        , mUserPointer()
 #endif
     {
         bool reverseZ = SceneUtil::AutoDepth::isReversed();
-#ifdef USE_OPENXR
-        MWVR::VRGUIManager::instance().setUserPointer(mUserPointer);
-#endif
         auto lightingMethod = SceneUtil::LightManager::getLightingMethodFromString(Settings::Manager::getString("lighting method", "Shaders"));
 
         resourceSystem->getSceneManager()->setParticleSystemMask(MWRender::Mask_ParticleSystem);
@@ -648,10 +645,14 @@ namespace MWRender
 
         SceneUtil::setCameraClearDepth(mViewer->getCamera());
 
-
         updateProjectionMatrix();
 
         mViewer->getCamera()->setClearMask(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT | GL_STENCIL_BUFFER_BIT);
+
+#ifdef USE_OPENXR
+        mUserPointer = std::make_shared<MWVR::UserPointer>(rootNode);
+        MWVR::VRGUIManager::instance().setUserPointer(mUserPointer);
+#endif
     }
 
     RenderingManager::~RenderingManager()
@@ -1231,11 +1232,6 @@ namespace MWRender
         notifyWorldSpaceChanged();
         if (mObjectPaging)
             mObjectPaging->clear();
-
-#ifdef USE_OPENXR
-        // TODO: Is this line necessary?
-        mUserPointer->setParent(nullptr);
-#endif
     }
 
     MWRender::Animation* RenderingManager::getAnimation(const MWWorld::Ptr &ptr)
@@ -1382,9 +1378,9 @@ namespace MWRender
     void RenderingManager::enableVRPointer(bool left, bool right)
     {
 #ifdef USE_OPENXR
-        mUserPointer->setHandEnabled(left, right);
         if (mPlayerAnimation)
             static_cast<MWVR::VRAnimation*>(mPlayerAnimation.get())->enablePointers(left, right);
+
 #endif
     }
 

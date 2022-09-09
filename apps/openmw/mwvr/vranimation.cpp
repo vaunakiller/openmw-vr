@@ -381,14 +381,14 @@ namespace MWVR
             auto topLevelPath = VR::stringToVRPath("/user/hand/right");
             auto path = VR::stringToVRPath("/world/user/hand/right/input/aim/pose");
             auto orientation = yaw;
-            mVrControllers.emplace("bip01 r forearm", std::make_unique<TrackingController>(path, offset, orientation));
+            mVrControllers.emplace("bip01 r forearm", std::make_unique<TrackingController>(path, topLevelPath, offset, orientation));
         }
 
         {
             auto topLevelPath = VR::stringToVRPath("/user/hand/left");
             auto path = VR::stringToVRPath("/world/user/hand/left/input/aim/pose");
             auto orientation = roll * yaw;
-            mVrControllers.emplace("bip01 l forearm", std::make_unique<TrackingController>(path, offset, orientation));
+            mVrControllers.emplace("bip01 l forearm", std::make_unique<TrackingController>(path, topLevelPath, offset, orientation));
         }
     }
 
@@ -586,24 +586,5 @@ namespace MWVR
         mLeftIndexFingerControllers[1]->setEnabled(left);
         mRightIndexFingerControllers[0]->setEnabled(right);
         mRightIndexFingerControllers[1]->setEnabled(right);
-
-        bool leftHanded = Settings::Manager::getBool("left handed mode", "VR");
-
-        std::string finger;
-        if (left && right)
-        {
-            finger = leftHanded ? "Bip01 L Finger11" : "Bip01 R Finger11";
-        }
-        else if(left)
-            finger = "Bip01 L Finger11";
-        else if(right)
-            finger = "Bip01 R Finger11";
-
-        auto finger11 = mNodeMap.find(finger);
-
-        if (finger11 != mNodeMap.end())
-        {
-            mUserPointer->setParent(finger11->second);
-        }
     }
 }

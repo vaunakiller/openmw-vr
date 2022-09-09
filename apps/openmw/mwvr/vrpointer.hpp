@@ -6,10 +6,15 @@
 
 #include <components/vr/trackinglistener.hpp>
 
+namespace SceneUtil
+{
+    class PositionAttitudeTransform;
+}
+
 namespace MWVR
 {
     //! Controls the beam used to target/select objects.
-    class UserPointer : public VR::TrackingListener
+    class UserPointer
     {
 
     public:
@@ -19,27 +24,20 @@ namespace MWVR
         void updatePointerTarget();
         const MWRender::RayResult& getPointerRay() const;
         bool canPlaceObject() const;
-        void setParent(osg::Group* group);
-        void setEnabled(bool enabled);
-        void setHandEnabled(bool left, bool right);
-        bool enabled() const { return mEnabled; };
+        void setSource(VR::VRPath source);
+        bool enabled() const { return !!mSource; };
         float distanceToPointerTarget() const { return mDistanceToPointerTarget; }
-    protected:
-        void onTrackingUpdated(VR::TrackingManager& manager, VR::DisplayTime predictedDisplayTime) override;
 
     private:
         osg::ref_ptr<osg::Geometry> createPointerGeometry();
 
         osg::ref_ptr<osg::Geometry> mPointerGeometry;
-        osg::ref_ptr<osg::MatrixTransform> mPointerRescale;
-        osg::ref_ptr<osg::MatrixTransform> mPointerTransform;
+        osg::ref_ptr<SceneUtil::PositionAttitudeTransform> mPointerPAT;
 
-        osg::ref_ptr<osg::Group> mParent;
+        osg::ref_ptr<osg::Transform> mSource = nullptr;
+        VR::VRPath mSourcePath = 0;
         osg::ref_ptr<osg::Group> mRoot;
-        VR::VRPath mLeftHandPath = 0;
-        VR::VRPath mRightHandPath = 0;
 
-        bool mEnabled = true;
         MWRender::RayResult mPointerRay = {};
         osg::ref_ptr<osg::Node> mPointerTarget;
         float mDistanceToPointerTarget = -1.f;
