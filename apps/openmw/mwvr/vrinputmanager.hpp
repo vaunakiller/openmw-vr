@@ -41,6 +41,8 @@ namespace MWVR
 
         virtual ~VRInputManager();
 
+        static VRInputManager& instance();
+
         /// Overriden to force vr modes such as hiding cursors and crosshairs
         void changeInputMode(bool guiMode) override;
 
@@ -55,6 +57,9 @@ namespace MWVR
 
         void calibrate();
         void calibratePlayerHeight();
+
+        UserPointer* vrPointer() { return mVRPointer.get(); }
+        const UserPointer* vrPointer() const { return mVRPointer.get(); }
 
     protected:
         void processAction(const class XR::InputAction* action, float dt, bool disableControls);
@@ -75,6 +80,7 @@ namespace MWVR
         float smoothTurnRate(float dt) const;
 
     private:
+        std::unique_ptr<UserPointer> mVRPointer;
         std::unique_ptr<OpenXRInput> mXRInput;
         std::unique_ptr<RealisticCombat::StateMachine> mRealisticCombat;
         bool mPointerLeft = false;

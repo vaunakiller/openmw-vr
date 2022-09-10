@@ -18,7 +18,7 @@ namespace MWVR
     {
 
     public:
-        UserPointer(osg::Group* root);
+        UserPointer();
         ~UserPointer();
 
         void updatePointerTarget();
@@ -27,6 +27,7 @@ namespace MWVR
         void setSource(VR::VRPath source);
         bool enabled() const { return !!mSource; };
         float distanceToPointerTarget() const { return mDistanceToPointerTarget; }
+        void activate();
 
     private:
         osg::ref_ptr<osg::Geometry> createPointerGeometry();
@@ -34,7 +35,7 @@ namespace MWVR
         osg::ref_ptr<osg::Geometry> mPointerGeometry;
         osg::ref_ptr<SceneUtil::PositionAttitudeTransform> mPointerPAT;
 
-        osg::ref_ptr<osg::Transform> mSource = nullptr;
+        osg::ref_ptr<osg::Transform> mSource;
         VR::VRPath mSourcePath = 0;
         osg::ref_ptr<osg::Group> mRoot;
 

@@ -75,11 +75,6 @@ namespace MWWorld
     class GroundcoverStore;
 }
 
-namespace MWVR
-{
-    class UserPointer;
-}
-
 namespace MWRender
 {
     class StateUpdater;
@@ -342,10 +337,6 @@ namespace MWRender
         float mFirstPersonFieldOfView;
         bool mUpdateProjectionMatrix = false;
         bool mNight = false;
-
-#ifdef USE_OPENXR
-        std::shared_ptr<MWVR::UserPointer> mUserPointer;
-#endif
 
         void operator = (const RenderingManager&);
         RenderingManager(const RenderingManager&);

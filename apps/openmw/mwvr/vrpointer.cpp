@@ -1,5 +1,6 @@
 #include "vrpointer.hpp"
 #include "vrutil.hpp"
+#include "vrgui.hpp"
 
 #include <osg/MatrixTransform>
 #include <osg/Drawable>
@@ -20,14 +21,57 @@
 
 #include "../mwbase/environment.hpp"
 #include "../mwbase/world.hpp"
+#include "../mwbase/windowmanager.hpp"
 
 #include "../mwrender/renderingmanager.hpp"
 #include "../mwrender/vismask.hpp"
 
+#include "../mwgui/itemmodel.hpp"
+#include "../mwgui/draganddrop.hpp"
+#include "../mwgui/inventorywindow.hpp"
+
+#include "../mwmechanics/actorutil.hpp"
+
+#include "../mwworld/player.hpp"
+
 namespace MWVR
 {
-    UserPointer::UserPointer(osg::Group* root)
-        : mRoot(root)
+    /**
+     * Makes it possible to use ItemModel::moveItem to move an item from an inventory to the world.
+     */
+    class DropItemAtPointModel : public MWGui::ItemModel
+    {
+    public:
+        DropItemAtPointModel(UserPointer* pointer) : mVRPointer(pointer) {}
+        ~DropItemAtPointModel() {}
+        MWWorld::Ptr copyItem(const MWGui::ItemStack& item, size_t count, bool /*allowAutoEquip*/) override
+        {
+            MWBase::World* world = MWBase::Environment::get().getWorld();
+
+            MWWorld::Ptr dropped;
+            if (mVRPointer->canPlaceObject())
+                dropped = world->placeObject(item.mBase, mVRPointer->getPointerRay(), count);
+            else
+                dropped = world->dropObjectOnGround(world->getPlayerPtr(), item.mBase, count);
+            dropped.getCellRef().setOwner("");
+
+            return dropped;
+        }
+
+        void removeItem(const MWGui::ItemStack& item, size_t count) override { throw std::runtime_error("removeItem not implemented"); }
+        ModelIndex getIndex(const MWGui::ItemStack& item) override { throw std::runtime_error("getIndex not implemented"); }
+        void update() override {}
+        size_t getItemCount() override { return 0; }
+        MWGui::ItemStack getItem(ModelIndex index) override { throw std::runtime_error("getItem not implemented"); }
+        bool usesContainer(const MWWorld::Ptr&) override { return false; }
+
+    private:
+        // Where to drop the item
+        MWRender::RayResult mIntersection;
+        UserPointer* mVRPointer;
+    };
+
+    UserPointer::UserPointer()
     {
         mPointerGeometry = createPointerGeometry();
         mPointerPAT = new SceneUtil::PositionAttitudeTransform();
@@ -42,6 +86,9 @@ namespace MWVR
 
     void UserPointer::setSource(VR::VRPath source)
     {
+        if (mSourcePath == source)
+            return;
+
         mSourcePath = source;
 
         if (mSource)
@@ -54,6 +101,43 @@ namespace MWVR
             if (mSource)
             {
                 mSource->addChild(mPointerPAT);
+            }
+        }
+    }
+
+    void UserPointer::activate()
+    {
+        if (mPointerRay.mHit)
+        {
+            auto* node = mPointerRay.mHitNode;
+            MWWorld::Ptr ptr = mPointerRay.mHitObject;
+            auto wm = MWBase::Environment::get().getWindowManager();
+            auto& dnd = wm->getDragAndDrop();
+            if (dnd.mIsOnDragAndDrop)
+            {
+                // Intersected with the world while drag and drop is active
+                // Drop item into the world
+                MWBase::Environment::get().getWorld()->breakInvisibility(
+                    MWMechanics::getPlayer());
+                DropItemAtPointModel drop(this);
+                dnd.drop(&drop, nullptr);
+            }
+            else if (!ptr.isEmpty())
+            {
+                if (wm->isConsoleMode())
+                    wm->setConsoleSelectedObject(ptr);
+                // Don't active things during GUI mode.
+                else if (wm->isGuiMode())
+                {
+                    if (wm->getMode() != MWGui::GM_Container && wm->getMode() != MWGui::GM_Inventory)
+                        return;
+                    wm->getInventoryWindow()->pickUpObject(ptr);
+                }
+                else
+                {
+                    MWWorld::Player& player = MWBase::Environment::get().getWorld()->getPlayer();
+                    player.activate(ptr);
+                }
             }
         }
     }
@@ -94,6 +178,12 @@ namespace MWVR
         {
             mPointerPAT->setScale(osg::Vec3f(0.25f, 10000.f, 0.25f));
         }
+
+        if (mPointerRay.mHit)
+            MWVR::VRGUIManager::instance().updateFocus(mPointerRay.mHitNode, mPointerRay.mHitPointLocal);
+        else
+            MWVR::VRGUIManager::instance().updateFocus(nullptr, osg::Vec3(0,0,0));
+
     }
 
     osg::ref_ptr<osg::Geometry> UserPointer::createPointerGeometry()

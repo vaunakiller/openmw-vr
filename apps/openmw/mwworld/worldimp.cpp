@@ -1081,7 +1081,7 @@ namespace MWWorld
 #ifdef USE_OPENXR
        if (VR::getVR())
        {
-           return MWVR::VRGUIManager::instance().getUserPointer()->distanceToPointerTarget();
+           return MWVR::Util::getPointerTarget().second;
        }
        else
 #endif

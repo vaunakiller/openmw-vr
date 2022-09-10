@@ -38,7 +38,6 @@ namespace MWVR
 {
     class GUICamera;
     class VRGUIManager;
-    class UserPointer;
 
     // Some UI elements should occupy predefined geometries
     // Others should grow/shrink freely
@@ -173,7 +172,10 @@ namespace MWVR
         void hideLayer(const std::string& name);
 
         /// Check current pointer target and update focus layer
-        bool updateFocus();
+        void updateFocus(osg::Node* focusNode, osg::Vec3f hitPoint);
+
+        /// True if user is currently pointing at something
+        bool hasFocus() const;
 
         /// Update traversal
         void update(osg::NodeVisitor* nv);
@@ -196,8 +198,6 @@ namespace MWVR
 
         void setGeometryRoot(osg::Group* root);
         void setCameraRoot(osg::Group* root);
-        std::shared_ptr<UserPointer> getUserPointer();
-        void setUserPointer(std::shared_ptr<UserPointer> userPointer);
 
     private:
         void insertLayer(const std::string& name);
@@ -212,7 +212,6 @@ namespace MWVR
 
         osg::ref_ptr<osgViewer::Viewer> mOsgViewer;
         Resource::ResourceSystem* mResourceSystem;
-        std::shared_ptr<UserPointer> mUserPointer;
 
         osg::ref_ptr<osg::Group> mGeometriesRootNode = nullptr;
         osg::ref_ptr<osg::Group> mGeometries = new osg::Group;

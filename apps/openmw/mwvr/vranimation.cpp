@@ -344,7 +344,6 @@ namespace MWVR
         // The player model needs to be pushed back a little to make sure the player's view point is naturally protruding 
         // Pushing the camera forward instead would produce an unnatural extra movement when rotating the player model.
         , mModelOffset(new osg::MatrixTransform(osg::Matrix::translate(osg::Vec3(0, -15, 0))))
-        , mUserPointer(MWVR::VRGUIManager::instance().getUserPointer())
     {
         for (int i = 0; i < 2; i++)
         {
@@ -471,8 +470,6 @@ namespace MWVR
 
         if (mSkeleton)
             mSkeleton->markBoneMatriceDirty();
-
-        mUserPointer->updatePointerTarget();
 
         auto tp = manager.locate(VR::stringToVRPath("/world/user/head/input/pose"), predictedDisplayTime);
 

@@ -65,7 +65,6 @@ namespace MWVR
             bool guiMode = MWBase::Environment::get().getWindowManager()->isGuiMode();
             MWBase::Environment::get().getWorld()->enableVRPointer(guiMode || mPointerLeft, guiMode || mPointerRight);
 
-            auto pointer = MWVR::VRGUIManager::instance().getUserPointer();
             bool leftHanded = Settings::Manager::getBool("left handed mode", "VR");
 
             if (guiMode)
@@ -83,96 +82,23 @@ namespace MWVR
                 source = 0;
         }
 
-        MWVR::VRGUIManager::instance().getUserPointer()->setSource(source);
+        if (!mVRPointer)
+            mVRPointer = std::make_unique<UserPointer>();
+
+        mVRPointer->setSource(source);
+        mVRPointer->updatePointerTarget();
     }
-
-    /**
-     * Makes it possible to use ItemModel::moveItem to move an item from an inventory to the world.
-     */
-    class DropItemAtPointModel : public MWGui::ItemModel
-    {
-    public:
-        DropItemAtPointModel() {}
-        ~DropItemAtPointModel() {}
-        MWWorld::Ptr copyItem(const MWGui::ItemStack& item, size_t count, bool /*allowAutoEquip*/) override
-        {
-            MWBase::World* world = MWBase::Environment::get().getWorld();
-            auto pointer = MWVR::VRGUIManager::instance().getUserPointer();
-
-            MWWorld::Ptr dropped;
-            if (pointer->canPlaceObject())
-                dropped = world->placeObject(item.mBase, pointer->getPointerRay(), count);
-            else
-                dropped = world->dropObjectOnGround(world->getPlayerPtr(), item.mBase, count);
-            dropped.getCellRef().setOwner("");
-
-            return dropped;
-        }
-
-        void removeItem(const MWGui::ItemStack& item, size_t count) override { throw std::runtime_error("removeItem not implemented"); }
-        ModelIndex getIndex(const MWGui::ItemStack& item) override { throw std::runtime_error("getIndex not implemented"); }
-        void update() override {}
-        size_t getItemCount() override { return 0; }
-        MWGui::ItemStack getItem(ModelIndex index) override{ throw std::runtime_error("getItem not implemented"); }
-        bool usesContainer(const MWWorld::Ptr&) override { return false; }
-
-    private:
-        // Where to drop the item
-        MWRender::RayResult mIntersection;
-    };
 
     void VRInputManager::pointActivation(bool onPress)
     {
-        if (controlsDisabled())
+        if (controlsDisabled() || MWVR::VRGUIManager::instance().hasFocus())
         {
             injectMousePress(SDL_BUTTON_LEFT, onPress);
             return;
         }
 
-        auto pointer = MWVR::VRGUIManager::instance().getUserPointer();
-        if (pointer->getPointerRay().mHit)
-        {
-            auto* node = pointer->getPointerRay().mHitNode;
-            MWWorld::Ptr ptr = pointer->getPointerRay().mHitObject;
-            auto wm = MWBase::Environment::get().getWindowManager();
-            auto& dnd = wm->getDragAndDrop();
-
-            if (node && node->getName() == "VRGUILayer")
-            {
-                injectMousePress(SDL_BUTTON_LEFT, onPress);
-            }
-            else if (onPress)
-            {
-                // Other actions should only happen on release;
-                return;
-            }
-            else if (dnd.mIsOnDragAndDrop)
-            {
-                // Intersected with the world while drag and drop is active
-                // Drop item into the world
-                MWBase::Environment::get().getWorld()->breakInvisibility(
-                    MWMechanics::getPlayer());
-                DropItemAtPointModel drop;
-                dnd.drop(&drop, nullptr);
-            }
-            else if (!ptr.isEmpty())
-            {
-                if (wm->isConsoleMode())
-                    wm->setConsoleSelectedObject(ptr);
-                // Don't active things during GUI mode.
-                else if (wm->isGuiMode())
-                {
-                    if (wm->getMode() != MWGui::GM_Container && wm->getMode() != MWGui::GM_Inventory)
-                        return;
-                    wm->getInventoryWindow()->pickUpObject(ptr);
-                }
-                else
-                {
-                    MWWorld::Player& player = MWBase::Environment::get().getWorld()->getPlayer();
-                    player.activate(ptr);
-                }
-            }
-        }
+        if (mVRPointer && !onPress)
+            mVRPointer->activate();
     }
 
     void VRInputManager::injectMousePress(int sdlButton, bool onPress)
@@ -345,6 +271,8 @@ namespace MWVR
         wm->exitVoid();
     }
 
+    static VRInputManager* sInputManager;
+
     VRInputManager::VRInputManager(
         SDL_Window* window,
         osg::ref_ptr<osgViewer::Viewer> viewer,
@@ -366,6 +294,7 @@ namespace MWVR
             userControllerBindingsFile,
             controllerBindingsFile,
             grab)
+        , mVRPointer(nullptr)
         , mXRInput(new OpenXRInput(xrControllerSuggestionsFile))
         , mHapticsEnabled{ Settings::Manager::getBool("haptics enabled", "VR") }
         , mSmoothTurning{ Settings::Manager::getBool("smooth turning", "VR") }
@@ -378,10 +307,18 @@ namespace MWVR
         , mHeadWorldPath( VR::stringToVRPath("/world/user/head/input/pose"))
     {
         setThumbstickDeadzone(Settings::Manager::getFloat("joystick dead zone", "Input"));
+
+        sInputManager = this;
     }
 
     VRInputManager::~VRInputManager()
     {
+    }
+
+    VRInputManager& VRInputManager::instance()
+    {
+        assert(sInputManager);
+        return *sInputManager;
     }
 
     void VRInputManager::changeInputMode(bool mode)
@@ -401,8 +338,10 @@ namespace MWVR
         auto& actionSet = activeActionSet();
         actionSet.updateControls();
 
-        bool vrHasFocus = MWVR::VRGUIManager::instance().updateFocus();
-        if (vrHasFocus)
+        if(!disableControls)
+            updateVRPointer();
+
+        if (MWVR::VRGUIManager::instance().hasFocus())
         {
             auto guiCursor = MWVR::VRGUIManager::instance().guiCursor();
             mMouseManager->setMousePosition(guiCursor.x(), guiCursor.y());
@@ -413,14 +352,12 @@ namespace MWVR
             processAction(action, dt, disableControls);
         }
 
-
         MWInput::InputManager::update(dt, disableControls, disableEvents);
 
         // The rest of this code assumes the game is running
         if (MWBase::Environment::get().getStateManager()->getState() == MWBase::StateManager::State_NoGame)
             return;
 
-        updateVRPointer();
         bool guiMode = MWBase::Environment::get().getWindowManager()->isGuiMode();
 
         // OpenMW assumes all input will come via SDL which i often violate.

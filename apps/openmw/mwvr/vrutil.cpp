@@ -22,8 +22,10 @@ namespace MWVR
     {
         std::pair<MWWorld::Ptr, float> getPointerTarget()
         {
-            auto pointer = MWVR::VRGUIManager::instance().getUserPointer();
-            return std::pair<MWWorld::Ptr, float>(pointer->getPointerRay().mHitObject, pointer->distanceToPointerTarget());
+            auto* pointer = MWVR::VRInputManager::instance().vrPointer();
+            if (pointer)
+                return std::pair<MWWorld::Ptr, float>(pointer->getPointerRay().mHitObject, pointer->distanceToPointerTarget());
+            return std::pair<MWWorld::Ptr, float>();
         }
 
         std::pair<MWWorld::Ptr, float> getTouchTarget()

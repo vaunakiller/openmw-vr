@@ -10,7 +10,6 @@ namespace MWVR
     class HandController;
     class FingerController;
     class TrackingController;
-    class UserPointer;
 
     /// Subclassing NpcAnimation to implement VR related behaviour
     class VRAnimation : public MWRender::NpcAnimation, public VR::TrackingListener
@@ -66,8 +65,6 @@ namespace MWVR
         osg::ref_ptr<FingerController> mLeftIndexFingerControllers[2];
         osg::ref_ptr<FingerController> mRightIndexFingerControllers[2];
         osg::ref_ptr<osg::MatrixTransform> mModelOffset;
-
-        std::shared_ptr<UserPointer> mUserPointer;
         osg::ref_ptr<osg::MatrixTransform> mWeaponDirectionTransform;
         osg::ref_ptr<osg::MatrixTransform> mWeaponPointerTransform;
     };

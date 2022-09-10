@@ -510,16 +510,6 @@ namespace MWVR
         mGUICamerasRootNode->addChild(mGUICameras);
     }
 
-    std::shared_ptr<UserPointer> VRGUIManager::getUserPointer()
-    {
-        return mUserPointer;
-    }
-
-    void VRGUIManager::setUserPointer(std::shared_ptr<UserPointer> userPointer)
-    {
-        mUserPointer = userPointer;
-    }
-
     VRGUIManager* sManager = nullptr;
     VRGUIManager& VRGUIManager::instance()
     {
@@ -551,7 +541,6 @@ namespace MWVR
         osg::Group* rootNode)
         : mOsgViewer(viewer)
         , mResourceSystem(resourceSystem)
-        , mUserPointer(nullptr)
         , mGeometriesRootNode(rootNode)
         , mGUICamerasRootNode(rootNode)
         , mUiTracking(new VRGUITracking())
@@ -872,30 +861,48 @@ namespace MWVR
         mUiTracking->resetStationaryPose();
     }
 
-    bool VRGUIManager::updateFocus()
+    void VRGUIManager::updateFocus(osg::Node* focusNode, osg::Vec3f hitPoint)
     {
-        if (!mUserPointer)
-            return false;
-
-        if (mUserPointer->getPointerRay().mHit)
+        if (focusNode && focusNode->getName() == "VRGUILayer")
         {
-            osg::ref_ptr<VRGUILayer> newFocusLayer = nullptr;
-            auto* node = mUserPointer->getPointerRay().mHitNode;
-
-            if (node && node->getName() == "VRGUILayer")
-            {
-                VRGUILayerUserData* userData = static_cast<VRGUILayerUserData*>(node->getUserData());
-                newFocusLayer = userData->mLayer;
-            }
-
-            if (newFocusLayer && newFocusLayer->mLayerName != "Notification")
-            {
-                setFocusLayer(newFocusLayer);
-                computeGuiCursor(mUserPointer->getPointerRay().mHitPointLocal);
-                return true;
-            }
+            VRGUILayerUserData* userData = static_cast<VRGUILayerUserData*>(focusNode->getUserData());
+            setFocusLayer(userData->mLayer);
+            computeGuiCursor(hitPoint);
         }
-        return false;
+        else
+        {
+            setFocusLayer(nullptr);
+            computeGuiCursor(osg::Vec3(0, 0, 0));
+        }
+
+        // TODO
+        //if (!mUserPointer)
+        //    return false;
+
+        //if (mUserPointer->getPointerRay().mHit)
+        //{
+        //    osg::ref_ptr<VRGUILayer> newFocusLayer = nullptr;
+        //    auto* node = mUserPointer->getPointerRay().mHitNode;
+
+        //    if (node && node->getName() == "VRGUILayer")
+        //    {
+        //        VRGUILayerUserData* userData = static_cast<VRGUILayerUserData*>(node->getUserData());
+        //        newFocusLayer = userData->mLayer;
+        //    }
+
+        //    if (newFocusLayer && newFocusLayer->mLayerName != "Notification")
+        //    {
+        //        setFocusLayer(newFocusLayer);
+        //        computeGuiCursor(mUserPointer->getPointerRay().mHitPointLocal);
+        //        return true;
+        //    }
+        //}
+        //return false;
+    }
+
+    bool VRGUIManager::hasFocus() const
+    {
+        return mFocusLayer != nullptr;
     }
 
     void VRGUIManager::update(osg::NodeVisitor* nv)

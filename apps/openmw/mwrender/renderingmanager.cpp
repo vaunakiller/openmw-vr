@@ -394,9 +394,6 @@ namespace MWRender
         , mFieldOfViewOverride(0.f)
         , mFieldOfView(std::clamp(Settings::Manager::getFloat("field of view", "Camera"), 1.f, 179.f))
         , mFirstPersonFieldOfView(std::clamp(Settings::Manager::getFloat("first person field of view", "Camera"), 1.f, 179.f))
-#ifdef USE_OPENXR
-        , mUserPointer()
-#endif
     {
         bool reverseZ = SceneUtil::AutoDepth::isReversed();
         auto lightingMethod = SceneUtil::LightManager::getLightingMethodFromString(Settings::Manager::getString("lighting method", "Shaders"));
@@ -648,11 +645,6 @@ namespace MWRender
         updateProjectionMatrix();
 
         mViewer->getCamera()->setClearMask(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT | GL_STENCIL_BUFFER_BIT);
-
-#ifdef USE_OPENXR
-        mUserPointer = std::make_shared<MWVR::UserPointer>(rootNode);
-        MWVR::VRGUIManager::instance().setUserPointer(mUserPointer);
-#endif
     }
 
     RenderingManager::~RenderingManager()
