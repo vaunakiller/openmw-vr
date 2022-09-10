@@ -5,6 +5,8 @@
 #include "../mwrender/renderingmanager.hpp"
 #include <components/vr/trackinglistener.hpp>
 
+#include <osg/MatrixTransform>
+
 namespace MWVR
 {
     class HandController;
@@ -47,7 +49,8 @@ namespace MWVR
         void updateParts() override;
 
         /// @return world transform that yields the position and orientation of the current weapon
-        osg::Matrix getWeaponTransformMatrix() const;
+        osg::Node* getWeaponTransform() { return mWeaponDirectionTransform.get(); };
+        const osg::Node* getWeaponTransform() const { return mWeaponDirectionTransform.get(); };
 
         /// Enable pointers
         void enablePointers(bool left, bool right);

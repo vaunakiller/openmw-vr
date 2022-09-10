@@ -414,7 +414,9 @@ namespace MWRender
     {
         if (mMode == Mode::VR)
         {
+#ifdef USE_OPENXR
             mTrackingNode = VR::Viewer::instance().getTrackingNode("/world/user/head/input/pose");
+#endif
             mProcessViewChange = false;
             return;
         }

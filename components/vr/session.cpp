@@ -6,6 +6,7 @@
 #include <components/misc/constants.hpp>
 #include <components/vr/trackingpath.hpp>
 #include <components/vr/trackingsource.hpp>
+#include <components/vr/vr.hpp>
 
 #include <osg/Camera>
 
@@ -125,6 +126,11 @@ namespace VR
 
     void Session::setInteractionProfileActive(VRPath topLevelPath, bool active)
     {
+        if (topLevelPath == stringToVRPath("/user/hand/left"))
+            setLeftControllerActive(active);
+        if (topLevelPath == stringToVRPath("/user/hand/right"))
+            setRightControllerActive(active);
+
         if (active)
             mActiveInteractionProfiles.insert(topLevelPath);
         else

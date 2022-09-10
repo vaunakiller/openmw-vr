@@ -26,6 +26,8 @@
 
 #include <components/vfs/manager.hpp>
 
+#include <components/vr/vr.hpp>
+
 #include <components/sceneutil/actorutil.hpp>
 #include <components/sceneutil/statesetupdater.hpp>
 #include <components/sceneutil/visitor.hpp>
@@ -954,6 +956,10 @@ namespace MWRender
     static bool vrOverride(const std::string& groupname, const std::string& bone)
     {
 #ifdef USE_OPENXR
+
+        if (VR::getRightControllerActive())
+            return false;
+        
         // TODO: It's difficult to design a good override system when
         // I don't have a good understanding of the animation code. So for
         // now i just hardcode blocking of updaters for nodes that should not be animated in VR.

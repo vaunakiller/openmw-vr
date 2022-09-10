@@ -62,6 +62,8 @@ namespace MWInput
 
         int mMouseMoveX;
         int mMouseMoveY;
+
+        float mPreviousXAxis;
     };
 }
 #endif

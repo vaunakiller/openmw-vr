@@ -16,6 +16,10 @@
 
 #include "../mwworld/player.hpp"
 
+#ifdef USE_OPENXR
+#include "../mwvr/vrinputmanager.hpp"
+#endif
+
 #include "actions.hpp"
 #include "bindingsmanager.hpp"
 
@@ -36,6 +40,7 @@ namespace MWInput
         , mGuiCursorEnabled(true)
         , mMouseMoveX(0)
         , mMouseMoveY(0)
+        , mPreviousXAxis(0.f)
     {
         int w,h;
         SDL_GetWindowSize(window, &w, &h);
@@ -215,6 +220,15 @@ namespace MWInput
             return;
 
         float xAxis = mBindingsManager->getActionValue(A_LookLeftRight) * 2.0f - 1.0f;
+
+#ifdef USE_OPENXR
+        if (VR::getVR())
+        {
+            MWVR::VRInputManager::instance().turnLeftRight(xAxis, mPreviousXAxis, dt);
+            mPreviousXAxis = xAxis;
+        }
+#endif
+
         float yAxis = mBindingsManager->getActionValue(A_LookUpDown) * 2.0f - 1.0f;
         if (xAxis == 0 && yAxis == 0)
             return;

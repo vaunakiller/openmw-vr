@@ -109,7 +109,6 @@ namespace MWVR
     {
         if (mPointerRay.mHit)
         {
-            auto* node = mPointerRay.mHitNode;
             MWWorld::Ptr ptr = mPointerRay.mHitObject;
             auto wm = MWBase::Environment::get().getWindowManager();
             auto& dnd = wm->getDragAndDrop();

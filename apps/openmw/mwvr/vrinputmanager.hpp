@@ -61,10 +61,17 @@ namespace MWVR
         UserPointer* vrPointer() { return mVRPointer.get(); }
         const UserPointer* vrPointer() const { return mVRPointer.get(); }
 
+        osg::Node* vrAimNode() { return mVRAimNode; }
+        const osg::Node* vrAimNode() const { return mVRAimNode; }
+
+        void turnLeftRight(float value, float previousValue, float dt);
+
     protected:
         void processAction(const class XR::InputAction* action, float dt, bool disableControls);
 
-        void updateVRPointer(void);
+        void updateVRPointer(bool disableControls);
+        void updateCombat(float dt);
+        void updateRealisticCombat(float dt);
         void pointActivation(bool onPress);
 
         void injectMousePress(int sdlButton, bool onPress);
@@ -76,7 +83,6 @@ namespace MWVR
 
         void setThumbstickDeadzone(float deadzoneRadius);
 
-        void turnLeftRight(const XR::InputAction* action, float dt);
         float smoothTurnRate(float dt) const;
 
     private:
@@ -89,6 +95,8 @@ namespace MWVR
         bool mSmoothTurning = true;
         float mSnapAngle = 30.f;
         float mSmoothTurnRate = 1.0f;
+
+        osg::ref_ptr<osg::Node> mVRAimNode;
 
         VR::VRPath mLeftHandPath;
         VR::VRPath mLeftHandWorldPath;

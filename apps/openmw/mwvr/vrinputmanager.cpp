@@ -13,6 +13,8 @@
 #include <components/xr/actionset.hpp>
 #include <components/vr/trackingmanager.hpp>
 #include <components/vr/session.hpp>
+#include <components/vr/viewer.hpp>
+#include <components/vr/vr.hpp>
 
 #include <MyGUI_InputManager.h>
 
@@ -53,26 +55,22 @@ namespace MWVR
         return mXRInput->getActionSet(MWActionSet::Gameplay);
     }
 
-    void VRInputManager::updateVRPointer(void)
+    void VRInputManager::updateVRPointer(bool disableControls)
     {
-        auto& session = VR::Session::instance();
-        bool haveLeftHand = session.getInteractionProfileActive(mLeftHandPath);
-        bool haveRightHand = session.getInteractionProfileActive(mRightHandPath);
-
         auto source = mHeadWorldPath;
-        if(haveLeftHand || haveRightHand)
+        if(VR::getLeftControllerActive() || VR::getRightControllerActive())
         {
             bool guiMode = MWBase::Environment::get().getWindowManager()->isGuiMode();
-            MWBase::Environment::get().getWorld()->enableVRPointer(guiMode || mPointerLeft, guiMode || mPointerRight);
+            MWBase::Environment::get().getWorld()->enableVRPointer((guiMode || mPointerLeft) && VR::getLeftControllerActive(), (guiMode || mPointerRight) && VR::getRightControllerActive());
 
             bool leftHanded = Settings::Manager::getBool("left handed mode", "VR");
 
             if (guiMode)
             {
                 if (leftHanded)
-                    source = haveLeftHand ? mLeftHandWorldPath : mRightHandWorldPath;
+                    source = VR::getLeftControllerActive() ? mLeftHandWorldPath : mRightHandWorldPath;
                 else
-                    source = haveRightHand ? mRightHandWorldPath : mLeftHandWorldPath;
+                    source = VR::getRightControllerActive() ? mRightHandWorldPath : mLeftHandWorldPath;
             }
             else if (mPointerLeft)
                 source = mLeftHandWorldPath;
@@ -82,11 +80,57 @@ namespace MWVR
                 source = 0;
         }
 
-        if (!mVRPointer)
+        if (!mVRPointer && !disableControls)
             mVRPointer = std::make_unique<UserPointer>();
 
-        mVRPointer->setSource(source);
-        mVRPointer->updatePointerTarget();
+        if (mVRPointer)
+        {
+            mVRPointer->setSource(source);
+            mVRPointer->updatePointerTarget();
+        }
+    }
+
+    void VRInputManager::updateCombat(float dt)
+    {
+        if (VR::getRightControllerActive())
+            return updateRealisticCombat(dt);
+        else
+        {
+            mVRAimNode = VR::Viewer::instance().getTrackingNode(mHeadWorldPath);
+        }
+    }
+
+    void VRInputManager::updateRealisticCombat(float dt)
+    {
+        bool guiMode = MWBase::Environment::get().getWindowManager()->isGuiMode();
+
+        // OpenMW assumes all input will come via SDL which i often violate.
+        // This keeps player controls correctly enabled for my purposes.
+        mBindingsManager->setPlayerControlsEnabled(!guiMode);
+
+        if (!guiMode)
+        {
+            auto world = MWBase::Environment::get().getWorld();
+
+            auto& player = world->getPlayer();
+            auto playerPtr = world->getPlayerPtr();
+            if (!mRealisticCombat || mRealisticCombat->ptr() != playerPtr)
+            {
+                // TODO: de-hardcode right-handedness for when ability to equip weapons with left hand is completed
+                auto trackingPath = VR::stringToVRPath("/stage/user/hand/right/input/aim/pose");
+                mRealisticCombat.reset(new RealisticCombat::StateMachine(playerPtr, trackingPath));
+            }
+            bool enabled = !guiMode && player.getDrawState() == MWMechanics::DrawState::Weapon && !player.isDisabled();
+            mRealisticCombat->update(dt, enabled);
+        }
+        else if (mRealisticCombat)
+            mRealisticCombat->update(dt, false);
+
+
+        auto ptr = MWBase::Environment::get().getWorld()->getPlayerPtr();
+        auto* anim = MWBase::Environment::get().getWorld()->getAnimation(ptr);
+        auto* vrAnim = static_cast<MWVR::VRAnimation*>(anim);
+        mVRAimNode = vrAnim->getWeaponTransform();
     }
 
     void VRInputManager::pointActivation(bool onPress)
@@ -170,23 +214,23 @@ namespace MWVR
         mXRInput->setThumbstickDeadzone(deadzoneRadius);
     }
 
-    void VRInputManager::turnLeftRight(const XR::InputAction* action, float dt)
+    void VRInputManager::turnLeftRight(float value, float previousValue, float dt)
     {
         auto path = VR::stringToVRPath("/world/user");
         auto* stageToWorldBinding = static_cast<VR::StageToWorldBinding*>(VR::TrackingManager::instance().getTrackingSource(path));
         if (mSmoothTurning)
         {
-            float yaw = osg::DegreesToRadians(action->value()) * smoothTurnRate(dt);
+            float yaw = osg::DegreesToRadians(value) * smoothTurnRate(dt);
             // TODO: Hack, should have a cleaner way of accessing this
             stageToWorldBinding->setWorldOrientation(yaw, true);
         }
         else
         {
-            if (action->value() > 0.6f && action->previousValue() < 0.6f)
+            if (value > 0.6f && previousValue < 0.6f)
             {
                 stageToWorldBinding->setWorldOrientation(osg::DegreesToRadians(mSnapAngle), true);
             }
-            if (action->value() < -0.6f && action->previousValue() > -0.6f)
+            if (value < -0.6f && previousValue > -0.6f)
             {
                 stageToWorldBinding->setWorldOrientation(-osg::DegreesToRadians(mSnapAngle), true);
             }
@@ -338,8 +382,7 @@ namespace MWVR
         auto& actionSet = activeActionSet();
         actionSet.updateControls();
 
-        if(!disableControls)
-            updateVRPointer();
+        updateVRPointer(disableControls);
 
         if (MWVR::VRGUIManager::instance().hasFocus())
         {
@@ -364,24 +407,7 @@ namespace MWVR
         // This keeps player controls correctly enabled for my purposes.
         mBindingsManager->setPlayerControlsEnabled(!guiMode);
 
-        if (!guiMode)
-        {
-            auto world = MWBase::Environment::get().getWorld();
-
-            auto& player = world->getPlayer();
-            auto playerPtr = world->getPlayerPtr();
-            if (!mRealisticCombat || mRealisticCombat->ptr() != playerPtr)
-            {
-                // TODO: de-hardcode right-handedness for when ability to equip weapons with left hand is completed
-                auto trackingPath = VR::stringToVRPath("/stage/user/hand/right/input/aim/pose");
-                mRealisticCombat.reset(new RealisticCombat::StateMachine(playerPtr, trackingPath));
-            }
-            bool enabled = !guiMode && player.getDrawState() == MWMechanics::DrawState::Weapon && !player.isDisabled();
-            mRealisticCombat->update(dt, enabled);
-        }
-        else if (mRealisticCombat)
-            mRealisticCombat->update(dt, false);
-
+        updateRealisticCombat(dt);
 
         // Update tracking every frame if player is not currently in GUI mode.
         // This ensures certain widgets like Notifications will be visible.
@@ -555,7 +581,7 @@ namespace MWVR
                 break;
             case MWInput::A_LookLeftRight:
             {
-                turnLeftRight(action, dt);
+                turnLeftRight(action->value(), action->previousValue(), dt);
                 break;
             }
             case MWInput::A_MoveLeftRight:

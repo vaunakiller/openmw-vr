@@ -81,10 +81,8 @@ namespace MWVR
 
         Stereo::Pose getWeaponPose()
         {
-            auto ptr = MWBase::Environment::get().getWorld()->getPlayerPtr();
-            auto* anim = MWBase::Environment::get().getWorld()->getAnimation(ptr);
-            auto* vrAnim = static_cast<MWVR::VRAnimation*>(anim);
-            osg::Matrix worldMatrix = vrAnim->getWeaponTransformMatrix();
+            auto* node = MWVR::VRInputManager::instance().vrAimNode();
+            auto worldMatrix = osg::computeLocalToWorld(node->getParentalNodePaths()[0]);
             Stereo::Pose pose;
             pose.position = worldMatrix.getTrans();
             pose.orientation = worldMatrix.getRotate();

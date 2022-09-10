@@ -570,11 +570,6 @@ namespace MWVR
         NpcAnimation::setAccurateAiming(false);
     }
 
-    osg::Matrix VRAnimation::getWeaponTransformMatrix() const
-    {
-        return osg::computeLocalToWorld(mWeaponDirectionTransform->getParentalNodePaths()[0]);
-    }
-
     void VRAnimation::enablePointers(bool left, bool right)
     {
         mHandControllers[0]->setFingerPointingMode(left);
