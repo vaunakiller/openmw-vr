@@ -1050,12 +1050,7 @@ namespace MWRender
                         node->addUpdateCallback(callback);
                     mActiveControllers.emplace_back(node, callback);
 
-                    if (blendMask == 0 && node == mAccumRoot
-#ifdef USE_OPENXR
-    // TODO: Little hack to keep certain animations from wobbling the camera in VR
-                        && (!isPlayer)
-#endif
-                        )
+                    if (blendMask == 0 && node == mAccumRoot)
                     {
                         mAccumCtrl = it->second;
 
