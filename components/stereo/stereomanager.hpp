@@ -104,7 +104,6 @@ namespace Stereo
         void setupBruteForceTechnique();
         void setupOVRMultiView2Technique();
 
-        osg::ref_ptr<osgViewer::Viewer> mViewer;
         osg::ref_ptr<osg::Camera>       mMainCamera;
         osg::ref_ptr<osg::Callback>     mUpdateCallback;
         std::string                     mError;

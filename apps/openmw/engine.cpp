@@ -528,14 +528,12 @@ OMW::Engine::~Engine()
     if (mScreenCaptureOperation != nullptr)
         mScreenCaptureOperation->stop();
 
-    mStereoManager = nullptr;
     mMechanicsManager = nullptr;
     mDialogueManager = nullptr;
     mJournal = nullptr;
     mScriptManager = nullptr;
     mWindowManager = nullptr;
     mWorld = nullptr;
-    mStereoManager = nullptr;
     mSoundManager = nullptr;
     mInputManager = nullptr;
     mStateManager = nullptr;
@@ -546,7 +544,16 @@ OMW::Engine::~Engine()
     mUnrefQueue = nullptr;
     mWorkQueue = nullptr;
 
+
     mViewer = nullptr;
+
+    mVrViewer = nullptr;
+    mCallbackManager = nullptr;
+    mStereoManager = nullptr;
+    mVrGUIManager = nullptr;
+    mXrSession = nullptr;
+    mXrInstance = nullptr;
+    mVrTrackingManager = nullptr;
 
     mResourceSystem.reset();
 

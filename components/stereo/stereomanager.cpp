@@ -129,8 +129,7 @@ namespace Stereo
     };
 
     Manager::Manager(osgViewer::Viewer* viewer)
-        : mViewer(viewer)
-        , mMainCamera(mViewer->getCamera())
+        : mMainCamera(viewer->getCamera())
         , mUpdateCallback(new StereoUpdateCallback(this))
         , mMasterProjectionMatrix(osg::Matrixd::identity())
         , mEyeResolutionOverriden(false)
@@ -161,7 +160,7 @@ namespace Stereo
     void Manager::initializeStereo(osg::GraphicsContext* gc)
     {
         mMainCamera->addUpdateCallback(mUpdateCallback);
-        mFrustumManager = std::make_unique<StereoFrustumManager>(mViewer->getCamera());
+        mFrustumManager = std::make_unique<StereoFrustumManager>(mMainCamera);
 
         auto ci = gc->getState()->getContextID();
         configureExtensions(ci);
