@@ -57,6 +57,43 @@
 
 namespace MWVR
 {
+    namespace Paths
+    {
+        const char* sMenuQuadStr = "/ui/menu_quad/pose";
+        const char* sHUDTopLeftStr = "/ui/HUD/topleft";
+        const char* sHUDTopRightStr = "/ui/HUD/topright";
+        const char* sHUDBottomLeftStr = "/ui/HUD/bottomleft";
+        const char* sHUDBottomRightStr = "/ui/HUD/bottomright";
+        const char* sHUDMessageStr = "/ui/HUD/message";
+        const char* sWristTopLeftStr = "/ui/wrist_top/left/pose";
+        const char* sWristTopRightStr = "/ui/wrist_top/right/pose";
+        const char* sWristInnerLeftStr = "/ui/wrist_inner/left/pose";
+        const char* sWristInnerRightStr = "/ui/wrist_inner/right/pose";
+        VR::VRPath sMenuQuad;
+        VR::VRPath sHUDTopLeft;
+        VR::VRPath sHUDTopRight;
+        VR::VRPath sHUDBottomLeft;
+        VR::VRPath sHUDBottomRight;
+        VR::VRPath sHUDMessage;
+        VR::VRPath sWristTopLeft;
+        VR::VRPath sWristTopRight;
+        VR::VRPath sWristInnerLeft;
+        VR::VRPath sWristInnerRight;
+
+        void init()
+        {
+            sMenuQuad = VR::stringToVRPath(sMenuQuadStr);
+            sHUDTopLeft = VR::stringToVRPath(sHUDTopLeftStr);
+            sHUDTopRight = VR::stringToVRPath(sHUDTopRightStr);
+            sHUDBottomLeft = VR::stringToVRPath(sHUDBottomLeftStr);
+            sHUDBottomRight = VR::stringToVRPath(sHUDBottomRightStr);
+            sHUDMessage = VR::stringToVRPath(sHUDMessageStr);
+            sWristTopLeft = VR::stringToVRPath(sWristTopLeftStr);
+            sWristTopRight = VR::stringToVRPath(sWristTopRightStr);
+            sWristInnerLeft = VR::stringToVRPath(sWristInnerLeftStr);
+            sWristInnerRight = VR::stringToVRPath(sWristInnerRightStr);
+        }
+    }
 
     // When making a circle of a given radius of equally wide planes separated by a given angle, what is the width
     static osg::Vec2 radiusAngleWidth(float radius, float angleRadian)
@@ -82,6 +119,7 @@ namespace MWVR
 
             // Make the texture just a little transparent to feel more natural in the game world.
             camera->setClearColor(mClearColor);
+            setColorBufferInternalFormat(GL_RGBA8);
 
             camera->setReferenceFrame(osg::Camera::ABSOLUTE_RF);
             camera->setComputeNearFarMode(osg::CullSettings::DO_NOT_COMPUTE_NEAR_FAR);
@@ -92,25 +130,12 @@ namespace MWVR
             camera->setCullMaskLeft(MWRender::Mask_GUI);
             camera->setCullMaskRight(MWRender::Mask_GUI);
 
-            // Although strictly speaking a RenderToTexture node,
-            // We want to render this also when we don't want to render other RTT nodes.
+            // Although this is strictly speaking a RenderToTexture node, we cannot use the Mask_RenderToTexture mask
+            // since it would cull this inappropriately.
             camera->setNodeMask(MWRender::Mask_3DGUI);
 
             // No need for Update traversal since the scene is already updated as part of the main scene graph
             setUpdateCallback(new MWRender::NoTraverseCallback);
-
-            auto colorBuffer = new osg::Texture2D;
-            colorBuffer->setTextureSize(camera->getViewport()->width(), camera->getViewport()->height());
-            colorBuffer->setWrap(osg::Texture::WRAP_S, osg::Texture::CLAMP_TO_EDGE);
-            colorBuffer->setWrap(osg::Texture::WRAP_T, osg::Texture::CLAMP_TO_EDGE);
-            colorBuffer->setInternalFormat(GL_RGBA);
-            colorBuffer->setFilter(osg::Texture::MIN_FILTER, osg::Texture::LINEAR);
-            colorBuffer->setFilter(osg::Texture::MAG_FILTER, osg::Texture::LINEAR);
-            camera->attach(osg::Camera::COLOR_BUFFER, colorBuffer);
-            SceneUtil::attachAlphaToCoverageFriendlyFramebufferToCamera(camera, osg::Camera::COLOR_BUFFER, colorBuffer);
-
-            // Need to regenerate mipmaps every frame
-            camera->setPostDrawCallback(new MWRender::MipmapCallback(colorBuffer));
 
             camera->addChild(mScene);
 
@@ -211,7 +236,7 @@ namespace MWVR
             filter = filter + ";" + mConfig.extraLayers;
         osgMyGUI::RenderManager& renderManager = static_cast<osgMyGUI::RenderManager&>(MyGUI::RenderManager::getInstance());
         mMyGUICamera = renderManager.createGUICamera(osg::Camera::NESTED_RENDER, filter);
-        mGUICamera = new GUICamera(config.pixelResolution.x(), config.pixelResolution.y(), config.backgroundColor, mMyGUICamera);
+        mGUICamera = new GUICamera(config.pixelResolution.x(), config.pixelResolution.y(), osg::Vec4(0, 0, 0, config.opacity), mMyGUICamera);
 
         mStateset = new osg::StateSet;
 
@@ -279,15 +304,11 @@ namespace MWVR
         auto orientation = mRotation * mTrackedPose.orientation;
         bool leftPointer = Settings::Manager::getBool("left handed mode", "VR");
 
-        // StatusHUD is always on left arm (until left-hand weapon support is added)
-        // VirtualKeyboard is always opposite of the pointer
-        if (mLayerName == "HUD" || (!leftPointer && mLayerName == "VirtualKeyboard"))
+        if (mLayerName == "VirtualKeyboard")
         {
-            orientation = osg::Quat(osg::PI_2, osg::Vec3(0, 0, 1)) * orientation;
-        }
-        else if (leftPointer && mLayerName == "VirtualKeyboard")
-        {
-            orientation = osg::Quat(osg::PI_2, osg::Vec3(0, 0, -1)) * orientation;
+            // Tilt the keyboard slightly for easier typing.
+            orientation = osg::Quat(osg::PI_4 / 2.f, osg::Vec3(-1, 0, 0)) * orientation;
+            mTrackedPose.position += mTrackedPose.orientation * osg::Vec3(0, 15, -12);
         }
 
         // Orient the offset and move the layer
@@ -467,7 +488,7 @@ namespace MWVR
         return LayerConfig{
             priority,
             false, // side-by-side
-            background ? osg::Vec4{0.f,0.f,0.f,.75f} : osg::Vec4{}, // background
+            background ? 0.75f : 0.f, // background
             osg::Vec3(0.f,0.66f,-.25f), // offset
             osg::Vec2(0.f,0.f), // center (model space)
             osg::Vec2(1.f, 1.f), // extent (meters)
@@ -475,7 +496,7 @@ namespace MWVR
             osg::Vec2i(2048,2048), // Texture resolution
             osg::Vec2(1,1),
             sizingMode,
-            "/ui/stationary/menu_quad/pose",
+            "/ui/menu_quad/pose",
             extraLayers
         };
     }
@@ -491,23 +512,6 @@ namespace MWVR
         config.extent = radiusAngleWidth(sSideBySideRadius, sSideBySideAzimuthInterval);
         config.myGUIViewSize = osg::Vec2(0.70f, 0.70f);
         return config;
-    }
-
-    static osg::Vec3 gHandHudOffsetTop = osg::Vec3(-0.200f, -.05f, .066f);
-    static osg::Vec3 gHandHudOffsetWrist = osg::Vec3(-0.200f, -.090f, -.033f);
-
-    void VRGUIManager::setGeometryRoot(osg::Group* root)
-    {
-        mGeometriesRootNode->removeChild(mGeometries);
-        mGeometriesRootNode = root;
-        mGeometriesRootNode->addChild(mGeometries);
-    }
-
-    void VRGUIManager::setCameraRoot(osg::Group* root)
-    {
-        mGUICamerasRootNode->removeChild(mGUICameras);
-        mGUICamerasRootNode = root;
-        mGUICamerasRootNode->addChild(mGUICameras);
     }
 
     VRGUIManager* sManager = nullptr;
@@ -536,13 +540,10 @@ namespace MWVR
     };
 
     VRGUIManager::VRGUIManager(
-        osg::ref_ptr<osgViewer::Viewer> viewer,
         Resource::ResourceSystem* resourceSystem,
         osg::Group* rootNode)
-        : mOsgViewer(viewer)
-        , mResourceSystem(resourceSystem)
-        , mGeometriesRootNode(rootNode)
-        , mGUICamerasRootNode(rootNode)
+        : mResourceSystem(resourceSystem)
+        , mRootNode(rootNode)
         , mUiTracking(new VRGUITracking())
     {
         if (!sManager)
@@ -550,11 +551,13 @@ namespace MWVR
         else
             throw std::logic_error("Duplicated MWVR::VRGUIManager singleton");
 
+        Paths::init();
+
         mGeometries->setName("VR GUI Geometry Root");
         mGeometries->setCullCallback(new LayerUpdateCallback(this));
         mGeometries->setNodeMask(MWRender::VisMask::Mask_3DGUI);
         mGeometries->setCullingActive(false);
-        mGeometriesRootNode->addChild(mGeometries);
+        mRootNode->addChild(mGeometries);
 
         auto stateSet = mGeometries->getOrCreateStateSet();
         stateSet->setMode(GL_BLEND, osg::StateAttribute::ON);
@@ -576,7 +579,19 @@ namespace MWVR
 
         mGUICameras->setName("VR GUI Cameras Root");
         mGUICameras->setNodeMask(MWRender::VisMask::Mask_3DGUI);
-        mGUICamerasRootNode->addChild(mGUICameras);
+        mRootNode->addChild(mGUICameras);
+
+        configure();
+    }
+
+    VRGUIManager::~VRGUIManager(void)
+    {
+        sManager = nullptr;
+    }
+
+    void VRGUIManager::configure()
+    {
+        clear();
 
         LayerConfig defaultConfig = createDefaultConfig(1);
         LayerConfig loadingScreenConfig = createDefaultConfig(1, true, SizingMode::Fixed, "LoadingScreenBackground");
@@ -596,75 +611,111 @@ namespace MWVR
         LayerConfig inventoryCompanionWindowConfig = createSideBySideConfig(4);
         LayerConfig dialogueWindowConfig = createSideBySideConfig(5);
 
-        osg::Vec3 handHudOffset = gHandHudOffsetWrist;
+        auto positionSettingToPath = [](const std::string& setting) -> std::string {
+            if (Misc::StringUtils::ciEqual(setting, "left wrist inner"))
+            {
+                return Paths::sWristInnerLeftStr;
+            }
+            if (Misc::StringUtils::ciEqual(setting, "right wrist inner"))
+            {
+                return Paths::sWristInnerRightStr;
+            }
+            if (Misc::StringUtils::ciEqual(setting, "left wrist top"))
+            {
+                return Paths::sWristTopLeftStr;
+            }
+            if (Misc::StringUtils::ciEqual(setting, "right wrist top"))
+            {
+                return Paths::sWristTopRightStr;
+            }
+            if (Misc::StringUtils::ciEqual(setting, "top left"))
+            {
+                return Paths::sHUDTopLeftStr;
+            }
+            if (Misc::StringUtils::ciEqual(setting, "top right"))
+            {
+                return Paths::sHUDTopRightStr;
+            }
+            if (Misc::StringUtils::ciEqual(setting, "bottom left"))
+            {
+                return Paths::sHUDBottomLeftStr;
+            }
+            if (Misc::StringUtils::ciEqual(setting, "bottom right"))
+            {
+                return Paths::sHUDBottomRightStr;
+            }
 
-        std::string handHudSetting = Settings::Manager::getString("left hand hud position", "VR");
-        if (Misc::StringUtils::ciEqual(handHudSetting, "top"))
-            handHudOffset = gHandHudOffsetTop;
+            return Paths::sHUDTopLeftStr;
+        };
 
-        bool leftPointer = Settings::Manager::getBool("left handed mode", "VR");
-        std::string leftAim = "/world/user/hand/left/input/aim/pose";
-        std::string rightAim = "/world/user/hand/right/input/aim/pose";
+        osg::Vec3 hudOffset = osg::Vec3(
+            Settings::Manager::getFloat("hud offset x", "VR"),
+            Settings::Manager::getFloat("hud offset y", "VR"),
+            Settings::Manager::getFloat("hud offset z", "VR")
+        ) - osg::Vec3(0.5, 0.5, 0.5);
 
-        // For some reason flipping to the right hand requires a different offset
-        osg::Vec3 vkeyboardOffset = handHudOffset +
-            (leftPointer ? osg::Vec3(0.4, 0.0001, 0) : osg::Vec3(0, 0.0001, 0));
+        osg::Vec3 tooltipOffset = osg::Vec3(
+            Settings::Manager::getFloat("tooltip offset x", "VR"),
+            Settings::Manager::getFloat("tooltip offset y", "VR"),
+            Settings::Manager::getFloat("tooltip offset z", "VR")
+        ) - osg::Vec3(0.5, 0.5, 0.5);
 
-        std::string pointer = leftPointer ? leftAim : rightAim;
-        std::string oppositePointer = leftPointer ? rightAim : leftAim;
+        std::string hudPath = positionSettingToPath(Settings::Manager::getString("hud position", "VR"));
+        std::string tooltipPath = positionSettingToPath(Settings::Manager::getString("tooltip position", "VR"));
 
         LayerConfig virtualKeyboardConfig = LayerConfig{
             10,
             false,
-            osg::Vec4{0.f,0.f,0.f,.75f},
-            vkeyboardOffset, // offset (meters)
+            .75f,
+            osg::Vec3(0,0,0), // offset (meters)
             osg::Vec2(0.f,0.5f), // center (model space)
             osg::Vec2(.25f, .25f), // extent (meters)
-            2048, // Spatial resolution (pixels per meter)
-            osg::Vec2i(2048,2048), // Texture resolution
+            1536, // Spatial resolution (pixels per meter)
+            osg::Vec2i(1024,1024), // Texture resolution
             osg::Vec2(1,1),
             SizingMode::Auto,
-            oppositePointer,
+            "/ui/HUD/message",
             ""
         };
+
         LayerConfig HUDConfig = LayerConfig
         {
             0,
             false, // side-by-side
-            osg::Vec4{}, // background
-            handHudOffset, // offset (meters)
+            0.f, // background
+            hudOffset,
+            //osg::Vec3(0,0,0), // offset (meters)
             osg::Vec2(0.f,0.5f), // center (model space)
-            osg::Vec2(.1f, .1f), // extent (meters)
+            osg::Vec2(.033f, .033f), // extent (meters)
             1024, // resolution (pixels per meter)
             osg::Vec2i(1024,1024),
             defaultConfig.myGUIViewSize,
             SizingMode::Auto,
-            // TODO: Place on opposite side of the main weapon hand in correct orientation
-            leftAim,
+            hudPath,
             ""
         };
 
-        LayerConfig popupConfig = LayerConfig
+        LayerConfig tooltipConfig = LayerConfig
         {
             0,
             false, // side-by-side
-            osg::Vec4{0.f,0.f,0.f,0.f}, // background
-            osg::Vec3(-0.025f,-.200f,.066f), // offset (meters)
+            0.f, // background
+            tooltipOffset,
             osg::Vec2(0.f,0.5f), // center (model space)
-            osg::Vec2(.1f, .1f), // extent (meters)
+            osg::Vec2(.33f, .33f), // extent (meters)
             1024, // resolution (pixels per meter)
-            osg::Vec2i(2048,2048),
+            osg::Vec2i(1024,1024),
             defaultConfig.myGUIViewSize,
             SizingMode::Auto,
-            pointer,
+            tooltipPath,
             ""
         };
 
-        mLayerConfigs = std::map<std::string, LayerConfig>
+        mLayerConfigs =
         {
             {"DefaultConfig", defaultConfig},
             {"HUD", HUDConfig},
-            {"Tooltip", popupConfig},
+            {"Tooltip", tooltipConfig},
             {"JournalBooks", journalBooksConfig},
             {"InventoryCompanionWindow", inventoryCompanionWindowConfig},
             {"InventoryWindow", inventoryWindowConfig},
@@ -685,9 +736,13 @@ namespace MWVR
         };
     }
 
-    VRGUIManager::~VRGUIManager(void)
+    void VRGUIManager::clear()
     {
-        sManager = nullptr;
+        mGeometries->removeChildren(0, mGeometries->getNumChildren());
+        mGUICameras->removeChildren(0, mGUICameras->getNumChildren());
+        setFocusLayer(nullptr);
+        mLayers.clear();
+        mSideBySideLayers.clear();
     }
 
     static std::set<std::string> layerBlacklist =
@@ -874,30 +929,6 @@ namespace MWVR
             setFocusLayer(nullptr);
             computeGuiCursor(osg::Vec3(0, 0, 0));
         }
-
-        // TODO
-        //if (!mUserPointer)
-        //    return false;
-
-        //if (mUserPointer->getPointerRay().mHit)
-        //{
-        //    osg::ref_ptr<VRGUILayer> newFocusLayer = nullptr;
-        //    auto* node = mUserPointer->getPointerRay().mHitNode;
-
-        //    if (node && node->getName() == "VRGUILayer")
-        //    {
-        //        VRGUILayerUserData* userData = static_cast<VRGUILayerUserData*>(node->getUserData());
-        //        newFocusLayer = userData->mLayer;
-        //    }
-
-        //    if (newFocusLayer && newFocusLayer->mLayerName != "Notification")
-        //    {
-        //        setFocusLayer(newFocusLayer);
-        //        computeGuiCursor(mUserPointer->getPointerRay().mHitPointLocal);
-        //        return true;
-        //    }
-        //}
-        //return false;
     }
 
     bool VRGUIManager::hasFocus() const
@@ -971,20 +1002,31 @@ namespace MWVR
 
     void VRGUIManager::processChangedSettings(const std::set<std::pair<std::string, std::string>>& changed)
     {
+        bool needsToReconfigure = false;
+
         for (Settings::CategorySettingVector::const_iterator it = changed.begin(); it != changed.end(); ++it)
         {
-            if (it->first == "VR" && it->second == "left hand hud position")
-            {
-                std::string handHudSetting = Settings::Manager::getString("left hand hud position", "VR");
-                if (Misc::StringUtils::ciEqual(handHudSetting, "top"))
-                    mLayerConfigs["StatusHUD"].offset = gHandHudOffsetTop;
-                else
-                    mLayerConfigs["StatusHUD"].offset = gHandHudOffsetWrist;
-                mLayerConfigs["VirtualKeyboard"].offset = mLayerConfigs["StatusHUD"].offset + osg::Vec3(0, 0.0001, 0);
+            if (it->first == "VR" && it->second.find(std::string("hud")) != std::string::npos)
+                needsToReconfigure = true;
+            if (it->first == "VR" && it->second.find(std::string("tooltip")) != std::string::npos)
+                needsToReconfigure = true;
+        }
 
-                configUpdated("StatusHUD");
-                configUpdated("VirtualKeyboard");
+        if (needsToReconfigure)
+        {
+            // Make a back up list of visible widgets
+            std::vector<MWGui::Layout*> widgets;
+            for (auto layer : mLayers)
+            {
+                widgets.insert(widgets.end(), layer.second->mWidgets.begin(), layer.second->mWidgets.end());
+                layer.second->removeFromSceneGraph();
             }
+
+            configure();
+
+            // Re-populate layers
+            for (auto widget : widgets)
+                setVisible(widget, true);
         }
     }
 
@@ -1090,12 +1132,6 @@ namespace MWVR
     VRGUITracking::VRGUITracking()
         : VR::TrackingSource(VR::stringToVRPath("/ui"))
     {
-        mHeadPath = VR::stringToVRPath("/world/user/head/input/pose");
-        mStationaryPath = VR::stringToVRPath("/ui/stationary/menu_quad/pose");
-        //stringToVRPath("/ui/anchors/wrist_hud/left/pose");
-        //stringToVRPath("/ui/anchors/wrist_hud/right/pose");
-        //stringToVRPath("/ui/anchors/hand_top/left/pose");
-        //stringToVRPath("/ui/anchors/hand_top/right/pose");
     }
 
     VRGUITracking::~VRGUITracking()
@@ -1106,8 +1142,27 @@ namespace MWVR
     {
         updateTracking(predictedDisplayTime);
 
-        if (path == mStationaryPath)
+        if (path == Paths::sMenuQuad)
             return mStationaryPose;
+        if (path == Paths::sHUDTopLeft)
+            return mHUDTopLeftPose;
+        if (path == Paths::sHUDTopRight)
+            return mHUDTopRightPose;
+        if (path == Paths::sHUDBottomLeft)
+            return mHUDBottomLeftPose;
+        if (path == Paths::sHUDBottomRight)
+            return mHUDBottomRightPose;
+        if (path == Paths::sHUDMessage)
+            return mHUDMessagePose;
+        if (path == Paths::sWristInnerLeft)
+            return mWristInnerLeftPose;
+        if (path == Paths::sWristInnerRight)
+            return mWristInnerRightPose;
+        if (path == Paths::sWristTopLeft)
+            return mWristTopLeftPose;
+        if (path == Paths::sWristTopRight)
+            return mWristTopRightPose;
+
 
         Log(Debug::Error) << "Tried to locate invalid path " << path << ". This is a developer error. Please locate using TrackingManager::locate() only.";
         throw std::logic_error("Invalid Argument");
@@ -1115,28 +1170,88 @@ namespace MWVR
 
     std::vector<VR::VRPath> VRGUITracking::listSupportedPaths() const
     {
-        return { mStationaryPath };
+        return { 
+            Paths::sMenuQuad,
+            Paths::sHUDTopLeft,
+            Paths::sHUDTopRight,
+            Paths::sHUDBottomLeft,
+            Paths::sHUDBottomRight,
+            Paths::sHUDMessage,
+            Paths::sWristInnerLeft,
+            Paths::sWristInnerRight,
+            Paths::sWristTopLeft,
+            Paths::sWristTopRight
+        };
     }
 
     void VRGUITracking::updateTracking(VR::DisplayTime predictedDisplayTime)
     {
-        if (mShouldUpdateStationaryPose)
+        if (predictedDisplayTime == mLastTime)
+            return;
+
+        VR::VRPath leftWrist = VR::stringToVRPath("/world/user/hand/left/input/aim/pose");
+        VR::VRPath rightWrist = VR::stringToVRPath("/world/user/hand/right/input/aim/pose");
+        VR::VRPath headPath = VR::stringToVRPath("/world/user/head/input/pose");
+        auto tp = VR::TrackingManager::instance().locate(headPath, predictedDisplayTime);
+        if (!!tp.status)
         {
-            // All dependent sources were updated before this
-            auto tp = VR::TrackingManager::instance().locate(mHeadPath, predictedDisplayTime);
-            if (!!tp.status)
+            mHUDTopLeftPose = tp;
+            mHUDTopLeftPose.pose.position += mHUDTopLeftPose.pose.orientation * osg::Vec3f(-12, 30, 6);
+
+            mHUDTopRightPose = tp;
+            mHUDTopRightPose.pose.position += mHUDTopRightPose.pose.orientation * osg::Vec3f(12, 30, 6);
+
+            mHUDBottomLeftPose = tp;
+            mHUDBottomLeftPose.pose.position += mHUDBottomLeftPose.pose.orientation * osg::Vec3f(-12, 30, -18);
+
+            mHUDBottomRightPose = tp;
+            mHUDBottomRightPose.pose.position += mHUDBottomRightPose.pose.orientation * osg::Vec3f(12, 30, -18);
+
+            mHUDMessagePose = tp;
+            mHUDMessagePose.pose.position += mHUDMessagePose.pose.orientation * osg::Vec3f(0, 30, -3);
+
+
+            // UI elements should always be vertical
+            auto axis = osg::Z_AXIS;
+            osg::Quat vertical;
+            auto local = tp.pose.orientation * axis;
+            vertical.makeRotate(local, axis);
+            tp.pose.orientation = tp.pose.orientation * vertical;
+
+            if (mShouldUpdateStationaryPose)
             {
                 mShouldUpdateStationaryPose = false;
                 mStationaryPose = tp;
-
-                // Stationary UI elements should always be vertical
-                auto axis = osg::Z_AXIS;
-                osg::Quat vertical;
-                auto local = mStationaryPose.pose.orientation * axis;
-                vertical.makeRotate(local, axis);
-                mStationaryPose.pose.orientation = mStationaryPose.pose.orientation * vertical;
             }
         }
+
+
+        //if (mTrackingPath == Paths::sLeftWrist)
+        //    orientation = osg::Quat(osg::PI_2, osg::Vec3(0, 0, 1)) * orientation;
+        //if (mTrackingPath == Paths::sRightWrist)
+        //    orientation = osg::Quat(-osg::PI_2, osg::Vec3(0, 0, 1)) * orientation;
+
+        tp = VR::TrackingManager::instance().locate(leftWrist, predictedDisplayTime);
+        if (!!tp.status)
+        {
+            mWristInnerLeftPose = tp;
+            mWristInnerLeftPose.pose.position += mWristInnerLeftPose.pose.orientation * osg::Vec3(.09f, -0.200f, -.033f) * Constants::UnitsPerMeter;
+            mWristInnerLeftPose.pose.orientation = osg::Quat(osg::PI_2, osg::Vec3(0, 0, 1)) * mWristInnerLeftPose.pose.orientation;
+            mWristTopLeftPose = tp;
+            mWristTopLeftPose.pose.position += mWristTopLeftPose.pose.orientation * osg::Vec3(.0f, -0.200f, .066f) * Constants::UnitsPerMeter;
+        }
+
+        tp = VR::TrackingManager::instance().locate(rightWrist, predictedDisplayTime);
+        if (!!tp.status)
+        {
+            mWristInnerRightPose = tp;
+            mWristInnerRightPose.pose.position += mWristInnerRightPose.pose.orientation * osg::Vec3(-.09f, -0.200f, -.033f) * Constants::UnitsPerMeter;
+            mWristInnerRightPose.pose.orientation = osg::Quat(-osg::PI_2, osg::Vec3(0, 0, 1)) * mWristInnerRightPose.pose.orientation;
+            mWristTopRightPose = tp;
+            mWristTopRightPose.pose.position += mWristTopRightPose.pose.orientation * osg::Vec3(.0f, -0.200f, .066f) * Constants::UnitsPerMeter;
+        }
+
+        mLastTime = predictedDisplayTime;
     }
 
     void VRGUITracking::resetStationaryPose()

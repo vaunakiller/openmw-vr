@@ -52,7 +52,7 @@ namespace MWVR
     {
         int priority; //!< Higher priority shows over lower priority windows by moving higher priority layers slightly closer to the player.
         bool sideBySide; //!< All layers with this config will show up side by side in a partial circle around the player, and will all be resized to a predefined size.
-        osg::Vec4 backgroundColor; //!< Background color of layer
+        float opacity; //!< Background color of layer
         osg::Vec3 offset; //!< Offset from tracked node in meters
         osg::Vec2 center; //!< Model space centerpoint of menu geometry. All menu geometries have model space lengths of 1 in each dimension. Use this to affect how geometries grow with changing size.
         osg::Vec2 extent; //!< Spatial extent of the layer in meters when using Fixed sizing mode
@@ -66,8 +66,8 @@ namespace MWVR
         bool operator<(const LayerConfig& rhs) const { return priority < rhs.priority; }
     };
 
-    //! Extends the tracking source with /ui/input/stationary/pose
-    //! \note reference space will be ignored when reading /ui/input/stationary/pose
+    //! TODO: Update description
+    //! Old description: Extends the tracking source with /ui/input/stationary/pose
     class VRGUITracking : public VR::TrackingSource
     {
     public:
@@ -82,11 +82,20 @@ namespace MWVR
         virtual VR::TrackingPose locate(VR::VRPath path, VR::DisplayTime predictedDisplayTime) override;
 
     private:
-        VR::VRPath mStationaryPath = 0;
-        VR::VRPath mHeadPath = 0;
         VR::TrackingPose mStationaryPose = VR::TrackingPose();
+        VR::TrackingPose mHUDTopLeftPose = VR::TrackingPose();
+        VR::TrackingPose mHUDTopRightPose = VR::TrackingPose();
+        VR::TrackingPose mHUDBottomLeftPose = VR::TrackingPose();
+        VR::TrackingPose mHUDBottomRightPose = VR::TrackingPose();
+        VR::TrackingPose mHUDMessagePose = VR::TrackingPose();
+        VR::TrackingPose mWristInnerLeftPose = VR::TrackingPose();
+        VR::TrackingPose mWristInnerRightPose = VR::TrackingPose();
+        VR::TrackingPose mWristTopLeftPose = VR::TrackingPose();
+        VR::TrackingPose mWristTopRightPose = VR::TrackingPose();
 
         bool mShouldUpdateStationaryPose = true;
+
+        VR::DisplayTime mLastTime = 0;
     };
 
     /// \brief A single VR GUI Quad.
@@ -156,11 +165,14 @@ namespace MWVR
         static VRGUIManager& instance();
 
         VRGUIManager(
-            osg::ref_ptr<osgViewer::Viewer> viewer,
             Resource::ResourceSystem* resourceSystem,
             osg::Group* rootNode);
 
         ~VRGUIManager(void);
+
+        void configure();
+
+        void clear();
 
         /// Set visibility of the layer this layout is on
         void setVisible(MWGui::Layout*, bool visible);
@@ -196,9 +208,6 @@ namespace MWVR
 
         static void setPick(MWGui::Layout* widget, bool pick);
 
-        void setGeometryRoot(osg::Group* root);
-        void setCameraRoot(osg::Group* root);
-
     private:
         void insertLayer(const std::string& name);
         // Not used: void removeLayer(const std::string& name);
@@ -213,9 +222,8 @@ namespace MWVR
         osg::ref_ptr<osgViewer::Viewer> mOsgViewer;
         Resource::ResourceSystem* mResourceSystem;
 
-        osg::ref_ptr<osg::Group> mGeometriesRootNode = nullptr;
+        osg::ref_ptr<osg::Group> mRootNode = nullptr;
         osg::ref_ptr<osg::Group> mGeometries = new osg::Group;
-        osg::ref_ptr<osg::Group> mGUICamerasRootNode = nullptr;
         osg::ref_ptr<osg::Group> mGUICameras = new osg::Group;
 
         std::unique_ptr<VRGUITracking> mUiTracking = nullptr;

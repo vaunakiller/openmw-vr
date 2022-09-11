@@ -27,7 +27,8 @@ namespace MWGui
             MyGUI::Button* mOkButton;
 
             // VR
-            MyGUI::ComboBox* mVRLeftHudPosition;
+            MyGUI::ComboBox* mVRHudPosition;
+            MyGUI::ComboBox* mVRTooltipPosition;
             MyGUI::ComboBox* mVRMirrorTextureEye;
             MyGUI::ComboBox* mVRSnapAngle;
             MyGUI::Button*   mVRHeightCalibButton;
@@ -75,7 +76,8 @@ namespace MWGui
             void highlightCurrentResolution();
 
             void onVRMirrorTextureEyeChanged(MyGUI::ComboBox* _sender, size_t pos);
-            void onVRLeftHudPositionChanged(MyGUI::ComboBox* _sender, size_t pos);
+            void onVRHudPositionChanged(MyGUI::ComboBox* _sender, size_t pos);
+            void onVRTooltipPositionChanged(MyGUI::ComboBox* _sender, size_t pos);
             void onVRSnapAngleChanged(MyGUI::ComboBox* _sender, size_t pos);
             void onVRHeightCalibButtonClicked(MyGUI::Widget* _sender);
 

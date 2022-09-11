@@ -815,15 +815,132 @@
                     </Widget>
                 </Widget>
                 <Widget type="HBox" skin="" position="4 322 350 24">
-                    <Widget type="ComboBox" skin="MW_ComboBox" position="0 0 85 24" align="Left Top" name="VRLeftHudPosition">
-                        <Property key="AddItem" value="Wrist"/>
-                        <Property key="AddItem" value="Top"/>
+                    <Widget type="ComboBox" skin="MW_ComboBox" position="0 0 150 24" align="Left Top" name="VRHudPosition">
+                        <Property key="AddItem" value="Left Wrist Inner"/>
+                        <Property key="AddItem" value="Right Wrist Inner"/>
+                        <Property key="AddItem" value="Left Wrist Top"/>
+                        <Property key="AddItem" value="Right Wrist Top"/>
+                        <Property key="AddItem" value="Top Left"/>
+                        <Property key="AddItem" value="Top Right"/>
+                        <Property key="AddItem" value="Bottom Left"/>
+                        <Property key="AddItem" value="Bottom Right"/>
                     </Widget>
                     <Widget type="AutoSizedTextBox" skin="SandText" position="64 4 90 16" align="Left Top">
-                        <Property key="Caption" value="Left Hand Hud Position"/>
+                        <Property key="Caption" value="Hud Position"/>
                     </Widget>
                 </Widget>
-                <Widget type="AutoSizedButton" skin="MW_Button" position="4 352 56 24" align="Left Top" name="VRHeighCalib">
+                <Widget type="TextBox" skin="NormalText" position="4 352 352 18" align="Left Top">
+                    <Property key="Caption" value="HUD offset"/>
+                </Widget>
+                <Widget type="HBox" skin="" position="32 382 900 24">
+                    <Widget type="TextBox" skin="NormalText" position="0 0 64 13" name="HudOffsetX">
+                        <Property key="Caption" value=""/>
+                    </Widget>
+                    <Widget type="ScrollBar" skin="MW_HScroll" position="64 0 256 13" name="HudOffsetXSlider">
+                        <Property key="Range" value="100"/>
+                        <Property key="Page" value="1"/>
+                        <UserString key="SettingType" value="Slider"/>
+                        <UserString key="SettingCategory" value="VR"/>
+                        <UserString key="SettingName" value="hud offset x"/>
+                        <UserString key="SettingValueType" value="Float"/>
+                        <UserString key="SettingLabelWidget" value="HudOffsetX"/>
+                        <UserString key="SettingLabelCaption" value="x (%s)"/>
+                    </Widget>
+                </Widget>
+                <Widget type="HBox" skin="" position="32 412 900 24">
+                    <Widget type="TextBox" skin="NormalText" position="0 0 64 13" name="HudOffsetY">
+                        <Property key="Caption" value=""/>
+                    </Widget>
+                    <Widget type="ScrollBar" skin="MW_HScroll" position="64 0 256 13" name="HudOffsetYSlider">
+                        <Property key="Range" value="100"/>
+                        <Property key="Page" value="1"/>
+                        <UserString key="SettingType" value="Slider"/>
+                        <UserString key="SettingCategory" value="VR"/>
+                        <UserString key="SettingName" value="hud offset y"/>
+                        <UserString key="SettingValueType" value="Float"/>
+                        <UserString key="SettingLabelWidget" value="HudOffsetY"/>
+                        <UserString key="SettingLabelCaption" value="y (%s)"/>
+                    </Widget>
+                </Widget>
+                <Widget type="HBox" skin="" position="32 442 900 24">
+                    <Widget type="TextBox" skin="NormalText" position="0 0 64 13" name="HudOffsetZ">
+                        <Property key="Caption" value=""/>
+                    </Widget>
+                    <Widget type="ScrollBar" skin="MW_HScroll" position="64 0 256 13" name="HudOffsetZSlider">
+                        <Property key="Range" value="100"/>
+                        <Property key="Page" value="1"/>
+                        <UserString key="SettingType" value="Slider"/>
+                        <UserString key="SettingCategory" value="VR"/>
+                        <UserString key="SettingName" value="hud offset z"/>
+                        <UserString key="SettingValueType" value="Float"/>
+                        <UserString key="SettingLabelWidget" value="HudOffsetZ"/>
+                        <UserString key="SettingLabelCaption" value="z (%s)"/>
+                    </Widget>
+                </Widget>
+                <Widget type="HBox" skin="" position="4 482 350 24">
+                    <Widget type="ComboBox" skin="MW_ComboBox" position="0 0 150 24" align="Left Top" name="VRTooltipPosition">
+                        <Property key="AddItem" value="Left Wrist Inner"/>
+                        <Property key="AddItem" value="Right Wrist Inner"/>
+                        <Property key="AddItem" value="Left Wrist Top"/>
+                        <Property key="AddItem" value="Right Wrist Top"/>
+                        <Property key="AddItem" value="Top Left"/>
+                        <Property key="AddItem" value="Top Right"/>
+                        <Property key="AddItem" value="Bottom Left"/>
+                        <Property key="AddItem" value="Bottom Right"/>
+                    </Widget>
+                    <Widget type="AutoSizedTextBox" skin="SandText" position="64 4 90 16" align="Left Top">
+                        <Property key="Caption" value="Tooltip Position"/>
+                    </Widget>
+                </Widget>
+                <Widget type="TextBox" skin="NormalText" position="4 512 352 18" align="Left Top">
+                    <Property key="Caption" value="Tooltip offset"/>
+                </Widget>
+                <Widget type="HBox" skin="" position="32 542 900 24">
+                    <Widget type="TextBox" skin="NormalText" position="0 0 64 13" name="TooltipOffsetX">
+                        <Property key="Caption" value=""/>
+                    </Widget>
+                    <Widget type="ScrollBar" skin="MW_HScroll" position="64 0 256 13" name="TooltipOffsetXSlider">
+                        <Property key="Range" value="100"/>
+                        <Property key="Page" value="1"/>
+                        <UserString key="SettingType" value="Slider"/>
+                        <UserString key="SettingCategory" value="VR"/>
+                        <UserString key="SettingName" value="tooltip offset x"/>
+                        <UserString key="SettingValueType" value="Float"/>
+                        <UserString key="SettingLabelWidget" value="TooltipOffsetX"/>
+                        <UserString key="SettingLabelCaption" value="x (%s)"/>
+                    </Widget>
+                </Widget>
+                <Widget type="HBox" skin="" position="32 572 900 24">
+                    <Widget type="TextBox" skin="NormalText" position="0 0 64 13" name="TooltipOffsetY">
+                        <Property key="Caption" value=""/>
+                    </Widget>
+                    <Widget type="ScrollBar" skin="MW_HScroll" position="64 0 256 13" name="TooltipOffsetYSlider">
+                        <Property key="Range" value="100"/>
+                        <Property key="Page" value="1"/>
+                        <UserString key="SettingType" value="Slider"/>
+                        <UserString key="SettingCategory" value="VR"/>
+                        <UserString key="SettingName" value="tooltip offset y"/>
+                        <UserString key="SettingValueType" value="Float"/>
+                        <UserString key="SettingLabelWidget" value="TooltipOffsetY"/>
+                        <UserString key="SettingLabelCaption" value="y (%s)"/>
+                    </Widget>
+                </Widget>
+                <Widget type="HBox" skin="" position="32 602 900 24">
+                    <Widget type="TextBox" skin="NormalText" position="0 0 64 13" name="TooltipOffsetZ">
+                        <Property key="Caption" value=""/>
+                    </Widget>
+                    <Widget type="ScrollBar" skin="MW_HScroll" position="64 0 256 13" name="TooltipOffsetZSlider">
+                        <Property key="Range" value="100"/>
+                        <Property key="Page" value="1"/>
+                        <UserString key="SettingType" value="Slider"/>
+                        <UserString key="SettingCategory" value="VR"/>
+                        <UserString key="SettingName" value="tooltip offset z"/>
+                        <UserString key="SettingValueType" value="Float"/>
+                        <UserString key="SettingLabelWidget" value="TooltipOffsetZ"/>
+                        <UserString key="SettingLabelCaption" value="z (%s)"/>
+                    </Widget>
+                </Widget>
+                <Widget type="AutoSizedButton" skin="MW_Button" position="4 642 56 24" align="Left Top" name="VRHeighCalib">
                     <Property key="ExpandDirection" value="Right"/>
                     <Property key="Caption" value="Calibrate Height"/>
                 </Widget>

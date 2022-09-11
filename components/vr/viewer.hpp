@@ -82,6 +82,7 @@ namespace VR
 
         osg::Transform* getTrackingNode(const std::string& path);
         osg::Transform* getTrackingNode(VR::VRPath path);
+        osg::Group* getTrackersRoot() { return  mTrackersRoot.get(); }
 
     private:
         osg::ref_ptr<osg::FrameBufferObject> getXrFramebuffer(uint32_t view, osg::State* state);

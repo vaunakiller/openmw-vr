@@ -1050,7 +1050,11 @@ namespace MWRender
                         node->addUpdateCallback(callback);
                     mActiveControllers.emplace_back(node, callback);
 
-                    if (blendMask == 0 && node == mAccumRoot)
+                    if (blendMask == 0 && node == mAccumRoot
+#ifdef USE_OPENXR
+                        && !(isPlayer && VR::getRightControllerActive())
+#endif
+                        )
                     {
                         mAccumCtrl = it->second;
 

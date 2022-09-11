@@ -55,7 +55,6 @@ namespace VR
     {
         setSeatedPlay(Settings::Manager::getBool("seated play", "VR"));
         mHandDirectedMovement = Settings::Manager::getBool("hand directed movement", "VR");
-        computePlayerScale();
     }
 
     VR::Frame Session::newFrame()

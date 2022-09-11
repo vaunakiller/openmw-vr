@@ -58,7 +58,7 @@ namespace MWVR
     void VRInputManager::updateVRPointer(bool disableControls)
     {
         auto source = mHeadWorldPath;
-        if(VR::getLeftControllerActive() || VR::getRightControllerActive())
+        if(!disableControls && (VR::getLeftControllerActive() || VR::getRightControllerActive()))
         {
             bool guiMode = MWBase::Environment::get().getWindowManager()->isGuiMode();
             MWBase::Environment::get().getWorld()->enableVRPointer((guiMode || mPointerLeft) && VR::getLeftControllerActive(), (guiMode || mPointerRight) && VR::getRightControllerActive());

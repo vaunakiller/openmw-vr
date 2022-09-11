@@ -242,11 +242,11 @@ namespace MWGui
     }
 
     SettingsWindow::SettingsWindow() :
-#ifdef USE_OPENXR
+//#ifdef USE_OPENXR
         WindowBase("openmw_settings_window_vr.layout")
-#else
-        WindowBase("openmw_settings_window.layout")
-#endif
+//#else
+        //WindowBase("openmw_settings_window.layout")
+//#endif
         , mKeyboardMode(true)
         , mCurrentPage(-1)
     {
@@ -285,10 +285,13 @@ namespace MWGui
         getWidget(mScriptAdapter, "ScriptAdapter");
         getWidget(mScriptDisabled, "ScriptDisabled");
 
+        //MWGui::ScrollWindow;
+
         if (VR::getVR())
         {
             getWidget(mVRMirrorTextureEye, "VRMirrorTextureEye");
-            getWidget(mVRLeftHudPosition, "VRLeftHudPosition");
+            getWidget(mVRHudPosition, "VRHudPosition");
+            getWidget(mVRTooltipPosition, "VRTooltipPosition");
             getWidget(mVRSnapAngle, "VRSnapAngle");
             getWidget(mVRHeightCalibButton, "VRHeighCalib");
         }
@@ -333,7 +336,8 @@ namespace MWGui
         if (VR::getVR())
         {
             mVRMirrorTextureEye->eventComboChangePosition += MyGUI::newDelegate(this, &SettingsWindow::onVRMirrorTextureEyeChanged);
-            mVRLeftHudPosition->eventComboChangePosition += MyGUI::newDelegate(this, &SettingsWindow::onVRLeftHudPositionChanged);
+            mVRHudPosition->eventComboChangePosition += MyGUI::newDelegate(this, &SettingsWindow::onVRHudPositionChanged);
+            mVRTooltipPosition->eventComboChangePosition += MyGUI::newDelegate(this, &SettingsWindow::onVRTooltipPositionChanged);
             mVRSnapAngle->eventComboChangePosition += MyGUI::newDelegate(this, &SettingsWindow::onVRSnapAngleChanged);
             mVRHeightCalibButton->eventMouseButtonClick += MyGUI::newDelegate(this, &SettingsWindow::onVRHeightCalibButtonClicked);
         }
@@ -377,10 +381,15 @@ namespace MWGui
                 if (Misc::StringUtils::ciEqual<std::string, std::string>(mirrorTextureEye, mVRMirrorTextureEye->getItemNameAt(i)))
                     mVRMirrorTextureEye->setIndexSelected(i);
 
-            std::string leftHandHudPosition = Settings::Manager::getString("left hand hud position", "VR");
-            for (unsigned i = 0; i < mVRLeftHudPosition->getItemCount(); i++)
-                if (Misc::StringUtils::ciEqual<std::string, std::string>(leftHandHudPosition, mVRLeftHudPosition->getItemNameAt(i)))
-                    mVRLeftHudPosition->setIndexSelected(i);
+            std::string hudPosition = Settings::Manager::getString("hud position", "VR");
+            for (unsigned i = 0; i < mVRHudPosition->getItemCount(); i++)
+                if (Misc::StringUtils::ciEqual<std::string, std::string>(hudPosition, mVRHudPosition->getItemNameAt(i)))
+                    mVRHudPosition->setIndexSelected(i);
+
+            std::string tooltipPosition = Settings::Manager::getString("tooltip position", "VR");
+            for (unsigned i = 0; i < mVRTooltipPosition->getItemCount(); i++)
+                if (Misc::StringUtils::ciEqual<std::string, std::string>(tooltipPosition, mVRHudPosition->getItemNameAt(i)))
+                    mVRTooltipPosition->setIndexSelected(i);
 
             std::string snapAngle = Settings::Manager::getString("snap angle", "VR");
             for (unsigned i = 0; i < mVRSnapAngle->getItemCount(); i++)
@@ -532,11 +541,19 @@ namespace MWGui
         apply();
     }
 
-    void SettingsWindow::onVRLeftHudPositionChanged(MyGUI::ComboBox* _sender, size_t pos)
+    void SettingsWindow::onVRHudPositionChanged(MyGUI::ComboBox* _sender, size_t pos)
     {
         std::string settingString = _sender->getItemNameAt(pos);
         settingString = Misc::StringUtils::lowerCase(settingString);
-        Settings::Manager::setString("left hand hud position", "VR", settingString);
+        Settings::Manager::setString("hud position", "VR", settingString);
+        apply();
+    }
+
+    void SettingsWindow::onVRTooltipPositionChanged(MyGUI::ComboBox* _sender, size_t pos)
+    {
+        std::string settingString = _sender->getItemNameAt(pos);
+        settingString = Misc::StringUtils::lowerCase(settingString);
+        Settings::Manager::setString("tooltip position", "VR", settingString);
         apply();
     }
 

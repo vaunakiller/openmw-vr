@@ -920,8 +920,8 @@ void OMW::Engine::prepareEngine()
     mEnvironment.setSoundManager(*mSoundManager);
 
 #ifdef USE_OPENXR
-    mVrGUIManager = std::make_unique<MWVR::VRGUIManager>(mViewer, mResourceSystem.get(), rootNode);
     mVrViewer = std::make_unique<VR::Viewer>(mXrSession, mViewer);
+    mVrGUIManager = std::make_unique<MWVR::VRGUIManager>(mResourceSystem.get(), mVrViewer->getTrackersRoot());
     mVrViewer->configureCallbacks();
     auto cullMask = ~(MWRender::VisMask::Mask_UpdateVisitor | MWRender::VisMask::Mask_SimpleWater);
     cullMask &= ~MWRender::VisMask::Mask_GUI;
