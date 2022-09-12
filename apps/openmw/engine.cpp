@@ -546,7 +546,7 @@ OMW::Engine::~Engine()
 
 
     mViewer = nullptr;
-
+#ifdef USE_OPENXR
     mVrViewer = nullptr;
     mCallbackManager = nullptr;
     mStereoManager = nullptr;
@@ -554,7 +554,7 @@ OMW::Engine::~Engine()
     mXrSession = nullptr;
     mXrInstance = nullptr;
     mVrTrackingManager = nullptr;
-
+#endif
     mResourceSystem.reset();
 
     mEncoder = nullptr;
