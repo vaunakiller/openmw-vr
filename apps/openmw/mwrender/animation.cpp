@@ -957,7 +957,7 @@ namespace MWRender
     {
 #ifdef USE_OPENXR
 
-        if (VR::getRightControllerActive())
+        if (!VR::getRightControllerActive())
             return false;
         
         // TODO: It's difficult to design a good override system when
