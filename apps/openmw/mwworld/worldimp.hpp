@@ -143,7 +143,7 @@ namespace MWWorld
             float mSimulationTimeScale = 1.0;
 
 #ifdef USE_OPENXR
-            std::unique_ptr<WeaponPoseTrackingListener> mWeaponPoseTrackingListener = nullptr;
+            std::unique_ptr<WeaponPoseTrackingListener> mWeaponPoseTrackingListener;
 #endif
 
             // not implemented

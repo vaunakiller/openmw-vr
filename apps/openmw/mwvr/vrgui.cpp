@@ -302,8 +302,6 @@ namespace MWVR
     {
 
         auto orientation = mRotation * mTrackedPose.orientation;
-        bool leftPointer = Settings::Manager::getBool("left handed mode", "VR");
-
         if (mLayerName == "VirtualKeyboard")
         {
             // Tilt the keyboard slightly for easier typing.
