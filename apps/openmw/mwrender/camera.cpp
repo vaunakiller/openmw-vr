@@ -27,6 +27,8 @@
 #ifdef USE_OPENXR
 #include <components/vr/viewer.hpp>
 #include <components/vr/session.hpp>
+#include <components/vr/trackinglistener.hpp>
+#include <components/vr/trackingmanager.hpp>
 #endif
 
 namespace
@@ -56,6 +58,22 @@ private:
 
 namespace MWRender
 {
+#ifdef USE_OPENXR
+    class CameraTrackingUpdateCallback : VR::TrackingListener
+    {
+    public:
+        CameraTrackingUpdateCallback(MWRender::Camera* camera) : mCamera(camera) {}
+        void onTrackingUpdated(VR::TrackingManager& manager, VR::DisplayTime predictedDisplayTime) override
+        {
+            auto tp = manager.locate(mPath, predictedDisplayTime);
+            if (!!tp.status)
+                mCamera->setPose(tp.pose);
+        }
+
+        MWRender::Camera* mCamera;
+        VR::VRPath mPath = VR::stringToVRPath("/world/user/head/input/pose");
+    };
+#endif
 
     Camera::Camera (osg::Camera* camera)
     : mHeightScale(1.f),
@@ -105,6 +123,9 @@ namespace MWRender
         {
             mMode = Mode::VR;
             processViewChange();
+#ifdef USE_OPENXR
+            mCameraTrackingUpdateCallback = std::make_unique<CameraTrackingUpdateCallback>(this);
+#endif
         }
     }
 
@@ -133,6 +154,12 @@ namespace MWRender
     {
         updateCamera(mCamera);
     }
+
+    void Camera::setPose(const Stereo::Pose& pose)
+    {
+        mTrackedPose = pose;
+        updateCamera();
+    }
     
     osg::Vec3d Camera::getFocalPointOffset() const
     {
@@ -147,7 +174,7 @@ namespace MWRender
     {
         if (mMode == Mode::VR)
         {
-            orientation = mTrackedWorldMatrix.getRotate();
+            orientation = mTrackedPose.orientation;
         }
         else
         {
@@ -174,8 +201,7 @@ namespace MWRender
 
         if (mMode == Mode::VR)
         {
-            updateTrackedPosition();
-            position = mTrackedWorldMatrix.getTrans();
+            position = mTrackedPose.position;
         }
     }
 
@@ -236,8 +262,6 @@ namespace MWRender
         }
         if (mMode == Mode::VR)
         {
-            mPosition = mTrackedPosition;
-            mCameraDistance = 0;
             return;
         }
 
@@ -414,9 +438,6 @@ namespace MWRender
     {
         if (mMode == Mode::VR)
         {
-#ifdef USE_OPENXR
-            mTrackingNode = VR::Viewer::instance().getTrackingNode("/world/user/head/input/pose");
-#endif
             mProcessViewChange = false;
             return;
         }

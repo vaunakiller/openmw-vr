@@ -14,28 +14,30 @@ namespace SceneUtil
 namespace MWVR
 {
     //! Controls the beam used to target/select objects.
-    class UserPointer
+    class UserPointer : public VR::TrackingListener
     {
 
     public:
-        UserPointer();
+        UserPointer(osg::Group* root);
         ~UserPointer();
 
-        void updatePointerTarget();
+        //void updatePointerTarget();
         const MWRender::RayResult& getPointerRay() const;
         bool canPlaceObject() const;
         void setSource(VR::VRPath source);
-        bool enabled() const { return !!mSource; };
+        //bool enabled() const { return !!mSource; };
         float distanceToPointerTarget() const { return mDistanceToPointerTarget; }
         void activate();
 
     private:
+        void onTrackingUpdated(VR::TrackingManager& manager, VR::DisplayTime predictedDisplayTime) override;
+
         osg::ref_ptr<osg::Geometry> createPointerGeometry();
 
         osg::ref_ptr<osg::Geometry> mPointerGeometry;
-        osg::ref_ptr<SceneUtil::PositionAttitudeTransform> mPointerPAT;
+        //osg::ref_ptr<SceneUtil::PositionAttitudeTransform> mPointerSource;
+        osg::ref_ptr<SceneUtil::PositionAttitudeTransform> mPointerTransform;
 
-        osg::ref_ptr<osg::Transform> mSource;
         VR::VRPath mSourcePath = 0;
         osg::ref_ptr<osg::Group> mRoot;
 

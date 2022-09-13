@@ -287,7 +287,7 @@ namespace MWWorld
 #ifdef USE_OPENXR
         if (caster == MWBase::Environment::get().getWorld()->getPlayerPtr() && VR::getVR())
         {
-            auto weaponPose = MWVR::Util::getWeaponPose();
+            auto weaponPose = MWBase::Environment::get().getWorld()->getWeaponPose();
             pos = weaponPose.position;
             orient = weaponPose.orientation;
         }

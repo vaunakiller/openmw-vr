@@ -9,6 +9,8 @@
 #include <osg/Vec3>
 #include <osg/Vec3d>
 
+#include <components/stereo/types.hpp>
+
 #include "../mwworld/ptr.hpp"
 
 namespace osg
@@ -22,6 +24,7 @@ namespace osg
 namespace MWRender
 {
     class NpcAnimation;
+    class CameraTrackingUpdateCallback;
 
     /// \brief Camera control
     class Camera
@@ -106,6 +109,9 @@ namespace MWRender
         void setCollisionType(int collisionType) { mCollisionType = collisionType; }
 
         const osg::Matrixf& getViewMatrix() const { return mViewMatrix; }
+
+        void setPose(const Stereo::Pose& pose);
+
     protected:
         virtual void getOrientation(osg::Quat& orientation) const;
         
@@ -115,6 +121,7 @@ namespace MWRender
         MWWorld::Ptr mTrackingPtr;
         osg::ref_ptr<const osg::Node> mTrackingNode;
         osg::Vec3d mTrackedPosition;
+        Stereo::Pose mTrackedPose;
         float mHeightScale;
         int mCollisionType;
 
@@ -169,6 +176,10 @@ namespace MWRender
         // Used to rotate player to the direction of view after exiting preview or vanity mode.
         osg::Vec3f mDeferredRotation;
         bool mDeferredRotationDisabled;
+
+#ifdef USE_OPENXR
+        std::unique_ptr<CameraTrackingUpdateCallback> mCameraTrackingUpdateCallback;
+#endif
     };
 }
 

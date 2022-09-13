@@ -928,7 +928,7 @@ void OMW::Engine::prepareEngine()
 
 #ifdef USE_OPENXR
     mVrViewer = std::make_unique<VR::Viewer>(mXrSession, mViewer);
-    mVrGUIManager = std::make_unique<MWVR::VRGUIManager>(mResourceSystem.get(), mVrViewer->getTrackersRoot());
+    mVrGUIManager = std::make_unique<MWVR::VRGUIManager>(mResourceSystem.get(), mViewer->getSceneData()->asGroup());
     mVrViewer->configureCallbacks();
     auto cullMask = ~(MWRender::VisMask::Mask_UpdateVisitor | MWRender::VisMask::Mask_SimpleWater);
     cullMask &= ~MWRender::VisMask::Mask_GUI;

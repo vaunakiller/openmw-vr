@@ -6,6 +6,7 @@
 #include "openxrinput.hpp"
 #include "realisticcombat.hpp"
 
+#include <components/sceneutil/visitor.hpp>
 #include <components/sdlutil/sdlmappings.hpp>
 #include <components/debug/debuglog.hpp>
 #include <components/xr/instance.hpp>
@@ -81,12 +82,18 @@ namespace MWVR
         }
 
         if (!mVRPointer && !disableControls)
-            mVRPointer = std::make_unique<UserPointer>();
+        {
+            osg::ref_ptr<osgViewer::Viewer> viewer;
+            mOSGViewer.lock(viewer);
+            if (viewer)
+            {
+                mVRPointer = std::make_unique<UserPointer>(viewer->getSceneData()->asGroup());
+            }
+        }
 
         if (mVRPointer)
         {
             mVRPointer->setSource(source);
-            mVRPointer->updatePointerTarget();
         }
     }
 
@@ -96,7 +103,7 @@ namespace MWVR
             return updateRealisticCombat(dt);
         else
         {
-            mVRAimNode = VR::Viewer::instance().getTrackingNode(mHeadWorldPath);
+            MWBase::Environment::get().getWorld()->setWeaponPosePath(mHeadWorldPath);
         }
     }
 
@@ -131,6 +138,7 @@ namespace MWVR
         auto* anim = MWBase::Environment::get().getWorld()->getAnimation(ptr);
         auto* vrAnim = static_cast<MWVR::VRAnimation*>(anim);
         mVRAimNode = vrAnim->getWeaponTransform();
+        MWBase::Environment::get().getWorld()->setWeaponPosePath(0);
     }
 
     void VRInputManager::pointActivation(bool onPress)
@@ -338,6 +346,7 @@ namespace MWVR
             userControllerBindingsFile,
             controllerBindingsFile,
             grab)
+        , mOSGViewer(viewer)
         , mVRPointer(nullptr)
         , mXRInput(new OpenXRInput(xrControllerSuggestionsFile))
         , mHapticsEnabled{ Settings::Manager::getBool("haptics enabled", "VR") }

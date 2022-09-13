@@ -125,8 +125,7 @@ namespace VR
     Viewer::Viewer(
         std::shared_ptr<VR::Session> session,
         osg::ref_ptr<osgViewer::Viewer> viewer)
-        : mTrackersRoot(new osg::Group)
-        , mSession(session)
+        : mSession(session)
         , mViewer(viewer)
         , mSwapBuffersCallback(new SwapBuffersCallback(this))
         , mInitialDraw(new InitialDrawCallback(this))
@@ -204,10 +203,6 @@ namespace VR
                 }
             }
         }
-
-        mTrackersRoot->setName("Vr Root");
-
-        mViewer->getSceneData()->asGroup()->addChild(mTrackersRoot);
     }
 
     Viewer::~Viewer(void)
@@ -277,95 +272,6 @@ namespace VR
             setupMirrorTexture();
     }
 
-    bool Viewer::applyGamma(osg::RenderInfo& info, int i)
-    {
-        osg::State* state = info.getState();
-        static const char* vSource = "#version 120\n varying vec2 uv; void main(){ gl_Position = vec4(gl_Vertex.xy*2.0 - 1, 0, 1); uv = gl_Vertex.xy;}";
-        static const char* fSource = "#version 120\n varying vec2 uv; uniform sampler2D t; uniform float gamma; uniform float contrast;"
-            "void main() {"
-            "vec4 color1 = texture2D(t, uv);"
-            "vec3 rgb = color1.rgb;"
-            "rgb = (rgb - 0.5f) * contrast + 0.5f;"
-            "rgb = pow(rgb, vec3(1.0/gamma));"
-            "gl_FragColor = vec4(rgb, color1.a);"
-            "}";
-
-        static bool first = true;
-        static osg::ref_ptr<osg::Program> program = nullptr;
-        static osg::ref_ptr<osg::Shader> vShader = nullptr;
-        static osg::ref_ptr<osg::Shader> fShader = nullptr;
-        static osg::ref_ptr<osg::Uniform> gammaUniform = nullptr;
-        static osg::ref_ptr<osg::Uniform> contrastUniform = nullptr;
-        osg::Viewport* viewport = nullptr;
-        static osg::ref_ptr<osg::StateSet> stateset = nullptr;
-        static osg::ref_ptr<osg::Geometry> geometry = nullptr;
-
-        static std::vector<osg::Vec4> vertices =
-        {
-            {0, 0, 0, 0},
-            {1, 0, 0, 0},
-            {1, 1, 0, 0},
-            {0, 0, 0, 0},
-            {1, 1, 0, 0},
-            {0, 1, 0, 0}
-        };
-        static osg::ref_ptr<osg::Vec4Array> vertexArray = new osg::Vec4Array(vertices.begin(), vertices.end());
-
-        if (first)
-        {
-            geometry = new osg::Geometry();
-            geometry->setVertexArray(vertexArray);
-            geometry->addPrimitiveSet(new osg::DrawArrays(GL_TRIANGLES, 0, 6));
-            geometry->setUseDisplayList(false);
-            stateset = geometry->getOrCreateStateSet();
-
-            vShader = new osg::Shader(osg::Shader::Type::VERTEX, vSource);
-            fShader = new osg::Shader(osg::Shader::Type::FRAGMENT, fSource);
-            program = new osg::Program();
-            program->addShader(vShader);
-            program->addShader(fShader);
-            program->compileGLObjects(*state);
-            stateset->setAttributeAndModes(program, osg::StateAttribute::ON);
-            stateset->setTextureMode(0, GL_TEXTURE_2D, osg::StateAttribute::PROTECTED);
-
-            gammaUniform = new osg::Uniform("gamma", Settings::Manager::getFloat("gamma", "Video"));
-            contrastUniform = new osg::Uniform("contrast", Settings::Manager::getFloat("contrast", "Video"));
-            stateset->addUniform(gammaUniform);
-            stateset->addUniform(contrastUniform);
-
-            geometry->compileGLObjects(info);
-
-            first = false;
-        }
-
-        if (program != nullptr)
-        {
-            // OSG does not pop statesets until after the final draw callback. Unrelated statesets may therefore still be on the stack at this point.
-            // Pop these to avoid inheriting arbitrary state from these. They will not be used more in this frame.
-            state->popAllStateSets();
-            state->apply();
-
-            gammaUniform->set(Settings::Manager::getFloat("gamma", "Video"));
-            contrastUniform->set(Settings::Manager::getFloat("contrast", "Video"));
-            stateset->setTextureAttributeAndModes(0, Stereo::Manager::instance().multiviewFramebuffer()->layerColorBuffer(i), osg::StateAttribute::PROTECTED);
-
-            state->pushStateSet(stateset);
-            state->apply();
-
-            if (!viewport)
-                viewport = new osg::Viewport(0, 0, mFramebufferWidth, mFramebufferHeight);
-            viewport->setViewport(0, 0, mFramebufferWidth, mFramebufferHeight);
-            viewport->apply(*state);
-
-            glClear(GL_DEPTH_BUFFER_BIT | GL_COLOR_BUFFER_BIT | GL_STENCIL_BUFFER_BIT);
-            geometry->draw(info);
-
-            state->popStateSet();
-            return true;
-        }
-        return false;
-    }
-
     osg::ref_ptr<osg::FrameBufferObject> Viewer::getFboForView(Stereo::Eye view)
     {
         osg::ref_ptr<osg::FrameBufferObject>fbo = nullptr;
@@ -403,25 +309,6 @@ namespace VR
             osg::GLExtensions* ext = state.get<osg::GLExtensions>();
             ext->glBlitFramebuffer(0, 0, mFramebufferWidth, mFramebufferHeight, 0, 0, mFramebufferWidth, mFramebufferHeight, GL_DEPTH_BUFFER_BIT, GL_NEAREST);
         }
-    }
-
-    osg::Transform* Viewer::getTrackingNode(const std::string& path)
-    {
-        return getTrackingNode(VR::stringToVRPath(path));
-    }
-
-    osg::Transform* Viewer::getTrackingNode(VR::VRPath path)
-    {
-        for (unsigned int i = 0; i < mTrackersRoot->getNumChildren(); i++)
-        {
-            auto child = static_cast<TrackingTransform*>(mTrackersRoot->getChild(i));
-            if (child->path() == path)
-                return child;
-        }
-
-        auto node = new TrackingTransform(path);
-        mTrackersRoot->addChild(node);
-        return node;
     }
 
     osg::ref_ptr<osg::FrameBufferObject> Viewer::getXrFramebuffer(uint32_t view, osg::State* state)

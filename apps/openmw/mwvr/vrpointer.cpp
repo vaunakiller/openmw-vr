@@ -71,13 +71,18 @@ namespace MWVR
         UserPointer* mVRPointer;
     };
 
-    UserPointer::UserPointer()
+    UserPointer::UserPointer(osg::Group* root)
+        : mRoot(root)
     {
         mPointerGeometry = createPointerGeometry();
-        mPointerPAT = new SceneUtil::PositionAttitudeTransform();
-        mPointerPAT->addChild(mPointerGeometry);
-        mPointerPAT->setNodeMask(MWRender::VisMask::Mask_Pointer);
-        mPointerPAT->setName("Pointer Transform 2");
+        mPointerTransform = new SceneUtil::PositionAttitudeTransform();
+        mPointerTransform->addChild(mPointerGeometry);
+        mPointerTransform->setNodeMask(MWRender::VisMask::Mask_Pointer);
+        mPointerTransform->setName("VR Pointer deformation");
+        //mPointerSource = new SceneUtil::PositionAttitudeTransform();
+        //mPointerSource->addChild(mPointerTransform);
+        //mPointerSource->setNodeMask(MWRender::VisMask::Mask_Pointer);
+        //mPointerSource->setName("VR Pointer source transform");
     }
 
     UserPointer::~UserPointer()
@@ -90,19 +95,7 @@ namespace MWVR
             return;
 
         mSourcePath = source;
-
-        if (mSource)
-        {
-            mSource->removeChild(mPointerPAT);
-        }
-        if(mSourcePath)
-        {
-            mSource = VR::Viewer::instance().getTrackingNode(source);
-            if (mSource)
-            {
-                mSource->addChild(mPointerPAT);
-            }
-        }
+        
     }
 
     void UserPointer::activate()
@@ -151,38 +144,51 @@ namespace MWVR
         return mCanPlaceObject;
     }
 
-    void UserPointer::updatePointerTarget()
+    void UserPointer::onTrackingUpdated(VR::TrackingManager& manager, VR::DisplayTime predictedDisplayTime)
     {
-        mPointerPAT->setScale(osg::Vec3f(1, 1, 1));
-        mPointerPAT->setPosition(osg::Vec3f(0, 0, 0));
-        mPointerPAT->setAttitude(osg::Quat(0,0,0,1));
+        mPointerTransform->setScale(osg::Vec3f(1, 1, 1));
+        mPointerTransform->setPosition(osg::Vec3f(0, 0, 0));
+        mPointerTransform->setAttitude(osg::Quat(0, 0, 0, 1));
 
-        mDistanceToPointerTarget = Util::getPoseTarget(mPointerRay, Util::getNodePose(mPointerPAT), true);
+        auto tp = manager.locate(mSourcePath, predictedDisplayTime);
+
+        if (!tp.status)
+        {
+            mRoot->removeChild(mPointerTransform);
+            MWVR::VRGUIManager::instance().updateFocus(nullptr, osg::Vec3(0, 0, 0));
+            return;
+        }
+
+        //mPointerSource->setPosition(tp.pose.position);
+        //mPointerSource->setAttitude(tp.pose.orientation);
+
+        mDistanceToPointerTarget = Util::getPoseTarget(mPointerRay, tp.pose, true);
         // Make a ref-counted copy of the target node to ensure the object's lifetime this frame.
         mPointerTarget = mPointerRay.mHitNode;
 
         mCanPlaceObject = false;
-        if (mPointerRay.mHit)
+        if (mPointerRay.mHit && mDistanceToPointerTarget > 0.f)
         {
             // check if the wanted position is on a flat surface, and not e.g. against a vertical wall
             mCanPlaceObject = !(std::acos((mPointerRay.mHitNormalWorld / mPointerRay.mHitNormalWorld.length()) * osg::Vec3f(0, 0, 1)) >= osg::DegreesToRadians(30.f));
-        }
 
-        if (mDistanceToPointerTarget > 0.f)
-        {
-            mPointerPAT->setPosition(osg::Vec3f(0.f, 2.f * mDistanceToPointerTarget / 3.f, 0.f));
-            mPointerPAT->setScale(osg::Vec3f(0.25f, mDistanceToPointerTarget / 3.f, 0.25f));
-        }
-        else
-        {
-            mPointerPAT->setScale(osg::Vec3f(0.25f, 10000.f, 0.25f));
-        }
+            Stereo::Pose pose;
+            pose.position = osg::Vec3f(0.f, 2.f * mDistanceToPointerTarget / 3.f, 0.f);
+            pose.orientation = osg::Quat(0, 0, 0, 1);
+            pose = tp.pose + pose;
 
-        if (mPointerRay.mHit)
+            mPointerTransform->setPosition(pose.position);
+            mPointerTransform->setAttitude(pose.orientation);
+            mPointerTransform->setScale(osg::Vec3f(0.25f, mDistanceToPointerTarget / 3.f, 0.25f));
+            mRoot->addChild(mPointerTransform);
+
             MWVR::VRGUIManager::instance().updateFocus(mPointerRay.mHitNode, mPointerRay.mHitPointLocal);
+        }
         else
-            MWVR::VRGUIManager::instance().updateFocus(nullptr, osg::Vec3(0,0,0));
-
+        {
+            mRoot->removeChild(mPointerTransform);
+            MWVR::VRGUIManager::instance().updateFocus(nullptr, osg::Vec3(0, 0, 0));
+        }
     }
 
     osg::ref_ptr<osg::Geometry> UserPointer::createPointerGeometry()
@@ -237,7 +243,7 @@ namespace MWVR
         geometry->addPrimitiveSet(new osg::DrawArrays(osg::PrimitiveSet::TRIANGLES, 0, numVertices));
         geometry->setSupportsDisplayList(false);
         geometry->setDataVariance(osg::Object::STATIC);
-        geometry->setName("VRPointer");
+        geometry->setName("VRPointer Geometry");
 
         auto stateset = geometry->getOrCreateStateSet();
         stateset->setMode(GL_LIGHTING, osg::StateAttribute::OFF);

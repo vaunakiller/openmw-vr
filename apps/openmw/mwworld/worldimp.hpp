@@ -78,6 +78,7 @@ namespace MWWorld
     class WeatherManager;
     class Player;
     class ProjectileManager;
+    class WeaponPoseTrackingListener;
 
     /// \brief The game world and its visual representation
 
@@ -140,6 +141,10 @@ namespace MWWorld
             uint32_t mRandomSeed{};
 
             float mSimulationTimeScale = 1.0;
+
+#ifdef USE_OPENXR
+            std::unique_ptr<WeaponPoseTrackingListener> mWeaponPoseTrackingListener = nullptr;
+#endif
 
             // not implemented
             World (const World&);
@@ -777,6 +782,9 @@ namespace MWWorld
             Misc::Rng::Generator& getPrng() override;
             
             void enableVRPointer(bool left, bool right) override;
+
+            Stereo::Pose getWeaponPose() override;
+            void setWeaponPosePath(int64_t path) override;
 
             MWRender::PostProcessor* getPostProcessor() override;
 

@@ -80,22 +80,13 @@ namespace VR
 
         void submitDepthForView(osg::State& state, osg::FrameBufferObject* fbo, Stereo::Eye view);
 
-        osg::Transform* getTrackingNode(const std::string& path);
-        osg::Transform* getTrackingNode(VR::VRPath path);
-        osg::Group* getTrackersRoot() { return  mTrackersRoot.get(); }
-
     private:
         osg::ref_ptr<osg::FrameBufferObject> getXrFramebuffer(uint32_t view, osg::State* state);
         void blitXrFramebuffer(osg::State* state, int i);
         void blitMirrorTexture(osg::State* state, int i);
-        void resolveGamma(osg::RenderInfo& info, int i);
-        //std::shared_ptr<VR::Swapchain> colorSwapchain(int i);
-        //std::shared_ptr<VR::Swapchain> depthSwapchain(int i);
 
     private:
         std::mutex mMutex{};
-
-        osg::ref_ptr<osg::Group> mTrackersRoot;
 
         std::shared_ptr<VR::Session> mSession;
         osg::ref_ptr<osgViewer::Viewer> mViewer;

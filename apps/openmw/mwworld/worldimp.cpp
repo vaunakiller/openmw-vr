@@ -93,6 +93,8 @@
 #include "../mwvr/vrpointer.hpp"
 #include "../mwvr/vrutil.hpp"
 #include "../mwvr/vrgui.hpp"
+#include <components/vr/trackinglistener.hpp>
+#include <components/vr/trackingmanager.hpp>
 #endif
 
 namespace MWWorld
@@ -1120,7 +1122,7 @@ namespace MWWorld
         {
 #ifdef USE_OPENXR
             // Use current aim of weapon to impact
-            auto weaponPose = MWVR::Util::getWeaponPose();
+            auto weaponPose = getWeaponPose();
             
             auto result = mPhysics->getHitContact(ptr, weaponPose.position, weaponPose.orientation, distance, targets);
             if (!result.first.isEmpty())
@@ -3131,7 +3133,7 @@ namespace MWWorld
 #ifdef USE_OPENXR
                 if (actor == getPlayerPtr())
                 {
-                    auto weaponPose = MWVR::Util::getWeaponPose();
+                    auto weaponPose = getWeaponPose();
                     origin = weaponPose.position;
                     orient = weaponPose.orientation;
                 }
@@ -4152,6 +4154,52 @@ namespace MWWorld
     void World::enableVRPointer(bool left, bool right)
     {
         mRendering->enableVRPointer(left, right);
+    }
+
+#ifdef USE_OPENXR
+    class WeaponPoseTrackingListener : VR::TrackingListener
+    {
+    public:
+        void onTrackingUpdated(VR::TrackingManager& manager, VR::DisplayTime predictedDisplayTime) override
+        {
+            mPose = manager.locate(mPath, predictedDisplayTime);
+        }
+
+        VR::TrackingPose mPose;
+        VR::VRPath mPath;
+    };
+#endif
+
+    Stereo::Pose World::getWeaponPose()
+    {
+        Stereo::Pose pose;
+#ifdef USE_OPENXR
+        if (mWeaponPoseTrackingListener)
+        {
+            if (!!mWeaponPoseTrackingListener->mPose.status)
+                return mWeaponPoseTrackingListener->mPose.pose;
+            return Stereo::Pose();
+        }
+        auto* node = MWVR::VRInputManager::instance().vrAimNode();
+        auto worldMatrix = osg::computeLocalToWorld(node->getParentalNodePaths()[0]);
+        pose.position = worldMatrix.getTrans();
+        pose.orientation = worldMatrix.getRotate();
+#endif
+        return pose;
+    }
+
+    void World::setWeaponPosePath(int64_t path)
+    {
+#ifdef USE_OPENXR
+        if (path == 0)
+            mWeaponPoseTrackingListener = nullptr;
+        else
+        {
+            if (!mWeaponPoseTrackingListener)
+                mWeaponPoseTrackingListener = std::make_unique<WeaponPoseTrackingListener>();
+            mWeaponPoseTrackingListener->mPath = static_cast<VR::VRPath>(path);
+        }
+#endif
     }
 
     MWRender::PostProcessor* World::getPostProcessor()

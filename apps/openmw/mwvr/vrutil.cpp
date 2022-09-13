@@ -79,16 +79,6 @@ namespace MWVR
             }
         }
 
-        Stereo::Pose getWeaponPose()
-        {
-            auto* node = MWVR::VRInputManager::instance().vrAimNode();
-            auto worldMatrix = osg::computeLocalToWorld(node->getParentalNodePaths()[0]);
-            Stereo::Pose pose;
-            pose.position = worldMatrix.getTrans();
-            pose.orientation = worldMatrix.getRotate();
-            return pose;
-        }
-
         Stereo::Pose getNodePose(const osg::Node* node)
         {
             osg::Matrix worldMatrix = osg::computeLocalToWorld(node->getParentalNodePaths()[0]);

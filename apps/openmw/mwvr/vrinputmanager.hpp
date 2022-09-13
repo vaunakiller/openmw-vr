@@ -86,6 +86,7 @@ namespace MWVR
         float smoothTurnRate(float dt) const;
 
     private:
+        osg::observer_ptr<osgViewer::Viewer> mOSGViewer;
         std::unique_ptr<UserPointer> mVRPointer;
         std::unique_ptr<OpenXRInput> mXRInput;
         std::unique_ptr<RealisticCombat::StateMachine> mRealisticCombat;

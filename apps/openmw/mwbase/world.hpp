@@ -13,6 +13,7 @@
 #include <components/esm3/cellid.hpp>
 #include <components/misc/rng.hpp>
 #include <components/misc/span.hpp>
+#include <components/stereo/types.hpp>
 
 #include <osg/Timer>
 
@@ -689,6 +690,10 @@ namespace MWBase
             virtual std::vector<MWWorld::Ptr> getAll(const std::string& id) = 0;
 
             virtual void enableVRPointer(bool left, bool right) = 0;
+
+            virtual Stereo::Pose getWeaponPose() = 0;
+
+            virtual void setWeaponPosePath(int64_t path) = 0;
             
             virtual Misc::Rng::Generator& getPrng() = 0;
 
