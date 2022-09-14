@@ -36,9 +36,7 @@ namespace VR
         else
             throw std::logic_error("Duplicated VR::Session singleton");
 
-        mSeatedPlay = Settings::Manager::getBool("seated play", "VR");
-        mHandDirectedMovement = Settings::Manager::getBool("hand directed movement", "VR");
-
+        readSettings();
 
         auto stageUserHeadPath = VR::stringToVRPath("/stage/user/head/input/pose");
         auto worldUserPath = VR::stringToVRPath("/world/user");
@@ -53,8 +51,7 @@ namespace VR
 
     void Session::processChangedSettings(const std::set<std::pair<std::string, std::string>>& changed)
     {
-        setSeatedPlay(Settings::Manager::getBool("seated play", "VR"));
-        mHandDirectedMovement = Settings::Manager::getBool("hand directed movement", "VR");
+        readSettings();
     }
 
     VR::Frame Session::newFrame()
@@ -85,6 +82,16 @@ namespace VR
             syncFrameEnd(frame);
     }
 
+    void Session::readSettings()
+    {
+        setSeatedPlay(Settings::Manager::getBool("seated play", "VR"));
+        mHandDirectedMovement = Settings::Manager::getBool("hand directed movement", "VR");
+
+        mHandsOffset.x() = (Settings::Manager::getFloat("hands offset x", "VR") - 0.5) * Constants::UnitsPerMeter;
+        mHandsOffset.y() = (Settings::Manager::getFloat("hands offset y", "VR") - 0.5) * Constants::UnitsPerMeter;
+        mHandsOffset.z() = (Settings::Manager::getFloat("hands offset z", "VR") - 0.5) * Constants::UnitsPerMeter;
+    }
+
     void Session::setSeatedPlay(bool seatedPlay)
     {
         std::swap(mSeatedPlay, seatedPlay);
@@ -107,9 +114,12 @@ namespace VR
 
     void Session::requestRecenter(bool recenterZ)
     {
-        mTrackerToWorldBinding->recenter(recenterZ);
-        mTrackerToWorldBinding->setSeatedPlay(seatedPlay());
-        mTrackerToWorldBinding->setEyeLevel(charHeight() * Constants::UnitsPerMeter);
+        if (mTrackerToWorldBinding)
+        {
+            mTrackerToWorldBinding->recenter(recenterZ);
+            mTrackerToWorldBinding->setSeatedPlay(seatedPlay());
+            mTrackerToWorldBinding->setEyeLevel(charHeight() * Constants::UnitsPerMeter);
+        }
     }
 
     void Session::instantTransition()

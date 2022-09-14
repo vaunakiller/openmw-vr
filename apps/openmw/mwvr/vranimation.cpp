@@ -274,14 +274,16 @@ namespace MWVR
     class TrackingController
     {
     public:
-        TrackingController(VR::VRPath trackingPath, VR::VRPath topLevelPath, osg::Vec3 baseOffset, osg::Quat baseOrientation)
+        TrackingController(VR::VRPath trackingPath, VR::VRPath topLevelPath, osg::Vec3 baseOffset, bool left)
             : mTrackingPath(trackingPath)
             , mTopLevelPath(topLevelPath)
             , mTransform(nullptr)
             , mBaseOffset(baseOffset)
-            , mBaseOrientation(baseOrientation)
+            , mBaseOrientation(osg::PI_2, osg::Vec3f(0, 0, 1))
+            , mLeft(left)
         {
-
+            if (left)
+                mBaseOrientation =  osg::Quat(osg::PI, osg::Vec3f(1, 0, 0)) * mBaseOrientation;
         }
 
         void onTrackingUpdated(VR::TrackingManager& manager, VR::DisplayTime predictedDisplayTime)
@@ -296,7 +298,7 @@ namespace MWVR
             if (!VR::Session::instance().getInteractionProfileActive(mTopLevelPath))
                 return;
 
-            auto orientation = mBaseOrientation * tp.pose.orientation;
+            auto orientation = (mBaseOrientation) * tp.pose.orientation;
 
             // Undo the wrist translate
             // TODO: I'm sure this could bee a lot less hacky
@@ -308,6 +310,10 @@ namespace MWVR
             // Center hand mesh on tracking
             // This is just an estimate from trial and error, any suggestion for improving this is welcome
             position -= orientation * mBaseOffset;
+            auto offset =  VR::Session::instance().getHandsOffset();
+            if (mLeft)
+                offset.x() = -offset.x();
+            position += tp.pose.orientation * offset;
 
             // Get current world transform of limb
             osg::Matrix worldToLimb = osg::computeWorldToLocal(mTransform->getParentalNodePaths()[0]);
@@ -331,6 +337,7 @@ namespace MWVR
         osg::ref_ptr<osg::MatrixTransform> mTransform;
         osg::Vec3 mBaseOffset;
         osg::Quat mBaseOrientation;
+        bool mLeft;
     };
 
     VRAnimation::VRAnimation(
@@ -371,23 +378,18 @@ namespace MWVR
         stageToWorldBinding->setOriginNode(mObjectRoot->getParent(0));
 
         // Morrowind's meshes do not point forward by default and need re-positioning and orientation.
-        float VRbias = osg::DegreesToRadians(-90.f);
-        osg::Quat yaw(-VRbias, osg::Vec3f(0, 0, 1));
-        osg::Quat roll(2 * VRbias, osg::Vec3f(1, 0, 0));
         osg::Vec3 offset{ 15,0,0 };
 
         {
             auto topLevelPath = VR::stringToVRPath("/user/hand/right");
             auto path = VR::stringToVRPath("/world/user/hand/right/input/aim/pose");
-            auto orientation = yaw;
-            mVrControllers.emplace("bip01 r forearm", std::make_unique<TrackingController>(path, topLevelPath, offset, orientation));
+            mVrControllers.emplace("bip01 r forearm", std::make_unique<TrackingController>(path, topLevelPath, offset, false));
         }
 
         {
             auto topLevelPath = VR::stringToVRPath("/user/hand/left");
             auto path = VR::stringToVRPath("/world/user/hand/left/input/aim/pose");
-            auto orientation = roll * yaw;
-            mVrControllers.emplace("bip01 l forearm", std::make_unique<TrackingController>(path, topLevelPath, offset, orientation));
+            mVrControllers.emplace("bip01 l forearm", std::make_unique<TrackingController>(path, topLevelPath, offset, true));
         }
     }
 

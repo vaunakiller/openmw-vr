@@ -22,6 +22,8 @@
 #include <components/vr/swapchain.hpp>
 #include <components/vr/trackingpath.hpp>
 
+#include <osg/Vec3>
+
 namespace VR
 {
     class Swapchain;
@@ -74,7 +76,11 @@ namespace VR
         void setInteractionProfileActive(VRPath topLevelPath, bool active);
         bool getInteractionProfileActive(VRPath topLevelPath) const;
 
+        osg::Vec3 getHandsOffset() const { return mHandsOffset; }
+
     protected:
+        void readSettings();
+
         void setSeatedPlay(bool seatedPlay);
 
         //! Called once when initializing a new frame. The implementation *must* set shouldSyncFrame and shouldSyncInput. If shouldSyncFrame is set to false by the implementation, syncFrame* will be called for this frame.
@@ -105,6 +111,8 @@ namespace VR
         std::set<VRPath> mActiveInteractionProfiles;
 
         std::unique_ptr<VR::StageToWorldBinding> mTrackerToWorldBinding;
+
+        osg::Vec3 mHandsOffset;
     };
 
 }
