@@ -31,6 +31,11 @@
 #include "class.hpp"
 #include "ptr.hpp"
 
+#ifdef USE_OPENXR
+#include <components/vr/session.hpp>
+#include <components/vr/vr.hpp>
+#endif
+
 namespace MWWorld
 {
     Player::Player (const ESM::NPC *player)
@@ -211,6 +216,10 @@ namespace MWWorld
     {
         MWWorld::Ptr ptr = getPlayer();
         ptr.getClass().getCreatureStats(ptr).setMovementFlag(MWMechanics::CreatureStats::Flag_Sneak, sneak);
+#ifdef USE_OPENXR
+        if (VR::getVR())
+            VR::Session::instance().setSneak(sneak);
+#endif
     }
 
     void Player::yaw(float yaw)

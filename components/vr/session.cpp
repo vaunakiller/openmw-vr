@@ -150,5 +150,13 @@ namespace VR
     {
         return !!mActiveInteractionProfiles.count(topLevelPath);
     }
+
+    void Session::setSneak(bool sneak)
+    {
+        if (sneak)
+            mSneakOffset = -20.f;
+        else
+            mSneakOffset = 0.f;
+    }
 }
 

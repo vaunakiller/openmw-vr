@@ -117,6 +117,9 @@ namespace VR
 
         if (mOrigin)
             worldPose.pose.position += mOriginWorldPose.position;
+
+        worldPose.pose.position.z() += Session::instance().getSneakOffset();
+
         return worldPose;
     }
 

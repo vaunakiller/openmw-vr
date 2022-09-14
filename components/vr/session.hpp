@@ -78,6 +78,10 @@ namespace VR
 
         osg::Vec3 getHandsOffset() const { return mHandsOffset; }
 
+        float getSneakOffset() const { return mSneakOffset; }
+
+        void setSneak(bool sneak);
+
     protected:
         void readSettings();
 
@@ -107,6 +111,7 @@ namespace VR
         bool mSeatedPlay = false;
         float mPlayerScale = 1.f;
         float mCharHeight = 1.f;
+        float mSneakOffset = 0.f;
 
         std::set<VRPath> mActiveInteractionProfiles;
 
