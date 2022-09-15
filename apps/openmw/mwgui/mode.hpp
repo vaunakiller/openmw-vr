@@ -47,6 +47,7 @@ namespace MWGui
       GM_Jail,
 
       GM_QuickKeysMenu,
+      GM_RadialMenu,
       GM_VrMetaMenu
     };
 

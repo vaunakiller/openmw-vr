@@ -203,6 +203,7 @@ set(BUILTIN_DATA_FILES
     mygui/openmw_vr_listbox.layout
     mygui/openmw_vr_metamenu.layout
     mygui/openmw_vr_virtual_keyboard.layout
+    mygui/openmw_vr_radial_menu.layout
 )
 
 foreach (f ${BUILTIN_DATA_FILES})

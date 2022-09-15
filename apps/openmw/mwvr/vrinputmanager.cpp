@@ -627,6 +627,9 @@ namespace MWVR
                 case A_VrMetaMenu:
                     MWBase::Environment::get().getWindowManager()->pushGuiMode(MWGui::GM_VrMetaMenu);
                     break;
+                case A_RadialMenu:
+                    MWBase::Environment::get().getWindowManager()->pushGuiMode(MWGui::GM_RadialMenu);
+                    break;
                 case MWInput::A_Screenshot:
                     mActionManager->screenshot();
                     break;

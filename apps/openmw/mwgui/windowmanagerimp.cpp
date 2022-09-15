@@ -127,6 +127,7 @@
 #include "resourceskin.hpp"
 
 #ifdef USE_OPENXR
+#include "../mwvr/radialmenu.hpp"
 #include "../mwvr/vrmetamenu.hpp"
 #include "../mwvr/vrgui.hpp"
 #include "../mwvr/vrvirtualkeyboard.hpp"
@@ -327,10 +328,6 @@ namespace MWGui
         mDragAndDrop = new DragAndDrop();
 
 #ifdef USE_OPENXR
-        mVrMetaMenu = new MWVR::VrMetaMenu(w, h);
-        mWindows.push_back(mVrMetaMenu);
-        mGuiModeStates[GM_VrMetaMenu] = GuiModeState(mVrMetaMenu);
-
         mVirtualKeyboardManager = new MWVR::VirtualKeyboardManager;
 #endif
 
@@ -511,6 +508,16 @@ namespace MWGui
         mHud->setVisible(true);
 
         mCharGen = new CharacterCreation(mViewer->getSceneData()->asGroup(), mResourceSystem);
+
+#ifdef USE_OPENXR
+        mVrMetaMenu = new MWVR::VrMetaMenu(w, h);
+        mWindows.push_back(mVrMetaMenu);
+        mGuiModeStates[GM_VrMetaMenu] = GuiModeState(mVrMetaMenu);
+
+        mRadialMenu = new MWVR::RadialMenu(w, h, mQuickKeysMenu);
+        mWindows.push_back(mQuickKeysMenu);
+        mGuiModeStates[GM_RadialMenu] = GuiModeState(mRadialMenu);
+#endif
 
         updatePinnedWindows();
 

@@ -597,10 +597,14 @@ namespace MWVR
         LayerConfig journalBooksConfig = createDefaultConfig(2, false, SizingMode::Fixed);
         LayerConfig defaultWindowsConfig = createDefaultConfig(3, true);
         LayerConfig videoPlayerConfig = createDefaultConfig(4, true, SizingMode::Fixed);
-        LayerConfig messageBoxConfig = createDefaultConfig(6, false, SizingMode::Auto);;
+        LayerConfig messageBoxConfig = createDefaultConfig(6, false, SizingMode::Auto);
         LayerConfig notificationConfig = createDefaultConfig(7, false, SizingMode::Fixed);
         LayerConfig listBoxConfig = createDefaultConfig(10, true);
         LayerConfig consoleConfig = createDefaultConfig(2, true);
+        LayerConfig radialMenuConfig = createDefaultConfig(11, false);
+        // TODO: Track around wrist instead of being a regular menu quad
+        //radialMenuConfig.offset = osg::Vec3(0.f, 0.66f, 0.f);
+        //radialMenuConfig.trackingPath = Paths::sWristTopRightStr;
 
         LayerConfig statsWindowConfig = createSideBySideConfig(0);
         LayerConfig inventoryWindowConfig = createSideBySideConfig(1);
@@ -722,6 +726,7 @@ namespace MWVR
             {"StatsWindow", statsWindowConfig},
             {"DialogueWindow", dialogueWindowConfig},
             {"Modal", messageBoxConfig},
+            {"RadialMenu", radialMenuConfig},
             {"Windows", defaultWindowsConfig},
             {"ListBox", listBoxConfig},
             {"MainMenu", mainMenuConfig},

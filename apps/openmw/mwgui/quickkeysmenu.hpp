@@ -17,6 +17,25 @@ namespace MWGui
     class QuickKeysMenu : public WindowBase
     {
     public:
+        /// @note This enum is serialized, so don't move the items around!
+        enum QuickKeyType
+        {
+            Type_Item,
+            Type_Magic,
+            Type_MagicItem,
+            Type_Unassigned,
+            Type_HandToHand
+        };
+
+        struct keyData {
+            int index;
+            ItemWidget* button;
+            QuickKeysMenu::QuickKeyType type;
+            std::string id;
+            std::string name;
+            keyData() : index(-1), button(nullptr), type(Type_Unassigned), id(""), name("") {}
+        };
+
         QuickKeysMenu();
         ~QuickKeysMenu();
 
@@ -38,31 +57,14 @@ namespace MWGui
         void activateQuickKey(int index);
         void updateActivatedQuickKey();
 
-        /// @note This enum is serialized, so don't move the items around!
-        enum QuickKeyType
-        {
-            Type_Item,
-            Type_Magic,
-            Type_MagicItem,
-            Type_Unassigned,
-            Type_HandToHand
-        };
 
         void write (ESM::ESMWriter& writer);
         void readRecord (ESM::ESMReader& reader, uint32_t type);
         void clear() override;
 
+        const keyData* keyAt(int index) const;
 
     private:
-
-        struct keyData {
-            int index;
-            ItemWidget* button;
-            QuickKeysMenu::QuickKeyType type;
-            std::string id;
-            std::string name;
-            keyData(): index(-1), button(nullptr), type(Type_Unassigned), id(""), name("") {}
-        };
 
         std::vector<keyData> mKey;
         keyData* mSelected;

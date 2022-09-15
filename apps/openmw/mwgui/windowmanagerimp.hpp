@@ -95,6 +95,7 @@ namespace MWRender
 namespace MWVR
 {
     class VrMetaMenu;
+    class RadialMenu;
 }
 
 namespace MWGui
@@ -464,6 +465,7 @@ namespace MWGui
     JailScreen* mJailScreen;
     ContainerWindow* mContainerWindow;
     MWVR::VrMetaMenu* mVrMetaMenu;
+    MWVR::RadialMenu* mRadialMenu;
 
     Gui::VirtualKeyboardManager* mVirtualKeyboardManager;
 

@@ -23,6 +23,7 @@
     <Layer name="MainMenuBackground" overlapped="true" pick="true"/>
     <Layer name="MainMenu" overlapped="true" pick="true"/>
     <Layer name="Console" overlapped="true" pick="true"/>
+    <Layer name="RadialMenu" overlapped="true" pick="true"/>
     <Layer name="LoadingScreenBackground" overlapped="false" pick="true"/>
     <Layer name="LoadingScreen" overlapped="false" pick="true"/>
     <Layer name="Modal" overlapped="true" pick="true"/>

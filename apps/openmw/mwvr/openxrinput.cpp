@@ -86,6 +86,7 @@ namespace MWVR
         getActionSet(MWActionSet::Gameplay).createMWAction(XR::ControlType::Press, MWInput::A_ToggleDebug, "toggle_debug", "Toggle the debug hud");
         getActionSet(MWActionSet::Gameplay).createMWAction(XR::ControlType::Press, MWInput::A_ToggleThumbstickAutoRun, "toggle_thumbstick_auto_run", "Toggle Thumbstick Auto Run");
         getActionSet(MWActionSet::Gameplay).createMWAction(XR::ControlType::Press, MWInput::A_ToggleSneak, "toggle_sneak", "Toggle Sneak");
+        getActionSet(MWActionSet::Gameplay).createMWAction(XR::ControlType::Press, A_RadialMenu, "radial_menu", "Radial Menu");
         // Specialized action for toggling sneak on axis down
         getActionSet(MWActionSet::Gameplay).createMWAction(XR::ControlType::AxisDown, A_ToggleSneakAxisDown, "toggle_sneak_axis_down", "Toggle Sneak Axis Down");
     }

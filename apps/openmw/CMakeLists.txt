@@ -272,7 +272,7 @@ if(BUILD_OPENMW_VR)
 # USE_OPENXR preprocessor switches.
     add_openmw_dir (mwvr
          openxrinput
-         realisticcombat 
+         radialmenu realisticcombat 
          vranimation vrgui vrinputmanager vrinput vrlistbox vrmetamenu vrpingpongcallback vrpointer vrtracking vrtypes vrutil vrvirtualkeyboard
         )
 

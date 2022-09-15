@@ -31,6 +31,7 @@ namespace MWVR
         A_Recenter,
         //! Specialized action for assigning sneak to axis down
         A_ToggleSneakAxisDown,
+        A_RadialMenu,
         A_VrLast
     };
 
