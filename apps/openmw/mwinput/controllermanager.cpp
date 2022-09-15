@@ -164,7 +164,7 @@ namespace MWInput
             static const bool isToggleSneak = Settings::Manager::getBool("toggle sneak", "Input");
             if (!isToggleSneak)
             {
-                if (mJoystickLastUsed)
+                if (mJoystickLastUsed && !(VR::getVR() && VR::getRightControllerActive()))
                 {
                     if (mBindingsManager->actionIsActive(A_Sneak))
                     {
@@ -192,7 +192,18 @@ namespace MWInput
                     }
                 }
                 else
-                    player.setSneak(mBindingsManager->actionIsActive(A_Sneak));
+                {
+                    if (mActionManager->isSneaking())
+                    {
+                        if (mBindingsManager->actionIsActive(A_Sneak))
+                        {
+                            mActionManager->toggleSneaking();
+                            player.setSneak(mBindingsManager->actionIsActive(A_Sneak));
+                        }
+                    }
+                    else
+                        player.setSneak(mBindingsManager->actionIsActive(A_Sneak));
+                }
             }
         }
 

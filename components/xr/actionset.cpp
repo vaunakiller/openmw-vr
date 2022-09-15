@@ -122,6 +122,8 @@ namespace XR
             return createMWAction<ButtonHoldAction>(openMWAction, actionName, localName, subActions);
         case ControlType::Axis:
             return createMWAction<AxisAction>(openMWAction, actionName, localName, subActions);
+        case ControlType::AxisDown:
+            return createMWAction<AxisDownAction>(openMWAction, actionName, localName, subActions);
         default:
             Log(Debug::Warning) << "createMWAction: pose/haptics Not implemented here";
         }

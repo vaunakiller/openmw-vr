@@ -119,8 +119,19 @@ namespace MWInput
             static const bool isToggleSneak = Settings::Manager::getBool("toggle sneak", "Input");
             if (!isToggleSneak)
             {
-                if(!MWBase::Environment::get().getInputManager()->joystickLastUsed())
-                    player.setSneak(mBindingsManager->actionIsActive(A_Sneak));
+                if (!MWBase::Environment::get().getInputManager()->joystickLastUsed())
+                {
+                    if (isSneaking())
+                    {
+                        if (mBindingsManager->actionIsActive(A_Sneak))
+                        {
+                            toggleSneaking();
+                            player.setSneak(mBindingsManager->actionIsActive(A_Sneak));
+                        }
+                    }
+                    else
+                        player.setSneak(mBindingsManager->actionIsActive(A_Sneak));
+                }
             }
 
             float xAxis = mBindingsManager->getActionValue(A_MoveLeftRight);

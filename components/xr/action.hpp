@@ -14,10 +14,11 @@ namespace XR
 {
     enum class ControlType
     {
-        Press,
-        LongPress,
-        Hold,
-        Axis
+        Press, //! Action occurs on pressing a key or a value reaches a cutoff
+        LongPress, //! Action occurs when a Press action is held for a certain amount of time
+        Hold, //! Action occurs continuously when the key is pressed
+        Axis, //! Action occurs continuously when the axis is active, and depends on the axis value
+        AxisDown, //! Action on pulling the assigned axis down.
     };
 
     XrPath subActionPath(VR::SubAction subAction);
@@ -222,6 +223,21 @@ namespace XR
         virtual bool shouldQueue() const override { return mActive || onDeactivate(); }
 
         std::shared_ptr<AxisAction::Deadzone> mDeadzone;
+    };
+
+    //! Action for axis actions, such as thumbstick axes or certain triggers/squeeze levers.
+    //! Float axis are considered active whenever their magnitude is greater than gAxisEpsilon. This is useful
+    //! as a touch subtitute on levers without touch.
+    class AxisDownAction : public InputAction
+    {
+    public:
+        AxisDownAction(int openMWAction, std::shared_ptr<Action> xrAction, VR::SubAction subAction);
+
+        static const XrActionType ActionType = XR_ACTION_TYPE_FLOAT_INPUT;
+
+        void update() override;
+
+        virtual bool shouldQueue() const override { return onActivate() || onDeactivate(); }
     };
 }
 

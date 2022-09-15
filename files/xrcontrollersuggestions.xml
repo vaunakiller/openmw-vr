@@ -46,6 +46,8 @@ You will not make an interaction profile work by removing the extension requirem
         <Action Name="menu_select" LocalName="Gameplay Menu Select"/>
         <Action Name="menu_back" LocalName="Gameplay Menu Back"/>
         <Action Name="toggle_thumbstick_auto_run" LocalName="Toggle Thumbstick Auto Run"/>
+        <Action Name="toggle_sneak" LocalName="Toggle Sneak"/>
+        <Action Name="toggle_sneak_axis_down" LocalName="Toggle Sneak On Axis Down"/>
     </Actions>
     <Profile LocalName="Generic" Path="/interaction_profiles/khr/simple_controller">
         <ActionSet Name="Gameplay">
@@ -78,6 +80,7 @@ You will not make an interaction profile work by removing the extension requirem
             <Binding ActionName="inventory" Path="/user/hand/right/input/b/click"/>
             <Binding ActionName="activate_touched" Path="/user/hand/right/input/squeeze/value"/>
             <Binding ActionName="look_left_right" Path="/user/hand/right/input/thumbstick/x"/>
+            <Binding ActionName="toggle_sneak_axis_down" Path="/user/hand/right/input/thumbstick/y"/>
             <Binding ActionName="auto_move" Path="/user/hand/right/input/thumbstick/click"/>
             <Binding ActionName="use" Path="/user/hand/right/input/trigger/value"/>
         </ActionSet>
@@ -103,6 +106,7 @@ You will not make an interaction profile work by removing the extension requirem
             <Binding ActionName="sneak" Path="/user/hand/left/input/squeeze/click"/>
             <Binding ActionName="inventory" Path="/user/hand/right/input/thumbstick/click"/>
             <Binding ActionName="look_left_right" Path="/user/hand/right/input/trackpad/x"/>
+            <Binding ActionName="toggle_sneak_axis_down" Path="/user/hand/right/input/trackpad/y"/>
             <Binding ActionName="weapon" Path="/user/hand/right/input/trackpad/click"/>
             <Binding ActionName="use" Path="/user/hand/right/input/trigger/value"/>
             <Binding ActionName="activate_touched" Path="/user/hand/right/input/squeeze/click"/>
@@ -131,6 +135,7 @@ You will not make an interaction profile work by removing the extension requirem
             <Binding ActionName="weapon" Path="/user/hand/right/input/a/click"/>
             <Binding ActionName="inventory" Path="/user/hand/right/input/b/click"/>
             <Binding ActionName="look_left_right" Path="/user/hand/right/input/thumbstick/x"/>
+            <Binding ActionName="toggle_sneak_axis_down" Path="/user/hand/right/input/thumbstick/y"/>
             <Binding ActionName="use" Path="/user/hand/right/input/trigger/value"/>
             <Binding ActionName="activate_touched" Path="/user/hand/right/input/squeeze/force"/>
         </ActionSet>
@@ -155,6 +160,7 @@ You will not make an interaction profile work by removing the extension requirem
             <Binding ActionName="jump" Path="/user/hand/left/input/trigger/value"/>
             <Binding ActionName="sneak" Path="/user/hand/left/input/squeeze/click"/>
             <Binding ActionName="look_left_right" Path="/user/hand/right/input/trackpad/x"/>
+            <Binding ActionName="toggle_sneak_axis_down" Path="/user/hand/right/input/trackpad/y"/>
             <Binding ActionName="weapon" Path="/user/hand/right/input/trackpad/click"/>
             <Binding ActionName="use" Path="/user/hand/right/input/trigger/value"/>
             <Binding ActionName="activate_touched" Path="/user/hand/right/input/squeeze/click"/>
@@ -184,6 +190,7 @@ You will not make an interaction profile work by removing the extension requirem
             <Binding ActionName="weapon" Path="/user/hand/right/input/a/click"/>
             <Binding ActionName="inventory" Path="/user/hand/right/input/b/click"/>
             <Binding ActionName="look_left_right" Path="/user/hand/right/input/thumbstick/x"/>
+            <Binding ActionName="toggle_sneak_axis_down" Path="/user/hand/right/input/thumbstick/y"/>
             <Binding ActionName="auto_move" Path="/user/hand/right/input/thumbstick/click"/>
             <Binding ActionName="use" Path="/user/hand/right/input/trigger/value"/>
             <Binding ActionName="activate_touched" Path="/user/hand/right/input/squeeze/value"/>
@@ -209,6 +216,7 @@ You will not make an interaction profile work by removing the extension requirem
             <Binding ActionName="spell" Path="/user/hand/left/input/trackpad/click"/>
             <Binding ActionName="sneak" Path="/user/hand/left/input/back/click"/>
             <Binding ActionName="look_left_right" Path="/user/hand/right/input/trackpad/x"/>
+            <Binding ActionName="toggle_sneak_axis_down" Path="/user/hand/right/input/trackpad/y"/>
             <Binding ActionName="weapon" Path="/user/hand/right/input/trackpad/click"/>
             <Binding ActionName="use" Path="/user/hand/right/input/trigger/click"/>
             <Binding ActionName="activate_touched" Path="/user/hand/right/input/squeeze/click"/>
@@ -238,6 +246,7 @@ You will not make an interaction profile work by removing the extension requirem
             <Binding ActionName="weapon" Path="/user/hand/right/input/a/click"/>
             <Binding ActionName="inventory" Path="/user/hand/right/input/b/click"/>
             <Binding ActionName="look_left_right" Path="/user/hand/right/input/thumbstick/x"/>
+            <Binding ActionName="toggle_sneak_axis_down" Path="/user/hand/right/input/thumbstick/y"/>
             <Binding ActionName="auto_move" Path="/user/hand/right/input/thumbstick/click"/>
             <Binding ActionName="use" Path="/user/hand/right/input/trigger/click"/>
             <Binding ActionName="activate_touched" Path="/user/hand/right/input/squeeze/click"/>

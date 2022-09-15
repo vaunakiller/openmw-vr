@@ -29,6 +29,8 @@ namespace MWVR
         A_MenuSelect,
         A_MenuBack,
         A_Recenter,
+        //! Specialized action for assigning sneak to axis down
+        A_ToggleSneakAxisDown,
         A_VrLast
     };
 

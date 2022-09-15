@@ -247,6 +247,28 @@ namespace XR
         mActiveScale = 1.f / activeRadius;
     }
 
+    AxisDownAction::AxisDownAction(int openMWAction, std::shared_ptr<Action> xrAction, VR::SubAction subAction)
+        : InputAction(openMWAction, std::move(xrAction), subAction)
+    {
+
+    }
+
+    void AxisDownAction::update()
+    {
+        mAction->getFloat(mSubActionPath, mValue);
+
+        if (mActive)
+        {
+            if (mValue >= -0.4)
+                mActive = false;
+        }
+        else
+        {
+            if (mValue <= -0.6)
+                mActive = true;
+        }
+    }
+
     XrPath subActionPath(VR::SubAction subAction)
     {
         const char* cpath = nullptr;

@@ -729,6 +729,9 @@ namespace MWVR
                     if (mPointerLeft || mPointerRight || MWBase::Environment::get().getWindowManager()->isGuiMode())
                         pointActivation(true);
                     break;
+                case A_ToggleSneakAxisDown:
+                    mActionManager->toggleSneaking();
+                    break;
                 default:
                     break;
                 }
