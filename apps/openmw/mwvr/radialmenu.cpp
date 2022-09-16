@@ -64,9 +64,9 @@ namespace MWVR
 
     void RadialMenu::onButtonClicked(MyGUI::Widget *sender)
     {
-        auto index = std::stoi(sender->getUserString("QuickKey"));
+        auto userString = sender->getUserString("QuickKey");
         close();
-        mQkm->activateQuickKey(index);
+        mQkm->activateQuickKey(std::stoi(userString));
     }
 
     bool RadialMenu::exit()
@@ -113,6 +113,7 @@ namespace MWVR
             MWGui::ItemWidget* button = nullptr;
             getWidget(button, buttonId);
             button->clearUserStrings();
+            button->setUserString("QuickKey", std::to_string(i + 1));
             button->setItem(MWWorld::Ptr());
 
             while (button->getChildCount()) // Destroy number label
