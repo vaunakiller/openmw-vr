@@ -42,6 +42,7 @@ namespace MWInput
         , mJoystickLastUsed(false)
         , mSneakGamepadShortcut(false)
         , mThumbstickAutoRun(Settings::Manager::getBool("thumbstick auto run", "Input"))
+        , mThumbstickRightActive(false)
     {
         if (!controllerBindingsFile.empty())
         {
@@ -164,7 +165,7 @@ namespace MWInput
             static const bool isToggleSneak = Settings::Manager::getBool("toggle sneak", "Input");
             if (!isToggleSneak)
             {
-                if (mJoystickLastUsed && !(VR::getVR() && VR::getRightControllerActive()))
+                if (mJoystickLastUsed && !(VR::getVR()))
                 {
                     if (mBindingsManager->actionIsActive(A_Sneak))
                     {
@@ -297,6 +298,30 @@ namespace MWInput
 
     void ControllerManager::axisMoved(int deviceID, const SDL_ControllerAxisEvent &arg)
     {
+        if (VR::getVR() && !MWBase::Environment::get().getWindowManager()->isGuiMode())
+        {
+            if (arg.axis == SDL_CONTROLLER_AXIS_RIGHTY)
+            {
+                float value = static_cast<float>(arg.value) / (arg.value < 0 ? 32768.f : 32767.f);
+
+                if (value <= -0.6 && !mThumbstickRightActive)
+                {
+                    mThumbstickRightActive = true;
+                    MWBase::Environment::get().getWindowManager()->pushGuiMode(MWGui::GM_RadialMenu);
+                }
+                if (value >= 0.6 && !mThumbstickRightActive)
+                {
+                    mThumbstickRightActive = true;
+                    mActionManager->toggleSneaking();
+                }
+                if (value <= 0.4 && value >= -0.4)
+                    mThumbstickRightActive = false;
+
+                Log(Debug::Verbose) << "axis: " << value;
+                return;
+            }
+        }
+
         if (!mJoystickEnabled || MWBase::Environment::get().getInputManager()->controlsDisabled())
             return;
 

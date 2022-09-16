@@ -74,6 +74,7 @@ namespace MWInput
         bool mJoystickLastUsed;
         bool mSneakGamepadShortcut;
         bool mThumbstickAutoRun;
+        bool mThumbstickRightActive;
     };
 }
 #endif
