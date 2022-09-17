@@ -489,20 +489,29 @@ namespace MWVR
 
             world->rotateObject(playerPtr, osg::Vec3f(headPitch, 0.f, headYaw), MWBase::RotationFlag_none);
 
+            osg::Vec3 rotation = {
+                0.,
+                0.,
+                0.,
+            };
+
             if (VR::Session::instance().handDirectedMovement())
             {
                 tp = manager.locate(VR::stringToVRPath("/world/user/hand/left/input/aim/pose"), predictedDisplayTime);
                 float handYaw = 0.f;
                 float handPitch = 0.f;
                 float handRoll = 0.f;
-                const MWWorld::Class& cls = playerPtr.getClass();
 
                 Stereo::getEulerAngles(tp.pose.orientation, handYaw, handPitch, handRoll);
 
-                auto& rotation = cls.getMovementSettings(playerPtr).mRotation;
-                rotation[0] += (handPitch - headPitch);
-                rotation[2] += (handYaw - headYaw);
+                rotation = {
+                    (handPitch - headPitch),
+                    0.,
+                    (handYaw - headYaw),
+                };
             }
+
+            VR::Session::instance().setMovementAngleOffset(rotation);
         }
     }
 

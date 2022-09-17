@@ -33,6 +33,11 @@
 #include "physicssystem.hpp"
 #include "projectile.hpp"
 
+#ifdef USE_OPENXR
+#include <components/vr/vr.hpp>
+#include <components/vr/session.hpp>
+#endif
+
 namespace
 {
     template <class Mutex>
@@ -171,6 +176,17 @@ namespace
                 frameData.mOldHeight = frameData.mPosition.z();
                 const auto rotation = actor->getPtr().getRefData().getPosition().asRotationVec3();
                 frameData.mRotation = osg::Vec2f(rotation.x(), rotation.z());
+#ifdef USE_OPENXR
+                if (VR::getVR() 
+                    && actor->getPtr() == MWMechanics::getPlayer()
+                    && VR::Session::instance().handDirectedMovement())
+                {
+                    const auto& offset = VR::Session::instance().movementAngleOffset();
+                    frameData.mRotation.x() += offset.x();
+                    frameData.mRotation.y() += offset.z();
+                }
+#endif
+
                 frameData.mInertia = actor->getInertialForce();
                 frameData.mStuckFrames = actor->getStuckFrames();
                 frameData.mLastStuckPosition = actor->getLastStuckPosition();

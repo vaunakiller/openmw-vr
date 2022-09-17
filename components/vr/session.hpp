@@ -82,6 +82,10 @@ namespace VR
 
         void setSneak(bool sneak);
 
+        void setMovementAngleOffset(osg::Vec3 offsets) { mMovementAnglesOffset = offsets; }
+
+        const osg::Vec3& movementAngleOffset() const { return mMovementAnglesOffset; }
+
     protected:
         void readSettings();
 
@@ -118,6 +122,7 @@ namespace VR
         std::unique_ptr<VR::StageToWorldBinding> mTrackerToWorldBinding;
 
         osg::Vec3 mHandsOffset;
+        osg::Vec3 mMovementAnglesOffset;
     };
 
 }
