@@ -377,7 +377,10 @@ namespace XR
                 setInteractionProfileActive(vrPath, true);
             }
             else
+            {
+                Log(Debug::Verbose) << userPath << ": Interaction profile lost";
                 setInteractionProfileActive(vrPath, false);
+            }
         }
     }
 
