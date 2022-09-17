@@ -2383,6 +2383,7 @@ namespace MWGui
 
     void WindowManager::viewerTraversals()
     {
+        mViewer->advance(0.);
         mViewer->eventTraversal();
         mViewer->updateTraversal();
         mViewer->renderingTraversals();
