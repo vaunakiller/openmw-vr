@@ -293,6 +293,7 @@ namespace MWVR
                 // Note, we ignore framerate limiting here, since OpenXR takes care of that.
                 MWBase::Environment::get().getInputManager()->update(0.f, true, false);
 
+                mOSGViewer->advance(mOSGViewer->getFrameStamp()->getSimulationTime());
                 wm->viewerTraversals();
             }
         }
