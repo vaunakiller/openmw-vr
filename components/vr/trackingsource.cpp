@@ -109,11 +109,16 @@ namespace VR
 
         auto worldPose = stagePose;
         worldPose.pose.position *= Constants::UnitsPerMeter;
-        worldPose.pose.position *= Session::instance().playerScale();
         worldPose.pose.position -= mLastPose.pose.position;
         worldPose.pose.position = mOrientation * worldPose.pose.position;
         worldPose.pose.position += mMovement;
         worldPose.pose.orientation = worldPose.pose.orientation * mOrientation;
+
+        if (!mSeatedPlay)
+        {
+            float heightAdjustment = mLastPose.pose.position.z() * (Session::instance().playerScale() - 1.f);
+            worldPose.pose.position.z() += heightAdjustment;
+        }
 
         if (mOrigin)
             worldPose.pose.position += mOriginWorldPose.position;
@@ -157,7 +162,6 @@ namespace VR
         if (!!mtp.status)
         {
             mtp.pose.position *= Constants::UnitsPerMeter;
-            mtp.pose.position *= Session::instance().playerScale();
             osg::Vec3 vrMovement = mtp.pose.position - mLastPose.pose.position;
             mLastPose = mtp;
             if (mHasTrackingData)

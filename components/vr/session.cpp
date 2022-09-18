@@ -116,8 +116,8 @@ namespace VR
     {
         if (mTrackerToWorldBinding)
         {
-            mTrackerToWorldBinding->recenter(recenterZ);
             mTrackerToWorldBinding->setSeatedPlay(seatedPlay());
+            mTrackerToWorldBinding->recenter(recenterZ);
             mTrackerToWorldBinding->setEyeLevel(charHeight() * Constants::UnitsPerMeter);
         }
     }
