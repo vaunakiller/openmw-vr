@@ -467,9 +467,6 @@ namespace MWVR
 
     void VRAnimation::onTrackingUpdated(VR::TrackingManager& manager, VR::DisplayTime predictedDisplayTime)
     {
-        for (auto& controller : mVrControllers)
-            controller.second->onTrackingUpdated(manager, predictedDisplayTime);
-
         if (mSkeleton)
             mSkeleton->markBoneMatriceDirty();
 
@@ -513,6 +510,9 @@ namespace MWVR
 
             VR::Session::instance().setMovementAngleOffset(rotation);
         }
+
+        for (auto& controller : mVrControllers)
+            controller.second->onTrackingUpdated(manager, predictedDisplayTime);
     }
 
     osg::Vec3f VRAnimation::runAnimation(float timepassed)
