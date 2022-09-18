@@ -319,6 +319,7 @@ namespace MWVR
 
             Settings::Manager::setFloat("player height", "VR", height);
             Settings::Manager::setBool("player height calibrated", "VR", true);
+            VR::Session::instance().computePlayerScale();
         }
 
         wm->exitVoid();

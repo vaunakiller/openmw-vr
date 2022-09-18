@@ -460,9 +460,9 @@ namespace VR
         if (frame.shouldRender && frame.shouldSyncFrameLoop)
         {
             left = views[VR::Side_Left];
-            left.pose.position *= Constants::UnitsPerMeter;
+            left.pose.position *= Constants::UnitsPerMeter * mSession->playerScale();
             right = views[VR::Side_Right];
-            right.pose.position *= Constants::UnitsPerMeter;
+            right.pose.position *= Constants::UnitsPerMeter * mSession->playerScale();
 
             // Print view once to log, useful for debugging the views of headsets i do not posess.
             static bool havePrintedView = false;
