@@ -36,7 +36,11 @@ namespace Stereo
     class StereoFrustumManager;
     class MultiviewStereoStatesetUpdateCallback;
 
+    //! Check if stereo is enabled or not
     bool getStereo();
+
+    //! Sets up any definitions necessary for stereo rendering
+    void shaderStereoDefines(Shader::ShaderManager::DefineMap& defines);
 
     //! Class that provides tools for managing stereo mode
     class Manager
@@ -66,9 +70,6 @@ namespace Stereo
 
         osg::Matrixd computeEyeProjection(int view, bool reverseZ) const;
         osg::Matrixd computeEyeViewOffset(int view) const;
-
-        //! Sets up any definitions necessary for stereo rendering
-        void shaderStereoDefines(Shader::ShaderManager::DefineMap& defines) const;
 
         const std::shared_ptr<MultiviewFramebuffer>& multiviewFramebuffer() { return mMultiviewFramebuffer; };
 

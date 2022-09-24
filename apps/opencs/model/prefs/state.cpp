@@ -281,6 +281,9 @@ void CSMPrefs::State::declare()
         setTooltip("Selection can be chosen between select only, add to selection, remove from selection and invert selection.").
         addValues (secondarySelectAction);
 
+    setDefaultHidden("stereo enabled", "Stereo", "false");
+    setDefaultHidden("multiview", "Stereo", "false");
+
     declareCategory ("Key Bindings");
 
     declareSubcategory ("Document");
@@ -627,6 +630,17 @@ void CSMPrefs::State::setDefault (const std::string& key, const std::string& def
 
     if (iter==Settings::Manager::mDefaultSettings.end())
         Settings::Manager::mDefaultSettings.insert (std::make_pair (fullKey, default_));
+}
+
+void CSMPrefs::State::setDefaultHidden(const std::string& key, const std::string& category, const std::string& default_)
+{
+    Settings::CategorySetting fullKey(category, key);
+
+    Settings::CategorySettingValueMap::iterator iter =
+        Settings::Manager::mDefaultSettings.find(fullKey);
+
+    if (iter == Settings::Manager::mDefaultSettings.end())
+        Settings::Manager::mDefaultSettings.insert(std::make_pair(fullKey, default_));
 }
 
 CSMPrefs::State::State (const Files::ConfigurationManager& configurationManager)

@@ -174,7 +174,7 @@ namespace Stereo
 
     }
 
-    void Manager::shaderStereoDefines(Shader::ShaderManager::DefineMap& defines) const
+    void shaderStereoDefines(Shader::ShaderManager::DefineMap& defines)
     {
         if (getMultiview())
         {

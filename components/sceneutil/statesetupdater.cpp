@@ -1,6 +1,7 @@
 #include "statesetupdater.hpp"
 
 #include <components/stereo/stereomanager.hpp>
+#include <components/stereo/multiview.hpp>
 
 #include <osg/Node>
 #include <osg/NodeVisitor>
@@ -40,11 +41,15 @@ namespace SceneUtil
     {
         auto stateset = getCvDependentStateset(cv);
         apply(stateset, cv);
-        auto& sm = Stereo::Manager::instance();
-        if (sm.getEye(cv) == Stereo::Eye::Left)
-            applyLeft(stateset, cv);
-        if (sm.getEye(cv) == Stereo::Eye::Right)
-            applyRight(stateset, cv);
+
+        if (Stereo::getStereo() && !Stereo::getMultiview())
+        {
+            auto& sm = Stereo::Manager::instance();
+            if (sm.getEye(cv) == Stereo::Eye::Left)
+                applyLeft(stateset, cv);
+            if (sm.getEye(cv) == Stereo::Eye::Right)
+                applyRight(stateset, cv);
+        }
 
         cv->pushStateSet(stateset);
         traverse(node, cv);
