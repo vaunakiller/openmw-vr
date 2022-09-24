@@ -799,7 +799,7 @@ namespace MWVR
         mLayers[name] = layer;
 
         Shader::ShaderManager::DefineMap defineMap;
-        Stereo::Manager::instance().shaderStereoDefines(defineMap);
+        Stereo::shaderStereoDefines(defineMap);
         auto& shaderManager = mResourceSystem->getSceneManager()->getShaderManager();
 
         osg::ref_ptr<osg::Shader> vertexShader = shaderManager.getShader("3dgui_vertex.glsl", defineMap, osg::Shader::VERTEX);

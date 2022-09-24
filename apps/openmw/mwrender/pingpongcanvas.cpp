@@ -32,7 +32,7 @@ namespace MWRender
         mLuminanceCalculator.disable();
 
         Shader::ShaderManager::DefineMap defines;
-        Stereo::Manager::instance().shaderStereoDefines(defines);
+        Stereo::shaderStereoDefines(defines);
 
         auto fallbackVertex = shaderManager.getShader("fullscreen_tri_vertex.glsl", defines, osg::Shader::VERTEX);
         auto fallbackFragment = shaderManager.getShader("fullscreen_tri_fragment.glsl", defines, osg::Shader::FRAGMENT);

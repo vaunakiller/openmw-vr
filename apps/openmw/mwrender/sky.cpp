@@ -369,7 +369,7 @@ namespace MWRender
         if (mSceneManager->getForceShaders())
         {
             Shader::ShaderManager::DefineMap defines = {};
-            Stereo::Manager::instance().shaderStereoDefines(defines);
+            Stereo::shaderStereoDefines(defines);
             auto vertex = mSceneManager->getShaderManager().getShader("sky_vertex.glsl", defines, osg::Shader::VERTEX);
             auto fragment = mSceneManager->getShaderManager().getShader("sky_fragment.glsl", defines, osg::Shader::FRAGMENT);
             auto program = mSceneManager->getShaderManager().getProgram(vertex, fragment);

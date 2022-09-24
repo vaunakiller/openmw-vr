@@ -32,7 +32,7 @@ namespace MWRender
             mStateSet->setTextureAttributeAndModes(0, dummyTexture);
 
             Shader::ShaderManager::DefineMap defines;
-            Stereo::Manager::instance().shaderStereoDefines(defines);
+            Stereo::shaderStereoDefines(defines);
             osg::ref_ptr<osg::Shader> vertex = shaderManager.getShader("blended_depth_postpass_vertex.glsl", defines, osg::Shader::VERTEX);
             osg::ref_ptr<osg::Shader> fragment = shaderManager.getShader("blended_depth_postpass_fragment.glsl", defines, osg::Shader::FRAGMENT);
 

@@ -685,7 +685,7 @@ void Water::createShaderWaterStateSet(osg::Node* node, Reflection* reflection, R
     const auto rippleDetail = std::clamp(Settings::Manager::getInt("rain ripple detail", "Water"), 0, 2);
     defineMap["rain_ripple_detail"] = std::to_string(rippleDetail);
 
-    Stereo::Manager::instance().shaderStereoDefines(defineMap);
+    Stereo::shaderStereoDefines(defineMap);
 
     Shader::ShaderManager& shaderMgr = mResourceSystem->getSceneManager()->getShaderManager();
     osg::ref_ptr<osg::Shader> vertexShader(shaderMgr.getShader("water_vertex.glsl", defineMap, osg::Shader::VERTEX));
