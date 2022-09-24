@@ -9,7 +9,7 @@ Consult the openxr specification for details of what Paths are available for you
 
 Note that some controllers require OpenXR extensions. In which case consult the relevant extension section
 of the openxr spec instead of the linked section. 
-You will not make an interaction profile work by removing the extension requirement form this file.
+You will not make an interaction profile work by removing the extension requirement from this file.
 -->
 <Root>
     <Actions>
@@ -68,12 +68,24 @@ You will not make an interaction profile work by removing the extension requirem
     </Profile>
     <Profile LocalName="Oculus Touch Controllers" Path="/interaction_profiles/oculus/touch_controller">
         <ActionSet Name="Gameplay">
-            <Binding ActionName="reposition_menu" Path="/user/hand/left/input/menu/click"/>
-            <Binding ActionName="meta_menu" Path="/user/hand/left/input/menu/click"/>
+            <!-- 
+                Years later, SteamVR has STILL not fixed the bug where the menu bind does not work. 
+                Since Quest users often have to use SteamVR runtimes instead of Oculus runtimes,
+                I add a special condition for oculus users to change the menu binds when steamvr is the 
+                active runtime.
+                
+                If you want to apply the same workaround for other runtimes, you can find the names of runtimes
+                in openmw.log after running openmw-vr. It is enough that the name contains the supplied string,
+                it does not need to be an exact match.
+            -->
+            <Binding ActionName="reposition_menu" Path="/user/hand/left/input/menu/click" IfNotRuntime="SteamVR"/>
+            <Binding ActionName="reposition_menu" Path="/user/hand/left/input/thumbstick/click" IfRuntime="SteamVR"/>
+            <Binding ActionName="meta_menu" Path="/user/hand/left/input/menu/click" IfNotRuntime="SteamVR"/>
+            <Binding ActionName="meta_menu" Path="/user/hand/left/input/thumbstick/click" IfRuntime="SteamVR"/>
             <Binding ActionName="sneak" Path="/user/hand/left/input/squeeze/value"/>
             <Binding ActionName="move_left_right" Path="/user/hand/left/input/thumbstick/x"/>
             <Binding ActionName="move_forward_backward" Path="/user/hand/left/input/thumbstick/y"/>
-            <Binding ActionName="toggle_thumbstick_auto_run" Path="/user/hand/left/input/thumbstick/click"/>
+            <Binding ActionName="toggle_thumbstick_auto_run" Path="/user/hand/right/input/thumbstick/click"/>
             <Binding ActionName="jump" Path="/user/hand/left/input/trigger/value"/>
             <Binding ActionName="spell" Path="/user/hand/left/input/x/click"/>
             <Binding ActionName="rest" Path="/user/hand/left/input/y/click"/>
@@ -83,8 +95,8 @@ You will not make an interaction profile work by removing the extension requirem
             <Binding ActionName="look_left_right" Path="/user/hand/right/input/thumbstick/x"/>
             <Binding ActionName="toggle_sneak_axis_down" Path="/user/hand/right/input/thumbstick/y"/>
             <Binding ActionName="radial_menu" Path="/user/hand/right/input/thumbstick/y"/>
-            <Binding ActionName="auto_move" Path="/user/hand/right/input/thumbstick/click"/>
             <Binding ActionName="use" Path="/user/hand/right/input/trigger/value"/>
+            
         </ActionSet>
         <ActionSet Name="GUI">
             <Binding ActionName="menu_up_down" Path="/user/hand/right/input/thumbstick/y"/>

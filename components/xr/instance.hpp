@@ -44,6 +44,8 @@ namespace XR
 
         std::shared_ptr<XR::Session> createSession();
 
+        std::string getRuntimeName();
+
     protected:
         void setupExtensionsAndLayers();
         void setupDebugMessenger(void);

@@ -265,6 +265,11 @@ namespace XR
         return std::make_shared<Session>(xrSession, mViewConfigType);
     }
 
+    std::string Instance::getRuntimeName()
+    {
+        return std::string(mSystemProperties.systemName);
+    }
+
     std::array<XrViewConfigurationView, 2> Instance::getRecommendedXrSwapchainConfig() const
     {
         return mConfigViews;

@@ -10,6 +10,7 @@
 
 #include <iostream>
 #include <sstream>
+#include <algorithm>
 
 #include <extern/oics/tinyxml.h>
 
@@ -227,6 +228,14 @@ namespace MWVR
         return value;
     }
 
+    std::string OpenXRInput::optionalAttribute(TiXmlElement* element, std::string attribute)
+    {
+        const char* value = element->Attribute(attribute.c_str());
+        if (!value)
+            return "";
+        return value;
+    }
+
     void OpenXRInput::readInteractionProfile(TiXmlElement* element)
     {
         std::string interactionProfilePath = requireAttribute(element, "Path");
@@ -275,11 +284,24 @@ namespace MWVR
     {
         XR::SuggestedBindings suggestedBindings;
 
-        TiXmlElement* child = element->FirstChildElement("Binding");
-        while (child)
+        auto runtimeName = XR::Instance::instance().getRuntimeName();
+
+        for (
+            TiXmlElement* child = element->FirstChildElement("Binding"); 
+            child != nullptr; 
+            child = child->NextSiblingElement("Binding"))
         {
             std::string action = requireAttribute(child, "ActionName");
             std::string path = requireAttribute(child, "Path");
+            std::string ifRuntime = optionalAttribute(child, "IfRuntime");
+            std::string ifNotRuntime = optionalAttribute(child, "IfNotRuntime");
+
+            if (!ifRuntime.empty()
+                && Misc::StringUtils::ciFind(runtimeName, ifRuntime) == std::string::npos)
+                continue;
+            if (!ifNotRuntime.empty()
+                && Misc::StringUtils::ciFind(runtimeName, ifNotRuntime) != std::string::npos)
+                continue;
 
             suggestedBindings.push_back(
                 XR::SuggestedBinding{
@@ -287,8 +309,6 @@ namespace MWVR
                 });
 
             Log(Debug::Debug) << "  " << action << ": " << path;
-
-            child = child->NextSiblingElement("Binding");
         }
 
         suggestBindings(actionSet, interactionProfilePath, suggestedBindings);

@@ -72,6 +72,7 @@ namespace MWVR
 
         void throwDocumentError(TiXmlElement* element, std::string error);
         std::string requireAttribute(TiXmlElement* element, std::string attribute);
+        std::string optionalAttribute(TiXmlElement* element, std::string attribute);
         void readInteractionProfile(TiXmlElement* element);
         void readInteractionProfileActionSet(TiXmlElement* element, MWActionSet actionSet, std::string profilePath);
 

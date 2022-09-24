@@ -67,6 +67,17 @@ public:
         return std::lexicographical_compare(x.begin(), x.end(), y.begin(), y.end(), ci());
     }
 
+    template<class X, class Y>
+    static size_t ciFind(const X& haystack, const Y& needle)
+    {
+        auto it = std::search(
+            haystack.begin(), haystack.end(),
+            needle.begin(), needle.end(),
+            [](char ch1, char ch2) { return toLower(ch1) == toLower(ch2); }
+        );
+        return (it != haystack.end()) ? it - haystack.begin() : std::string::npos;
+    }
+
     template <class X, class Y>
     static bool ciEqual(const X& x, const Y& y)
     {
