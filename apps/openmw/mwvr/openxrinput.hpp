@@ -8,6 +8,8 @@
 #include <components/xr/actionset.hpp>
 
 #include <vector>
+#include <map>
+#include <set>
 #include <array>
 
 class TiXmlElement;
