@@ -37,7 +37,8 @@ namespace MWVR
             const std::string& userFile, bool userFileExists,
             const std::string& userControllerBindingsFile,
             const std::string& controllerBindingsFile, bool grab,
-            const std::string& xrControllerSuggestionsFile);
+            const std::string& xrControllerSuggestionsFile,
+            const std::string& defaultXrControllerSuggestionsFile);
 
         virtual ~VRInputManager();
 
@@ -68,6 +69,12 @@ namespace MWVR
 
     protected:
         void processAction(const class XR::InputAction* action, float dt, bool disableControls);
+        void processMovementStick(const class XR::InputAction* action, float dt, bool disableControls);
+        void processUtilityStick(const class XR::InputAction* action, float dt, bool disableControls);
+        void toggleUtilityDown();
+        void toggleUtilityUp();
+        void onActivateAction(int actionId);
+        void onDeactivateAction(int actionId);
 
         void updateVRPointer(bool disableControls);
         void updateCombat(float dt);
@@ -94,8 +101,11 @@ namespace MWVR
         bool mPointerRight = false;
         bool mHapticsEnabled = true;
         bool mSmoothTurning = true;
+        bool mIsToggleSneak = false;
         float mSnapAngle = 30.f;
         float mSmoothTurnRate = 1.0f;
+        bool mUtilityDownActive = false;
+        bool mUtilityUpActive = false;
 
         osg::ref_ptr<osg::Node> mVRAimNode;
 

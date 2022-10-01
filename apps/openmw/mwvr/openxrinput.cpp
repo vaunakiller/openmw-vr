@@ -17,8 +17,9 @@
 namespace MWVR
 {
 
-    OpenXRInput::OpenXRInput(const std::string& xrControllerSuggestionsFile)
+    OpenXRInput::OpenXRInput(const std::string& xrControllerSuggestionsFile, const std::string& defaultXrControllerSuggestionsFile)
         : mXrControllerSuggestionsFile(xrControllerSuggestionsFile)
+        , mDefaultXrControllerSuggestionsFile(defaultXrControllerSuggestionsFile)
     {
         createActionSets();
         createGameplayActions();
@@ -39,68 +40,44 @@ namespace MWVR
 
     void OpenXRInput::createGameplayActions()
     {
-        /*
-            // Applicable actions not (yet) included
-            A_QuickKey1,
-            A_QuickKey2,
-            A_QuickKey3,
-            A_QuickKey4,
-            A_QuickKey5,
-            A_QuickKey6,
-            A_QuickKey7,
-            A_QuickKey8,
-            A_QuickKey9,
-            A_QuickKey10,
-            A_QuickKeysMenu,
-            A_QuickLoad,
-            A_CycleSpellLeft,
-            A_CycleSpellRight,
-            A_CycleWeaponLeft,
-            A_CycleWeaponRight,
-            A_Screenshot, // Generate a VR screenshot? Currently not applicable because the screenshot function crashes the viewer.
-            A_Console,    
-        */
-        getActionSet(MWActionSet::Gameplay).createMWAction(XR::ControlType::Press, MWInput::A_GameMenu, "game_menu", "Game Menu");
-        getActionSet(MWActionSet::Gameplay).createMWAction(XR::ControlType::Press, A_VrMetaMenu, "meta_menu", "Meta Menu");
-        getActionSet(MWActionSet::Gameplay).createMWAction(XR::ControlType::LongPress, A_Recenter, "reposition_menu", "Reposition Menu");
-        getActionSet(MWActionSet::Gameplay).createMWAction(XR::ControlType::Press, MWInput::A_Inventory, "inventory", "Inventory");
-        getActionSet(MWActionSet::Gameplay).createMWAction(XR::ControlType::Hold, MWInput::A_Use, "use", "Use");
-        getActionSet(MWActionSet::Gameplay).createMWAction(XR::ControlType::Hold, MWInput::A_Jump, "jump", "Jump");
-        getActionSet(MWActionSet::Gameplay).createMWAction(XR::ControlType::Press, MWInput::A_ToggleWeapon, "weapon", "Weapon");
-        getActionSet(MWActionSet::Gameplay).createMWAction(XR::ControlType::Press, MWInput::A_ToggleSpell, "spell", "Spell");
-        getActionSet(MWActionSet::Gameplay).createMWAction(XR::ControlType::Press, MWInput::A_CycleSpellLeft, "cycle_spell_left", "Cycle Spell Left");
-        getActionSet(MWActionSet::Gameplay).createMWAction(XR::ControlType::Press, MWInput::A_CycleSpellRight, "cycle_spell_right", "Cycle Spell Right");
-        getActionSet(MWActionSet::Gameplay).createMWAction(XR::ControlType::Press, MWInput::A_CycleWeaponLeft, "cycle_weapon_left", "Cycle Weapon Left");
-        getActionSet(MWActionSet::Gameplay).createMWAction(XR::ControlType::Press, MWInput::A_CycleWeaponRight, "cycle_weapon_right", "Cycle Weapon Right");
-        getActionSet(MWActionSet::Gameplay).createMWAction(XR::ControlType::Hold, MWInput::A_Sneak, "sneak", "Sneak");
-        getActionSet(MWActionSet::Gameplay).createMWAction(XR::ControlType::Press, MWInput::A_QuickKeysMenu, "quick_menu", "Quick Menu");
-        getActionSet(MWActionSet::Gameplay).createMWAction(XR::ControlType::Axis, MWInput::A_LookLeftRight, "look_left_right", "Look Left Right");
-        getActionSet(MWActionSet::Gameplay).createMWAction(XR::ControlType::Axis, MWInput::A_MoveForwardBackward, "move_forward_backward", "Move Forward Backward");
-        getActionSet(MWActionSet::Gameplay).createMWAction(XR::ControlType::Axis, MWInput::A_MoveLeftRight, "move_left_right", "Move Left Right");
-        getActionSet(MWActionSet::Gameplay).createMWAction(XR::ControlType::Press, MWInput::A_Journal, "journal_book", "Journal Book");
-        getActionSet(MWActionSet::Gameplay).createMWAction(XR::ControlType::Press, MWInput::A_QuickSave, "quick_save", "Quick Save");
-        getActionSet(MWActionSet::Gameplay).createMWAction(XR::ControlType::Press, MWInput::A_Rest, "rest", "Rest");
-        getActionSet(MWActionSet::Gameplay).createMWAction(XR::ControlType::Axis, A_ActivateTouch, "activate_touched", "Activate Touch", { VR::SubAction::HandLeft, VR::SubAction::HandRight });
-        getActionSet(MWActionSet::Gameplay).createMWAction(XR::ControlType::Press, MWInput::A_AlwaysRun, "always_run", "Always Run");
-        getActionSet(MWActionSet::Gameplay).createMWAction(XR::ControlType::Press, MWInput::A_AutoMove, "auto_move", "Auto Move");
-        getActionSet(MWActionSet::Gameplay).createMWAction(XR::ControlType::Press, MWInput::A_ToggleHUD, "toggle_hud", "Toggle HUD");
-        getActionSet(MWActionSet::Gameplay).createMWAction(XR::ControlType::Press, MWInput::A_ToggleDebug, "toggle_debug", "Toggle the debug hud");
-        getActionSet(MWActionSet::Gameplay).createMWAction(XR::ControlType::Press, MWInput::A_ToggleThumbstickAutoRun, "toggle_thumbstick_auto_run", "Toggle Thumbstick Auto Run");
-        getActionSet(MWActionSet::Gameplay).createMWAction(XR::ControlType::Press, MWInput::A_ToggleSneak, "toggle_sneak", "Toggle Sneak");
-        getActionSet(MWActionSet::Gameplay).createMWAction(XR::ControlType::Press, A_RadialMenu, "radial_menu", "Radial Menu");
-        // Specialized action for toggling sneak on axis down
-        getActionSet(MWActionSet::Gameplay).createMWAction(XR::ControlType::AxisDown, A_ToggleSneakAxisDown, "toggle_sneak_axis_down", "Toggle Sneak Axis Down");
+        createMWAction(MWActionSet::Gameplay, XR::ControlType::Press, MWInput::A_GameMenu, "game_menu", "Game Menu");
+        createMWAction(MWActionSet::Gameplay, XR::ControlType::Press, A_VrMetaMenu, "meta_menu", "Meta Menu");
+        createMWAction(MWActionSet::Gameplay, XR::ControlType::LongPress, A_Recenter, "reposition_menu", "Reposition Menu");
+        createMWAction(MWActionSet::Gameplay, XR::ControlType::Press, MWInput::A_Inventory, "inventory", "Inventory");
+        createMWAction(MWActionSet::Gameplay, XR::ControlType::Hold, MWInput::A_Use, "use", "Use");
+        createMWAction(MWActionSet::Gameplay, XR::ControlType::Hold, MWInput::A_Jump, "jump", "Jump");
+        createMWAction(MWActionSet::Gameplay, XR::ControlType::Press, MWInput::A_ToggleWeapon, "weapon", "Weapon");
+        createMWAction(MWActionSet::Gameplay, XR::ControlType::Press, MWInput::A_ToggleSpell, "spell", "Spell");
+        createMWAction(MWActionSet::Gameplay, XR::ControlType::Press, MWInput::A_CycleSpellLeft, "cycle_spell_left", "Cycle Spell Left");
+        createMWAction(MWActionSet::Gameplay, XR::ControlType::Press, MWInput::A_CycleSpellRight, "cycle_spell_right", "Cycle Spell Right");
+        createMWAction(MWActionSet::Gameplay, XR::ControlType::Press, MWInput::A_CycleWeaponLeft, "cycle_weapon_left", "Cycle Weapon Left");
+        createMWAction(MWActionSet::Gameplay, XR::ControlType::Press, MWInput::A_CycleWeaponRight, "cycle_weapon_right", "Cycle Weapon Right");
+        createMWAction(MWActionSet::Gameplay, XR::ControlType::Hold, MWInput::A_Sneak, "sneak", "Sneak");
+        createMWAction(MWActionSet::Gameplay, XR::ControlType::Press, MWInput::A_QuickKeysMenu, "quick_menu", "Quick Menu");
+        createMWAction(MWActionSet::Gameplay, XR::ControlType::Press, MWInput::A_Journal, "journal_book", "Journal Book");
+        createMWAction(MWActionSet::Gameplay, XR::ControlType::Press, MWInput::A_QuickSave, "quick_save", "Quick Save");
+        createMWAction(MWActionSet::Gameplay, XR::ControlType::Press, MWInput::A_Rest, "rest", "Rest");
+        createMWAction(MWActionSet::Gameplay, XR::ControlType::Axis1D, A_ActivateTouch, "activate_touched", "Activate Touch", { VR::SubAction::HandLeft, VR::SubAction::HandRight });
+        createMWAction(MWActionSet::Gameplay, XR::ControlType::Press, MWInput::A_AlwaysRun, "always_run", "Always Run");
+        createMWAction(MWActionSet::Gameplay, XR::ControlType::Press, MWInput::A_AutoMove, "auto_move", "Auto Move");
+        createMWAction(MWActionSet::Gameplay, XR::ControlType::Press, MWInput::A_ToggleHUD, "toggle_hud", "Toggle HUD");
+        createMWAction(MWActionSet::Gameplay, XR::ControlType::Press, MWInput::A_ToggleDebug, "toggle_debug", "Toggle the debug hud");
+        createMWAction(MWActionSet::Gameplay, XR::ControlType::Press, MWInput::A_ToggleThumbstickAutoRun, "toggle_thumbstick_auto_run", "Toggle Thumbstick Auto Run");
+        createMWAction(MWActionSet::Gameplay, XR::ControlType::Press, MWInput::A_ToggleSneak, "toggle_sneak", "Toggle Sneak");
+        createMWAction(MWActionSet::Gameplay, XR::ControlType::LongPress, A_RadialMenu, "radial_menu", "Radial Menu");
+        createMWAction(MWActionSet::Gameplay, XR::ControlType::Axis2D, A_MovementStick, "movement_stick", "Movement Stick");
+        createMWAction(MWActionSet::Gameplay, XR::ControlType::Axis2D, A_UtilityStick, "utility_stick", "Utility Stick");
     }
 
     void OpenXRInput::createGUIActions()
     {
-        getActionSet(MWActionSet::GUI).createMWAction(XR::ControlType::Press, MWInput::A_GameMenu, "game_menu", "Game Menu");
-        getActionSet(MWActionSet::GUI).createMWAction(XR::ControlType::LongPress, A_Recenter, "reposition_menu", "Reposition Menu");
-        getActionSet(MWActionSet::GUI).createMWAction(XR::ControlType::Axis, A_MenuUpDown, "menu_up_down", "Menu Up Down");
-        getActionSet(MWActionSet::GUI).createMWAction(XR::ControlType::Axis, A_MenuLeftRight, "menu_left_right", "Menu Left Right");
-        getActionSet(MWActionSet::GUI).createMWAction(XR::ControlType::Press, A_MenuSelect, "menu_select", "Menu Select");
-        getActionSet(MWActionSet::GUI).createMWAction(XR::ControlType::Press, A_MenuBack, "menu_back", "Menu Back");
-        getActionSet(MWActionSet::GUI).createMWAction(XR::ControlType::Hold, MWInput::A_Use, "use", "Use");
+        createMWAction(MWActionSet::GUI, XR::ControlType::Press, MWInput::A_GameMenu, "game_menu", "Game Menu");
+        createMWAction(MWActionSet::GUI, XR::ControlType::LongPress, A_Recenter, "reposition_menu", "Reposition Menu");
+        createMWAction(MWActionSet::GUI, XR::ControlType::Axis1D, A_MenuUpDown, "menu_up_down", "Menu Up Down");
+        createMWAction(MWActionSet::GUI, XR::ControlType::Axis1D, A_MenuLeftRight, "menu_left_right", "Menu Left Right");
+        createMWAction(MWActionSet::GUI, XR::ControlType::Press, A_MenuSelect, "menu_select", "Menu Select");
+        createMWAction(MWActionSet::GUI, XR::ControlType::Press, A_MenuBack, "menu_back", "Menu Back");
+        createMWAction(MWActionSet::GUI, XR::ControlType::Hold, MWInput::A_Use, "use", "Use");
     }
 
     void OpenXRInput::createPoseActions()
@@ -154,9 +131,18 @@ namespace MWVR
         xmlRoot = xmlDoc->RootElement();
         if (std::string(xmlRoot->Value()) != "Root") {
             Log(Debug::Verbose) << "Error: Invalid xr controllers file. Missing <Root> element.";
+            throw std::runtime_error("Error: Invalid xr controllers file. Missing <Root> element.");
             delete xmlDoc;
             return;
         }
+
+        TiXmlElement* actions = xmlRoot->FirstChildElement("Actions");
+        if (!actions)
+        {
+            Log(Debug::Error) << "Error: Invalid xr controllers file. Missing <Actions> element.";
+            throw std::runtime_error("Error: Invalid xr controllers file. Missing <Actions> element.");
+        }
+        readActions(actions);
 
         TiXmlElement* profile = xmlRoot->FirstChildElement("Profile");
         while (profile)
@@ -234,6 +220,44 @@ namespace MWVR
         if (!value)
             return "";
         return value;
+    }
+
+    void OpenXRInput::readActions(TiXmlElement* element)
+    {
+        TiXmlElement* action = element->FirstChildElement("Action");
+        while (action)
+        {
+            std::string name = requireAttribute(action, "Name");
+            mActionNamesChecklist.erase(name);
+            action = action->NextSiblingElement("Action");
+        }
+
+        if (!mActionNamesChecklist.empty())
+        {
+            std::vector<std::string> missingActions(mActionNamesChecklist.begin(), mActionNamesChecklist.end());
+            std::stringstream ss;
+            ss << "Your controller bindings file, " << mXrControllerSuggestionsFile << ", is stale. It is missing <Action> entries for the actions: ";
+            for(unsigned int i = 0; i < missingActions.size(); i++)
+            {
+                Log(Debug::Error) << "Xr controller suggestions file does not contain an entry for action " << missingActions[i];
+                if (i > 0) 
+                    ss << ", ";
+                ss << missingActions[i];
+            }
+
+            ss << ".";
+
+            if (mXrControllerSuggestionsFile == mDefaultXrControllerSuggestionsFile)
+            {
+                ss << " You should NOT be editing any files located in your openmw folder. Please reinstall OpenMW-VR and read the instructions at the top of xrcontrollersuggestions.xml carefully.";
+            }
+            else
+            {
+                ss << " Restore default bindings by deleting or moving the file, and then create new bindings if you so wish based on a fresh copy of " << mDefaultXrControllerSuggestionsFile;
+            }
+
+            throw std::runtime_error(ss.str());
+        }
     }
 
     void OpenXRInput::readInteractionProfile(TiXmlElement* element)
@@ -317,5 +341,20 @@ namespace MWVR
     void OpenXRInput::setThumbstickDeadzone(float deadzoneRadius)
     {
         mDeadzone->setDeadzoneRadius(deadzoneRadius);
+    }
+
+    int OpenXRInput::actionCodeFromName(const std::string& name) const
+    {
+        auto it = mActionNameToActionId.find(name);
+        if (it != mActionNameToActionId.end())
+            return it->second;
+        return 0;
+    }
+
+    void OpenXRInput::createMWAction(MWActionSet actionSet, XR::ControlType controlType, int openMWAction, const std::string& actionName, const std::string& localName, std::vector<VR::SubAction> subActions)
+    {
+        mActionNameToActionId[actionName] = openMWAction;
+        getActionSet(actionSet).createMWAction(controlType, openMWAction, actionName, localName, subActions);
+        mActionNamesChecklist.insert(actionName);
     }
 }

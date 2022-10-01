@@ -27,6 +27,25 @@ namespace XR
         }
     }
 
+    bool Action::getFloat2d(XrPath subactionPath, osg::Vec2f& value)
+    {
+        XrActionStateGetInfo getInfo{};
+        getInfo.type = XR_TYPE_ACTION_STATE_GET_INFO;
+        getInfo.action = mXrAction;
+        getInfo.subactionPath = subactionPath;
+
+        XrActionStateVector2f xrValue{};
+        xrValue.type = XR_TYPE_ACTION_STATE_VECTOR2F;
+        CHECK_XRCMD(xrGetActionStateVector2f(XR::Session::instance().xrSession(), &getInfo, &xrValue));
+
+        if (xrValue.isActive)
+        {
+            value.x() = xrValue.currentState.x;
+            value.y() = xrValue.currentState.y;
+        }
+        return xrValue.isActive;
+    }
+
     bool Action::getFloat(XrPath subactionPath, float& value)
     {
         XrActionStateGetInfo getInfo{};
@@ -140,6 +159,7 @@ namespace XR
     {
         bool old = mActive;
         mPrevious = mValue;
+        mPrevious2d = mValue2d;
         update();
         bool changed = old != mActive;
         mOnActivate = changed && mActive;
@@ -171,6 +191,7 @@ namespace XR
         }
 
         mValue = mPressed ? 1.f : 0.f;
+        mValue2d.x() = mValue2d.y() = mValue;
     }
 
     void ButtonLongPressAction::update()
@@ -197,6 +218,7 @@ namespace XR
         {
             mValue = 0.f;
         }
+        mValue2d.x() = mValue2d.y() = mValue;
     }
 
 
@@ -206,16 +228,17 @@ namespace XR
         mActive = mPressed;
 
         mValue = mPressed ? 1.f : 0.f;
+        mValue2d.x() = mValue2d.y() = mValue;
     }
 
 
-    AxisAction::AxisAction(int openMWAction, std::shared_ptr<XR::Action> action, VR::SubAction subAction, std::shared_ptr<AxisAction::Deadzone> deadzone)
+    Axis1DAction::Axis1DAction(int openMWAction, std::shared_ptr<XR::Action> action, VR::SubAction subAction, std::shared_ptr<AxisDeadzone> deadzone)
         : InputAction(openMWAction, std::move(action), subAction)
         , mDeadzone(deadzone)
     {
     }
 
-    void AxisAction::update()
+    void Axis1DAction::update()
     {
         mActive = false;
         mAction->getFloat(mSubActionPath, mValue);
@@ -225,9 +248,11 @@ namespace XR
             mActive = true;
         else
             mValue = 0.f;
+
+        mValue2d.x() = mValue2d.y() = mValue;
     }
 
-    void AxisAction::Deadzone::applyDeadzone(float& value)
+    void AxisDeadzone::applyDeadzone(float& value)
     {
         float sign = std::copysignf(1.f, value);
         float magnitude = std::fabs(value);
@@ -237,7 +262,7 @@ namespace XR
 
     }
 
-    void AxisAction::Deadzone::setDeadzoneRadius(float deadzoneRadius)
+    void AxisDeadzone::setDeadzoneRadius(float deadzoneRadius)
     {
         deadzoneRadius = std::min(std::max(deadzoneRadius, 0.0f), 0.5f - 1e-5f);
         mActiveRadiusInner = deadzoneRadius;
@@ -245,28 +270,6 @@ namespace XR
         float activeRadius = mActiveRadiusOuter - mActiveRadiusInner;
         assert(activeRadius > 0.f);
         mActiveScale = 1.f / activeRadius;
-    }
-
-    AxisDownAction::AxisDownAction(int openMWAction, std::shared_ptr<Action> xrAction, VR::SubAction subAction)
-        : InputAction(openMWAction, std::move(xrAction), subAction)
-    {
-
-    }
-
-    void AxisDownAction::update()
-    {
-        mAction->getFloat(mSubActionPath, mValue);
-
-        if (mActive)
-        {
-            if (mValue >= -0.4)
-                mActive = false;
-        }
-        else
-        {
-            if (mValue <= -0.6)
-                mActive = true;
-        }
     }
 
     XrPath subActionPath(VR::SubAction subAction)
@@ -292,5 +295,34 @@ namespace XR
         XrPath xrpath = 0;
         CHECK_XRCMD(xrStringToPath(XR::Instance::instance().xrInstance(), cpath, &xrpath));
         return xrpath;
+    }
+
+    Axis2DAction::Axis2DAction(int openMWAction, std::shared_ptr<Action> xrAction, VR::SubAction subAction, std::shared_ptr<AxisDeadzone> deadzone)
+        : InputAction(openMWAction, std::move(xrAction), subAction)
+        , mDeadzone(deadzone)
+    {
+    }
+
+    void Axis2DAction::update()
+    {
+        mActive = false;
+        mAction->getFloat2d(mSubActionPath, mValue2d);
+        mDeadzone->applyDeadzone(mValue2d.x());
+        mDeadzone->applyDeadzone(mValue2d.y());
+
+        float primary = mValue2d.x();
+        if (std::fabs(primary) < std::fabs(mValue2d.y()))
+            primary = mValue2d.y();
+
+        if (std::fabs(primary) > gAxisEpsilon)
+        {
+            mActive = true;
+            mValue = primary;
+        }
+        else
+        {
+            mValue2d.x() = mValue2d.y() = mValue = 0.f;
+        }
+
     }
 }

@@ -30,8 +30,9 @@ namespace MWVR
         A_MenuBack,
         A_Recenter,
         //! Specialized action for assigning sneak to axis down
-        A_ToggleSneakAxisDown,
         A_RadialMenu,
+        A_MovementStick,
+        A_UtilityStick,
         A_VrLast
     };
 
@@ -52,7 +53,7 @@ namespace MWVR
         using XrProfileSuggestedBindings = std::map<std::string, XrSuggestedBindings>;
 
         //! Default constructor, creates two ActionSets: Gameplay and GUI
-        OpenXRInput(const std::string& xrControllerSuggestionsFile);
+        OpenXRInput(const std::string& xrControllerSuggestionsFile, const std::string& defaultXrControllerSuggestionsFile);
         void createActionSets();
         void createGameplayActions();
         void createGUIActions();
@@ -73,19 +74,27 @@ namespace MWVR
         void throwDocumentError(TiXmlElement* element, std::string error);
         std::string requireAttribute(TiXmlElement* element, std::string attribute);
         std::string optionalAttribute(TiXmlElement* element, std::string attribute);
+        void readActions(TiXmlElement* element);
         void readInteractionProfile(TiXmlElement* element);
         void readInteractionProfileActionSet(TiXmlElement* element, MWActionSet actionSet, std::string profilePath);
 
         void setThumbstickDeadzone(float deadzoneRadius);
 
+        int actionCodeFromName(const std::string& name) const;
+
     protected:
+        void createMWAction(MWActionSet actionSet, XR::ControlType controlType, int openMWAction, const std::string& actionName, const std::string& localName, std::vector<VR::SubAction> subActions = {});
+
         std::string mXrControllerSuggestionsFile;
-        std::shared_ptr<XR::AxisAction::Deadzone> mDeadzone{ std::make_shared<XR::AxisAction::Deadzone>() };
+        std::string mDefaultXrControllerSuggestionsFile;
+        std::shared_ptr<XR::AxisDeadzone> mDeadzone{ std::make_shared<XR::AxisDeadzone>() };
         std::map<std::string, std::string> mInteractionProfileLocalNames{};
         std::map<MWActionSet, XR::ActionSet> mActionSets{};
         std::map<XrPath, std::string> mInteractionProfileNames{};
         std::map<std::string, XrPath> mInteractionProfilePaths{};
         std::map<XrPath, XrPath> mActiveInteractionProfiles;
+        std::set<std::string> mActionNamesChecklist;
+        std::map<std::string, int> mActionNameToActionId;
         XrProfileSuggestedBindings mSuggestedBindings{};
         bool mAttached = false;
     };

@@ -13,8 +13,7 @@ You will not make an interaction profile work by removing the extension requirem
 -->
 <Root>
     <Actions>
-        <!-- The <Actions> section exists for reference only and is not processed by OpenMW VR-->
-        <!-- Note that some actions, such as menu_*, only take affect in GUI mode and vice versa -->
+        <!-- The <Actions> section exists for versioning reference, and is used to detect when a user is using a stale custom bindings file. -->
         <Action Name="game_menu" LocalName="Gameplay Game Menu"/>
         <Action Name="meta_menu" LocalName="Gameplay Meta Menu"/>
         <Action Name="reposition_menu" LocalName="Gameplay Reposition Menu"/>
@@ -30,9 +29,6 @@ You will not make an interaction profile work by removing the extension requirem
         <Action Name="cycle_weapon_right" LocalName="Gameplay Cycle Weapon Right"/>
         <Action Name="sneak" LocalName="Gameplay Sneak"/>
         <Action Name="quick_menu" LocalName="Gameplay Quick Menu"/>
-        <Action Name="look_left_right" LocalName="Gameplay Look Left Right"/>
-        <Action Name="move_forward_backward" LocalName="Gameplay Move Forward Backward"/>
-        <Action Name="move_left_right" LocalName="Gameplay Move Left Right"/>
         <Action Name="journal_book" LocalName="Gameplay Journal Book"/>
         <Action Name="quick_save" LocalName="Gameplay Quick Save"/>
         <Action Name="rest" LocalName="Gameplay Rest"/>
@@ -45,10 +41,15 @@ You will not make an interaction profile work by removing the extension requirem
         <Action Name="menu_left_right" LocalName="Gameplay Menu Left Right"/>
         <Action Name="menu_select" LocalName="Gameplay Menu Select"/>
         <Action Name="menu_back" LocalName="Gameplay Menu Back"/>
-        <Action Name="toggle_thumbstick_auto_run" LocalName="Toggle Thumbstick Auto Run"/>
-        <Action Name="radial_menu" LocalName="Radial Menu"/>
-        <Action Name="toggle_sneak" LocalName="Toggle Sneak"/>
-        <Action Name="toggle_sneak_axis_down" LocalName="Toggle Sneak On Axis Down"/>
+        <Action Name="toggle_thumbstick_auto_run" LocalName="Gameplay Toggle Thumbstick Auto Run"/>
+        <Action Name="radial_menu" LocalName="Gameplay Radial Menu"/>
+        <Action Name="toggle_sneak" LocalName="Gameplay Toggle Sneak"/>
+        <Action Name="movement_stick" LocalName="Gameplay Movement Stick"/>
+        <Action Name="utility_stick" LocalName="Gameplay Utility Stick"/>
+        
+        <!-- NB! These actions are hardcoded and should not be bound in this file -->
+        <Action Name="hand_pose" LocalName="Hand Pose"/>
+        <Action Name="hand_haptics" LocalName="Haptics"/>
     </Actions>
     <Profile LocalName="Generic" Path="/interaction_profiles/khr/simple_controller">
         <ActionSet Name="Gameplay">
@@ -83,8 +84,8 @@ You will not make an interaction profile work by removing the extension requirem
             <Binding ActionName="meta_menu" Path="/user/hand/left/input/menu/click" IfNotRuntime="SteamVR"/>
             <Binding ActionName="meta_menu" Path="/user/hand/left/input/thumbstick/click" IfRuntime="SteamVR"/>
             <Binding ActionName="sneak" Path="/user/hand/left/input/squeeze/value"/>
-            <Binding ActionName="move_left_right" Path="/user/hand/left/input/thumbstick/x"/>
-            <Binding ActionName="move_forward_backward" Path="/user/hand/left/input/thumbstick/y"/>
+            <Binding ActionName="movement_stick" Path="/user/hand/left/input/thumbstick"/>
+            <Binding ActionName="utility_stick" Path="/user/hand/right/input/thumbstick"/>
             <Binding ActionName="toggle_thumbstick_auto_run" Path="/user/hand/right/input/thumbstick/click"/>
             <Binding ActionName="jump" Path="/user/hand/left/input/trigger/value"/>
             <Binding ActionName="spell" Path="/user/hand/left/input/x/click"/>
@@ -92,9 +93,7 @@ You will not make an interaction profile work by removing the extension requirem
             <Binding ActionName="weapon" Path="/user/hand/right/input/a/click"/>
             <Binding ActionName="inventory" Path="/user/hand/right/input/b/click"/>
             <Binding ActionName="activate_touched" Path="/user/hand/right/input/squeeze/value"/>
-            <Binding ActionName="look_left_right" Path="/user/hand/right/input/thumbstick/x"/>
-            <Binding ActionName="toggle_sneak_axis_down" Path="/user/hand/right/input/thumbstick/y"/>
-            <Binding ActionName="radial_menu" Path="/user/hand/right/input/thumbstick/y"/>
+            <Binding ActionName="radial_menu" Path="/user/hand/right/input/b/click"/>
             <Binding ActionName="use" Path="/user/hand/right/input/trigger/value"/>
             
         </ActionSet>
@@ -113,15 +112,12 @@ You will not make an interaction profile work by removing the extension requirem
             <Binding ActionName="reposition_menu" Path="/user/hand/left/input/menu/click"/>
             <Binding ActionName="meta_menu" Path="/user/hand/right/input/squeeze/click"/>
             <Binding ActionName="jump" Path="/user/hand/left/input/trigger/value"/>
-            <Binding ActionName="move_forward_backward" Path="/user/hand/left/input/trackpad/y"/>
-            <Binding ActionName="move_left_right" Path="/user/hand/left/input/trackpad/x"/>
+            <Binding ActionName="movement_stick" Path="/user/hand/left/input/trackpad"/>
+            <Binding ActionName="utility_stick" Path="/user/hand/right/input/trackpad"/>
             <Binding ActionName="rest" Path="/user/hand/left/input/thumbstick/click"/>
             <Binding ActionName="spell" Path="/user/hand/left/input/trackpad/click"/>
             <Binding ActionName="sneak" Path="/user/hand/left/input/squeeze/click"/>
             <Binding ActionName="inventory" Path="/user/hand/right/input/thumbstick/click"/>
-            <Binding ActionName="look_left_right" Path="/user/hand/right/input/trackpad/x"/>
-            <Binding ActionName="toggle_sneak_axis_down" Path="/user/hand/right/input/trackpad/y"/>
-            <Binding ActionName="radial_menu" Path="/user/hand/right/input/trackpad/y"/>
             <Binding ActionName="weapon" Path="/user/hand/right/input/trackpad/click"/>
             <Binding ActionName="use" Path="/user/hand/right/input/trigger/value"/>
             <Binding ActionName="activate_touched" Path="/user/hand/right/input/squeeze/click"/>
@@ -140,8 +136,8 @@ You will not make an interaction profile work by removing the extension requirem
         <ActionSet Name="Gameplay">
             <Binding ActionName="spell" Path="/user/hand/left/input/a/click"/>
             <Binding ActionName="rest" Path="/user/hand/left/input/b/click"/>
-            <Binding ActionName="move_forward_backward" Path="/user/hand/left/input/thumbstick/y"/>
-            <Binding ActionName="move_left_right" Path="/user/hand/left/input/thumbstick/x"/>
+            <Binding ActionName="movement_stick" Path="/user/hand/left/input/thumbstick"/>
+            <Binding ActionName="utility_stick" Path="/user/hand/right/input/thumbstick"/>
             <Binding ActionName="toggle_thumbstick_auto_run" Path="/user/hand/left/input/thumbstick/click"/>
             <Binding ActionName="reposition_menu" Path="/user/hand/left/input/trackpad/force"/>
             <Binding ActionName="meta_menu" Path="/user/hand/left/input/trackpad/force"/>
@@ -149,11 +145,9 @@ You will not make an interaction profile work by removing the extension requirem
             <Binding ActionName="sneak" Path="/user/hand/left/input/squeeze/force"/>
             <Binding ActionName="weapon" Path="/user/hand/right/input/a/click"/>
             <Binding ActionName="inventory" Path="/user/hand/right/input/b/click"/>
-            <Binding ActionName="look_left_right" Path="/user/hand/right/input/thumbstick/x"/>
-            <Binding ActionName="toggle_sneak_axis_down" Path="/user/hand/right/input/thumbstick/y"/>
-            <Binding ActionName="radial_menu" Path="/user/hand/right/input/thumbstick/y"/>
             <Binding ActionName="use" Path="/user/hand/right/input/trigger/value"/>
             <Binding ActionName="activate_touched" Path="/user/hand/right/input/squeeze/force"/>
+            <Binding ActionName="radial_menu" Path="/user/hand/right/input/b/click"/>
         </ActionSet>
         <ActionSet Name="GUI">
             <Binding ActionName="reposition_menu" Path="/user/hand/left/input/thumbstick/click"/>
@@ -170,14 +164,11 @@ You will not make an interaction profile work by removing the extension requirem
             <Binding ActionName="reposition_menu" Path="/user/hand/left/input/menu/click"/>
             <Binding ActionName="meta_menu" Path="/user/hand/left/input/menu/click"/>
             <Binding ActionName="meta_menu" Path="/user/hand/right/input/squeeze/click"/>
-            <Binding ActionName="move_forward_backward" Path="/user/hand/left/input/trackpad/y"/>
-            <Binding ActionName="move_left_right" Path="/user/hand/left/input/trackpad/x"/>
+            <Binding ActionName="movement_stick" Path="/user/hand/left/input/trackpad"/>
+            <Binding ActionName="utility_stick" Path="/user/hand/right/input/trackpad"/>
             <Binding ActionName="spell" Path="/user/hand/left/input/trackpad/click"/>
             <Binding ActionName="jump" Path="/user/hand/left/input/trigger/value"/>
             <Binding ActionName="sneak" Path="/user/hand/left/input/squeeze/click"/>
-            <Binding ActionName="look_left_right" Path="/user/hand/right/input/trackpad/x"/>
-            <Binding ActionName="toggle_sneak_axis_down" Path="/user/hand/right/input/trackpad/y"/>
-            <Binding ActionName="radial_menu" Path="/user/hand/right/input/trackpad/y"/>
             <Binding ActionName="weapon" Path="/user/hand/right/input/trackpad/click"/>
             <Binding ActionName="use" Path="/user/hand/right/input/trigger/value"/>
             <Binding ActionName="activate_touched" Path="/user/hand/right/input/squeeze/click"/>
@@ -197,21 +188,19 @@ You will not make an interaction profile work by removing the extension requirem
         <ActionSet Name="Gameplay">
             <Binding ActionName="reposition_menu" Path="/user/hand/left/input/menu/click"/>
             <Binding ActionName="meta_menu" Path="/user/hand/left/input/menu/click"/>
+            <Binding ActionName="movement_stick" Path="/user/hand/left/input/thumbstick"/>
+            <Binding ActionName="utility_stick" Path="/user/hand/right/input/thumbstick"/>
             <Binding ActionName="sneak" Path="/user/hand/left/input/squeeze/value"/>
-            <Binding ActionName="move_forward_backward" Path="/user/hand/left/input/thumbstick/y"/>
-            <Binding ActionName="move_left_right" Path="/user/hand/left/input/thumbstick/x"/>
             <Binding ActionName="toggle_thumbstick_auto_run" Path="/user/hand/left/input/thumbstick/click"/>
             <Binding ActionName="jump" Path="/user/hand/left/input/trigger/value"/>
             <Binding ActionName="spell" Path="/user/hand/left/input/x/click"/>
             <Binding ActionName="rest" Path="/user/hand/left/input/y/click"/>
             <Binding ActionName="weapon" Path="/user/hand/right/input/a/click"/>
             <Binding ActionName="inventory" Path="/user/hand/right/input/b/click"/>
-            <Binding ActionName="look_left_right" Path="/user/hand/right/input/thumbstick/x"/>
-            <Binding ActionName="toggle_sneak_axis_down" Path="/user/hand/right/input/thumbstick/y"/>
-            <Binding ActionName="radial_menu" Path="/user/hand/right/input/thumbstick/y"/>
             <Binding ActionName="auto_move" Path="/user/hand/right/input/thumbstick/click"/>
             <Binding ActionName="use" Path="/user/hand/right/input/trigger/value"/>
             <Binding ActionName="activate_touched" Path="/user/hand/right/input/squeeze/value"/>
+            <Binding ActionName="radial_menu" Path="/user/hand/right/input/b/click"/>
         </ActionSet>
         <ActionSet Name="GUI">
             <Binding ActionName="reposition_menu" Path="/user/hand/left/input/menu/click"/>
@@ -229,13 +218,10 @@ You will not make an interaction profile work by removing the extension requirem
             <Binding ActionName="reposition_menu" Path="/user/hand/left/input/home/click"/>
             <Binding ActionName="meta_menu" Path="/user/hand/left/input/home/click"/>
             <Binding ActionName="jump" Path="/user/hand/left/input/trigger/click"/>
-            <Binding ActionName="move_forward_backward" Path="/user/hand/left/input/trackpad/y"/>
-            <Binding ActionName="move_left_right" Path="/user/hand/left/input/trackpad/x"/>
+            <Binding ActionName="movement_stick" Path="/user/hand/left/input/trackpad"/>
+            <Binding ActionName="utility_stick" Path="/user/hand/right/input/trackpad"/>
             <Binding ActionName="spell" Path="/user/hand/left/input/trackpad/click"/>
             <Binding ActionName="sneak" Path="/user/hand/left/input/back/click"/>
-            <Binding ActionName="look_left_right" Path="/user/hand/right/input/trackpad/x"/>
-            <Binding ActionName="toggle_sneak_axis_down" Path="/user/hand/right/input/trackpad/y"/>
-            <Binding ActionName="radial_menu" Path="/user/hand/right/input/trackpad/y"/>
             <Binding ActionName="weapon" Path="/user/hand/right/input/trackpad/click"/>
             <Binding ActionName="use" Path="/user/hand/right/input/trigger/click"/>
             <Binding ActionName="activate_touched" Path="/user/hand/right/input/squeeze/click"/>
@@ -244,8 +230,8 @@ You will not make an interaction profile work by removing the extension requirem
             <Binding ActionName="menu_back" Path="/user/hand/left/input/trackpad/click"/>
             <Binding ActionName="game_menu" Path="/user/hand/left/input/home/click"/>
             <Binding ActionName="reposition_menu" Path="/user/hand/left/input/home/click"/>
-            <Binding ActionName="menu_up_down" Path="/user/hand/right/input/thumbstick/y"/>
-            <Binding ActionName="menu_left_right" Path="/user/hand/right/input/thumbstick/x"/>
+            <Binding ActionName="menu_up_down" Path="/user/hand/right/input/trackpad/y"/>
+            <Binding ActionName="menu_left_right" Path="/user/hand/right/input/trackpad/x"/>
             <Binding ActionName="menu_select" Path="/user/hand/right/input/trackpad/click"/>
             <Binding ActionName="use" Path="/user/hand/right/input/trigger/click"/>
         </ActionSet>
@@ -256,20 +242,18 @@ You will not make an interaction profile work by removing the extension requirem
             <Binding ActionName="reposition_menu" Path="/user/hand/left/input/menu/click"/>
             <Binding ActionName="meta_menu" Path="/user/hand/left/input/menu/click"/>
             <Binding ActionName="sneak" Path="/user/hand/left/input/squeeze/click"/>
-            <Binding ActionName="move_forward_backward" Path="/user/hand/left/input/thumbstick/y"/>
-            <Binding ActionName="move_left_right" Path="/user/hand/left/input/thumbstick/x"/>
+            <Binding ActionName="movement_stick" Path="/user/hand/left/input/thumbstick"/>
+            <Binding ActionName="utility_stick" Path="/user/hand/right/input/thumbstick"/>
             <Binding ActionName="toggle_thumbstick_auto_run" Path="/user/hand/left/input/thumbstick/click"/>
             <Binding ActionName="jump" Path="/user/hand/left/input/trigger/click"/>
             <Binding ActionName="spell" Path="/user/hand/left/input/x/click"/>
             <Binding ActionName="rest" Path="/user/hand/left/input/y/click"/>
             <Binding ActionName="weapon" Path="/user/hand/right/input/a/click"/>
             <Binding ActionName="inventory" Path="/user/hand/right/input/b/click"/>
-            <Binding ActionName="look_left_right" Path="/user/hand/right/input/thumbstick/x"/>
-            <Binding ActionName="toggle_sneak_axis_down" Path="/user/hand/right/input/thumbstick/y"/>
-            <Binding ActionName="radial_menu" Path="/user/hand/right/input/thumbstick/y"/>
             <Binding ActionName="auto_move" Path="/user/hand/right/input/thumbstick/click"/>
             <Binding ActionName="use" Path="/user/hand/right/input/trigger/click"/>
             <Binding ActionName="activate_touched" Path="/user/hand/right/input/squeeze/click"/>
+            <Binding ActionName="radial_menu" Path="/user/hand/right/input/b/click"/>
         </ActionSet>
         <ActionSet Name="GUI">
             <Binding ActionName="reposition_menu" Path="/user/hand/left/input/menu/click"/>

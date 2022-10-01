@@ -10,6 +10,8 @@
 #include <memory>
 #include <chrono>
 
+#include <osg/Vec2f>
+
 namespace XR
 {
     enum class ControlType
@@ -17,8 +19,8 @@ namespace XR
         Press, //! Action occurs on pressing a key or a value reaches a cutoff
         LongPress, //! Action occurs when a Press action is held for a certain amount of time
         Hold, //! Action occurs continuously when the key is pressed
-        Axis, //! Action occurs continuously when the axis is active, and depends on the axis value
-        AxisDown, //! Action on pulling the assigned axis down.
+        Axis1D, //! Action occurs continuously when the axis is active, and depends on the axis value
+        Axis2D, //! Action occurs continuously when the axis is active, and depends on the axis value
     };
 
     XrPath subActionPath(VR::SubAction subAction);
@@ -35,6 +37,7 @@ namespace XR
 
         XrAction xrAction() { return mXrAction; }
 
+        bool getFloat2d(XrPath subactionPath, osg::Vec2f& value);
         bool getFloat(XrPath subactionPath, float& value);
         bool getBool(XrPath subactionPath, bool& value);
         bool getPoseIsActive(XrPath subactionPath);
@@ -89,7 +92,7 @@ namespace XR
     };
 
     /// \brief Generic action
-    /// \sa ButtonPressAction ButtonLongPressAction ButtonHoldAction AxisAction
+    /// \sa ButtonPressAction ButtonLongPressAction ButtonHoldAction Axis1DAction
     class InputAction
     {
     public:
@@ -111,8 +114,14 @@ namespace XR
         //! Current value of an axis or lever action
         float value() const { return mValue; }
 
+        //! Current 2D value of a 2D axis.
+        osg::Vec2f value2d() const { return mValue2d; }
+
         //! Previous value
         float previousValue() const { return mPrevious; }
+
+        //! Previous 2D value
+        osg::Vec2f previousValue2d() const { return mPrevious2d; }
 
         //! Update internal states. Note that subclasses maintain both mValue and mActivate to allow
         //! axis and press to subtitute one another.
@@ -135,7 +144,9 @@ namespace XR
         VR::SubAction mSubAction;
         XrPath mSubActionPath;
         float mValue{ 0.f };
+        osg::Vec2f mValue2d{ 0.f, 0.f };
         float mPrevious{ 0.f };
+        osg::Vec2f mPrevious2d{ 0.f, 0.f };
         bool mActive{ false };
         bool mOnActivate{ false };
         bool mOnDeactivate{ false };
@@ -194,27 +205,26 @@ namespace XR
         bool mPressed{ false };
     };
 
+    class AxisDeadzone
+    {
+    public:
+        void applyDeadzone(float& value);
+
+        void setDeadzoneRadius(float deadzoneRadius);
+
+    private:
+        float mActiveRadiusInner{ 0.f };
+        float mActiveRadiusOuter{ 1.f };
+        float mActiveScale{ 1.f };
+    };
+
     //! Action for axis actions, such as thumbstick axes or certain triggers/squeeze levers.
     //! Float axis are considered active whenever their magnitude is greater than gAxisEpsilon. This is useful
     //! as a touch subtitute on levers without touch.
-    class AxisAction : public InputAction
+    class Axis1DAction : public InputAction
     {
     public:
-        class Deadzone
-        {
-        public:
-            void applyDeadzone(float& value);
-
-            void setDeadzoneRadius(float deadzoneRadius);
-
-        private:
-            float mActiveRadiusInner{ 0.f };
-            float mActiveRadiusOuter{ 1.f };
-            float mActiveScale{ 1.f };
-        };
-
-    public:
-        AxisAction(int openMWAction, std::shared_ptr<Action> xrAction, VR::SubAction subAction, std::shared_ptr<AxisAction::Deadzone> deadzone);
+        Axis1DAction(int openMWAction, std::shared_ptr<Action> xrAction, VR::SubAction subAction, std::shared_ptr<AxisDeadzone> deadzone);
 
         static const XrActionType ActionType = XR_ACTION_TYPE_FLOAT_INPUT;
 
@@ -222,22 +232,24 @@ namespace XR
 
         virtual bool shouldQueue() const override { return mActive || onDeactivate(); }
 
-        std::shared_ptr<AxisAction::Deadzone> mDeadzone;
+        std::shared_ptr<AxisDeadzone> mDeadzone;
     };
 
-    //! Action for axis actions, such as thumbstick axes or certain triggers/squeeze levers.
+    //! Action for 2D axis actions, such as thumbsticks and trackpads.
     //! Float axis are considered active whenever their magnitude is greater than gAxisEpsilon. This is useful
     //! as a touch subtitute on levers without touch.
-    class AxisDownAction : public InputAction
+    class Axis2DAction : public InputAction
     {
     public:
-        AxisDownAction(int openMWAction, std::shared_ptr<Action> xrAction, VR::SubAction subAction);
+        Axis2DAction(int openMWAction, std::shared_ptr<Action> xrAction, VR::SubAction subAction, std::shared_ptr<AxisDeadzone> deadzone);
 
-        static const XrActionType ActionType = XR_ACTION_TYPE_FLOAT_INPUT;
+        static const XrActionType ActionType = XR_ACTION_TYPE_VECTOR2F_INPUT;
 
         void update() override;
 
-        virtual bool shouldQueue() const override { return onActivate() || onDeactivate(); }
+        virtual bool shouldQueue() const override { return mActive || onDeactivate(); }
+
+        std::shared_ptr<AxisDeadzone> mDeadzone;
     };
 }
 

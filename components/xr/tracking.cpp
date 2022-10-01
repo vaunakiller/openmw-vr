@@ -50,7 +50,7 @@ namespace XR
         mLastUpdate = predictedDisplayTime;
 
         if (mTrackingActionSet)
-            mTrackingActionSet->updateControls();
+            mTrackingActionSet->updateControls(false);
 
         for (auto& space : mSpaces)
         {

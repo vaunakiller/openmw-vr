@@ -895,6 +895,8 @@ void OMW::Engine::prepareEngine()
     mEnvironment.setWindowManager(*mWindowManager);
 
 #ifdef USE_OPENXR
+    mVrGUIManager = std::make_unique<MWVR::VRGUIManager>(mResourceSystem.get(), mViewer->getSceneData()->asGroup());
+
     const std::string xrinputuserdefault = mCfgMgr.getUserConfigPath().string() + "/xrcontrollersuggestions.xml";
     const std::string xrinputlocaldefault = mCfgMgr.getLocalPath().string() + "/xrcontrollersuggestions.xml";
     const std::string xrinputglobaldefault = mCfgMgr.getGlobalPath().string() + "/xrcontrollersuggestions.xml";
@@ -909,13 +911,21 @@ void OMW::Engine::prepareEngine()
     else
         xrControllerSuggestions = ""; //if it doesn't exist, pass in an empty string
 
+    std::string defaultXrControllerSuggestions;
+    if (boost::filesystem::exists(xrinputlocaldefault))
+        defaultXrControllerSuggestions = xrinputlocaldefault;
+    else if (boost::filesystem::exists(xrinputglobaldefault))
+        defaultXrControllerSuggestions = xrinputglobaldefault;
+    else
+        defaultXrControllerSuggestions = ""; //if it doesn't exist, pass in an empty string
+
     Log(Debug::Verbose) << "xrinputuserdefault: " << xrinputuserdefault;
     Log(Debug::Verbose) << "xrinputlocaldefault: " << xrinputlocaldefault;
     Log(Debug::Verbose) << "xrinputglobaldefault: " << xrinputglobaldefault;
 
     mInputManager = std::make_unique<MWVR::VRInputManager>(mWindow, mViewer, mScreenCaptureHandler,
         mScreenCaptureOperation, keybinderUser, keybinderUserExists, userGameControllerdb, gameControllerdb, mGrab,
-        xrControllerSuggestions);
+        xrControllerSuggestions, defaultXrControllerSuggestions);
 #else
     mInputManager = std::make_unique<MWInput::InputManager>(mWindow, mViewer, mScreenCaptureHandler,
         mScreenCaptureOperation, keybinderUser, keybinderUserExists, userGameControllerdb, gameControllerdb, mGrab);
@@ -928,7 +938,6 @@ void OMW::Engine::prepareEngine()
 
 #ifdef USE_OPENXR
     mVrViewer = std::make_unique<VR::Viewer>(mXrSession, mViewer);
-    mVrGUIManager = std::make_unique<MWVR::VRGUIManager>(mResourceSystem.get(), mViewer->getSceneData()->asGroup());
     mVrViewer->configureCallbacks();
     auto cullMask = ~(MWRender::VisMask::Mask_UpdateVisitor | MWRender::VisMask::Mask_SimpleWater);
     cullMask &= ~MWRender::VisMask::Mask_GUI;

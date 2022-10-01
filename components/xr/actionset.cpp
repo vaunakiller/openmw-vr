@@ -18,7 +18,7 @@
 namespace XR
 {
 
-    ActionSet::ActionSet(const std::string& actionSetName, std::shared_ptr<AxisAction::Deadzone> deadzone)
+    ActionSet::ActionSet(const std::string& actionSetName, std::shared_ptr<AxisDeadzone> deadzone)
         : mActionSet(nullptr)
         , mLocalizedName(actionSetName)
         , mInternalName(Misc::StringUtils::lowerCase(actionSetName))
@@ -69,19 +69,37 @@ namespace XR
 
     template<>
     void
-        ActionSet::createMWAction<AxisAction>(
+        ActionSet::createMWAction<Axis1DAction>(
             int openMWAction,
             const std::string& actionName,
             const std::string& localName,
             std::vector<VR::SubAction> subActions)
     {
-        auto action = createXRAction(AxisAction::ActionType, mInternalName + "_" + actionName, mLocalizedName + " " + localName, subActions);
+        auto action = createXRAction(Axis1DAction::ActionType, mInternalName + "_" + actionName, mLocalizedName + " " + localName, subActions);
 
         if (subActions.size() == 0)
             subActions = { VR::SubAction::ALL };
         for (auto subAction : subActions)
         {
-            mInputActionMap.emplace(std::pair(openMWAction, subAction), new AxisAction(openMWAction, action, subAction, mDeadzone));
+            mInputActionMap.emplace(std::pair(openMWAction, subAction), new Axis1DAction(openMWAction, action, subAction, mDeadzone));
+        }
+    }
+
+    template<>
+    void
+        ActionSet::createMWAction<Axis2DAction>(
+            int openMWAction,
+            const std::string& actionName,
+            const std::string& localName,
+            std::vector<VR::SubAction> subActions)
+    {
+        auto action = createXRAction(Axis2DAction::ActionType, mInternalName + "_" + actionName, mLocalizedName + " " + localName, subActions);
+
+        if (subActions.size() == 0)
+            subActions = { VR::SubAction::ALL };
+        for (auto subAction : subActions)
+        {
+            mInputActionMap.emplace(std::pair(openMWAction, subAction), new Axis2DAction(openMWAction, action, subAction, mDeadzone));
         }
     }
 
@@ -120,10 +138,10 @@ namespace XR
             return createMWAction<ButtonLongPressAction>(openMWAction, actionName, localName, subActions);
         case ControlType::Hold:
             return createMWAction<ButtonHoldAction>(openMWAction, actionName, localName, subActions);
-        case ControlType::Axis:
-            return createMWAction<AxisAction>(openMWAction, actionName, localName, subActions);
-        case ControlType::AxisDown:
-            return createMWAction<AxisDownAction>(openMWAction, actionName, localName, subActions);
+        case ControlType::Axis1D:
+            return createMWAction<Axis1DAction>(openMWAction, actionName, localName, subActions);
+        case ControlType::Axis2D:
+            return createMWAction<Axis2DAction>(openMWAction, actionName, localName, subActions);
         default:
             Log(Debug::Warning) << "createMWAction: pose/haptics Not implemented here";
         }
@@ -210,8 +228,7 @@ namespace XR
         return action;
     }
 
-    void
-        ActionSet::updateControls()
+    void ActionSet::updateControls(bool shouldQueueActions)
     {
         mActionQueue.clear();
 
@@ -231,6 +248,8 @@ namespace XR
         {
             for (auto& action : mInputActionMap)
                 action.second->updateAndQueue(mActionQueue);
+            if (!shouldQueueActions)
+                mActionQueue.clear();
         }
         else
         {

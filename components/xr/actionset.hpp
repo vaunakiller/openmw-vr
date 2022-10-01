@@ -29,11 +29,11 @@ namespace XR
         ActionSet(const ActionSet&) = delete;
         void operator=(const ActionSet&) = delete;
     public:
-        ActionSet(const std::string& actionSetName, std::shared_ptr<AxisAction::Deadzone> deadzone);
+        ActionSet(const std::string& actionSetName, std::shared_ptr<AxisDeadzone> deadzone);
         ~ActionSet();
 
         //! Update all controls and queue any actions
-        void updateControls();
+        void updateControls(bool shouldQueueActions);
 
         //! Get next action from queue (repeat until null is returned)
         const InputAction* nextAction();
@@ -65,7 +65,7 @@ namespace XR
         std::map<VR::SubAction, std::unique_ptr<PoseAction>> mTrackerMap;
         std::map<VR::SubAction, std::unique_ptr<HapticsAction>> mHapticsMap;
         std::deque<const InputAction*> mActionQueue{};
-        std::shared_ptr<AxisAction::Deadzone> mDeadzone;
+        std::shared_ptr<AxisDeadzone> mDeadzone;
     };
 }
 

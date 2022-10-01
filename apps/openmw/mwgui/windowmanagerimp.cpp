@@ -515,7 +515,7 @@ namespace MWGui
         mGuiModeStates[GM_VrMetaMenu] = GuiModeState(mVrMetaMenu);
 
         mRadialMenu = new MWVR::RadialMenu(w, h, mQuickKeysMenu);
-        mWindows.push_back(mQuickKeysMenu);
+        mWindows.push_back(mRadialMenu);
         mGuiModeStates[GM_RadialMenu] = GuiModeState(mRadialMenu);
 #endif
 
