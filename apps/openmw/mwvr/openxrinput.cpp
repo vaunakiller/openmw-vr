@@ -348,7 +348,7 @@ namespace MWVR
         auto it = mActionNameToActionId.find(name);
         if (it != mActionNameToActionId.end())
             return it->second;
-        return 0;
+        return -1;
     }
 
     void OpenXRInput::createMWAction(MWActionSet actionSet, XR::ControlType controlType, int openMWAction, const std::string& actionName, const std::string& localName, std::vector<VR::SubAction> subActions)

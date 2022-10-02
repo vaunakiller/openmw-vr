@@ -67,10 +67,12 @@ namespace MWVR
 
         void turnLeftRight(float value, float previousValue, float dt);
 
+        void processUtilityStickX(float value);
+        void processUtilityStickY(float value);
+
     protected:
         void processAction(const class XR::InputAction* action, float dt, bool disableControls);
         void processMovementStick(const class XR::InputAction* action, float dt, bool disableControls);
-        void processUtilityStick(const class XR::InputAction* action, float dt, bool disableControls);
         void toggleUtilityDown();
         void toggleUtilityUp();
         void onActivateAction(int actionId);

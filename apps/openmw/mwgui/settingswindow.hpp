@@ -31,6 +31,8 @@ namespace MWGui
             MyGUI::ComboBox* mVRTooltipPosition;
             MyGUI::ComboBox* mVRMirrorTextureEye;
             MyGUI::ComboBox* mVRSnapAngle;
+            MyGUI::ComboBox* mVRThumbstickUp;
+            MyGUI::ComboBox* mVRThumbstickDown;
             MyGUI::Button*   mVRHeightCalibButton;
 
             // graphics
@@ -79,6 +81,8 @@ namespace MWGui
             void onVRHudPositionChanged(MyGUI::ComboBox* _sender, size_t pos);
             void onVRTooltipPositionChanged(MyGUI::ComboBox* _sender, size_t pos);
             void onVRSnapAngleChanged(MyGUI::ComboBox* _sender, size_t pos);
+            void onVRThumbstickUpChanged(MyGUI::ComboBox* _sender, size_t pos);
+            void onVRThumbstickDownChanged(MyGUI::ComboBox* _sender, size_t pos);
             void onVRHeightCalibButtonClicked(MyGUI::Widget* _sender);
 
             void onWaterTextureSizeChanged(MyGUI::ComboBox* _sender, size_t pos);

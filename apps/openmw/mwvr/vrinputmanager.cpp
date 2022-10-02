@@ -626,7 +626,8 @@ namespace MWVR
                 processMovementStick(action, dt, disableControls);
                 break;
             case A_UtilityStick:
-                processUtilityStick(action, dt, disableControls);
+                processUtilityStickX(action->value2d().x());
+                processUtilityStickY(action->value2d().y());
                 break;
 
             default:
@@ -647,19 +648,20 @@ namespace MWVR
         mBindingsManager->ics().getChannel(MWInput::A_MoveForwardBackward)->setValue(-action->value2d().y() / 2.f + 0.5f);
     }
 
-    void VRInputManager::processUtilityStick(const XR::InputAction* action, float dt, bool disableControls)
+    void VRInputManager::processUtilityStickX(float value)
     {
-        mBindingsManager->ics().getChannel(MWInput::A_LookLeftRight)->setValue(action->value2d().x() / 2.f + 0.5f);
+        mBindingsManager->ics().getChannel(MWInput::A_LookLeftRight)->setValue(value / 2.f + 0.5f);
+    }
 
-        float current = action->value2d().y();
-
-        if (current < -0.9 && !mUtilityDownActive)
+    void VRInputManager::processUtilityStickY(float value)
+    {
+        if (value < -0.9 && !mUtilityDownActive)
             toggleUtilityDown();
-        if (current > -0.5 && mUtilityDownActive)
+        if (value > -0.5 && mUtilityDownActive)
             toggleUtilityDown();
-        if (current > 0.9 && !mUtilityUpActive)
+        if (value > 0.9 && !mUtilityUpActive)
             toggleUtilityUp();
-        if (current < 0.5 && mUtilityUpActive)
+        if (value < 0.5 && mUtilityUpActive)
             toggleUtilityUp();
     }
 
@@ -682,7 +684,7 @@ namespace MWVR
         mUtilityUpActive = !mUtilityUpActive;
         auto actionName = Settings::Manager::getString("utility axis up action", "VR");
         auto actionId = mXRInput->actionCodeFromName(actionName);
-        if (actionId != 0)
+        if (actionId != -1)
         {
             if (mUtilityUpActive)
                 onActivateAction(actionId);

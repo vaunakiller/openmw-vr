@@ -293,6 +293,8 @@ namespace MWGui
             getWidget(mVRHudPosition, "VRHudPosition");
             getWidget(mVRTooltipPosition, "VRTooltipPosition");
             getWidget(mVRSnapAngle, "VRSnapAngle");
+            getWidget(mVRThumbstickUp, "VRThumbstickUp");
+            getWidget(mVRThumbstickDown, "VRThumbstickDown");
             getWidget(mVRHeightCalibButton, "VRHeighCalib");
         }
 
@@ -339,6 +341,8 @@ namespace MWGui
             mVRHudPosition->eventComboChangePosition += MyGUI::newDelegate(this, &SettingsWindow::onVRHudPositionChanged);
             mVRTooltipPosition->eventComboChangePosition += MyGUI::newDelegate(this, &SettingsWindow::onVRTooltipPositionChanged);
             mVRSnapAngle->eventComboChangePosition += MyGUI::newDelegate(this, &SettingsWindow::onVRSnapAngleChanged);
+            mVRThumbstickUp->eventComboChangePosition += MyGUI::newDelegate(this, &SettingsWindow::onVRThumbstickUpChanged);
+            mVRThumbstickDown->eventComboChangePosition += MyGUI::newDelegate(this, &SettingsWindow::onVRThumbstickDownChanged);
             mVRHeightCalibButton->eventMouseButtonClick += MyGUI::newDelegate(this, &SettingsWindow::onVRHeightCalibButtonClicked);
         }
 
@@ -388,7 +392,7 @@ namespace MWGui
 
             std::string tooltipPosition = Settings::Manager::getString("tooltip position", "VR");
             for (unsigned i = 0; i < mVRTooltipPosition->getItemCount(); i++)
-                if (Misc::StringUtils::ciEqual<std::string, std::string>(tooltipPosition, mVRHudPosition->getItemNameAt(i)))
+                if (Misc::StringUtils::ciEqual<std::string, std::string>(tooltipPosition, mVRTooltipPosition->getItemNameAt(i)))
                     mVRTooltipPosition->setIndexSelected(i);
 
             std::string snapAngle = Settings::Manager::getString("snap angle", "VR");
@@ -397,6 +401,16 @@ namespace MWGui
                 if (Misc::StringUtils::ciEqual<std::string, std::string>(snapAngle, mVRSnapAngle->getItemNameAt(i)))
                     mVRSnapAngle->setIndexSelected(i);
             }
+
+            std::string axisUpPosition = Settings::Manager::getString("utility axis up action", "VR");
+            for (unsigned i = 0; i < mVRThumbstickUp->getItemCount(); i++)
+                if (Misc::StringUtils::ciEqual<std::string, std::string>(axisUpPosition, mVRThumbstickUp->getItemNameAt(i)))
+                    mVRThumbstickUp->setIndexSelected(i);
+
+            std::string axisDownPosition = Settings::Manager::getString("utility axis down action", "VR");
+            for (unsigned i = 0; i < mVRThumbstickDown->getItemCount(); i++)
+                if (Misc::StringUtils::ciEqual<std::string, std::string>(axisDownPosition, mVRThumbstickDown->getItemNameAt(i)))
+                    mVRThumbstickDown->setIndexSelected(i);
         }
 
         int waterTextureSize = Settings::Manager::getInt("rtt size", "Water");
@@ -563,6 +577,22 @@ namespace MWGui
         std::string settingString = _sender->getItemNameAt(pos);
         settingString = Misc::StringUtils::lowerCase(settingString);
         Settings::Manager::setString("snap angle", "VR", settingString);
+        apply();
+    }
+
+    void SettingsWindow::onVRThumbstickUpChanged(MyGUI::ComboBox* _sender, size_t pos)
+    {
+        std::string settingString = _sender->getItemNameAt(pos);
+        settingString = Misc::StringUtils::lowerCase(settingString);
+        Settings::Manager::setString("utility axis up action", "VR", settingString);
+        apply();
+    }
+
+    void SettingsWindow::onVRThumbstickDownChanged(MyGUI::ComboBox* _sender, size_t pos)
+    {
+        std::string settingString = _sender->getItemNameAt(pos);
+        settingString = Misc::StringUtils::lowerCase(settingString);
+        Settings::Manager::setString("utility axis down action", "VR", settingString);
         apply();
     }
 

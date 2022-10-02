@@ -18,6 +18,10 @@
 
 #include "../mwworld/player.hpp"
 
+#ifdef USE_OPENXR
+#include "../mwvr/vrinputmanager.hpp"
+#endif
+
 #include "actions.hpp"
 #include "actionmanager.hpp"
 #include "bindingsmanager.hpp"
@@ -303,22 +307,7 @@ namespace MWInput
             if (arg.axis == SDL_CONTROLLER_AXIS_RIGHTY)
             {
                 float value = static_cast<float>(arg.value) / (arg.value < 0 ? 32768.f : 32767.f);
-
-                if (value <= -0.6 && !mThumbstickRightActive)
-                {
-                    mThumbstickRightActive = true;
-                    MWBase::Environment::get().getWindowManager()->pushGuiMode(MWGui::GM_RadialMenu);
-                }
-                if (value >= 0.6 && !mThumbstickRightActive)
-                {
-                    mThumbstickRightActive = true;
-                    mActionManager->toggleSneaking();
-                }
-                if (value <= 0.4 && value >= -0.4)
-                    mThumbstickRightActive = false;
-
-                Log(Debug::Verbose) << "axis: " << value;
-                return;
+                MWVR::VRInputManager::instance().processUtilityStickY(-value);
             }
         }
 
