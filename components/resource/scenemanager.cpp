@@ -1,7 +1,6 @@
 #include "scenemanager.hpp"
 
 #include <cstdlib>
-#include <filesystem>
 
 #include <osg/AlphaFunc>
 #include <osg/Group>
@@ -17,6 +16,8 @@
 #include <osgDB/FileUtils>
 #include <osgDB/SharedStateManager>
 #include <osgDB/Registry>
+
+#include <boost/filesystem.hpp>
 
 #include <components/debug/debuglog.hpp>
 
@@ -496,11 +497,11 @@ namespace Resource
 
         osgDB::ReaderWriter::ReadResult readImage(const std::string& filename, const osgDB::Options* options) override
         {
-            std::filesystem::path filePath(filename);
+            boost::filesystem::path filePath(filename);
             if (filePath.is_absolute())
                 // It is a hack. Needed because either OSG or libcollada-dom tries to make an absolute path from
                 // our relative VFS path by adding current working directory.
-                filePath = std::filesystem::relative(filename, osgDB::getCurrentWorkingDirectory());
+                filePath = boost::filesystem::relative(filename, osgDB::getCurrentWorkingDirectory());
             try
             {
                 return osgDB::ReaderWriter::ReadResult(mImageManager->getImage(filePath.string()),
@@ -616,6 +617,68 @@ namespace Resource
 
             return node;
         }
+
+        std::vector<std::string> makeSortedReservedNames()
+        {
+            static constexpr std::string_view names[] = {
+                "Head",
+                "Neck",
+                "Chest",
+                "Groin",
+                "Right Hand",
+                "Left Hand",
+                "Right Wrist",
+                "Left Wrist",
+                "Shield Bone",
+                "Right Forearm",
+                "Left Forearm",
+                "Right Upper Arm",
+                "Left Upper Arm",
+                "Right Foot",
+                "Left Foot",
+                "Right Ankle",
+                "Left Ankle",
+                "Right Knee",
+                "Left Knee",
+                "Right Upper Leg",
+                "Left Upper Leg",
+                "Right Clavicle",
+                "Left Clavicle",
+                "Weapon Bone",
+                "Tail",
+                "Bip01",
+                "Root Bone",
+                "BoneOffset",
+                "AttachLight",
+                "Arrow",
+                "Camera",
+                "Collision",
+                "Right_Wrist",
+                "Left_Wrist",
+                "Shield_Bone",
+                "Right_Forearm",
+                "Left_Forearm",
+                "Right_Upper_Arm",
+                "Left_Clavicle",
+                "Weapon_Bone",
+                "Root_Bone",
+            };
+
+            std::vector<std::string> result;
+            result.reserve(2 * std::size(names));
+
+            for (std::string_view name : names)
+            {
+                result.emplace_back(name);
+                std::string prefixedName("Tri ");
+                prefixedName += name;
+                result.push_back(std::move(prefixedName));
+            }
+
+            std::sort(result.begin(), result.end(), Misc::StringUtils::ciLess);
+
+            return result;
+        }
     }
 
     osg::ref_ptr<osg::Node> load (const std::string& normalizedFilename, const VFS::Manager* vfs, Resource::ImageManager* imageManager, Resource::NifFileManager* nifFileManager)
@@ -635,23 +698,9 @@ namespace Resource
             if (name.empty())
                 return false;
 
-            static std::vector<std::string> reservedNames;
-            if (reservedNames.empty())
-            {
-                const char* reserved[] = {"Head", "Neck", "Chest", "Groin", "Right Hand", "Left Hand", "Right Wrist", "Left Wrist", "Shield Bone", "Right Forearm", "Left Forearm", "Right Upper Arm",
-                                          "Left Upper Arm", "Right Foot", "Left Foot", "Right Ankle", "Left Ankle", "Right Knee", "Left Knee", "Right Upper Leg", "Left Upper Leg", "Right Clavicle",
-                                          "Left Clavicle", "Weapon Bone", "Tail", "Bip01", "Root Bone", "BoneOffset", "AttachLight", "Arrow", "Camera", "Collision", "Right_Wrist", "Left_Wrist",
-                                          "Shield_Bone", "Right_Forearm", "Left_Forearm", "Right_Upper_Arm", "Left_Clavicle", "Weapon_Bone", "Root_Bone"};
+            static const std::vector<std::string> reservedNames = makeSortedReservedNames();
 
-                reservedNames = std::vector<std::string>(reserved, reserved + sizeof(reserved)/sizeof(reserved[0]));
-
-                for (unsigned int i=0; i<sizeof(reserved)/sizeof(reserved[0]); ++i)
-                    reservedNames.push_back(std::string("Tri ") + reserved[i]);
-
-                std::sort(reservedNames.begin(), reservedNames.end(), Misc::StringUtils::ciLess);
-            }
-
-            std::vector<std::string>::iterator it = Misc::partialBinarySearch(reservedNames.begin(), reservedNames.end(), name);
+            const auto it = Misc::partialBinarySearch(reservedNames.begin(), reservedNames.end(), name);
             return it != reservedNames.end();
         }
 

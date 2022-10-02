@@ -13,7 +13,8 @@
 
 #include <osgDB/ReadFile>
 
-#include <fstream>
+#include <boost/filesystem/path.hpp>
+#include <boost/filesystem/fstream.hpp>
 
 #include <osgUtil/IncrementalCompileOperation>
 #include <osgUtil/CullVisitor>
@@ -240,7 +241,8 @@ private:
 
 osg::ref_ptr<osg::Image> readPngImage (const std::string& file)
 {
-    std::ifstream inStream;
+    // use boost in favor of osgDB::readImage, to handle utf-8 path issues on Windows
+    boost::filesystem::ifstream inStream;
     inStream.open(file, std::ios_base::in | std::ios_base::binary);
     if (inStream.fail())
         Log(Debug::Error) << "Error: Failed to open " << file;

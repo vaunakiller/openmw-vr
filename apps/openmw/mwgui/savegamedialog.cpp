@@ -51,7 +51,6 @@ namespace MWGui
         getWidget(mDeleteButton, "DeleteButton");
         getWidget(mSaveList, "SaveList");
         getWidget(mSaveNameEdit, "SaveNameEdit");
-        getWidget(mSpacer, "Spacer");
         getWidget(mCharacterSelection, "SelectCharacter");
         getWidget(mCharacterSelectionButton, "SelectCharacterButton");
 
@@ -258,7 +257,6 @@ namespace MWGui
             mCharacterSelection->setUserString("Hidden", load ? "false" : "true");
             mCharacterSelection->setVisible(load);
         }
-        mSpacer->setUserString("Hidden", load ? "false" : "true");
 
         mDeleteButton->setUserString("Hidden", load ? "false" : "true");
         mDeleteButton->setVisible(load);

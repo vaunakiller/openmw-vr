@@ -73,7 +73,6 @@ namespace MWGui
         MyGUI::Button* mDeleteButton;
         MyGUI::ListBox* mSaveList;
         MyGUI::EditBox* mSaveNameEdit;
-        MyGUI::Widget* mSpacer;
 
         const MWState::Character* mCurrentCharacter;
         const MWState::Slot* mCurrentSlot;

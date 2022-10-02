@@ -207,7 +207,6 @@ bool Launcher::AdvancedPage::loadSettings()
         loadSettingBool(graphicHerbalismCheckBox, "graphic herbalism", "Game");
         scalingSpinBox->setValue(Settings::Manager::getFloat("scaling factor", "GUI"));
         fontSizeSpinBox->setValue(Settings::Manager::getInt("font size", "GUI"));
-        ttfResolutionSpinBox->setValue(Settings::Manager::getInt("ttf resolution", "GUI"));
     }
 
     // Bug fixes
@@ -390,10 +389,6 @@ void Launcher::AdvancedPage::saveSettings()
         int fontSize = fontSizeSpinBox->value();
         if (fontSize != Settings::Manager::getInt("font size", "GUI"))
             Settings::Manager::setInt("font size", "GUI", fontSize);
-
-        int ttfResolution = ttfResolutionSpinBox->value();
-        if (ttfResolution != Settings::Manager::getInt("ttf resolution", "GUI"))
-            Settings::Manager::setInt("ttf resolution", "GUI", ttfResolution);
     }
 
     // Bug fixes

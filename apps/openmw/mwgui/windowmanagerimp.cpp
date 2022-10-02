@@ -3,7 +3,6 @@
 #include <algorithm>
 #include <cassert>
 #include <chrono>
-#include <filesystem>
 #include <thread>
 
 #include <osgViewer/Viewer>
@@ -208,7 +207,7 @@ namespace MWGui
         mScalingFactor = std::clamp(Settings::Manager::getFloat("scaling factor", "GUI"), 0.5f, 8.f);
         mGuiPlatform = new osgMyGUI::Platform(viewer, guiRoot, resourceSystem->getImageManager(),
             resourceSystem->getVFS(), mScalingFactor, "mygui",
-            (std::filesystem::path(logpath) / "MyGUI.log").generic_string());
+            (boost::filesystem::path(logpath) / "MyGUI.log").generic_string());
 
 
 #ifdef USE_OPENXR
@@ -224,7 +223,6 @@ namespace MWGui
 
         // Load fonts
         mFontLoader = std::make_unique<Gui::FontLoader>(encoding, resourceSystem->getVFS(), mScalingFactor);
-        mFontLoader->loadFonts();
 
         //Register own widgets with MyGUI
         MyGUI::FactoryManager::getInstance().registerFactory<MWGui::Widgets::MWSkill>("Widget");
