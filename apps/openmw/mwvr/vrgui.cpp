@@ -65,6 +65,7 @@ namespace MWVR
         const char* sHUDBottomLeftStr = "/ui/HUD/bottomleft";
         const char* sHUDBottomRightStr = "/ui/HUD/bottomright";
         const char* sHUDMessageStr = "/ui/HUD/message";
+        const char* sHUDKeyboardStr = "/ui/HUD/keyboard";
         const char* sWristTopLeftStr = "/ui/wrist_top/left/pose";
         const char* sWristTopRightStr = "/ui/wrist_top/right/pose";
         const char* sWristInnerLeftStr = "/ui/wrist_inner/left/pose";
@@ -75,6 +76,7 @@ namespace MWVR
         VR::VRPath sHUDBottomLeft;
         VR::VRPath sHUDBottomRight;
         VR::VRPath sHUDMessage;
+        VR::VRPath sHUDKeyboard;
         VR::VRPath sWristTopLeft;
         VR::VRPath sWristTopRight;
         VR::VRPath sWristInnerLeft;
@@ -87,6 +89,7 @@ namespace MWVR
             sHUDTopRight = VR::stringToVRPath(sHUDTopRightStr);
             sHUDBottomLeft = VR::stringToVRPath(sHUDBottomLeftStr);
             sHUDBottomRight = VR::stringToVRPath(sHUDBottomRightStr);
+            sHUDKeyboard = VR::stringToVRPath(sHUDKeyboardStr);
             sHUDMessage = VR::stringToVRPath(sHUDMessageStr);
             sWristTopLeft = VR::stringToVRPath(sWristTopLeftStr);
             sWristTopRight = VR::stringToVRPath(sWristTopRightStr);
@@ -302,12 +305,6 @@ namespace MWVR
     {
 
         auto orientation = mRotation * mTrackedPose.orientation;
-        if (mLayerName == "VirtualKeyboard")
-        {
-            // Tilt the keyboard slightly for easier typing.
-            orientation = osg::Quat(osg::PI_4 / 2.f, osg::Vec3(-1, 0, 0)) * orientation;
-            mTrackedPose.position += mTrackedPose.orientation * osg::Vec3(0, 15, -12);
-        }
 
         // Orient the offset and move the layer
         auto position = mTrackedPose.position + orientation * mConfig.offset * Constants::UnitsPerMeter;
@@ -670,13 +667,13 @@ namespace MWVR
             false,
             .75f,
             osg::Vec3(0,0,0), // offset (meters)
-            osg::Vec2(0.f,0.5f), // center (model space)
+            osg::Vec2(0.f,1.f), // center (model space)
             osg::Vec2(.25f, .25f), // extent (meters)
-            1536, // Spatial resolution (pixels per meter)
+            2048, // Spatial resolution (pixels per meter)
             osg::Vec2i(1024,1024), // Texture resolution
             osg::Vec2(1,1),
             SizingMode::Auto,
-            "/ui/HUD/message",
+            Paths::sHUDKeyboardStr,
             ""
         };
 
@@ -899,8 +896,6 @@ namespace MWVR
         auto* layer = widget->mMainWidget->getLayer();
         auto name = layer->getName();
 
-        Log(Debug::Verbose) << name << ": " << visible;
-
         if (layerBlacklist.find(name) != layerBlacklist.end())
         {
             // Never pick an invisible layer
@@ -960,13 +955,8 @@ namespace MWVR
         {
             if (!mFocusLayer->mWidgets.empty())
             {
-                Log(Debug::Verbose) << "Set focus layer to " << mFocusLayer->mWidgets.front()->mMainWidget->getLayer()->getName();
                 setPick(mFocusLayer->mWidgets.front(), true);
             }
-        }
-        else
-        {
-            Log(Debug::Verbose) << "Set focus layer to null";
         }
     }
 
@@ -1157,6 +1147,8 @@ namespace MWVR
             return mHUDBottomRightPose;
         if (path == Paths::sHUDMessage)
             return mHUDMessagePose;
+        if (path == Paths::sHUDKeyboard)
+            return mHUDKeyboardPose;
         if (path == Paths::sWristInnerLeft)
             return mWristInnerLeftPose;
         if (path == Paths::sWristInnerRight)
@@ -1180,6 +1172,7 @@ namespace MWVR
             Paths::sHUDBottomLeft,
             Paths::sHUDBottomRight,
             Paths::sHUDMessage,
+            Paths::sHUDKeyboard,
             Paths::sWristInnerLeft,
             Paths::sWristInnerRight,
             Paths::sWristTopLeft,
@@ -1213,26 +1206,24 @@ namespace MWVR
             mHUDMessagePose = tp;
             mHUDMessagePose.pose.position += mHUDMessagePose.pose.orientation * osg::Vec3f(0, 30, -3);
 
-
-            // UI elements should always be vertical
-            auto axis = osg::Z_AXIS;
-            osg::Quat vertical;
-            auto local = tp.pose.orientation * axis;
-            vertical.makeRotate(local, axis);
-            tp.pose.orientation = tp.pose.orientation * vertical;
-
             if (mShouldUpdateStationaryPose)
             {
                 mShouldUpdateStationaryPose = false;
+
+                // UI elements should always be vertical
+                auto axis = osg::Z_AXIS;
+                osg::Quat vertical;
+                auto local = tp.pose.orientation * axis;
+                vertical.makeRotate(local, axis);
+                tp.pose.orientation = tp.pose.orientation * vertical;
                 mStationaryPose = tp;
+
+                mHUDKeyboardPose = tp;
+                mHUDKeyboardPose.pose.position += mHUDKeyboardPose.pose.orientation * osg::Vec3(0, 35, -35);
+                // Tilt the keyboard slightly for easier typing.
+                mHUDKeyboardPose.pose.orientation = osg::Quat(osg::PI_4 / 2.f, osg::Vec3(-1, 0, 0)) * mHUDKeyboardPose.pose.orientation;
             }
         }
-
-
-        //if (mTrackingPath == Paths::sLeftWrist)
-        //    orientation = osg::Quat(osg::PI_2, osg::Vec3(0, 0, 1)) * orientation;
-        //if (mTrackingPath == Paths::sRightWrist)
-        //    orientation = osg::Quat(-osg::PI_2, osg::Vec3(0, 0, 1)) * orientation;
 
         tp = VR::TrackingManager::instance().locate(leftWrist, predictedDisplayTime);
         if (!!tp.status)

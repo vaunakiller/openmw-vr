@@ -88,6 +88,7 @@ namespace MWVR
         VR::TrackingPose mHUDBottomLeftPose = VR::TrackingPose();
         VR::TrackingPose mHUDBottomRightPose = VR::TrackingPose();
         VR::TrackingPose mHUDMessagePose = VR::TrackingPose();
+        VR::TrackingPose mHUDKeyboardPose = VR::TrackingPose();
         VR::TrackingPose mWristInnerLeftPose = VR::TrackingPose();
         VR::TrackingPose mWristInnerRightPose = VR::TrackingPose();
         VR::TrackingPose mWristTopLeftPose = VR::TrackingPose();
