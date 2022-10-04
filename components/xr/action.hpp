@@ -163,7 +163,7 @@ namespace XR
 
         void update() override;
 
-        virtual bool shouldQueue() const override { return onActivate() || onDeactivate(); }
+        bool shouldQueue() const override { return onActivate() || onDeactivate(); }
 
         bool mPressed{ false };
         std::chrono::steady_clock::time_point mPressTime{};
@@ -181,7 +181,7 @@ namespace XR
 
         void update() override;
 
-        virtual bool shouldQueue() const override { return onActivate() || onDeactivate(); }
+        bool shouldQueue() const override { return onActivate() || onDeactivate(); }
 
         bool mPressed{ false };
         bool mActivated{ false };
@@ -200,7 +200,7 @@ namespace XR
 
         void update() override;
 
-        virtual bool shouldQueue() const override { return mActive || onDeactivate(); }
+        bool shouldQueue() const override { return true; }
 
         bool mPressed{ false };
     };
@@ -230,7 +230,7 @@ namespace XR
 
         void update() override;
 
-        virtual bool shouldQueue() const override { return mActive || onDeactivate(); }
+        bool shouldQueue() const override { return true; }
 
         std::shared_ptr<AxisDeadzone> mDeadzone;
     };
@@ -247,7 +247,7 @@ namespace XR
 
         void update() override;
 
-        virtual bool shouldQueue() const override { return mActive || onDeactivate(); }
+        bool shouldQueue() const override { return true; }
 
         std::shared_ptr<AxisDeadzone> mDeadzone;
     };
