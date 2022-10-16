@@ -1189,6 +1189,16 @@ namespace MWVR
         VR::VRPath rightWrist = VR::stringToVRPath("/world/user/hand/right/input/aim/pose");
         VR::VRPath headPath = VR::stringToVRPath("/world/user/head/input/pose");
         auto tp = VR::TrackingManager::instance().locate(headPath, predictedDisplayTime);
+
+        if (mTimedPoseRefresh)
+        {
+            if (std::chrono::steady_clock::now() > mTimedPoseRefreshTime)
+            {
+                mTimedPoseRefresh = false;
+                mShouldUpdateStationaryPose = true;
+            }
+        }
+
         if (!!tp.status)
         {
             mHUDTopLeftPose = tp;
@@ -1209,6 +1219,16 @@ namespace MWVR
             if (mShouldUpdateStationaryPose)
             {
                 mShouldUpdateStationaryPose = false;
+
+                if (!mHasInitialPose)
+                {
+                    // Some runtimes initially report success while not actually returning a pose.
+                    // So i implement an automatic refresh 2 seconds after startup, when they will 
+                    // hopefully have begun returning real poses.
+                    mHasInitialPose = true;
+                    mTimedPoseRefresh = true;
+                    mTimedPoseRefreshTime = std::chrono::steady_clock::now() + std::chrono::seconds(2);
+                }
 
                 // UI elements should always be vertical
                 auto axis = osg::Z_AXIS;

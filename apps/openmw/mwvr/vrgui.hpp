@@ -5,6 +5,7 @@
 #include <set>
 #include <regex>
 #include <array>
+#include <chrono>
 #include <MyGUI_Widget.h>
 
 #include <osg/Geometry>
@@ -95,6 +96,9 @@ namespace MWVR
         VR::TrackingPose mWristTopRightPose = VR::TrackingPose();
 
         bool mShouldUpdateStationaryPose = true;
+        bool mHasInitialPose = false;
+        bool mTimedPoseRefresh = false;
+        std::chrono::steady_clock::time_point mTimedPoseRefreshTime;
 
         VR::DisplayTime mLastTime = 0;
     };
