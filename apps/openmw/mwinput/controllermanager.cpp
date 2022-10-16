@@ -302,6 +302,7 @@ namespace MWInput
 
     void ControllerManager::axisMoved(int deviceID, const SDL_ControllerAxisEvent &arg)
     {
+#ifdef USE_OPENXR
         if (VR::getVR() && !MWBase::Environment::get().getWindowManager()->isGuiMode())
         {
             if (arg.axis == SDL_CONTROLLER_AXIS_RIGHTY)
@@ -310,6 +311,7 @@ namespace MWInput
                 MWVR::VRInputManager::instance().processUtilityStickY(-value);
             }
         }
+#endif
 
         if (!mJoystickEnabled || MWBase::Environment::get().getInputManager()->controlsDisabled())
             return;

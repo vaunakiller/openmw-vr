@@ -32,6 +32,8 @@ namespace MWVR
     private:
         void onTrackingUpdated(VR::TrackingManager& manager, VR::DisplayTime predictedDisplayTime) override;
 
+        bool tryProbePick(MWWorld::Ptr target);
+
         osg::ref_ptr<osg::Geometry> createPointerGeometry();
 
         osg::ref_ptr<osg::Geometry> mPointerGeometry;

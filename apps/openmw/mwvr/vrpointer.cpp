@@ -22,6 +22,7 @@
 #include "../mwbase/environment.hpp"
 #include "../mwbase/world.hpp"
 #include "../mwbase/windowmanager.hpp"
+#include "../mwbase/soundmanager.hpp"
 
 #include "../mwrender/renderingmanager.hpp"
 #include "../mwrender/vismask.hpp"
@@ -31,8 +32,10 @@
 #include "../mwgui/inventorywindow.hpp"
 
 #include "../mwmechanics/actorutil.hpp"
+#include "../mwmechanics/security.hpp"
 
 #include "../mwworld/player.hpp"
+#include "../mwworld/class.hpp"
 
 namespace MWVR
 {
@@ -102,7 +105,7 @@ namespace MWVR
     {
         if (mPointerRay.mHit)
         {
-            MWWorld::Ptr ptr = mPointerRay.mHitObject;
+            MWWorld::Ptr target = mPointerRay.mHitObject;
             auto wm = MWBase::Environment::get().getWindowManager();
             auto& dnd = wm->getDragAndDrop();
             if (dnd.mIsOnDragAndDrop)
@@ -114,24 +117,57 @@ namespace MWVR
                 DropItemAtPointModel drop(this);
                 dnd.drop(&drop, nullptr);
             }
-            else if (!ptr.isEmpty())
+            else if (!target.isEmpty())
             {
                 if (wm->isConsoleMode())
-                    wm->setConsoleSelectedObject(ptr);
+                    wm->setConsoleSelectedObject(target);
                 // Don't active things during GUI mode.
                 else if (wm->isGuiMode())
                 {
                     if (wm->getMode() != MWGui::GM_Container && wm->getMode() != MWGui::GM_Inventory)
                         return;
-                    wm->getInventoryWindow()->pickUpObject(ptr);
+                    wm->getInventoryWindow()->pickUpObject(target);
                 }
                 else
                 {
                     MWWorld::Player& player = MWBase::Environment::get().getWorld()->getPlayer();
-                    player.activate(ptr);
+                    if (!tryProbePick(target))
+                        player.activate(target);
                 }
             }
         }
+    }
+
+    bool UserPointer::tryProbePick(MWWorld::Ptr target)
+    {
+        std::string resultMessage = "";
+        std::string resultSound = "";
+
+        MWWorld::Player& player = MWBase::Environment::get().getWorld()->getPlayer();
+        if (player.getDrawState() == MWMechanics::DrawState::Weapon)
+        {
+            MWWorld::Ptr playerPtr = player.getPlayer();
+            MWWorld::ContainerStoreIterator rightHandItem = playerPtr.getClass().getInventoryStore(playerPtr).getSlot(MWWorld::InventoryStore::Slot_CarriedRight);
+            MWWorld::Ptr tool = *rightHandItem;
+
+            if (!target.isEmpty() && (target.getCellRef().getLockLevel() != 0))
+            {
+                if (tool.getType() == ESM::Lockpick::sRecordId)
+                    MWMechanics::Security(playerPtr).pickLock(target, tool, resultMessage, resultSound);
+                else if (tool.getType() == ESM::Probe::sRecordId)
+                    MWMechanics::Security(playerPtr).probeTrap(target, tool, resultMessage, resultSound);
+            }
+
+            if (!resultMessage.empty())
+                MWBase::Environment::get().getWindowManager()->messageBox(resultMessage);
+            if (!resultSound.empty())
+            {
+                MWBase::SoundManager* sndMgr = MWBase::Environment::get().getSoundManager();
+                sndMgr->playSound3D(target, resultSound, 1.0f, 1.0f);
+            }
+        }
+
+        return !(resultSound.empty() && resultMessage.empty());
     }
 
     const MWRender::RayResult& UserPointer::getPointerRay() const
