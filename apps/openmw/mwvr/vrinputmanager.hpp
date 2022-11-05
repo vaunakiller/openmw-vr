@@ -94,6 +94,8 @@ namespace MWVR
 
         float smoothTurnRate(float dt) const;
 
+        int interactiveMessageBox(const std::string& message, const std::vector<std::string>& buttons);
+
     private:
         osg::observer_ptr<osgViewer::Viewer> mOSGViewer;
         std::unique_ptr<UserPointer> mVRPointer;
@@ -116,16 +118,6 @@ namespace MWVR
         VR::VRPath mRightHandPath;
         VR::VRPath mRightHandWorldPath;
         VR::VRPath mHeadWorldPath;
-
-        enum class CalibrationState
-        {
-            None = 0,
-            Active = 1,
-            Aborted = 2,
-            Complete = 3,
-        };
-
-        CalibrationState mCalibrationState = CalibrationState::None;
 
     };
 }

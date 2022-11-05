@@ -69,10 +69,12 @@ namespace MWVR
     void VRInputManager::updateVRPointer(bool disableControls)
     {
         auto source = mHeadWorldPath;
-        if(!disableControls && (VR::getLeftControllerActive() || VR::getRightControllerActive()))
+        if(VR::getLeftControllerActive() || VR::getRightControllerActive())
         {
             bool guiMode = MWBase::Environment::get().getWindowManager()->isGuiMode();
-            MWBase::Environment::get().getWorld()->enableVRPointer((guiMode || mPointerLeft) && VR::getLeftControllerActive(), (guiMode || mPointerRight) && VR::getRightControllerActive());
+
+            if (!disableControls)
+                MWBase::Environment::get().getWorld()->enableVRPointer((guiMode || mPointerLeft) && VR::getLeftControllerActive(), (guiMode || mPointerRight) && VR::getRightControllerActive());
 
             bool leftHanded = Settings::Manager::getBool("left handed mode", "VR");
 
@@ -260,19 +262,30 @@ namespace MWVR
         return 360.f * mSmoothTurnRate * dt;
     }
 
+    int VRInputManager::interactiveMessageBox(const std::string& message, const std::vector<std::string>& buttons)
+    {
+        auto wm = MWBase::Environment::get().getWindowManager();
+
+        wm->enterVoid();
+
+        wm->interactiveMessageBox(message, buttons, true);
+
+        wm->exitVoid();
+
+        return wm->readPressedButton();
+    }
+
     void VRInputManager::calibrate()
     {
-        if (!Settings::Manager::getBool("player height calibrated", "VR"))
-            calibratePlayerHeight();
+        updateVRPointer(false);
 
+        if (!Settings::Manager::getBool("intro sequence complete", "VR"))
+        {
+            calibratePlayerHeight();
+        }
     }
     void VRInputManager::calibratePlayerHeight()
     {
-        auto wm = MWBase::Environment::get().getWindowManager();
-        wm->enterVoid();
-        mCalibrationState = CalibrationState::Active;
-
-        wm->staticMessageBox("To deal with the diversity in height of playable races, OpenMW-VR Needs to know how tall you are. Stand up straight and press the menu key. You'll be able to redo this calibrating later by going to the VR tab of the settings menu");
 
         struct HeightListener : public VR::TrackingListener
         {
@@ -287,52 +300,26 @@ namespace MWVR
                 {
                     receivedTrackingData = true;
                     height = pose.pose.position.z();
-                    Log(Debug::Verbose) << "Height: " << height;
+                    //Log(Debug::Verbose) << "Height: " << height;
                 }
             }
         } heightListener;
 
-        while (mCalibrationState == CalibrationState::Active)
-        {
-            if (MWBase::Environment::get().getStateManager()->hasQuitRequest())
-            {
-                mCalibrationState = CalibrationState::Aborted;
-            }
-            else
-            {
-                // Note, we ignore framerate limiting here, since OpenXR takes care of that.
-                MWBase::Environment::get().getInputManager()->update(0.f, true, false);
+        float height = 1.8;
 
-                mOSGViewer->advance(mOSGViewer->getFrameStamp()->getSimulationTime());
-                wm->viewerTraversals();
-            }
+        int option = interactiveMessageBox(
+            "To be able to accurately scale your height to the height of your character, OpenMW-VR needs to know how tall you are. Stand up straight, and then press the OK button to proceed. Or press cancel to use a default height of 1.8 meters. You can redo this calibration later in VR tab of the settings menu",
+            { "OK", "Cancel" });
+
+        if (option == 0)
+        {
+            height = heightListener.height;
         }
 
-        wm->removeStaticMessageBox();
+        Settings::Manager::setFloat("player height", "VR", height);
+        Settings::Manager::setBool("intro sequence complete", "VR", true);
+        VR::Session::instance().computePlayerScale();
 
-        if (mCalibrationState != CalibrationState::Aborted)
-        {
-            float height = 1.8;
-
-            if (mCalibrationState != CalibrationState::Complete)
-            {
-                wm->messageBox("Calibration was skipped. Using a default height of 1.8m. You should redo the calibration later by going to the VR tab of the settings menu");
-            }
-            else if (!heightListener.receivedTrackingData)
-            {
-                wm->messageBox("Could not read tracking data. Using a default height of 1.8m. You should redo the calibration later by going to the VR tab of the settings menu");
-            }
-            else
-            {
-                height = heightListener.height;
-            }
-
-            Settings::Manager::setFloat("player height", "VR", height);
-            Settings::Manager::setBool("player height calibrated", "VR", true);
-            VR::Session::instance().computePlayerScale();
-        }
-
-        wm->exitVoid();
     }
 
     static VRInputManager* sInputManager;
@@ -457,15 +444,6 @@ namespace MWVR
             {
                 mBindingsManager->setPlayerControlsEnabled(!MyGUI::InputManager::getInstance().injectKeyRelease(kc));
             }
-        }
-
-        if (mCalibrationState == CalibrationState::Active)
-        {
-            if (action->onDeactivate() && action->openMWActionCode() == MWInput::A_GameMenu)
-            {
-                mCalibrationState = CalibrationState::Complete;
-            }
-            return;
         }
 
         bool guiMode = MWBase::Environment::get().getWindowManager()->isGuiMode();
