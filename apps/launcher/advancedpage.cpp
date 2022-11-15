@@ -432,7 +432,7 @@ void Launcher::AdvancedPage::saveSettings()
     // VR
     {
         saveSettingBool(useMultiview, "multiview", "Stereo");
-        saveSettingBool(allowDisplayLists, "disable display lists for multiview", "Stereo");
+        saveSettingBool(allowDisplayLists, "allow display lists for multiview", "Stereo");
         saveSettingBool(useSharedShadowMaps, "shared shadow maps", "Stereo");
         saveSettingBool(leftHandedMode, "left handed mode", "VR");
         saveSettingBool(logAllXrCalls, "log all openxr calls", "VR Debug");
