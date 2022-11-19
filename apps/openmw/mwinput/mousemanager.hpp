@@ -24,6 +24,7 @@ namespace MWInput
         void update(float dt);
 
         void mouseMoved(const SDLUtil::MouseMotionEvent &arg) override;
+        void mouseMovedVR(const SDLUtil::MouseMotionEvent &arg);
         void mousePressed(const SDL_MouseButtonEvent &arg, Uint8 id) override;
         void mouseReleased(const SDL_MouseButtonEvent &arg, Uint8 id) override;
         void mouseWheelMoved(const SDL_MouseWheelEvent &arg) override;

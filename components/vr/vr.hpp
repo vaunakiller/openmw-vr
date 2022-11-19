@@ -4,6 +4,7 @@
 namespace VR
 {
     bool getVR();
+    bool getKBMouseModeActive();
     bool getLeftControllerActive();
     bool getRightControllerActive();
 

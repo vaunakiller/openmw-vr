@@ -14,6 +14,11 @@ namespace VR
         return sVRMode;
     }
 
+    bool getKBMouseModeActive()
+    {
+        return !(sLeftControllerActive || sRightControllerActive);
+    }
+
     bool getLeftControllerActive()
     {
         return sLeftControllerActive;

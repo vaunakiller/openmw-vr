@@ -65,6 +65,7 @@ namespace MWVR
         osg::Node* vrAimNode() { return mVRAimNode; }
         const osg::Node* vrAimNode() const { return mVRAimNode; }
 
+        void mouseMove(float x);
         void turnLeftRight(float value, float previousValue, float dt);
 
         void processUtilityStickX(float value);

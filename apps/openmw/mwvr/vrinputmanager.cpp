@@ -234,6 +234,13 @@ namespace MWVR
         mXRInput->setThumbstickDeadzone(deadzoneRadius);
     }
 
+    void VRInputManager::mouseMove(float x)
+    {
+        auto path = VR::stringToVRPath("/world/user");
+        auto* stageToWorldBinding = static_cast<VR::StageToWorldBinding*>(VR::TrackingManager::instance().getTrackingSource(path));
+        stageToWorldBinding->setWorldOrientation(x, true);
+    }
+
     void VRInputManager::turnLeftRight(float value, float previousValue, float dt)
     {
         auto path = VR::stringToVRPath("/world/user");
@@ -241,7 +248,6 @@ namespace MWVR
         if (mSmoothTurning)
         {
             float yaw = osg::DegreesToRadians(value) * smoothTurnRate(dt);
-            // TODO: Hack, should have a cleaner way of accessing this
             stageToWorldBinding->setWorldOrientation(yaw, true);
         }
         else
