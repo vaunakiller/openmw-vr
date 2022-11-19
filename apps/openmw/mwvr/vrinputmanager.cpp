@@ -607,11 +607,17 @@ namespace MWVR
                 break;
 
             case A_MovementStick:
-                processMovementStick(action, dt, disableControls);
+                if (!VR::getKBMouseModeActive())
+                {
+                    processMovementStick(action, dt, disableControls);
+                }
                 break;
             case A_UtilityStick:
-                processUtilityStickX(action->value2d().x());
-                processUtilityStickY(action->value2d().y());
+                if (!VR::getKBMouseModeActive())
+                {
+                    processUtilityStickX(action->value2d().x());
+                    processUtilityStickY(action->value2d().y());
+                }
                 break;
 
             default:
