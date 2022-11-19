@@ -395,7 +395,6 @@ namespace MWVR
         bool disableControls,
         bool disableEvents)
     {
-        auto& actionSet = activeActionSet();
 
         updateVRPointer(disableControls);
 
@@ -405,9 +404,13 @@ namespace MWVR
             mMouseManager->setMousePosition(guiCursor.x(), guiCursor.y());
         }
 
-        while (auto* action = actionSet.nextAction())
+        if (!VR::getKBMouseModeActive())
         {
-            processAction(action, dt, disableControls);
+            auto& actionSet = activeActionSet();
+            while (auto* action = actionSet.nextAction())
+            {
+                processAction(action, dt, disableControls);
+            }
         }
 
         MWInput::InputManager::update(dt, disableControls, disableEvents);
@@ -542,6 +545,7 @@ namespace MWVR
                 switch (action->openMWActionCode())
                 {
                 case MWInput::A_Use:
+                    Log(Debug::Verbose) << "2. A_Use: 0.";
                     mBindingsManager->ics().getChannel(MWInput::A_Use)->setValue(0.f);
                     pointActivation(false);
                     break;
@@ -603,21 +607,18 @@ namespace MWVR
             }
             case MWInput::A_Use:
                 if (!(mPointerLeft || mPointerRight || MWBase::Environment::get().getWindowManager()->isGuiMode()))
+                {
+                    Log(Debug::Verbose) << "1. A_Use: " << action->value();
                     mBindingsManager->ics().getChannel(MWInput::A_Use)->setValue(action->value());
+                }
                 break;
 
             case A_MovementStick:
-                if (!VR::getKBMouseModeActive())
-                {
-                    processMovementStick(action, dt, disableControls);
-                }
+                processMovementStick(action, dt, disableControls);
                 break;
             case A_UtilityStick:
-                if (!VR::getKBMouseModeActive())
-                {
-                    processUtilityStickX(action->value2d().x());
-                    processUtilityStickY(action->value2d().y());
-                }
+                processUtilityStickX(action->value2d().x());
+                processUtilityStickY(action->value2d().y());
                 break;
 
             default:
@@ -812,6 +813,7 @@ namespace MWVR
         switch (actionId)
         {
         case MWInput::A_Use:
+            Log(Debug::Verbose) << "3. A_Use: " << 0.;
             mBindingsManager->ics().getChannel(MWInput::A_Use)->setValue(0.f);
             if (mPointerLeft || mPointerRight || MWBase::Environment::get().getWindowManager()->isGuiMode())
                 pointActivation(false);
