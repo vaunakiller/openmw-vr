@@ -3088,7 +3088,12 @@ namespace MWWorld
         MWWorld::Ptr target;
 #ifdef USE_OPENXR
         if (actor == MWMechanics::getPlayer())
-            target = MWVR::Util::getTouchTarget().first;
+        {
+            if (VR::getKBMouseModeActive())
+                target = getFacedObject();
+            else
+                target = MWVR::Util::getTouchTarget().first;
+        }
 #else
         // Does not apply to VR
         if (actor == MWMechanics::getPlayer())
@@ -4181,9 +4186,13 @@ namespace MWWorld
             return Stereo::Pose();
         }
         auto* node = MWVR::VRInputManager::instance().vrAimNode();
-        auto worldMatrix = osg::computeLocalToWorld(node->getParentalNodePaths()[0]);
-        pose.position = worldMatrix.getTrans();
-        pose.orientation = worldMatrix.getRotate();
+
+        if (node)
+        {
+            auto worldMatrix = osg::computeLocalToWorld(node->getParentalNodePaths()[0]);
+            pose.position = worldMatrix.getTrans();
+            pose.orientation = worldMatrix.getRotate();
+        }
 #endif
         return pose;
     }

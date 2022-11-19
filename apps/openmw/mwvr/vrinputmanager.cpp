@@ -111,7 +111,7 @@ namespace MWVR
 
     void VRInputManager::updateCombat(float dt)
     {
-        if (VR::getRightControllerActive())
+        if (!VR::getKBMouseModeActive())
             return updateRealisticCombat(dt);
         else
         {
@@ -122,10 +122,6 @@ namespace MWVR
     void VRInputManager::updateRealisticCombat(float dt)
     {
         bool guiMode = MWBase::Environment::get().getWindowManager()->isGuiMode();
-
-        // OpenMW assumes all input will come via SDL which i often violate.
-        // This keeps player controls correctly enabled for my purposes.
-        mBindingsManager->setPlayerControlsEnabled(!guiMode);
 
         if (!guiMode)
         {
@@ -425,7 +421,7 @@ namespace MWVR
         // This keeps player controls correctly enabled for my purposes.
         mBindingsManager->setPlayerControlsEnabled(!guiMode);
 
-        updateRealisticCombat(dt);
+        updateCombat(dt);
 
         // Update tracking every frame if player is not currently in GUI mode.
         // This ensures certain widgets like Notifications will be visible.

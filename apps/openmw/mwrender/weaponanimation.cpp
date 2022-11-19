@@ -123,7 +123,7 @@ void WeaponAnimation::releaseArrow(MWWorld::Ptr actor, float attackStrength)
         * osg::Quat(actor.getRefData().getPosition().rot[2], osg::Vec3f(0, 0, -1));
 
 #ifdef USE_OPENXR
-    if (VR::getRightControllerActive() && actor == MWMechanics::getPlayer())
+    if (!VR::getKBMouseModeActive() && actor == MWMechanics::getPlayer())
     {
         // In VR weapon aim is taken from the real orientation of the weapon.
         orient = MWBase::Environment::get().getWorld()->getWeaponPose().orientation;
