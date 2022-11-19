@@ -80,8 +80,10 @@ namespace MWInput
     void MouseManager::mouseMoved(const SDLUtil::MouseMotionEvent &arg)
     {
         if (VR::getVR())
+        {
             mouseMovedVR(arg);
             return;
+        }
 
         mBindingsManager->mouseMoved(arg);
 
