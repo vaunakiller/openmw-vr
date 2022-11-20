@@ -395,10 +395,13 @@ namespace MWGui
                 if (Misc::StringUtils::ciEqual<std::string, std::string>(tooltipPosition, mVRTooltipPosition->getItemNameAt(i)))
                     mVRTooltipPosition->setIndexSelected(i);
 
-            std::string snapAngle = Settings::Manager::getString("snap angle", "VR");
+            double snapAngle = Settings::Manager::getDouble("snap angle", "VR");
             for (unsigned i = 0; i < mVRSnapAngle->getItemCount(); i++)
             {
-                if (Misc::StringUtils::ciEqual<std::string, std::string>(snapAngle, mVRSnapAngle->getItemNameAt(i)))
+                std::string item = mVRSnapAngle->getItemNameAt(i);
+                double itemSnapAngle = 0.;
+                std::istringstream(item) >> itemSnapAngle;
+                if (itemSnapAngle == snapAngle)
                     mVRSnapAngle->setIndexSelected(i);
             }
 
