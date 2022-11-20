@@ -6,6 +6,7 @@
 #include <components/vr/trackingsource.hpp>
 #include <components/vr/frame.hpp>
 #include <components/vr/layer.hpp>
+#include <components/vr/vr.hpp>
 #include <components/misc/constants.hpp>
 #include <components/sceneutil/depth.hpp>
 
@@ -436,7 +437,10 @@ namespace XR
 
     void Session::initCompositionLayerDepth()
     {
-        setAppShouldShareDepthBuffer(KHR_composition_layer_depth.enabled());
+        setAppShouldShareDepthBuffer(KHR_composition_layer_depth.enabled() 
+            // WORKAROUND: SteamVR keeps reporting unsupported formats as supported, so for now just block depth layers with the steamvr runtime.
+            && !VR::getSteamVR()
+        );
     }
 
     PFN_xrEnumerateReprojectionModesMSFT enumerateReprojectionModesMSFT = nullptr;

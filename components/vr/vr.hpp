@@ -7,10 +7,12 @@ namespace VR
     bool getKBMouseModeActive();
     bool getLeftControllerActive();
     bool getRightControllerActive();
+    bool getSteamVR();
 
     void setVR(bool VR);
     void setLeftControllerActive(bool active);
     void setRightControllerActive(bool active);
+    void setSteamVR(bool steamVR);
 }
 
 #endif

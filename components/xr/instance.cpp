@@ -6,10 +6,12 @@
 #include "session.hpp"
 
 #include <components/debug/debuglog.hpp>
+#include <components/misc/stringops.hpp>
 #include <components/sdlutil/sdlgraphicswindow.hpp>
 #include <components/vr/directx.hpp>
 #include <components/vr/layer.hpp>
 #include <components/vr/trackingmanager.hpp>
+#include <components/vr/vr.hpp>
 
 #include <openxr/openxr_reflection.h>
 
@@ -87,6 +89,10 @@ namespace XR
             ss << " PositionTracking=" << (mSystemProperties.trackingProperties.positionTracking ? "True" : "False");
             Log(Debug::Verbose) << ss.str();
         }
+
+        auto systemNameLowerCase = Misc::StringUtils::lowerCase(mSystemProperties.systemName);
+        if (systemNameLowerCase.find("steamvr") != std::string::npos)
+            VR::setSteamVR(true);
     }
 
     void Instance::enumerateViews()
