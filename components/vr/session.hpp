@@ -40,8 +40,6 @@ namespace VR
         Session();
         virtual ~Session();
 
-        bool seatedPlay() const { return mSeatedPlay; }
-
         float playerScale() const { return mPlayerScale; }
         void computePlayerScale();
 
@@ -90,8 +88,6 @@ namespace VR
     protected:
         void readSettings();
 
-        void setSeatedPlay(bool seatedPlay);
-
         //! Called once when initializing a new frame. The implementation *must* set shouldSyncFrame and shouldSyncInput. If shouldSyncFrame is set to false by the implementation, syncFrame* will be called for this frame.
         virtual void newFrame(uint64_t frameNo, bool& shouldSyncFrame, bool& shouldSyncInput) = 0;
 
@@ -113,7 +109,6 @@ namespace VR
         bool mAppShouldShareDepthBuffer = false;
         bool mHandDirectedMovement = false ;
 
-        bool mSeatedPlay = false;
         float mPlayerScale = 1.f;
         float mCharHeight = 1.f;
         float mSneakOffset = 0.f;

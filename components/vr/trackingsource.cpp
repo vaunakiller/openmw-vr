@@ -5,6 +5,7 @@
 
 #include <components/debug/debuglog.hpp>
 #include <components/misc/constants.hpp>
+#include <components/vr/vr.hpp>
 
 namespace VR
 {
@@ -61,7 +62,7 @@ namespace VR
         mMovement.y() = 0;
         if (resetZ)
         {
-            if (mSeatedPlay)
+            if (VR::getSeatedPlay())
                 mMovement.z() = mEyeLevel;
             else
                 mMovement.z() = mLastPose.pose.position.z();
@@ -114,7 +115,7 @@ namespace VR
         worldPose.pose.position += mMovement;
         worldPose.pose.orientation = worldPose.pose.orientation * mOrientation;
 
-        if (!mSeatedPlay)
+        if (VR::getStandingPlay())
         {
             float heightAdjustment = mLastPose.pose.position.z() * (Session::instance().playerScale() - 1.f);
             worldPose.pose.position.z() += heightAdjustment;

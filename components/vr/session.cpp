@@ -84,19 +84,18 @@ namespace VR
 
     void Session::readSettings()
     {
-        setSeatedPlay(Settings::Manager::getBool("seated play", "VR"));
+        auto seatedPlay = Settings::Manager::getBool("seated play", "VR");
+        if (VR::getSeatedPlay() != seatedPlay)
+        {
+            VR::setSeatedPlay(seatedPlay);
+            requestRecenter(true);
+        }
+
         mHandDirectedMovement = Settings::Manager::getBool("hand directed movement", "VR");
 
         mHandsOffset.x() = (Settings::Manager::getFloat("hands offset x", "VR") - 0.5) * Constants::UnitsPerMeter;
         mHandsOffset.y() = (Settings::Manager::getFloat("hands offset y", "VR") - 0.5) * Constants::UnitsPerMeter;
         mHandsOffset.z() = (Settings::Manager::getFloat("hands offset z", "VR") - 0.5) * Constants::UnitsPerMeter;
-    }
-
-    void Session::setSeatedPlay(bool seatedPlay)
-    {
-        std::swap(mSeatedPlay, seatedPlay);
-        if (mSeatedPlay != seatedPlay)
-            requestRecenter(true);
     }
 
     void Session::computePlayerScale()
@@ -117,7 +116,6 @@ namespace VR
     {
         if (mTrackerToWorldBinding)
         {
-            mTrackerToWorldBinding->setSeatedPlay(seatedPlay());
             mTrackerToWorldBinding->recenter(recenterZ);
             mTrackerToWorldBinding->setEyeLevel(charHeight() * Constants::UnitsPerMeter);
         }

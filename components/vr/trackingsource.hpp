@@ -62,9 +62,6 @@ namespace VR
         void setEyeLevel(float eyeLevel) { mEyeLevel = eyeLevel; }
         float getEyeLevel() const { return mEyeLevel; }
 
-        void setSeatedPlay(bool seatedPlay) { mSeatedPlay = seatedPlay; }
-        bool getSeatedPlay() const { return mSeatedPlay; }
-
         //! The player's movement within the VR stage. This accumulates until the movement has been consumed by calling consumeMovement()
         osg::Vec3 movement() const { return mMovement; }
 
@@ -99,7 +96,6 @@ namespace VR
         VRPath mMovementReference;
         std::map<VRPath, VRPath> mBindings;
         osg::Node* mOrigin = nullptr;
-        bool mSeatedPlay = false;
         bool mHasTrackingData = false;
         bool mInstantTransition = false;
         float mEyeLevel = 0.f;
