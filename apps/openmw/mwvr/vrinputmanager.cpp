@@ -576,7 +576,6 @@ namespace MWVR
                 switch (action->openMWActionCode())
                 {
                 case MWInput::A_Use:
-                    Log(Debug::Verbose) << "2. A_Use: 0.";
                     mBindingsManager->ics().getChannel(MWInput::A_Use)->setValue(0.f);
                     pointActivation(false);
                     break;
@@ -639,7 +638,6 @@ namespace MWVR
             case MWInput::A_Use:
                 if (!(mPointerLeft || mPointerRight || MWBase::Environment::get().getWindowManager()->isGuiMode()))
                 {
-                    Log(Debug::Verbose) << "1. A_Use: " << action->value();
                     mBindingsManager->ics().getChannel(MWInput::A_Use)->setValue(action->value());
                 }
                 break;
@@ -844,7 +842,6 @@ namespace MWVR
         switch (actionId)
         {
         case MWInput::A_Use:
-            Log(Debug::Verbose) << "3. A_Use: " << 0.;
             mBindingsManager->ics().getChannel(MWInput::A_Use)->setValue(0.f);
             if (mPointerLeft || mPointerRight || MWBase::Environment::get().getWindowManager()->isGuiMode())
                 pointActivation(false);
