@@ -277,6 +277,31 @@ namespace MWVR
         return wm->readPressedButton();
     }
 
+    void VRInputManager::updatePhysicalSneak(float headsetHeight)
+    {
+        // Do physical sneak toggle if necessary
+        const float playerHeight = VR::Session::instance().playerHeight();
+        if (mPhysicalSneakEnabled && playerHeight > 0.0f)
+        {
+            if (headsetHeight < playerHeight - mPhysicalSneakHeightOffset) // No scale getting raw OpenXR pose
+            {
+                if (!mActionManager->isSneaking())
+                {
+                    mActionManager->toggleSneaking();
+                    Log(Debug::Verbose) << "Starting Physical Sneak - Headset Height: " << headsetHeight << " playerHeight-offset: " << playerHeight - mPhysicalSneakHeightOffset;
+                }
+            }
+            else
+            {
+                if (mActionManager->isSneaking())
+                {
+                    mActionManager->toggleSneaking();
+                    Log(Debug::Verbose) << "Stopping Physical Sneak - Headset Height: " << headsetHeight << " playerHeight-offset: " << playerHeight - mPhysicalSneakHeightOffset;
+                }
+            }
+        }
+    }
+
     void VRInputManager::calibrate()
     {
         updateVRPointer(false);
@@ -302,7 +327,7 @@ namespace MWVR
                 {
                     receivedTrackingData = true;
                     height = pose.pose.position.z();
-                    //Log(Debug::Verbose) << "Height: " << height;
+                    Log(Debug::Verbose) << "Height Calibration: " << height;
                 }
             }
         } heightListener;
@@ -365,6 +390,8 @@ namespace MWVR
 
         sInputManager = this;
         mIsToggleSneak = Settings::Manager::getBool("toggle sneak", "Input");
+        mPhysicalSneakHeightOffset = Settings::Manager::getFloat("physical sneak height offset", "VR");
+        mPhysicalSneakEnabled = Settings::Manager::getBool("physical sneak enabled", "VR") && !Settings::Manager::getBool("seated play", "VR");
     }
 
     VRInputManager::~VRInputManager()
@@ -822,4 +849,14 @@ namespace MWVR
             break;
         }
     }
+
+    void VRInputManager::HeightUpdateListener::onTrackingUpdated(VR::TrackingManager& manager, VR::DisplayTime predictedDisplayTime)
+    {
+        auto tpHead = manager.locate(mHeadPath, predictedDisplayTime);
+        if (!!tpHead.status)
+        {
+            instance().updatePhysicalSneak(tpHead.pose.position.z());
+        }
+    }
+
 }

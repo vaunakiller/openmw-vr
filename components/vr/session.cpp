@@ -101,7 +101,8 @@ namespace VR
 
     void Session::computePlayerScale()
     {
-        mPlayerScale = mCharHeight / Settings::Manager::getFloat("player height", "VR");
+        mPlayerHeight = Settings::Manager::getFloat("player height", "VR");
+        mPlayerScale = mCharHeight / mPlayerHeight;
         Log(Debug::Verbose) << "Calculated player scale: " << mPlayerScale;
         requestRecenter(true);
     }
