@@ -780,6 +780,16 @@
                         <Widget type="HBox" skin="" position="14 222 260 24">
                             <Widget type="AutoSizedButton" skin="MW_Button" position="0 0 24 24" align="Left Top">
                                 <UserString key="SettingCategory" value="VR"/>
+                                <UserString key="SettingName" value="physical sneak enabled"/>
+                                <UserString key="SettingType" value="CheckButton"/>
+                            </Widget>
+                            <Widget type="AutoSizedTextBox" skin="SandText" position="28 4 71 16" align="Left Top">
+                                <Property key="Caption" value="Physical Sneak"/>
+                            </Widget>
+                        </Widget>
+                        <Widget type="HBox" skin="" position="14 252 260 24">
+                            <Widget type="AutoSizedButton" skin="MW_Button" position="0 0 24 24" align="Left Top">
+                                <UserString key="SettingCategory" value="VR"/>
                                 <UserString key="SettingName" value="seated play"/>
                                 <UserString key="SettingType" value="CheckButton"/>
                             </Widget>
@@ -787,7 +797,7 @@
                                 <Property key="Caption" value="Seated play"/>
                             </Widget>
                         </Widget>
-                        <Widget type="HBox" skin="" position="14 252 350 24">
+                        <Widget type="HBox" skin="" position="14 282 350 24">
                             <Widget type="ComboBox" skin="MW_ComboBox" position="0 0 150 24" align="Left Top" name="VRThumbstickUp">
                                 <Property key="AddItem" value="toggle_sneak"/>
                                 <Property key="AddItem" value="radial_menu"/>
@@ -803,7 +813,7 @@
                                 <UserString key="Caption_Text" value="Defines which action to perform when pulling the right thumbstick up."/>
                             </Widget>
                         </Widget>
-                        <Widget type="HBox" skin="" position="14 282 350 24">
+                        <Widget type="HBox" skin="" position="14 312 350 24">
                             <Widget type="ComboBox" skin="MW_ComboBox" position="0 0 150 24" align="Left Top" name="VRThumbstickDown">
                                 <Property key="AddItem" value="toggle_sneak"/>
                                 <Property key="AddItem" value="radial_menu"/>

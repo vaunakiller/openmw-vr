@@ -218,6 +218,14 @@ namespace MWVR
             {
                 mHapticsEnabled = Settings::Manager::getBool("haptics enabled", "VR");
             }
+            if (it->first == "VR" && it->second == "physical sneak enabled")
+            {
+                mPhysicalSneakEnabled = Settings::Manager::getBool("physical sneak enabled", "VR");
+            }
+            if (it->first == "VR" && it->second == "physical sneak height offset")
+            {
+                mPhysicalSneakHeightOffset = Settings::Manager::getFloat("physical sneak height offset", "VR");
+            }
             if (it->first == "Input" && it->second == "joystick dead zone")
             {
                 setThumbstickDeadzone(Settings::Manager::getFloat("joystick dead zone", "Input"));
@@ -281,7 +289,7 @@ namespace MWVR
     {
         // Do physical sneak toggle if necessary
         const float playerHeight = VR::Session::instance().playerHeight();
-        if (mPhysicalSneakEnabled && playerHeight > 0.0f)
+        if (mPhysicalSneakEnabled && VR::getStandingPlay() && playerHeight > 0.0f)
         {
             if (headsetHeight < playerHeight - mPhysicalSneakHeightOffset) // No scale getting raw OpenXR pose
             {
@@ -391,7 +399,7 @@ namespace MWVR
         sInputManager = this;
         mIsToggleSneak = Settings::Manager::getBool("toggle sneak", "Input");
         mPhysicalSneakHeightOffset = Settings::Manager::getFloat("physical sneak height offset", "VR");
-        mPhysicalSneakEnabled = Settings::Manager::getBool("physical sneak enabled", "VR") && !Settings::Manager::getBool("seated play", "VR");
+        mPhysicalSneakEnabled = Settings::Manager::getBool("physical sneak enabled", "VR");
     }
 
     VRInputManager::~VRInputManager()
