@@ -9,6 +9,7 @@
 #include <iostream>
 
 #include "../mwworld/ptr.hpp"
+#include <components/vr/trackinglistener.hpp>
 
 namespace XR
 {
@@ -96,6 +97,7 @@ namespace MWVR
         float smoothTurnRate(float dt) const;
 
         int interactiveMessageBox(const std::string& message, const std::vector<std::string>& buttons);
+        void updatePhysicalSneak(float headsetHeight);
 
     private:
         osg::observer_ptr<osgViewer::Viewer> mOSGViewer;
@@ -109,8 +111,11 @@ namespace MWVR
         bool mIsToggleSneak = false;
         float mSnapAngle = 30.f;
         float mSmoothTurnRate = 1.0f;
+        float mPhysicalSneakHeightOffset = 0.15f;
+        bool mPhysicalSneakEnabled = true;
         bool mUtilityDownActive = false;
         bool mUtilityUpActive = false;
+
 
         osg::ref_ptr<osg::Node> mVRAimNode;
 
@@ -119,6 +124,15 @@ namespace MWVR
         VR::VRPath mRightHandPath;
         VR::VRPath mRightHandWorldPath;
         VR::VRPath mHeadWorldPath;
+
+        class HeightUpdateListener : public VR::TrackingListener
+        {
+            VR::VRPath mHeadPath = VR::stringToVRPath("/stage/user/head/input/pose");
+
+            void onTrackingUpdated(VR::TrackingManager& manager, VR::DisplayTime predictedDisplayTime) override;
+        };
+
+        HeightUpdateListener mHeightUpdateListener;
 
     };
 }

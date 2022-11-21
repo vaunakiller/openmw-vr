@@ -47,6 +47,7 @@ namespace VR
 
         void setCharHeight(float height);
         float charHeight() const { return mCharHeight; };
+        float playerHeight() const { return mPlayerHeight; }
 
         void processChangedSettings(const std::set< std::pair<std::string, std::string> >& changed);
 
@@ -116,6 +117,7 @@ namespace VR
         float mPlayerScale = 1.f;
         float mCharHeight = 1.f;
         float mSneakOffset = 0.f;
+        float mPlayerHeight = 0.f;
 
         std::set<VRPath> mActiveInteractionProfiles;
 

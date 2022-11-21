@@ -67,7 +67,10 @@ namespace MWRender
         {
             auto tp = manager.locate(mPath, predictedDisplayTime);
             if (!!tp.status)
+            {
                 mCamera->setPose(tp.pose);
+            }
+
         }
 
         MWRender::Camera* mCamera;
