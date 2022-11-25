@@ -471,7 +471,7 @@ namespace XR
         {
             if (mMWColorFormatsGL.empty())
                 throw std::runtime_error("Could not find a usable runtime color format");
-            glFormat = mMWColorFormatsGL[0];
+            glFormat = SceneUtil::Color::colorInternalFormat();
         }
         else
         {

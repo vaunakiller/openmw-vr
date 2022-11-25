@@ -1340,6 +1340,6 @@ void OMW::Engine::configureVR(osg::GraphicsContext* gc)
     mXrSession = mXrInstance->createSession();
     if (mXrSession->appShouldShareDepthInfo())
         mSelectDepthFormatOperation->setSupportedFormats(mXrInstance->platform().supportedDepthFormats());
-    mSelectColorFormatOperation->setSupportedFormats({ GL_R11F_G11F_B10F });
+    mSelectColorFormatOperation->setSupportedFormats({ mXrInstance->platform().supportedColorFormats()});
 #endif
 }
