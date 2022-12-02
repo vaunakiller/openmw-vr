@@ -31,6 +31,8 @@
 #include <components/resource/scenemanager.hpp>
 #include <components/shader/shadermanager.hpp>
 #include <components/vr/trackingmanager.hpp>
+#include <components/vr/rendertoswapchain.hpp>
+#include <components/vr/viewer.hpp>
 
 #include "../mwrender/util.hpp"
 #include "../mwrender/renderbin.hpp"
@@ -96,6 +98,19 @@ namespace MWVR
             sWristInnerLeft = VR::stringToVRPath(sWristInnerLeftStr);
             sWristInnerRight = VR::stringToVRPath(sWristInnerRightStr);
         }
+
+        bool isTrueHUD(VR::VRPath path)
+        {
+            if (!Settings::Manager::getBool("use xr layer for huds", "VR"))
+                return false;
+
+            return (path == Paths::sHUDTopLeft
+                || path == Paths::sHUDBottomLeft
+                || path == Paths::sHUDBottomRight
+                || path == Paths::sHUDTopRight
+                || path == Paths::sHUDMessage
+                );
+        }
     }
 
     // When making a circle of a given radius of equally wide planes separated by a given angle, what is the width
@@ -105,10 +120,52 @@ namespace MWVR
         return osg::Vec2(width, width);
     }
 
-    class GUICamera : public SceneUtil::RTTNode
+    class XrGUIRTT : public VR::RenderToSwapchainNode
     {
     public:
-        GUICamera(int width, int height, osg::Vec4 clearColor, osg::ref_ptr<osg::Node> scene)
+        XrGUIRTT(int width, int height, osg::Vec4 clearColor, osg::ref_ptr<osg::Camera> scene)
+            : RenderToSwapchainNode(width, height, 1)
+            , mScene(scene)
+            , mClearColor(clearColor)
+        {
+
+        }
+
+        void setDefaults(osg::Camera* camera) override
+        {
+            camera->setCullingActive(false);
+
+            camera->setClearColor(mClearColor);
+            // TODO: will format matter? 
+            // setColorBufferInternalFormat(GL_RGBA8);
+
+            camera->setReferenceFrame(osg::Camera::ABSOLUTE_RF);
+            camera->setComputeNearFarMode(osg::CullSettings::DO_NOT_COMPUTE_NEAR_FAR);
+            setName("GUICamera");
+            camera->setName("GUICamera_");
+
+            camera->setCullMask(MWRender::Mask_GUI);
+            camera->setCullMaskLeft(MWRender::Mask_GUI);
+            camera->setCullMaskRight(MWRender::Mask_GUI);
+
+            // Although this is strictly speaking a RenderToTexture node, we cannot use the Mask_RenderToTexture mask
+            // since it would cull this inappropriately.
+            camera->setNodeMask(MWRender::Mask_3DGUI);
+
+            camera->addChild(mScene);
+
+            // Do not want to waste time on shadows when generating the GUI texture
+            SceneUtil::ShadowManager::disableShadowsForStateSet(camera->getOrCreateStateSet());
+        }
+
+        osg::ref_ptr<osg::Camera> mScene;
+        osg::Vec4 mClearColor;
+    };
+
+    class GUIRTT : public SceneUtil::RTTNode
+    {
+    public:
+        GUIRTT(int width, int height, osg::Vec4 clearColor, osg::ref_ptr<osg::Node> scene)
             : RTTNode(width, height, 1, true, 0, StereoAwareness::Unaware)
             , mScene(scene)
             , mClearColor(clearColor)
@@ -239,50 +296,58 @@ namespace MWVR
             filter = filter + ";" + mConfig.extraLayers;
         osgMyGUI::RenderManager& renderManager = static_cast<osgMyGUI::RenderManager&>(MyGUI::RenderManager::getInstance());
         mMyGUICamera = renderManager.createGUICamera(osg::Camera::NESTED_RENDER, filter);
-        mGUICamera = new GUICamera(config.pixelResolution.x(), config.pixelResolution.y(), osg::Vec4(0, 0, 0, config.opacity), mMyGUICamera);
-
-        mStateset = new osg::StateSet;
-
-        // Define state set that allows rendering with transparency
-        auto texture = menuTexture();
-        texture->setName("diffuseMap");
-        mStateset->setTextureAttributeAndModes(0, texture, osg::StateAttribute::ON);
-
-        osg::ref_ptr<osg::Material> mat = new osg::Material;
-        mat->setColorMode(osg::Material::AMBIENT_AND_DIFFUSE);
-        mStateset->setAttribute(mat);
-
-        mStateset->setMode(GL_ALPHA_TEST, osg::StateAttribute::OFF);
-
-        mGeometries[0] = createLayerGeometry(mStateset);
-        mGeometries[0]->setUserData(new VRGUILayerUserData(this));
-        mGeometries[1] = createLayerGeometry(mStateset);
-        mGeometries[1]->setUserData(mGeometries[0]->getUserData());
-
-        // Position in the game world
-        mTransform->setScale(osg::Vec3(extent_units.x(), 1.f, extent_units.y()));
-        mTransform->setCullCallback(new CullVRGUILayerCallback(this));
-        mTransform->setCullingActive(false);
 
         // Edit offset to account for priority
         if (!mConfig.sideBySide)
         {
-            mConfig.offset.y() -= 0.001f * static_cast<float>(mConfig.priority);
+            mConfig.offset.mY -= Stereo::Unit::fromMeters(0.001f) * static_cast<float>(mConfig.priority);
         }
 
         mTrackingPath = VR::stringToVRPath(mConfig.trackingPath);
+
+        if (Paths::isTrueHUD(mTrackingPath))
+        {
+            auto* xrNode = new XrGUIRTT(config.pixelResolution.x(), config.pixelResolution.y(), osg::Vec4(0, 0, 0, config.opacity), mMyGUICamera);
+            mGUIRTT = xrNode;
+            mVrLayer = std::make_shared<VR::QuadLayer>();
+            mVrLayer->blendAlpha = true;
+            mVrLayer->colorSwapchain = xrNode->getColorSwapchain();
+            mVrLayer->premultipliedAlpha = false;
+            mVrLayer->extent = extent_units;
+            mVrLayer->space = VR::ReferenceSpace::View;
+        }
+        else
+        {
+            auto* rttNode = new GUIRTT(config.pixelResolution.x(), config.pixelResolution.y(), osg::Vec4(0, 0, 0, config.opacity), mMyGUICamera);
+            mGUIRTT = rttNode;
+            mStateset = new osg::StateSet;
+
+            // Define state set that allows rendering with transparency
+            auto texture = rttNode->getColorTexture(nullptr);
+            texture->setName("diffuseMap");
+            mStateset->setTextureAttributeAndModes(0, texture, osg::StateAttribute::ON);
+
+            osg::ref_ptr<osg::Material> mat = new osg::Material;
+            mat->setColorMode(osg::Material::AMBIENT_AND_DIFFUSE);
+            mStateset->setAttribute(mat);
+
+            mStateset->setMode(GL_ALPHA_TEST, osg::StateAttribute::OFF);
+
+            mGeometries[0] = createLayerGeometry(mStateset);
+            mGeometries[0]->setUserData(new VRGUILayerUserData(this));
+            mGeometries[1] = createLayerGeometry(mStateset);
+            mGeometries[1]->setUserData(mGeometries[0]->getUserData());
+
+            // Position in the game world
+            mTransform->setScale(osg::Vec3(extent_units.x(), 1.f, extent_units.y()));
+            mTransform->setCullCallback(new CullVRGUILayerCallback(this));
+            mTransform->setCullingActive(false);
+        }
     }
 
     VRGUILayer::~VRGUILayer()
     {
         removeFromSceneGraph();
-    }
-
-    osg::ref_ptr<osg::Texture> VRGUILayer::menuTexture()
-    {
-        if (mGUICamera)
-            return mGUICamera->getColorTexture(nullptr);
-        return nullptr;
     }
 
     void VRGUILayer::setAngle(float angle)
@@ -307,64 +372,82 @@ namespace MWVR
         auto orientation = mRotation * mTrackedPose.orientation;
 
         // Orient the offset and move the layer
-        auto position = mTrackedPose.position + orientation * mConfig.offset * Constants::UnitsPerMeter;
+        auto position = mTrackedPose.position + orientation * mConfig.offset;
 
-        mTransform->setAttitude(orientation);
-        mTransform->setPosition(position);
+        if (mVrLayer)
+        {
+            mVrLayer->pose.position = position;
+            mVrLayer->pose.orientation = orientation;
+        }
+        else
+        {
+            mTransform->setAttitude(orientation);
+            mTransform->setPosition(position.asMWUnits());
+        }
+
     }
 
     void VRGUILayer::updateRect()
     {
         auto viewSize = MyGUI::RenderManager::getInstance().getViewSize();
-        mRealRect.left = 1.f;
-        mRealRect.top = 1.f;
-        mRealRect.right = 0.f;
-        mRealRect.bottom = 0.f;
-        float realWidth = static_cast<float>(viewSize.width);
-        float realHeight = static_cast<float>(viewSize.height);
+        mRect.left = viewSize.width;
+        mRect.top = viewSize.height;
+        mRect.right = 0;
+        mRect.bottom = 0;
+
         for (auto* widget : mWidgets)
         {
             auto rect = widget->mMainWidget->getAbsoluteRect();
-            mRealRect.left = std::min(static_cast<float>(rect.left) / realWidth, mRealRect.left);
-            mRealRect.top = std::min(static_cast<float>(rect.top) / realHeight, mRealRect.top);
-            mRealRect.right = std::max(static_cast<float>(rect.right) / realWidth, mRealRect.right);
-            mRealRect.bottom = std::max(static_cast<float>(rect.bottom) / realHeight, mRealRect.bottom);
+            mRect.left = std::min(rect.left, mRect.left);
+            mRect.top = std::min(rect.top, mRect.top);
+            mRect.right = std::max(rect.right, mRect.right);
+            mRect.bottom = std::max(rect.bottom, mRect.bottom);
         }
 
         // Some widgets don't capture the full visual
         if (mLayerName == "JournalBooks")
         {
-            mRealRect.left = 0.f;
-            mRealRect.top = 0.f;
-            mRealRect.right = 1.f;
-            mRealRect.bottom = 1.f;
+            mRect.left = 0;
+            mRect.top = 0;
+            mRect.right = viewSize.width;
+            mRect.bottom = viewSize.height;
         }
 
         if (mLayerName == "Notification")
         {
             // The latest widget for notification is always the top one
             // So i just stretch the rectangle to the bottom.
-            mRealRect.bottom = 1.f;
+            mRect.bottom = viewSize.height;
         }
 
         if (mLayerName == "InputBlocker" || mLayerName == "Video")
         {
-            // Rotate
-            std::swap(mRealRect.bottom, mRealRect.top);
-            std::swap(mRealRect.left, mRealRect.right);
+            // These don't have widgets, so manually stretch them to the full rectangle
+            mRect.left = 0;
+            mRect.top = 0;
+            mRect.right = viewSize.width;
+            mRect.bottom = viewSize.height;
         }
+
+        mRealRect.left = static_cast<float>(mRect.left) / static_cast<float>(viewSize.width);
+        mRealRect.top = static_cast<float>(mRect.top) / static_cast<float>(viewSize.height);
+        mRealRect.right = static_cast<float>(mRect.right) / static_cast<float>(viewSize.width);
+        mRealRect.bottom = static_cast<float>(mRect.bottom) / static_cast<float>(viewSize.height);
     }
 
     void VRGUILayer::update(osg::NodeVisitor* nv)
     {
-        if (mTransform->getNumChildren() > 0)
-            mTransform->removeChild(0, mTransform->getNumChildren());
+        if (!mVrLayer)
+        {
+            if (mTransform->getNumChildren() > 0)
+                mTransform->removeChild(0, mTransform->getNumChildren());
 
-        auto index = nv->getFrameStamp()->getFrameNumber() % 2;
-        auto* geometry = mGeometries[index].get();
+            auto index = nv->getFrameStamp()->getFrameNumber() % 2;
+            auto* geometry = mGeometries[index].get();
 
-        if (mVisible)
-            mTransform->addChild(geometry);
+            if (mVisible)
+                mTransform->addChild(geometry);
+        }
 
         if (mConfig.sideBySide && !mWidgets.empty())
         {
@@ -384,29 +467,37 @@ namespace MWVR
         }
         updateRect();
 
-        float w = 0.f;
-        float h = 0.f;
-        for (auto* widget : mWidgets)
-        {
-            if (widget->mMainWidget->getVisible())
-            {
-                w = std::max(w, (float)widget->mMainWidget->getWidth());
-                h = std::max(h, (float)widget->mMainWidget->getHeight());
-            }
-        }
-
-        // Pixels per unit
+        //// Pixels per unit
         float res = static_cast<float>(mConfig.spatialResolution) / Constants::UnitsPerMeter;
+        float w = static_cast<float>(mRect.right - mRect.left);
+        float h = static_cast<float>(mRect.bottom - mRect.top);
 
         if (mConfig.sizingMode == SizingMode::Auto)
         {
-            mTransform->setScale(osg::Vec3(w / res, 1.f, h / res));
+            if (mVrLayer)
+                mVrLayer->extent = osg::Vec2f(w / res, h / res);
+            else
+                mTransform->setScale(osg::Vec3(w / res, 1.f, h / res));
         }
         if (mLayerName == "Notification")
         {
             auto viewSize = MyGUI::RenderManager::getInstance().getViewSize();
             h = (1.f - mRealRect.top) * static_cast<float>(viewSize.height);
-            mTransform->setScale(osg::Vec3(w / res, 1.f, h / res));
+            if (mVrLayer)
+                mVrLayer->extent = osg::Vec2f(w / res, h / res);
+            else
+                mTransform->setScale(osg::Vec3(w / res, 1.f, h / res));
+        }
+
+        if (mVrLayer)
+        {
+            VR::SubImage subImage;
+            subImage.x = mRect.left;
+            subImage.y = mRect.top;
+            subImage.index = 0;
+            subImage.width = mRect.right - mRect.left;
+            subImage.height = mRect.bottom - mRect.top;
+            mVrLayer->subImage = subImage;
         }
     }
 
@@ -441,17 +532,20 @@ namespace MWVR
         if (!mVisible)
             return;
 
-        auto index = cv->getFrameStamp()->getFrameNumber() % 2;
-        auto* geometry = mGeometries[index].get();
+        if (!mVrLayer)
+        {
+            auto index = cv->getFrameStamp()->getFrameNumber() % 2;
+            auto* geometry = mGeometries[index].get();
 
-        osg::Vec2Array* texCoords = static_cast<osg::Vec2Array*>(geometry->getTexCoordArray(0));
-        (*texCoords)[0].set(mRealRect.left, 1.f - mRealRect.bottom);
-        (*texCoords)[1].set(mRealRect.left, 1.f - mRealRect.top);
-        (*texCoords)[2].set(mRealRect.right, 1.f - mRealRect.bottom);
-        (*texCoords)[3].set(mRealRect.right, 1.f - mRealRect.top);
-        texCoords->dirty();
+            osg::Vec2Array* texCoords = static_cast<osg::Vec2Array*>(geometry->getTexCoordArray(0));
+            (*texCoords)[0].set(mRealRect.left, 1.f - mRealRect.bottom);
+            (*texCoords)[1].set(mRealRect.left, 1.f - mRealRect.top);
+            (*texCoords)[2].set(mRealRect.right, 1.f - mRealRect.bottom);
+            (*texCoords)[3].set(mRealRect.right, 1.f - mRealRect.top);
+            texCoords->dirty();
 
-        geometry->accept(*cv);
+            geometry->accept(*cv);
+        }
     }
 
     void VRGUILayer::setVisible(bool visible)
@@ -468,14 +562,20 @@ namespace MWVR
 
     void VRGUILayer::removeFromSceneGraph()
     {
-        mGeometryRoot->removeChild(mTransform);
-        mCameraRoot->removeChild(mGUICamera);
+        mCameraRoot->removeChild(mGUIRTT);
+        if (mVrLayer)
+            VR::Viewer::instance().removeLayer(mVrLayer);
+        else
+            mGeometryRoot->removeChild(mTransform);
     }
 
     void VRGUILayer::addToSceneGraph()
     {
-        mGeometryRoot->addChild(mTransform);
-        mCameraRoot->addChild(mGUICamera);
+        mCameraRoot->addChild(mGUIRTT);
+        if (mVrLayer)
+            VR::Viewer::instance().insertLayer(mVrLayer);
+        else
+            mGeometryRoot->addChild(mTransform);
     }
 
     static const LayerConfig createDefaultConfig(int priority, bool background = true, SizingMode sizingMode = SizingMode::Auto, std::string extraLayers = "Popup")
@@ -484,11 +584,11 @@ namespace MWVR
             priority,
             false, // side-by-side
             background ? 0.75f : 0.f, // background
-            osg::Vec3(0.f,0.66f,-.25f), // offset
+            Stereo::Position::fromMeters(0.f,0.66f,-.25f), // offset
             osg::Vec2(0.f,0.f), // center (model space)
             osg::Vec2(1.f, 1.f), // extent (meters)
             1024, // Spatial resolution (pixels per meter)
-            osg::Vec2i(2048,2048), // Texture resolution
+            osg::Vec2i(1024,1024), // Texture resolution
             osg::Vec2(1,1),
             sizingMode,
             "/ui/menu_quad/pose",
@@ -503,7 +603,7 @@ namespace MWVR
     {
         LayerConfig config = createDefaultConfig(priority, true, SizingMode::Fixed, "");
         config.sideBySide = true;
-        config.offset = osg::Vec3(0.f, sSideBySideRadius, -.25f);
+        config.offset = Stereo::Position::fromMeters(0.f, sSideBySideRadius, -.25f);
         config.extent = radiusAngleWidth(sSideBySideRadius, sSideBySideAzimuthInterval);
         config.myGUIViewSize = osg::Vec2(0.70f, 0.70f);
         return config;
@@ -599,7 +699,7 @@ namespace MWVR
         LayerConfig listBoxConfig = createDefaultConfig(10, true);
         LayerConfig consoleConfig = createDefaultConfig(2, true);
         LayerConfig radialMenuConfig = createDefaultConfig(11, false);
-        // TODO: Track around wrist instead of being a regular menu quad
+        // TODO: Track around wrist instead of being a regular menu quad?
         //radialMenuConfig.offset = osg::Vec3(0.f, 0.66f, 0.f);
         //radialMenuConfig.trackingPath = Paths::sWristTopRightStr;
 
@@ -647,17 +747,17 @@ namespace MWVR
             return Paths::sHUDTopLeftStr;
         };
 
-        osg::Vec3 hudOffset = osg::Vec3(
+        auto hudOffset = Stereo::Position::fromMeters( osg::Vec3(
             Settings::Manager::getFloat("hud offset x", "VR"),
             Settings::Manager::getFloat("hud offset y", "VR"),
             Settings::Manager::getFloat("hud offset z", "VR")
-        ) - osg::Vec3(0.5, 0.5, 0.5);
+        ) - osg::Vec3(0.5, 0.5, 0.5) );
 
-        osg::Vec3 tooltipOffset = osg::Vec3(
+        auto tooltipOffset = Stereo::Position::fromMeters( osg::Vec3(
             Settings::Manager::getFloat("tooltip offset x", "VR"),
             Settings::Manager::getFloat("tooltip offset y", "VR"),
             Settings::Manager::getFloat("tooltip offset z", "VR")
-        ) - osg::Vec3(0.5, 0.5, 0.5);
+        ) - osg::Vec3(0.5, 0.5, 0.5) );
 
         std::string hudPath = positionSettingToPath(Settings::Manager::getString("hud position", "VR"));
         std::string tooltipPath = positionSettingToPath(Settings::Manager::getString("tooltip position", "VR"));
@@ -666,7 +766,7 @@ namespace MWVR
             10,
             false,
             .75f,
-            osg::Vec3(0,0,0), // offset (meters)
+            {}, // offset (meters)
             osg::Vec2(0.f,1.f), // center (model space)
             osg::Vec2(.25f, .25f), // extent (meters)
             2048, // Spatial resolution (pixels per meter)
@@ -795,16 +895,19 @@ namespace MWVR
         ));
         mLayers[name] = layer;
 
-        Shader::ShaderManager::DefineMap defineMap;
-        Stereo::shaderStereoDefines(defineMap);
-        auto& shaderManager = mResourceSystem->getSceneManager()->getShaderManager();
-
-        osg::ref_ptr<osg::Shader> vertexShader = shaderManager.getShader("3dgui_vertex.glsl", defineMap, osg::Shader::VERTEX);
-        osg::ref_ptr<osg::Shader> fragmentShader = shaderManager.getShader("3dgui_fragment.glsl", defineMap, osg::Shader::FRAGMENT);
-
-        if (vertexShader && fragmentShader)
+        if (layer->mStateset)
         {
-            layer->mStateset->setAttributeAndModes(shaderManager.getProgram(vertexShader, fragmentShader));
+            Shader::ShaderManager::DefineMap defineMap;
+            Stereo::shaderStereoDefines(defineMap);
+            auto& shaderManager = mResourceSystem->getSceneManager()->getShaderManager();
+
+            osg::ref_ptr<osg::Shader> vertexShader = shaderManager.getShader("3dgui_vertex.glsl", defineMap, osg::Shader::VERTEX);
+            osg::ref_ptr<osg::Shader> fragmentShader = shaderManager.getShader("3dgui_fragment.glsl", defineMap, osg::Shader::FRAGMENT);
+
+            if (vertexShader && fragmentShader)
+            {
+                layer->mStateset->setAttributeAndModes(shaderManager.getProgram(vertexShader, fragmentShader));
+            }
         }
     }
 
@@ -1184,6 +1287,30 @@ namespace MWVR
     {
         if (predictedDisplayTime == mLastTime)
             return;
+        if(Settings::Manager::getBool("use xr layer for huds", "VR"))
+        {
+            // HUDs are actual HUDS, positioned in View space, and do not need to be located.
+            // TODO: Init once
+            mHUDTopLeftPose.status = VR::TrackingStatus::Good;
+            mHUDTopLeftPose.pose.orientation = osg::Quat(0, 0, 0, 1);
+            mHUDTopLeftPose.pose.position = Stereo::Position::fromMWUnits(-12, 30, 6);
+
+            mHUDTopRightPose.status = VR::TrackingStatus::Good;
+            mHUDTopRightPose.pose.orientation = osg::Quat(0, 0, 0, 1);
+            mHUDTopRightPose.pose.position = Stereo::Position::fromMWUnits(12, 30, 6);
+
+            mHUDBottomLeftPose.status = VR::TrackingStatus::Good;
+            mHUDBottomLeftPose.pose.orientation = osg::Quat(0, 0, 0, 1);
+            mHUDBottomLeftPose.pose.position = Stereo::Position::fromMWUnits(-12, 30, -18);
+
+            mHUDBottomRightPose.status = VR::TrackingStatus::Good;
+            mHUDBottomRightPose.pose.orientation = osg::Quat(0, 0, 0, 1);
+            mHUDBottomRightPose.pose.position = Stereo::Position::fromMWUnits(12, 30, -18);
+
+            mHUDMessagePose.status = VR::TrackingStatus::Good;
+            mHUDMessagePose.pose.orientation = osg::Quat(0, 0, 0, 1);
+            mHUDMessagePose.pose.position = Stereo::Position::fromMWUnits(0, 30, -3);
+        }
 
         VR::VRPath leftWrist = VR::stringToVRPath("/world/user/hand/left/input/aim/pose");
         VR::VRPath rightWrist = VR::stringToVRPath("/world/user/hand/right/input/aim/pose");
@@ -1201,20 +1328,23 @@ namespace MWVR
 
         if (!!tp.status)
         {
-            mHUDTopLeftPose = tp;
-            mHUDTopLeftPose.pose.position += mHUDTopLeftPose.pose.orientation * osg::Vec3f(-12, 30, 6);
+            if (!Settings::Manager::getBool("use xr layer for huds", "VR"))
+            {
+                mHUDTopLeftPose = tp;
+                mHUDTopLeftPose.pose.position += mHUDTopLeftPose.pose.orientation * Stereo::Position::fromMWUnits(osg::Vec3f(-12, 30, 6));
 
-            mHUDTopRightPose = tp;
-            mHUDTopRightPose.pose.position += mHUDTopRightPose.pose.orientation * osg::Vec3f(12, 30, 6);
+                mHUDTopRightPose = tp;
+                mHUDTopRightPose.pose.position += mHUDTopRightPose.pose.orientation * Stereo::Position::fromMWUnits(osg::Vec3f(12, 30, 6));
 
-            mHUDBottomLeftPose = tp;
-            mHUDBottomLeftPose.pose.position += mHUDBottomLeftPose.pose.orientation * osg::Vec3f(-12, 30, -18);
+                mHUDBottomLeftPose = tp;
+                mHUDBottomLeftPose.pose.position += mHUDBottomLeftPose.pose.orientation * Stereo::Position::fromMWUnits(osg::Vec3f(-12, 30, -18));
 
-            mHUDBottomRightPose = tp;
-            mHUDBottomRightPose.pose.position += mHUDBottomRightPose.pose.orientation * osg::Vec3f(12, 30, -18);
+                mHUDBottomRightPose = tp;
+                mHUDBottomRightPose.pose.position += mHUDBottomRightPose.pose.orientation * Stereo::Position::fromMWUnits(osg::Vec3f(12, 30, -18));
 
-            mHUDMessagePose = tp;
-            mHUDMessagePose.pose.position += mHUDMessagePose.pose.orientation * osg::Vec3f(0, 30, -3);
+                mHUDMessagePose = tp;
+                mHUDMessagePose.pose.position += mHUDMessagePose.pose.orientation * Stereo::Position::fromMWUnits(osg::Vec3f(0, 30, -3));
+            }
 
             if (mShouldUpdateStationaryPose)
             {
@@ -1239,7 +1369,7 @@ namespace MWVR
                 mStationaryPose = tp;
 
                 mHUDKeyboardPose = tp;
-                mHUDKeyboardPose.pose.position += mHUDKeyboardPose.pose.orientation * osg::Vec3(0, 35, -35);
+                mHUDKeyboardPose.pose.position += mHUDKeyboardPose.pose.orientation * Stereo::Position::fromMWUnits(osg::Vec3(0, 35, -35));
                 // Tilt the keyboard slightly for easier typing.
                 mHUDKeyboardPose.pose.orientation = osg::Quat(osg::PI_4 / 2.f, osg::Vec3(-1, 0, 0)) * mHUDKeyboardPose.pose.orientation;
             }
@@ -1249,20 +1379,20 @@ namespace MWVR
         if (!!tp.status)
         {
             mWristInnerLeftPose = tp;
-            mWristInnerLeftPose.pose.position += mWristInnerLeftPose.pose.orientation * osg::Vec3(.09f, -0.200f, -.033f) * Constants::UnitsPerMeter;
+            mWristInnerLeftPose.pose.position += mWristInnerLeftPose.pose.orientation * Stereo::Position::fromMeters(.09f, -0.200f, -.033f);
             mWristInnerLeftPose.pose.orientation = osg::Quat(osg::PI_2, osg::Vec3(0, 0, 1)) * mWristInnerLeftPose.pose.orientation;
             mWristTopLeftPose = tp;
-            mWristTopLeftPose.pose.position += mWristTopLeftPose.pose.orientation * osg::Vec3(.0f, -0.200f, .066f) * Constants::UnitsPerMeter;
+            mWristTopLeftPose.pose.position += mWristTopLeftPose.pose.orientation * Stereo::Position::fromMeters(.0f, -0.200f, .066f);
         }
 
         tp = VR::TrackingManager::instance().locate(rightWrist, predictedDisplayTime);
         if (!!tp.status)
         {
             mWristInnerRightPose = tp;
-            mWristInnerRightPose.pose.position += mWristInnerRightPose.pose.orientation * osg::Vec3(-.09f, -0.200f, -.033f) * Constants::UnitsPerMeter;
+            mWristInnerRightPose.pose.position += mWristInnerRightPose.pose.orientation * Stereo::Position::fromMeters(-.09f, -0.200f, -.033f);
             mWristInnerRightPose.pose.orientation = osg::Quat(-osg::PI_2, osg::Vec3(0, 0, 1)) * mWristInnerRightPose.pose.orientation;
             mWristTopRightPose = tp;
-            mWristTopRightPose.pose.position += mWristTopRightPose.pose.orientation * osg::Vec3(.0f, -0.200f, .066f) * Constants::UnitsPerMeter;
+            mWristTopRightPose.pose.position += mWristTopRightPose.pose.orientation * Stereo::Position::fromMeters(.0f, -0.200f, .066f);
         }
 
         mLastTime = predictedDisplayTime;

@@ -124,9 +124,14 @@ namespace XR
 
     void Session::syncFrameEnd(VR::Frame& frame)
     {
-        XrCompositionLayerProjection layer{};
-        layer.type = XR_TYPE_COMPOSITION_LAYER_PROJECTION;
-        auto* xrLayerStack = reinterpret_cast<XrCompositionLayerBaseHeader*>(&layer);
+        std::vector<XrCompositionLayerBaseHeader*> layerStack;
+        layerStack.reserve(20);
+
+        std::vector<XrCompositionLayerQuad> quadLayers;
+        quadLayers.reserve(20);
+
+        XrCompositionLayerProjection xrProjectionLayer{};
+        xrProjectionLayer.type = XR_TYPE_COMPOSITION_LAYER_PROJECTION;
         
         std::array<XrCompositionLayerProjectionView, 2> compositionLayerProjectionViews{};
         compositionLayerProjectionViews[0].type = XR_TYPE_COMPOSITION_LAYER_PROJECTION_VIEW;
@@ -144,70 +149,134 @@ namespace XR
         frameEndInfo.type = XR_TYPE_FRAME_END_INFO;
         frameEndInfo.displayTime = frame.predictedDisplayTime;
         frameEndInfo.environmentBlendMode = XR_ENVIRONMENT_BLEND_MODE_OPAQUE;
+
         if (frame.shouldRender && frame.layers.size() > 0)
         {
-            // For now, hardcode assumption that it's a projection layer
-            VR::ProjectionLayer* projectionLayer = static_cast<VR::ProjectionLayer*>(frame.layers[0].get());
-            
-            layer.space = mReferenceSpaceStage;
-            layer.viewCount = 2;
-            layer.views = compositionLayerProjectionViews.data();
-
-            for (uint32_t i = 0; i < 2; i++)
+            for (auto& layer : frame.layers)
             {
-                auto& xrView = compositionLayerProjectionViews[i];
-                auto& view = projectionLayer->views[i];
-                xrView.fov = toXR(view.view.fov);
-                xrView.pose = toXR(view.view.pose);
-                xrView.subImage.imageArrayIndex = view.subImage.index;
-                xrView.subImage.imageRect.extent.width = view.subImage.width;
-                xrView.subImage.imageRect.extent.height = view.subImage.height;
-                xrView.subImage.imageRect.offset.x = view.subImage.x;
-                xrView.subImage.imageRect.offset.y = view.subImage.y;
-                xrView.subImage.swapchain = static_cast<XrSwapchain>(view.colorSwapchain->handle());
-            }
-
-            if (appShouldShareDepthInfo())
-            {
-                // TODO: Cache these values instead?
-                auto nearClip = Settings::Manager::getFloat("near clip", "Camera");
-                auto farClip = Settings::Manager::getFloat("viewing distance", "Camera"); 
-                if (SceneUtil::AutoDepth::isReversed())
-                    std::swap(nearClip, farClip);
-                for (uint32_t i = 0; i < 2; i++)
+                switch (layer->getType())
                 {
+                case VR::Layer::Type::ProjectionLayer:
+                {
+                    VR::ProjectionLayer* projectionLayer = static_cast<VR::ProjectionLayer*>(layer.get());
 
-                    auto& view = projectionLayer->views[i];
-                    if (!view.depthSwapchain)
-                        continue;
 
-                    auto& xrDepth = compositionLayerDepth[i];
-                    xrDepth.minDepth = 0.;
-                    xrDepth.maxDepth = 1.0;
-                    xrDepth.nearZ = nearClip;
-                    xrDepth.farZ = farClip;
-                    xrDepth.subImage.imageArrayIndex = 0;
-                    xrDepth.subImage.imageRect.extent.width = view.subImage.width;
-                    xrDepth.subImage.imageRect.extent.height = view.subImage.height;
-                    xrDepth.subImage.imageRect.offset.x = view.subImage.x;
-                    xrDepth.subImage.imageRect.offset.y = view.subImage.y;
-                    xrDepth.subImage.swapchain = static_cast<XrSwapchain>(view.depthSwapchain->handle());
+                    xrProjectionLayer.space = mReferenceSpaceStage;
+                    xrProjectionLayer.viewCount = 2;
+                    xrProjectionLayer.views = compositionLayerProjectionViews.data();
+
+                    for (uint32_t i = 0; i < 2; i++)
+                    {
+                        auto& xrView = compositionLayerProjectionViews[i];
+                        auto& view = projectionLayer->views[i];
+                        xrView.fov = toXR(view.view.fov);
+                        xrView.pose = toXR(view.view.pose);
+                        xrView.subImage.imageArrayIndex = view.subImage.index;
+                        xrView.subImage.imageRect.extent.width = view.subImage.width;
+                        xrView.subImage.imageRect.extent.height = view.subImage.height;
+                        xrView.subImage.imageRect.offset.x = view.subImage.x;
+                        xrView.subImage.imageRect.offset.y = view.subImage.y;
+                        xrView.subImage.swapchain = static_cast<XrSwapchain>(view.colorSwapchain->handle());
+                    }
+
+                    if (appShouldShareDepthInfo())
+                    {
+                        // TODO: Cache these values instead?
+                        auto nearClip = Settings::Manager::getFloat("near clip", "Camera");
+                        auto farClip = Settings::Manager::getFloat("viewing distance", "Camera");
+                        if (SceneUtil::AutoDepth::isReversed())
+                            std::swap(nearClip, farClip);
+                        for (uint32_t i = 0; i < 2; i++)
+                        {
+
+                            auto& view = projectionLayer->views[i];
+                            if (!view.depthSwapchain)
+                                continue;
+
+                            auto& xrDepth = compositionLayerDepth[i];
+                            xrDepth.minDepth = 0.;
+                            xrDepth.maxDepth = 1.0;
+                            xrDepth.nearZ = nearClip;
+                            xrDepth.farZ = farClip;
+                            xrDepth.subImage.imageArrayIndex = 0;
+                            xrDepth.subImage.imageRect.extent.width = view.subImage.width;
+                            xrDepth.subImage.imageRect.extent.height = view.subImage.height;
+                            xrDepth.subImage.imageRect.offset.x = view.subImage.x;
+                            xrDepth.subImage.imageRect.offset.y = view.subImage.y;
+                            xrDepth.subImage.swapchain = static_cast<XrSwapchain>(view.depthSwapchain->handle());
+
+                            auto& xrView = compositionLayerProjectionViews[i];
+                            xrView.next = &xrDepth;
+                        }
+                    }
+
+                    const void** layerNext = &xrProjectionLayer.next;
+
+                    if (mMSFTReprojectionModeDepth)
+                    {
+                        *layerNext = &reprojectionInfoDepth;
+                        layerNext = &reprojectionInfoDepth.next;
+                    }
+
+                    layerStack.push_back(reinterpret_cast<XrCompositionLayerBaseHeader*>(&xrProjectionLayer));
+                    break;
+                }
+                case VR::Layer::Type::QuadLayer:
+                {
+                    VR::QuadLayer* quadLayer = static_cast<VR::QuadLayer*>(layer.get());
+                    quadLayers.push_back({});
+                    quadLayers.back().type = XR_TYPE_COMPOSITION_LAYER_QUAD;
+                    quadLayers.back().next = nullptr;
                     
-                    auto& xrView = compositionLayerProjectionViews[i];
-                    xrView.next = &xrDepth;
+                    quadLayers.back().eyeVisibility = XR_EYE_VISIBILITY_BOTH;// static_cast<XrEyeVisibility>(quadLayer->eyeVisibility);
+
+                    quadLayers.back().layerFlags = 0;
+                    if (quadLayer->blendAlpha)
+                        quadLayers.back().layerFlags = XR_COMPOSITION_LAYER_BLEND_TEXTURE_SOURCE_ALPHA_BIT;
+                    if (!quadLayer->premultipliedAlpha)
+                        quadLayers.back().layerFlags |= XR_COMPOSITION_LAYER_UNPREMULTIPLIED_ALPHA_BIT;
+
+                    auto pose = quadLayer->pose;
+                    quadLayers.back().pose = toXR(pose);
+                    quadLayers.back().size.width = quadLayer->extent.x() / Constants::UnitsPerMeter;
+                    quadLayers.back().size.height = quadLayer->extent.y() / Constants::UnitsPerMeter;
+                    quadLayers.back().space = 
+                        quadLayer->space == VR::ReferenceSpace::Stage
+                        ? mReferenceSpaceStage
+                        : mReferenceSpaceView;
+
+                    if (quadLayer->subImage)
+                    {
+                        quadLayers.back().subImage.imageArrayIndex = quadLayer->subImage->index;
+                        quadLayers.back().subImage.imageRect.extent.width = quadLayer->subImage->width;
+                        quadLayers.back().subImage.imageRect.extent.height = quadLayer->subImage->height;
+                        quadLayers.back().subImage.imageRect.offset.x = quadLayer->subImage->x;
+                        quadLayers.back().subImage.imageRect.offset.y = quadLayer->subImage->y;
+                    }
+                    else
+                    {
+                        quadLayers.back().subImage.imageArrayIndex = 0;
+                        quadLayers.back().subImage.imageRect.extent.width = quadLayer->colorSwapchain->width();
+                        quadLayers.back().subImage.imageRect.extent.height = quadLayer->colorSwapchain->height();
+                        quadLayers.back().subImage.imageRect.offset.x = 0;
+                        quadLayers.back().subImage.imageRect.offset.y = 0;
+                    }
+
+                    quadLayers.back().subImage.swapchain = static_cast<XrSwapchain>(quadLayer->colorSwapchain->handle());
+
+                    if (quadLayers.back().subImage.imageRect.extent.width > 0 && quadLayers.back().subImage.imageRect.extent.height > 0)
+                        layerStack.push_back(reinterpret_cast<XrCompositionLayerBaseHeader*>(&quadLayers.back()));
+
+                    break;
+                }
                 }
             }
+        }
 
-            const void** layerNext = &layer.next;
-
-            if (mMSFTReprojectionModeDepth)
-            {
-                *layerNext = &reprojectionInfoDepth;
-                layerNext = &reprojectionInfoDepth.next;
-            }
-
-            frameEndInfo.layerCount = 1;
-            frameEndInfo.layers = &xrLayerStack;
+        if (layerStack.size() > 0)
+        {
+            frameEndInfo.layerCount = layerStack.size();
+            frameEndInfo.layers = layerStack.data();
         }
         else
         {

@@ -224,7 +224,7 @@ namespace MWVR
             }
             if (it->first == "VR" && it->second == "physical sneak height offset")
             {
-                mPhysicalSneakHeightOffset = Settings::Manager::getFloat("physical sneak height offset", "VR");
+                mPhysicalSneakHeightOffset = Stereo::Unit::fromMeters( Settings::Manager::getFloat("physical sneak height offset", "VR") );
             }
             if (it->first == "Input" && it->second == "joystick dead zone")
             {
@@ -285,18 +285,18 @@ namespace MWVR
         return wm->readPressedButton();
     }
 
-    void VRInputManager::updatePhysicalSneak(float headsetHeight)
+    void VRInputManager::updatePhysicalSneak(Stereo::Unit headsetHeight)
     {
         // Do physical sneak toggle if necessary
-        const float playerHeight = VR::Session::instance().playerHeight();
-        if (mPhysicalSneakEnabled && VR::getStandingPlay() && playerHeight > 0.0f)
+        const auto playerHeight = VR::Session::instance().playerHeight();
+        if (mPhysicalSneakEnabled && VR::getStandingPlay() && playerHeight.asMeters() > 0.0f)
         {
             if (headsetHeight < playerHeight - mPhysicalSneakHeightOffset) // No scale getting raw OpenXR pose
             {
                 if (!mActionManager->isSneaking())
                 {
                     mActionManager->toggleSneaking();
-                    Log(Debug::Verbose) << "Starting Physical Sneak - Headset Height: " << headsetHeight << " playerHeight-offset: " << playerHeight - mPhysicalSneakHeightOffset;
+                    Log(Debug::Verbose) << "Starting Physical Sneak - Headset Height: " << headsetHeight.asMeters() << " playerHeight-offset: " << (playerHeight - mPhysicalSneakHeightOffset).asMeters();
                 }
             }
             else
@@ -304,7 +304,7 @@ namespace MWVR
                 if (mActionManager->isSneaking())
                 {
                     mActionManager->toggleSneaking();
-                    Log(Debug::Verbose) << "Stopping Physical Sneak - Headset Height: " << headsetHeight << " playerHeight-offset: " << playerHeight - mPhysicalSneakHeightOffset;
+                    Log(Debug::Verbose) << "Stopping Physical Sneak - Headset Height: " << headsetHeight.asMeters() << " playerHeight-offset: " << (playerHeight - mPhysicalSneakHeightOffset).asMeters();
                 }
             }
         }
@@ -324,7 +324,7 @@ namespace MWVR
 
         struct HeightListener : public VR::TrackingListener
         {
-            float height = 1.8;
+            Stereo::Unit height = Stereo::Unit::fromMeters(1.8);
             bool receivedTrackingData = false;
             VR::VRPath path = VR::stringToVRPath("/stage/user/head/input/pose");
             
@@ -334,13 +334,13 @@ namespace MWVR
                 if (static_cast<int>(pose.status) > 0)
                 {
                     receivedTrackingData = true;
-                    height = pose.pose.position.z();
-                    Log(Debug::Verbose) << "Height Calibration: " << height;
+                    height = pose.pose.position.mZ;
+                    Log(Debug::Verbose) << "Height Calibration: " << height.asMeters();
                 }
             }
         } heightListener;
 
-        float height = 1.8;
+        Stereo::Unit height = Stereo::Unit::fromMeters(1.8);
 
         int option = interactiveMessageBox(
             "To be able to accurately scale your height to the height of your character, OpenMW-VR needs to know how tall you are. Stand up straight, and then press the OK button to proceed. Or press cancel to use a default height of 1.8 meters. You can redo this calibration later in VR tab of the settings menu",
@@ -351,7 +351,7 @@ namespace MWVR
             height = heightListener.height;
         }
 
-        Settings::Manager::setFloat("player height", "VR", height);
+        Settings::Manager::setFloat("player height", "VR", height.asMeters());
         Settings::Manager::setBool("intro sequence complete", "VR", true);
         VR::Session::instance().computePlayerScale();
 
@@ -386,8 +386,11 @@ namespace MWVR
         , mXRInput(new OpenXRInput(xrControllerSuggestionsFile, defaultXrControllerSuggestionsFile))
         , mHapticsEnabled{ Settings::Manager::getBool("haptics enabled", "VR") }
         , mSmoothTurning{ Settings::Manager::getBool("smooth turning", "VR") }
+        , mIsToggleSneak(Settings::Manager::getBool("toggle sneak", "Input"))
         , mSnapAngle{ Settings::Manager::getFloat("snap angle", "VR") }
         , mSmoothTurnRate{ Settings::Manager::getFloat("smooth turn rate", "VR") }
+        , mPhysicalSneakHeightOffset(Stereo::Unit::fromMeters(Settings::Manager::getFloat("physical sneak height offset", "VR")))
+        , mPhysicalSneakEnabled(Settings::Manager::getBool("physical sneak enabled", "VR"))
         , mLeftHandPath( VR::stringToVRPath("/user/hand/left"))
         , mLeftHandWorldPath( VR::stringToVRPath("/world/user/hand/left/input/aim/pose"))
         , mRightHandPath( VR::stringToVRPath("/user/hand/right"))
@@ -397,9 +400,6 @@ namespace MWVR
         setThumbstickDeadzone(Settings::Manager::getFloat("joystick dead zone", "Input"));
 
         sInputManager = this;
-        mIsToggleSneak = Settings::Manager::getBool("toggle sneak", "Input");
-        mPhysicalSneakHeightOffset = Settings::Manager::getFloat("physical sneak height offset", "VR");
-        mPhysicalSneakEnabled = Settings::Manager::getBool("physical sneak enabled", "VR");
     }
 
     VRInputManager::~VRInputManager()
@@ -860,7 +860,7 @@ namespace MWVR
         auto tpHead = manager.locate(mHeadPath, predictedDisplayTime);
         if (!!tpHead.status)
         {
-            instance().updatePhysicalSneak(tpHead.pose.position.z());
+            instance().updatePhysicalSneak(tpHead.pose.position.mZ);
         }
     }
 

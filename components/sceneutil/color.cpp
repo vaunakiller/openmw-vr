@@ -46,7 +46,7 @@ namespace SceneUtil
             GL_RGBA12,
             GL_RGBA16,
             GL_RGBA16_SNORM,
-            GL_SRGB_ALPHA8,
+            GL_SRGB_ALPHA,
             GL_SRGB8_ALPHA8,
             GL_RGBA16F,
             GL_RGBA32F,
@@ -74,6 +74,40 @@ namespace SceneUtil
         return std::find(formats.cbegin(), formats.cend(), format) != formats.cend();
     }
 
+    bool isSrgbxFormat(GLenum format)
+    {
+        static constexpr std::array<GLenum, 42> formats = {
+            GL_SRGB,
+            GL_SRGB8,
+            GL_SRGB_ALPHA,
+            GL_SRGB8_ALPHA8,
+        };
+
+        return std::find(formats.cbegin(), formats.cend(), format) != formats.cend();
+    }
+
+    GLenum getRgbxFromSrgbx(GLenum format)
+    {
+        switch (format)
+        {
+        case GL_SRGB: 
+            return GL_RGB;
+
+        case GL_SRGB8:
+            return GL_RGB8;
+
+        case GL_SRGB_ALPHA:
+            return GL_RGBA;
+
+        case GL_SRGB8_ALPHA8:
+            return GL_RGBA8;
+
+        default:
+            break;
+        }
+        return format;
+    }
+
     int getColorFormatChannelCount(GLenum format)
     {
         static constexpr std::array<GLenum, 21> formats = {
@@ -88,7 +122,7 @@ namespace SceneUtil
             GL_RGBA12,
             GL_RGBA16,
             GL_RGBA16_SNORM,
-            GL_SRGB_ALPHA8,
+            GL_SRGB_ALPHA,
             GL_SRGB8_ALPHA8,
             GL_RGBA16F,
             GL_RGBA32F,

@@ -209,11 +209,11 @@ namespace MWVR
             mCanPlaceObject = !(std::acos((mPointerRay.mHitNormalWorld / mPointerRay.mHitNormalWorld.length()) * osg::Vec3f(0, 0, 1)) >= osg::DegreesToRadians(30.f));
 
             Stereo::Pose pose;
-            pose.position = osg::Vec3f(0.f, 2.f * mDistanceToPointerTarget / 3.f, 0.f);
+            pose.position = Stereo::Position::fromMWUnits(0.f, 2.f * mDistanceToPointerTarget / 3.f, 0.f);
             pose.orientation = osg::Quat(0, 0, 0, 1);
             pose = tp.pose + pose;
 
-            mPointerTransform->setPosition(pose.position);
+            mPointerTransform->setPosition(pose.position.asMWUnits());
             mPointerTransform->setAttitude(pose.orientation);
             mPointerTransform->setScale(osg::Vec3f(0.25f, mDistanceToPointerTarget / 3.f, 0.25f));
             mRoot->addChild(mPointerTransform);

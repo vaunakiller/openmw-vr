@@ -272,6 +272,25 @@ namespace VR
             setupMirrorTexture();
     }
 
+    void Viewer::insertLayer(std::shared_ptr<Layer> layer)
+    {
+        mLayers.push_back(layer);
+    }
+
+    void Viewer::removeLayer(std::shared_ptr<Layer> layer)
+    {
+        for (auto it = mLayers.begin(); it != mLayers.end(); it++)
+        {
+            if (*it == layer)
+            {
+                mLayers.erase(it);
+                return;
+            }
+        }
+
+        Log(Debug::Warning) << "VR::Viewer::removeLayer() called, but no such layer existed";
+    }
+
     osg::ref_ptr<osg::FrameBufferObject> Viewer::getFboForView(Stereo::Eye view)
     {
         osg::ref_ptr<osg::FrameBufferObject>fbo = nullptr;
@@ -460,9 +479,7 @@ namespace VR
         if (frame.shouldRender && frame.shouldSyncFrameLoop)
         {
             left = views[VR::Side_Left];
-            left.pose.position *= Constants::UnitsPerMeter;
             right = views[VR::Side_Right];
-            right.pose.position *= Constants::UnitsPerMeter;
 
             // Print view once to log, useful for debugging the views of headsets i do not posess.
             static bool havePrintedView = false;
@@ -490,6 +507,8 @@ namespace VR
                 layer->views[i].view = stageViews[i];
             }
             frame.layers.push_back(layer);
+            if (!mLayers.empty())
+                frame.layers.insert(frame.layers.end(), mLayers.begin(), mLayers.end());
         }
 
         std::unique_lock<std::mutex> lock(mMutex);

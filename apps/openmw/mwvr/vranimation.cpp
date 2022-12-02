@@ -305,7 +305,7 @@ namespace MWVR
             // But i'll defer that to whenever we get inverse cinematics so i can track the hand directly.
             auto* hand = mTransform->getChild(0);
             auto handMatrix = hand->asTransform()->asMatrixTransform()->getMatrix();
-            auto position = tp.pose.position - (orientation * handMatrix.getTrans());
+            auto position = tp.pose.position.asMWUnits() - (orientation * handMatrix.getTrans());
 
             // Center hand mesh on tracking
             // This is just an estimate from trial and error, any suggestion for improving this is welcome
@@ -454,10 +454,10 @@ namespace MWVR
             MWBase::Environment::get().getWorld()->getStore().get<ESM::Race>().find(ref->mBase->mRace);
         bool isMale = ref->mBase->isMale();
         float charHeightFactor = isMale ? race->mData.mHeight.mMale : race->mData.mHeight.mFemale;
-        float charHeightBase = Settings::Manager::getFloat("character base height", "VR Debug");
-        float charHeight = charHeightBase * charHeightFactor;
+        auto charHeightBase = Stereo::Unit::fromMeters( Settings::Manager::getFloat("character base height", "VR Debug") );
+        auto charHeight = charHeightBase * charHeightFactor;
         VR::Session::instance().setCharHeight(charHeight);
-        Log(Debug::Verbose) << "Calculated character height: " << charHeight;
+        Log(Debug::Verbose) << "Calculated character height: " << charHeight.asMeters();
     }
 
     float VRAnimation::getVelocity(const std::string& groupname) const

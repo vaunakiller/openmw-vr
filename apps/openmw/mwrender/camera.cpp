@@ -204,7 +204,7 @@ namespace MWRender
 
         if (mMode == Mode::VR)
         {
-            position = mTrackedPose.position;
+            position = mTrackedPose.position.asMWUnits();
         }
     }
 

@@ -43,9 +43,9 @@ namespace VR
         float playerScale() const { return mPlayerScale; }
         void computePlayerScale();
 
-        void setCharHeight(float height);
-        float charHeight() const { return mCharHeight; };
-        float playerHeight() const { return mPlayerHeight; }
+        void setCharHeight(Stereo::Unit height);
+        Stereo::Unit charHeight() const { return mCharHeight; };
+        Stereo::Unit playerHeight() const { return mPlayerHeight; }
 
         void processChangedSettings(const std::set< std::pair<std::string, std::string> >& changed);
 
@@ -77,7 +77,7 @@ namespace VR
 
         osg::Vec3 getHandsOffset() const { return mHandsOffset; }
 
-        float getSneakOffset() const { return mSneakOffset; }
+        Stereo::Unit getSneakOffset() const { return mSneakOffset; }
 
         void setSneak(bool sneak);
 
@@ -110,9 +110,9 @@ namespace VR
         bool mHandDirectedMovement = false ;
 
         float mPlayerScale = 1.f;
-        float mCharHeight = 1.f;
-        float mSneakOffset = 0.f;
-        float mPlayerHeight = 0.f;
+        Stereo::Unit mCharHeight = Stereo::Unit::fromMeters(1.f);
+        Stereo::Unit mSneakOffset = {};
+        Stereo::Unit mPlayerHeight = {};
 
         std::set<VRPath> mActiveInteractionProfiles;
 

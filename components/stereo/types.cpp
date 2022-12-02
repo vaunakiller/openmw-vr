@@ -51,7 +51,7 @@ namespace Stereo
 
     osg::Matrix View::viewMatrix(bool useGLConventions)
     {
-        auto position = pose.position;
+        auto position = pose.position.asMWUnits();
         auto orientation = pose.orientation;
 
         if (useGLConventions)
@@ -146,7 +146,7 @@ namespace Stereo
         std::ostream& os,
         const Pose& pose)
     {
-        os << "position=" << pose.position << ", orientation=" << pose.orientation;
+        os << "position={ Meters=" << pose.position.asMeters() << ", MWUnits=" << pose.position.asMWUnits() << " }, orientation=" << pose.orientation;
         return os;
     }
 

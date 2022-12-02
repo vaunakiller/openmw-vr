@@ -1122,9 +1122,10 @@ namespace MWWorld
         {
 #ifdef USE_OPENXR
             // Use current aim of weapon to impact
-            auto weaponPose = getWeaponPose();
+            Stereo::Pose weaponPose;
+            getWeaponPose(weaponPose);
             
-            auto result = mPhysics->getHitContact(ptr, weaponPose.position, weaponPose.orientation, distance, targets);
+            auto result = mPhysics->getHitContact(ptr, weaponPose.position.asMWUnits(), weaponPose.orientation, distance, targets);
             if (!result.first.isEmpty())
                 Log(Debug::Verbose) << "Hit: " << result.first.getTypeDescription();
             return result;
@@ -3138,8 +3139,9 @@ namespace MWWorld
 #ifdef USE_OPENXR
                 if (actor == getPlayerPtr())
                 {
-                    auto weaponPose = getWeaponPose();
-                    origin = weaponPose.position;
+                    Stereo::Pose weaponPose;
+                    getWeaponPose(weaponPose);
+                    origin = weaponPose.position.asMWUnits();
                     orient = weaponPose.orientation;
                 }
 #endif
@@ -4175,26 +4177,25 @@ namespace MWWorld
     };
 #endif
 
-    Stereo::Pose World::getWeaponPose()
+    void World::getWeaponPose(Stereo::Pose& pose)
     {
-        Stereo::Pose pose;
+        pose = {};
 #ifdef USE_OPENXR
         if (mWeaponPoseTrackingListener)
         {
             if (!!mWeaponPoseTrackingListener->mPose.status)
-                return mWeaponPoseTrackingListener->mPose.pose;
-            return Stereo::Pose();
+                pose = mWeaponPoseTrackingListener->mPose.pose;
+            return;
         }
         auto* node = MWVR::VRInputManager::instance().vrAimNode();
 
         if (node)
         {
             auto worldMatrix = osg::computeLocalToWorld(node->getParentalNodePaths()[0]);
-            pose.position = worldMatrix.getTrans();
+            pose.position = Stereo::Position::fromMWUnits( worldMatrix.getTrans() );
             pose.orientation = worldMatrix.getRotate();
         }
 #endif
-        return pose;
     }
 
     void World::setWeaponPosePath(int64_t path)

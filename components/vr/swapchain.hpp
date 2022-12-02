@@ -2,10 +2,16 @@
 #define VR_SWAPCHAIN_H
 
 #include <cstdint>
+#include <memory>
+#include <map>
+
+#include <osg/ref_ptr>
 
 namespace osg
 {
     class GraphicsContext;
+    class FrameBufferObject;
+    class RenderInfo;
 }
 
 namespace VR
@@ -76,6 +82,28 @@ namespace VR
         uint64_t mImage;
 
     private:
+    };
+
+    //! Class that handles mapping color swapchain and optional depth swapchain textures to framebuffers.
+    //! Using the same Swapchain in multiple instances of this type is undefined behavior.
+    //! Once an instance of SwapchainToFrameBufferObjectMapper has been created for a swapchain, 
+    //! beginFrame() and endFrame() should be called on the SwapchainToFrameBufferObjectMapper rather
+    //! than on the swapchain itself.
+    class SwapchainToFrameBufferObjectMapper
+    {
+    public:
+        SwapchainToFrameBufferObjectMapper(std::shared_ptr<Swapchain> colorSwapchain, std::shared_ptr<Swapchain> depthSwapchain);
+        ~SwapchainToFrameBufferObjectMapper();
+
+        osg::FrameBufferObject* beginFrame(osg::RenderInfo& renderInfo);
+        void endFrame(osg::RenderInfo& renderInfo);
+
+    private:
+        std::shared_ptr<Swapchain> mColorSwapchain = nullptr;
+        std::shared_ptr<Swapchain> mDepthSwapchain = nullptr;
+
+        using ColorDepthTexturePair = std::pair<uint32_t, uint32_t>;
+        std::map<ColorDepthTexturePair, osg::ref_ptr< osg::FrameBufferObject >> mFramebuffers;
     };
 }
 

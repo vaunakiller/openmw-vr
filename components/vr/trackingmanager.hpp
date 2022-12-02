@@ -1,7 +1,12 @@
 #ifndef VR_TRACKING_MANAGER_H
 #define VR_TRACKING_MANAGER_H
 
-#include "trackingpath.hpp"
+#include <components/vr/trackingpath.hpp>
+
+#include <list>
+#include <map>
+#include <set>
+#include <vector>
 
 namespace VR
 {

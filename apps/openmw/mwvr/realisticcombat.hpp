@@ -3,6 +3,7 @@
 
 //#include <components/esm/loadweap.hpp>
 #include <components/vr/trackinglistener.hpp>
+#include <components/vr/trackingpath.hpp>
 
 #include "../mwbase/world.hpp"
 #include "../mwworld/ptr.hpp"
@@ -106,8 +107,8 @@ namespace MWVR {
 
             bool mEnabled = false;
 
-            osg::Vec3       mPreviousPosition{ 0.f,0.f,0.f };
-            VR::TrackingPose  mTrackingInput = VR::TrackingPose();
+            osg::Vec3           mPreviousPosition{ 0.f,0.f,0.f };
+            VR::TrackingPose    mTrackingInput = VR::TrackingPose();
             VR::VRPath          mTrackingPath = 0;
         };
 

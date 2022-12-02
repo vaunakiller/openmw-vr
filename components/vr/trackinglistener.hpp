@@ -1,7 +1,9 @@
 #ifndef VR_TRACKING_LISTENER_H
 #define VR_TRACKING_LISTENER_H
 
-#include "trackingpath.hpp"
+#include <components/vr/trackingpath.hpp>
+
+#include <set>
 
 namespace VR
 {

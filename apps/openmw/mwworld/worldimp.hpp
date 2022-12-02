@@ -783,7 +783,7 @@ namespace MWWorld
             
             void enableVRPointer(bool left, bool right) override;
 
-            Stereo::Pose getWeaponPose() override;
+            void getWeaponPose(Stereo::Pose& pose) override;
             void setWeaponPosePath(int64_t path) override;
 
             MWRender::PostProcessor* getPostProcessor() override;

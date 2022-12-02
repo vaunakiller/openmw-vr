@@ -3,13 +3,13 @@
 
 #include "../mwinput/inputmanagerimp.hpp"
 
-#include <components/vr/trackingpath.hpp>
 #include <vector>
 #include <array>
 #include <iostream>
 
 #include "../mwworld/ptr.hpp"
 #include <components/vr/trackinglistener.hpp>
+#include <components/vr/trackingpath.hpp>
 
 namespace XR
 {
@@ -97,7 +97,7 @@ namespace MWVR
         float smoothTurnRate(float dt) const;
 
         int interactiveMessageBox(const std::string& message, const std::vector<std::string>& buttons);
-        void updatePhysicalSneak(float headsetHeight);
+        void updatePhysicalSneak(Stereo::Unit headsetHeight);
 
     private:
         osg::observer_ptr<osgViewer::Viewer> mOSGViewer;
@@ -111,7 +111,7 @@ namespace MWVR
         bool mIsToggleSneak = false;
         float mSnapAngle = 30.f;
         float mSmoothTurnRate = 1.0f;
-        float mPhysicalSneakHeightOffset = 0.15f;
+        Stereo::Unit mPhysicalSneakHeightOffset;
         bool mPhysicalSneakEnabled = true;
         bool mUtilityDownActive = false;
         bool mUtilityUpActive = false;

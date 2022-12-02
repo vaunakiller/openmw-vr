@@ -50,22 +50,22 @@ namespace VR
             mOrientation = yawQuat;
     }
 
-    void StageToWorldBinding::consumeMovement(const osg::Vec3& movement)
+    void StageToWorldBinding::consumeMovement(const Stereo::Position& movement)
     {
-        mMovement.x() -= movement.x();
-        mMovement.y() -= movement.y();
+        mMovement.mX -= movement.mX;
+        mMovement.mY -= movement.mY;
     }
 
     void StageToWorldBinding::recenter(bool resetZ)
     {
-        mMovement.x() = 0;
-        mMovement.y() = 0;
+        mMovement.mX = {};
+        mMovement.mY = {};
         if (resetZ)
         {
             if (VR::getSeatedPlay())
-                mMovement.z() = mEyeLevel;
+                mMovement.mZ = mEyeLevel;
             else
-                mMovement.z() = mLastPose.pose.position.z();
+                mMovement.mZ = mLastPose.pose.position.mZ;
         }
     }
 
@@ -109,22 +109,21 @@ namespace VR
         auto stagePose = TrackingManager::instance().locate(it->second, predictedDisplayTime);
 
         auto worldPose = stagePose;
-        worldPose.pose.position *= Constants::UnitsPerMeter;
         worldPose.pose.position -= mLastPose.pose.position;
-        worldPose.pose.position = mOrientation * worldPose.pose.position;
+        worldPose.pose.position *= mOrientation;
         worldPose.pose.position += mMovement;
         worldPose.pose.orientation = worldPose.pose.orientation * mOrientation;
 
         if (VR::getStandingPlay())
         {
-            float heightAdjustment = mLastPose.pose.position.z() * (Session::instance().playerScale() - 1.f);
-            worldPose.pose.position.z() += heightAdjustment;
+            auto heightAdjustment = mLastPose.pose.position.mZ * (Session::instance().playerScale() - 1.f);
+            worldPose.pose.position.mZ += heightAdjustment;
         }
 
         if (mOrigin)
             worldPose.pose.position += mOriginWorldPose.position;
 
-        worldPose.pose.position.z() += Session::instance().getSneakOffset();
+        worldPose.pose.position.mZ += Session::instance().getSneakOffset();
 
         return worldPose;
     }
@@ -143,7 +142,7 @@ namespace VR
         if (mOrigin)
         {
             auto worldMatrix = osg::computeLocalToWorld(mOrigin->getParentalNodePaths()[0]);
-            mOriginWorldPose.position = worldMatrix.getTrans();
+            mOriginWorldPose.position = Stereo::Position::fromMWUnits(worldMatrix.getTrans());
             mOriginWorldPose.orientation = worldMatrix.getRotate();
         }
 
@@ -162,13 +161,12 @@ namespace VR
         auto mtp = TrackingManager::instance().locate(mMovementReference, predictedDisplayTime);
         if (!!mtp.status)
         {
-            mtp.pose.position *= Constants::UnitsPerMeter;
-            osg::Vec3 vrMovement = mtp.pose.position - mLastPose.pose.position;
+            auto vrMovement = mtp.pose.position - mLastPose.pose.position;
             mLastPose = mtp;
             if (mHasTrackingData)
                 mMovement += mOrientation * vrMovement;
             else
-                mMovement.z() = mLastPose.pose.position.z();
+                mMovement.mZ = mLastPose.pose.position.mZ;
             mHasTrackingData = true;
         }
     }

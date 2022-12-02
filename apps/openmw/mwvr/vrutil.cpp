@@ -57,7 +57,7 @@ namespace MWVR
             auto world = MWBase::Environment::get().getWorld();
 
             if (wm->isGuiMode() && wm->isConsoleMode())
-                return world->getTargetObject(result, pose.position, pose.orientation, world->getMaxActivationDistance() * 50, true);
+                return world->getTargetObject(result, pose.position.asMWUnits(), pose.orientation, world->getMaxActivationDistance() * 50, true);
             else
             {
                 float activationDistance = 0.f;
@@ -66,7 +66,7 @@ namespace MWVR
                 else
                     activationDistance = world->getMaxActivationDistance();
 
-                auto distance = world->getTargetObject(result, pose.position, pose.orientation, activationDistance, true);
+                auto distance = world->getTargetObject(result, pose.position.asMWUnits(), pose.orientation, activationDistance, true);
 
                 if (!result.mHitObject.isEmpty() && !result.mHitObject.getClass().allowTelekinesis(result.mHitObject)
                     && distance > activationDistance && !MWBase::Environment::get().getWindowManager()->isGuiMode())
@@ -83,7 +83,7 @@ namespace MWVR
         {
             osg::Matrix worldMatrix = osg::computeLocalToWorld(node->getParentalNodePaths()[0]);
             Stereo::Pose pose;
-            pose.position = worldMatrix.getTrans();
+            pose.position = Stereo::Position::fromMWUnits(worldMatrix.getTrans());
             pose.orientation = worldMatrix.getRotate();
             return pose;
         }

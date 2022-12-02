@@ -100,13 +100,13 @@ namespace VR
 
     void Session::computePlayerScale()
     {
-        mPlayerHeight = Settings::Manager::getFloat("player height", "VR");
+        mPlayerHeight = Stereo::Unit::fromMeters( Settings::Manager::getFloat("player height", "VR") );
         mPlayerScale = mCharHeight / mPlayerHeight;
         Log(Debug::Verbose) << "Calculated player scale: " << mPlayerScale;
         requestRecenter(true);
     }
 
-    void Session::setCharHeight(float height)
+    void Session::setCharHeight(Stereo::Unit height)
     {
         mCharHeight = height;
         computePlayerScale();
@@ -153,9 +153,9 @@ namespace VR
     void Session::setSneak(bool sneak)
     {
         if (sneak)
-            mSneakOffset = -20.f;
+            mSneakOffset = Stereo::Unit::fromMWUnits(- 20.f);
         else
-            mSneakOffset = 0.f;
+            mSneakOffset = {};
     }
 }
 

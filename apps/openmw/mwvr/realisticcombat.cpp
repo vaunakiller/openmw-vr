@@ -170,11 +170,11 @@ namespace MWVR {
             // Theoretically, the player's hand really could be at 0,0,0
             // but that's a super rare case so whatever.
             if (mPreviousPosition == osg::Vec3(0.f, 0.f, 0.f))
-                mPreviousPosition = handPose.position;
+                mPreviousPosition = handPose.position.asMeters();
 
-            osg::Vec3 movement = handPose.position - mPreviousPosition;
+            osg::Vec3 movement = handPose.position.asMeters() - mPreviousPosition;
             mMovementSinceEnteredState += movement.length();
-            mPreviousPosition = handPose.position;
+            mPreviousPosition = handPose.position.asMeters();
             osg::Vec3 swingVector = movement / dt;
             osg::Vec3 swingDirection = swingVector;
             swingDirection.normalize();

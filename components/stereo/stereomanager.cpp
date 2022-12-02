@@ -434,9 +434,9 @@ namespace Stereo
 
     CustomViewCallback::CustomViewCallback()
     {
-        mLeft.pose.position.x() = Settings::Manager::getDouble("left eye offset x", "Stereo View");
-        mLeft.pose.position.y() = Settings::Manager::getDouble("left eye offset y", "Stereo View");
-        mLeft.pose.position.z() = Settings::Manager::getDouble("left eye offset z", "Stereo View");
+        mLeft.pose.position.mX = Stereo::Unit::fromMeters( Settings::Manager::getDouble("left eye offset x", "Stereo View") );
+        mLeft.pose.position.mY = Stereo::Unit::fromMeters( Settings::Manager::getDouble("left eye offset y", "Stereo View") );
+        mLeft.pose.position.mZ = Stereo::Unit::fromMeters( Settings::Manager::getDouble("left eye offset z", "Stereo View") );
         mLeft.pose.orientation.x() = Settings::Manager::getDouble("left eye orientation x", "Stereo View");
         mLeft.pose.orientation.y() = Settings::Manager::getDouble("left eye orientation y", "Stereo View");
         mLeft.pose.orientation.z() = Settings::Manager::getDouble("left eye orientation z", "Stereo View");
@@ -446,9 +446,9 @@ namespace Stereo
         mLeft.fov.angleUp = Settings::Manager::getDouble("left eye fov up", "Stereo View");
         mLeft.fov.angleDown = Settings::Manager::getDouble("left eye fov down", "Stereo View");
 
-        mRight.pose.position.x() = Settings::Manager::getDouble("right eye offset x", "Stereo View");
-        mRight.pose.position.y() = Settings::Manager::getDouble("right eye offset y", "Stereo View");
-        mRight.pose.position.z() = Settings::Manager::getDouble("right eye offset z", "Stereo View");
+        mRight.pose.position.mX = Stereo::Unit::fromMeters(Settings::Manager::getDouble("right eye offset x", "Stereo View"));
+        mRight.pose.position.mY = Stereo::Unit::fromMeters(Settings::Manager::getDouble("right eye offset y", "Stereo View"));
+        mRight.pose.position.mZ = Stereo::Unit::fromMeters(Settings::Manager::getDouble("right eye offset z", "Stereo View"));
         mRight.pose.orientation.x() = Settings::Manager::getDouble("right eye orientation x", "Stereo View");
         mRight.pose.orientation.y() = Settings::Manager::getDouble("right eye orientation y", "Stereo View");
         mRight.pose.orientation.z() = Settings::Manager::getDouble("right eye orientation z", "Stereo View");

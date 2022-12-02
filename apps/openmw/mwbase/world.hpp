@@ -13,7 +13,6 @@
 #include <components/esm3/cellid.hpp>
 #include <components/misc/rng.hpp>
 #include <components/misc/span.hpp>
-#include <components/stereo/types.hpp>
 
 #include <osg/Timer>
 
@@ -60,6 +59,11 @@ namespace ESM
     struct CreatureLevList;
     struct ItemLevList;
     struct TimeStamp;
+}
+
+namespace Stereo
+{
+    struct Pose;
 }
 
 namespace MWPhysics
@@ -691,7 +695,7 @@ namespace MWBase
 
             virtual void enableVRPointer(bool left, bool right) = 0;
 
-            virtual Stereo::Pose getWeaponPose() = 0;
+            virtual void getWeaponPose(Stereo::Pose& pose) = 0;
 
             virtual void setWeaponPosePath(int64_t path) = 0;
             

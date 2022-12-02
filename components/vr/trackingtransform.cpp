@@ -20,7 +20,7 @@ namespace VR
         if (!!pose.status)
         {
             _matrix.makeIdentity();
-            _matrix.preMultTranslate(pose.pose.position);
+            _matrix.preMultTranslate(pose.pose.position.asMWUnits());
             _matrix.preMultRotate(pose.pose.orientation);
             _inverseDirty = true;
         }

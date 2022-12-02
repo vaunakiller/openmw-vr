@@ -14,8 +14,10 @@
 #include <osg/Camera>
 #include <osg/PositionAttitudeTransform>
 
+#include <components/vr/layer.hpp>
 #include <components/vr/trackingsource.hpp>
 #include <components/vr/trackinglistener.hpp>
+#include <components/vr/trackingpath.hpp>
 
 namespace MyGUI
 {
@@ -37,7 +39,6 @@ namespace Resource
 struct XrCompositionLayerQuad;
 namespace MWVR
 {
-    class GUICamera;
     class VRGUIManager;
 
     // Some UI elements should occupy predefined geometries
@@ -54,7 +55,7 @@ namespace MWVR
         int priority; //!< Higher priority shows over lower priority windows by moving higher priority layers slightly closer to the player.
         bool sideBySide; //!< All layers with this config will show up side by side in a partial circle around the player, and will all be resized to a predefined size.
         float opacity; //!< Background color of layer
-        osg::Vec3 offset; //!< Offset from tracked node in meters
+        Stereo::Position offset; //!< Offset from tracked node in meters
         osg::Vec2 center; //!< Model space centerpoint of menu geometry. All menu geometries have model space lengths of 1 in each dimension. Use this to affect how geometries grow with changing size.
         osg::Vec2 extent; //!< Spatial extent of the layer in meters when using Fixed sizing mode
         int spatialResolution; //!< Pixels when using the Auto sizing mode. \note Pixels per meter of the GUI viewport, not the RTT texture.
@@ -123,7 +124,6 @@ namespace MWVR
 
     public:
         osg::ref_ptr<osg::Geometry> createLayerGeometry(osg::ref_ptr<osg::StateSet> stateset);
-        osg::ref_ptr<osg::Texture> menuTexture();
         void setAngle(float angle);
         void updatePose();
         void updateRect();
@@ -151,12 +151,16 @@ namespace MWVR
         std::array<osg::ref_ptr<osg::Geometry>, 2> mGeometries;
         osg::ref_ptr<osg::PositionAttitudeTransform> mTransform{ new osg::PositionAttitudeTransform };
         osg::ref_ptr<osg::Group> mCameraRoot;
-        osg::ref_ptr<GUICamera> mGUICamera;
+        osg::ref_ptr<osg::Node> mGUIRTT;
         osg::ref_ptr<osg::Camera> mMyGUICamera{ nullptr };
         osg::ref_ptr<osg::StateSet> mStateset;
+        MyGUI::IntRect mRect{};
         MyGUI::FloatRect mRealRect{};
         osg::Quat mRotation{ 0,0,0,1 };
         bool mVisible = false;
+
+        std::shared_ptr<VR::QuadLayer> mVrLayer;
+
     };
 
     /// \brief Manager of VRGUILayer objects.

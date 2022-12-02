@@ -1,10 +1,25 @@
-#ifndef VR_TRACKING_PATH_H
-#define VR_TRACKING_PATH_H
+#ifndef VR_TRACKINGPATH_H
+#define VR_TRACKINGPATH_H
 
-#include <cstdint>
-#include "constants.hpp"
+#include <memory>
+#include <array>
+#include <map>
+#include <queue>
+#include <string>
 
-#include <components/stereo/stereomanager.hpp>
+#include <components/misc/constants.hpp>
+#include <components/stereo/types.hpp>
+#include <components/vr/constants.hpp>
+
+namespace osg
+{
+    class Transform;
+}
+
+namespace Stereo
+{
+    struct View;
+}
 
 namespace VR
 {
@@ -21,8 +36,9 @@ namespace VR
     struct TrackingPose
     {
         TrackingStatus status = TrackingStatus::Unknown; //!< State of the prediction. 
-        Stereo::Pose pose = {}; //!< The predicted pose. 
+        Stereo::Pose pose = {}; //!< The predicted pose.
         DisplayTime time = 0; //!< The time for which the pose was predicted.
+
     };
 
     //! Converts a string representation of a path to a VRTrackerPath identifier
@@ -31,5 +47,6 @@ namespace VR
     //! Converts a path identifier back to string. Returns an empty string if no such identifier exists.
     std::string VRPathToString(VRPath path);
 }
+
 
 #endif

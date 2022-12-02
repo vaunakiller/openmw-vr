@@ -364,6 +364,7 @@ if(BUILD_OPENMW_VR)
         directx
         frame
         layer
+        rendertoswapchain
         session
         space
         swapchain

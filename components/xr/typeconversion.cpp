@@ -30,12 +30,12 @@ namespace XR
 
     Stereo::Pose fromXR(XrPosef pose)
     {
-        return Stereo::Pose{ fromXR(pose.position), fromXR(pose.orientation) };
+        return Stereo::Pose{ Stereo::Position::fromMeters(fromXR(pose.position)), fromXR(pose.orientation) };
     }
 
     XrPosef toXR(Stereo::Pose pose)
     {
-        return XrPosef{ toXR(pose.orientation), toXR(pose.position) };
+        return XrPosef{ toXR(pose.orientation), toXR(pose.position.asMeters()) };
     }
 
     Stereo::FieldOfView fromXR(XrFovf fov)

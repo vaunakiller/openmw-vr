@@ -3,6 +3,7 @@
 
 namespace VR
 {
+
     ProjectionLayerView::ProjectionLayerView()
         : colorSwapchain()
         , depthSwapchain()
@@ -23,4 +24,12 @@ namespace VR
     ProjectionLayer::~ProjectionLayer()
     {
     }
+
+    QuadLayer::QuadLayer()
+    {
+    }
+    QuadLayer::~QuadLayer()
+    {
+    }
+
 }

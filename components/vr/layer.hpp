@@ -3,8 +3,10 @@
 
 #include <cstdint>
 #include <memory>
+#include <optional>
 
 #include <components/stereo/stereomanager.hpp>
+#include <components/vr/constants.hpp>
 
 namespace VR
 {
@@ -23,8 +25,22 @@ namespace VR
 
     struct Layer
     {
-    public:
+        enum class EyeVisibility
+        {
+            Both = 0,
+            Left = 1,
+            Right = 2,
+        };
+
+        enum class Type
+        {
+            ProjectionLayer,
+            QuadLayer
+        };
+
         virtual ~Layer() {};
+
+        virtual Type getType() const = 0;
     };
 
     struct ProjectionLayerView
@@ -45,7 +61,27 @@ namespace VR
         ProjectionLayer();
         ~ProjectionLayer() override;
 
+        Type getType() const override { return Type::ProjectionLayer; };
+
         std::array<ProjectionLayerView, 2> views;
+    };
+
+    struct QuadLayer : public Layer
+    {
+        QuadLayer();
+        ~QuadLayer();
+
+        std::shared_ptr<Swapchain> colorSwapchain = nullptr;
+        bool blendAlpha = false;
+        bool premultipliedAlpha = false;
+        // Optional subimage. If not set, full swapchain image is used
+        std::optional<SubImage> subImage;
+        Stereo::Pose pose = {};
+        osg::Vec2f extent = {};
+        EyeVisibility eyeVisibility = EyeVisibility::Both;
+        ReferenceSpace space = ReferenceSpace::View;
+
+        Type getType() const override { return Type::QuadLayer; };
     };
 }
 

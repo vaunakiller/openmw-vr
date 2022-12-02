@@ -74,7 +74,8 @@ namespace VR
 
         bool callbacksConfigured() { return mCallbacksConfigured; };
 
-        bool applyGamma(osg::RenderInfo& info, int i);
+        void insertLayer(std::shared_ptr<Layer> layer);
+        void removeLayer(std::shared_ptr<Layer> layer);
 
         osg::ref_ptr<osg::FrameBufferObject> getFboForView(Stereo::Eye view);
 
@@ -115,6 +116,8 @@ namespace VR
         VR::Frame mDrawFrame;
 
         std::map<osg::FrameBufferObject*, std::unique_ptr<Stereo::MultiviewFramebufferResolve> > mMultiviewResolve;
+
+        std::vector<std::shared_ptr<Layer> > mLayers;
     };
 }
 

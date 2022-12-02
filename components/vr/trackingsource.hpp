@@ -1,7 +1,7 @@
 #ifndef VR_TRACKING_SOURCE_H
 #define VR_TRACKING_SOURCE_H
 
-#include "trackingpath.hpp"
+#include <components/vr/trackingpath.hpp>
 
 namespace VR
 {
@@ -59,14 +59,14 @@ namespace VR
         void setWorldOrientation(float yaw, bool adjust);
         osg::Quat getWorldOrientation() const { return mOrientation; }
 
-        void setEyeLevel(float eyeLevel) { mEyeLevel = eyeLevel; }
-        float getEyeLevel() const { return mEyeLevel; }
+        void setEyeLevel(Stereo::Unit eyeLevel) { mEyeLevel = eyeLevel; }
+        Stereo::Unit getEyeLevel() const { return mEyeLevel; }
 
         //! The player's movement within the VR stage. This accumulates until the movement has been consumed by calling consumeMovement()
-        osg::Vec3 movement() const { return mMovement; }
+        const Stereo::Position& movement() const { return mMovement; }
 
         //! Consume movement
-        void consumeMovement(const osg::Vec3& movement);
+        void consumeMovement(const Stereo::Position& movement);
 
         //! Recenter tracking by consuming all movement.
         void recenter(bool resetZ);
@@ -98,10 +98,10 @@ namespace VR
         osg::Node* mOrigin = nullptr;
         bool mHasTrackingData = false;
         bool mInstantTransition = false;
-        float mEyeLevel = 0.f;
+        Stereo::Unit mEyeLevel = {};
         Stereo::Pose mOriginWorldPose = Stereo::Pose();
         TrackingPose mLastPose = VR::TrackingPose();
-        osg::Vec3 mMovement = osg::Vec3(0, 0, 0);
+        Stereo::Position mMovement = {};
         osg::Quat mOrientation = osg::Quat(0, 0, 0, 1);
     };
 }
