@@ -1230,6 +1230,7 @@ void OMW::Engine::go()
         }
         else
         {
+            VR::Viewer::instance().newFrame();
             mViewer->eventTraversal();
             mViewer->updateTraversal();
 

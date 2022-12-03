@@ -70,6 +70,7 @@ namespace VR
         void configureCallbacks();
         void setupMirrorTexture();
         void processChangedSettings(const std::set< std::pair<std::string, std::string> >& changed);
+        void newFrame();
         void updateView(Stereo::View& left, Stereo::View& right);
 
         bool callbacksConfigured() { return mCallbacksConfigured; };

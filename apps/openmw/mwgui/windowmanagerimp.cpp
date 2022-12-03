@@ -54,6 +54,7 @@
 #include <components/lua_ui/util.hpp>
 
 #include <components/vr/vr.hpp>
+#include <components/vr/viewer.hpp>
 
 #include "../mwbase/inputmanager.hpp"
 #include "../mwbase/luamanager.hpp"
@@ -2381,6 +2382,7 @@ namespace MWGui
 
     void WindowManager::viewerTraversals()
     {
+        VR::Viewer::instance().newFrame();
         mViewer->eventTraversal();
         mViewer->updateTraversal();
         mViewer->renderingTraversals();

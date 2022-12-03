@@ -466,10 +466,18 @@ namespace VR
         VR::Session::instance().frameEnd(gc, mDrawFrame);
     }
 
-    void Viewer::updateView(Stereo::View& left, Stereo::View& right)
+    void Viewer::newFrame()
     {
         auto frame = mSession->newFrame();
         mSession->frameBeginUpdate(frame);
+        std::unique_lock<std::mutex> lock(mMutex);
+        mReadyFrames.push(frame);
+    }
+
+    void Viewer::updateView(Stereo::View& left, Stereo::View& right)
+    {
+        std::unique_lock<std::mutex> lock(mMutex);
+        auto& frame = mReadyFrames.back();
 
         VR::TrackingManager::instance().updateTracking(frame);
 
@@ -511,7 +519,5 @@ namespace VR
                 frame.layers.insert(frame.layers.end(), mLayers.begin(), mLayers.end());
         }
 
-        std::unique_lock<std::mutex> lock(mMutex);
-        mReadyFrames.push(frame);
     }
 }
