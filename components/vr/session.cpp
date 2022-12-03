@@ -117,7 +117,7 @@ namespace VR
         if (mTrackerToWorldBinding)
         {
             mTrackerToWorldBinding->recenter(recenterZ);
-            mTrackerToWorldBinding->setEyeLevel(charHeight() * Constants::UnitsPerMeter);
+            mTrackerToWorldBinding->setEyeLevel(charHeight());
         }
     }
 
