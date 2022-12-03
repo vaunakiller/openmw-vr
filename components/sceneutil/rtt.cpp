@@ -32,7 +32,7 @@ namespace SceneUtil
         , mTextureHeight(textureHeight)
         , mSamples(samples)
         , mGenerateMipmaps(generateMipmaps)
-        , mColorBufferInternalFormat(Color::colorInternalFormat())
+        , mColorBufferInternalFormat(GL_RGB)
         , mDepthBufferInternalFormat(SceneUtil::AutoDepth::depthInternalFormat())
         , mRenderOrderNum(renderOrderNum)
         , mStereoAwareness(stereoAwareness)
