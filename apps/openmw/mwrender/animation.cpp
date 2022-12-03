@@ -546,7 +546,10 @@ namespace MWRender
         mLightListCallback = new SceneUtil::LightListCallback;
     }
 
-    Animation::~Animation() = default;
+    Animation::~Animation()
+    {
+        removeFromSceneImpl();
+    }
 
     void Animation::setActive(int active)
     {
@@ -1842,6 +1845,11 @@ namespace MWRender
     }
 
     void Animation::removeFromScene()
+    {
+        removeFromSceneImpl();
+    }
+
+    void Animation::removeFromSceneImpl()
     {
         if (mGlowLight != nullptr)
             mInsert->removeChild(mGlowLight);
