@@ -12,6 +12,7 @@ namespace MWVR
     class HandController;
     class FingerController;
     class TrackingController;
+    class Crosshair;
 
     /// Subclassing NpcAnimation to implement VR related behaviour
     class VRAnimation : public MWRender::NpcAnimation, public VR::TrackingListener
@@ -61,6 +62,8 @@ namespace MWVR
 
         void onTrackingUpdated(VR::TrackingManager& manager, VR::DisplayTime predictedDisplayTime) override;
 
+        void updateCrosshairs() override;
+
     protected:
         typedef std::unordered_map<std::string, std::unique_ptr<TrackingController>, Misc::StringUtils::CiHash, Misc::StringUtils::CiEqual> TrackingControllerMap;
         TrackingControllerMap mVrControllers;
@@ -70,6 +73,9 @@ namespace MWVR
         osg::ref_ptr<osg::MatrixTransform> mModelOffset;
         osg::ref_ptr<osg::MatrixTransform> mWeaponDirectionTransform;
         osg::ref_ptr<osg::MatrixTransform> mWeaponPointerTransform;
+        std::unique_ptr<MWVR::Crosshair> mCrosshairAmmo;
+        std::unique_ptr<MWVR::Crosshair> mCrosshairThrown;
+        std::unique_ptr<MWVR::Crosshair> mCrosshairSpell;
     };
 
 }

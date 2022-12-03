@@ -6,13 +6,49 @@
 
 #include <components/vr/trackinglistener.hpp>
 
+#include  <osg/ref_ptr>
+#include  <osg/node>
+
+#include <memory>
+
 namespace SceneUtil
 {
     class PositionAttitudeTransform;
 }
 
+namespace osg
+{
+    class Geometry;
+    class Group;
+    class Transform;
+    class MatrixTransform;
+}
+
 namespace MWVR
 {
+    class Crosshair
+    {
+    public:
+        Crosshair(osg::ref_ptr<osg::Group> parent, osg::Vec3f color, float farAlpha, float nearAlpha, bool pyramid);
+        ~Crosshair();
+
+        void hide();
+        void show();
+        void setStretch(float stretch);
+        void setWidth(float width);
+        void setOffset(float distance);
+        void setParent(osg::ref_ptr<osg::Group> parent);
+        void updateMatrix();
+
+        osg::ref_ptr<osg::Group>            mParent;
+        osg::ref_ptr<osg::Geometry>         mGeometry;
+        osg::ref_ptr<osg::PositionAttitudeTransform>  mTransform;
+        float                               mStretch;
+        float                               mWidth;
+        float                               mOffset;
+        bool                                mVisible;
+    };
+
     //! Controls the beam used to target/select objects.
     class UserPointer : public VR::TrackingListener
     {
@@ -34,9 +70,6 @@ namespace MWVR
 
         bool tryProbePick(MWWorld::Ptr target);
 
-        osg::ref_ptr<osg::Geometry> createPointerGeometry();
-
-        osg::ref_ptr<osg::Geometry> mPointerGeometry;
         //osg::ref_ptr<SceneUtil::PositionAttitudeTransform> mPointerSource;
         osg::ref_ptr<SceneUtil::PositionAttitudeTransform> mPointerTransform;
 
@@ -49,6 +82,7 @@ namespace MWVR
         bool mCanPlaceObject = false;
         bool mLeftHandEnabled = true;
         bool mRightHandEnabled = true;
+        std::unique_ptr<Crosshair> mCrosshair;
     };
 }
 

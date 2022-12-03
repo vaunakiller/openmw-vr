@@ -53,6 +53,8 @@
 
 #include <components/detournavigator/navigator.hpp>
 
+#include <components/vr/vr.hpp>
+
 #include "../mwworld/cellstore.hpp"
 #include "../mwworld/class.hpp"
 #include "../mwworld/groundcoverstore.hpp"
@@ -964,6 +966,8 @@ namespace MWRender
         stateUpdater->setWeatherTransition(world->getWeatherTransition());
         stateUpdater->setWindSpeed(world->getWindSpeed());
         mPostProcessor->setUnderwaterFlag(isUnderwater);
+        
+        mPlayerAnimation->updateCrosshairs();
     }
 
     void RenderingManager::updatePlayerPtr(const MWWorld::Ptr &ptr)

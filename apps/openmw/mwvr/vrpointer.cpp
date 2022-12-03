@@ -77,15 +77,12 @@ namespace MWVR
     UserPointer::UserPointer(osg::Group* root)
         : mRoot(root)
     {
-        mPointerGeometry = createPointerGeometry();
         mPointerTransform = new SceneUtil::PositionAttitudeTransform();
-        mPointerTransform->addChild(mPointerGeometry);
         mPointerTransform->setNodeMask(MWRender::VisMask::Mask_Pointer);
         mPointerTransform->setName("VR Pointer deformation");
-        //mPointerSource = new SceneUtil::PositionAttitudeTransform();
-        //mPointerSource->addChild(mPointerTransform);
-        //mPointerSource->setNodeMask(MWRender::VisMask::Mask_Pointer);
-        //mPointerSource->setName("VR Pointer source transform");
+        mCrosshair = std::make_unique<Crosshair>(mPointerTransform, osg::Vec3f(1.f, 0.f, 0.f), 1.f, 0.f, true);
+        mCrosshair->show();
+        mRoot->addChild(mPointerTransform);
     }
 
     UserPointer::~UserPointer()
@@ -190,13 +187,10 @@ namespace MWVR
 
         if (!tp.status)
         {
-            mRoot->removeChild(mPointerTransform);
+            mCrosshair->hide();
             MWVR::VRGUIManager::instance().updateFocus(nullptr, osg::Vec3(0, 0, 0));
             return;
         }
-
-        //mPointerSource->setPosition(tp.pose.position);
-        //mPointerSource->setAttitude(tp.pose.orientation);
 
         mDistanceToPointerTarget = Util::getPoseTarget(mPointerRay, tp.pose, true);
         // Make a ref-counted copy of the target node to ensure the object's lifetime this frame.
@@ -208,46 +202,53 @@ namespace MWVR
             // check if the wanted position is on a flat surface, and not e.g. against a vertical wall
             mCanPlaceObject = !(std::acos((mPointerRay.mHitNormalWorld / mPointerRay.mHitNormalWorld.length()) * osg::Vec3f(0, 0, 1)) >= osg::DegreesToRadians(30.f));
 
-            Stereo::Pose pose;
-            pose.position = Stereo::Position::fromMWUnits(0.f, 2.f * mDistanceToPointerTarget / 3.f, 0.f);
-            pose.orientation = osg::Quat(0, 0, 0, 1);
-            pose = tp.pose + pose;
-
-            mPointerTransform->setPosition(pose.position.asMWUnits());
-            mPointerTransform->setAttitude(pose.orientation);
-            mPointerTransform->setScale(osg::Vec3f(0.25f, mDistanceToPointerTarget / 3.f, 0.25f));
-            mRoot->addChild(mPointerTransform);
+            mPointerTransform->setPosition(tp.pose.position.asMWUnits());
+            mPointerTransform->setAttitude(tp.pose.orientation);
+            mCrosshair->setStretch(mDistanceToPointerTarget / 3.f);
+            mCrosshair->setWidth(0.25f);
+            mCrosshair->setOffset(2.f * mDistanceToPointerTarget / 3.f);
+            mCrosshair->show();
 
             MWVR::VRGUIManager::instance().updateFocus(mPointerRay.mHitNode, mPointerRay.mHitPointLocal);
         }
         else
         {
-            mRoot->removeChild(mPointerTransform);
+            mCrosshair->setStretch(0.f);
+            mCrosshair->hide();
+
             MWVR::VRGUIManager::instance().updateFocus(nullptr, osg::Vec3(0, 0, 0));
         }
     }
 
-    osg::ref_ptr<osg::Geometry> UserPointer::createPointerGeometry()
+    static osg::ref_ptr<osg::Geometry> createPointerGeometry(bool pyramid, osg::Vec3f color, float farAlpha, float nearAlpha)
     {
         osg::ref_ptr<osg::Geometry> geometry = new osg::Geometry();
 
         // Create pointer geometry, which will point from the tip of the player's finger.
         // The geometry will be a Four sided pyramid, with the top at the player's fingers
 
-        osg::Vec3 vertices[]{
+        static osg::Vec3 vertices[] = {
             {0, 0, 0}, // origin
             {-1, 1, -1}, // A
             {-1, 1, 1}, //  B
             {1, 1, 1}, //   C
             {1, 1, -1}, //  D
+            {-1, 0, -1}, // E
+            {-1, 0, 1}, //  F
+            {1, 0, 1}, //   G
+            {1, 0, -1}, //  H
         };
 
-        osg::Vec4 colors[]{
-            osg::Vec4(1.0f, 0.0f, 0.0f, 0.0f),
-            osg::Vec4(1.0f, 0.0f, 0.0f, 1.0f),
-            osg::Vec4(1.0f, 0.0f, 0.0f, 1.0f),
-            osg::Vec4(1.0f, 0.0f, 0.0f, 1.0f),
-            osg::Vec4(1.0f, 0.0f, 0.0f, 1.0f),
+        osg::Vec4 colors[] = {
+            osg::Vec4(color, farAlpha),
+            osg::Vec4(color, nearAlpha),
+            osg::Vec4(color, nearAlpha),
+            osg::Vec4(color, nearAlpha),
+            osg::Vec4(color, nearAlpha),
+            osg::Vec4(color, farAlpha),
+            osg::Vec4(color, farAlpha),
+            osg::Vec4(color, farAlpha),
+            osg::Vec4(color, farAlpha),
         };
 
         const int O = 0;
@@ -255,8 +256,12 @@ namespace MWVR
         const int B = 2;
         const int C = 3;
         const int D = 4;
+        const int E = 5;
+        const int F = 6;
+        const int G = 7;
+        const int H = 8;
 
-        const int triangles[] =
+        static const int pyramidVertices[] =
         {
             A,D,B,
             B,D,C,
@@ -265,7 +270,37 @@ namespace MWVR
             O,B,C,
             O,A,B,
         };
-        int numVertices = sizeof(triangles) / sizeof(*triangles);
+
+        static const int CubeVertices[] =
+        {
+            E,F,B,
+            D,E,A,
+            G,E,H,
+            D,H,E,
+            E,B,A,
+            G,F,E,
+            B,F,G,
+            C,H,D,
+            H,C,G,
+            C,D,A,
+            C,A,B,
+            C,B,G
+        };
+
+        int numVertices = 0;
+        const int* triangles = nullptr;
+
+        if(pyramid)
+        {
+            numVertices = sizeof(pyramidVertices) / sizeof(*pyramidVertices);
+            triangles = pyramidVertices;
+        }
+        else
+        {
+            numVertices = sizeof(CubeVertices) / sizeof(*CubeVertices);
+            triangles = CubeVertices;
+        }
+
         osg::ref_ptr<osg::Vec3Array> vertexArray = new osg::Vec3Array(numVertices);
         osg::ref_ptr<osg::Vec4Array> colorArray = new osg::Vec4Array(numVertices);
         for (int i = 0; i < numVertices; i++)
@@ -303,6 +338,80 @@ namespace MWVR
         MWBase::Environment::get().getResourceSystem()->getSceneManager()->recreateShaders(geometry, "objects", true);
 
         return geometry;
+    }
+
+    Crosshair::Crosshair(osg::ref_ptr<osg::Group> parent, osg::Vec3f color, float farAlpha, float nearAlpha, bool pyramid)
+        : mParent(parent)
+        , mGeometry(createPointerGeometry(pyramid, color, nearAlpha, farAlpha))
+        , mTransform(new osg::PositionAttitudeTransform)
+        , mStretch(1.f)
+        , mWidth(1.f)
+        , mOffset(0.f)
+        , mVisible(false)
+    {
+        mTransform->addChild(mGeometry);
+        mTransform->setAttitude(osg::Quat(0, 0, 0, 1));
+
+        updateMatrix();
+    }
+
+    Crosshair::~Crosshair()
+    {
+    }
+
+    void Crosshair::hide()
+    {
+        if (mVisible)
+        {
+            if (mParent)
+                mParent->removeChild(mTransform);
+            mVisible = false;
+        }
+    }
+
+    void Crosshair::show()
+    {
+        if (!mVisible)
+        {
+            if (mParent)
+                mParent->addChild(mTransform);
+            mVisible = true;
+        }
+    }
+
+    void Crosshair::setStretch(float stretch)
+    {
+        mStretch = stretch;
+        updateMatrix();
+    }
+
+    void Crosshair::setWidth(float width)
+    {
+        mWidth = width;
+        updateMatrix();
+    }
+
+    void Crosshair::setOffset(float distance)
+    {
+        mOffset = distance;
+        updateMatrix();
+    }
+
+    void Crosshair::setParent(osg::ref_ptr<osg::Group> parent)
+    {
+        auto visible = mVisible;
+        hide();
+
+        mParent = parent;
+        
+        if (visible)
+            show();
+    }
+
+    void Crosshair::updateMatrix()
+    {
+        mTransform->setPosition(osg::Vec3f(0.f, mOffset, 0.f));
+        mTransform->setScale(osg::Vec3f(mWidth, mStretch, mWidth));
     }
 
 }

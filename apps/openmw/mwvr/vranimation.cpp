@@ -28,6 +28,7 @@
 
 #include <components/vr/trackingmanager.hpp>
 #include <components/vr/session.hpp>
+#include <components/vr/vr.hpp>
 
 #include "../mwworld/esmstore.hpp"
 
@@ -35,6 +36,7 @@
 #include "../mwmechanics/actorutil.hpp"
 #include "../mwmechanics/weapontype.hpp"
 #include "../mwmechanics/movement.hpp"
+#include "../mwmechanics/creaturestats.hpp"
 
 #include "../mwbase/environment.hpp"
 #include "../mwbase/world.hpp"
@@ -46,6 +48,8 @@
 
 #include "../mwworld/player.hpp"
 #include "../mwworld/class.hpp"
+
+#include "vrpointer.hpp"
 
 namespace MWVR
 {
@@ -391,6 +395,23 @@ namespace MWVR
             auto path = VR::stringToVRPath("/world/user/hand/left/input/aim/pose");
             mVrControllers.emplace("bip01 l forearm", std::make_unique<TrackingController>(path, topLevelPath, offset, true));
         }
+
+
+        mCrosshairAmmo = std::make_unique<Crosshair>(nullptr, osg::Vec3f(0.66f, 1.f, 0.66f), 0.1f, 0.40f, false);
+        mCrosshairAmmo->setStretch(100.f);
+        mCrosshairAmmo->setWidth(0.1f);
+        mCrosshairAmmo->setOffset(15.f);
+        mCrosshairAmmo->show();
+        mCrosshairThrown = std::make_unique<Crosshair>(nullptr, osg::Vec3f(0.66f, 0.66f, 1.f), 0.1f, 0.40f, false);
+        mCrosshairThrown->setStretch(100.f);
+        mCrosshairThrown->setWidth(0.1f);
+        mCrosshairThrown->setOffset(15.f);
+        mCrosshairThrown->show();
+        mCrosshairSpell = std::make_unique<Crosshair>(nullptr, osg::Vec3f(1.f, 1.f, 1.f), 0.1f, 0.40f, false);
+        mCrosshairSpell->setStretch(100.f);
+        mCrosshairSpell->setWidth(0.1f);
+        mCrosshairSpell->setOffset(15.f);
+        mCrosshairSpell->show();
     }
 
     VRAnimation::~VRAnimation() 
@@ -513,6 +534,112 @@ namespace MWVR
 
         for (auto& controller : mVrControllers)
             controller.second->onTrackingUpdated(manager, predictedDisplayTime);
+    }
+
+    void VRAnimation::updateCrosshairs()
+    {
+        mCrosshairAmmo->hide();
+        mCrosshairSpell->hide();
+        mCrosshairThrown->hide();
+
+        if (MWBase::Environment::get().getWindowManager()->isGuiMode())
+            return;
+
+        if (VR::getKBMouseModeActive())
+        {
+        }
+        else
+        {
+            if (isArrowAttached())
+            {
+                mCrosshairAmmo->setParent(getArrowBone());
+                mCrosshairAmmo->show();
+            }
+            else
+            {
+                mCrosshairAmmo->hide();
+                mCrosshairAmmo->setParent(nullptr);
+            }
+
+
+            const MWWorld::Class& cls = mPtr.getClass();
+            MWWorld::InventoryStore& inv = cls.getInventoryStore(mPtr);
+            MWMechanics::CreatureStats& stats = cls.getCreatureStats(mPtr);
+
+            mCrosshairSpell->hide();
+            mCrosshairSpell->setParent(nullptr);
+            mCrosshairThrown->hide();
+            mCrosshairThrown->setParent(nullptr);
+
+            if (stats.getDrawState() == MWMechanics::DrawState::Spell)
+            {
+                auto selectedSpell = MWBase::Environment::get().getWindowManager()->getSelectedSpell();;
+                auto world = MWBase::Environment::get().getWorld();
+                bool isMagicItem = false;
+
+                if (selectedSpell.empty())
+                {
+                    if (inv.getSelectedEnchantItem() != inv.end())
+                    {
+                        const MWWorld::Ptr& enchantItem = *inv.getSelectedEnchantItem();
+                        selectedSpell = enchantItem.getClass().getEnchantment(enchantItem);
+                        isMagicItem = true;
+                    }
+                }
+
+                const MWWorld::ESMStore& store = world->getStore();
+                const ESM::EffectList* effectList = nullptr;
+                if (isMagicItem)
+                {
+                    const ESM::Enchantment* enchantment = store.get<ESM::Enchantment>().find(selectedSpell);
+                    if (enchantment)
+                        effectList = &enchantment->mEffects;
+                }
+                else
+                {
+                    const ESM::Spell* spell = store.get<ESM::Spell>().find(selectedSpell);
+                    if (spell)
+                        effectList = &spell->mEffects;
+                }
+
+                int rangeType = ESM::RT_Self;
+                if (effectList)
+                {
+                    for (auto& effect : effectList->mList)
+                    {
+                        rangeType = std::max(rangeType, effect.mRange);
+                    }
+                }
+
+                if (rangeType > 0)
+                {
+                    mCrosshairSpell->setParent(mWeaponDirectionTransform);
+                    mCrosshairSpell->show();
+
+                    if (rangeType == 1)
+                        mCrosshairSpell->setStretch(25.f);
+                    else if (rangeType == 2)
+                        mCrosshairSpell->setStretch(100.f);
+                }
+
+            }
+            else if (stats.getDrawState() == MWMechanics::DrawState::Weapon)
+            {
+                // TODO: Should probably create an accessor for Slot_CarriedRight's WeaponType so this verbose code
+                // doens't have to be repeated everywhere.
+                MWWorld::ConstContainerStoreIterator weapon = inv.getSlot(MWWorld::InventoryStore::Slot_CarriedRight);
+                if (weapon != inv.end())
+                {
+                    int type = weapon->get<ESM::Weapon>()->mBase->mData.mType;
+                    ESM::WeaponType::Class weapclass = MWMechanics::getWeaponType(type)->mWeaponClass;
+                    if (weapclass == ESM::WeaponType::Thrown)
+                    {
+                        mCrosshairThrown->setParent(mWeaponDirectionTransform);
+                        mCrosshairThrown->show();
+                    }
+                }
+            }
+        }
     }
 
     osg::Vec3f VRAnimation::runAnimation(float timepassed)

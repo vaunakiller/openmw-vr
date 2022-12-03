@@ -501,6 +501,8 @@ public:
 
     virtual void removeFromScene();
 
+    virtual void updateCrosshairs() {};
+
 private:
     Animation(const Animation&);
     void operator=(Animation&);
