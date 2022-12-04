@@ -7,7 +7,7 @@
 #include <components/vr/trackinglistener.hpp>
 
 #include  <osg/ref_ptr>
-#include  <osg/node>
+#include  <osg/Node>
 
 #include <memory>
 
