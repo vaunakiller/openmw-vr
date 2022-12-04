@@ -356,6 +356,8 @@ namespace MWVR
         // The player model needs to be pushed back a little to make sure the player's view point is naturally protruding 
         // Pushing the camera forward instead would produce an unnatural extra movement when rotating the player model.
         , mModelOffset(new osg::MatrixTransform(osg::Matrix::translate(osg::Vec3(0, -15, 0))))
+        , mCrosshairsEnabled(false)
+        , mSceneRoot(sceneRoot)
         , mWorldHeadPath(VR::stringToVRPath("/world/user/head/input/pose"))
     {
         for (int i = 0; i < 2; i++)
@@ -397,26 +399,6 @@ namespace MWVR
             auto path = VR::stringToVRPath("/world/user/hand/left/input/aim/pose");
             mVrControllers.emplace("bip01 l forearm", std::make_unique<TrackingController>(path, topLevelPath, offset, true));
         }
-
-
-        mCrosshairAmmo = std::make_unique<Crosshair>(nullptr, osg::Vec3f(0.66f, 1.f, 0.66f), 0.1f, 0.40f, false);
-        mCrosshairAmmo->setStretch(100.f);
-        mCrosshairAmmo->setWidth(0.1f);
-        mCrosshairAmmo->setOffset(15.f);
-        mCrosshairAmmo->show();
-        mCrosshairThrown = std::make_unique<Crosshair>(nullptr, osg::Vec3f(0.66f, 0.66f, 1.f), 0.1f, 0.40f, false);
-        mCrosshairThrown->setStretch(100.f);
-        mCrosshairThrown->setWidth(0.1f);
-        mCrosshairThrown->setOffset(15.f);
-        mCrosshairThrown->show();
-        mCrosshairSpell = std::make_unique<Crosshair>(nullptr, osg::Vec3f(1.f, 1.f, 1.f), 0.1f, 0.40f, false);
-        mCrosshairSpell->setStretch(100.f);
-        mCrosshairSpell->setWidth(0.1f);
-        mCrosshairSpell->setOffset(15.f);
-        mCrosshairSpell->show();
-
-        mKBMouseCrosshairTransform = new VR::TrackingTransform(mWorldHeadPath);
-        sceneRoot->addChild(mKBMouseCrosshairTransform);
     }
 
     VRAnimation::~VRAnimation() 
@@ -543,6 +525,9 @@ namespace MWVR
 
     void VRAnimation::updateCrosshairs()
     {
+        if (!mCrosshairsEnabled)
+            return;
+
         mCrosshairAmmo->hide();
         mCrosshairSpell->hide();
         mCrosshairThrown->hide();
@@ -750,5 +735,44 @@ namespace MWVR
         mLeftIndexFingerControllers[1]->setEnabled(left);
         mRightIndexFingerControllers[0]->setEnabled(right);
         mRightIndexFingerControllers[1]->setEnabled(right);
+    }
+
+    void VRAnimation::setEnableCrosshairs(bool enable)
+    {
+        if (enable == mCrosshairsEnabled)
+            return;
+
+        mCrosshairsEnabled = enable;
+
+        if (enable)
+        {
+            mCrosshairAmmo = std::make_unique<Crosshair>(nullptr, osg::Vec3f(0.66f, 1.f, 0.66f), 0.1f, 0.40f, false);
+            mCrosshairAmmo->setStretch(100.f);
+            mCrosshairAmmo->setWidth(0.1f);
+            mCrosshairAmmo->setOffset(15.f);
+            mCrosshairAmmo->show();
+            mCrosshairThrown = std::make_unique<Crosshair>(nullptr, osg::Vec3f(0.66f, 0.66f, 1.f), 0.1f, 0.40f, false);
+            mCrosshairThrown->setStretch(100.f);
+            mCrosshairThrown->setWidth(0.1f);
+            mCrosshairThrown->setOffset(15.f);
+            mCrosshairThrown->show();
+            mCrosshairSpell = std::make_unique<Crosshair>(nullptr, osg::Vec3f(1.f, 1.f, 1.f), 0.1f, 0.40f, false);
+            mCrosshairSpell->setStretch(100.f);
+            mCrosshairSpell->setWidth(0.1f);
+            mCrosshairSpell->setOffset(15.f);
+            mCrosshairSpell->show();
+
+            mKBMouseCrosshairTransform = new VR::TrackingTransform(mWorldHeadPath);
+            mSceneRoot->addChild(mKBMouseCrosshairTransform);
+        }
+        else
+        {
+            mCrosshairAmmo = nullptr;
+            mCrosshairThrown = nullptr;
+            mCrosshairSpell = nullptr;
+
+            mSceneRoot->removeChild(mKBMouseCrosshairTransform);
+            mKBMouseCrosshairTransform = nullptr;
+        }
     }
 }

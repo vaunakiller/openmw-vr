@@ -57,6 +57,8 @@ namespace MWVR
         /// Enable pointers
         void enablePointers(bool left, bool right);
 
+        void setEnableCrosshairs(bool enable);
+
     protected:
 
         float getVelocity(const std::string& groupname) const override;
@@ -74,10 +76,13 @@ namespace MWVR
         osg::ref_ptr<osg::MatrixTransform> mModelOffset;
         osg::ref_ptr<osg::MatrixTransform> mWeaponDirectionTransform;
         osg::ref_ptr<osg::MatrixTransform> mWeaponPointerTransform;
+
+        bool mCrosshairsEnabled;
         std::unique_ptr<MWVR::Crosshair> mCrosshairAmmo;
         std::unique_ptr<MWVR::Crosshair> mCrosshairThrown;
         std::unique_ptr<MWVR::Crosshair> mCrosshairSpell;
         osg::ref_ptr<osg::Transform> mKBMouseCrosshairTransform;
+        osg::ref_ptr<osg::Group> mSceneRoot;
 
         VR::VRPath mWorldHeadPath;
     };

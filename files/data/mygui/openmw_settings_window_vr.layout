@@ -961,6 +961,17 @@
                             </Widget>
                         </Widget>
                         
+                        <Widget type="HBox" skin="" position="14 334 260 24">
+                            <Widget type="AutoSizedButton" skin="MW_Button" position="0 0 24 24" align="Left Top">
+                                <UserString key="SettingCategory" value="VR"/>
+                                <UserString key="SettingName" value="show 3D crosshairs"/>
+                                <UserString key="SettingType" value="CheckButton"/>
+                            </Widget>
+                            <Widget type="AutoSizedTextBox" skin="SandText" position="28 4 95 16" align="Left Top">
+                                <Property key="Caption" value="Show 3D Crosshairs"/>
+                            </Widget>
+                        </Widget>
+                        
                     </Widget>
                     <Widget type="TabItem">
                         <Property key="Caption" value="  Misc  "/>

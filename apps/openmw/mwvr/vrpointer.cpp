@@ -358,6 +358,7 @@ namespace MWVR
 
     Crosshair::~Crosshair()
     {
+        hide();
     }
 
     void Crosshair::hide()

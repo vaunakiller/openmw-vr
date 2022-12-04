@@ -1274,6 +1274,7 @@ namespace MWRender
     {
 #ifdef USE_OPENXR
         mPlayerAnimation = new MWVR::VRAnimation(player, player.getRefData().getBaseNode(), mResourceSystem, false, mSceneRoot);
+        static_cast<MWVR::VRAnimation*>(mPlayerAnimation.get())->setEnableCrosshairs(Settings::Manager::getBool("show 3D crosshairs", "VR"));
 #else
         mPlayerAnimation = new NpcAnimation(player, player.getRefData().getBaseNode(), mResourceSystem, 0, NpcAnimation::VM_Normal,
                                                 mFirstPersonFieldOfView);
@@ -1500,6 +1501,10 @@ namespace MWRender
                     if (auto* hud = MWBase::Environment::get().getWindowManager()->getPostProcessorHud())
                         hud->setVisible(false);
                 }
+            }
+            else if (it->first == "VR" && it->second == "show 3D crosshairs")
+            {
+                static_cast<MWVR::VRAnimation*>(mPlayerAnimation.get())->setEnableCrosshairs(Settings::Manager::getBool("show 3D crosshairs", "VR"));
             }
         }
 
