@@ -4,6 +4,7 @@
 #include "../mwrender/npcanimation.hpp"
 #include "../mwrender/renderingmanager.hpp"
 #include <components/vr/trackinglistener.hpp>
+#include <components/vr/trackingpath.hpp>
 
 #include <osg/MatrixTransform>
 
@@ -31,7 +32,7 @@ namespace MWVR
          * @param xrSession        The XR session that shall be used to track limbs
          */
         VRAnimation(const MWWorld::Ptr& ptr, osg::ref_ptr<osg::Group> parentNode, Resource::ResourceSystem* resourceSystem,
-            bool disableSounds);
+            bool disableSounds, osg::ref_ptr<osg::Group> sceneRoot);
         virtual ~VRAnimation();
 
         /// Overridden to always be false
@@ -76,6 +77,9 @@ namespace MWVR
         std::unique_ptr<MWVR::Crosshair> mCrosshairAmmo;
         std::unique_ptr<MWVR::Crosshair> mCrosshairThrown;
         std::unique_ptr<MWVR::Crosshair> mCrosshairSpell;
+        osg::ref_ptr<osg::Transform> mKBMouseCrosshairTransform;
+
+        VR::VRPath mWorldHeadPath;
     };
 
 }

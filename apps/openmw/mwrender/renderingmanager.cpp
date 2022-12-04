@@ -1273,7 +1273,7 @@ namespace MWRender
     void RenderingManager::renderPlayer(const MWWorld::Ptr &player)
     {
 #ifdef USE_OPENXR
-        mPlayerAnimation = new MWVR::VRAnimation(player, player.getRefData().getBaseNode(), mResourceSystem, false);
+        mPlayerAnimation = new MWVR::VRAnimation(player, player.getRefData().getBaseNode(), mResourceSystem, false, mSceneRoot);
 #else
         mPlayerAnimation = new NpcAnimation(player, player.getRefData().getBaseNode(), mResourceSystem, 0, NpcAnimation::VM_Normal,
                                                 mFirstPersonFieldOfView);

@@ -351,6 +351,7 @@ namespace MWVR
     {
         mTransform->addChild(mGeometry);
         mTransform->setAttitude(osg::Quat(0, 0, 0, 1));
+        mTransform->setNodeMask(MWRender::Mask_Pointer);
 
         updateMatrix();
     }

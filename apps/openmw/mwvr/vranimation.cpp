@@ -27,6 +27,7 @@
 #include <components/misc/constants.hpp>
 
 #include <components/vr/trackingmanager.hpp>
+#include <components/vr/trackingtransform.hpp>
 #include <components/vr/session.hpp>
 #include <components/vr/vr.hpp>
 
@@ -346,7 +347,7 @@ namespace MWVR
 
     VRAnimation::VRAnimation(
         const MWWorld::Ptr& ptr, osg::ref_ptr<osg::Group> parentNode, Resource::ResourceSystem* resourceSystem,
-        bool disableSounds)
+        bool disableSounds, osg::ref_ptr<osg::Group> sceneRoot)
         // Note that i let it construct as 3rd person and then later update it to VM_VRFirstPerson
         // when the character controller updates
         : MWRender::NpcAnimation(ptr, parentNode, resourceSystem, disableSounds, VM_Normal, 55.f)
@@ -355,6 +356,7 @@ namespace MWVR
         // The player model needs to be pushed back a little to make sure the player's view point is naturally protruding 
         // Pushing the camera forward instead would produce an unnatural extra movement when rotating the player model.
         , mModelOffset(new osg::MatrixTransform(osg::Matrix::translate(osg::Vec3(0, -15, 0))))
+        , mWorldHeadPath(VR::stringToVRPath("/world/user/head/input/pose"))
     {
         for (int i = 0; i < 2; i++)
         {
@@ -412,6 +414,9 @@ namespace MWVR
         mCrosshairSpell->setWidth(0.1f);
         mCrosshairSpell->setOffset(15.f);
         mCrosshairSpell->show();
+
+        mKBMouseCrosshairTransform = new VR::TrackingTransform(mWorldHeadPath);
+        sceneRoot->addChild(mKBMouseCrosshairTransform);
     }
 
     VRAnimation::~VRAnimation() 
@@ -491,7 +496,7 @@ namespace MWVR
         if (mSkeleton)
             mSkeleton->markBoneMatriceDirty();
 
-        auto tp = manager.locate(VR::stringToVRPath("/world/user/head/input/pose"), predictedDisplayTime);
+        auto tp = manager.locate(mWorldHeadPath, predictedDisplayTime);
 
         if (!!tp.status)
         {
@@ -547,96 +552,125 @@ namespace MWVR
 
         if (VR::getKBMouseModeActive())
         {
+
         }
-        else
+
+        if (isArrowAttached())
         {
-            if (isArrowAttached())
+            if (VR::getKBMouseModeActive())
             {
-                mCrosshairAmmo->setParent(getArrowBone());
-                mCrosshairAmmo->show();
+                mCrosshairAmmo->setParent(mKBMouseCrosshairTransform);
+                mCrosshairAmmo->setOffset(100.f);
+                mCrosshairAmmo->setStretch(200.f);
             }
             else
             {
-                mCrosshairAmmo->hide();
-                mCrosshairAmmo->setParent(nullptr);
+                mCrosshairAmmo->setParent(getArrowBone());
+                mCrosshairAmmo->setStretch(100.f);
+                mCrosshairAmmo->setOffset(15.f);
+            }
+            mCrosshairAmmo->show();
+        }
+        else
+        {
+            mCrosshairAmmo->hide();
+            mCrosshairAmmo->setParent(nullptr);
+        }
+
+        const MWWorld::Class& cls = mPtr.getClass();
+        MWWorld::InventoryStore& inv = cls.getInventoryStore(mPtr);
+        MWMechanics::CreatureStats& stats = cls.getCreatureStats(mPtr);
+
+        mCrosshairSpell->hide();
+        mCrosshairSpell->setParent(nullptr);
+        mCrosshairThrown->hide();
+        mCrosshairThrown->setParent(nullptr);
+
+        if (stats.getDrawState() == MWMechanics::DrawState::Spell)
+        {
+            auto selectedSpell = MWBase::Environment::get().getWindowManager()->getSelectedSpell();;
+            auto world = MWBase::Environment::get().getWorld();
+            bool isMagicItem = false;
+
+            if (selectedSpell.empty())
+            {
+                if (inv.getSelectedEnchantItem() != inv.end())
+                {
+                    const MWWorld::Ptr& enchantItem = *inv.getSelectedEnchantItem();
+                    selectedSpell = enchantItem.getClass().getEnchantment(enchantItem);
+                    isMagicItem = true;
+                }
             }
 
-
-            const MWWorld::Class& cls = mPtr.getClass();
-            MWWorld::InventoryStore& inv = cls.getInventoryStore(mPtr);
-            MWMechanics::CreatureStats& stats = cls.getCreatureStats(mPtr);
-
-            mCrosshairSpell->hide();
-            mCrosshairSpell->setParent(nullptr);
-            mCrosshairThrown->hide();
-            mCrosshairThrown->setParent(nullptr);
-
-            if (stats.getDrawState() == MWMechanics::DrawState::Spell)
+            const MWWorld::ESMStore& store = world->getStore();
+            const ESM::EffectList* effectList = nullptr;
+            if (isMagicItem)
             {
-                auto selectedSpell = MWBase::Environment::get().getWindowManager()->getSelectedSpell();;
-                auto world = MWBase::Environment::get().getWorld();
-                bool isMagicItem = false;
+                const ESM::Enchantment* enchantment = store.get<ESM::Enchantment>().find(selectedSpell);
+                if (enchantment)
+                    effectList = &enchantment->mEffects;
+            }
+            else
+            {
+                const ESM::Spell* spell = store.get<ESM::Spell>().find(selectedSpell);
+                if (spell)
+                    effectList = &spell->mEffects;
+            }
 
-                if (selectedSpell.empty())
+            int rangeType = ESM::RT_Self;
+            if (effectList)
+            {
+                for (auto& effect : effectList->mList)
                 {
-                    if (inv.getSelectedEnchantItem() != inv.end())
-                    {
-                        const MWWorld::Ptr& enchantItem = *inv.getSelectedEnchantItem();
-                        selectedSpell = enchantItem.getClass().getEnchantment(enchantItem);
-                        isMagicItem = true;
-                    }
+                    rangeType = std::max(rangeType, effect.mRange);
                 }
+            }
 
-                const MWWorld::ESMStore& store = world->getStore();
-                const ESM::EffectList* effectList = nullptr;
-                if (isMagicItem)
+            if (rangeType > 0)
+            {
+                if (VR::getKBMouseModeActive())
                 {
-                    const ESM::Enchantment* enchantment = store.get<ESM::Enchantment>().find(selectedSpell);
-                    if (enchantment)
-                        effectList = &enchantment->mEffects;
+                    mCrosshairSpell->setParent(mKBMouseCrosshairTransform);
+                    mCrosshairSpell->setOffset(100.f);
+                    mCrosshairSpell->setStretch(200.f);
                 }
                 else
                 {
-                    const ESM::Spell* spell = store.get<ESM::Spell>().find(selectedSpell);
-                    if (spell)
-                        effectList = &spell->mEffects;
-                }
-
-                int rangeType = ESM::RT_Self;
-                if (effectList)
-                {
-                    for (auto& effect : effectList->mList)
-                    {
-                        rangeType = std::max(rangeType, effect.mRange);
-                    }
-                }
-
-                if (rangeType > 0)
-                {
                     mCrosshairSpell->setParent(mWeaponDirectionTransform);
-                    mCrosshairSpell->show();
-
                     if (rangeType == 1)
                         mCrosshairSpell->setStretch(25.f);
                     else if (rangeType == 2)
                         mCrosshairSpell->setStretch(100.f);
+                    mCrosshairSpell->setOffset(15.f);
                 }
-
+                mCrosshairSpell->show();
             }
-            else if (stats.getDrawState() == MWMechanics::DrawState::Weapon)
+
+        }
+        else if (stats.getDrawState() == MWMechanics::DrawState::Weapon)
+        {
+            // TODO: Should probably create an accessor for Slot_CarriedRight's WeaponType so this verbose code
+            // doens't have to be repeated everywhere.
+            MWWorld::ConstContainerStoreIterator weapon = inv.getSlot(MWWorld::InventoryStore::Slot_CarriedRight);
+            if (weapon != inv.end())
             {
-                // TODO: Should probably create an accessor for Slot_CarriedRight's WeaponType so this verbose code
-                // doens't have to be repeated everywhere.
-                MWWorld::ConstContainerStoreIterator weapon = inv.getSlot(MWWorld::InventoryStore::Slot_CarriedRight);
-                if (weapon != inv.end())
+                int type = weapon->get<ESM::Weapon>()->mBase->mData.mType;
+                ESM::WeaponType::Class weapclass = MWMechanics::getWeaponType(type)->mWeaponClass;
+                if (weapclass == ESM::WeaponType::Thrown)
                 {
-                    int type = weapon->get<ESM::Weapon>()->mBase->mData.mType;
-                    ESM::WeaponType::Class weapclass = MWMechanics::getWeaponType(type)->mWeaponClass;
-                    if (weapclass == ESM::WeaponType::Thrown)
+                    if (VR::getKBMouseModeActive())
+                    {
+                        mCrosshairThrown->setParent(mKBMouseCrosshairTransform);
+                        mCrosshairThrown->setOffset(100.f);
+                        mCrosshairThrown->setStretch(200.f);
+                    }
+                    else
                     {
                         mCrosshairThrown->setParent(mWeaponDirectionTransform);
-                        mCrosshairThrown->show();
+                        mCrosshairThrown->setStretch(100.f);
+                        mCrosshairThrown->setOffset(15.f);
                     }
+                    mCrosshairThrown->show();
                 }
             }
         }
