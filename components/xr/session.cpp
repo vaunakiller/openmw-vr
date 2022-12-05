@@ -401,6 +401,7 @@ namespace XR
             mAppShouldSyncFrameLoop = true;
             mAppShouldReadInput = true;
             mXrSessionShouldStop = false;
+            requestRecenter(true);
             break;
         }
         default:
