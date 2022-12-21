@@ -189,6 +189,11 @@ namespace MWVR
         {
             mCrosshair->hide();
             MWVR::VRGUIManager::instance().updateFocus(nullptr, osg::Vec3(0, 0, 0));
+
+            mPointerTarget = nullptr;
+            mPointerRay.mHit = false;
+            mPointerRay.mHitNode = nullptr;
+
             return;
         }
 

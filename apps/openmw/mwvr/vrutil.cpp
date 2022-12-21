@@ -24,7 +24,11 @@ namespace MWVR
         {
             auto* pointer = MWVR::VRInputManager::instance().vrPointer();
             if (pointer)
-                return std::pair<MWWorld::Ptr, float>(pointer->getPointerRay().mHitObject, pointer->distanceToPointerTarget());
+            {
+                const auto& ray = pointer->getPointerRay();
+                if(ray.mHit && ray.mHitNode)
+                    return std::pair<MWWorld::Ptr, float>(ray.mHitObject, pointer->distanceToPointerTarget());
+            }
             return std::pair<MWWorld::Ptr, float>();
         }
 
