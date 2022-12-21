@@ -1369,7 +1369,7 @@ namespace MWVR
                 mStationaryPose = tp;
 
                 mHUDKeyboardPose = tp;
-                mHUDKeyboardPose.pose.position += mHUDKeyboardPose.pose.orientation * Stereo::Position::fromMWUnits(osg::Vec3(0, 35, -35));
+                mHUDKeyboardPose.pose.position += mHUDKeyboardPose.pose.orientation * Stereo::Position::fromMWUnits(osg::Vec3(0, 35, -40));
                 // Tilt the keyboard slightly for easier typing.
                 mHUDKeyboardPose.pose.orientation = osg::Quat(osg::PI_4 / 2.f, osg::Vec3(-1, 0, 0)) * mHUDKeyboardPose.pose.orientation;
             }
