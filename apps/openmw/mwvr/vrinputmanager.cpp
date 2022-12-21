@@ -418,7 +418,6 @@ namespace MWVR
         //mGuiCursorEnabled = false;
         MWInput::InputManager::changeInputMode(mode);
         MWBase::Environment::get().getWindowManager()->showCrosshair(false);
-        MWBase::Environment::get().getWindowManager()->setCursorVisible(false);
     }
 
     void VRInputManager::update(
