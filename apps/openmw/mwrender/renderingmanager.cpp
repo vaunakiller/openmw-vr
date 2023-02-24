@@ -1502,9 +1502,14 @@ namespace MWRender
                         hud->setVisible(false);
                 }
             }
-            else if (it->first == "VR" && it->second == "show 3D crosshairs")
+            else if (it->first == "VR")
             {
-                static_cast<MWVR::VRAnimation*>(mPlayerAnimation.get())->setEnableCrosshairs(Settings::Manager::getBool("show 3D crosshairs", "VR"));
+                if (it->second == "show 3D crosshairs")
+                {
+#ifdef USE_OPENXR
+                    static_cast<MWVR::VRAnimation*>(mPlayerAnimation.get())->setEnableCrosshairs(Settings::Manager::getBool("show 3D crosshairs", "VR"));
+#endif
+                }
             }
         }
 

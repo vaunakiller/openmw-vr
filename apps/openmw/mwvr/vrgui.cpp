@@ -999,6 +999,8 @@ namespace MWVR
         auto* layer = widget->mMainWidget->getLayer();
         auto name = layer->getName();
 
+        Log(Debug::Debug) << "SetVisible: " << name << ": " << visible;
+
         if (layerBlacklist.find(name) != layerBlacklist.end())
         {
             // Never pick an invisible layer
@@ -1056,6 +1058,7 @@ namespace MWVR
         mFocusLayer = layer;
         if (mFocusLayer)
         {
+            Log(Debug::Debug) << "setFocusLayer: " << mFocusLayer->mLayerName;
             if (!mFocusLayer->mWidgets.empty())
             {
                 setPick(mFocusLayer->mWidgets.front(), true);
@@ -1205,7 +1208,6 @@ namespace MWVR
 
         mGuiCursor.x() = (int)x;
         mGuiCursor.y() = (int)y;
-
         MyGUI::InputManager::getInstance().injectMouseMove((int)x, (int)y, 0);
         MWBase::Environment::get().getWindowManager()->setCursorActive(true);
 

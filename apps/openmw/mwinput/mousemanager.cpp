@@ -73,7 +73,9 @@ namespace MWInput
         if (VR::getKBMouseModeActive())
         {
             float x = arg.xrel * mCameraSensitivity * (mInvertX ? -1 : 1) / 256.f;
+#ifdef USE_OPENXR
             MWVR::VRInputManager::instance().mouseMove(x);
+#endif
         }
     }
 
@@ -207,7 +209,7 @@ namespace MWInput
              && !MWBase::Environment::get().getWindowManager()->isConsoleMode();
 
         bool wasRelative = mInputWrapper->getMouseRelative();
-        bool isRelative = VR::getKBMouseModeActive() || !MWBase::Environment::get().getWindowManager()->isGuiMode();
+        bool isRelative = (VR::getVR() && VR::getKBMouseModeActive()) || !MWBase::Environment::get().getWindowManager()->isGuiMode();
 
         // don't keep the pointer away from the window edge in gui mode
         // stop using raw mouse motions and switch to system cursor movements

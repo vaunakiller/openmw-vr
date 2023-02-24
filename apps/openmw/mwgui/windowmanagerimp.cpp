@@ -2382,7 +2382,8 @@ namespace MWGui
 
     void WindowManager::viewerTraversals()
     {
-        VR::Viewer::instance().newFrame();
+        if (VR::getVR())
+            VR::Viewer::instance().newFrame();
         mViewer->eventTraversal();
         mViewer->updateTraversal();
         mViewer->renderingTraversals();
