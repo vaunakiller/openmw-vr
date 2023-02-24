@@ -161,6 +161,7 @@ namespace MWRender
     void Camera::setPose(const Stereo::Pose& pose)
     {
         mTrackedPose = pose;
+        mPosition = mTrackedPose.position.asMWUnits();
         updateCamera();
     }
     
