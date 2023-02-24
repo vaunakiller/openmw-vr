@@ -66,11 +66,11 @@ std::string Manager::load(const Files::ConfigurationManager& cfgMgr, bool loadEd
 
     if (VR::getVR())
     {
-        const std::string overridesFile = (paths.front() / "settings-overrides-vr.cfg").string();
+        const std::string overridesFile = (paths.front() / "overrides.bin").string();
         if (boost::filesystem::exists(overridesFile))
             loadOverrides(overridesFile);
         else
-            throw std::runtime_error("No settings overrides file found! Make sure the file \"settings-overrides-vr.cfg\" was properly installed.");
+            throw std::runtime_error("No settings overrides file found! Make sure the file \"overrides.bin\" was properly installed.");
     }
 
     return settingspath;
@@ -79,7 +79,7 @@ std::string Manager::load(const Files::ConfigurationManager& cfgMgr, bool loadEd
 void Manager::loadOverrides(const std::string& file)
 {
     SettingsFileParser parser;
-    parser.loadSettingsFile(file, mSettingsOverrides);
+    parser.loadSettingsFile(file, mSettingsOverrides, true);
 }
 
 void Manager::saveUser(const std::string &file)

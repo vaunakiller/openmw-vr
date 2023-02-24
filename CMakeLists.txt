@@ -528,8 +528,8 @@ endif (APPLE)
 pack_resource_file(${OpenMW_SOURCE_DIR}/files/settings-default.cfg
     "${OpenMW_BINARY_DIR}" "defaults.bin")
 
-configure_resource_file(${OpenMW_SOURCE_DIR}/files/settings-overrides-vr.cfg
-    "${OpenMW_BINARY_DIR}" "settings-overrides-vr.cfg")
+pack_resource_file(${OpenMW_SOURCE_DIR}/files/settings-overrides-vr.cfg
+    "${OpenMW_BINARY_DIR}" "overrides.bin")
 
 configure_resource_file(${OpenMW_SOURCE_DIR}/files/openmw.appdata.xml
     "${OpenMW_BINARY_DIR}" "openmw.appdata.xml")
@@ -958,19 +958,20 @@ elseif(NOT APPLE)
         INSTALL(FILES "${OpenMW_SOURCE_DIR}/README.md" DESTINATION "." RENAME "README.txt")
         INSTALL(FILES "${OpenMW_SOURCE_DIR}/LICENSE" DESTINATION "." RENAME "LICENSE.txt")
         INSTALL(FILES "${INSTALL_SOURCE}/defaults.bin" DESTINATION ".")
+        INSTALL(FILES "${INSTALL_SOURCE}/overrides.bin" DESTINATION ".")
         INSTALL(FILES "${INSTALL_SOURCE}/gamecontrollerdb.txt" DESTINATION ".")
         INSTALL(FILES "${INSTALL_SOURCE}/xrcontrollersuggestions.xml" DESTINATION ".")
 
         INSTALL(DIRECTORY "${INSTALL_SOURCE}/resources" DESTINATION ".")
 
         SET(CPACK_GENERATOR "NSIS")
-        SET(CPACK_PACKAGE_NAME "OpenMW")
+        SET(CPACK_PACKAGE_NAME "OpenMW-VR")
         SET(CPACK_PACKAGE_VENDOR "OpenMW.org")
         SET(CPACK_PACKAGE_VERSION ${OPENMW_VERSION})
         SET(CPACK_PACKAGE_VERSION_MAJOR ${OPENMW_VERSION_MAJOR})
         SET(CPACK_PACKAGE_VERSION_MINOR ${OPENMW_VERSION_MINOR})
         SET(CPACK_PACKAGE_VERSION_PATCH ${OPENMW_VERSION_RELEASE})
-        SET(CPACK_PACKAGE_EXECUTABLES "openmw;OpenMW")
+        SET(CPACK_PACKAGE_EXECUTABLES "openmw_vr;OpenMW VR")
         IF(BUILD_LAUNCHER)
             SET(CPACK_PACKAGE_EXECUTABLES "${CPACK_PACKAGE_EXECUTABLES};openmw-launcher;OpenMW Launcher")
         ENDIF(BUILD_LAUNCHER)
@@ -1069,6 +1070,7 @@ elseif(NOT APPLE)
         ENDIF(BUILD_OPENCS)
 
         # Install global configuration files
+        INSTALL(FILES "${INSTALL_SOURCE}/overrides.bin" DESTINATION "${SYSCONFDIR}" COMPONENT "openmw")
         INSTALL(FILES "${INSTALL_SOURCE}/defaults.bin" DESTINATION "${SYSCONFDIR}" COMPONENT "openmw")
         INSTALL(FILES "${INSTALL_SOURCE}/openmw.cfg.install" DESTINATION "${SYSCONFDIR}" RENAME "openmw.cfg" COMPONENT "openmw")
         INSTALL(FILES "${INSTALL_SOURCE}/resources/version" DESTINATION "${SYSCONFDIR}" COMPONENT "openmw")
