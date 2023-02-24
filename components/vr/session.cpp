@@ -101,6 +101,7 @@ namespace VR
     void Session::computePlayerScale()
     {
         mPlayerHeight = Stereo::Unit::fromMeters( Settings::Manager::getFloat("player height", "VR") );
+        Log(Debug::Verbose) << "Read player height: " << mPlayerHeight.asMeters();
         mPlayerScale = mCharHeight / mPlayerHeight;
         Log(Debug::Verbose) << "Calculated player scale: " << mPlayerScale;
         requestRecenter(true);
@@ -108,6 +109,7 @@ namespace VR
 
     void Session::setCharHeight(Stereo::Unit height)
     {
+        Log(Debug::Verbose) << "Set char height: " << height.asMeters();
         mCharHeight = height;
         computePlayerScale();
     }
@@ -116,15 +118,20 @@ namespace VR
     {
         if (mTrackerToWorldBinding)
         {
-            mTrackerToWorldBinding->recenter(recenterZ);
+            Log(Debug::Verbose) << "Recentering (recenterZ=" << recenterZ << ")";
             mTrackerToWorldBinding->setEyeLevel(charHeight());
+            mTrackerToWorldBinding->recenter(recenterZ);
         }
+        else
+            Log(Debug::Warning) << "Recenter was requested, but session was not ready";
     }
 
     void Session::instantTransition()
     {
         if (mTrackerToWorldBinding)
             mTrackerToWorldBinding->instantTransition();
+        else
+            Log(Debug::Warning) << "Instant transition was requested, but session was not ready";
     }
 
     VR::StageToWorldBinding& Session::stageToWorldBinding()
