@@ -186,22 +186,14 @@ namespace VR
 
         setupMirrorTexture();
 
-        for (int i : {0, 1})
+        mProjectionLayer = std::make_shared<VR::ProjectionLayer>();
+        for (uint32_t i = 0; i < 2; i++)
         {
-            mColorSwapchain[i].reset(VR::Session::instance().createSwapchain(mFramebufferWidth, mFramebufferHeight, 1, 1, VR::SwapchainUse::Color, i == 0 ? "LeftEye" : "RightEye"));
-            if (mSession->appShouldShareDepthInfo())
-            {
-                // Depth support is buggy or just not supported on some runtimes and has to be guarded.
-                try {
-                    mDepthSwapchain[i].reset(VR::Session::instance().createSwapchain(mFramebufferWidth, mFramebufferHeight, 1, 1, VR::SwapchainUse::Depth, i == 0 ? "LeftEye" : "RightEye"));
-                }
-                catch (std::exception& e)
-                {
-                    Log(Debug::Warning) << "XR_KHR_composition_layer_depth was enabled, but a depth attachment swapchain could not be created. Depth information will not be submitted: " << e.what();
-                    mSession->setAppShouldShareDepthBuffer(false);
-                    mDepthSwapchain[0] = mDepthSwapchain[1] = nullptr;
-                }
-            }
+            mProjectionLayer->views[i].subImage.index = 0;
+            mProjectionLayer->views[i].subImage.width = mFramebufferWidth;
+            mProjectionLayer->views[i].subImage.height = mFramebufferHeight;
+            mProjectionLayer->views[i].subImage.x = 0;
+            mProjectionLayer->views[i].subImage.y = 0;
         }
     }
 
@@ -412,10 +404,47 @@ namespace VR
         }
     }
 
+    void Viewer::setupSwapchains()
+    {
+        for (int i : {0, 1})
+        {
+            mColorSwapchain[i].reset(VR::Session::instance().createSwapchain(mFramebufferWidth, mFramebufferHeight, 1, 1, VR::SwapchainUse::Color, i == 0 ? "LeftEye" : "RightEye"));
+            if (mSession->appShouldShareDepthInfo())
+            {
+                // Depth support is buggy or just not supported on some runtimes and has to be guarded.
+                try {
+                    mDepthSwapchain[i].reset(VR::Session::instance().createSwapchain(mFramebufferWidth, mFramebufferHeight, 1, 1, VR::SwapchainUse::Depth, i == 0 ? "LeftEye" : "RightEye"));
+                }
+                catch (std::exception& e)
+                {
+                    Log(Debug::Warning) << "XR_KHR_composition_layer_depth was enabled, but a depth attachment swapchain could not be created. Depth information will not be submitted: " << e.what();
+                    mSession->setAppShouldShareDepthBuffer(false);
+                    mDepthSwapchain[0] = mDepthSwapchain[1] = nullptr;
+                }
+            }
+        }
+    }
+
     void Viewer::blit(osg::RenderInfo& info)
     {
         auto* state = info.getState();
         auto* gl = osg::GLExtensions::Get(state->getContextID(), false);
+
+        // TODO: This is a hack to check if inappropriate calls to xrCreateSwapchain from the main thread is the issue
+        // The swapchain object should be rewritten to not init xr objects before they are needed, similar to how OSG 
+        // defers initializing opengl objects to the draw thread.
+        // That way this could be part of regular viewer init.
+        if (!mColorSwapchain[0])
+            setupSwapchains();
+        auto projectionLayer = static_cast<VR::ProjectionLayer*>(mDrawFrame.layers[0].get());
+        for (uint32_t i = 0; i < 2; i++)
+        {
+            projectionLayer->views[i].colorSwapchain = mColorSwapchain[i];
+            if (mSession->appShouldShareDepthInfo())
+            {
+                projectionLayer->views[i].depthSwapchain = mDepthSwapchain[i];
+            }
+        }
 
         for (auto i = 0; i < 2; i++)
         {
@@ -498,23 +527,13 @@ namespace VR
                 Log(Debug::Verbose) << "Right View: " << right;
             }
 
-            std::shared_ptr<VR::ProjectionLayer> layer = std::make_shared<VR::ProjectionLayer>();
+            std::shared_ptr<VR::ProjectionLayer> projectionLayer = std::make_shared<VR::ProjectionLayer>(*mProjectionLayer);
+
             for (uint32_t i = 0; i < 2; i++)
             {
-                layer->views[i].colorSwapchain = mColorSwapchain[i];
-                if (mSession->appShouldShareDepthInfo())
-                {
-                    layer->views[i].depthSwapchain = mDepthSwapchain[i];
-                }
-
-                layer->views[i].subImage.index = 0;
-                layer->views[i].subImage.width = mFramebufferWidth;
-                layer->views[i].subImage.height = mFramebufferHeight;
-                layer->views[i].subImage.x = 0;
-                layer->views[i].subImage.y = 0;
-                layer->views[i].view = stageViews[i];
+                projectionLayer->views[i].view = stageViews[i];
             }
-            frame.layers.push_back(layer);
+            frame.layers.push_back(projectionLayer);
             if (!mLayers.empty())
                 frame.layers.insert(frame.layers.end(), mLayers.begin(), mLayers.end());
         }

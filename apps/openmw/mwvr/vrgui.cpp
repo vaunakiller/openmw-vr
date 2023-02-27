@@ -101,15 +101,19 @@ namespace MWVR
 
         bool isTrueHUD(VR::VRPath path)
         {
-            if (!Settings::Manager::getBool("use xr layer for huds", "VR"))
-                return false;
+            // TODO: This uses the RenderToSwapchainNode object, which erroneously makes calls to xrCreateSwapchain from the update thread.
+            // Disable it for now
+            return false;
 
-            return (path == Paths::sHUDTopLeft
-                || path == Paths::sHUDBottomLeft
-                || path == Paths::sHUDBottomRight
-                || path == Paths::sHUDTopRight
-                || path == Paths::sHUDMessage
-                );
+            //if (!Settings::Manager::getBool("use xr layer for huds", "VR"))
+            //    return false;
+
+            //return (path == Paths::sHUDTopLeft
+            //    || path == Paths::sHUDBottomLeft
+            //    || path == Paths::sHUDBottomRight
+            //    || path == Paths::sHUDTopRight
+            //    || path == Paths::sHUDMessage
+            //    );
         }
     }
 
@@ -1289,30 +1293,30 @@ namespace MWVR
     {
         if (predictedDisplayTime == mLastTime)
             return;
-        if(Settings::Manager::getBool("use xr layer for huds", "VR"))
-        {
-            // HUDs are actual HUDS, positioned in View space, and do not need to be located.
-            // TODO: Init once
-            mHUDTopLeftPose.status = VR::TrackingStatus::Good;
-            mHUDTopLeftPose.pose.orientation = osg::Quat(0, 0, 0, 1);
-            mHUDTopLeftPose.pose.position = Stereo::Position::fromMWUnits(-12, 30, 6);
+        //if(Settings::Manager::getBool("use xr layer for huds", "VR"))
+        //{
+        //    // HUDs are actual HUDS, positioned in View space, and do not need to be located.
+        //    // TODO: Init once
+        //    mHUDTopLeftPose.status = VR::TrackingStatus::Good;
+        //    mHUDTopLeftPose.pose.orientation = osg::Quat(0, 0, 0, 1);
+        //    mHUDTopLeftPose.pose.position = Stereo::Position::fromMWUnits(-12, 30, 6);
 
-            mHUDTopRightPose.status = VR::TrackingStatus::Good;
-            mHUDTopRightPose.pose.orientation = osg::Quat(0, 0, 0, 1);
-            mHUDTopRightPose.pose.position = Stereo::Position::fromMWUnits(12, 30, 6);
+        //    mHUDTopRightPose.status = VR::TrackingStatus::Good;
+        //    mHUDTopRightPose.pose.orientation = osg::Quat(0, 0, 0, 1);
+        //    mHUDTopRightPose.pose.position = Stereo::Position::fromMWUnits(12, 30, 6);
 
-            mHUDBottomLeftPose.status = VR::TrackingStatus::Good;
-            mHUDBottomLeftPose.pose.orientation = osg::Quat(0, 0, 0, 1);
-            mHUDBottomLeftPose.pose.position = Stereo::Position::fromMWUnits(-12, 30, -18);
+        //    mHUDBottomLeftPose.status = VR::TrackingStatus::Good;
+        //    mHUDBottomLeftPose.pose.orientation = osg::Quat(0, 0, 0, 1);
+        //    mHUDBottomLeftPose.pose.position = Stereo::Position::fromMWUnits(-12, 30, -18);
 
-            mHUDBottomRightPose.status = VR::TrackingStatus::Good;
-            mHUDBottomRightPose.pose.orientation = osg::Quat(0, 0, 0, 1);
-            mHUDBottomRightPose.pose.position = Stereo::Position::fromMWUnits(12, 30, -18);
+        //    mHUDBottomRightPose.status = VR::TrackingStatus::Good;
+        //    mHUDBottomRightPose.pose.orientation = osg::Quat(0, 0, 0, 1);
+        //    mHUDBottomRightPose.pose.position = Stereo::Position::fromMWUnits(12, 30, -18);
 
-            mHUDMessagePose.status = VR::TrackingStatus::Good;
-            mHUDMessagePose.pose.orientation = osg::Quat(0, 0, 0, 1);
-            mHUDMessagePose.pose.position = Stereo::Position::fromMWUnits(0, 30, -3);
-        }
+        //    mHUDMessagePose.status = VR::TrackingStatus::Good;
+        //    mHUDMessagePose.pose.orientation = osg::Quat(0, 0, 0, 1);
+        //    mHUDMessagePose.pose.position = Stereo::Position::fromMWUnits(0, 30, -3);
+        //}
 
         VR::VRPath leftWrist = VR::stringToVRPath("/world/user/hand/left/input/aim/pose");
         VR::VRPath rightWrist = VR::stringToVRPath("/world/user/hand/right/input/aim/pose");
@@ -1330,7 +1334,7 @@ namespace MWVR
 
         if (!!tp.status)
         {
-            if (!Settings::Manager::getBool("use xr layer for huds", "VR"))
+            //if (!Settings::Manager::getBool("use xr layer for huds", "VR"))
             {
                 mHUDTopLeftPose = tp;
                 mHUDTopLeftPose.pose.position += mHUDTopLeftPose.pose.orientation * Stereo::Position::fromMWUnits(osg::Vec3f(-12, 30, 6));

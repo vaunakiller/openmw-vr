@@ -86,6 +86,7 @@ namespace VR
         osg::ref_ptr<osg::FrameBufferObject> getXrFramebuffer(uint32_t view, osg::State* state);
         void blitXrFramebuffer(osg::State* state, int i);
         void blitMirrorTexture(osg::State* state, int i);
+        void setupSwapchains();
 
     private:
         std::mutex mMutex{};
@@ -118,6 +119,7 @@ namespace VR
 
         std::map<osg::FrameBufferObject*, std::unique_ptr<Stereo::MultiviewFramebufferResolve> > mMultiviewResolve;
 
+        std::shared_ptr<VR::ProjectionLayer> mProjectionLayer;
         std::vector<std::shared_ptr<Layer> > mLayers;
     };
 }
