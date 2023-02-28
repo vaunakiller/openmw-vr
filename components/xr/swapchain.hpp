@@ -15,14 +15,14 @@ namespace XR
     class Swapchain : public VR::Swapchain
     {
     public:
-        Swapchain(XrSwapchain swapchain, std::vector<uint64_t> images, uint32_t width, uint32_t height, uint32_t samples, uint32_t format, uint32_t arraySize, uint32_t textureTarget);
+        using VR::Swapchain::Swapchain;
         ~Swapchain() override;
 
         XrSwapchain xrSwapchain() const { return mXrSwapchain; };
 
     protected:
         //! Acquire a rendering surface from this swapchain
-        uint64_t beginFrame(osg::GraphicsContext* gc) override;
+        void beginFrame(osg::GraphicsContext* gc) override;
 
         //! Release the rendering surface
         void endFrame(osg::GraphicsContext* gc) override;
@@ -30,7 +30,13 @@ namespace XR
         //! Return the xr swapchain
         void* handle() const override { return mXrSwapchain; };
 
+        VR::SwapchainImage* image() override;
+
+        bool mustFlipVertical() const override;
+
     private:
+        void init();
+
         void acquire();
         void wait();
         void release();
@@ -39,8 +45,8 @@ namespace XR
         uint32_t mAcquiredIndex = 0;
         bool mIsAcquired = false;
         bool mIsReady = false;
-        XrSwapchain mXrSwapchain;
-        std::vector<uint64_t> mImages;
+        XrSwapchain mXrSwapchain = nullptr;
+        std::vector<std::unique_ptr<VR::SwapchainImage> > mImages;
     };
 }
 

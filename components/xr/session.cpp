@@ -2,6 +2,7 @@
 #include "instance.hpp"
 #include "debug.hpp"
 #include "typeconversion.hpp"
+#include "swapchain.hpp"
 
 #include <components/vr/trackingsource.hpp>
 #include <components/vr/frame.hpp>
@@ -558,9 +559,9 @@ namespace XR
         }
     }
 
-    VR::Swapchain* Session::createSwapchain(uint32_t width, uint32_t height, uint32_t samples, uint32_t arraySize, VR::SwapchainUse use, const std::string& name)
+    std::shared_ptr<VR::Swapchain> Session::createSwapchain(uint32_t width, uint32_t height, uint32_t samples, uint32_t arraySize, VR::Swapchain::Attachment attachment, const std::string& name)
     {
-        return Instance::instance().platform().createSwapchain(width, height, samples, arraySize, use, name);
+        return std::make_shared<XR::Swapchain>(width, height, samples, arraySize, attachment, name);
     }
 
     bool Session::xrNextEvent(XrEventDataBuffer& eventBuffer)

@@ -75,8 +75,9 @@ namespace VR
         DirectXSharedImage(uint64_t image, uint32_t glTextureTarget, DXGI_FORMAT format, std::shared_ptr<DirectXWGLInterop> wglInterop);
         ~DirectXSharedImage();
 
-        uint64_t beginFrame(osg::GraphicsContext* gc);
+        void beginFrame(osg::GraphicsContext* gc);
         void endFrame(osg::GraphicsContext* gc);
+        uint32_t glImage() const { return mGlTextureName; }
 
     protected:
         std::shared_ptr<DirectXWGLInterop> mWglInterop;
@@ -88,47 +89,6 @@ namespace VR
 
         ID3D11Texture2D* mDxImage;
     };
-
-    DirectXSwapchain::DirectXSwapchain(std::shared_ptr<Swapchain> dxSwapchain, std::shared_ptr<DirectXWGLInterop> wglInterop, uint32_t openGLFormat)
-        : Swapchain(*dxSwapchain)
-        , mDXSwapchain(dxSwapchain)
-        , mWglInterop(wglInterop)
-        , mSharedImages()
-        , mCurrentImage(0)
-    {
-        mMustFlipVertical = true;
-        mFormat = openGLFormat;
-    }
-
-    DirectXSwapchain::~DirectXSwapchain()
-    {
-    }
-
-    uint64_t DirectXSwapchain::beginFrame(osg::GraphicsContext* gc)
-    {
-        mCurrentImage = mDXSwapchain->beginFrame(gc);
-
-        auto it = mSharedImages.find(mCurrentImage);
-        if (it == mSharedImages.end())
-        {
-            it = mSharedImages.emplace(mCurrentImage, std::make_unique<DirectXSharedImage>(mCurrentImage, textureTarget(), static_cast<DXGI_FORMAT>(mDXSwapchain->format()), mWglInterop)).first;
-        }
-
-        return mImage = it->second->beginFrame(gc);
-    }
-
-    void DirectXSwapchain::endFrame(osg::GraphicsContext* gc)
-    {
-        auto it = mSharedImages.find(mCurrentImage);
-        if (it == mSharedImages.end())
-        {
-            throw std::logic_error("Missing directx shared image");
-        }
-
-        it->second->endFrame(gc);
-        mDXSwapchain->endFrame(gc);
-        mImage = 0;
-    }
 
     DirectXSharedImage::DirectXSharedImage(uint64_t image, uint32_t glTextureTarget, DXGI_FORMAT format, std::shared_ptr<DirectXWGLInterop> wglInterop)
         : mWglInterop(wglInterop)
@@ -171,11 +131,10 @@ namespace VR
         mWglInterop->DXUnregisterObject(mDxResourceShareHandle);
     }
 
-    uint64_t DirectXSharedImage::beginFrame(osg::GraphicsContext* gc)
+    void DirectXSharedImage::beginFrame(osg::GraphicsContext* gc)
     {
         if(!mWglInterop->DXLockObject(mDxResourceShareHandle))
             Log(Debug::Verbose) << "DXLockObject failed";
-        return mGlTextureName;
     }
 
     void DirectXSharedImage::endFrame(osg::GraphicsContext* gc)
@@ -389,6 +348,30 @@ namespace VR
         default:
             return 0;
         }
+    }
+
+    SwapchainImageDX::SwapchainImageDX(uint64_t image, uint32_t glTextureTarget, uint64_t dxFormat, std::shared_ptr<DirectXWGLInterop> wglInterop)
+    {
+        mSharedImage = std::make_unique<DirectXSharedImage>(image, glTextureTarget, static_cast<DXGI_FORMAT>(dxFormat), wglInterop);
+    }
+
+    SwapchainImageDX::~SwapchainImageDX()
+    {
+    }
+
+    void SwapchainImageDX::beginFrame(osg::GraphicsContext* gc)
+    {
+        mSharedImage->beginFrame(gc);
+    }
+
+    void SwapchainImageDX::endFrame(osg::GraphicsContext* gc)
+    {
+        mSharedImage->endFrame(gc);
+    }
+
+    uint32_t SwapchainImageDX::glImage() const
+    {
+        return mSharedImage->glImage();
     }
 }
 #endif

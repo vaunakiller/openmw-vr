@@ -419,55 +419,11 @@ namespace XR
         return session;
     }
 
-    std::vector<uint64_t>
-        enumerateSwapchainImagesOpenGL(XrSwapchain swapchain)
+    void Platform::selectSwapchainFormat(VR::Swapchain::Attachment attachment, int64_t& swapchainFormat, GLenum glFormat)
     {
-        XrSwapchainImageOpenGLKHR xrimage{};
-        xrimage.type = XR_TYPE_SWAPCHAIN_IMAGE_OPENGL_KHR;
-    
-        uint32_t imageCount = 0;
-        std::vector<uint64_t> images;
-        std::vector<XrSwapchainImageOpenGLKHR> xrimages;
-        CHECK_XRCMD(xrEnumerateSwapchainImages(swapchain, 0, &imageCount, nullptr));
-        xrimages.resize(imageCount, xrimage);
-        CHECK_XRCMD(xrEnumerateSwapchainImages(swapchain, imageCount, &imageCount, reinterpret_cast<XrSwapchainImageBaseHeader*>(xrimages.data())));
-
-        for (auto& image : xrimages)
-        {
-            images.push_back(image.image);
-        }
-
-        return images;
-    }
-
-#ifdef _WIN32
-    std::vector<uint64_t>
-        enumerateSwapchainImagesDirectX(XrSwapchain swapchain)
-    {
-        XrSwapchainImageD3D11KHR xrimage{};
-        xrimage.type = XR_TYPE_SWAPCHAIN_IMAGE_D3D11_KHR;
-        
-        uint32_t imageCount = 0;
-        std::vector<uint64_t> images;
-        std::vector<XrSwapchainImageD3D11KHR> xrimages;
-        CHECK_XRCMD(xrEnumerateSwapchainImages(swapchain, 0, &imageCount, nullptr));
-        xrimages.resize(imageCount, xrimage);
-        CHECK_XRCMD(xrEnumerateSwapchainImages(swapchain, imageCount, &imageCount, reinterpret_cast<XrSwapchainImageBaseHeader*>(xrimages.data())));
-
-        for (auto& image : xrimages)
-        {
-            images.push_back(reinterpret_cast<uint64_t>(image.texture));
-        }
-
-        return images;
-    }
-#endif
-
-    VR::Swapchain* Platform::createSwapchain(uint32_t width, uint32_t height, uint32_t samples, uint32_t arraySize, VR::SwapchainUse use, const std::string& name)
-    {
-        std::string typeString = use == VR::SwapchainUse::Color ? "color" : "depth";
-        GLenum glFormat = 0;
-        if (use == VR::SwapchainUse::Color)
+        std::string typeString = attachment == VR::Swapchain::Attachment::Color ? "color" : "depth";
+        glFormat = 0;
+        if (attachment == VR::Swapchain::Attachment::Color)
         {
             if (mMWColorFormatsGL.empty())
                 throw std::runtime_error("Could not find a usable runtime color format");
@@ -492,91 +448,79 @@ namespace XR
                 }
             }
 
-            if(std::find(mMWDepthFormatsGL.begin(), mMWDepthFormatsGL.end(), glFormat) == mMWDepthFormatsGL.end())
+            if (std::find(mMWDepthFormatsGL.begin(), mMWDepthFormatsGL.end(), glFormat) == mMWDepthFormatsGL.end())
                 throw std::runtime_error("OpenMW selected an incompatible depth format, cannot submit depth buffers.");
         }
+        Log(Debug::Verbose) << "Selected " << typeString << " format: " << std::dec << glFormat << " (" << std::hex << glFormat << ")" << std::dec;
 
-        XrSwapchainCreateInfo swapchainCreateInfo{};
-        swapchainCreateInfo.type = XR_TYPE_SWAPCHAIN_CREATE_INFO;
-        swapchainCreateInfo.arraySize = arraySize;
-        swapchainCreateInfo.width = width;
-        swapchainCreateInfo.height = height;
-        swapchainCreateInfo.mipCount = 1;
-        swapchainCreateInfo.faceCount = 1;
-        swapchainCreateInfo.format = glFormat;
-        swapchainCreateInfo.usageFlags = 0;
-        if (use == VR::SwapchainUse::Color)
-            swapchainCreateInfo.usageFlags |= XR_SWAPCHAIN_USAGE_COLOR_ATTACHMENT_BIT;
-        else
-            swapchainCreateInfo.usageFlags |= XR_SWAPCHAIN_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT;
+        swapchainFormat = static_cast<int64_t>(glFormat);
 
-        XrSwapchain swapchain = XR_NULL_HANDLE;
-
-        while (samples > 0 && swapchain == XR_NULL_HANDLE)
-        {
-            // Select a swapchain format.
-            Log(Debug::Verbose) << "Selected " << typeString << " format: " << std::dec << swapchainCreateInfo.format << " (" << std::hex << swapchainCreateInfo.format << ")" << std::dec;
 #ifdef XR_USE_GRAPHICS_API_D3D11
-            // Need to translate GL format to DXGI
-            if (KHR_D3D11_enable.enabled())
-            {
-                swapchainCreateInfo.format = VR::GLFormatToDXGIFormat(glFormat);
-                Log(Debug::Verbose) << "Translated format to DXGI format: " << std::dec << swapchainCreateInfo.format << " (" << std::hex << swapchainCreateInfo.format << ")" << std::dec;
-            }
+        // Need to translate GL format to DXGI
+        if (KHR_D3D11_enable.enabled())
+        {
+            auto dxFormat = VR::GLFormatToDXGIFormat(glFormat);
+            Log(Debug::Verbose) << "Translated format to DXGI format: " << std::dec << dxFormat << " (" << std::hex << dxFormat << ")" << std::dec;
+            swapchainFormat = dxFormat;
+        }
+#endif
+    }
+
+    std::vector<std::unique_ptr<VR::SwapchainImage> >
+        enumerateSwapchainImagesOpenGL(XrSwapchain swapchain)
+    {
+
+        XrSwapchainImageOpenGLKHR xrimage{};
+        xrimage.type = XR_TYPE_SWAPCHAIN_IMAGE_OPENGL_KHR;
+
+        uint32_t imageCount = 0;
+        std::vector<XrSwapchainImageOpenGLKHR> xrimages;
+        CHECK_XRCMD(xrEnumerateSwapchainImages(swapchain, 0, &imageCount, nullptr));
+        xrimages.resize(imageCount, xrimage);
+        CHECK_XRCMD(xrEnumerateSwapchainImages(swapchain, imageCount, &imageCount, reinterpret_cast<XrSwapchainImageBaseHeader*>(xrimages.data())));
+
+        std::vector<std::unique_ptr<VR::SwapchainImage> > images;
+        for (auto& image : xrimages)
+        {
+            images.push_back(std::make_unique<VR::SwapchainImageGL>(image.image));
+        }
+
+        return images;
+    }
+
+#ifdef _WIN32
+    std::vector<std::unique_ptr<VR::SwapchainImage> >
+        enumerateSwapchainImagesDirectX(XrSwapchain swapchain, uint64_t textureTarget, uint64_t dxFormat, std::shared_ptr<VR::DirectXWGLInterop> dxInterop)
+    {
+        XrSwapchainImageD3D11KHR xrimage{};
+        xrimage.type = XR_TYPE_SWAPCHAIN_IMAGE_D3D11_KHR;
+
+        uint32_t imageCount = 0;
+        std::vector<XrSwapchainImageD3D11KHR> xrimages;
+        CHECK_XRCMD(xrEnumerateSwapchainImages(swapchain, 0, &imageCount, nullptr));
+        xrimages.resize(imageCount, xrimage);
+        CHECK_XRCMD(xrEnumerateSwapchainImages(swapchain, imageCount, &imageCount, reinterpret_cast<XrSwapchainImageBaseHeader*>(xrimages.data())));
+
+        std::vector<std::unique_ptr<VR::SwapchainImage> > images;
+        for (auto& image : xrimages)
+        {
+            images.push_back(std::make_unique<VR::SwapchainImageDX>(reinterpret_cast<uint64_t>(image.texture), textureTarget, dxFormat, dxInterop));
+        }
+
+        return images;
+    }
 #endif
 
-            // Now create the swapchain
-            Log(Debug::Verbose) << "Creating swapchain with dimensions Width=" << width << " Heigh=" << height << " SampleCount=" << samples;
-            swapchainCreateInfo.sampleCount = samples;
-            auto res = xrCreateSwapchain(Session::instance().xrSession(), &swapchainCreateInfo, &swapchain);
-
-            // Check errors and try again if possible
-            if (res == XR_ERROR_SWAPCHAIN_FORMAT_UNSUPPORTED)
-            {
-                // User specified a swapchian format not supported by the runtime.
-                throw std::runtime_error(std::string("Swapchain ") + typeString + " format not supported by openxr runtime.");
-            }
-            else if (res == XR_ERROR_FEATURE_UNSUPPORTED)
-            {
-                // Swapchain using some unsupported feature.
-                // This means either array textures or depth attachment was used but not supported.
-                // Application will have to do without said feature.
-                Log(Debug::Warning) << "xrCreateSwapchain returned XR_ERROR_FEATURE_UNSUPPORTED.";
-                return nullptr;
-            }
-            else if (!XR_SUCCEEDED(res))
-            {
-                // If XR runtime doesn't support the number of samples, there is no return code for this, so we try again until we've tried all possibilities down to 1.
-                Log(Debug::Verbose) << "Failed to create swapchain with SampleCount=" << samples << ": " << XrResultString(res);
-                samples /= 2;
-                if (samples == 0)
-                {
-                    // Use CHECK_XRRESULT to pass the failure through the same error checking / logging mechanism as other calls.
-                    CHECK_XRRESULT(res, "xrCreateSwapchain");
-                    throw std::runtime_error(XrResultString(res));
-                }
-                continue;
-            }
-
-            // Pass the return code through CHECK_XRRESULT in case the user is logging all calls.
-            CHECK_XRRESULT(res, "xrCreateSwapchain");
-
-            if (use == VR::SwapchainUse::Color)
-                Debugging::setName(swapchain, "OpenMW XR Color Swapchain " + name);
-            else
-                Debugging::setName(swapchain, "OpenMW XR Depth Swapchain " + name);
-
-            // Enumerate images based on which graphics extension was enabled.
+    std::vector<std::unique_ptr<VR::SwapchainImage>> Platform::enumerateSwapchainImages(XrSwapchain swapchain, uint32_t textureTarget, uint64_t swapchainFormat)
+    {
             if (KHR_opengl_enable.enabled())
             {
-                auto images = enumerateSwapchainImagesOpenGL(swapchain);
-                return new Swapchain(swapchain, images, width, height, samples, swapchainCreateInfo.format, arraySize, arraySize > 1 ? GL_TEXTURE_2D_ARRAY : GL_TEXTURE_2D);
+                return enumerateSwapchainImagesOpenGL(swapchain);
             }
 #ifdef _WIN32
             else if (KHR_D3D11_enable.enabled())
             {
-                auto images = enumerateSwapchainImagesDirectX(swapchain);
-                return new VR::DirectXSwapchain(std::make_shared<Swapchain>(swapchain, images, width, height, samples, swapchainCreateInfo.format, arraySize, arraySize > 1 ? GL_TEXTURE_2D_ARRAY : GL_TEXTURE_2D), mDxInterop, glFormat);
+                return enumerateSwapchainImagesDirectX(swapchain, textureTarget, swapchainFormat, mDxInterop);
             }
 #endif
             else
@@ -584,9 +528,5 @@ namespace XR
                 // TODO: Vulkan swapchains?
                 throw std::logic_error("Not implemented");
             }
-        }
-
-        // Never actually reached
-        return nullptr;
     }
 }

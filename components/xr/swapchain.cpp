@@ -1,23 +1,24 @@
 #include "swapchain.hpp"
+#include "session.hpp"
 #include "debug.hpp"
 
 #include <components/debug/debuglog.hpp>
 
 namespace XR {
-    Swapchain::Swapchain(XrSwapchain swapchain, std::vector<uint64_t> images, uint32_t width, uint32_t height, uint32_t samples, uint32_t format, uint32_t arraySize, uint32_t textureTarget)
-        : VR::Swapchain(width, height, samples, format, arraySize, textureTarget, images.size(), false)
-        , mXrSwapchain(swapchain)
-        , mImages(images)
-    {
-    }
 
     Swapchain::~Swapchain()
     {
-        xrDestroySwapchain(mXrSwapchain);
+        if (mXrSwapchain)
+            xrDestroySwapchain(mXrSwapchain);
     }
 
-    uint64_t Swapchain::beginFrame(osg::GraphicsContext* gc)
+    void Swapchain::beginFrame(osg::GraphicsContext* gc)
     {
+        if (mImages.empty())
+        {
+            init();
+        }
+
         if (!mIsAcquired)
         {
             acquire();
@@ -27,16 +28,101 @@ namespace XR {
             wait();
         }
 
-        return mImage = mImages[mAcquiredIndex];
+        if (mIsReady)
+        {
+            image()->beginFrame(gc);
+        }
     }
 
     void Swapchain::endFrame(osg::GraphicsContext* gc)
     {
         if (mIsReady)
         {
+            image()->endFrame(gc);
             release();
         }
-        mImage = 0;
+
+        mAcquiredIndex = mImages.size();
+    }
+
+    VR::SwapchainImage* Swapchain::image()
+    {
+        if (mAcquiredIndex < mImages.size())
+            return mImages[mAcquiredIndex].get();
+    }
+
+    bool Swapchain::mustFlipVertical() const
+    {
+        return KHR_D3D11_enable.enabled();
+    }
+
+    void Swapchain::init()
+    {
+        std::string typeString = mAttachment == Attachment::Color ? "color" : "depth";
+
+        GLenum glFormat = 0;
+        XrSwapchainCreateInfo swapchainCreateInfo{};
+        swapchainCreateInfo.type = XR_TYPE_SWAPCHAIN_CREATE_INFO;
+        swapchainCreateInfo.arraySize = mArraySize;
+        swapchainCreateInfo.width = mWidth;
+        swapchainCreateInfo.height = mHeight;
+        swapchainCreateInfo.mipCount = 1;
+        swapchainCreateInfo.faceCount = 1;
+        swapchainCreateInfo.format = 0;
+        swapchainCreateInfo.usageFlags = 0;
+        if (mAttachment == Attachment::Color)
+            swapchainCreateInfo.usageFlags |= XR_SWAPCHAIN_USAGE_COLOR_ATTACHMENT_BIT;
+        else
+            swapchainCreateInfo.usageFlags |= XR_SWAPCHAIN_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT;
+
+        Instance::instance().platform().selectSwapchainFormat(mAttachment, swapchainCreateInfo.format, glFormat);
+        mFormat = glFormat;
+
+        while (mSamples > 0 && mXrSwapchain == XR_NULL_HANDLE)
+        {
+            // Now create the swapchain
+            Log(Debug::Verbose) << "Creating swapchain with dimensions Width=" << mWidth << " Heigh=" << mHeight << " SampleCount=" << mSamples;
+            swapchainCreateInfo.sampleCount = mSamples;
+            auto res = xrCreateSwapchain(Session::instance().xrSession(), &swapchainCreateInfo, &mXrSwapchain);
+
+            // Check errors and try again if possible
+            if (res == XR_ERROR_SWAPCHAIN_FORMAT_UNSUPPORTED)
+            {
+                // User specified a swapchian format not supported by the runtime.
+                throw std::runtime_error(std::string("Swapchain ") + typeString + " format not supported by openxr runtime.");
+            }
+            else if (res == XR_ERROR_FEATURE_UNSUPPORTED)
+            {
+                // Swapchain using some unsupported feature.
+                // This means either array textures or depth attachment was used but not supported.
+                // Application will have to do without said feature.
+                Log(Debug::Warning) << "xrCreateSwapchain returned XR_ERROR_FEATURE_UNSUPPORTED.";
+                return;
+            }
+            else if (!XR_SUCCEEDED(res))
+            {
+                // If XR runtime doesn't support the number of samples, there is no return code for this, so we try again until we've tried all possibilities down to 1.
+                Log(Debug::Verbose) << "Failed to create swapchain with SampleCount=" << mSamples << ": " << XrResultString(res);
+                mSamples /= 2;
+                if (mSamples == 0)
+                {
+                    // Use CHECK_XRRESULT to pass the failure through the same error checking / logging mechanism as other calls.
+                    CHECK_XRRESULT(res, "xrCreateSwapchain");
+                    throw std::runtime_error(XrResultString(res));
+                }
+                continue;
+            }
+
+            // Pass the return code through CHECK_XRRESULT in case the user is logging all calls.
+            CHECK_XRRESULT(res, "xrCreateSwapchain");
+
+            if (mAttachment == Attachment::Color)
+                Debugging::setName(mXrSwapchain, "OpenMW XR Color Swapchain " + mName);
+            else
+                Debugging::setName(mXrSwapchain, "OpenMW XR Depth Swapchain " + mName);
+
+            mImages = Instance::instance().platform().enumerateSwapchainImages(mXrSwapchain, mTextureTarget, swapchainCreateInfo.format);
+        }
     }
 
     void Swapchain::acquire()

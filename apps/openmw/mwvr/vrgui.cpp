@@ -124,47 +124,47 @@ namespace MWVR
         return osg::Vec2(width, width);
     }
 
-    class XrGUIRTT : public VR::RenderToSwapchainNode
-    {
-    public:
-        XrGUIRTT(int width, int height, osg::Vec4 clearColor, osg::ref_ptr<osg::Camera> scene)
-            : RenderToSwapchainNode(width, height, 1)
-            , mScene(scene)
-            , mClearColor(clearColor)
-        {
+    //class XrGUIRTT : public VR::RenderToSwapchainNode
+    //{
+    //public:
+    //    XrGUIRTT(int width, int height, osg::Vec4 clearColor, osg::ref_ptr<osg::Camera> scene)
+    //        : RenderToSwapchainNode(width, height, 1)
+    //        , mScene(scene)
+    //        , mClearColor(clearColor)
+    //    {
 
-        }
+    //    }
 
-        void setDefaults(osg::Camera* camera) override
-        {
-            camera->setCullingActive(false);
+    //    void setDefaults(osg::Camera* camera) override
+    //    {
+    //        camera->setCullingActive(false);
 
-            camera->setClearColor(mClearColor);
-            // TODO: will format matter? 
-            // setColorBufferInternalFormat(GL_RGBA8);
+    //        camera->setClearColor(mClearColor);
+    //        // TODO: will format matter? 
+    //        // setColorBufferInternalFormat(GL_RGBA8);
 
-            camera->setReferenceFrame(osg::Camera::ABSOLUTE_RF);
-            camera->setComputeNearFarMode(osg::CullSettings::DO_NOT_COMPUTE_NEAR_FAR);
-            setName("GUICamera");
-            camera->setName("GUICamera_");
+    //        camera->setReferenceFrame(osg::Camera::ABSOLUTE_RF);
+    //        camera->setComputeNearFarMode(osg::CullSettings::DO_NOT_COMPUTE_NEAR_FAR);
+    //        setName("GUICamera");
+    //        camera->setName("GUICamera_");
 
-            camera->setCullMask(MWRender::Mask_GUI);
-            camera->setCullMaskLeft(MWRender::Mask_GUI);
-            camera->setCullMaskRight(MWRender::Mask_GUI);
+    //        camera->setCullMask(MWRender::Mask_GUI);
+    //        camera->setCullMaskLeft(MWRender::Mask_GUI);
+    //        camera->setCullMaskRight(MWRender::Mask_GUI);
 
-            // Although this is strictly speaking a RenderToTexture node, we cannot use the Mask_RenderToTexture mask
-            // since it would cull this inappropriately.
-            camera->setNodeMask(MWRender::Mask_3DGUI);
+    //        // Although this is strictly speaking a RenderToTexture node, we cannot use the Mask_RenderToTexture mask
+    //        // since it would cull this inappropriately.
+    //        camera->setNodeMask(MWRender::Mask_3DGUI);
 
-            camera->addChild(mScene);
+    //        camera->addChild(mScene);
 
-            // Do not want to waste time on shadows when generating the GUI texture
-            SceneUtil::ShadowManager::disableShadowsForStateSet(camera->getOrCreateStateSet());
-        }
+    //        // Do not want to waste time on shadows when generating the GUI texture
+    //        SceneUtil::ShadowManager::disableShadowsForStateSet(camera->getOrCreateStateSet());
+    //    }
 
-        osg::ref_ptr<osg::Camera> mScene;
-        osg::Vec4 mClearColor;
-    };
+    //    osg::ref_ptr<osg::Camera> mScene;
+    //    osg::Vec4 mClearColor;
+    //};
 
     class GUIRTT : public SceneUtil::RTTNode
     {
@@ -309,18 +309,18 @@ namespace MWVR
 
         mTrackingPath = VR::stringToVRPath(mConfig.trackingPath);
 
-        if (Paths::isTrueHUD(mTrackingPath))
-        {
-            auto* xrNode = new XrGUIRTT(config.pixelResolution.x(), config.pixelResolution.y(), osg::Vec4(0, 0, 0, config.opacity), mMyGUICamera);
-            mGUIRTT = xrNode;
-            mVrLayer = std::make_shared<VR::QuadLayer>();
-            mVrLayer->blendAlpha = true;
-            mVrLayer->colorSwapchain = xrNode->getColorSwapchain();
-            mVrLayer->premultipliedAlpha = false;
-            mVrLayer->extent = extent_units;
-            mVrLayer->space = VR::ReferenceSpace::View;
-        }
-        else
+        //if (Paths::isTrueHUD(mTrackingPath))
+        //{
+        //    auto* xrNode = new XrGUIRTT(config.pixelResolution.x(), config.pixelResolution.y(), osg::Vec4(0, 0, 0, config.opacity), mMyGUICamera);
+        //    mGUIRTT = xrNode;
+        //    mVrLayer = std::make_shared<VR::QuadLayer>();
+        //    mVrLayer->blendAlpha = true;
+        //    mVrLayer->colorSwapchain = xrNode->getColorSwapchain();
+        //    mVrLayer->premultipliedAlpha = false;
+        //    mVrLayer->extent = extent_units;
+        //    mVrLayer->space = VR::ReferenceSpace::View;
+        //}
+        //else
         {
             auto* rttNode = new GUIRTT(config.pixelResolution.x(), config.pixelResolution.y(), osg::Vec4(0, 0, 0, config.opacity), mMyGUICamera);
             mGUIRTT = rttNode;

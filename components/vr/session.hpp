@@ -56,7 +56,7 @@ namespace VR
 
         bool appShouldShareDepthInfo() const { return mAppShouldShareDepthBuffer; };
 
-        virtual VR::Swapchain* createSwapchain(uint32_t width, uint32_t height, uint32_t samples, uint32_t arraySize, SwapchainUse use, const std::string& name) = 0;
+        virtual std::shared_ptr<VR::Swapchain> createSwapchain(uint32_t width, uint32_t height, uint32_t samples, uint32_t arraySize, Swapchain::Attachment attachment, const std::string& name) = 0;
 
         virtual std::array<Stereo::View, 2> getPredictedViews(int64_t predictedDisplayTime, VR::ReferenceSpace space) = 0;
 

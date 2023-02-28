@@ -75,7 +75,7 @@ namespace XR
 
         void destroyXrSession();
 
-        VR::Swapchain* createSwapchain(uint32_t width, uint32_t height, uint32_t samples, uint32_t arraySize, VR::SwapchainUse use, const std::string& name) override;
+        std::shared_ptr<VR::Swapchain> createSwapchain(uint32_t width, uint32_t height, uint32_t samples, uint32_t arraySize, VR::Swapchain::Attachment attachment, const std::string& name) override;
 
     private:
         XrSession mXrSession;

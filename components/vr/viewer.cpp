@@ -19,6 +19,7 @@
 #include <components/vr/session.hpp>
 #include <components/vr/trackingmanager.hpp>
 #include <components/vr/trackingtransform.hpp>
+#include <components/vr/swapchain.hpp>
 
 #include <components/sceneutil/depth.hpp>
 #include <components/sceneutil/color.hpp>
@@ -185,6 +186,7 @@ namespace VR
         Stereo::Manager::instance().setShouldAttachMultiviewFramebufferToMainCamera(true);
 
         setupMirrorTexture();
+        setupSwapchains();
 
         mProjectionLayer = std::make_shared<VR::ProjectionLayer>();
         for (uint32_t i = 0; i < 2; i++)
@@ -194,6 +196,9 @@ namespace VR
             mProjectionLayer->views[i].subImage.height = mFramebufferHeight;
             mProjectionLayer->views[i].subImage.x = 0;
             mProjectionLayer->views[i].subImage.y = 0;
+            mProjectionLayer->views[i].colorSwapchain = mColorSwapchain[i];
+            if (mSession->appShouldShareDepthInfo())
+                mProjectionLayer->views[i].depthSwapchain = mDepthSwapchain[i];
         }
     }
 
@@ -324,12 +329,12 @@ namespace VR
 
     osg::ref_ptr<osg::FrameBufferObject> Viewer::getXrFramebuffer(uint32_t view, osg::State* state)
     {
-        uint64_t colorImage = mColorSwapchain[view]->image();
+        uint64_t colorImage = mColorSwapchain[view]->image()->glImage();
         uint64_t depthImage = 0;
         uint32_t textureTarget = mColorSwapchain[view]->textureTarget();
 
         if(mSession->appShouldShareDepthInfo())
-            depthImage = mDepthSwapchain[view]->image();
+            depthImage = mDepthSwapchain[view]->image()->glImage();
 
         auto it = mSwapchainFramebuffers.find(std::pair{ colorImage, depthImage });
         if (it == mSwapchainFramebuffers.end())
@@ -408,12 +413,12 @@ namespace VR
     {
         for (int i : {0, 1})
         {
-            mColorSwapchain[i].reset(VR::Session::instance().createSwapchain(mFramebufferWidth, mFramebufferHeight, 1, 1, VR::SwapchainUse::Color, i == 0 ? "LeftEye" : "RightEye"));
+            mColorSwapchain[i] = VR::Session::instance().createSwapchain(mFramebufferWidth, mFramebufferHeight, 1, 1, VR::Swapchain::Attachment::Color, i == 0 ? "LeftEye" : "RightEye");
             if (mSession->appShouldShareDepthInfo())
             {
                 // Depth support is buggy or just not supported on some runtimes and has to be guarded.
                 try {
-                    mDepthSwapchain[i].reset(VR::Session::instance().createSwapchain(mFramebufferWidth, mFramebufferHeight, 1, 1, VR::SwapchainUse::Depth, i == 0 ? "LeftEye" : "RightEye"));
+                    mDepthSwapchain[i] = VR::Session::instance().createSwapchain(mFramebufferWidth, mFramebufferHeight, 1, 1, VR::Swapchain::Attachment::DepthStencil, i == 0 ? "LeftEye" : "RightEye");
                 }
                 catch (std::exception& e)
                 {
@@ -429,22 +434,6 @@ namespace VR
     {
         auto* state = info.getState();
         auto* gl = osg::GLExtensions::Get(state->getContextID(), false);
-
-        // TODO: This is a hack to check if inappropriate calls to xrCreateSwapchain from the main thread is the issue
-        // The swapchain object should be rewritten to not init xr objects before they are needed, similar to how OSG 
-        // defers initializing opengl objects to the draw thread.
-        // That way this could be part of regular viewer init.
-        if (!mColorSwapchain[0])
-            setupSwapchains();
-        auto projectionLayer = static_cast<VR::ProjectionLayer*>(mDrawFrame.layers[0].get());
-        for (uint32_t i = 0; i < 2; i++)
-        {
-            projectionLayer->views[i].colorSwapchain = mColorSwapchain[i];
-            if (mSession->appShouldShareDepthInfo())
-            {
-                projectionLayer->views[i].depthSwapchain = mDepthSwapchain[i];
-            }
-        }
 
         for (auto i = 0; i < 2; i++)
         {
