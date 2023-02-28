@@ -49,6 +49,7 @@ namespace XR {
     {
         if (mAcquiredIndex < mImages.size())
             return mImages[mAcquiredIndex].get();
+        return nullptr;
     }
 
     bool Swapchain::mustFlipVertical() const
