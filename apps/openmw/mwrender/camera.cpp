@@ -307,7 +307,10 @@ namespace MWRender
     void Camera::setMode(Mode newMode, bool force)
     {
         if (mMode == newMode)
+        {
+            mQueuedMode = std::nullopt;
             return;
+        }
         if (newMode != Mode::VR && VR::getVR())
             return;
         Mode oldMode = mMode;

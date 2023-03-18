@@ -97,6 +97,7 @@ bool Launcher::AdvancedPage::loadSettings()
         loadSettingBool(enchantedWeaponsMagicalCheckBox, "enchanted weapons are magical", "Game");
         loadSettingBool(permanentBarterDispositionChangeCheckBox, "barter disposition change is permanent", "Game");
         loadSettingBool(classicReflectedAbsorbSpellsCheckBox, "classic reflected absorb spells behavior", "Game");
+        loadSettingBool(classicCalmSpellsCheckBox, "classic calm spells behavior", "Game");
         loadSettingBool(requireAppropriateAmmunitionCheckBox, "only appropriate ammunition bypasses resistance", "Game");
         loadSettingBool(uncappedDamageFatigueCheckBox, "uncapped damage fatigue", "Game");
         loadSettingBool(normaliseRaceSpeedCheckBox, "normalise race speed", "Game");
@@ -129,6 +130,7 @@ bool Launcher::AdvancedPage::loadSettings()
         if (Settings::Manager::getInt("antialiasing", "Video") == 0) {
             antialiasAlphaTestCheckBox->setCheckState(Qt::Unchecked);
         }
+        loadSettingBool(adjustCoverageForAlphaTestCheckBox, "adjust coverage for alpha test", "Shaders");
         loadSettingBool(magicItemAnimationsCheckBox, "use magic item animations", "Game");
         connect(animSourcesCheckBox, SIGNAL(toggled(bool)), this, SLOT(slotAnimSourcesToggled(bool)));
         loadSettingBool(animSourcesCheckBox, "use additional anim sources", "Game");
@@ -274,6 +276,7 @@ void Launcher::AdvancedPage::saveSettings()
         saveSettingBool(enchantedWeaponsMagicalCheckBox, "enchanted weapons are magical", "Game");
         saveSettingBool(permanentBarterDispositionChangeCheckBox, "barter disposition change is permanent", "Game");
         saveSettingBool(classicReflectedAbsorbSpellsCheckBox, "classic reflected absorb spells behavior", "Game");
+        saveSettingBool(classicCalmSpellsCheckBox, "classic calm spells behavior", "Game");
         saveSettingBool(requireAppropriateAmmunitionCheckBox, "only appropriate ammunition bypasses resistance", "Game");
         saveSettingBool(uncappedDamageFatigueCheckBox, "uncapped damage fatigue", "Game");
         saveSettingBool(normaliseRaceSpeedCheckBox, "normalise race speed", "Game");
@@ -298,6 +301,7 @@ void Launcher::AdvancedPage::saveSettings()
         saveSettingBool(radialFogCheckBox, "radial fog", "Fog");
         saveSettingBool(softParticlesCheckBox, "soft particles", "Shaders");
         saveSettingBool(antialiasAlphaTestCheckBox, "antialias alpha test", "Shaders");
+        saveSettingBool(adjustCoverageForAlphaTestCheckBox, "adjust coverage for alpha test", "Shaders");
         saveSettingBool(magicItemAnimationsCheckBox, "use magic item animations", "Game");
         saveSettingBool(animSourcesCheckBox, "use additional anim sources", "Game");
         saveSettingBool(weaponSheathingCheckBox, "weapon sheathing", "Game");

@@ -156,6 +156,8 @@
     Bug #6923: Dispose of corpse prevents respawning after load
     Bug #6937: Divided by Nix Hounds quest is broken
     Bug #7008: Race condition on initializing a vector of reserved node names
+    Bug #7121: Crash on TimeStamp construction with invalid hour value
+    Bug #7251: Force shaders setting still renders some drawables with FFP
     Feature #890: OpenMW-CS: Column filtering
     Feature #1465: "Reset" argument for AI functions
     Feature #2491: Ability to make OpenMW "portable"
@@ -208,6 +210,7 @@
     Feature #6700: Support windowed fullscreen
     Feature #6706: Save the size of the Options window
     Feature #6721: OpenMW-CS: Add option to open records in new window
+    Feature #6823: Support for animation layering for osgAnimation formats
     Feature #6867: Add a way to localize hardcoded strings in GUI
     Feature #6888: Add switch for armor degradation fix
     Feature #6925: Allow to use a mouse wheel to rotate a head in the race selection menu
