@@ -182,7 +182,7 @@ void WeaponAnimation::releaseArrow(MWWorld::Ptr actor, float attackStrength)
         MWWorld::Ptr weaponPtr = *weapon;
         MWWorld::Ptr ammoPtr = *ammo;
 #ifdef USE_OPENXR
-        if (VR::getRightControllerActive() || (actor != MWMechanics::getPlayer()))
+        if (VR::getRightControllerActive() && (actor == MWMechanics::getPlayer()))
             orient = osg::computeLocalToWorld(nodepaths[0]).getRotate();
 #endif
         MWBase::Environment::get().getWorld()->launchProjectile(actor, ammoPtr, launchPos, orient, weaponPtr, speed, attackStrength);
