@@ -256,6 +256,7 @@ bool Launcher::AdvancedPage::loadSettings()
         loadSettingBool(leftHandedMode, "left handed mode", "VR");
         loadSettingBool(logAllXrCalls, "log all openxr calls", "VR Debug");
         loadSettingBool(ignoreXrErrors, "continue on errors", "VR Debug");
+        loadSettingBool(skywindBlasterBoltWorkaround, "skywind blaster workaround", "VR Debug");
 
         double minimumSwingSpeed = Settings::Manager::getDouble("realistic combat minimum swing velocity", "VR");
         realisticCombatMinimumSwingSpeedSpinBox->setValue(minimumSwingSpeed);
@@ -441,6 +442,7 @@ void Launcher::AdvancedPage::saveSettings()
         saveSettingBool(leftHandedMode, "left handed mode", "VR");
         saveSettingBool(logAllXrCalls, "log all openxr calls", "VR Debug");
         saveSettingBool(ignoreXrErrors, "continue on errors", "VR Debug");
+        saveSettingBool(skywindBlasterBoltWorkaround, "skywind blaster workaround", "VR Debug");
 
         double minimumSwingSpeed = realisticCombatMinimumSwingSpeedSpinBox->value();
         if (minimumSwingSpeed != Settings::Manager::getFloat("realistic combat minimum swing velocity", "VR"))

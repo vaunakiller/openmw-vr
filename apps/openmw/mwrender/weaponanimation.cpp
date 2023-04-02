@@ -183,7 +183,19 @@ void WeaponAnimation::releaseArrow(MWWorld::Ptr actor, float attackStrength)
         MWWorld::Ptr ammoPtr = *ammo;
 #ifdef USE_OPENXR
         if (VR::getRightControllerActive() && (actor == MWMechanics::getPlayer()))
-            orient = osg::computeLocalToWorld(nodepaths[0]).getRotate();
+        {
+            if (Settings::Manager::getBool("skywind blaster workaround", "VR Debug"))
+            {
+                // Skywind has a blaster asset that doesn't properly orient projectiles before launching them
+                auto id = ammo->getCellRef().getRefId();
+                if (id.find("sw_blastbolt") == std::string::npos)
+                    orient = osg::computeLocalToWorld(nodepaths[0]).getRotate();
+            }
+            else
+            {
+                orient = osg::computeLocalToWorld(nodepaths[0]).getRotate();
+            }
+        }
 #endif
         MWBase::Environment::get().getWorld()->launchProjectile(actor, ammoPtr, launchPos, orient, weaponPtr, speed, attackStrength);
 

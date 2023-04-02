@@ -1483,6 +1483,16 @@
             </property>
            </widget>
           </item>
+          <item row="7" column="0">
+           <widget class="QCheckBox" name="skywindBlasterBoltWorkaround">
+            <property name="toolTip">
+             <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt; In VR, projectiles are launched based on the orientation of the ammo node itself. The skywind blaster bolts do not receive an orientation before being launched, causing them to always travel in a fixed direction in VR. This workaround fixes this issue if enabled by explicitly testing for the sw_blasterbolt identifier and using the weapon orientation instead.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
+            </property>
+            <property name="text">
+             <string>Skywind: Blaster bolt workaround</string>
+            </property>
+           </widget>
+          </item>
          </layout>
         </item>
         <item>
