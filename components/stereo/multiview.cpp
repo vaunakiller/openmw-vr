@@ -191,6 +191,7 @@ namespace Stereo
         auto internalFormat = sourceTextureObject->_profile._internalFormat;
         auto levels = std::max(1, sourceTextureObject->_profile._numMipmapLevels);
 
+#ifndef OSG_TEXTURE_HAS_SIZED_DEPTH_AND_STENCIL_INTERNAL_FORMATS
         {
             ////// OSG BUG
             // Texture views require immutable storage. 
@@ -215,6 +216,7 @@ namespace Stereo
             }
             glBindTexture(GL_TEXTURE_2D_ARRAY, oldBinding);
         }
+#endif
 
         gl->glTextureView(targetId, GL_TEXTURE_2D, sourceId, internalFormat, 0, levels, mLayer, 1);
         state.checkGLErrors("after Texture2DViewSubloadCallback::load()::glTextureView");
