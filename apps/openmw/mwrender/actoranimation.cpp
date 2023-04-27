@@ -98,6 +98,18 @@ osg::ref_ptr<osg::Node> ActorAnimation::attach(const std::string& model, const s
     return SceneUtil::attach(templateNode, mObjectRoot, bonefilter, found->second, mResourceSystem->getSceneManager());
 }
 
+bool ActorAnimation::shieldSheathing() const
+{
+    static const bool shieldSheathing = Settings::Manager::getBool("shield sheathing", "Game");
+    return shieldSheathing;
+}
+
+bool ActorAnimation::weaponSheathing() const
+{
+    static const bool weaponSheathing = Settings::Manager::getBool("weapon sheathing", "Game");
+    return weaponSheathing;
+}
+
 std::string ActorAnimation::getShieldMesh(const MWWorld::ConstPtr& shield, bool female) const
 {
     const ESM::Armor *armor = shield.get<ESM::Armor>()->mBase;
@@ -156,8 +168,7 @@ std::string ActorAnimation::getSheathedShieldMesh(const MWWorld::ConstPtr& shiel
 
 bool ActorAnimation::updateCarriedLeftVisible(const int weaptype) const
 {
-    static const bool shieldSheathing = Settings::Manager::getBool("shield sheathing", "Game");
-    if (shieldSheathing)
+    if (shieldSheathing())
     {
         const MWWorld::Class &cls = mPtr.getClass();
         MWMechanics::CreatureStats &stats = cls.getCreatureStats(mPtr);
@@ -180,8 +191,7 @@ bool ActorAnimation::updateCarriedLeftVisible(const int weaptype) const
 
 void ActorAnimation::updateHolsteredShield(bool showCarriedLeft)
 {
-    static const bool shieldSheathing = Settings::Manager::getBool("shield sheathing", "Game");
-    if (!shieldSheathing)
+    if (!shieldSheathing())
         return;
 
     if (!mPtr.getClass().hasInventoryStore(mPtr))
@@ -246,8 +256,7 @@ void ActorAnimation::updateHolsteredShield(bool showCarriedLeft)
 
 bool ActorAnimation::useShieldAnimations() const
 {
-    static const bool shieldSheathing = Settings::Manager::getBool("shield sheathing", "Game");
-    if (!shieldSheathing)
+    if (!shieldSheathing())
         return false;
 
     const MWWorld::Class &cls = mPtr.getClass();
@@ -317,8 +326,7 @@ void ActorAnimation::resetControllers(osg::Node* node)
 
 void ActorAnimation::updateHolsteredWeapon(bool showHolsteredWeapons)
 {
-    static const bool weaponSheathing = Settings::Manager::getBool("weapon sheathing", "Game");
-    if (!weaponSheathing)
+    if (!weaponSheathing())
         return;
 
     if (!mPtr.getClass().hasInventoryStore(mPtr))
@@ -395,9 +403,7 @@ void ActorAnimation::updateHolsteredWeapon(bool showHolsteredWeapons)
 
 void ActorAnimation::updateQuiver()
 {
-    static const bool weaponSheathing = Settings::Manager::getBool("weapon sheathing", "Game");
-    if (!weaponSheathing)
-        return;
+    if (!weaponSheathing())
 
     if (!mPtr.getClass().hasInventoryStore(mPtr))
         return;

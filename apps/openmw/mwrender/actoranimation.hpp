@@ -57,6 +57,8 @@ class ActorAnimation : public Animation, public MWWorld::ContainerStoreListener
             return attachMesh(model, bonename, false, &stubColor);
         };
         osg::ref_ptr<osg::Node> attach(const std::string& model, const std::string& bonename, const std::string& bonefilter, bool isLight);
+        virtual bool shieldSheathing() const;
+        virtual bool weaponSheathing() const;
 
         PartHolderPtr mScabbard;
         PartHolderPtr mHolsteredShield;

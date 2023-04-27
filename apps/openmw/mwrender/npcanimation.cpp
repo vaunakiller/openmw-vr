@@ -305,8 +305,7 @@ void NpcAnimation::setViewMode(NpcAnimation::ViewMode viewMode)
     rebuild();
     setRenderBin();
 
-    static const bool shieldSheathing = Settings::Manager::getBool("shield sheathing", "Game");
-    if (viewChange && shieldSheathing)
+    if (viewChange && shieldSheathing())
     {
         int weaptype = ESM::Weapon::None;
         MWMechanics::getActiveWeapon(mPtr, &weaptype);
@@ -995,8 +994,7 @@ void NpcAnimation::showWeapons(bool showWeapon)
 
 bool NpcAnimation::updateCarriedLeftVisible(const int weaptype) const
 {
-    static const bool shieldSheathing = Settings::Manager::getBool("shield sheathing", "Game");
-    if (shieldSheathing)
+    if (shieldSheathing())
     {
         const MWWorld::Class &cls = mPtr.getClass();
         MWMechanics::CreatureStats &stats = cls.getCreatureStats(mPtr);
@@ -1126,8 +1124,7 @@ void NpcAnimation::setWeaponGroup(const std::string &group, bool relativeDuratio
 
 void NpcAnimation::equipmentChanged()
 {
-    static const bool shieldSheathing = Settings::Manager::getBool("shield sheathing", "Game");
-    if (shieldSheathing)
+    if (shieldSheathing())
     {
         int weaptype = ESM::Weapon::None;
         MWMechanics::getActiveWeapon(mPtr, &weaptype);
