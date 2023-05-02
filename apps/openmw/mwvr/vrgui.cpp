@@ -346,6 +346,8 @@ namespace MWVR
             mTransform->setScale(osg::Vec3(extent_units.x(), 1.f, extent_units.y()));
             mTransform->setCullCallback(new CullVRGUILayerCallback(this));
             mTransform->setCullingActive(false);
+        if (mConfig.intersectable == Intersectable::No)
+            mTransform->setNodeMask(MWRender::Mask_Effect);
         }
     }
 
@@ -582,7 +584,7 @@ namespace MWVR
             mGeometryRoot->addChild(mTransform);
     }
 
-    static const LayerConfig createDefaultConfig(int priority, bool background = true, SizingMode sizingMode = SizingMode::Auto, std::string extraLayers = "Popup")
+    static const LayerConfig createDefaultConfig(int priority, Intersectable intersectable = Intersectable::Yes, bool background = true, SizingMode sizingMode = SizingMode::Auto, std::string extraLayers = "Popup")
     {
         return LayerConfig{
             priority,
@@ -596,7 +598,8 @@ namespace MWVR
             osg::Vec2(1,1),
             sizingMode,
             "/ui/menu_quad/pose",
-            extraLayers
+            extraLayers,
+            intersectable
         };
     }
 
@@ -605,7 +608,7 @@ namespace MWVR
 
     static const LayerConfig createSideBySideConfig(int priority)
     {
-        LayerConfig config = createDefaultConfig(priority, true, SizingMode::Fixed, "");
+        LayerConfig config = createDefaultConfig(priority, Intersectable::Yes, true, SizingMode::Fixed, "");
         config.sideBySide = true;
         config.offset = Stereo::Position::fromMeters(0.f, sSideBySideRadius, -.25f);
         config.extent = radiusAngleWidth(sSideBySideRadius, sSideBySideAzimuthInterval);
@@ -693,16 +696,17 @@ namespace MWVR
         clear();
 
         LayerConfig defaultConfig = createDefaultConfig(1);
-        LayerConfig loadingScreenConfig = createDefaultConfig(1, true, SizingMode::Fixed, "LoadingScreenBackground");
-        LayerConfig mainMenuConfig = createDefaultConfig(1, true, MWVR::SizingMode::Auto, "MainMenuBackground;Popup");
-        LayerConfig journalBooksConfig = createDefaultConfig(2, false, SizingMode::Fixed);
-        LayerConfig defaultWindowsConfig = createDefaultConfig(3, true);
-        LayerConfig videoPlayerConfig = createDefaultConfig(4, true, SizingMode::Fixed);
-        LayerConfig messageBoxConfig = createDefaultConfig(6, false, SizingMode::Auto);
-        LayerConfig notificationConfig = createDefaultConfig(7, false, SizingMode::Fixed);
-        LayerConfig listBoxConfig = createDefaultConfig(10, true);
-        LayerConfig consoleConfig = createDefaultConfig(2, true);
-        LayerConfig radialMenuConfig = createDefaultConfig(11, false);
+        LayerConfig loadingScreenConfig = createDefaultConfig(1, Intersectable::Yes, true, SizingMode::Fixed, "LoadingScreenBackground");
+        LayerConfig mainMenuConfig
+            = createDefaultConfig(1, Intersectable::Yes, true, MWVR::SizingMode::Auto, "MainMenuBackground;Popup");
+        LayerConfig journalBooksConfig = createDefaultConfig(2, Intersectable::Yes, false, SizingMode::Fixed);
+        LayerConfig defaultWindowsConfig = createDefaultConfig(3, Intersectable::Yes, true);
+        LayerConfig videoPlayerConfig = createDefaultConfig(4, Intersectable::Yes, true, SizingMode::Fixed);
+        LayerConfig messageBoxConfig = createDefaultConfig(6, Intersectable::Yes, false, SizingMode::Auto);
+        LayerConfig notificationConfig = createDefaultConfig(7, Intersectable::No, false, SizingMode::Fixed);
+        LayerConfig listBoxConfig = createDefaultConfig(10, Intersectable::Yes, true);
+        LayerConfig consoleConfig = createDefaultConfig(2, Intersectable::Yes, true);
+        LayerConfig radialMenuConfig = createDefaultConfig(11, Intersectable::Yes, false);
         // TODO: Track around wrist instead of being a regular menu quad?
         //radialMenuConfig.offset = osg::Vec3(0.f, 0.66f, 0.f);
         //radialMenuConfig.trackingPath = Paths::sWristTopRightStr;
@@ -778,7 +782,8 @@ namespace MWVR
             osg::Vec2(1,1),
             SizingMode::Auto,
             Paths::sHUDKeyboardStr,
-            ""
+            "",
+            Intersectable::Yes
         };
 
         LayerConfig HUDConfig = LayerConfig
@@ -795,7 +800,8 @@ namespace MWVR
             defaultConfig.myGUIViewSize,
             SizingMode::Auto,
             hudPath,
-            ""
+            "",
+            Intersectable::Yes
         };
 
         LayerConfig tooltipConfig = LayerConfig
@@ -811,7 +817,8 @@ namespace MWVR
             defaultConfig.myGUIViewSize,
             SizingMode::Auto,
             tooltipPath,
-            ""
+            "",
+            Intersectable::No
         };
 
         mLayerConfigs =

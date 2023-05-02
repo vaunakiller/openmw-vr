@@ -49,6 +49,14 @@ namespace MWVR
         Fixed
     };
 
+    // Applies to the user pointer only. Any other intersection context
+    // will always ignore UI elements.
+    enum class Intersectable
+    {
+        No,
+        Yes
+    };
+
     /// Configuration of a VRGUILayer
     struct LayerConfig
     {
@@ -64,6 +72,7 @@ namespace MWVR
         SizingMode sizingMode; //!< How to size the layer
         std::string trackingPath; //!< The path that will be used to read tracking data
         std::string extraLayers; //!< Additional layers to draw (list separated by any non-alphabetic)
+        Intersectable intersectable;
 
         bool operator<(const LayerConfig& rhs) const { return priority < rhs.priority; }
     };

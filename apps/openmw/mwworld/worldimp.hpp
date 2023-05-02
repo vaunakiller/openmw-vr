@@ -764,7 +764,7 @@ namespace MWWorld
 
             /// Intersects the scene from the origin, in the specified orientation and distance, storing the %result in the result structure.
             /// @Return distance to the target object, or -1 if no object was targeted / in range
-            float getTargetObject(MWRender::RayResult& result, const osg::Vec3f& origin, const osg::Quat& orientation, float maxDistance, bool ignorePlayer) override;
+            float getTargetObject(MWRender::RayResult& result, const osg::Vec3f& origin, const osg::Quat& orientation, float maxDistance, bool ignorePlayer, bool ignore3DUI) override;
 
             MWWorld::Ptr placeObject(const MWWorld::ConstPtr& object, const MWRender::RayResult& ray, int amount) override;
             ///< copy and place an object into the gameworld based on the given intersection
