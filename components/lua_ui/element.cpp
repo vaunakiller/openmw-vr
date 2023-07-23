@@ -62,7 +62,7 @@ namespace LuaUi
                     destroyWidget(w);
                 return result;
             }
-            ContentView content(contentObj.as<sol::table>());
+            ContentView content(LuaUtil::cast<sol::table>(contentObj));
             result.resize(content.size());
             size_t minSize = std::min(children.size(), content.size());
             for (size_t i = 0; i < minSize; i++)
@@ -217,12 +217,12 @@ namespace LuaUi
 
     void Element::destroy()
     {
+        sAllElements.erase(this);
         if (!mRoot)
             return;
         destroyWidget(mRoot);
         mRoot = nullptr;
         mLayout = sol::make_object(mLayout.lua_state(), sol::nil);
-        sAllElements.erase(this);
     }
 
     void Element::attachToWidget(WidgetExtension* w)

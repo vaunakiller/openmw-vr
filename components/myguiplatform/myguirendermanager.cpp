@@ -195,6 +195,8 @@ public:
         mDummyTexture = new osg::Texture2D;
         mDummyTexture->setInternalFormat(GL_RGB);
         mDummyTexture->setTextureSize(1,1);
+        mDummyTexture->setWrap(osg::Texture::WRAP_S, osg::Texture::CLAMP_TO_EDGE);
+        mDummyTexture->setWrap(osg::Texture::WRAP_T, osg::Texture::CLAMP_TO_EDGE);
     }
     Drawable(const Drawable &copy, const osg::CopyOp &copyop=osg::CopyOp::SHALLOW_COPY)
         : osg::Drawable(copy, copyop)
