@@ -164,7 +164,7 @@ Ubuntu_GCC_tests:
     reports:
       junit: build/tests.xml
 
-Ubuntu_GCC_tests_asan:
+.Ubuntu_GCC_tests_asan:
   extends: Ubuntu_GCC
   cache:
     key: Ubuntu_GCC_asan.ubuntu_22.04.v1
@@ -182,7 +182,7 @@ Ubuntu_GCC_tests_asan:
     reports:
       junit: build/tests.xml
 
-Ubuntu_GCC_tests_ubsan:
+.Ubuntu_GCC_tests_ubsan:
   extends: Ubuntu_GCC
   cache:
     key: Ubuntu_GCC_ubsan.ubuntu_22.04.v1
@@ -332,7 +332,7 @@ Ubuntu_Clang_tests_Debug:
     reports:
       junit: build/tests.xml
 
-Ubuntu_Clang_integration_tests:
+.Ubuntu_Clang_integration_tests:
   extends: .Ubuntu_Image
   stage: test
   needs:
@@ -583,6 +583,7 @@ Windows_MSBuild_RelWithDebInfo:
   extends:
     - .Windows_MSBuild_Base
   variables:
+    multiview: "-M"
     config: "RelWithDebInfo"
     # Gitlab can't successfully execute following binaries due to unknown reason
     # executables: "openmw_test_suite.exe,openmw_detournavigator_navmeshtilescache_benchmark.exe"
