@@ -22,7 +22,8 @@ namespace MWLua
             "FirstPerson", CameraMode::FirstPerson,
             "ThirdPerson", CameraMode::ThirdPerson,
             "Vanity", CameraMode::Vanity,
-            "Preview", CameraMode::Preview
+            "Preview", CameraMode::Preview,
+            "VR", CameraMode::VR
         ));
 
         api["getMode"] = [camera]() -> int { return static_cast<int>(camera->getMode()); };

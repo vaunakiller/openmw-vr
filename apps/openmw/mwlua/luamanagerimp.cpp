@@ -29,6 +29,7 @@
 #include "userdataserializer.hpp"
 #include "types/types.hpp"
 #include "debugbindings.hpp"
+#include "vrbindings.hpp"
 
 namespace MWLua
 {
@@ -94,6 +95,7 @@ namespace MWLua
         mLua.addCommonPackage("openmw.util", LuaUtil::initUtilPackage(mLua.sol()));
         mLua.addCommonPackage("openmw.core", initCorePackage(context));
         mLua.addCommonPackage("openmw.types", initTypesPackage(context));
+        mLua.addCommonPackage("openmw.vr", initVRPackage(context));
         mGlobalScripts.addPackage("openmw.world", initWorldPackage(context));
         mGlobalScripts.addPackage("openmw.storage", initGlobalStoragePackage(context, &mGlobalStorage));
 

@@ -5,6 +5,7 @@ local util = require('openmw.util')
 local self = require('openmw.self')
 local nearby = require('openmw.nearby')
 local async = require('openmw.async')
+local vr = require('openmw.vr')
 
 local Actor = require('openmw.types').Actor
 
@@ -45,7 +46,9 @@ local noZoom = 0
 
 local function init()
     camera.setFieldOfView(camera.getBaseFieldOfView())
-    if camera.getMode() == MODE.FirstPerson then
+    if vr.isVr() then
+        primaryMode = MODE.VR
+    elseif camera.getMode() == MODE.FirstPerson then
         primaryMode = MODE.FirstPerson
     else
         primaryMode = MODE.ThirdPerson
@@ -184,7 +187,7 @@ local function onUpdate(dt)
 end
 
 local function onFrame(dt)
-    if core.isWorldPaused() then return end
+    if core.isWorldPaused() or vr.isVr() then return end
     local mode = camera.getMode()
     if (mode == MODE.FirstPerson or mode == MODE.ThirdPerson) and not camera.getQueuedMode() then
         primaryMode = mode
@@ -229,28 +232,28 @@ return {
         getTargetThirdPersonDistance = function() return third_person.preferredDistance end,
 
         --- @function [parent=#Camera] isModeControlEnabled
-        isModeControlEnabled = function() return noModeControl == 0 end,
+        isModeControlEnabled = function() return noModeControl == 0 and not vr.isVr() end,
         --- @function [parent=#Camera] disableModeControl
         disableModeControl = function() noModeControl = noModeControl + 1 end,
         --- @function [parent=#Camera] enableModeControl
         enableModeControl = function() noModeControl = math.max(0, noModeControl - 1) end,
 
         --- @function [parent=#Camera] isStandingPreviewEnabled
-        isStandingPreviewEnabled = function() return previewIfStandStill and noStandingPreview == 0 end,
+        isStandingPreviewEnabled = function() return previewIfStandStill and noStandingPreview == 0 and not vr.isVr() end,
         --- @function [parent=#Camera] disableStandingPreview
         disableStandingPreview = function() noStandingPreview = noStandingPreview + 1 end,
         --- @function [parent=#Camera] enableStandingPreview
         enableStandingPreview = function() noStandingPreview = math.max(0, noStandingPreview - 1) end,
 
         --- @function [parent=#Camera] isHeadBobbingEnabled
-        isHeadBobbingEnabled = function() return head_bobbing.enabled and noHeadBobbing == 0 end,
+        isHeadBobbingEnabled = function() return head_bobbing.enabled and noHeadBobbing == 0 and not vr.isVr() end,
         --- @function [parent=#Camera] disableHeadBobbing
         disableHeadBobbing = function() noHeadBobbing = noHeadBobbing + 1 end,
         --- @function [parent=#Camera] enableHeadBobbing
         enableHeadBobbing = function() noHeadBobbing = math.max(0, noHeadBobbing - 1) end,
 
         --- @function [parent=#Camera] isZoomEnabled
-        isZoomEnabled = function() return noZoom == 0 end,
+        isZoomEnabled = function() return noZoom == 0 and not vr.isVr() end,
         --- @function [parent=#Camera] disableZoom
         disableZoom = function() noZoom = noZoom + 1 end,
         --- @function [parent=#Camera] enableZoom
